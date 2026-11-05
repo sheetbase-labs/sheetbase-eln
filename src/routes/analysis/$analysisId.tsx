@@ -12,6 +12,7 @@ import {
   FieldsPane,
   exclusionCounts,
 } from '#/components/analysis/analysis-document'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { toast } from '#/components/ui/sonner'
 import {
   ANALYSIS_MAX_CHARTS,
@@ -292,6 +293,7 @@ function AnalysisView() {
           }
           actions={
             <>
+              <FavouriteToggle kind="analysis_view" objectId={view.id} />
               <Button
                 icon="play"
                 onClick={() => {

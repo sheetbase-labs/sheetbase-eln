@@ -12,6 +12,10 @@ import type * as ReagentData from '#/lib/reagent-data'
 import type * as MaterialSafetyLib from '#/lib/material-safety'
 import { Route, movementChange } from './$lotId'
 
+vi.mock('#/components/favourites/favourite-toggle', () => ({
+  FavouriteToggle: () => null,
+}))
+
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useParams: () => ({ lotId: 'lot-1' }),

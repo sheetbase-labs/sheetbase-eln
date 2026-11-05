@@ -22,6 +22,10 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(async (): Promise<unknown> => ({ version: 4 })),
 }))
 
+vi.mock('#/components/favourites/favourite-toggle', () => ({
+  FavouriteToggle: () => null,
+}))
+
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
   return {

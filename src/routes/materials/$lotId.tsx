@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { RecordUnavailable } from '#/components/ui/record-unavailable'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -404,6 +405,7 @@ function LotPage() {
         }
         actions={
           <>
+            <FavouriteToggle kind="record" objectId={reagent.id} />
             <Button
               variant="secondary"
               onClick={() => setReplacementOpen(true)}

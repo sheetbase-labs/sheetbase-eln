@@ -77,14 +77,16 @@ describe('FavouriteToggle', () => {
     )
 
     const button = await screen.findByRole('button', {
-      name: 'Add favourite',
+      name: 'Pin to the sidebar',
     })
     expect(button.getAttribute('aria-pressed')).toBe('false')
 
     fireEvent.click(button)
 
     await waitFor(() => {
-      const starred = screen.getByRole('button', { name: 'Remove favourite' })
+      const starred = screen.getByRole('button', {
+        name: 'Unpin from the sidebar',
+      })
       expect(starred.getAttribute('aria-pressed')).toBe('true')
     })
     expect(rpc).toHaveBeenCalledWith('set_record_favourite', {
@@ -106,15 +108,19 @@ describe('FavouriteToggle', () => {
       />,
     )
 
-    const button = await screen.findByRole('button', { name: 'Add favourite' })
+    const button = await screen.findByRole('button', {
+      name: 'Pin to the sidebar',
+    })
     fireEvent.click(button)
 
     await waitFor(() => {
       expect(screen.getByRole('alert').textContent).toBe(
-        'Couldn’t save favourite',
+        'Couldn’t save the pin',
       )
     })
     // Rollback: the star is unstarred again.
-    expect(screen.getByRole('button', { name: 'Add favourite' })).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'Pin to the sidebar' }),
+    ).toBeTruthy()
   })
 })

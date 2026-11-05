@@ -55,7 +55,9 @@ import type {
 } from '#/lib/workspace-access'
 import { canManageSettings } from '#/lib/settings-access'
 
-export const Route = createFileRoute('/settings/workspace/access')({ component: Access })
+export const Route = createFileRoute('/settings/workspace/access')({
+  component: Access,
+})
 const dataClient = createDataClient()
 const columns = [
   { key: 'can_edit', label: t('common.actions.edit') },

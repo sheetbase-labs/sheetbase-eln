@@ -144,7 +144,10 @@ const meta = {
   parameters: {
     layout: 'centered',
     tanstack: {
-      router: { route: screenRoutes('/', ['/settings/workspace/ai']), path: '/' },
+      router: {
+        route: screenRoutes('/', ['/settings/workspace/ai']),
+        path: '/',
+      },
     },
   },
   args: {

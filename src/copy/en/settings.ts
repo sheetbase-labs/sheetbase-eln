@@ -2758,7 +2758,8 @@ export const settings = {
     backMembers: 'Back to members',
   },
   storage: {
-    whereSamplesKept: 'Where samples are kept: sites, rooms, freezers, shelves and boxes.',
+    whereSamplesKept:
+      'Where samples are kept: sites, rooms, freezers, shelves and boxes.',
     storageLabels: 'Storage and labels',
     releaseChecks: 'Release checks',
     workflows: 'Workflows',

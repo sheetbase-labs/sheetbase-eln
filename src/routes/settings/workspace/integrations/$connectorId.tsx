@@ -37,7 +37,9 @@ import { t } from '#/copy'
 /** UI port (roadmap-4/ui-app3): connector detail under Settings — config, run
  * history and instrument ingestion, with pause/activate through the connector
  * RPCs. */
-export const Route = createFileRoute('/settings/workspace/integrations/$connectorId')({
+export const Route = createFileRoute(
+  '/settings/workspace/integrations/$connectorId',
+)({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {

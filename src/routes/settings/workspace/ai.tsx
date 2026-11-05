@@ -438,7 +438,10 @@ function AiSettingsPage() {
               <Muted>{t('settings.ai.connectedCodingAgents')}</Muted>
               <Muted>
                 {t('settings.ai.createScopedToken2')}
-                <Link to="/settings/account/api">{t('settings.ai.apiSdk')}</Link>.
+                <Link to="/settings/account/api">
+                  {t('settings.ai.apiSdk')}
+                </Link>
+                .
               </Muted>
 
               <div className="flex flex-col gap-4">

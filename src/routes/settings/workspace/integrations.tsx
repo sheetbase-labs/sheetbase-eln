@@ -47,7 +47,8 @@ const dataClient = createDataClient()
 
 function IntegrationsRoute() {
   const isIndex = useRouterState({
-    select: (state) => state.location.pathname === '/settings/workspace/integrations',
+    select: (state) =>
+      state.location.pathname === '/settings/workspace/integrations',
   })
   return isIndex ? <IntegrationsList /> : <Outlet />
 }

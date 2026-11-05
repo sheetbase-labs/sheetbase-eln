@@ -46,6 +46,7 @@ const intake = vi.hoisted(() => ({
   lastImport: null as null | { status: string; createdAt: string },
 }))
 const search = vi.hoisted(() => ({ current: {} }))
+const feeds = vi.hoisted(() => ({ current: [] as unknown[] }))
 
 // jsdom reports no layout, so the grid's virtualiser would render no rows: give
 // every element the viewport a browser would report for the list area.
@@ -168,16 +169,19 @@ beforeEach(() => {
   intake.parsers = []
   intake.lastImport = null
   requests.current = []
+  feeds.current = []
   dataClient.list.mockImplementation(async (...args: unknown[]) => {
     if (String(args[0]) === 'projects')
       return [{ id: 'p-1', title: 'Process development' }]
     if (String(args[0]) === 'instrument_qualification_requests')
       return requests.current
+    if (String(args[0]) === 'instrument_feeds') return feeds.current
     return [{ user_id: 'u-2' }]
   })
   dataClient.rpc.mockImplementation((name: string) => {
     if (name === 'instrument_qualification_list')
       return Promise.resolve(qualifications.current)
+    if (name === 'list_instrument_feed_series') return Promise.resolve([])
     return Promise.resolve({})
   })
 })
@@ -185,6 +189,86 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+})
+
+describe('live readings', () => {
+  const feed = (overrides: Record<string, unknown> = {}) => ({
+    id: 'feed-1',
+    instrument_id: 'inst-1',
+    name: 'Chamber temperature',
+    unit: '°C',
+    low_limit: 2,
+    high_limit: 8,
+    limit_state: 'ok',
+    last_value: 4.25,
+    last_at: new Date().toISOString(),
+    reading_count: 120,
+    ...overrides,
+  })
+
+  it('shows what the instrument is measuring and where it sits against its limits', async () => {
+    feeds.current = [
+      feed(),
+      feed({
+        id: 'feed-2',
+        name: 'Door',
+        unit: null,
+        low_limit: null,
+        high_limit: 1,
+        limit_state: 'high',
+        last_value: 3,
+      }),
+    ]
+    renderPage()
+
+    expect(
+      await screen.findByRole('button', { name: 'Chamber temperature' }),
+    ).toBeTruthy()
+    expect(screen.getByText('2 to 8 °C')).toBeTruthy()
+    expect(screen.getByText('Too high')).toBeTruthy()
+    expect(screen.getByText('below 1')).toBeTruthy()
+    await waitFor(() =>
+      expect(dataClient.rpc).toHaveBeenCalledWith(
+        'list_instrument_feed_series',
+        expect.objectContaining({ p_feed_id: 'feed-1' }),
+      ),
+    )
+  })
+
+  it('offers set-up to people who manage integrations, and hides the section from others when nothing has come in', async () => {
+    renderPage()
+    expect(
+      await screen.findByRole('button', { name: 'Set up live readings' }),
+    ).toBeTruthy()
+    cleanup()
+
+    role.current = 'viewer'
+    renderPage()
+    await screen.findByText('Priya Raman')
+    expect(screen.queryByText('Live readings')).toBeNull()
+  })
+
+  it('stops keeping a measurement only after the confirmation', async () => {
+    const user = userEvent.setup()
+    feeds.current = [feed()]
+    renderPage()
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Stop keeping this' }),
+    )
+    expect(dataClient.rpc).not.toHaveBeenCalledWith(
+      'remove_instrument_feed',
+      expect.anything(),
+    )
+    await user.click(
+      await screen.findByRole('button', { name: 'Delete readings' }),
+    )
+    await waitFor(() =>
+      expect(dataClient.rpc).toHaveBeenCalledWith('remove_instrument_feed', {
+        p_feed_id: 'feed-1',
+      }),
+    )
+  })
 })
 
 describe('instrument qualification', () => {

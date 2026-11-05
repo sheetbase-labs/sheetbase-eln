@@ -60,7 +60,20 @@ const PEOPLE = 'People and access'
 const POLICY = 'Policy'
 const HEALTH = 'Health and data'
 
+/** Roles that may change models (`schema.edit`). */
+const MODEL_ROLES = ['owner', 'admin', 'steward'] as const
+
 export const settingsLabNav: SettingsNavItem[] = [
+  // Models are lab set-up rather than daily work, so they are listed here and
+  // not in the sidebar. The page keeps its own full-width layout at /models,
+  // since the model editor needs the room.
+  {
+    place: 'lab',
+    label: 'Models',
+    link: { to: '/models' },
+    match: (p) => p === '/models' || p.startsWith('/models/'),
+    alwaysFor: MODEL_ROLES,
+  },
   {
     place: 'lab',
     label: 'Storage locations',
@@ -101,6 +114,13 @@ export const settingsLabNav: SettingsNavItem[] = [
     label: 'Retention and holds',
     link: { to: '/settings/lab/retention' },
     match: (p) => p.startsWith('/settings/lab/retention'),
+    area: 'general',
+  },
+  {
+    place: 'lab',
+    label: 'Sidebar',
+    link: { to: '/settings/lab/sidebar' },
+    match: (p) => p.startsWith('/settings/lab/sidebar'),
     area: 'general',
   },
 ]
@@ -276,6 +296,9 @@ export function settingsHomePath(
   access: SettingsAccessMap = resolveSettingsAccess(role),
 ): string {
   const nav = settingsNavForRole(role, access)
-  const first = [...nav.workspace, ...nav.lab, ...nav.account].find(Boolean)
+  // Only a section inside Settings: Models opens its own page.
+  const first = [...nav.workspace, ...nav.lab, ...nav.account].find((i) =>
+    String(i.link.to).startsWith('/settings'),
+  )
   return (first?.link.to as string | undefined) ?? '/settings/account/profile'
 }

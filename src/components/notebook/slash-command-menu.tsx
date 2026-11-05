@@ -58,6 +58,7 @@ export interface SlashCommandMenuProps {
   /** Called when the pointer enters an item, so the parent can update
    *  `selectedIndex` for hover-to-highlight (Notion-style). */
   onHoverIndex?: (index: number) => void
+  ref?: React.Ref<HTMLDivElement>
 }
 
 function optionMatches(opt: BlockPickerOption, query: string): boolean {
@@ -78,6 +79,7 @@ export function SlashCommandMenu({
   onSelect,
   style,
   onHoverIndex,
+  ref,
 }: SlashCommandMenuProps) {
   const filtered = React.useMemo(
     () => slashCommandFilteredOptions(query, withAi),
@@ -87,7 +89,8 @@ export function SlashCommandMenu({
   if (filtered.length === 0) {
     return (
       <div
-        className="z-50 w-72 rounded-lg border bg-popover p-3 text-sm text-fg-muted shadow-md"
+        ref={ref}
+        className="z-50 w-72 max-w-[calc(100vw-16px)] rounded-lg border bg-popover p-3 text-sm text-fg-muted shadow-md"
         style={style}
         role="listbox"
         aria-label={t('notebook.slashCommandMenu.ariaLabel')}
@@ -101,7 +104,8 @@ export function SlashCommandMenu({
 
   return (
     <div
-      className="z-50 max-h-80 w-72 overflow-y-auto rounded-lg border bg-popover p-1 shadow-md"
+      ref={ref}
+      className="z-50 max-h-80 w-72 max-w-[calc(100vw-16px)] overflow-y-auto overscroll-contain rounded-lg border bg-popover p-1 shadow-md"
       style={style}
       role="listbox"
       aria-label={t('notebook.slashCommandMenu.ariaLabel')}

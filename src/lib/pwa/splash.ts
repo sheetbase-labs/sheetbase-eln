@@ -3,6 +3,13 @@
  * by device size, and the page must list one per size. Images live in
  * public/splash, one light and one dark per size, named
  * `<pixel width>x<pixel height>-<light|dark>.png`.
+ *
+ * Colours match --background and --foreground in src/styles.css: light is
+ * #fdfdff with a #111111 mark, dark is #111111 with a #e9e9e9 mark.
+ *
+ * iOS picks the launch image once, when the app is added to the Home Screen,
+ * using the light or dark setting at that moment. Changing the phone's
+ * setting later does not change it; removing and re-adding the app does.
  */
 export const SPLASH_SIZES: ReadonlyArray<readonly [number, number, number]> = [
   [430, 932, 3],

@@ -21,19 +21,19 @@ export type WorkItemLink =
   | { to: '/projects/$projectId'; params: { projectId: string } }
   | { to: '/samples/$sampleId'; params: { sampleId: string } }
   | { to: '/instruments/$instrumentId'; params: { instrumentId: string } }
-  | { to: '/settings/access' }
-  | { to: '/settings/members' }
-  | { to: '/settings/my-signature' }
+  | { to: '/settings/workspace/access' }
+  | { to: '/settings/workspace/members' }
+  | { to: '/settings/account/signature' }
   | {
       to: '/pipelines/agents'
       search: { view: 'proposals'; proposal?: string }
     }
   | {
-      to: '/settings/integrations/$connectorId'
+      to: '/settings/workspace/integrations/$connectorId'
       params: { connectorId: string }
     }
   | {
-      to: '/settings/instruments'
+      to: '/settings/lab/instruments'
       search: { fileId: string; versionId: string | undefined }
     }
   | { to: '/pipelines'; search: { q: string | undefined } }
@@ -80,7 +80,7 @@ export function itemLink(item: WorkItem): WorkItemLink {
     case 'review_returned':
       return record()
     case 'access_requested':
-      return { to: '/settings/access' }
+      return { to: '/settings/workspace/access' }
     case 'access_decided':
       return item.projectId
         ? {
@@ -98,9 +98,9 @@ export function itemLink(item: WorkItem): WorkItemLink {
       }
     case 'verification_requested':
     case 'verification_granted':
-      return { to: '/settings/my-signature' }
+      return { to: '/settings/account/signature' }
     case 'invitation_accepted':
-      return { to: '/settings/members' }
+      return { to: '/settings/workspace/members' }
     case 'sample_awaiting_release':
     case 'sample_hold_exceeded':
       return item.recordId
@@ -120,12 +120,12 @@ export function itemLink(item: WorkItem): WorkItemLink {
   }
   if (item.sourceType === 'connector_run' && item.connectorId)
     return {
-      to: '/settings/integrations/$connectorId',
+      to: '/settings/workspace/integrations/$connectorId',
       params: { connectorId: item.connectorId },
     }
   if (item.sourceType === 'dataset_import_file' && item.sourceId)
     return {
-      to: '/settings/instruments',
+      to: '/settings/lab/instruments',
       search: {
         fileId: item.sourceId,
         versionId: item.parserVersionId ?? undefined,

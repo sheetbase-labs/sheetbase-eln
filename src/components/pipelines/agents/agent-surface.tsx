@@ -438,7 +438,7 @@ export function AgentPoliciesPanel({
             title={t('data.agentSurface.serviceCredentials')}
             action={
               <Link
-                to="/settings/api"
+                to="/settings/account/api"
                 className={buttonVariants({ variant: 'quiet', size: 'sm' })}
               >
                 {t('data.agentSurface.openApiSdk')}

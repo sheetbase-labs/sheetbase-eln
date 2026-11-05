@@ -9,7 +9,7 @@ import { InstrumentGateSetting } from '#/components/settings/instrument-gate-set
 import { canManageSettings } from '#/lib/settings-access'
 import { t } from '#/copy'
 
-export const Route = createFileRoute('/settings/instruments')({
+export const Route = createFileRoute('/settings/lab/instruments')({
   validateSearch: (
     search: Record<string, unknown>,
   ): { fileId?: string; versionId?: string; instrumentId?: string } => ({
@@ -36,7 +36,7 @@ function Instruments() {
             </Button>
             <Button
               nativeButton={false}
-              render={<Link to="/settings/integrations" />}
+              render={<Link to="/settings/workspace/integrations" />}
             >
               {t('settings.instruments.manageConnections')}
             </Button>

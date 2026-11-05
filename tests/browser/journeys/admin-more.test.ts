@@ -57,7 +57,7 @@ test('ADMIN-20 a person in two workspaces can switch between them', async ({
 test('ADMIN-22 a record is shared with a client and previewed as that client', async ({
   page,
 }) => {
-  await open(page, '/settings/clients')
+  await open(page, '/settings/workspace/clients')
   const client = uniqueName('Client')
   await page.getByRole('button', { name: 'New client' }).click()
   await page.getByPlaceholder('e.g. Acme Biologics').fill(client)

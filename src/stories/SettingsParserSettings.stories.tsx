@@ -10,7 +10,7 @@ import { holdRead, screenQueryClient, withApiReads } from './screen-stories'
 import type { FailedRead, ReadSeed } from './screen-stories'
 
 /**
- * Instruments and parsers (`src/routes/settings/instruments.tsx`): the
+ * Instruments and parsers (`src/routes/settings/lab/instruments.tsx`): the
  * workspace's canonical parser versions, the retained-file validation that
  * approves one, and the draft form.
  *

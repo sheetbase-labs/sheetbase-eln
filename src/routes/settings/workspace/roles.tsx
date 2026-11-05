@@ -7,7 +7,7 @@ import { t } from '#/copy'
 
 /** Settings → Members and roles → Roles and permissions: what each role does
  * and which settings sections each role can open or change. */
-export const Route = createFileRoute('/settings/roles')({
+export const Route = createFileRoute('/settings/workspace/roles')({
   component: Roles,
 })
 
@@ -18,7 +18,7 @@ function Roles() {
       <SettingsHeader
         title={t('settings.roles.rolesPermissions')}
         actions={
-          <Button nativeButton={false} render={<Link to="/settings/members" />}>
+          <Button nativeButton={false} render={<Link to="/settings/workspace/members" />}>
             {t('settings.roles.backMembers')}
           </Button>
         }

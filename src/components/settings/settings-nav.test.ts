@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import { resolveSettingsAccess } from '#/lib/settings-access'
 
-import { settingsHomePath, settingsNavForRole } from './settings-nav'
+import {
+  settingsHomePath,
+  settingsNavForRole,
+  settingsPlaceForPath,
+} from './settings-nav'
 
 const ADMIN_ONLY = [
   'General',
@@ -13,17 +17,22 @@ const ADMIN_ONLY = [
   'Diagnostics',
   'Usage',
 ]
-const GOVERNED_ONLY = [
+const GOVERNED_ONLY = ['Integrations']
+const LAB = [
+  'Storage locations',
+  'Label templates',
+  'Sample release',
+  'Sample workflows',
   'Instruments and parsers',
-  'Integrations',
-  'Storage and labels',
 ]
 
-const workspaceLabels = (role: string | null | undefined) =>
-  settingsNavForRole(role).workspace.map((i) => i.label)
+const labels = (
+  role: string | null | undefined,
+  place: 'lab' | 'workspace' | 'account',
+) => settingsNavForRole(role)[place].map((i) => i.label)
 
 describe('SHELL-01.2 settings navigation', () => {
-  it('omits workspace administration from ordinary members', () => {
+  it('shows ordinary members only their account', () => {
     for (const role of [
       'member',
       'scientist',
@@ -32,59 +41,62 @@ describe('SHELL-01.2 settings navigation', () => {
       'viewer',
       'client_viewer',
     ]) {
-      const labels = workspaceLabels(role)
-      for (const restricted of [...ADMIN_ONLY, ...GOVERNED_ONLY]) {
-        expect(labels).not.toContain(restricted)
-      }
-      expect(labels).toEqual(['API and SDK'])
+      expect(labels(role, 'workspace')).toEqual([])
+      expect(labels(role, 'lab')).toEqual([])
+      expect(labels(role, 'account')).toContain('API and SDK')
     }
+    expect(labels(null, 'workspace')).toEqual([])
+    expect(labels(null, 'lab')).toEqual([])
   })
 
-  it('omits workspace administration from a caller with no role', () => {
-    expect(workspaceLabels(null)).toEqual(['API and SDK'])
-  })
-
-  it('shows workspace administration to owners and admins', () => {
+  it('shows workspace administration and lab setup to owners and admins', () => {
     for (const role of ['owner', 'admin']) {
-      const labels = workspaceLabels(role)
+      const workspace = labels(role, 'workspace')
       for (const restricted of [
         ...ADMIN_ONLY,
         ...GOVERNED_ONLY,
         'Electronic signatures',
       ]) {
-        expect(labels).toContain(restricted)
+        expect(workspace).toContain(restricted)
       }
-      expect(labels).toContain('API and SDK')
+      expect(labels(role, 'lab')).toEqual(LAB)
     }
   })
 
-  it('shows integration surfaces to a steward without workspace administration', () => {
-    const labels = workspaceLabels('steward')
-    for (const governed of GOVERNED_ONLY) expect(labels).toContain(governed)
-    for (const admin of ADMIN_ONLY) expect(labels).not.toContain(admin)
-    expect(labels).toContain('API and SDK')
-    expect(labels).not.toContain('Electronic signatures')
+  it('gives a steward lab setup and integrations without workspace administration', () => {
+    expect(labels('steward', 'lab')).toEqual(LAB)
+    expect(labels('steward', 'workspace')).toEqual(['Integrations'])
   })
 
   it('offers the personal account sections, and My signature only to people who sign', () => {
     for (const role of ['owner', 'admin', 'steward', 'member', 'reviewer']) {
-      expect(settingsNavForRole(role).account.map((i) => i.label)).toEqual([
+      expect(labels(role, 'account')).toEqual([
         'Profile',
         'My signature',
         'Notifications',
+        'API and SDK',
       ])
     }
     for (const role of ['viewer', 'client_viewer', null]) {
-      expect(settingsNavForRole(role).account.map((i) => i.label)).toEqual([
+      expect(labels(role, 'account')).toEqual([
         'Profile',
         'Notifications',
+        'API and SDK',
       ])
     }
   })
 
-  it('opens Settings on General for admins and on the profile for everyone else', () => {
-    expect(settingsHomePath('owner')).toBe('/settings')
-    expect(settingsHomePath('admin')).toBe('/settings')
+  it('names which place a settings path is in', () => {
+    expect(settingsPlaceForPath('/settings/lab/labels')).toBe('lab')
+    expect(settingsPlaceForPath('/settings/workspace')).toBe('workspace')
+    expect(settingsPlaceForPath('/settings/workspace/roles')).toBe('workspace')
+    expect(settingsPlaceForPath('/settings/account/api')).toBe('account')
+  })
+
+  it('opens Settings on General for admins, lab setup for stewards and the profile for everyone else', () => {
+    expect(settingsHomePath('owner')).toBe('/settings/workspace/members')
+    expect(settingsHomePath('admin')).toBe('/settings/workspace/members')
+    expect(settingsHomePath('steward')).toBe('/settings/workspace/integrations')
     for (const role of [
       'scientist',
       'member',
@@ -92,7 +104,7 @@ describe('SHELL-01.2 settings navigation', () => {
       'client_viewer',
       null,
     ]) {
-      expect(settingsHomePath(role)).toBe('/settings/profile')
+      expect(settingsHomePath(role)).toBe('/settings/account/profile')
     }
   })
 
@@ -102,32 +114,29 @@ describe('SHELL-01.2 settings navigation', () => {
       audit: 'view',
       usage: 'manage',
     } as const
-    const labels = settingsNavForRole('reviewer', access).workspace.map(
+    const workspace = settingsNavForRole('reviewer', access).workspace.map(
       (i) => i.label,
     )
-    expect(labels).toContain('Audit and retention')
-    expect(labels).toContain('Usage')
-    expect(labels).not.toContain('Members and roles')
-    expect(settingsHomePath('reviewer', { ...access, general: 'view' })).toBe(
-      '/settings',
-    )
+    expect(workspace).toContain('Audit and retention')
+    expect(workspace).toContain('Usage')
+    expect(workspace).not.toContain('Members and roles')
   })
 
-  it('lets a workspace give any role Storage and labels', () => {
+  it('lets a workspace give any role the storage sections', () => {
     const access = {
       ...resolveSettingsAccess('scientist'),
       storage: 'view',
     } as const
     expect(
-      settingsNavForRole('scientist', access).workspace.map((i) => i.label),
-    ).toContain('Storage and labels')
-    expect(workspaceLabels('scientist')).not.toContain('Storage and labels')
+      settingsNavForRole('scientist', access).lab.map((i) => i.label),
+    ).toContain('Storage locations')
+    expect(labels('scientist', 'lab')).not.toContain('Storage locations')
     const revoked = {
       ...resolveSettingsAccess('steward'),
       storage: 'none',
     } as const
     expect(
-      settingsNavForRole('steward', revoked).workspace.map((i) => i.label),
-    ).not.toContain('Storage and labels')
+      settingsNavForRole('steward', revoked).lab.map((i) => i.label),
+    ).toEqual(['Instruments and parsers'])
   })
 })

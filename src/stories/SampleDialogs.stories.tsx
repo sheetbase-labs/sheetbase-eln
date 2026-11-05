@@ -52,7 +52,7 @@ const meta = {
       router: {
         route: screenRoutes('/samples', [
           '/samples/$sampleId',
-          '/settings/storage',
+          '/settings/lab/storage',
         ]),
         path: '/samples',
       },

@@ -6,7 +6,7 @@ import { RegisterConnectorDialog } from '#/components/integrations/register-conn
 import { withApiReads } from './screen-stories'
 
 /**
- * Registering a connector (`src/routes/settings/integrations.tsx`, steward-gated).
+ * Registering a connector (`src/routes/settings/workspace/integrations.tsx`, steward-gated).
  * The dialog reads nothing: the parser catalogue is the build-time registry and
  * the write happens on submit, so these stories stop before Register and never
  * reach the connector RPC. `withApiReads` answers that RPC locally, so even a

@@ -363,7 +363,7 @@ describe('R5-CONFIG-02 instrument inspector', () => {
     // The warning carries the one step that fixes it, with the instrument already chosen.
     expect(
       screen.getByRole('link', { name: 'Add a parser' }).getAttribute('href'),
-    ).toBe('/settings/instruments?instrumentId=ins-1')
+    ).toBe('/settings/lab/instruments?instrumentId=ins-1')
   })
 
   it('sends an untested draft to its own validation step', async () => {
@@ -380,7 +380,7 @@ describe('R5-CONFIG-02 instrument inspector', () => {
       screen
         .getByRole('link', { name: 'Validate the parser' })
         .getAttribute('href'),
-    ).toBe('/settings/instruments?instrumentId=ins-1&versionId=ver-9')
+    ).toBe('/settings/lab/instruments?instrumentId=ins-1&versionId=ver-9')
   })
 
   it('names a person, not a button, when the viewer cannot edit parsers', async () => {

@@ -38,7 +38,7 @@ test.beforeEach(async ({ page }) => {
 test('the settings navigation offers a member no workspace administration', async ({
   page,
 }) => {
-  await page.goto('/settings/profile')
+  await page.goto('/settings/account/profile')
   const nav = page.locator('nav[aria-label="Settings"]')
   await expect(nav.getByRole('link', { name: 'Profile' })).toBeVisible()
   for (const label of ADMIN_SECTIONS) {
@@ -57,7 +57,7 @@ test('the settings navigation offers a member no workspace administration', asyn
 test('the usage figures are refused with a reason, not rendered', async ({
   page,
 }) => {
-  await page.goto('/settings/usage')
+  await page.goto('/settings/workspace/usage')
   await expect(
     page.getByRole('heading', {
       name: 'Only admins can see usage',
@@ -97,13 +97,13 @@ test('workspace settings are refused rather than shown as an unsaveable form', a
   // The refusal is not a dead end: it names the section the member does have.
   await expect(
     page.getByRole('button', { name: 'Open your profile settings' }),
-  ).toHaveAttribute('href', '/settings/profile')
+  ).toHaveAttribute('href', '/settings/account/profile')
 })
 
 test('a member reads the roster but is offered no way to change it', async ({
   page,
 }) => {
-  await page.goto('/settings/members')
+  await page.goto('/settings/workspace/members')
   const roster = page.getByRole('table', { name: 'Members' })
   await expect(roster).toBeVisible()
   // The roster itself is readable by a member (the page's own design), so the

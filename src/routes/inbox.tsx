@@ -492,7 +492,7 @@ function Inbox() {
             <>
               <Button
                 nativeButton={false}
-                render={<Link to="/settings/notifications" />}
+                render={<Link to="/settings/account/notifications" />}
               >
                 {t('projects.inbox.notificationSettings')}
               </Button>

@@ -51,7 +51,7 @@ test('an imported plate analysis remains reconstructable after independent revie
   try {
     const reviewerPage = await reviewerContext.newPage()
     await signInAs(reviewerPage, reviewer)
-    await open(reviewerPage, '/settings/my-signature')
+    await open(reviewerPage, '/settings/account/signature')
     const cookies = await reviewerContext.cookies()
     const { createAuth } = await import('#/lib/auth')
     await withAdminDb((client) =>
@@ -75,7 +75,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     ).toBeVisible()
 
     await signIn(page)
-    await open(page, '/settings/signatures')
+    await open(page, '/settings/workspace/signatures')
     await page.getByText(`Verify ${reviewer.name} independently`).click()
     await page
       .getByLabel('Independently verified email')
@@ -86,7 +86,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     await page
       .getByRole('button', { name: 'Confirm verified identity' })
       .click()
-    await open(reviewerPage, '/settings/my-signature')
+    await open(reviewerPage, '/settings/account/signature')
     await reviewerPage
       .getByRole('checkbox', {
         name: 'I have read and agree to this statement',

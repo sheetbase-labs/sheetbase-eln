@@ -9,7 +9,7 @@ import {
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { choose } from '../../../tests/unit/picker'
+import { choose } from '../../../../tests/unit/picker'
 import { Route } from './clients'
 
 const mocks = vi.hoisted(() => ({

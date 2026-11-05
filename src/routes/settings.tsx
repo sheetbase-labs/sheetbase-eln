@@ -8,23 +8,26 @@ import {
 
 import { cn } from '#/lib/utils'
 import {
+  settingsPlaces,
   canOpenSettingsItem,
   settingsItemForPath,
   settingsNavForRole,
+} from '#/components/settings/settings-nav'
+import type {
+  SettingsNavItem,
+  SettingsPlace,
 } from '#/components/settings/settings-nav'
 import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Notice } from '#/components/ui/alert'
 import { SettingsHeader } from '#/components/settings/settings-page'
 import { Tabs } from '#/components/ui/tabs'
-import type { SettingsNavItem } from '#/components/settings/settings-nav'
 import { settingsAccessOf } from '#/lib/settings-access'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
 
-/** UI port (roadmap-4/ui-app3): the settings shell. Sections are grouped
- * workspace / account exactly as app-3, and the nav lists only routes that
- * exist so no link 404s. SHELL-01.2: workspace administration sections are
+/** The settings shell. Sections sit in three places (Lab setup, Workspace,
+ * Account), switched along the top, with the places' sections listed beside. SHELL-01.2: workspace administration sections are
  * omitted for a role that cannot open them (see `settings-nav.ts`). */
 export const Route = createFileRoute('/settings')({
   beforeLoad: async ({ context: rootContext, location }) => {
@@ -42,8 +45,11 @@ function SettingsLayout() {
   const { context } = Route.useRouteContext()
   const role = context.workspace?.role
   const access = settingsAccessOf(context.workspace)
-  const { workspace, account } = settingsNavForRole(role, access)
+  const nav = settingsNavForRole(role, access)
   const current = settingsItemForPath(pathname)
+  const place: SettingsPlace = current?.place ?? 'account'
+  const places = settingsPlaces.filter((p) => nav[p.key].length > 0)
+  const sections = nav[place]
   const allowed = !current || canOpenSettingsItem(current, role, access)
   // A section opened through its area at "view" is read-only; one a role may
   // always open (their own signature) is not.
@@ -69,75 +75,93 @@ function SettingsLayout() {
     )
   }
   return (
-    <div className="flex min-w-0 flex-1 flex-col lg:flex-row">
-      <nav
-        aria-label={t('settings.page.settingsAria')}
-        className="hidden w-[220px] shrink-0 flex-col gap-px overflow-y-auto border-r border-border-subtle px-3 py-4 lg:flex"
-      >
-        {workspace.length > 0 ? (
-          <div className="px-2.5 pb-1 pt-2 text-label font-medium text-fg-muted">
-            {t('settings.page.workspace')}
-          </div>
-        ) : null}
-        {workspace.map(item)}
-        <div className="px-2.5 pb-1 pt-4 text-label font-medium text-fg-muted">
-          {t('settings.page.account')}
-        </div>
-        {account.map(item)}
-      </nav>
+    <div className="flex min-w-0 flex-1 flex-col">
       <Tabs
         mode="url"
-        variant="chip"
-        label={t('settings.page.settingsSections')}
-        className="shrink-0 border-b border-border-subtle px-4 py-2 md:px-6 lg:hidden"
-        // The nav's own item predicate decides the current section: a rail
-        // item's `match` covers a subtree (`/settings/members` and the pages
-        // under it), which no path comparison in the strip could restate.
-        value={[...workspace, ...account].find((i) => i.match(pathname))?.label}
-        items={[...workspace, ...account].map((i) => ({
-          key: i.label,
-          label: i.label,
-          link: i.link,
+        label={t('settings.page.settingsAria')}
+        className="shrink-0 border-b border-border px-4 md:px-6"
+        value={place}
+        items={places.map((p) => ({
+          key: p.key,
+          label: p.label,
+          link: nav[p.key][0].link,
         }))}
       />
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-auto max-md:pb-20">
-        {!allowed ? (
-          <>
-            <SettingsHeader title={current.label} />
-            <div className="px-4 md:px-6">
-              <EmptyState
-                icon="lock"
-                title={t('settings.page.roleOpenSection')}
-                description={t(
-                  'settings.page.workspaceAdminChoosesDescription',
-                )}
-                action={
-                  <Button
-                    nativeButton={false}
-                    render={<Link to="/settings/profile" />}
-                  >
-                    {t('settings.page.openProfileSettings')}
-                  </Button>
-                }
-              />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:flex-row">
+        <nav
+          aria-label={t('settings.page.settingsSections')}
+          className="hidden w-[220px] shrink-0 flex-col gap-px overflow-y-auto border-r border-border-subtle px-3 py-4 lg:flex"
+        >
+          {sections.map((i, n) => (
+            <div key={i.label} className="contents">
+              {i.cluster && i.cluster !== sections[n - 1]?.cluster ? (
+                <div
+                  className={cn(
+                    'px-2.5 pb-1 text-label font-medium text-fg-muted',
+                    n === 0 ? 'pt-2' : 'pt-4',
+                  )}
+                >
+                  {i.cluster}
+                </div>
+              ) : null}
+              {item(i)}
             </div>
-          </>
-        ) : viewOnly ? (
-          <>
-            <div className="px-4 pt-3 md:px-6">
-              <Notice>{t('settings.page.viewSettingsRole')}</Notice>
-            </div>
-            {/* A disabled fieldset turns every control inside it read-only. */}
-            <fieldset
-              disabled
-              className="m-0 flex min-h-0 min-w-0 flex-1 flex-col border-0 p-0"
-            >
-              <Outlet />
-            </fieldset>
-          </>
-        ) : (
-          <Outlet />
-        )}
+          ))}
+        </nav>
+        <Tabs
+          mode="url"
+          variant="chip"
+          label={t('settings.page.settingsSections')}
+          className="shrink-0 border-b border-border-subtle px-4 py-2 md:px-6 lg:hidden"
+          // The nav's own item predicate decides the current section: a rail
+          // item's `match` covers a subtree (`/settings/workspace/members` and
+          // the pages under it), which no path comparison could restate.
+          value={sections.find((i) => i.match(pathname))?.label}
+          items={sections.map((i) => ({
+            key: i.label,
+            label: i.label,
+            link: i.link,
+          }))}
+        />
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-auto max-md:pb-20">
+          {!allowed ? (
+            <>
+              <SettingsHeader title={current.label} />
+              <div className="px-4 md:px-6">
+                <EmptyState
+                  icon="lock"
+                  title={t('settings.page.roleOpenSection')}
+                  description={t(
+                    'settings.page.workspaceAdminChoosesDescription',
+                  )}
+                  action={
+                    <Button
+                      nativeButton={false}
+                      render={<Link to="/settings/account/profile" />}
+                    >
+                      {t('settings.page.openProfileSettings')}
+                    </Button>
+                  }
+                />
+              </div>
+            </>
+          ) : viewOnly ? (
+            <>
+              <div className="px-4 pt-3 md:px-6">
+                <Notice>{t('settings.page.viewSettingsRole')}</Notice>
+              </div>
+              {/* A disabled fieldset turns every control inside it read-only. */}
+              <fieldset
+                disabled
+                className="m-0 flex min-h-0 min-w-0 flex-1 flex-col border-0 p-0"
+              >
+                <Outlet />
+              </fieldset>
+            </>
+          ) : (
+            <Outlet />
+          )}
+        </div>
       </div>
     </div>
   )

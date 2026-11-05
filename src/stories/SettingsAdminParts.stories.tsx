@@ -51,11 +51,11 @@ const meta = {
     layout: 'centered',
     tanstack: {
       router: {
-        route: screenRoutes('/settings/general', [
+        route: screenRoutes('/settings/workspace', [
           '/instruments/$instrumentId',
           '/samples/$sampleId',
         ]),
-        path: '/settings/general',
+        path: '/settings/workspace',
       },
     },
   },

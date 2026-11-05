@@ -135,18 +135,18 @@ function routes(ids) {
     '/pipelines',
     '/pipelines/agents',
     '/settings',
-    '/settings/members',
-    '/settings/signatures',
-    '/settings/api',
-    '/settings/profile',
-    '/settings/notifications',
-    '/settings/access',
-    '/settings/audit',
-    '/settings/integrations',
-    '/settings/diagnostics',
-    '/settings/diagnostics?state=denied',
-    '/settings/usage',
-    '/settings/usage?state=denied',
+    '/settings/workspace/members',
+    '/settings/workspace/signatures',
+    '/settings/account/api',
+    '/settings/account/profile',
+    '/settings/account/notifications',
+    '/settings/workspace/access',
+    '/settings/workspace/audit',
+    '/settings/workspace/integrations',
+    '/settings/workspace/diagnostics',
+    '/settings/workspace/diagnostics?state=denied',
+    '/settings/workspace/usage',
+    '/settings/workspace/usage?state=denied',
     '/help',
     '/help?q=snapshot',
     '/help/records',
@@ -230,7 +230,7 @@ function routes(ids) {
       `/templates/${ids.template}/in-use?state=denied`,
     )
   if (ids.reagent) list.push(`/materials?q=`)
-  if (ids.connector) list.push(`/settings/integrations/${ids.connector}`)
+  if (ids.connector) list.push(`/settings/workspace/integrations/${ids.connector}`)
   if (ids.analysis) list.push(`/analysis/${ids.analysis}`)
   if (ids.protocol) list.push(`/protocols/${ids.protocol}`)
   if (ids.revision) list.push(`/review/${ids.revision}`)

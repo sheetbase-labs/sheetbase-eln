@@ -118,7 +118,7 @@ const getSigningAvailability = createServerFn({ method: 'GET' }).handler(
   },
 )
 
-export const Route = createFileRoute('/settings/my-signature')({
+export const Route = createFileRoute('/settings/account/signature')({
   // A page that sent the person here to certify hands over where to go back to.
   validateSearch: (search: Record<string, unknown>): { returnTo?: string } => {
     const returnTo = safeReturnTo(search.returnTo)
@@ -172,7 +172,7 @@ export function VerificationPath({
               size="sm"
               nativeButton={false}
               render={
-                <Link to="/settings/members" search={{ invite: 'admin' }} />
+                <Link to="/settings/workspace/members" search={{ invite: 'admin' }} />
               }
             >
               {t('settings.mySignature.inviteAnotherAdministrator')}

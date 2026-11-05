@@ -338,7 +338,7 @@ test('independent certification, practice, password focus and exact-digest signi
       response.url().endsWith('/rpc/workspace_signature_certifications') &&
       response.request().method() === 'POST',
   )
-  await page.goto('/settings/my-signature')
+  await page.goto('/settings/account/signature')
   expect((await initialCertifications).status()).toBe(200)
   await expect(
     page.getByRole('button', { name: 'Certify signature' }),
@@ -372,7 +372,7 @@ test('independent certification, practice, password focus and exact-digest signi
         response.url().endsWith('/rpc/workspace_signature_certifications') &&
         response.request().method() === 'POST',
     )
-    await adminPage.goto('/settings/signatures')
+    await adminPage.goto('/settings/workspace/signatures')
     expect((await adminCertifications).status()).toBe(200)
     await adminPage.getByText(`Verify ${signerName} independently`).click()
     await adminPage.getByLabel('Independently verified email').fill(signerEmail)
@@ -681,7 +681,7 @@ test('independent certification, practice, password focus and exact-digest signi
     [signer],
   )
   expect(audits.rows[0].n).toBe(1)
-  await page.goto('/settings/my-signature')
+  await page.goto('/settings/account/signature')
   await page.getByLabel(/Signing password/).fill(password)
   await page.getByRole('button', { name: 'Try a practice signature' }).click()
   await expect(page.getByRole('alert')).toContainText('15 minutes')
@@ -766,7 +766,7 @@ test('controlled author submission certifies and signs atomically through the re
   const hydrated = page.waitForResponse((r) =>
     r.url().endsWith('/rpc/workspace_signature_certifications'),
   )
-  await page.goto('/settings/my-signature')
+  await page.goto('/settings/account/signature')
   expect((await hydrated).status()).toBe(200)
   await page
     .getByRole('button', { name: 'Request identity verification', exact: true })
@@ -778,7 +778,7 @@ test('controlled author submission certifies and signs atomically through the re
   try {
     const verifierPage = await verifierContext.newPage()
     await signInAsDesignUser(verifierPage, verifier)
-    await verifierPage.goto('/settings/my-signature')
+    await verifierPage.goto('/settings/account/signature')
     const verified = await post(
       verifierPage,
       '/api/db/rpc/verify_signature_identity',
@@ -1060,7 +1060,7 @@ test('controlled author submission certifies and signs atomically through the re
     const witnessHydrated = witnessPage.waitForResponse((r) =>
       r.url().endsWith('/rpc/workspace_signature_certifications'),
     )
-    await witnessPage.goto('/settings/my-signature')
+    await witnessPage.goto('/settings/account/signature')
     expect((await witnessHydrated).status()).toBe(200)
     await witnessPage
       .getByRole('button', {
@@ -1369,7 +1369,7 @@ test('REV-09 and REV-10 a signed notebook shows its signatures and audit trail, 
   await expect(
     table.getByRole('cell', { name: signerName, exact: true }).first(),
   ).toBeVisible()
-  await page.goto(`/settings/audit?record=${record}`)
+  await page.goto(`/settings/workspace/audit?record=${record}`)
   await expect(page.getByText('EXP-REV03-BROWSER').first()).toBeVisible()
 
   // REV-10: the author reopens it. A reason is required.

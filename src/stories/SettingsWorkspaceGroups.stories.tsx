@@ -7,7 +7,7 @@ import type { WorkspaceGroup } from '#/lib/workspace-access'
 import { withApiReads } from './screen-stories'
 
 /**
- * Workspace groups (`src/routes/settings/members.tsx`): create a group, then
+ * Workspace groups (`src/routes/settings/workspace/members.tsx`): create a group, then
  * choose its explicit members. The host passes the groups and the people in, so
  * the dialog itself reads nothing; its three writes (create, delete, member)
  * run through the workspace-access RPCs, which no story presses.

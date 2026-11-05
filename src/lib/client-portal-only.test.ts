@@ -10,7 +10,7 @@ describe('clientPortalRedirect', () => {
     expect(clientPortalRedirect('client_viewer', '/')).toEqual({
       to: '/client-portal',
     })
-    expect(clientPortalRedirect('client_viewer', '/settings/members')).toEqual({
+    expect(clientPortalRedirect('client_viewer', '/settings/workspace/members')).toEqual({
       to: '/client-portal',
     })
   })

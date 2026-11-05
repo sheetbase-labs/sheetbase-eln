@@ -55,7 +55,7 @@ const connectorsKey = (workspaceId: string) => [
  * bundle needs a redacted bundle builder, which is not built, so it shows the
  * honest gap. `?state=denied|clear` drives the acceptance suite.
  */
-export const Route = createFileRoute('/settings/diagnostics')({
+export const Route = createFileRoute('/settings/workspace/diagnostics')({
   validateSearch: (
     search: Record<string, unknown>,
   ): { state?: 'denied' | 'clear' } => ({
@@ -315,7 +315,7 @@ function Diagnostics() {
           title={t('settings.diagnostics.recentFailures')}
           count={failures.length}
           action={
-            <Link to="/settings/audit" className="text-label">
+            <Link to="/settings/workspace/audit" className="text-label">
               {t('settings.diagnostics.auditLog')}
             </Link>
           }
@@ -547,7 +547,7 @@ function buildChecks(
       lastRunAt: connectors ? d.lastConnectorRunAt : null,
       lastRunKind: 'ran',
       link: {
-        to: '/settings/integrations',
+        to: '/settings/workspace/integrations',
         label: t('settings.diagnostics.integrations'),
       },
     },
@@ -635,7 +635,7 @@ function goLiveBackup(d: DiagnosticsResult): Check {
     lastRunAt: lastBackupAt,
     lastRunKind: 'ran' as const,
     link: {
-      to: '/settings/backups',
+      to: '/settings/workspace/backups',
       label: t('settings.diagnostics.backupLink'),
     },
   }

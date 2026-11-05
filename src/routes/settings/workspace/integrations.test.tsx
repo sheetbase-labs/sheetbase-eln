@@ -35,7 +35,7 @@ vi.mock('@tanstack/react-router', () => ({
   redirect: (options: unknown) => options,
   useNavigate: () => vi.fn(),
   useRouterState: ({ select }: { select: (s: unknown) => unknown }) =>
-    select({ location: { pathname: '/settings/integrations' } }),
+    select({ location: { pathname: '/settings/workspace/integrations' } }),
   Outlet: () => null,
   Link: ({
     to,

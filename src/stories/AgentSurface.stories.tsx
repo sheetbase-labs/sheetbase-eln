@@ -40,8 +40,8 @@ const meta = {
     tanstack: {
       router: {
         // The policies panel links to the credentials surface.
-        route: screenRoutes('/settings/api'),
-        path: '/settings/api',
+        route: screenRoutes('/settings/account/api'),
+        path: '/settings/account/api',
       },
     },
   },

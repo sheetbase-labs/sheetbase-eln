@@ -45,7 +45,7 @@ const meta = {
   parameters: {
     tanstack: {
       router: {
-        route: screenRoutes('/samples', ['/settings/storage']),
+        route: screenRoutes('/samples', ['/settings/lab/storage']),
         path: '/samples',
       },
     },

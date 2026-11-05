@@ -511,7 +511,7 @@ function ClientPortal() {
   // comes from the session, not from the page: only a `client_viewer` is a
   // client account, and everyone else is looking at the client view as a
   // preview. Claiming "Client viewer" for an internal member made this page
-  // disagree with /settings/members about the same account.
+  // disagree with /settings/workspace/members about the same account.
   const workspaceRole = context.workspace?.role ?? null
   const isClientAccount = workspaceRole === 'client_viewer'
   const roleLabel = workspaceRole

@@ -84,7 +84,7 @@ export const Page: Story = {
 }
 
 /**
- * The quiet header `/settings/access` uses: no count, no actions and no
+ * The quiet header `/settings/workspace/access` uses: no count, no actions and no
  * subtitling line, and no bottom border because the filter bar below it draws
  * its own.
  */

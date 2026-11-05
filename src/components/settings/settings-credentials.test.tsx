@@ -7,7 +7,7 @@
  * Revoking a credential is permanent and rotating one invalidates the live
  * secret, so the row buttons only open the shared confirmation and the
  * callback fires from its action. The route surfaces a failed write
- * (src/routes/settings/api.tsx:150-154).
+ * (src/routes/settings/account/api.tsx:150-154).
  */
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'

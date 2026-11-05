@@ -48,7 +48,7 @@ import { workflowLabel } from '#/lib/reviews'
 /** The workspace's electronic-signature policy: which meanings are in use and
  * who still needs to certify. A person certifies their own signature under My
  * signature (`my-signature.tsx`). */
-export const Route = createFileRoute('/settings/signatures')({
+export const Route = createFileRoute('/settings/workspace/signatures')({
   component: Signatures,
 })
 
@@ -107,7 +107,7 @@ function Signatures() {
       <SettingsHeader title={t('settings.signatures.electronicSignatures')}>
         {context.workspace?.name ?? 'Workspace'}
         {t('settings.signatures.whichSignatureMeanings')}
-        <Link to="/settings/my-signature">
+        <Link to="/settings/account/signature">
           {t('settings.signatures.mySignature')}
         </Link>
         .

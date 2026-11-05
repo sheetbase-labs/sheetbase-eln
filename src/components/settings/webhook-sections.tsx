@@ -128,7 +128,7 @@ const outgoingColumns: RegistryColumn<OutgoingRow>[] = [
     header: '',
     cell: ({ row }) => (
       <Link
-        to="/settings/integrations/webhooks/$subscriptionId"
+        to="/settings/workspace/integrations/webhooks/$subscriptionId"
         params={{ subscriptionId: row.original.sub.id }}
       >
         {t('settings.webhookSections.deliveries')}

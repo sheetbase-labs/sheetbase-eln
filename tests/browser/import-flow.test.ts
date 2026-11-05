@@ -393,7 +393,7 @@ test.describe('DSET-05 import flow', () => {
       .getByRole('button', { name: 'Ask an admin to update the parser' })
       .click()
     await expect(page).toHaveURL(
-      new RegExp(`/settings/instruments\\?fileId=${failedFile}`),
+      new RegExp(`/settings/lab/instruments\\?fileId=${failedFile}`),
     )
     const work = await page.request.get(
       `/api/db/my_work_items?source_id=eq.${failedFile}`,
@@ -480,7 +480,7 @@ test.describe('DSET-05 import flow', () => {
       })
       const settings = await page.context().newPage()
       await settings.goto(
-        `/settings/instruments?fileId=${raw.id}&versionId=${original.id}`,
+        `/settings/lab/instruments?fileId=${raw.id}&versionId=${original.id}`,
       )
       await expect(
         settings.getByRole('button', { name: 'Approve version', exact: true }),
@@ -592,7 +592,7 @@ test.describe('DSET-05 import flow', () => {
       )
     ).rows[0].id
     try {
-      await page.goto('/settings/instruments')
+      await page.goto('/settings/lab/instruments')
       await page.getByText('Advanced', { exact: true }).click()
       await page.getByLabel('Parser key', { exact: true }).fill(key)
       await page

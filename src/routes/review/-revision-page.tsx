@@ -2956,7 +2956,7 @@ export function SignaturePanel({
               {rich('projects.revisionPage.certificationIsRequiredBefore', {
                 link: (text) => (
                   <Link
-                    to="/settings/my-signature"
+                    to="/settings/account/signature"
                     search={{ returnTo: returnToHere() }}
                     className="underline"
                   >

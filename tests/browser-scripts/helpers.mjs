@@ -42,7 +42,7 @@ export async function launch(viewport = { width: 1440, height: 900 }) {
     if (m.text().includes('Failed to fetch')) return
     if (
       m.text().includes('status of 401') &&
-      page.url().includes('/settings/profile')
+      page.url().includes('/settings/account/profile')
     )
       return
     errors.push(m.text())

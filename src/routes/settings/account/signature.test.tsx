@@ -9,7 +9,7 @@ import {
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WorkspaceCertification } from '#/lib/signature-certification'
-import { Route } from './my-signature'
+import { Route } from './signature'
 
 const mocks = vi.hoisted(() => {
   const certifications: WorkspaceCertification[] = []
@@ -371,7 +371,7 @@ describe('REV-03 signature settings', () => {
       screen
         .getByRole('link', { name: 'Invite another admin' })
         .getAttribute('href'),
-    ).toBe('/settings/members')
+    ).toBe('/settings/workspace/members')
   })
 
   it('names the administrators who can verify when there are some', async () => {

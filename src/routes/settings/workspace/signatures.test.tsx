@@ -99,7 +99,7 @@ describe('electronic signature policy', () => {
       (await screen.findByRole('link', { name: 'My signature' })).getAttribute(
         'href',
       ),
-    ).toBe('/settings/my-signature')
+    ).toBe('/settings/account/signature')
     expect(screen.queryByText('Certify signature')).toBeNull()
   })
 

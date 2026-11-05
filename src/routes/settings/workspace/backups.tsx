@@ -46,7 +46,7 @@ import { t } from '#/copy'
  * set how often the server makes a copy and how many it keeps. Which roles may
  * open and change it is the workspace's choice under Members and roles.
  */
-export const Route = createFileRoute('/settings/backups')({
+export const Route = createFileRoute('/settings/workspace/backups')({
   component: Backups,
 })
 

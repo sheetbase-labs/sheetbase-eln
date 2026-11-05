@@ -92,6 +92,6 @@ describe('AgentPoliciesPanel', () => {
     ).toBe(true)
     // The reason is stated, with the route to the surface that creates one.
     const create = screen.getByRole('link', { name: 'Open API and SDK' })
-    expect(create.getAttribute('href')).toBe('/settings/api')
+    expect(create.getAttribute('href')).toBe('/settings/account/api')
   })
 })

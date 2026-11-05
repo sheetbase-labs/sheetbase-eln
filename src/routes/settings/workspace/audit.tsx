@@ -52,7 +52,7 @@ import { t } from '#/copy'
  * descending sequence cursor so scrolling reaches the whole history, and the
  * search filters on the server — the loaded window is never the filter's
  * universe. The export walks the same selection to its end, and says so. */
-export const Route = createFileRoute('/settings/audit')({
+export const Route = createFileRoute('/settings/workspace/audit')({
   validateSearch: (search: Record<string, unknown>): AuditSearch => ({
     record:
       typeof search.record === 'string' && search.record
@@ -83,7 +83,7 @@ function Audit() {
   const navigate = Route.useNavigate()
   const setUrl = (patch: Partial<AuditSearch>) =>
     void navigate({
-      to: '/settings/audit',
+      to: '/settings/workspace/audit',
       search: (s) => ({ ...s, ...patch }),
     })
   const workspaceId = context.workspace?.id ?? ''
@@ -309,7 +309,7 @@ function Audit() {
       <TableCell className="mono text-[11px]">
         {r.recordId ? (
           <Link
-            to="/settings/audit"
+            to="/settings/workspace/audit"
             search={{ ...urlSearch, record: r.recordId }}
             title={t('settings.audit.showOnlyRecord')}
           >

@@ -32,7 +32,7 @@ import { t } from '#/copy'
  * The time zone is yours alone: every time the app shows, audit and signature
  * times included, is read on that clock (stored instants stay UTC). Initials
  * and job title are yours to edit; the username is set by an administrator. */
-export const Route = createFileRoute('/settings/profile')({
+export const Route = createFileRoute('/settings/account/profile')({
   component: Profile,
 })
 

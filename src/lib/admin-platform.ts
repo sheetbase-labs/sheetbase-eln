@@ -774,7 +774,7 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
           limit: formatFileSize(quota.byteLimit),
           behaviour: quota.atLimitBehaviour ?? '',
         }).trim(),
-        link: '/settings/usage',
+        link: '/settings/workspace/usage',
         runbook: 'administration',
       })
     } else if (quota.byteLimit == null && fileBytes > 10_000_000_000) {
@@ -798,7 +798,7 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
           seatLimit,
           behaviour: plan.seats.atLimitBehaviour ?? '',
         }).trim(),
-        link: '/settings/members',
+        link: '/settings/workspace/members',
       })
     }
     return {

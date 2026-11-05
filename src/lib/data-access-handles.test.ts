@@ -95,7 +95,7 @@ describe('resolveDataAccessHandle', () => {
   })
 
   it('has nothing for pages without data handles', () => {
-    expect(resolveDataAccessHandle('/settings/api')).toBeNull()
+    expect(resolveDataAccessHandle('/settings/account/api')).toBeNull()
     expect(resolveDataAccessHandle('/')).toBeNull()
     expect(resolveDataAccessHandle('/experiments/new')).toBeNull()
   })

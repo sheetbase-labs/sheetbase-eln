@@ -45,12 +45,12 @@ describe('rich', () => {
     const html = renderToStaticMarkup(
       <>
         {rich('common.errors.askAdminForAccess', {
-          link: (text) => <a href="/settings/members">{text}</a>,
+          link: (text) => <a href="/settings/workspace/members">{text}</a>,
         })}
       </>,
     )
     expect(html).toBe(
-      'You don’t have access. An admin can add you in <a href="/settings/members">Settings → Members</a>.',
+      'You don’t have access. An admin can add you in <a href="/settings/workspace/members">Settings → Members</a>.',
     )
   })
 

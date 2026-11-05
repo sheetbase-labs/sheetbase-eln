@@ -10,7 +10,7 @@ import { Chip } from '#/components/ui/chip'
  * token pair (`border-selection-border` on `bg-selection`) everywhere.
  *
  * The nav variant renders a router Link when a screen passes one:
- * `render={<Link to="/settings/api" />}`.
+ * `render={<Link to="/settings/account/api" />}`.
  */
 const meta = {
   title: 'UI/Chip',

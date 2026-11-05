@@ -1027,7 +1027,7 @@ function Notifications({
         )}
         <div className="bg-surface-muted px-3 py-2 text-label">
           <Link to="/inbox">{t('settings.shell.appShell.openInbox')}</Link> ·{' '}
-          <Link to="/settings/notifications">
+          <Link to="/settings/account/notifications">
             {t('settings.shell.appShell.notificationSettings')}
           </Link>
         </div>

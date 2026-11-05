@@ -339,7 +339,7 @@ describe('Inbox list shortcuts (SHELL-03.3)', () => {
     )
     expect(rowKey(fileFailure)).toBe('file-one')
     expect(itemLink(fileFailure)).toEqual({
-      to: '/settings/instruments',
+      to: '/settings/lab/instruments',
       search: { fileId: 'file-one', versionId: 'version-one' },
     })
     expect(
@@ -350,7 +350,7 @@ describe('Inbox list shortcuts (SHELL-03.3)', () => {
         connectorId: 'connector-one',
       }),
     ).toEqual({
-      to: '/settings/integrations/$connectorId',
+      to: '/settings/workspace/integrations/$connectorId',
       params: { connectorId: 'connector-one' },
     })
   })

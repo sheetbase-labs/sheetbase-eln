@@ -25,7 +25,7 @@ describe('assistant page context', () => {
 
   it('returns null for a page with no stable object', () => {
     expect(contextFromPathname('/projects')).toBeNull()
-    expect(contextFromPathname('/settings/ai')).toBeNull()
+    expect(contextFromPathname('/settings/workspace/ai')).toBeNull()
     expect(contextFromPathname(`/datasets/EXP-024`)).toBeNull()
   })
 })

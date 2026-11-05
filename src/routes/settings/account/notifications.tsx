@@ -9,7 +9,7 @@ import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): notification preferences, read and written
  * through the notification-preferences module. */
-export const Route = createFileRoute('/settings/notifications')({
+export const Route = createFileRoute('/settings/account/notifications')({
   component: Notifications,
 })
 

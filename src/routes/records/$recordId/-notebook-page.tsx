@@ -194,6 +194,7 @@ import {
 } from '#/lib/review-workspace'
 import { useRecentViewTracking } from '#/lib/recents'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
+import { FollowToggle } from '#/components/follow/follow-toggle'
 import { RelatedWorkPanel } from '#/components/related-work/related-work-panel'
 import {
   PinnedRelationshipPanel,
@@ -1479,6 +1480,11 @@ export function StickyRecordHeader({
           {embedded ? null : (
             <span className="contents max-md:hidden">
               <FavouriteToggle kind="record" objectId={record.id} />
+            </span>
+          )}
+          {embedded ? null : (
+            <span className="contents max-md:hidden">
+              <FollowToggle kind="record" objectId={record.id} />
             </span>
           )}
           {offered ? null : <RecordActionsMenu actions={recordActions} />}

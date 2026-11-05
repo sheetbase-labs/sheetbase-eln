@@ -46,6 +46,7 @@ export type WorkItemKind =
   | 'qualification_requested'
   | 'qualification_granted'
   | 'following'
+  | 'project_following'
 export type WorkItemState =
   'needs_action' | 'following' | 'overdue' | 'done_today'
 
@@ -120,6 +121,7 @@ const KINDS: readonly WorkItemKind[] = [
   'qualification_requested',
   'qualification_granted',
   'following',
+  'project_following',
 ]
 const STATES: readonly WorkItemState[] = [
   'needs_action',
@@ -368,6 +370,7 @@ export function countByKind(
     qualification_requested: 0,
     qualification_granted: 0,
     following: 0,
+    project_following: 0,
   }
   for (const item of items) counts[item.kind] += 1
   return counts

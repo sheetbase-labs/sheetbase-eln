@@ -6034,7 +6034,7 @@ export const workItemFollows = api.table(
 )
 
 /**
- * project_follows (migration 0086) — a per-user follow of a project, so it
+ * project_follows (migration 0087) — a per-user follow of a project, so it
  * appears in the caller's Inbox Following tab like a followed record. Written
  * through `follow_project` / `unfollow_project`; read under RLS by its owner.
  */

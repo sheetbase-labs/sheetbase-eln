@@ -11,6 +11,7 @@ import { GeneratedReports } from '#/components/reports/generated-reports'
 import { ReportDocument } from '#/components/reports/report-document'
 import { SectionCard } from '#/components/reports/section-card'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
+import { FollowToggle } from '#/components/follow/follow-toggle'
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
@@ -237,6 +238,7 @@ function ReportPage() {
           actions={
             <>
               <FavouriteToggle kind="record" objectId={report.recordId} />
+              <FollowToggle kind="record" objectId={report.recordId} />
               <Button icon="share" onClick={() => setShareOpen(true)}>
                 {t('projects.reports.builder.shareWithClient')}
               </Button>

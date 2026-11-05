@@ -40,18 +40,18 @@ import {
 import type { DatasetListRow } from '#/components/datasets/datasets-data'
 import { useHasCapability } from '#/lib/use-capability'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { useListView } from '#/lib/list-views'
+import { formatDate } from '#/lib/format-date'
 
-const tabs = ['all', 'mine', 'issues', 'locked'] as const
+const tabs = ['all', 'mine', 'issues', 'locked', 'archived'] as const
 type DatasetTab = (typeof tabs)[number]
 const tabLabel: Record<DatasetTab, string> = {
   all: t('data.datasetsList.all'),
   mine: t('data.datasetsList.mine'),
   issues: t('data.datasetsList.hasIssues'),
   locked: t('data.datasetsList.locked'),
+  archived: t('data.datasetsList.archived'),
 }
-
-const sorts = ['Updated', 'ID', 'Rows'] as const
-type DatasetSort = (typeof sorts)[number]
 
 /** UI port (roadmap-4/ui-app3): the dataset registry list, wired to
  * dataset_list_summary. The explorer/rows/snapshots/compare child routes and
@@ -72,6 +72,7 @@ export const Route = createFileRoute('/datasets')({
       search.tab === 'mine' ||
       search.tab === 'issues' ||
       search.tab === 'locked' ||
+      search.tab === 'archived' ||
       search.tab === 'all' ||
       search.tab === 'pipelines' ||
       search.tab === 'versions'
@@ -109,20 +110,28 @@ function DatasetsList() {
   const query = useDatasetSummaries()
   const rows = query.data ?? []
   const tab: DatasetTab =
-    search.tab === 'mine' || search.tab === 'issues' || search.tab === 'locked'
+    search.tab === 'mine' ||
+    search.tab === 'issues' ||
+    search.tab === 'locked' ||
+    search.tab === 'archived'
       ? search.tab
       : 'all'
   const [selected, setSelected] = useState<string | null>(null)
-  const [sort, setSort] = useState<DatasetSort>('Updated')
+  const view = useListView('datasets')
 
   const inTab = (r: DatasetListRow, tabId: DatasetTab): boolean =>
-    tabId === 'all'
-      ? true
-      : tabId === 'mine'
-        ? r.createdByUserId === context.user.id
-        : tabId === 'issues'
-          ? r.issues > 0
-          : r.reviewState === 'locked'
+    // An archived dataset is out of every working list.
+    tabId === 'archived'
+      ? r.archived
+      : r.archived
+        ? false
+        : tabId === 'all'
+          ? true
+          : tabId === 'mine'
+            ? r.createdByUserId === context.user.id
+            : tabId === 'issues'
+              ? r.issues > 0
+              : r.reviewState === 'locked'
   const counts = useMemo(
     () =>
       Object.fromEntries(
@@ -134,17 +143,11 @@ function DatasetsList() {
     [rows, context.user.id],
   )
 
-  const sorted = useMemo(() => {
-    const by: Record<
-      DatasetSort,
-      (a: DatasetListRow, b: DatasetListRow) => number
-    > = {
-      Updated: (a, b) => b.updatedAt.localeCompare(a.updatedAt),
-      ID: (a, b) => a.id.localeCompare(b.id),
-      Rows: (a, b) => b.rows - a.rows,
-    }
-    return [...rows].sort(by[sort])
-  }, [rows, sort])
+  // Most recently updated first, until a column header is clicked.
+  const sorted = useMemo(
+    () => [...rows].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    [rows],
+  )
 
   const q = (search.q ?? '').trim().toLowerCase()
   const hasProjectAccess = useHasProjectAccess()
@@ -159,11 +162,14 @@ function DatasetsList() {
       {
         id: 'identifier',
         header: 'ID',
+        accessorFn: (d) => d.id,
+        enableHiding: false,
         cell: ({ row }) => <span className="mono">{row.original.id}</span>,
       },
       {
         id: 'name',
         header: t('data.datasetsList.name'),
+        accessorFn: (d) => d.name,
         cell: ({ row }) => (
           <Link
             to="/datasets/$datasetId"
@@ -182,6 +188,7 @@ function DatasetsList() {
       {
         id: 'experiment',
         header: t('data.datasetsList.experiment'),
+        accessorFn: (d) => d.experimentId ?? undefined,
         cell: ({ row }) => (
           <span className="mono">{row.original.experimentId ?? '—'}</span>
         ),
@@ -193,8 +200,16 @@ function DatasetsList() {
         meta: rightAligned<DatasetListRow>().meta,
       },
       {
+        id: 'updated',
+        header: t('data.datasetsList.updated'),
+        accessorFn: (d) => d.updatedAt,
+        cell: ({ row }) => formatDate(row.original.updatedAt),
+        meta: { exportValue: (d: DatasetListRow) => d.updated },
+      },
+      {
         id: 'validation',
         header: t('data.datasetsList.validation'),
+        accessorFn: (d) => datasetValidation(d).label,
         cell: ({ row }) => {
           const v = datasetValidation(row.original)
           return <Status tone={v.tone}>{v.label}</Status>
@@ -268,11 +283,6 @@ function DatasetsList() {
           q={search.q}
           label={t('data.datasetsList.searchDatasets')}
           placeholder={t('data.datasetsList.searchDatasets')}
-          views={{
-            sorts: [...sorts],
-            sort,
-            onSort: (s) => setSort(s as DatasetSort),
-          }}
           onSearch={(next) =>
             void navigate({
               to: '/datasets',
@@ -286,6 +296,7 @@ function DatasetsList() {
             <RegistryGrid
               className="max-md:hidden"
               label={t('data.datasetsList.datasets')}
+              view={view}
               rows={visible}
               columns={columns}
               getRowId={(d) => d.uuid}

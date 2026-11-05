@@ -31,6 +31,7 @@ import {
 } from '#/components/ui/dropdown-menu'
 import { RegistryGrid, bandRow } from '#/components/inventory/registry-grid'
 import { useBulkSelection } from '#/components/inventory/bulk-selection'
+import { useListView } from '#/lib/list-views'
 import { RecordBulkBar } from '#/components/inventory/record-bulk-bar'
 import type {
   RegistryColumn,
@@ -313,6 +314,8 @@ function Experiments() {
       {
         id: 'identifier',
         header: t('projects.experimentsList.columns.id'),
+        accessorFn: (e) => e.id,
+        enableHiding: false,
         meta: {
           headerClassName: 'max-xl:hidden',
           cellClassName: 'mono max-xl:hidden',
@@ -322,6 +325,8 @@ function Experiments() {
       {
         id: 'title',
         header: t('projects.experimentsList.columns.experiment'),
+        accessorFn: (e) => e.title,
+        enableHiding: false,
         meta: {
           headerClassName: stickyCol,
           cellClassName: `${stickyCol} max-xl:h-auto max-xl:py-1`,
@@ -349,6 +354,7 @@ function Experiments() {
       {
         id: 'project',
         header: t('projects.experimentsList.columns.project'),
+        accessorFn: (e) => e.project,
         cell: ({ row }) =>
           row.original.projectId ? (
             <Link
@@ -371,12 +377,17 @@ function Experiments() {
       {
         id: 'assignee',
         header: t('projects.experimentsList.columns.assignee'),
+        accessorFn: (e) => e.assignee ?? undefined,
         cell: ({ row }) =>
           row.original.assignee ?? <span className="text-fg-muted">—</span>,
       },
       {
         id: 'protocol',
         header: t('projects.experimentsList.columns.protocol'),
+        accessorFn: (e) =>
+          e.protocolVersion
+            ? `${e.protocol} v${e.protocolVersion}`
+            : e.protocol,
         cell: ({ row }) =>
           row.original.protocolRecordId ? (
             <Link
@@ -399,6 +410,7 @@ function Experiments() {
       {
         id: 'status',
         header: t('projects.experimentsList.columns.status'),
+        accessorFn: (e) => e.status.label,
         cell: ({ row }) => (
           <Status tone={row.original.status.tone}>
             {row.original.status.label}
@@ -408,6 +420,7 @@ function Experiments() {
       {
         id: 'issues',
         header: t('projects.experimentsList.columns.issues'),
+        accessorFn: (e) => issueCount(e.uuid),
         cell: ({ row }) =>
           openIssues.isPending ? (
             <Skeleton className="h-3 w-6" />
@@ -459,6 +472,7 @@ function Experiments() {
     () => withAddedColumns(baseColumns, addedColumns),
     [baseColumns, addedColumns],
   )
+  const view = useListView('experiments')
 
   // A grouped list draws its groups as bands in the one table.
   const gridRows: RegistryRow<ExperimentListRow>[] = groups.flatMap(
@@ -653,6 +667,7 @@ function Experiments() {
         selection={bulk}
         kind="experiment"
         move="project"
+        restore={tab === 'archived'}
         canWrite={canWrite}
         onChanged={() =>
           void queryClient.invalidateQueries({
@@ -680,6 +695,9 @@ function Experiments() {
         <RegistryGrid
           className="max-md:hidden"
           label={t('projects.experimentsList.title')}
+          view={view}
+          // The Sort and Group menus above order this list.
+          sortable={false}
           rows={gridRows}
           columns={columns}
           getRowId={(e) => e.uuid}

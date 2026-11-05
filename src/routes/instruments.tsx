@@ -17,6 +17,7 @@ import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { objectPath } from '#/lib/navigation'
 import { RegistryGrid, useRowFocus } from '#/components/inventory/registry-grid'
 import { useListView } from '#/lib/list-views'
+import { undoToast } from '#/lib/undo-toast'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Button } from '#/components/ui/button'
 import { Field, Input } from '#/components/ui/input'
@@ -878,10 +879,15 @@ export function InstrumentInspector({
       void queryClient.invalidateQueries({
         queryKey: ['ui-port', 'instruments'],
       })
-      toast(
+      undoToast(
         retired
           ? t('library.instruments.list.instrumentRetired')
           : t('library.instruments.list.instrumentReinstated'),
+        () => setInstrumentRetired(instrument.id, !retired),
+        () =>
+          void queryClient.invalidateQueries({
+            queryKey: ['ui-port', 'instruments'],
+          }),
       )
     },
     onError: () =>

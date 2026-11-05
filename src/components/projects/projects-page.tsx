@@ -59,6 +59,7 @@ import {
 } from '#/components/ui/table'
 import { Icon } from '#/components/icons'
 import { toast } from '#/components/ui/sonner'
+import { undoToast } from '#/lib/undo-toast'
 import { Tabs } from '#/components/ui/tabs'
 import { MobileList, stickyCol } from './mobile-list'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
@@ -347,9 +348,11 @@ export function ProjectsPage({
   const archivable = selected.filter((p) => !p.archived)
   const restorable = selected.filter((p) => p.archived)
 
+  const targetsOf = (operation: 'archive' | 'restore') =>
+    operation === 'archive' ? archivable : restorable
   const bulk = useMutation({
     mutationFn: async (operation: 'archive' | 'restore') => {
-      const targets = operation === 'archive' ? archivable : restorable
+      const targets = targetsOf(operation)
       const settled = await Promise.allSettled(
         targets.map((p) =>
           projectDataClient.rpc(
@@ -378,11 +381,26 @@ export function ProjectsPage({
         )
         return
       }
+      const undoIds = targetsOf(operation).map((p) => p.uuid)
       setChecked(new Set())
-      toast(
+      // Archiving and restoring are each other's Undo.
+      undoToast(
         operation === 'archive'
           ? t('projects.projectsPage.bulk.archived', { count })
           : t('projects.projectsPage.bulk.restored', { count }),
+        async () => {
+          await Promise.allSettled(
+            undoIds.map((id) =>
+              projectDataClient.rpc(
+                operation === 'archive'
+                  ? 'unarchive_project'
+                  : 'archive_project',
+                { p_project_id: id },
+              ),
+            ),
+          )
+        },
+        () => void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY }),
       )
     },
     onError: (error: unknown) => {

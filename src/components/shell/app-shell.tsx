@@ -44,7 +44,9 @@ import {
 import { clearOfflinePages } from '#/lib/offline/service-worker'
 import { createDataClient } from '#/lib/data-client'
 import {
+  fetchMyProfile,
   fetchUserPreferences,
+  myProfileQueryKey,
   setActiveWorkspace,
   setUserAppearance,
   setNavFolded,
@@ -1150,6 +1152,15 @@ function ViewAsSection({ currentId }: { currentId: string }) {
 }
 
 function AccountMenu({ me }: { me: ShellData['me'] }) {
+  // The initials you set in your profile, once read; until then (and with no
+  // signed-in user) the ones derived from your name.
+  const profile = useQuery({
+    queryKey: myProfileQueryKey,
+    queryFn: () => fetchMyProfile(appearanceClient),
+    enabled: Boolean(me.id),
+    staleTime: 5 * 60_000,
+  })
+  const initials = profile.data?.initials || me.initials
   const { pref, setPref } = useTheme()
   const navigate = useNavigate()
   const router = useRouter()
@@ -1226,11 +1237,11 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
           />
         }
       >
-        <Avatar initials={me.initials} />
+        <Avatar initials={initials} userId={me.id || undefined} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[272px]">
         <div className="flex items-center gap-2.5 p-2">
-          <Avatar initials={me.initials} />
+          <Avatar initials={initials} userId={me.id || undefined} />
           <div className="text-label leading-[17px]">
             <div className="text-body font-semibold">{me.name}</div>
             <div className="text-fg-muted">{me.role}</div>

@@ -44,6 +44,10 @@ export interface CurrentContext {
    * workspace's. Stored instants stay UTC; this only picks the wall clock.
    */
   timeZone: string
+  /** 12 or 24 hour clock, the person's own choice (Profile). Absent reads as 24. */
+  clock?: '12h' | '24h'
+  /** Keep the layout bar and shortcut footer on a single pane (Profile). */
+  alwaysShowLayout?: boolean
   /** COLLAB: Liveblocks substrate configured on this deployment? */
   collaborationEnabled: boolean
   /** Demo deployment with no sign-in: a data 401 is not an ended session. */
@@ -81,6 +85,21 @@ export async function listAccessContacts(
   return rows
     .filter((row) => !row.suspendedAt)
     .map(({ name, email, role }) => ({ name, email, role }))
+}
+
+/** The display choices kept in the person's `preferences` document. */
+function displayPreferencesOf(preferences: unknown): {
+  clock: '12h' | '24h'
+  alwaysShowLayout: boolean
+} {
+  const value =
+    preferences && typeof preferences === 'object'
+      ? (preferences as Record<string, unknown>)
+      : {}
+  return {
+    clock: value.clock === '12h' ? '12h' : '24h',
+    alwaysShowLayout: value.alwaysShowLayout === true,
+  }
 }
 
 /** Returns the signed-in user and their active workspace, or null. */
@@ -163,6 +182,9 @@ export async function getCurrentContext(
       : null,
     accessContacts,
     timeZone: preference?.timezone ?? workspaceSettings?.timezone ?? 'UTC',
+    clock: displayPreferencesOf(preference?.preferences).clock,
+    alwaysShowLayout: displayPreferencesOf(preference?.preferences)
+      .alwaysShowLayout,
     workspaces: memberships.map((item) => ({
       id: item.workspace.id,
       slug: item.workspace.slug,

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { clockOption } from '#/lib/display-clock'
 
 import {
   createBooking,
@@ -61,7 +62,7 @@ const timeFmt = (timeZone: string) =>
     timeZone,
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false,
+    ...clockOption(),
   })
 
 /**

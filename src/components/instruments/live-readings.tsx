@@ -4,6 +4,7 @@
  * agent beside the instrument and the page asks again every few seconds.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { clockOption } from '#/lib/display-clock'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -174,6 +175,7 @@ function LiveChart({
                   hour: '2-digit',
                   minute: '2-digit',
                   second: '2-digit',
+                  ...clockOption(),
                 }),
               })
             : `${formatReadingValue(feed.lastValue)}${unitSuffix(feed)}`}
@@ -275,11 +277,13 @@ function LiveChart({
           {new Date(data.since).toLocaleTimeString('en-GB', {
             hour: '2-digit',
             minute: '2-digit',
+            ...clockOption(),
           })}
           {' – '}
           {new Date(data.until).toLocaleTimeString('en-GB', {
             hour: '2-digit',
             minute: '2-digit',
+            ...clockOption(),
           })}
         </span>
       </div>

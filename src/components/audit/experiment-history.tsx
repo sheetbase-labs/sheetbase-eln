@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react'
+import { clockOption } from '#/lib/display-clock'
 import { useQuery } from '@tanstack/react-query'
 
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
@@ -134,6 +135,7 @@ export function ExperimentHistoryView({
     timeZone,
     hour: '2-digit',
     minute: '2-digit',
+    ...clockOption(),
   })
   const exportQuery = new URLSearchParams({
     category,
@@ -385,6 +387,7 @@ function EntryDetails({
             minute: '2-digit',
             second: '2-digit',
             timeZoneName: 'short',
+            ...clockOption(),
           }).format(new Date(event.createdAt))}
         </dd>
         <dt className="text-fg-muted">

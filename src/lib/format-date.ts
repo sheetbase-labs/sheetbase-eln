@@ -24,8 +24,16 @@ export function formatDate(
     day: 'numeric',
     month: 'short',
     ...(year ? { year: 'numeric' as const } : {}),
-    ...(time
-      ? { hour: '2-digit' as const, minute: '2-digit' as const, hour12: false }
-      : {}),
+    ...(time ? { hour: '2-digit' as const, minute: '2-digit' as const } : {}),
   }).replace('Sept', 'Sep')
+}
+
+/**
+ * A stored instant as a time of day on the person's own clock ("09:40", or
+ * "9:40 am" when they chose a 12 hour clock), on the display time zone.
+ */
+export function formatTime(value: string | Date | null | undefined): string {
+  if (!value) return '—'
+  const iso = typeof value === 'string' ? value : value.toISOString()
+  return formatInstant(iso, { hour: '2-digit', minute: '2-digit' })
 }

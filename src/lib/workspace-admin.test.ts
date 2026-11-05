@@ -199,7 +199,7 @@ describe('workspace-admin formatting helpers', () => {
   })
 
   it('formats dates and handles missing values', () => {
-    expect(formatDate(timestamp)).toMatch(/01 Jul 2026/)
+    expect(formatDate(timestamp)).toMatch(/^1 Jul 2026, 00:00$/)
     expect(formatDate(null)).toMatch(/Unknown|—/i)
   })
 })

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { clockOption } from '#/lib/display-clock'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { rich, t } from '#/copy'
@@ -709,6 +710,7 @@ export function ScheduleDialog({
                       hour: '2-digit',
                       minute: '2-digit',
                       timeZoneName: 'short',
+                      ...clockOption(),
                     }).format(at),
                   )
                   .join(' · '),

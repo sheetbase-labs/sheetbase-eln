@@ -7,6 +7,7 @@
  * files than one page says so rather than dropping the rest.
  */
 import { useMemo } from 'react'
+import { formatDate } from '#/lib/format-date'
 import { useQuery } from '@tanstack/react-query'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 
@@ -102,7 +103,7 @@ export function toFileDisplayRows(
     kind: formatKind(file.mediaType),
     size: formatSize(file.byteSize),
     uploadedBy: file.uploadedBy ? userLabel(file.uploadedBy) : '—',
-    uploaded: day(file.uploadedAt),
+    uploaded: formatDate(file.uploadedAt),
   }))
 }
 
@@ -170,18 +171,6 @@ function formatKind(mediaType: string | null): string {
   return family && family !== 'application'
     ? family.charAt(0).toUpperCase() + family.slice(1)
     : t('projects.projectFiles.otherKind')
-}
-
-function day(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date
-    .toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      timeZone: 'UTC',
-    })
-    .replace('Sept', 'Sep')
 }
 
 /** One Files tab for everything the project keeps: files, folders and sheets. */

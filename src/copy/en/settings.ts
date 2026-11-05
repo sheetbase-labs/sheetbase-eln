@@ -868,6 +868,16 @@ export const settings = {
     appearance: 'Appearance',
     appliesEverySheetbase:
       'Applies to every Sheetbase screen open in this browser. System follows your computer’s setting.',
+    display: 'Display',
+    clock: 'Clock',
+    clock12: '12-hour',
+    clock24: '24-hour',
+    clockHint:
+      'How times of day are written everywhere in Sheetbase, for example 14:30 or 2:30 pm.',
+    alwaysShowLayout: 'Always show the layout bar and keyboard shortcuts',
+    alwaysShowLayoutHint:
+      'They appear on their own once you split a page into panes. Tick this to keep them on a single pane too.',
+    displaySavedFailed: 'Could not save your display choice',
     sessions: 'Sessions',
     appliesInBrowserOnly: 'It applies in this browser only. {reason}',
     databaseRefused: 'Your account didn’t accept it.',

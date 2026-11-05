@@ -1,6 +1,7 @@
 /** INT-01 — execution history for one connector: runs, logs, errors, provenance.
  * UI port: app-3's v3 kit. */
 import { useState } from 'react'
+import { formatDate, formatTime } from '#/lib/format-date'
 import { useQuery } from '@tanstack/react-query'
 
 import {
@@ -164,7 +165,7 @@ function RunRowWithLogs({
     >
       <TableRow>
         <TableCell className="text-body">
-          {new Date(run.started_at).toLocaleString()}
+          {formatDate(run.started_at, { time: true })}
         </TableCell>
         <TableCell className="text-body">{run.trigger_kind}</TableCell>
         <TableCell>
@@ -252,8 +253,7 @@ function ExpandedRunRow({
       )}
       {(logsQuery.data ?? []).map((log) => (
         <p key={log.id} className="m-0 mono text-label text-fg-muted">
-          [{new Date(log.at).toLocaleTimeString()}] {log.level} {log.stage}:{' '}
-          {log.message}
+          [{formatTime(log.at)}] {log.level} {log.stage}: {log.message}
         </p>
       ))}
     </TableCell>

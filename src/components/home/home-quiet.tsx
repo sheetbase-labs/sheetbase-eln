@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { clockOption } from '#/lib/display-clock'
 
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
@@ -415,6 +416,7 @@ export function HomeQuiet(props: HomeQuietProps) {
                       timeZone,
                       hour: '2-digit',
                       minute: '2-digit',
+                      ...clockOption(),
                     })}
                   </span>
                   <div className="min-w-0">
@@ -506,7 +508,12 @@ export function HomeQuiet(props: HomeQuietProps) {
                       <span className="num w-16 shrink-0 text-label text-fg-muted">
                         {new Date(item.event.createdAt).toLocaleTimeString(
                           'en-GB',
-                          { timeZone, hour: '2-digit', minute: '2-digit' },
+                          {
+                            timeZone,
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            ...clockOption(),
+                          },
                         )}
                       </span>
                       <div className="min-w-0 text-label">

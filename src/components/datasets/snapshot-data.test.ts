@@ -166,7 +166,7 @@ describe('snapshot citations', () => {
 
   it('lists individual citations for the inspector', () => {
     expect(describeSnapshotCitations(citedBy)).toEqual([
-      'Signed record 11111111 · 2026-09-25',
+      'Signed record 11111111 · 25 Sep 2026',
       'Pipeline run 22222222 · succeeded',
       'Analysis in 33333333',
     ])
@@ -252,7 +252,7 @@ describe('snapshot prune warning (DSET-04.3)', () => {
       label: 'S-5',
       overdue: false,
     })
-    expect(warning?.title).toBe('S-5 is due for row removal on 2026-10-03.')
+    expect(warning?.title).toBe('S-5 is due for row removal on 3 Oct 2026.')
     expect(warning?.detail).toContain('cited by a signed record')
   })
 
@@ -263,7 +263,7 @@ describe('snapshot prune warning (DSET-04.3)', () => {
     )
     expect(warning?.overdue).toBe(true)
     expect(warning?.title).toBe(
-      'S-5 is overdue for row removal (was due 2026-10-03).',
+      'S-5 is overdue for row removal (was due 3 Oct 2026).',
     )
   })
 
@@ -332,10 +332,10 @@ describe('snapshot tombstone (DSET-04.3)', () => {
     expect(tombstone).toMatchObject({
       label: 'Rows removed',
       tone: 'stored',
-      removedAt: '2026-09-12',
+      removedAt: '12 Sep 2026',
       rule: 'Uncited, 2 years after archive',
     })
-    expect(tombstone.detail).toContain('Rows removed 2026-09-12')
+    expect(tombstone.detail).toContain('Rows removed 12 Sep 2026')
     expect(tombstone.why).toContain('Links and citations still open this page')
   })
 

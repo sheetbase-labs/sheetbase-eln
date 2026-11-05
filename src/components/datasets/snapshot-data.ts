@@ -13,6 +13,7 @@ import type {
   DatasetVersionSource,
   DatasetVersionSummary,
 } from '#/lib/dataset-explorer-data'
+import { formatDate } from '#/lib/format-date'
 import type { Tone } from '#/components/ui/status'
 import { now as appNow } from '#/lib/clock'
 
@@ -23,10 +24,6 @@ export interface SnapshotRetentionView {
   tone: Tone
   detail: string
   policy: string
-}
-
-function formatDate(value: string | null): string {
-  return value ? value.slice(0, 10) : '—'
 }
 
 /** Human-readable summary of the workspace retention policy, if reported. */
@@ -281,7 +278,7 @@ export function describeSnapshotCitations(
   const lines: string[] = []
   for (const revision of citedBy?.signedRevisions ?? []) {
     lines.push(
-      `Signed record ${revision.revisionId.slice(0, 8)} · ${revision.signedAt.slice(0, 10)}`,
+      `Signed record ${revision.revisionId.slice(0, 8)} · ${formatDate(revision.signedAt)}`,
     )
   }
   for (const run of citedBy?.pipelineRuns ?? []) {

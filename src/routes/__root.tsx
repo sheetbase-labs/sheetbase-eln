@@ -2,6 +2,7 @@ import * as React from 'react'
 import { startOfflineSupport } from '#/lib/offline/service-worker'
 import { splashLinks } from '#/lib/pwa/splash'
 import { setDisplayTimeZone } from '#/lib/display-time-zone'
+import { setDisplayClock } from '#/lib/display-clock'
 import {
   HeadContent,
   Outlet,
@@ -187,6 +188,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
           staleTime: ROOT_CONTEXT_STALE_MS,
         })
     setDisplayTimeZone(auth?.timeZone)
+    setDisplayClock(auth?.clock)
     const toPortal = clientPortalRedirect(
       auth?.workspace?.role,
       location.pathname,
@@ -231,6 +233,7 @@ function AppRoot() {
   // `beforeLoad`, so the first browser render sets the display zone here. It
   // is a no-op when `beforeLoad` already did.
   setDisplayTimeZone(auth?.timeZone)
+  setDisplayClock(auth?.clock)
 
   // Offline: register the service worker once signed in, so the app opens
   // without a connection and queued edits can sync in the background.

@@ -36,7 +36,8 @@ import {
   describeFieldEditError,
   initialModelFieldValues,
 } from '#/lib/model-record-edit'
-import { formatDate, notebookDataClient } from '#/lib/notebook-data'
+import { notebookDataClient } from '#/lib/notebook-data'
+import { formatDate } from '#/lib/format-date'
 import {
   setModelType,
   typeForVersion,
@@ -68,8 +69,7 @@ export function addedFieldDisplay(
   if (field.logicalType === 'timestamp')
     return raw == null || raw === ''
       ? '—'
-      : formatDate(String(raw)) +
-          ` ${new Date(String(raw)).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+      : formatDate(String(raw), { time: true })
   return displayModelFieldValue(field, raw)
 }
 

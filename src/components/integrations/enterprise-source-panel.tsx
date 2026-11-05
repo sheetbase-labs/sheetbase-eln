@@ -10,6 +10,7 @@
  * stage logs and provenance).
  */
 import { useMemo, useState } from 'react'
+import { formatDate } from '#/lib/format-date'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -537,7 +538,7 @@ function S3SourcePanel({
                   </TableCell>
                   <TableCell className="text-label">
                     {object.lastModified
-                      ? new Date(object.lastModified).toLocaleString()
+                      ? formatDate(object.lastModified, { time: true })
                       : '—'}
                   </TableCell>
                   <TableCell>

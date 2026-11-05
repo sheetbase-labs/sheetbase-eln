@@ -189,6 +189,9 @@ export function RegistryGrid<T extends RowData>({
   isLoading = false,
 }: RegistryGridProps<T>) {
   const gridRef = useRef<HTMLDivElement>(null)
+  // Read at render of a cell, so a screen's inline function never rebuilds the columns.
+  const rowLabelRef = useRef(rowLabel)
+  rowLabelRef.current = rowLabel
 
   // Linked panes: report this grid's selected row, and take the row the pane
   // being followed selects when this grid has it.
@@ -263,10 +266,20 @@ export function RegistryGrid<T extends RowData>({
   }, [selectable, rows])
 
   // The ids a header tick covers: every record row, never a band.
+  const getRowIdRef = useRef(getRowId)
+  getRowIdRef.current = getRowId
+  const recordIdKey = rows
+    .filter((row) => !isBand(row))
+    .map((row) => getRowIdRef.current(row as T))
+    .join('\u0000')
   const recordIds = useMemo(
-    () => rows.filter((row) => !isBand(row)).map((row) => getRowId(row as T)),
-    [rows, getRowId],
+    () => (recordIdKey ? recordIdKey.split('\u0000') : []),
+    [recordIdKey],
   )
+  // The header tick reads these when clicked, so new rows do not rebuild the
+  // columns (which would remount every cell).
+  const recordIdsRef = useRef(recordIds)
+  recordIdsRef.current = recordIds
   // A row that left the list (another tab, a search) is no longer ticked.
   const retain = bulk?.retain
   useEffect(() => {
@@ -293,14 +306,16 @@ export function RegistryGrid<T extends RowData>({
           aria-label={t('library.bulk.selectAll')}
           checked={allTicked}
           indeterminate={ticked.length > 0 && !allTicked}
-          onCheckedChange={(on) => bulk.setMany(recordIds, on)}
+          onCheckedChange={(on) => bulk.setMany(recordIdsRef.current, on)}
           onClick={(event) => event.stopPropagation()}
         />
       ),
       cell: ({ row }) => (
         <Checkbox
           aria-label={t('library.bulk.selectRow', {
-            id: rowLabel ? rowLabel(row.original as T) : row.id,
+            id: rowLabelRef.current
+              ? rowLabelRef.current(row.original as T)
+              : row.id,
           })}
           checked={bulk.has(row.id)}
           onCheckedChange={() => bulk.toggle(row.id)}
@@ -311,7 +326,7 @@ export function RegistryGrid<T extends RowData>({
     return [tick, ...body]
     // `ticked.length` and `allTicked` change the header; the row cells read
     // `bulk.has`, which changes with `bulk`.
-  }, [columns, selectable, bulk, rowLabel, allTicked, ticked.length, recordIds])
+  }, [columns, selectable, bulk, allTicked, ticked.length])
 
   /**
    * A band renders as the muted strip the grouped screens draw: every cell

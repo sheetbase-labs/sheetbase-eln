@@ -138,11 +138,15 @@ describe('experiments list rows', () => {
     ])
 
     renderList()
-    const title = await within(
-      screen.getByRole('table', { name: 'Experiments' }),
-    ).findByText('AAV9 titration')
-    const row = title.closest('tr')
-    expect(row).not.toBeNull()
+    // The tick column and the added columns settle after the first paint, so
+    // the row is read again until it is attached.
+    const row = await waitFor(() => {
+      const found = within(screen.getByRole('table', { name: 'Experiments' }))
+        .getByText('AAV9 titration')
+        .closest('tr')
+      expect(found).not.toBeNull()
+      return found
+    })
 
     fireEvent.click(row!)
 

@@ -1,15 +1,20 @@
-import { useRouterState } from '@tanstack/react-router'
+import { useRouter } from '@tanstack/react-router'
 
 import { BrandMark } from '#/components/ui/brand-mark'
 import { cn } from '#/lib/utils'
 
 /** The lab's logo version from the root route, or null when it has none. */
 export function useLabLogoVersion(): string | null {
-  return useRouterState({
-    select: (state) =>
-      (state.matches.at(0)?.context as { labLogo?: string | null } | undefined)
-        ?.labLogo ?? null,
-  })
+  // Read without a subscription and without requiring a router, so a page
+  // rendered outside one (a story, a test) simply shows no lab logo. The root
+  // context re-resolves on a shell refresh, which re-renders these pages.
+  const router = useRouter({ warn: false }) as
+    | { state?: { matches?: { context?: unknown }[] } }
+    | undefined
+  const context = router?.state?.matches?.[0]?.context as
+    | { labLogo?: string | null }
+    | undefined
+  return context?.labLogo ?? null
 }
 
 /** The URL the lab logo is served from; the version busts the cache. */

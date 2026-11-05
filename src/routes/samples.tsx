@@ -585,6 +585,7 @@ function SamplesList() {
             <RegistryGrid
               className="max-md:hidden"
               bulk={bulk}
+              rowLabel={(s) => s.id}
               label={t('library.samples.list.samples')}
               rows={visible}
               columns={columns}

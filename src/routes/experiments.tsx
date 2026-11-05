@@ -237,8 +237,14 @@ function Experiments() {
   )
   const protocols = useExperimentProtocols(experimentIds)
 
+  // Owners and the people experiments are assigned to are named together.
   const ownerIds = useMemo(
-    () => (records.data ?? []).map((r) => r.created_by_user_id),
+    () =>
+      (records.data ?? []).flatMap((r) =>
+        r.assignee_user_id
+          ? [r.created_by_user_id, r.assignee_user_id]
+          : [r.created_by_user_id],
+      ),
     [records.data],
   )
   const { userLabel } = useUserNames(ownerIds, {
@@ -678,6 +684,7 @@ function Experiments() {
           columns={columns}
           getRowId={(e) => e.uuid}
           bulk={bulk}
+          rowLabel={(e) => e.id}
           selectable={false}
           onRowClick={(e) => openExperiment(e)}
           isLoading={records.isPending}

@@ -184,6 +184,7 @@ export function ProtocolsRegistryGrid({
       columns={columns}
       getRowId={(p) => p.id}
       bulk={bulk}
+      rowLabel={(p) => p.identifier}
       rowSelection={rowSelection}
       onRowSelectionChange={onRowSelectionChange}
       onRowClick={onOpen}

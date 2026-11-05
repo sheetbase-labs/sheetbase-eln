@@ -369,6 +369,7 @@ export function RegistryList({
             columns={columns}
             getRowId={(entry) => entry.id}
             bulk={bulk}
+            rowLabel={(entry) => entry.identifier}
             selectable
             onRowClick={open}
             isLoading={models.isPending || entries.isPending}

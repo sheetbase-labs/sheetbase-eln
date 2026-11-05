@@ -22,6 +22,11 @@ import {
   labToolDefs,
   runLabReadTool,
 } from './assistant-lab-tools.server'
+import {
+  benchProposalDefs,
+  buildBenchProposal,
+  isBenchProposalTool,
+} from './assistant-bench.server'
 import { describeSlot, localFromInstant } from './assistant-booking'
 import {
   MAX_WORKSPACE_PANES,
@@ -115,7 +120,7 @@ function clip(text: string): string {
  */
 const CHAT_RULES = [
   'You are talking to a scientist in the app, not to a program. Name things the way the app shows them: a name, or an identifier such as EXP-12 or INS-0003. Never show an id like a UUID in your answer and never ask the person for one. When they name something, find it yourself with search or a list, and ask which one only if several really fit, naming the choices.',
-  'Sheetbase has a schedule with instrument booking, requests to the lab, sample shipments, an incident log, a registry, sample workflows, result limits, reagent orders, recurring work, stocktakes, label printing and retention. Before saying you cannot do something, check your tools. If no tool does it but the app does, say where in the app it is done and offer to open that page; never say Sheetbase cannot do it.',
+  'Sheetbase has a schedule with instrument booking, sample logging, moving and splitting, requests to the lab, sample shipments, an incident log, a registry, sample workflows, result limits, reagent orders, recurring work, stocktakes, label printing and retention. Before saying you cannot do something, check your tools. If no tool does it but the app does, say where in the app it is done and offer to open that page; never say Sheetbase cannot do it.',
 ]
 
 function clockLine(timeZone: string, now: Date): string {
@@ -148,6 +153,9 @@ function instructionsFor(
     flags.mcp_draft
       ? 'To book an instrument: find free time first, then propose the booking with the booking tool. The person presses Book on the card; it is not booked until they do. You can also propose moving or cancelling their own bookings. If they asked for a time that is free, propose it straight away; if not, offer two or three free times.'
       : 'To book an instrument, find free time and tell the person, then open the Schedule page for them to book it; this workspace does not let the assistant propose changes.',
+    flags.mcp_draft
+      ? 'Bench jobs work the same way: ordering a reagent or marking it received, logging samples, using, moving or splitting a sample, reporting an incident, sending a request to the lab, moving a sample to its next workflow stage, and taking an instrument out of service. Propose a card for each; the person presses the button. Fill forms only with what the person said and ask for anything missing; never invent a value. You cannot sign, approve, decide a request or release a sample: say those are done on the page by a person.'
+      : 'Bench jobs such as ordering a reagent, logging or moving samples or reporting an incident are done on their pages; this workspace does not let the assistant propose changes, so say where to do it.',
     ...CHAT_RULES,
     clockLine(timeZone, now),
     always,
@@ -213,7 +221,11 @@ export async function createAssistantToolkit(deps: {
   defs.push(guideDef(), workspaceDef(), ...labToolDefs())
   // Proposals are cards the person applies; offered only when agents may draft.
   if (deps.flags.mcp_draft) {
-    defs.push(...proposalToolDefs(), ...bookingProposalDefs())
+    defs.push(
+      ...proposalToolDefs(),
+      ...bookingProposalDefs(),
+      ...benchProposalDefs(),
+    )
   }
   const timeZone = deps.timeZone ?? 'UTC'
   const labContext = {
@@ -278,6 +290,17 @@ export async function createAssistantToolkit(deps: {
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has been booked or changed yet. Say in one sentence what you proposed, then stop.',
+              isError: false,
+              proposal: built.proposal,
+            }
+          : { text: built.message, isError: true }
+      }
+
+      if (isBenchProposalTool(name)) {
+        const built = await buildBenchProposal(name, args, labContext)
+        return built.ok
+          ? {
+              text: 'The person now sees this as a card with a button to do it. Nothing has been changed yet. Say in one sentence what you proposed, then stop.',
               isError: false,
               proposal: built.proposal,
             }

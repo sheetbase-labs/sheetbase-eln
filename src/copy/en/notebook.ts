@@ -79,6 +79,49 @@ export const notebook = {
     proposal: {
       label: 'Suggested change',
       bookingLabel: 'Suggested booking',
+      actionLabel: 'Suggested action',
+      orderReagent: {
+        apply: 'Request order',
+        applying: 'Requesting…',
+        applied: 'Order requested',
+      },
+      receiveReagent: {
+        apply: 'Mark received',
+        applying: 'Saving…',
+        applied: 'Received',
+      },
+      logSamples: {
+        apply: 'Log samples',
+        applying: 'Logging…',
+        applied: 'Logged',
+      },
+      useSample: {
+        apply: 'Record use',
+        applying: 'Saving…',
+        applied: 'Recorded',
+      },
+      moveSamples: { apply: 'Move', applying: 'Moving…', applied: 'Moved' },
+      splitSample: { apply: 'Split', applying: 'Splitting…', applied: 'Split' },
+      reportIncident: {
+        apply: 'File incident',
+        applying: 'Filing…',
+        applied: 'Filed',
+      },
+      sendRequest: {
+        apply: 'Send request',
+        applying: 'Sending…',
+        applied: 'Sent',
+      },
+      advanceSample: {
+        apply: 'Move on',
+        applying: 'Moving…',
+        applied: 'Moved on',
+      },
+      instrumentService: {
+        apply: 'Confirm',
+        applying: 'Saving…',
+        applied: 'Done',
+      },
       book: { apply: 'Book', applying: 'Booking…', applied: 'Booked' },
       move: { apply: 'Move booking', applying: 'Moving…', applied: 'Moved' },
       cancel: {
@@ -132,6 +175,10 @@ export const notebook = {
       booking: {
         running: 'Checking the booking…',
         done: 'Checked the booking',
+      },
+      bench: {
+        running: 'Getting that ready…',
+        done: 'Got that ready',
       },
       generic: {
         running: 'Looking something up…',

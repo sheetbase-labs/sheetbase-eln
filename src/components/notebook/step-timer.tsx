@@ -26,6 +26,7 @@ import {
   notificationPermission,
   prepareTimerAlerts,
 } from '#/lib/step-timer-alert'
+import { useWakeLock } from '#/lib/pwa/wake-lock'
 
 /** The caller's own running and finished timers, kept fresh across tabs and devices. */
 export function useStepTimers(enabled = true) {
@@ -210,6 +211,10 @@ export function StepTimersHost() {
       void alertTimerFinished(timer.id, timer.label, recordPath(timer.recordId))
     }
   }, [finished.map((timer) => timer.id).join(',')])
+
+  // A phone that dims mid-timer may stop counting and alerting, so keep the
+  // screen on while any timer is still running.
+  useWakeLock(list.some((timer) => remainingMs(timer, now) > 0))
 
   // The browser tab shows the soonest countdown, for when the tab is in the background.
   const soonest = list

@@ -54,9 +54,7 @@ export function exportTable<T extends RowData>(
     .map((row) =>
       columns.map((column): ExportValue => {
         const custom = column.columnDef.meta?.exportValue
-        return custom
-          ? custom(row.original)
-          : row.getValue(column.id)
+        return custom ? custom(row.original) : row.getValue(column.id)
       }),
     )
   return { headers: columns.map(getColumnHeaderLabel), rows }

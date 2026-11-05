@@ -43,6 +43,11 @@ vi.mock('@tanstack/react-router', () => ({
 // answers the workspace settings read the dialog makes to learn the workspace
 // time zone a booking's wall clock means.
 const { rpc, list } = vi.hoisted(() => ({ rpc: vi.fn(), list: vi.fn() }))
+// The dialog only reads the training notice through the query cache.
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: () => ({ data: [] }),
+}))
+
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal<typeof NotebookData>()),
   notebookDataClient: { rpc, list },

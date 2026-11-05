@@ -397,3 +397,37 @@ those for the model stories in `src/stories/model-fixtures.ts`.
 | Module                                            | Why no story                                                                                                      |
 | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `src/components/v3/stocktake/stocktake-shared.ts` | Tone maps and label helpers, not a component. The list, count and summary stories render every one of its states. |
+
+## Datasets, instruments, experiments, protocols, reports, templates and viz
+
+The screen parts under `src/components/v3/{datasets, instruments, experiments,
+protocols, recurring, reports, scan, schedule, templates}/`,
+`src/components/v3/projects/project-sheets.tsx`, `src/components/viz/` and
+`src/components/audit/saved-trails.tsx` are covered by these files, one per
+screen, each showing the states that change what the part says:
+
+| Story file                                          | Modules covered                                                                                                                                            |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/stories/DatasetActions.stories.tsx`            | `datasets/{dataset-inspector, column-inspector, dataset-archive, dataset-model-upgrade, dataset-run-pipeline, cite-snapshot-dialog}`                       |
+| `src/stories/InstrumentParts.stories.tsx`           | `instruments/{agent-download, intake-delivery-notice, intake-setup-dialog, live-readings, out-of-service, parser-follow-up, request-qualification-button}` |
+| `src/stories/ExperimentParts.stories.tsx`           | `experiments/{book-instrument-button, save-as-template-dialog, results-workspace}`, `audit/saved-trails`                                                   |
+| `src/stories/ProtocolParts.stories.tsx`             | `protocols/{new-protocol-dialog, protocol-hazards, protocol-inspector, protocol-training-roster, protocol-versions-panel}`                                 |
+| `src/components/v3/protocols/protocols.stories.tsx` | `protocols/{protocol-document, protocol-version-training}` (now imported by `#/` path so the guard sees them)                                              |
+| `src/stories/ReportParts.stories.tsx`               | `reports/{add-section-dialogs, generated-reports, new-report-dialog, report-document, reports-registry-grid, section-card}`                                |
+| `src/stories/BenchActions.stories.tsx`              | `scan/scan-sample-actions`, `schedule/edit-booking-dialog`, `recurring/repeat-fields`                                                                      |
+| `src/stories/TemplateAndSheetParts.stories.tsx`     | `templates/{bulk-upgrade-panel, template-sections-board, use-template-dialog}`, `projects/project-sheets`                                                  |
+| `src/stories/VizParts.stories.tsx`                  | `viz/{chart-renderer-impl, figure-controls, snapshot-source-banner, source-comparison}`                                                                    |
+
+Stories answer reads by seeding a query client (`screenQueryClient`) and wrap
+the story in `withApiReads('error' | 'pending')` where a part also polls or
+resolves a request while it runs, so no story makes a request that leaves the
+page. Two limits are deliberate: the instrument live-readings chart polls every
+few seconds, so its story holds the poll pending and leaves the seeded readings
+on screen; and the bulk-upgrade story runs the upgrade against a refused
+server, so every notebook comes back in the "not updated" list.
+
+| Module                                              | Why no story                                                                                                                                   |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/v3/experiments/experiments-data.ts` | Query keys, list filters, row mapping and hooks for the experiments list. Nothing renders; the screens that use it have stories.               |
+| `src/components/v3/projects/project-data.ts`        | The project screens' data client, fetchers, mutations and hooks. Nothing renders.                                                              |
+| `src/components/v3/projects/project-lists.ts`       | Page-size constants, filters, fetchers and hooks behind the project lists (which have stories in `ProjectLists.stories.tsx`). Nothing renders. |

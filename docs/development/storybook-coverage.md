@@ -163,12 +163,15 @@ naming and is kept where it is.
 
 ## Forward kit, registry and icons
 
-The structural guard in `src/components/story-coverage.test.ts` reads the table
-below. Its scope is every component module under `src/components/v3/ui/`, under
-`src/components/reui/`, and the icon module (`src/components/icons/`). A module a story imports is covered; a module
-listed here is a recorded skip; a module that is neither fails the guard, and
-the failure names the file, the two places it could go, and the title
-conventions below.
+The structural guard in `src/components/story-coverage.test.ts` covers every
+component module under `src/components/`, except the legacy kit
+(`src/components/ui/`) and the component-compare harness
+(`src/components/component-compare/`). It reads every `| Module | Why no story |`
+table in this file, in any section, so an area records its skips in its own
+section with that header. A module a story imports is covered; a module
+listed in one of those tables is a recorded skip; a module that is neither fails
+the guard, and the failure names the file, the two places it could go, and the
+title conventions below.
 
 The table is keyed by the module's path rather than by an export name, because
 coverage is resolved per module — one module, one story. Recording a module that
@@ -197,21 +200,12 @@ merely shares its name with a component is not coverage of it.
 | `src/components/v3/ui/component-adoption.test.ts` | The adoption guard, not a component.                                                           |
 | `src/components/story-coverage.test.ts`           | This guard, not a component.                                                                   |
 
-## Outside the forward-kit guard
+## Outside the guard
 
-The guard above covers the forward kit, the registry copies and the icons. It
-does not cover these, and their absence from it is a recorded boundary rather
-than an oversight:
-
-| Area                                                                                                                                                                            | Position                                                                                                                                                                                                                                                           |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/components/v3/**` outside `v3/ui` — the v3 screens (datasets, integrations, models, pipelines, projects, protocols, samples, schedule, search, settings, shell, templates) | Covered by the stories recorded in "## v3 screens" below, written in the lane that closed this gap. The guard's scope has still not been widened to these directories; that section records what widening would take.                                              |
-| `src/components/ui/**` — the legacy kit                                                                                                                                         | Being deleted file by file; `src/components/v3/ui/component-adoption.test.ts` tracks the removal and the legacy story catalogue migrates with it. Telling someone to write a new story for a file with zero call sites would add work to a queue that is draining. |
-| Other top-level areas (`assist`, `component-compare`, `offline`, `extensions`, `favourites`, `knowledge`, `live`, `overview`, `shortcuts`, `export`)                            | Not this lane. `/component-compare` is a development-only harness whose whole surface is the comparison record, not product UI.                                                                                                                                    |
-
-Widening the guard to any of these means writing that area's stories first:
-the guard fails on every uncovered module by design, and recording a rendered
-screen as a "skip" would make the table a false record.
+| Area                                   | Position                                                                                                                      |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/ui/**`, the legacy kit | Being retired in favour of `v3/ui`; `src/components/v3/ui/component-adoption.test.ts` tracks the removal.                     |
+| `src/components/component-compare/**`  | A development-only harness that reproduces old variants side by side. It is a tool for choosing between them, not product UI. |
 
 ## v3 screens
 

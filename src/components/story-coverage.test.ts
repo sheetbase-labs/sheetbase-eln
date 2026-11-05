@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest'
 /**
  * Storybook coverage guard (ADR-0055).
  *
- * Every component module in the forward kit, in the adopted registry directory
- * and in the two icon surfaces must be exercised by a story, or be recorded as a
+ * Every component module under src/components (bar the legacy kit and the
+ * component-compare harness) must be exercised by a story, or be recorded as a
  * deliberate skip in `docs/development/storybook-coverage.md`. Storybook is
  * checked nowhere else: a component with no story renders nowhere, and before
  * this guard the only way to notice was to read the catalogue by hand.
@@ -28,16 +28,16 @@ import { describe, expect, it } from 'vitest'
 const ROOT = process.cwd()
 const RECORD = join(ROOT, 'docs/development/storybook-coverage.md')
 
-/** The surfaces this guard owns: the forward kit, the registry copies, the icons. */
-const SCOPE = [
-  'src/components/v3/ui',
-  'src/components/reui',
-  'src/components/icons',
-]
-const ICON_MODULES: string[] = []
+/** The surfaces this guard owns: every component under src/components. */
+const SCOPE = ['src/components']
 
-/** Where every skip is recorded, as the heading the guard reads. */
-const RECORD_HEADING = '## Forward kit, registry and icons'
+/**
+ * Left out on purpose: the legacy kit, which is being retired in favour of
+ * v3/ui, and the component-compare harness, a dev tool that reproduces old
+ * variants side by side.
+ */
+const EXCLUDED = ['src/components/ui/', 'src/components/component-compare/']
+const ICON_MODULES: string[] = []
 
 const ADOPTION_GUARD = 'src/components/v3/ui/component-adoption.test.ts'
 const THIS_FILE = 'src/components/story-coverage.test.ts'
@@ -128,6 +128,7 @@ function componentModules(): string[] {
       const repoPath = relative(ROOT, path)
       if (/\.test\.tsx?$|\.stories\.tsx$/.test(repoPath)) continue
       if (repoPath === ADOPTION_GUARD || repoPath === THIS_FILE) continue
+      if (EXCLUDED.some((prefix) => repoPath.startsWith(prefix))) continue
       if (isComponentModule(repoPath)) modules.add(repoPath)
     }
   }
@@ -158,31 +159,26 @@ function modulesWithStories(): Set<string> {
 }
 
 /**
- * The skip table in the record, under the kit/registry/icons heading: one row
- * per module, keyed by its repo-relative path in the first column.
+ * The skips in the record: the rows of every `| Module | Why no story |` table,
+ * in any section, keyed by the module's repo-relative path. Other tables are
+ * notes for readers and are not read here.
  */
 function recordedSkips(): Map<string, string> {
   const record = readFileSync(RECORD, 'utf8')
-  const start = record.indexOf(RECORD_HEADING)
-  if (start === -1) {
-    throw new Error(
-      `${RECORD} has no "${RECORD_HEADING}" heading. The guard reads its skip ` +
-        'table from that section; restore the heading or update RECORD_HEADING.',
-    )
-  }
-  const rest = record.slice(start + RECORD_HEADING.length)
-  // Stop at the next heading of any level: the sub-section below this table
-  // names non-component modules, which the guard never asks about.
-  const end = rest.search(/\n#{2,3} /)
-  const section = end === -1 ? rest : rest.slice(0, end)
-
   const skips = new Map<string, string>()
-  for (const line of section.split('\n')) {
+  let inSkipTable = false
+  for (const line of record.split('\n')) {
+    if (!line.startsWith('|')) {
+      inSkipTable = false
+      continue
+    }
+    if (/^\|\s*Module\s*\|\s*Why no story\s*\|\s*$/.test(line)) {
+      inSkipTable = true
+      continue
+    }
+    if (!inSkipTable) continue
     const row = line.match(/^\|\s*`([^`]+)`\s*\|\s*(.+?)\s*\|\s*$/)
-    if (!row) continue
-    const [, path, reason] = row
-    if (path === 'Module' || /^-+$/.test(path)) continue
-    skips.set(path, reason)
+    if (row) skips.set(row[1], row[2])
   }
   return skips
 }
@@ -197,8 +193,8 @@ const REMEDIATION = [
   '  name. Given the two kits, give a forward-kit story the title',
   "  'v3 kit/<Name>' and a registry story 'UI/<Name>'.",
   '',
-  `  A recorded skip goes in ${relative(ROOT, RECORD)} under`,
-  `  "${RECORD_HEADING}", as one row:`,
+  `  A recorded skip goes in ${relative(ROOT, RECORD)}, in the section`,
+  '  for its area, as one row of a "| Module | Why no story |" table:',
   '      | `src/components/…/thing.tsx` | Why nothing renders. |',
   '  Hooks, providers that render children unchanged, type-only modules and',
   '  pure helpers are the skips that belong there.',
@@ -209,7 +205,7 @@ describe('storybook coverage', () => {
   const covered = modulesWithStories()
   const skips = recordedSkips()
 
-  it('covers every component module in the kit, the registry and the icons', () => {
+  it('covers every component module', () => {
     const uncovered = modules.filter(
       (path) => !covered.has(path) && !skips.has(path),
     )
@@ -244,6 +240,6 @@ describe('storybook coverage', () => {
   it('finds the surfaces it is meant to guard', () => {
     // A rename or a move that empties the scope would otherwise pass silently:
     // no modules means no failures.
-    expect(modules.length).toBeGreaterThan(50)
+    expect(modules.length).toBeGreaterThan(400)
   })
 })

@@ -386,7 +386,7 @@ describe('reagentListQuery / reagentCountQuery', () => {
       ...baseQuery,
       filters: [{ fieldId: 'status', operator: 'eq', values: ['archived'] }],
     })
-    expect(q).toContain('archived_at=is.not.null')
+    expect(q).toContain('archived_at=not.is.null')
     expect(q).not.toContain('status=eq.archived')
   })
 

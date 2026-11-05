@@ -19,6 +19,7 @@ export const Route = createFileRoute('/materials')({
       search.tab === 'quarantine' ||
       search.tab === 'expired' ||
       search.tab === 'orders' ||
+      search.tab === 'archived' ||
       search.tab === 'instock'
         ? search.tab
         : undefined,

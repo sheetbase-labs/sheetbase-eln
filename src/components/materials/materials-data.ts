@@ -24,6 +24,8 @@ export interface MaterialListRow {
   location: string
   status: { tone: Tone; label: string }
   attention?: { tone: Tone; label: string }
+  /** The lot's expiry date as stored (YYYY-MM-DD), for the Expiry column. */
+  expiry: string | null
   tabs: string[]
   metadataVersion: number
   /** The project the lot lives in. */
@@ -159,7 +161,9 @@ export function toMaterialListRow(reagent: Reagent): MaterialListRow {
   // tabs rather than members of the stock list. Expiring is a view over stock.
   const expired = attention.expired || reagent.status === 'expired'
   const tabs: string[] = []
-  if (reagent.status === 'quarantined') tabs.push('quarantine')
+  // An archived lot is out of every working list and found on Archived.
+  if (reagent.archivedAt) tabs.push('archived')
+  else if (reagent.status === 'quarantined') tabs.push('quarantine')
   else if (expired) tabs.push('expired')
   else tabs.push('instock')
   if (tabs.includes('instock') && attention.nearExpiry) tabs.push('expiring')
@@ -191,6 +195,7 @@ export function toMaterialListRow(reagent: Reagent): MaterialListRow {
           : attention.kind === 'expired'
             ? { tone: 'bad', label: 'Expired' }
             : undefined,
+    expiry: reagent.expiry ?? null,
     tabs,
     metadataVersion: reagent.metadataVersion,
     projectId: reagent.projectId,
@@ -209,21 +214,46 @@ export const materialListQueryKeys = {
  */
 const REAGENT_PAGE_SIZE = 200
 
-export function useReagentPage(client: DataClient = notebookDataClient) {
+const ARCHIVED_QUERY: RegistryQuery = {
+  ...EMPTY_QUERY,
+  filters: [{ fieldId: 'status', operator: 'eq', values: ['archived'] }],
+}
+
+/** How many lots are archived, for the Archived tab's number. */
+export function useArchivedReagentCount(
+  client: DataClient = notebookDataClient,
+) {
   return useQuery({
-    queryKey: materialListQueryKeys.page,
+    queryKey: [...materialListQueryKeys.page, 'archived-count'],
+    queryFn: () => fetchReagentsCount(client, ARCHIVED_QUERY),
+    staleTime: 15_000,
+  })
+}
+
+export function useReagentPage(
+  client: DataClient = notebookDataClient,
+  archived = false,
+  enabled = true,
+) {
+  return useQuery({
+    enabled,
+    queryKey: archived
+      ? [...materialListQueryKeys.page, 'archived']
+      : materialListQueryKeys.page,
     queryFn: async () => {
       const rows: Reagent[] = []
+      // The Archived tab reads the lots the working lists leave out.
+      const query = archived ? ARCHIVED_QUERY : EMPTY_QUERY
       for (;;) {
         const page = await fetchReagentsPage(client, {
-          ...EMPTY_QUERY,
+          ...query,
           pageIndex: Math.floor(rows.length / REAGENT_PAGE_SIZE),
           pageSize: REAGENT_PAGE_SIZE,
         })
         rows.push(...page)
         if (page.length < REAGENT_PAGE_SIZE) break
       }
-      const total = await fetchReagentsCount(client, EMPTY_QUERY)
+      const total = await fetchReagentsCount(client, query)
       return { rows, total }
     },
     staleTime: 15_000,

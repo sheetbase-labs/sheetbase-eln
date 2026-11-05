@@ -373,7 +373,7 @@ export function reagentListQuery(query: RegistryQuery): string {
   const archived = query.filters.find(
     (f) => f.fieldId === 'status' && f.values[0] === 'archived',
   )
-  parts.push(archived ? 'archived_at=is.not.null' : 'archived_at=is.null')
+  parts.push(archived ? 'archived_at=not.is.null' : 'archived_at=is.null')
 
   for (const filter of query.filters) {
     if (!(filter.fieldId in REAGENT_FILTER_CAPABILITIES)) {

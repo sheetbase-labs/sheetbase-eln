@@ -134,6 +134,10 @@ import { sheetRecordTargetModelKey } from '#/lib/sheet-record-target'
 import { hasCapability } from '#/lib/capability'
 import type { CurrentContext } from '#/lib/current-user'
 import { formatMagnitude } from '#/lib/format-numbers'
+import { useOfflineEdits } from '#/components/offline/offline-edits'
+import { overlayOfflineSheetEdits } from '#/lib/offline/sheet-overlay'
+import { requestBackgroundSync } from '#/lib/offline/service-worker'
+import type { OfflineJsonValue } from '#/lib/offline/store'
 import { commentsQueryKeys, fetchCommentsForSheet } from '#/lib/comments-data'
 import {
   sheetCommentAnchorSchema,
@@ -666,14 +670,22 @@ export function CanonicalSheetEditor({
     },
   })
 
+  // Edits made offline wait on the device; show them where they will land.
+  const offlineEdits = useOfflineEdits()
+  const offlineEditsRef = useRef(offlineEdits)
+  offlineEditsRef.current = offlineEdits
   const canonicalMatrix = useMemo(
     () =>
-      canonicalSheetGridMatrix({
-        instance,
-        composition: composedSnapshot,
-        calculationResults: calculations.data?.mapped,
-      }),
-    [instance, composedSnapshot, calculations.data],
+      overlayOfflineSheetEdits(
+        canonicalSheetGridMatrix({
+          instance,
+          composition: composedSnapshot,
+          calculationResults: calculations.data?.mapped,
+        }),
+        instance.id,
+        offlineEdits.edits,
+      ),
+    [instance, composedSnapshot, calculations.data, offlineEdits.edits],
   )
   // GRID-04: presentation (sort/filter/freeze/hide/widths/order) is local
   // working state. It resequences the *display* columns only — the canonical
@@ -842,6 +854,50 @@ export function CanonicalSheetEditor({
     return true
   }
 
+  /**
+   * Without a connection, keep the typed cells (and any row they start) on the
+   * device to send later, instead of failing the write. Returns true when they
+   * were kept. Changes to the columns themselves need the server.
+   */
+  async function keepCellsOnDevice(
+    cells: Array<{ rowKey: string; fieldId: string; value: unknown }>,
+    extra?: { fieldChanges?: LocalFieldChange[] },
+  ): Promise<boolean> {
+    const offline = offlineEditsRef.current
+    if (!offline.canQueue || typeof navigator === 'undefined') return false
+    if (navigator.onLine) return false
+    if (extra?.fieldChanges?.length) {
+      throw new Error(t('notebook.offlineEdits.needsConnection'))
+    }
+    const sheet = {
+      instanceId: instanceRef.current.id,
+      revision: instanceRef.current.revision,
+    }
+    const known = new Set(matrixRef.current.rowKeys)
+    const fresh = new Map<string, Record<string, OfflineJsonValue>>()
+    const existing: Array<{
+      rowId: string
+      columnId: string
+      value: OfflineJsonValue
+    }> = []
+    for (const cell of cells) {
+      const value = (cell.value ?? null) as OfflineJsonValue
+      if (known.has(cell.rowKey)) {
+        existing.push({ rowId: cell.rowKey, columnId: cell.fieldId, value })
+      } else {
+        const values = fresh.get(cell.rowKey) ?? {}
+        values[cell.fieldId] = value
+        fresh.set(cell.rowKey, values)
+      }
+    }
+    for (const [rowKey, values] of fresh) {
+      await offline.queueSheetRow(sheet, { rowKey, values })
+    }
+    if (existing.length > 0) await offline.queueSheetCells(sheet, existing)
+    void requestBackgroundSync()
+    return true
+  }
+
   async function persistLocalCells(
     cells: Array<{ rowKey: string; fieldId: string; value: unknown }>,
     extra?: {
@@ -851,6 +907,7 @@ export function CanonicalSheetEditor({
     attempt = 0,
   ) {
     const current = instanceRef.current
+    if (await keepCellsOnDevice(cells, extra)) return current
     const rows = new Map((extra?.rows ?? []).map((row) => [row.rowKey, row]))
     for (const { rowKey } of cells) {
       if (rows.has(rowKey)) continue
@@ -885,6 +942,40 @@ export function CanonicalSheetEditor({
       instanceRef.current = next
       return next
     } catch (error) {
+      // The request never reached the server (the connection dropped between
+      // the last event and this write): keep the cells instead of losing them.
+      if (
+        error instanceof TypeError &&
+        offlineEditsRef.current.canQueue &&
+        !extra?.fieldChanges?.length
+      ) {
+        const sheet = {
+          instanceId: current.id,
+          revision: current.revision,
+        }
+        const known = new Set(matrixRef.current.rowKeys)
+        const existing = cells.filter((cell) => known.has(cell.rowKey))
+        for (const cell of cells.filter((item) => !known.has(item.rowKey))) {
+          await offlineEditsRef.current.queueSheetRow(sheet, {
+            rowKey: cell.rowKey,
+            values: {
+              [cell.fieldId]: (cell.value ?? null) as OfflineJsonValue,
+            },
+          })
+        }
+        if (existing.length > 0) {
+          await offlineEditsRef.current.queueSheetCells(
+            sheet,
+            existing.map((cell) => ({
+              rowId: cell.rowKey,
+              columnId: cell.fieldId,
+              value: (cell.value ?? null) as OfflineJsonValue,
+            })),
+          )
+        }
+        void requestBackgroundSync()
+        return current
+      }
       // GRID-04 review fix: a committed cell reads the same expected revision
       // a concurrent working-view write reads, so a stale rejection means a
       // sibling write landed first — not that the value is bad. Re-read the
@@ -1206,6 +1297,25 @@ export function CanonicalSheetEditor({
           })),
       )
       if (cells.length === 0) return
+      if (
+        offlineEditsRef.current.canQueue &&
+        typeof navigator !== 'undefined' &&
+        !navigator.onLine
+      ) {
+        await offlineEditsRef.current.queueSheetCells(
+          {
+            instanceId: instanceRef.current.id,
+            revision: instanceRef.current.revision,
+          },
+          cells.map((cell) => ({
+            rowId: cell.rowKey,
+            columnId: cell.columnId,
+            value: (cell.value ?? null) as OfflineJsonValue,
+          })),
+        )
+        void requestBackgroundSync()
+        return
+      }
       await writeSheetCells(
         {
           composition: snapshot,

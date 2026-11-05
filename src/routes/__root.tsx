@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { startOfflineSupport } from '#/lib/offline/service-worker'
+import { splashLinks } from '#/lib/pwa/splash'
 import { setDisplayTimeZone } from '#/lib/display-time-zone'
 import {
   HeadContent,
@@ -126,6 +127,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         media: '(prefers-color-scheme: dark)',
       },
       { name: 'mobile-web-app-capable', content: 'yes' },
+      { name: 'apple-mobile-web-app-capable', content: 'yes' },
+      { name: 'apple-mobile-web-app-title', content: 'Sheetbase' },
+      { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
       {
         name: 'description',
         content: t('settings.root.preciseFlexibleElectronic'),
@@ -135,6 +139,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
       { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
       { rel: 'manifest', href: '/manifest.webmanifest' },
+      ...splashLinks(),
       {
         rel: 'stylesheet',
         href: appCss,

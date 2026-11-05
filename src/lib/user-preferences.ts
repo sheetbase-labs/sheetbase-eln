@@ -10,6 +10,8 @@ export type Appearance = 'system' | 'light' | 'dark'
 export interface UserPreferences {
   appearance: Appearance
   navCollapsed: boolean
+  /** The sidebar groups this person folded (`work`, `lab`, ...). */
+  navFolded: string[]
 }
 
 export const userPreferencesQueryKeys = {
@@ -39,23 +41,33 @@ async function readUserPreferences(
   const rows = await client.list<{
     appearance: string
     nav_collapsed: boolean
-  }>('user_preferences', '?limit=1&select=appearance,nav_collapsed')
+    nav_folded: string[] | null
+  }>('user_preferences', '?limit=1&select=appearance,nav_collapsed,nav_folded')
   const row = rows[0]
   if (rows.length === 0) return null
   return {
     appearance: toAppearance(row.appearance),
     navCollapsed: row.nav_collapsed,
+    navFolded: row.nav_folded ?? [],
   }
 }
 
 export async function setUserPreference(
   client: DataClient,
-  preferences: UserPreferences,
+  preferences: Pick<UserPreferences, 'appearance' | 'navCollapsed'>,
 ): Promise<void> {
   await client.rpc('set_user_preference', {
     p_appearance: preferences.appearance,
     p_nav_collapsed: preferences.navCollapsed,
   })
+}
+
+/** Remember which sidebar groups this person folded. */
+export async function setNavFolded(
+  client: DataClient,
+  groups: readonly string[],
+): Promise<void> {
+  await client.rpc('set_nav_folded', { p_groups: [...groups] })
 }
 
 /** Update only the appearance, leaving the navigation state untouched. */

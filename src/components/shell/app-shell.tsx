@@ -47,6 +47,7 @@ import {
   fetchUserPreferences,
   setActiveWorkspace,
   setUserAppearance,
+  setNavFolded,
   setUserPreference,
 } from '#/lib/user-preferences'
 import { createGlobalShortcuts } from '#/lib/global-shortcuts'
@@ -60,8 +61,8 @@ import type { Notification, NotificationTarget } from '#/components/types'
 import type { ShellCounts } from '#/lib/shell-counts.server'
 import { markNotificationsRead } from '#/lib/notifications-data'
 import { createMenuSearch } from './create-context'
-import { isHomePage, primaryNav, recordNav } from './nav'
-import type { NavItem } from './nav'
+import { isHomePage, navGroups, primaryNav, visibleNavGroups } from './nav'
+import type { NavGroup, NavItem } from './nav'
 import { filterNavForRole } from '#/lib/nav-visibility'
 import { settingsHomePath } from '#/components/settings/settings-nav'
 import type { SettingsAccessMap } from '#/lib/settings-access'
@@ -90,6 +91,27 @@ import {
 import { t } from '#/copy'
 
 const SIDEBAR_COLLAPSE_KEY = 'sheetbase-sidebar-collapsed'
+const SIDEBAR_FOLDED_KEY = 'sheetbase-sidebar-folded'
+
+function readFolded(): string[] {
+  try {
+    const raw = localStorage.getItem(SIDEBAR_FOLDED_KEY)
+    const parsed: unknown = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed)
+      ? parsed.filter((g): g is string => typeof g === 'string')
+      : []
+  } catch {
+    return []
+  }
+}
+
+function writeFolded(groups: readonly string[]) {
+  try {
+    localStorage.setItem(SIDEBAR_FOLDED_KEY, JSON.stringify(groups))
+  } catch {
+    /* private mode / disabled storage */
+  }
+}
 
 /** The `G` then key destinations the design lists (plus the real routes). */
 const G_DESTINATIONS: GlobalShortcutDestination[] = [
@@ -117,6 +139,8 @@ type ShellData = {
   }
   notifications: Notification[]
   pinned: { id: string; name: string; tone: 'progress' | 'review' }[]
+  /** Pages the lab took out of everyone's sidebar. */
+  hiddenPages?: string[]
   /** Live counts keyed by nav label: Inbox, Datasets, Pipelines. */
   counts?: ShellCounts
   /** SHELL-01: the caller's active workspace and all their memberships. */
@@ -169,7 +193,33 @@ export function AppShell({
   const role = data.me.role
   const settingsTo = settingsHomePath(role, data.me.settingsAccess)
   const primaryItems = useMemo(() => filterNavForRole(primaryNav, role), [role])
-  const recordItems = useMemo(() => filterNavForRole(recordNav, role), [role])
+  const hiddenPages = data.hiddenPages
+  const groups = useMemo(
+    () =>
+      visibleNavGroups(
+        navGroups.map((g) => ({
+          ...g,
+          items: filterNavForRole(g.items, role),
+        })),
+        hiddenPages ?? [],
+      ),
+    [role, hiddenPages],
+  )
+  /** The sidebar groups this person folded; follows them between devices. */
+  const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set())
+  const foldTouched = useRef(false)
+  const toggleFold = useCallback((group: string) => {
+    foldTouched.current = true
+    setFolded((current) => {
+      const next = new Set(current)
+      if (next.has(group)) next.delete(group)
+      else next.add(group)
+      const list = [...next].sort()
+      writeFolded(list)
+      void setNavFolded(createDataClient(), list).catch(() => undefined)
+      return next
+    })
+  }, [])
 
   // A swipe in from the left edge opens the phone drawer.
   const openNav = useCallback(() => setNavOpen(true), [])
@@ -190,10 +240,16 @@ export function AppShell({
       /* private mode / disabled storage */
     }
     setCollapsed(saved)
+    setFolded(new Set(readFolded()))
     let cancelled = false
     void fetchUserPreferences(createDataClient())
       .then((preferences) => {
         if (cancelled || !preferences) return
+        if (!foldTouched.current) {
+          const stored = preferences.navFolded
+          setFolded(new Set(stored))
+          writeFolded(stored)
+        }
         // SHELL-01/03: the stored preference is the source of truth, but it must
         // not overwrite a toggle the user has already made while it was in
         // flight. Applying it also reconciles the local mirror, so the next load
@@ -347,7 +403,9 @@ export function AppShell({
                 pinned={data.pinned}
                 counts={data.counts}
                 primaryItems={primaryItems}
-                recordItems={recordItems}
+                groups={groups}
+                folded={folded}
+                onToggleFold={toggleFold}
                 settingsTo={settingsTo}
                 onAsk={() => {
                   setNavOpen(false)
@@ -369,7 +427,7 @@ export function AppShell({
                 collapsed ? 'hidden md:flex' : 'hidden md:flex xl:hidden'
               }
               primaryItems={primaryItems}
-              recordItems={recordItems}
+              groups={groups}
               settingsTo={settingsTo}
             />
             {collapsed ? null : (
@@ -377,7 +435,9 @@ export function AppShell({
                 pinned={data.pinned}
                 counts={data.counts}
                 primaryItems={primaryItems}
-                recordItems={recordItems}
+                groups={groups}
+                folded={folded}
+                onToggleFold={toggleFold}
                 settingsTo={settingsTo}
                 className="hidden xl:flex"
               />
@@ -406,12 +466,12 @@ export function AppShell({
 function NavRail({
   className,
   primaryItems,
-  recordItems,
+  groups,
   settingsTo,
 }: {
   className?: string
   primaryItems: NavItem[]
-  recordItems: NavItem[]
+  groups: NavGroup[]
   settingsTo: string
 }) {
   const homeSelected = useRouterState({
@@ -429,25 +489,26 @@ function NavRail({
         className,
       )}
     >
-      {[...primaryItems, null, ...recordItems].map((i, n) =>
-        i === null ? (
-          <div key={n} className="my-1 h-px w-6 bg-border-subtle" />
-        ) : (
-          <Tooltip key={i.label} content={i.label}>
-            <Link
-              {...i.link}
-              aria-label={i.label}
-              activeOptions={{ exact: i.label === 'Home' }}
-              className="flex size-8 shrink-0 items-center justify-center rounded-md text-fg-muted hover:bg-surface-hover hover:text-fg"
-              activeProps={selectedProps}
-              inactiveProps={
-                i.label === 'Home' && homeSelected ? selectedProps : undefined
-              }
-            >
-              <Icon name={i.icon} size={16} />
-            </Link>
-          </Tooltip>
-        ),
+      {[...primaryItems, ...groups.flatMap((g) => [null, ...g.items])].map(
+        (i, n) =>
+          i === null ? (
+            <div key={n} className="my-1 h-px w-6 bg-border-subtle" />
+          ) : (
+            <Tooltip key={i.label} content={i.label}>
+              <Link
+                {...i.link}
+                aria-label={i.label}
+                activeOptions={{ exact: i.label === 'Home' }}
+                className="flex size-8 shrink-0 items-center justify-center rounded-md text-fg-muted hover:bg-surface-hover hover:text-fg"
+                activeProps={selectedProps}
+                inactiveProps={
+                  i.label === 'Home' && homeSelected ? selectedProps : undefined
+                }
+              >
+                <Icon name={i.icon} size={16} />
+              </Link>
+            </Tooltip>
+          ),
       )}
       <div className="flex-1" />
       <Tooltip content={t('settings.shell.appShell.settingsTooltip')}>
@@ -1264,7 +1325,9 @@ function SideNav({
   pinned,
   counts,
   primaryItems,
-  recordItems,
+  groups,
+  folded,
+  onToggleFold,
   settingsTo,
   onAsk,
   className,
@@ -1272,7 +1335,10 @@ function SideNav({
   pinned: ShellData['pinned']
   counts?: ShellData['counts']
   primaryItems: NavItem[]
-  recordItems: NavItem[]
+  groups: NavGroup[]
+  /** The groups this person folded. */
+  folded: ReadonlySet<string>
+  onToggleFold: (group: string) => void
   settingsTo: string
   /** Phone drawer only: the assistant has no other entry point there. */
   onAsk?: () => void
@@ -1288,6 +1354,13 @@ function SideNav({
     // zero the server could not back, while the counts that did read still show.
     return typeof live === 'string' ? { ...item, count: live } : item
   }
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
+  const isOpen = (item: NavItem) => {
+    const to = String(item.link.to)
+    return pathname === to || pathname.startsWith(`${to}/`)
+  }
   return (
     <nav
       aria-label={t('settings.shell.appShell.mainAria')}
@@ -1299,10 +1372,43 @@ function SideNav({
       {primaryItems.map((i) => (
         <NavLink key={i.label} item={withCount(i)} />
       ))}
-      <div className="mx-2 my-1.5 h-px shrink-0 bg-border-subtle" />
-      {recordItems.map((i) => (
-        <NavLink key={i.label} item={withCount(i)} />
-      ))}
+      {groups.map((g) => {
+        const isFolded = folded.has(g.key)
+        // A folded group still shows the page you are on, so the sidebar
+        // never loses track of where you are.
+        const items = isFolded ? g.items.filter(isOpen) : g.items
+        return (
+          <div
+            key={g.key}
+            role="group"
+            aria-label={g.label}
+            className="contents"
+          >
+            <button
+              type="button"
+              aria-expanded={!isFolded}
+              aria-label={t(
+                isFolded
+                  ? 'settings.shell.nav.unfoldGroup'
+                  : 'settings.shell.nav.foldGroup',
+                { group: g.label },
+              )}
+              onClick={() => onToggleFold(g.key)}
+              className="group/fold flex h-[26px] shrink-0 cursor-pointer items-center gap-1 rounded-md border-0 bg-transparent px-2 pt-2.5 pb-1 text-left text-label leading-[normal] font-medium text-fg-muted hover:text-fg"
+            >
+              {g.label}
+              <Icon
+                name={isFolded ? 'chevronRight' : 'chevronDown'}
+                size={12}
+                className="opacity-60 group-hover/fold:opacity-100"
+              />
+            </button>
+            {items.map((i) => (
+              <NavLink key={i.label} item={withCount(i)} />
+            ))}
+          </div>
+        )
+      })}
       {pinned.length ? (
         <>
           <div className="shrink-0 px-2 pb-1 pt-3.5 text-label leading-[normal] font-medium text-fg-muted">

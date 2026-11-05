@@ -252,3 +252,20 @@ export const UnknownInboxCount: Story = {
     </AppShell>
   ),
 }
+
+/**
+ * A lab that hid the pages it does not use (Settings > Lab setup > Sidebar).
+ * Projects and Experiments always stay.
+ */
+export const LabHidPages: Story = {
+  render: () => (
+    <AppShell
+      data={{
+        ...shellData,
+        hiddenPages: ['shipments', 'incidents', 'registry', 'pipelines'],
+      }}
+    >
+      <RoutedPage />
+    </AppShell>
+  ),
+}

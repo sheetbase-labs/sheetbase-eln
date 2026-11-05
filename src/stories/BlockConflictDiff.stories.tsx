@@ -30,9 +30,7 @@ const port = (saved: string | null): OfflineReplayPort => ({
   commit: async () => {},
   raiseCellConflict: async () => null,
   readServerBlockPayload: async () =>
-    saved === null
-      ? null
-      : (richTextPayloadFromText(saved)),
+    saved === null ? null : richTextPayloadFromText(saved),
 })
 
 const meta = {

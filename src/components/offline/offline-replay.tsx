@@ -37,11 +37,8 @@ import type {
 import type { LiveStatus } from '#/lib/live-events'
 import { OFFLINE_SYNC_EVENT } from '#/lib/offline/service-worker'
 import { Button } from '#/components/ui/button'
-import {
-  blockPayloadSummary,
-  describeOfflineEdit,
-  useOfflineEdits,
-} from './offline-edits'
+import { BlockConflictDiff } from './block-conflict-diff'
+import { describeOfflineEdit, useOfflineEdits } from './offline-edits'
 
 export interface OfflineReplayRunnerProps {
   store: OfflineEditStore
@@ -144,19 +141,6 @@ export function OfflineReplayRunner({
     return () => window.removeEventListener(OFFLINE_SYNC_EVENT, onSync)
   }, [runReplay])
 
-  const [theirs, setTheirs] = React.useState<Record<string, string | null>>({})
-  const compare = React.useCallback(
-    async (edit: OfflineEdit) => {
-      if (edit.kind !== 'block_payload') return
-      const server = await writer.readServerBlockPayload?.(edit)
-      setTheirs((current) => ({
-        ...current,
-        [edit.id]: server ? blockPayloadSummary(server) : null,
-      }))
-    },
-    [writer],
-  )
-
   const keepMine = React.useCallback(
     async (edit: OfflineEdit) => {
       if (edit.kind !== 'block_payload' || !writer.keepMyBlockEdit) return
@@ -249,35 +233,18 @@ export function OfflineReplayRunner({
               className="flex flex-col gap-1 text-label"
             >
               <span className="font-medium">
-                {description
-                  ? `${description.title}: ${description.detail}`
-                  : t('notebook.offlineReplay.anEditMadeOffline')}
+                {edit?.kind === 'block_payload' && description
+                  ? description.title
+                  : description
+                    ? `${description.title}: ${description.detail}`
+                    : t('notebook.offlineReplay.anEditMadeOffline')}
               </span>
-              <span>{outcome.message}</span>
+              {edit?.kind === 'block_payload' ? null : (
+                <span>{outcome.message}</span>
+              )}
               {edit?.kind === 'block_payload' &&
               outcome.status === 'conflict' ? (
-                <span className="flex flex-col gap-1 rounded-md border p-2">
-                  <span className="font-medium">
-                    {t('notebook.offlineReplay.compareHeading')}
-                  </span>
-                  <span>
-                    <b>{t('notebook.offlineReplay.mine')}:</b>{' '}
-                    {blockPayloadSummary(edit.payload) || '—'}
-                  </span>
-                  {edit.id in theirs ? (
-                    <span>
-                      <b>{t('notebook.offlineReplay.theirs')}:</b>{' '}
-                      {theirs[edit.id] ??
-                        t('notebook.offlineReplay.nothingToShow')}
-                    </span>
-                  ) : (
-                    <span>
-                      <Button size="sm" onClick={() => void compare(edit)}>
-                        {t('notebook.offlineReplay.compareHeading')}
-                      </Button>
-                    </span>
-                  )}
-                </span>
+                <BlockConflictDiff edit={edit} port={writer} />
               ) : null}
               <span className="flex flex-wrap gap-1.5">
                 {edit?.kind === 'block_text' ? (

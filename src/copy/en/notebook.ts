@@ -1255,9 +1255,8 @@ export const notebook = {
     copyText: 'Copy text',
     keepMine: 'Keep my version',
     useTheirs: 'Use theirs',
-    mine: 'Yours (made offline)',
-    theirs: 'Saved by someone else',
-    compareHeading: 'Compare the two versions',
+    diffLegend:
+      'Struck through is only in the saved version. Highlighted is only in yours.',
     nothingToShow: 'Couldn’t read the saved version.',
     discardThisEditFor: 'Discard this edit for good',
     keepIt: 'Keep it',

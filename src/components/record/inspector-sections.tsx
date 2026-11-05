@@ -1,3 +1,4 @@
+import { Avatar } from '#/components/ui/avatar'
 import { t } from '#/copy'
 import * as React from 'react'
 import { Badge } from '#/components/ui/badge'
@@ -179,7 +180,7 @@ export function CheckList({ items }: { items: CheckItem[] }) {
 /** Simple activity row. UI-007 hardens this into the full AuditTrail. */
 export interface ActivityItem {
   id: string
-  actor: { name: string; initials?: string }
+  actor: { name: string; initials?: string; userId?: string | null }
   action: string
   target?: string
   at: string
@@ -194,13 +195,14 @@ export function ActivityFeed({ items }: { items: ActivityItem[] }) {
     <ol className="space-y-3">
       {items.map((a) => (
         <li key={a.id} className="flex gap-2.5">
-          <span
-            title={a.actor.name}
-            aria-label={a.actor.name}
-            className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary-text"
-          >
-            {(a.actor.initials ?? a.actor.name.slice(0, 2)).toUpperCase()}
-          </span>
+          <Avatar
+            name={a.actor.name}
+            userId={a.actor.userId}
+            initials={(
+              a.actor.initials ?? a.actor.name.slice(0, 2)
+            ).toUpperCase()}
+            className="mt-0.5 size-6 bg-primary/15 text-xs text-primary-text"
+          />
           <div className="min-w-0 flex-1">
             <p className="text-xs leading-5 text-fg">
               <span className="font-medium">{a.actor.name}</span>{' '}
@@ -223,7 +225,7 @@ export function ActivityFeed({ items }: { items: ActivityItem[] }) {
 /** Comment row. */
 export interface CommentItem {
   id: string
-  author: { name: string; initials?: string }
+  author: { name: string; initials?: string; userId?: string | null }
   body: string
   at: string
 }
@@ -237,13 +239,14 @@ export function CommentList({ items }: { items: CommentItem[] }) {
         <li key={c.id} className="space-y-1">
           <div className="flex items-center justify-between gap-2">
             <span className="inline-flex items-center gap-1.5">
-              <span
-                title={c.author.name}
-                aria-label={c.author.name}
-                className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary-text"
-              >
-                {(c.author.initials ?? c.author.name.slice(0, 2)).toUpperCase()}
-              </span>
+              <Avatar
+                name={c.author.name}
+                userId={c.author.userId}
+                initials={(
+                  c.author.initials ?? c.author.name.slice(0, 2)
+                ).toUpperCase()}
+                className="size-5 bg-primary/15 text-xs text-primary-text"
+              />
               <span className="text-xs font-medium">{c.author.name}</span>
             </span>
             <span className="text-xs text-fg-muted">{c.at}</span>
@@ -286,17 +289,16 @@ export function ContributorAvatars({
     <div className="flex items-center">
       <div className="flex -space-x-1.5">
         {visible.map((c) => (
-          <span
+          <Avatar
             key={c.id}
-            title={c.name}
-            aria-label={c.name}
+            name={c.name}
+            userId={c.id}
+            initials={(c.initials ?? c.name.slice(0, 2)).toUpperCase()}
             className={cn(
-              'flex shrink-0 items-center justify-center rounded-full border border-background bg-primary/15 font-semibold text-primary-text',
+              'border border-background bg-primary/15 text-primary-text',
               dim,
             )}
-          >
-            {(c.initials ?? c.name.slice(0, 2)).toUpperCase()}
-          </span>
+          />
         ))}
       </div>
       {overflow > 0 ? (

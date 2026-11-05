@@ -183,7 +183,15 @@ export function placeBeside(options: {
   gap?: number
   prefer?: 'top' | 'bottom'
 }): FloatingPlacement {
-  const { anchor, size, area, gap = 6, prefer = 'bottom' } = options
+  const { size, area, gap = 6, prefer = 'bottom' } = options
+  // An anchor the keyboard has covered (or scrolled above the status bar) is
+  // treated as sitting on that edge, so the surface still lands on screen.
+  const clamp = (y: number) => Math.min(Math.max(y, area.top), area.bottom)
+  const anchor = {
+    top: clamp(options.anchor.top),
+    bottom: clamp(options.anchor.bottom),
+    left: options.anchor.left,
+  }
   const below = area.bottom - EDGE_GAP_PX - (anchor.bottom + gap)
   const above = anchor.top - gap - (area.top + EDGE_GAP_PX)
   const fitsBelow = size.height <= below

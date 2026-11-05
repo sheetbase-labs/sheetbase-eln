@@ -2,8 +2,8 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import type { ProtocolVersion } from '#/lib/controlled-protocols'
 import { PageHeader, Section } from '../ui/layout'
-import { ProtocolDocument } from './protocol-document'
-import { ProtocolVersionTraining } from './protocol-version-training'
+import { ProtocolDocument } from '#/components/v3/protocols/protocol-document'
+import { ProtocolVersionTraining } from '#/components/v3/protocols/protocol-version-training'
 
 const meta = {
   title: 'Lab/Protocol preparation',

@@ -15,6 +15,7 @@ import {
 } from '#/lib/pane-tree'
 import type { LayoutPreset, SplitDirection } from '#/lib/pane-tree'
 import {
+  isEditablePage,
   linkLetters,
   newPane,
   newTab,
@@ -279,6 +280,23 @@ export function arrange(
   )
 }
 
+/**
+ * Editing is for whichever pane shows something to edit. When a pane moves onto
+ * an editable page while the primary pane holds nothing editable (Home, a list,
+ * a tool), nobody is editing, so this pane takes the seat. Otherwise it would
+ * open read-only with a banner blaming another pane that has nothing to edit.
+ */
+function seatOnEditable(
+  tab: WorkspaceTab,
+  paneId: string,
+  href: string,
+): WorkspaceTab {
+  if (tab.primaryId === paneId || !isEditablePage(href)) return tab
+  const primary = paneOf(tab, tab.primaryId)
+  if (primary && isEditablePage(primary.href)) return tab
+  return { ...tab, primaryId: paneId }
+}
+
 /** A pane's own history: moving to a new page pushes the old one. */
 export function recordNavigation(
   state: WorkspaceState,
@@ -295,24 +313,30 @@ export function recordNavigation(
     identifier: pane.identifier,
     leftAt: new Date().toISOString(),
   }
-  return updateTab(state, tab.id, (current) => ({
-    ...current,
-    panes: current.panes.map((entry) =>
-      entry.id !== paneId
-        ? entry
-        : samePage
-          ? { ...entry, href }
-          : {
-              ...entry,
-              href,
-              title: pageTitle(href),
-              identifier: undefined,
-              trail: [...entry.trail, step].slice(-TRAIL_LIMIT),
-              forward: [],
-            },
+  return updateTab(state, tab.id, (current) =>
+    seatOnEditable(
+      {
+        ...current,
+        panes: current.panes.map((entry) =>
+          entry.id !== paneId
+            ? entry
+            : samePage
+              ? { ...entry, href }
+              : {
+                  ...entry,
+                  href,
+                  title: pageTitle(href),
+                  identifier: undefined,
+                  trail: [...entry.trail, step].slice(-TRAIL_LIMIT),
+                  forward: [],
+                },
+        ),
+        dirty: samePage ? current.dirty : true,
+      },
+      paneId,
+      href,
     ),
-    dirty: samePage ? current.dirty : true,
-  }))
+  )
 }
 
 function activeTabContaining(state: WorkspaceState, paneId: string) {
@@ -404,16 +428,27 @@ export function setPaneHref(
   const pane = tab ? paneOf(tab, paneId) : undefined
   if (!tab || !pane || pane.href === href) return state
   const samePage = pane.href.split(/[?#]/)[0] === href.split(/[?#]/)[0]
-  return updateTab(state, tab.id, (current) => ({
-    ...current,
-    panes: current.panes.map((entry) =>
-      entry.id !== paneId
-        ? entry
-        : samePage
-          ? { ...entry, href }
-          : { ...entry, href, title: pageTitle(href), identifier: undefined },
+  return updateTab(state, tab.id, (current) =>
+    seatOnEditable(
+      {
+        ...current,
+        panes: current.panes.map((entry) =>
+          entry.id !== paneId
+            ? entry
+            : samePage
+              ? { ...entry, href }
+              : {
+                  ...entry,
+                  href,
+                  title: pageTitle(href),
+                  identifier: undefined,
+                },
+        ),
+      },
+      paneId,
+      href,
     ),
-  }))
+  )
 }
 
 /** Titles and record IDs come from the page itself once it has rendered. */

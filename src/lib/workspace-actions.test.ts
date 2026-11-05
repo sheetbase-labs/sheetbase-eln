@@ -17,6 +17,7 @@ import {
   pinToShelf,
   promoteFromShelf,
   recordNavigation,
+  setPaneHref,
   setPaneMeta,
   stepBack,
   stepForward,
@@ -328,5 +329,48 @@ describe('composeWorkspace', () => {
       ids(),
     )
     expect(activeTab(next).panes).toHaveLength(1)
+  })
+})
+
+describe('the editing seat follows what can be edited', () => {
+  function homeBeside() {
+    // Home holds the seat; a second pane is split off beside it.
+    const state = initialWorkspace('/')
+    const split = openBeside(state, {
+      href: '/experiments',
+      newId: 'list',
+    }).state
+    return makePrimary(split, 'initial')
+  }
+
+  it('is taken by a pane that opens an experiment while the seat holds Home', () => {
+    let state = homeBeside()
+    const before = activeTab(state)
+    expect(before.primaryId).not.toBe('list')
+    state = recordNavigation(state, 'list', '/experiments/E1/notebook')
+    expect(activeTab(state).primaryId).toBe('list')
+  })
+
+  it('is taken when a pane is restored onto an experiment', () => {
+    let state = homeBeside()
+    state = setPaneHref(state, 'list', '/experiments/E1/notebook')
+    expect(activeTab(state).primaryId).toBe('list')
+  })
+
+  it('stays with a pane that is really editing', () => {
+    let state = initialWorkspace('/experiments/E1/notebook')
+    state = openBeside(state, {
+      href: '/experiments/E2/notebook',
+      newId: 'other',
+    }).state
+    expect(activeTab(state).primaryId).toBe('initial')
+    state = recordNavigation(state, 'other', '/experiments/E3/notebook')
+    expect(activeTab(state).primaryId).toBe('initial')
+  })
+
+  it('does not move for a list or tool page', () => {
+    let state = homeBeside()
+    state = recordNavigation(state, 'list', '/samples')
+    expect(activeTab(state).primaryId).toBe('initial')
   })
 })

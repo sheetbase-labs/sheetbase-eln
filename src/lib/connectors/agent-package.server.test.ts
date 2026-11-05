@@ -247,3 +247,118 @@ describe('agent status', () => {
     expect(await response.json()).toMatchObject({ downloaded: false })
   })
 })
+
+describe('live readings agent', () => {
+  const INSTRUMENT = '66666666-6666-4666-8666-666666666666'
+  const instrument = (overrides: Record<string, unknown> = {}) => ({
+    id: INSTRUMENT,
+    name: 'Freezer F-01',
+    display_id: 'INS-0007',
+    retired_at: null,
+    ...overrides,
+  })
+  const live = [
+    {
+      kind: 'network',
+      host: '192.168.1.20',
+      port: 4001,
+      feed: 'Weight',
+      unit: 'g',
+    },
+  ]
+
+  it('returns a zip that follows the chosen source, with no results folder', async () => {
+    const { deps, created } = setup({ connector: instrument() })
+    const response = await handleAgentPackage(
+      post({ instrumentId: INSTRUMENT, system: 'linux', live }),
+      deps,
+    )
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-disposition')).toContain(
+      'sheetbase-live-ins-0007.zip',
+    )
+    expect(created[0]).toMatchObject({
+      name: 'Live agent · INS-0007',
+      kind: 'personal',
+    })
+    const files = unzipSync(new Uint8Array(await response.arrayBuffer()))
+    const settings = JSON.parse(
+      strFromU8(files['sheetbase-agent/sheetbase-agent.json']!),
+    )
+    expect(settings).toEqual({
+      url: 'https://eln.example.com',
+      credential: 'sbk_fresh',
+      instrumentId: INSTRUMENT,
+      live,
+    })
+    expect(strFromU8(files['sheetbase-agent/README.txt']!)).toContain(
+      '192.168.1.20:4001',
+    )
+  })
+
+  it('wants a source, integrations access and an instrument that takes readings', async () => {
+    const ok = setup({ connector: instrument() })
+    expect(
+      (
+        await handleAgentPackage(
+          post({ instrumentId: INSTRUMENT, system: 'mac', live: [] }),
+          ok.deps,
+        )
+      ).status,
+    ).toBe(400)
+    const denied = setup({ connector: instrument(), denied: true })
+    expect(
+      (
+        await handleAgentPackage(
+          post({ instrumentId: INSTRUMENT, system: 'mac', live }),
+          denied.deps,
+        )
+      ).status,
+    ).toBe(403)
+    const missing = setup({ connector: null })
+    expect(
+      (
+        await handleAgentPackage(
+          post({ instrumentId: INSTRUMENT, system: 'mac', live }),
+          missing.deps,
+        )
+      ).status,
+    ).toBe(404)
+    const retired = setup({
+      connector: instrument({ retired_at: '2026-01-01' }),
+    })
+    expect(
+      (
+        await handleAgentPackage(
+          post({ instrumentId: INSTRUMENT, system: 'mac', live }),
+          retired.deps,
+        )
+      ).status,
+    ).toBe(422)
+  })
+
+  it('says whether the live agent is running', async () => {
+    const { deps } = setup({
+      connector: instrument(),
+      existing: [
+        {
+          id: 'c1',
+          name: 'Live agent · INS-0007',
+          kind: 'personal',
+          revokedAt: null,
+          lastUsedAt: new Date(NOW.getTime() - 60_000),
+        },
+      ],
+    })
+    const response = await handleAgentPackage(
+      new Request(
+        `https://eln.example.com/api/connectors/agent?instrument=${INSTRUMENT}`,
+      ),
+      deps,
+    )
+    expect(await response.json()).toMatchObject({
+      downloaded: true,
+      running: true,
+    })
+  })
+})

@@ -3,7 +3,7 @@
  * (`/api/connectors/agent`).
  */
 import { t } from '#/copy'
-import type { AgentSystem } from './agent-package'
+import type { AgentSystem, LiveSourceInput } from './agent-package'
 
 export interface AgentStatus {
   /** A token for an agent has been made and not replaced. */
@@ -15,6 +15,8 @@ export interface AgentStatus {
 }
 
 export const agentQueryKeys = {
+  liveStatus: (instrumentId: string) =>
+    ['instrument-live', 'agent', instrumentId] as const,
   status: (connectorId: string) =>
     ['instrument-intake', 'agent', connectorId] as const,
 }
@@ -40,10 +42,42 @@ export async function fetchAgentStatus(
   return (await response.json()) as AgentStatus
 }
 
+/** Is the live-readings agent for this instrument running? */
+export async function fetchLiveAgentStatus(
+  instrumentId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<AgentStatus> {
+  const response = await fetchImpl(
+    `/api/connectors/agent?instrument=${encodeURIComponent(instrumentId)}`,
+    { credentials: 'same-origin' },
+  )
+  if (!response.ok) throw await failure(response)
+  return (await response.json()) as AgentStatus
+}
+
 /** Asks for the zip and hands it to the browser as a file download. */
 export async function downloadAgent(
   input: { connectorId: string; system: AgentSystem; folder: string },
   fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  return downloadZip(input, fetchImpl)
+}
+
+/** The live-readings agent: where the readings come from, no results folder. */
+export async function downloadLiveAgent(
+  input: {
+    instrumentId: string
+    system: AgentSystem
+    live: LiveSourceInput[]
+  },
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  return downloadZip(input, fetchImpl)
+}
+
+async function downloadZip(
+  input: object,
+  fetchImpl: typeof fetch,
 ): Promise<string> {
   const response = await fetchImpl('/api/connectors/agent', {
     method: 'POST',

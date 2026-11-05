@@ -7,6 +7,7 @@
  * credentials are obvious before a run is attempted.
  */
 import { useState } from 'react'
+import { formatDate } from '#/lib/format-date'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -102,7 +103,7 @@ export function ConnectorCredentialsCard({
               <Icon name="key" size={14} />
               {entry.secretName}
               <span className="text-fg-muted">
-                updated {new Date(entry.updatedAt).toLocaleString()}
+                updated {formatDate(entry.updatedAt, { time: true })}
               </span>
             </span>
             <Button

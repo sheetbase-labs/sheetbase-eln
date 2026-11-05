@@ -587,6 +587,13 @@
       "when": 1801386637830,
       "tag": "0085_profile_photos",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1801393737830,
+      "tag": "0086_display_preferences",
+      "breakpoints": true
     }
   ]
 }

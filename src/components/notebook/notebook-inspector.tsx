@@ -1,4 +1,5 @@
 import { t } from '#/copy'
+import { formatDate } from '#/lib/format-date'
 import * as React from 'react'
 import { Link } from '@tanstack/react-router'
 
@@ -7,7 +8,6 @@ import {
   InspectorSection,
   InspectorSectionStack,
 } from '#/components/record'
-import { getDisplayTimeZone } from '#/lib/display-time-zone'
 import { formatMagnitude } from '#/lib/format-numbers'
 import { Notice } from '#/components/ui/alert'
 import { OverflowTabs } from '#/components/ui/overflow-tabs'
@@ -113,10 +113,8 @@ export function formatCellValue(
     const parsed = new Date(String(value))
     if (!Number.isNaN(parsed.getTime())) {
       return field.logicalType === 'date'
-        ? parsed.toLocaleDateString(undefined, {
-            timeZone: getDisplayTimeZone(),
-          })
-        : parsed.toLocaleString(undefined, { timeZone: getDisplayTimeZone() })
+        ? formatDate(String(value))
+        : formatDate(String(value), { time: true })
     }
   }
   return String(value)

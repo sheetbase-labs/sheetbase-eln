@@ -11,11 +11,10 @@
  * role but does not assume enforcement — every mutation is a controlled RPC.
  */
 import type { DataClient } from './data-client'
+import { formatDate as formatDateOnly } from './format-date'
 import { DataClientError } from './data-client'
-import { getDisplayTimeZone } from './display-time-zone'
 import type { AuditEventWire } from './audit-history'
 import { now as appNow } from '#/lib/clock'
-import { dateTimeFormat } from '#/lib/intl-cache'
 
 export type JsonObject = Record<string, unknown>
 
@@ -675,18 +674,7 @@ export function formatRelativeTime(
 }
 
 export function formatDate(timestamp: string | null | undefined): string {
-  if (!timestamp) return '—'
-  const date = new Date(timestamp)
-  if (!Number.isFinite(date.getTime())) return '—'
-  return dateTimeFormat('en-GB', {
-    timeZone: getDisplayTimeZone(),
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(date)
+  return formatDateOnly(timestamp, { time: true })
 }
 
 export function describeAdminError(error: unknown): string {

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { formatDate } from '#/lib/format-date'
 
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -205,10 +206,7 @@ export function formatAgo(iso: string | null, now: number): string {
   if (seconds < 60) return `${seconds} s ago`
   if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`
   if (seconds < 86_400) return `${Math.round(seconds / 3600)} h ago`
-  return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-  })
+  return formatDate(iso)
 }
 
 export interface ChartGeometry {

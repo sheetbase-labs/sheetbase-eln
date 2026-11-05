@@ -71,7 +71,6 @@ export function useOfferRecordActions(
     if (!setActions || !enabled) return
     setActions(actions)
     return () => setActions([])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setActions, enabled, key])
   return Boolean(context) && enabled
 }

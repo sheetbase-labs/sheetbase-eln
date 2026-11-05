@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { formatDate } from '#/lib/format-date'
 
 import type { Tone } from '#/components/ui/status'
 import type { WorkspaceMemberIdentity } from '#/components/projects/project-data'
@@ -448,7 +449,7 @@ export function useDatasetVersionChoices(
           const schemaId = schemaOfVersion.get(v.schema_version_id ?? '') ?? ''
           return {
             id: v.id,
-            label: `${name} — ${v.label} (${v.created_at.slice(0, 10)})`,
+            label: `${name} — ${v.label} (${formatDate(v.created_at)})`,
             schemaId,
             schemaName: schemaNames.get(schemaId) ?? '',
             sort: name,

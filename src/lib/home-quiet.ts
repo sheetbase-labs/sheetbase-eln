@@ -12,6 +12,7 @@
  * view, a fixture or a parallel state store.
  */
 import { addDays } from './calendar'
+import { clockOption } from './display-clock'
 import type { CalendarBooking, CalendarInstrument } from './calendar'
 import type { DataClient } from './data-client'
 import { recordDestination } from './navigation'
@@ -242,6 +243,7 @@ export function buildComingUp(input: {
         timeZone: input.timeZone,
         hour: '2-digit',
         minute: '2-digit',
+        ...clockOption(),
       }),
       text: resource ? `${resource} · ${booking.title}` : booking.title,
       why: 'You are booked',
@@ -530,6 +532,7 @@ export function freeInstruments(
               timeZone,
               hour: '2-digit',
               minute: '2-digit',
+              ...clockOption(),
             })}`
           : 'Free all day',
     })

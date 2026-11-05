@@ -14,6 +14,7 @@
  */
 
 import { t } from '#/copy'
+import { formatTime } from '#/lib/format-date'
 import * as React from 'react'
 
 import { isRichTextPayload, richTextToPlainText } from '#/lib/blocks'
@@ -86,7 +87,7 @@ export function offlineEditTargetKey(edit: OfflineEdit): string {
 export function formatClockTime(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return iso
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return formatTime(date)
 }
 
 function shortText(value: string, limit = 60): string {

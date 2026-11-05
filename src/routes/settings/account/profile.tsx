@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 
 import { Button } from '#/components/ui/button'
+import { Checkbox } from '#/components/ui/checkbox'
+import { setDisplayClock } from '#/lib/display-clock'
+import type { ClockFormat } from '#/lib/display-clock'
 import { Field, Input } from '#/components/ui/input'
 import { Section } from '#/components/ui/layout'
 import { toast } from '#/components/ui/sonner'
@@ -20,6 +23,7 @@ import {
   fetchMyProfile,
   myProfileQueryKey,
   setUserAppearance,
+  setUserDisplay,
   setUserProfileFields,
   setUserTimeZone,
 } from '#/lib/user-preferences'
@@ -86,6 +90,25 @@ function Profile() {
       })
     })
   }
+  // The clock and the layout bar apply as soon as they are chosen, like the
+  // appearance above, and follow the person to every browser.
+  const chooseDisplay = (display: {
+    clock?: ClockFormat
+    alwaysShowLayout?: boolean
+  }) => {
+    if (display.clock) setDisplayClock(display.clock)
+    void setUserDisplay(appearanceClient, display)
+      .then(() => router.invalidate())
+      .catch((failure: unknown) =>
+        toast(t('settings.profile.displaySavedFailed'), {
+          description:
+            failure instanceof Error
+              ? failure.message
+              : t('settings.profile.tryAgain'),
+        }),
+      )
+  }
+  const clock = context.clock ?? '24h'
   const [name, setName] = useState(user.name)
   const savedTimeZone = context.timeZone
   const [timeZone, setTimeZone] = useState(savedTimeZone)
@@ -299,6 +322,57 @@ function Profile() {
             <span className="text-label text-fg-muted">
               {t('settings.profile.appliesEverySheetbase')}
             </span>
+          </div>
+        </Section>
+
+        <Section title={t('settings.profile.display')}>
+          <div className="flex flex-col gap-3.5">
+            <Field
+              label={t('settings.profile.clock')}
+              hint={t('settings.profile.clockHint')}
+            >
+              <div
+                role="radiogroup"
+                aria-label={t('settings.profile.clock')}
+                className="inline-flex w-fit rounded-md border border-border p-0.5"
+              >
+                {(
+                  [
+                    ['24h', t('settings.profile.clock24')],
+                    ['12h', t('settings.profile.clock12')],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={clock === value}
+                    onClick={() => chooseDisplay({ clock: value })}
+                    className={cn(
+                      'h-6 cursor-pointer rounded-sm border-0 bg-transparent px-2.5 text-label text-fg',
+                      clock === value && 'bg-selection font-medium',
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            <label className="flex items-start gap-2 text-body">
+              <Checkbox
+                className="mt-0.5"
+                checked={context.alwaysShowLayout === true}
+                onCheckedChange={(checked) =>
+                  chooseDisplay({ alwaysShowLayout: checked === true })
+                }
+              />
+              <span className="flex flex-col">
+                {t('settings.profile.alwaysShowLayout')}
+                <span className="text-label text-fg-muted">
+                  {t('settings.profile.alwaysShowLayoutHint')}
+                </span>
+              </span>
+            </label>
           </div>
         </Section>
 

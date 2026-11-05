@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 
+import { displayHour12 } from './display-clock'
 import { dateTimeFormat } from './intl-cache'
 
 /**
@@ -71,6 +72,10 @@ export function formatInstant(
   return dateTimeFormat('en-GB', {
     timeZone: getDisplayTimeZone(),
     ...format,
+    // A time of day is read on the person's own clock, whatever the caller asked.
+    ...(format.hour !== undefined || format.timeStyle !== undefined
+      ? { hour12: displayHour12() }
+      : {}),
     ...(zone ? { timeZoneName: 'short' as const } : {}),
   })
     .format(new Date(parsed))

@@ -98,6 +98,20 @@ export async function setUserTimeZone(
   await client.rpc('set_user_profile', { p_timezone: timeZone })
 }
 
+/**
+ * Set how this person sees the clock (12 or 24 hour) and whether the layout bar
+ * and shortcut footer stay on a single pane. Pass only what changed.
+ */
+export async function setUserDisplay(
+  client: DataClient,
+  display: { clock?: '12h' | '24h'; alwaysShowLayout?: boolean },
+): Promise<void> {
+  await client.rpc('set_display_preferences', {
+    p_clock: display.clock ?? null,
+    p_always_show_layout: display.alwaysShowLayout ?? null,
+  })
+}
+
 export interface MyProfile {
   initials: string
   jobTitle: string

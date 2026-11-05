@@ -28,6 +28,7 @@ import { DataClientError, createDataClient } from '#/lib/data-client'
 import { EMPTY_RICH_TEXT_PAYLOAD } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
 import { replyToComment } from '#/lib/comments-data'
+import { fetchBlocksForRecord } from '#/lib/notebook-data'
 import { updateBlockPayload } from '#/lib/notebook-mutations'
 import { fetchComposedSheetRows } from '#/lib/sheet-composition-data'
 import type { ComposedSheetSnapshot } from '#/lib/sheet-composition-data'
@@ -201,6 +202,43 @@ export interface OfflineReplayPort {
    * than creating a second one.
    */
   raiseCellConflict: (edit: OfflineCellEdit) => Promise<string | null>
+  /**
+   * Block conflicts have no server row; a person chooses. "Keep mine" writes
+   * the queued payload over the server's current block, and only then does the
+   * caller drop the edit. Absent on ports that cannot reach the server.
+   */
+  keepMyBlockEdit?: (edit: OfflineBlockPayloadEdit) => Promise<void>
+  /** The server's current payload for a conflicted block, or null if unread. */
+  readServerBlockPayload?: (
+    edit: OfflineBlockPayloadEdit,
+  ) => Promise<Record<string, unknown> | null>
+}
+
+export type OfflineBlockPayloadEdit = Extract<
+  OfflineEdit,
+  { kind: 'block_payload' }
+>
+
+/** Order-insensitive deep equality for JSON payloads. */
+export function samePayload(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if (typeof a !== typeof b || a === null || b === null) return false
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((item, index) => samePayload(item, b[index]))
+    )
+  }
+  if (typeof a !== 'object') return false
+  const left = a as Record<string, unknown>
+  const right = b as Record<string, unknown>
+  const keys = Object.keys(left)
+  return (
+    keys.length === Object.keys(right).length &&
+    keys.every((key) => key in right && samePayload(left[key], right[key]))
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -208,7 +246,9 @@ export interface OfflineReplayPort {
 // ---------------------------------------------------------------------------
 
 function sheetIdOf(edit: OfflineEdit): string | null {
-  return edit.kind === 'block_text' ? null : edit.sheetInstanceId
+  return edit.kind === 'block_text' || edit.kind === 'block_payload'
+    ? null
+    : edit.sheetInstanceId
 }
 
 /** Edits that move the sheet's revision, and so depend on its conflicts. */
@@ -233,7 +273,9 @@ function holdMessage(
 function conflictMessage(edit: OfflineEdit): string {
   return edit.kind === 'cell'
     ? 'This cell changed on the server since this device edited it; both values are kept as a conflict.'
-    : 'The server moved past the revision this edit was based on; it is kept for review.'
+    : edit.kind === 'block_payload'
+      ? 'This block was changed by someone else while you were offline. Your version is kept here so you can choose which to keep.'
+      : 'The server moved past the revision this edit was based on; it is kept for review.'
 }
 
 /**
@@ -487,6 +529,8 @@ async function readServerCellValue(
 
 export interface CanonicalOfflineReplayWriterOptions {
   client?: DataClient
+  /** The record the queue belongs to; lets a block conflict read the server. */
+  recordId?: string
   /** The signed-in user, recorded as the local author of a raised conflict. */
   userId: string
 }
@@ -519,9 +563,57 @@ export function createCanonicalOfflineReplayWriter(
     return next
   }
 
+  async function serverBlock(edit: OfflineBlockPayloadEdit) {
+    if (!options.recordId) return null
+    const blocks = await fetchBlocksForRecord(client, options.recordId)
+    return blocks.find((block) => block.id === edit.blockId) ?? null
+  }
+
   return {
+    async keepMyBlockEdit(edit) {
+      const current = await serverBlock(edit)
+      if (!current) {
+        throw new OfflineReplayRefusedError(
+          'the block this edit was made to no longer exists',
+        )
+      }
+      await updateBlockPayload(client, {
+        blockId: edit.blockId,
+        payload: edit.payload,
+        expectedVersion: current.version,
+        payloadSchemaVersion: edit.payloadSchemaVersion,
+      })
+    },
+
+    async readServerBlockPayload(edit) {
+      try {
+        const current = await serverBlock(edit)
+        return (current?.payload) ?? null
+      } catch {
+        return null
+      }
+    },
+
     async commit(edit) {
       switch (edit.kind) {
+        case 'block_payload':
+          try {
+            await updateBlockPayload(client, {
+              blockId: edit.blockId,
+              payload: edit.payload,
+              expectedVersion: edit.expectedRevision,
+              payloadSchemaVersion: edit.payloadSchemaVersion,
+            })
+          } catch (error) {
+            if (!isOfflineReplayOverlap(error)) throw error
+            // Someone saved this block while the device was offline. When
+            // they saved the same content there is nothing to decide.
+            const current = await serverBlock(edit).catch(() => null)
+            if (current && samePayload(current.payload, edit.payload)) return
+            throw error
+          }
+          return
+
         case 'block_text':
           await updateBlockPayload(client, {
             blockId: edit.blockId,
@@ -583,7 +675,7 @@ export function createCanonicalOfflineReplayWriter(
         case 'row': {
           const expected =
             sheetRevisions.get(edit.sheetInstanceId) ?? edit.expectedRevision
-          const rowKey = globalThis.crypto.randomUUID()
+          const rowKey = edit.rowKey ?? globalThis.crypto.randomUUID()
           const next = await mutateSheetLocalState(
             {
               instanceId: edit.sheetInstanceId,

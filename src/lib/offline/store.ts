@@ -78,6 +78,18 @@ export const offlineEditSchema = z.discriminatedUnion('kind', [
     blockId: z.string().min(1),
     text: z.string(),
   }),
+  /**
+   * A whole block payload (checklist, callout, metric, steps, materials,
+   * formatted text...). Replay sends it back through the same block write the
+   * editor uses, against the revision the editor last saw.
+   */
+  offlineEditBaseSchema.extend({
+    kind: z.literal('block_payload'),
+    blockId: z.string().min(1),
+    blockType: z.string().min(1),
+    payloadSchemaVersion: z.number().int().min(0),
+    payload: z.record(z.string(), offlineJsonValueSchema),
+  }),
   offlineEditBaseSchema.extend({
     kind: z.literal('cell'),
     sheetInstanceId: z.string().min(1),
@@ -88,6 +100,8 @@ export const offlineEditSchema = z.discriminatedUnion('kind', [
   offlineEditBaseSchema.extend({
     kind: z.literal('row'),
     sheetInstanceId: z.string().min(1),
+    /** Key the row was given on screen, so replay creates that same row. */
+    rowKey: z.string().min(1).optional(),
     values: z.record(z.string(), offlineJsonValueSchema),
   }),
   offlineEditBaseSchema.extend({

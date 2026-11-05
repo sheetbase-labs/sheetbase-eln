@@ -122,6 +122,33 @@ export const library = {
       listBlocked: 'Out of service — can’t be booked',
       status: 'Out of service',
     },
+    bookingRules: {
+      title: 'Booking rules',
+      edit: 'Edit rules',
+      dialogTitle: 'Booking rules',
+      training: 'Training needed',
+      trainingHint:
+        'Someone must have signed off the current version of each procedure before they can book this instrument.',
+      noProtocols: 'There are no protocols to choose from yet.',
+      none: 'None',
+      longest: 'Longest booking',
+      longestLabel: 'Longest booking, in hours',
+      longestHint: 'Leave empty for no limit. For example 2 or 0.5.',
+      furthest: 'Booked ahead',
+      furthestLabel: 'Furthest ahead, in days',
+      furthestHint: 'Leave empty for no limit.',
+      noLimit: 'No limit',
+      days: {
+        one: '{count} day ahead at most',
+        other: '{count} days ahead at most',
+      },
+      empty:
+        'Anyone who is qualified can book this instrument, for as long and as far ahead as they like.',
+      saved: 'Booking rules saved',
+      couldNotSave: 'The booking rules couldn’t be saved.',
+      notTrained: 'You need training before booking this instrument:',
+      trainingLink: 'Open the procedure',
+    },
     serviceLog: {
       title: 'Repairs and service',
       logVisit: 'Log a visit',

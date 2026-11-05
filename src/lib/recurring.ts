@@ -361,6 +361,12 @@ export function describeNotMade(message: string | null): string {
       return t('projects.recurring.dialog.reasons.calibration')
     case 'SB135':
       return t('projects.recurring.dialog.reasons.outOfService')
+    case 'SB142':
+      return t('projects.recurring.dialog.reasons.training')
+    case 'SB143':
+      return t('projects.recurring.dialog.reasons.tooLong')
+    case 'SB144':
+      return t('projects.recurring.dialog.reasons.tooFar')
     case 'SB090':
       return t('projects.recurring.dialog.reasons.noVersion')
     default:

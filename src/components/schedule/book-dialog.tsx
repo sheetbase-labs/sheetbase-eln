@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 
 import { Link } from '@tanstack/react-router'
 
@@ -17,6 +18,7 @@ import {
 } from '#/components/ui/dialog'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { RepeatFields } from '#/components/recurring/repeat-fields'
+import { fetchTrainingGaps } from '#/lib/booking-rules'
 import { describeCalendarError } from '#/lib/calendar'
 import { DataClientError } from '#/lib/data-client'
 import { fetchWorkspaceGeneral } from '#/lib/workspace-general'
@@ -338,6 +340,7 @@ export function BookDialog({
                   : undefined,
               }))}
             />
+            <TrainingNotice instrumentId={resourceId} />
             {instruments.length === 0 ? (
               // A picker with nothing in it is a dead end; say what is missing
               // rather than leaving "Choose…" as the only option.
@@ -493,6 +496,41 @@ function BookingRefusal({
           />
         </div>
       ) : null}
+    </div>
+  )
+}
+
+/**
+ * Before someone tries: the procedures this instrument asks for that they have
+ * not been trained on. The server still decides when they book.
+ */
+function TrainingNotice({ instrumentId }: { instrumentId: string }) {
+  const gaps = useQuery({
+    queryKey: ['booking-rules', 'gaps', instrumentId],
+    queryFn: () => fetchTrainingGaps(notebookDataClient, instrumentId),
+    enabled: instrumentId !== '',
+    staleTime: 15_000,
+  })
+  if (!gaps.data || gaps.data.length === 0) return null
+  return (
+    <div
+      role="status"
+      className="flex flex-col gap-1 text-label text-warning-text"
+    >
+      <p className="m-0">{t('library.instruments.bookingRules.notTrained')}</p>
+      <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+        {gaps.data.map((gap) => (
+          <li key={gap.protocol_record_id}>
+            <Link
+              to="/protocols/$protocolId"
+              params={{ protocolId: gap.protocol_record_id }}
+              className="underline"
+            >
+              <span className="mono">{gap.identifier}</span> {gap.title}
+            </Link>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

@@ -23,7 +23,7 @@ export const qualityKeys = {
   limits: (kind: string) => ['quality', 'limits', kind] as const,
   recordResults: (recordId: string) =>
     ['quality', 'results', 'record', recordId] as const,
-  outOfSpec: (kind: string) => ['quality', 'out-of-spec', kind] as const,
+  kindResults: (kind: string) => ['quality', 'results', 'kind', kind] as const,
   incidentModels: ['quality', 'incident-models'] as const,
   incidents: (keys: readonly string[]) =>
     ['quality', 'incidents', ...keys] as const,
@@ -223,14 +223,14 @@ export async function fetchRecordResults(
   return rows.map(toResult)
 }
 
-/** Every result of a model that is not a plain pass, for its list. */
-export async function fetchOutOfSpec(
+/** Every result of a model's live records, for its list. */
+export async function fetchKindResults(
   client: DataClient,
   kind: string,
 ): Promise<SpecResult[]> {
   const rows = await client.list<ResultWire>(
     'record_spec_results',
-    `?kind=eq.${encodeURIComponent(kind)}&verdict=neq.pass&archived_at=is.null&select=record_id,field_name,value,verdict&limit=5000`,
+    `?kind=eq.${encodeURIComponent(kind)}&select=record_id,field_name,value,verdict&limit=5000`,
   )
   return rows.map(toResult)
 }

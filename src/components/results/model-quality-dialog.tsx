@@ -245,7 +245,7 @@ export function ModelQualityDialog({
                                 onChange={(e) =>
                                   setDraft(field.fieldName, key, e.target.value)
                                 }
-                                className="w-24"
+                                className="w-32"
                               />
                             </TableCell>
                           )

@@ -27,10 +27,8 @@ import {
 import { EmptyState } from '#/components/ui/empty-state'
 import { Field } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
-import { Status } from '#/components/ui/status'
 import { Tabs } from '#/components/ui/tabs'
 import { toast } from '#/components/ui/sonner'
-import { pickerStatus } from '#/components/record-picker/record-picker-data'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -156,20 +154,6 @@ export function IncidentLog({
             {incidentSummary(row.original)}
           </span>
         ),
-      },
-      {
-        id: 'status',
-        header: t('quality.incidents.columns.status'),
-        size: 130,
-        cell: ({ row }) => {
-          if (row.original.archived_at) {
-            return (
-              <Status tone="none">{t('quality.incidents.archived')}</Status>
-            )
-          }
-          const mapped = pickerStatus(row.original.status)
-          return <Status tone={mapped.tone}>{mapped.label}</Status>
-        },
       },
       {
         id: 'reported',

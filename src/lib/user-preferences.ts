@@ -107,9 +107,12 @@ export const myProfileQueryKey = ['my-profile'] as const
 
 /** Initials (derived from the name until set) and job title. */
 export async function fetchMyProfile(client: DataClient): Promise<MyProfile> {
-  const rows = await client.rpc<
-    Array<{ initials: string | null; job_title: string | null }>
-  >('my_profile', {})
+  // A GET: the account menu reads this on every page, and a read without a
+  // body is safe to cancel when the page changes.
+  const rows = await client.list<{
+    initials: string | null
+    job_title: string | null
+  }>('rpc/my_profile')
   const row = rows.at(0)
   return { initials: row?.initials ?? '', jobTitle: row?.job_title ?? '' }
 }

@@ -82,6 +82,11 @@ import { listDemoPersonasFn } from '#/lib/demo-persona-data'
 import { writeViewAsCookie } from '#/lib/demo-persona'
 import { WORKSPACE_ROLE_LABELS } from '#/lib/workspace-admin'
 import { requestWorkspaceLeave } from '#/components/workspace/workspace-navigation'
+import {
+  applyAppBadge,
+  disablePush,
+  syncPushSubscription,
+} from '#/lib/push-client'
 import { t } from '#/copy'
 
 const SIDEBAR_COLLAPSE_KEY = 'sheetbase-sidebar-collapsed'
@@ -270,6 +275,15 @@ export function AppShell({
       ),
     [data.notifications, readNotifications],
   )
+
+  // The installed app's icon shows how many things are unread, and this device
+  // tells the server who is signed in so phone alerts reach the right person.
+  useEffect(() => {
+    applyAppBadge(unreadIds.size)
+  }, [unreadIds.size])
+  useEffect(() => {
+    void syncPushSubscription()
+  }, [])
 
   // SHELL-03: one registry for the shell; the `?` dialog is generated from it.
   const globalShortcuts = useMemo(
@@ -1102,6 +1116,9 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
         webSignOutRetentionStorage(window.localStorage),
         me.id,
       ).catch(() => undefined)
+      // This phone stops getting this person's alerts the moment they leave.
+      await disablePush().catch(() => undefined)
+      applyAppBadge(0)
       const result = await authClient.signOut()
       if (result.error || !result.data.success)
         throw new Error(t('settings.shell.appShell.signOutFailed'))

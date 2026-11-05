@@ -25,6 +25,8 @@ export interface NotificationEventDef {
   source: 'notification' | 'inbox'
   /** Email is on unless the person turns it off. */
   defaultEmail: boolean
+  /** An alert on the person's phone, once they've turned phone alerts on. */
+  defaultPush: boolean
 }
 
 const GROUP_REVIEWS = 'Reviews and signatures'
@@ -41,6 +43,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_REVIEWS,
     source: 'notification',
     defaultEmail: true,
+    defaultPush: true,
   },
   {
     key: 'review_returned_or_signed',
@@ -48,6 +51,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_REVIEWS,
     source: 'notification',
     defaultEmail: true,
+    defaultPush: false,
   },
   {
     key: 'signature_requested',
@@ -55,6 +59,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_REVIEWS,
     source: 'notification',
     defaultEmail: true,
+    defaultPush: true,
   },
   {
     key: 'approval_requested',
@@ -62,6 +67,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_REVIEWS,
     source: 'inbox',
     defaultEmail: false,
+    defaultPush: false,
   },
   {
     key: 'verification_requested',
@@ -69,6 +75,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_REVIEWS,
     source: 'inbox',
     defaultEmail: false,
+    defaultPush: false,
   },
   {
     key: 'verification_granted',
@@ -76,6 +83,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_REVIEWS,
     source: 'inbox',
     defaultEmail: false,
+    defaultPush: false,
   },
   {
     key: 'validation_error',
@@ -83,6 +91,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_DATA,
     source: 'notification',
     defaultEmail: true,
+    defaultPush: false,
   },
   {
     key: 'cell_conflict',
@@ -90,6 +99,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_DATA,
     source: 'inbox',
     defaultEmail: false,
+    defaultPush: false,
   },
   {
     key: 'run_failed',
@@ -97,6 +107,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_DATA,
     source: 'inbox',
     defaultEmail: false,
+    defaultPush: false,
   },
   {
     key: 'run_waiting',
@@ -104,6 +115,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_DATA,
     source: 'inbox',
     defaultEmail: false,
+    defaultPush: false,
   },
   {
     key: 'instrument_booking',
@@ -111,6 +123,15 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_LAB,
     source: 'notification',
     defaultEmail: true,
+    defaultPush: true,
+  },
+  {
+    key: 'booking_reminder',
+    label: 'An instrument booking of yours is about to start',
+    group: GROUP_LAB,
+    source: 'notification',
+    defaultEmail: false,
+    defaultPush: true,
   },
   {
     key: 'instrument_service',
@@ -118,6 +139,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_LAB,
     source: 'notification',
     defaultEmail: true,
+    defaultPush: false,
   },
   {
     key: 'calibration_overdue',
@@ -125,6 +147,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_LAB,
     source: 'inbox',
     defaultEmail: false,
+    defaultPush: false,
   },
   {
     key: 'qualification_requested',
@@ -132,6 +155,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_LAB,
     source: 'inbox',
     defaultEmail: false,
+    defaultPush: false,
   },
   {
     key: 'qualification_granted',
@@ -139,6 +163,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_LAB,
     source: 'inbox',
     defaultEmail: false,
+    defaultPush: false,
   },
   {
     key: 'material_expiring',
@@ -146,6 +171,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_LAB,
     source: 'notification',
     defaultEmail: true,
+    defaultPush: false,
   },
   {
     key: 'reagent_order',
@@ -153,6 +179,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_LAB,
     source: 'notification',
     defaultEmail: true,
+    defaultPush: false,
   },
   {
     key: 'sample_awaiting_release',
@@ -160,6 +187,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_LAB,
     source: 'inbox',
     defaultEmail: false,
+    defaultPush: false,
   },
   {
     key: 'sample_hold_exceeded',
@@ -167,6 +195,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_LAB,
     source: 'inbox',
     defaultEmail: false,
+    defaultPush: false,
   },
   {
     key: 'protocol_new_version',
@@ -174,6 +203,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_PROTOCOLS,
     source: 'notification',
     defaultEmail: true,
+    defaultPush: false,
   },
   {
     key: 'protocol_training_required',
@@ -181,6 +211,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_PROTOCOLS,
     source: 'notification',
     defaultEmail: true,
+    defaultPush: false,
   },
   {
     key: 'step_timer',
@@ -188,6 +219,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_PROTOCOLS,
     source: 'notification',
     defaultEmail: false,
+    defaultPush: true,
   },
   {
     key: 'access_requested',
@@ -195,6 +227,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_PEOPLE,
     source: 'inbox',
     defaultEmail: false,
+    defaultPush: false,
   },
   {
     key: 'access_decided',
@@ -202,6 +235,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_PEOPLE,
     source: 'inbox',
     defaultEmail: false,
+    defaultPush: false,
   },
   {
     key: 'invitation_accepted',
@@ -209,6 +243,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_PEOPLE,
     source: 'inbox',
     defaultEmail: false,
+    defaultPush: false,
   },
   {
     key: 'comment_or_mention',
@@ -216,6 +251,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_OTHER,
     source: 'notification',
     defaultEmail: true,
+    defaultPush: true,
   },
   {
     key: 'agent_proposal',
@@ -223,6 +259,7 @@ export const NOTIFICATION_EVENTS = [
     group: GROUP_OTHER,
     source: 'inbox',
     defaultEmail: false,
+    defaultPush: false,
   },
 ] as const satisfies readonly NotificationEventDef[]
 
@@ -245,6 +282,7 @@ export interface NotificationPreference {
   inApp: boolean
   email: boolean
   digest: boolean
+  push: boolean
 }
 
 interface NotificationPreferenceWire {
@@ -252,6 +290,7 @@ interface NotificationPreferenceWire {
   in_app: boolean
   email: boolean
   digest: boolean
+  push: boolean | null
 }
 
 export interface NotificationTiming {
@@ -283,6 +322,7 @@ export function defaultPreference(
     inApp: true,
     email: eventDefinition(eventType).defaultEmail,
     digest: false,
+    push: eventDefinition(eventType).defaultPush,
   }
 }
 
@@ -295,7 +335,7 @@ export async function fetchNotificationPreferences(
 ): Promise<NotificationPreference[]> {
   const rows = await client.list<NotificationPreferenceWire>(
     'notification_preferences',
-    '?select=event_type,in_app,email,digest',
+    '?select=event_type,in_app,email,digest,push',
   )
   const saved = new Map(
     rows
@@ -307,6 +347,10 @@ export async function fetchNotificationPreferences(
           inApp: row.in_app,
           email: row.email,
           digest: row.digest,
+          push:
+            row.push ??
+            eventDefinition(row.event_type as NotificationEventType)
+              .defaultPush,
         },
       ]),
   )
@@ -338,6 +382,7 @@ export async function saveNotificationPreference(
     p_in_app: preference.inApp,
     p_email: preference.email,
     p_digest: preference.digest,
+    p_push: preference.push,
   })
 }
 

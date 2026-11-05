@@ -219,3 +219,38 @@ self.addEventListener('fetch', (event) => {
   if (new URL(request.url).pathname !== '/share-target') return
   event.respondWith(receiveShare(request))
 })
+
+// ---------------------------------------------------------------------------
+// Phone alerts (Web Push). The server sends { title, body, url, tag, badge };
+// the same tag replaces an alert the open page already raised for the same
+// thing. Browsers require a visible notification for every push.
+// ---------------------------------------------------------------------------
+self.addEventListener('push', (event) => {
+  let message = {}
+  try {
+    message = event.data ? event.data.json() : {}
+  } catch (error) {
+    message = { title: event.data ? event.data.text() : '' }
+  }
+  const title = message.title || 'Sheetbase'
+  const work = [
+    self.registration.showNotification(title, {
+      body: message.body || '',
+      tag: message.tag || undefined,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url: message.url || '/' },
+      renotify: Boolean(message.tag),
+      requireInteraction: Boolean(message.tag && message.tag.indexOf('step-timer-') === 0),
+    }),
+  ]
+  if (typeof message.badge === 'number' && self.navigator && self.navigator.setAppBadge) {
+    work.push(
+      (message.badge > 0
+        ? self.navigator.setAppBadge(message.badge)
+        : self.navigator.clearAppBadge()
+      ).catch(() => {}),
+    )
+  }
+  event.waitUntil(Promise.all(work))
+})

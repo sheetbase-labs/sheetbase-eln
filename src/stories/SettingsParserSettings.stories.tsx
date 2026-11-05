@@ -1,9 +1,9 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { ParserSettings } from '#/components/v3/settings/parser-settings'
-import { instrumentQueryKeys } from '#/components/v3/instruments/instruments-data'
-import type { InstrumentRow } from '#/components/v3/instruments/instruments-data'
+import { ParserSettings } from '#/components/settings/parser-settings'
+import { instrumentQueryKeys } from '#/components/instruments/instruments-data'
+import type { InstrumentRow } from '#/components/instruments/instruments-data'
 import { parserSettingsQueryKeys } from '#/lib/parser-settings'
 import type { ParserSettingsRow, ParserTestFile } from '#/lib/parser-settings'
 import { holdRead, screenQueryClient, withApiReads } from './screen-stories'

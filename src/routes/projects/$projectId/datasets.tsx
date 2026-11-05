@@ -1,19 +1,19 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 
-import { Status } from '#/components/v3/ui/status'
-import { Pager } from '#/components/v3/ui/pager'
+import { Status } from '#/components/ui/status'
+import { Pager } from '#/components/ui/pager'
 import {
   ProjectList,
   ProjectListFailure,
   ProjectListOutOfRange,
-} from '#/components/v3/projects/project-list'
+} from '#/components/projects/project-list'
 import {
   projectPageSummary,
   parseProjectPage,
   useProjectDatasetsPage,
   PROJECT_LIST_PAGE_SIZE,
-} from '#/components/v3/projects/project-lists'
-import { datasetValidation } from '#/components/v3/datasets/datasets-data'
+} from '#/components/projects/project-lists'
+import { datasetValidation } from '#/components/datasets/datasets-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
 

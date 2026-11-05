@@ -3,20 +3,20 @@ import { formatDate } from '#/lib/format-date'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Status } from '#/components/v3/ui/status'
-import type { Tone } from '#/components/v3/ui/status'
-import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
-import { Notice } from '#/components/v3/ui/alert'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Muted } from '#/components/v3/ui/layout'
-import { TableBox } from '#/components/v3/ui/table'
+import { Status } from '#/components/ui/status'
+import type { Tone } from '#/components/ui/status'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
+import { Notice } from '#/components/ui/alert'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Muted } from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { toast } from '#/components/ui/sonner'
 import { publishDatasetSchemaVersion } from '#/lib/dataset-schema-definition-rpc'
 import type { CanonicalDatasetSchemaField } from '#/lib/dataset-schema-definition-rpc'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -30,21 +30,21 @@ import {
   useModelDatasets,
   useModelVersionFields,
   useModelVersions,
-} from '#/components/v3/models/models-data'
-import { buildVersionImpacts } from '#/components/v3/models/model-version-impact'
+} from '#/components/models/models-data'
+import { buildVersionImpacts } from '#/components/models/model-version-impact'
 import {
   approvalStatus,
   canPublishDraft,
-} from '#/components/v3/models/model-approval'
-import { useModelApprovalIndex } from '#/components/v3/models/model-approval-data'
-import { ModelApprovalPanel } from '#/components/v3/models/model-approval-panel'
-import { RecordModelVersions } from '#/components/v3/models/record-model-versions'
+} from '#/components/models/model-approval'
+import { useModelApprovalIndex } from '#/components/models/model-approval-data'
+import { ModelApprovalPanel } from '#/components/models/model-approval-panel'
+import { RecordModelVersions } from '#/components/models/record-model-versions'
 import { isUuid } from '#/lib/field-value-validation'
 import type {
   FieldChange,
   RecordOutcome,
   VersionFieldDiff,
-} from '#/components/v3/models/model-version-impact'
+} from '#/components/models/model-version-impact'
 import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the Versions tab. Publishing runs the publish

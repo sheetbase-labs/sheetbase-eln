@@ -1,13 +1,13 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { StocktakeCount } from '#/components/v3/stocktake/stocktake-count'
+import { StocktakeCount } from '#/components/stocktake/stocktake-count'
 import {
   StartCountDialog,
   StocktakeList,
-} from '#/components/v3/stocktake/stocktake-list'
-import { StocktakeSummaryView } from '#/components/v3/stocktake/stocktake-summary'
-import { workspaceMemberQueryKeys } from '#/components/v3/projects/project-data'
+} from '#/components/stocktake/stocktake-list'
+import { StocktakeSummaryView } from '#/components/stocktake/stocktake-summary'
+import { workspaceMemberQueryKeys } from '#/components/projects/project-data'
 import { buildStorageTree } from '#/lib/storage-locations'
 import type { StorageNode } from '#/lib/storage-locations'
 import { stocktakeKeys, summariseItems } from '#/lib/stocktake'
@@ -15,7 +15,7 @@ import type { Stocktake, StocktakeItem } from '#/lib/stocktake'
 import { screenQueryClient, screenRoutes } from './screen-stories'
 
 /**
- * The stocktake screens (`src/components/v3/stocktake/`): the list of counts
+ * The stocktake screens (`src/components/stocktake/`): the list of counts
  * and the dialog that starts one, the count in progress (scan a code, see
  * what is left to find) and the summary that resolves differences. Counts,
  * items and the storage tree are seeded into the query cache.

@@ -4,11 +4,11 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import {
   JoinOfferBanner,
   JoinOfferMenuItem,
-} from '#/components/v3/shell/join-offer-banner'
+} from '#/components/shell/join-offer-banner'
 import {
   DropdownMenu,
   DropdownMenuContent,
-} from '#/components/v3/ui/dropdown-menu'
+} from '#/components/ui/dropdown-menu'
 import { joinDomainKeys } from '#/lib/join-domains'
 import { screenQueryClient, screenRoutes } from './screen-stories'
 

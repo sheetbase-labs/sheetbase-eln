@@ -4,7 +4,7 @@ import {
   CONNECTION_REQUIRED_REASONS,
   ConnectionRequired,
 } from '#/components/offline/connection-required'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 
 /**
  * An action that cannot run offline, disabled with its reason stated beside it

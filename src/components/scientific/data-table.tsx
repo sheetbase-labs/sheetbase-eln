@@ -27,8 +27,8 @@ import type {
 } from '@tanstack/react-table'
 import { Icon } from '#/components/icons'
 
-import { Button } from '#/components/v3/ui/button'
-import { Checkbox } from '#/components/v3/ui/checkbox'
+import { Button } from '#/components/ui/button'
+import { Checkbox } from '#/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -36,13 +36,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from '#/components/v3/ui/dropdown-menu'
+} from '#/components/ui/dropdown-menu'
 import { cn } from '#/lib/utils'
 
 // Column width/alignment hints consumed by the TableHead/TableCell renderers

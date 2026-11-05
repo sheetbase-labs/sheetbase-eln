@@ -11,7 +11,7 @@ import type { IconName } from '#/components/icons'
 
 import { InspectorSection } from '#/components/record'
 import { RecordLink } from '#/components/scientific/record-link'
-import { RowList } from '#/components/v3/ui/row'
+import { RowList } from '#/components/ui/row'
 import { relatedKindLabel, useRelatedWork } from '#/lib/related-work'
 import type { RelatedWorkItem, RelatedWorkKind } from '#/lib/related-work'
 import { t } from '#/copy'

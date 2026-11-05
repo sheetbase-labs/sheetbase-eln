@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { StocktakeCount } from '#/components/v3/stocktake/stocktake-count'
+import { StocktakeCount } from '#/components/stocktake/stocktake-count'
 import { hasCapability } from '#/lib/capability'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 

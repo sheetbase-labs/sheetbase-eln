@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { BrandMark } from '#/components/v3/ui/brand-mark'
+import { BrandMark } from '#/components/ui/brand-mark'
 
 const meta = {
-  title: 'v3 kit/BrandMark',
+  title: 'UI/BrandMark',
   component: BrandMark,
   tags: ['autodocs'],
   args: { size: 48 },

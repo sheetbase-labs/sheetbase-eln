@@ -1,13 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { HomeQuiet } from '#/components/v3/home/home-quiet'
-import { PageHeader } from '#/components/v3/ui/layout'
+import { HomeQuiet } from '#/components/home/home-quiet'
+import { PageHeader } from '#/components/ui/layout'
 import type { ComingUpGroup, PickUpItem } from '#/lib/home-quiet'
 import type { RecentItem } from '#/lib/recents'
 import { screenRoutes } from './screen-stories'
 
 /**
- * Quiet Home (`src/components/v3/home/home-quiet.tsx`).
+ * Quiet Home (`src/components/home/home-quiet.tsx`).
  *
  * Home when nothing, or only one thing, is waiting on the person: the all-clear
  * (or the one waiting item), what is coming up, work to pick up, how projects

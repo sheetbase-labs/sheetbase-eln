@@ -4,13 +4,13 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import {
   PrintLabelsDialog,
   SampleLabelSheet,
-} from '#/components/v3/samples/sample-label-sheet'
+} from '#/components/samples/sample-label-sheet'
 import {
   ReleaseChecksPanel,
   ReleaseChecksSummary,
-} from '#/components/v3/samples/release-checks-panel'
-import { SampleInspector } from '#/components/v3/samples/sample-inspector'
-import { SampleWorkflowPanel } from '#/components/v3/samples/sample-workflow-panel'
+} from '#/components/samples/release-checks-panel'
+import { SampleInspector } from '#/components/samples/sample-inspector'
+import { SampleWorkflowPanel } from '#/components/samples/sample-workflow-panel'
 import { sampleQueryKeys } from '#/lib/samples'
 import type { SampleReleaseCheckStatus } from '#/lib/samples'
 import type { WorkflowEvent, WorkflowRun } from '#/lib/sample-workflows'
@@ -18,7 +18,7 @@ import { holdRead, screenQueryClient, screenRoutes } from './screen-stories'
 import { SAMPLE_ID, sampleFixture } from './sample-fixtures'
 
 /**
- * The panels on a sample's own screens (`src/components/v3/samples/`): the
+ * The panels on a sample's own screens (`src/components/samples/`): the
  * registry inspector, the workflow panel, the release checks and the batch
  * label sheet. Reads are seeded under the keys the components use.
  */

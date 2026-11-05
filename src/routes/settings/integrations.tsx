@@ -7,22 +7,22 @@ import {
 } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { Status } from '#/components/v3/ui/status'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Muted } from '#/components/v3/ui/layout'
-import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { Button } from '#/components/ui/button'
+import { Status } from '#/components/ui/status'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Muted } from '#/components/ui/layout'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
   SettingsBody,
   SettingsHeader,
-} from '#/components/v3/settings/settings-page'
+} from '#/components/settings/settings-page'
 import {
   IncomingWebhooks,
   OutgoingWebhooks,
-} from '#/components/v3/settings/webhook-sections'
-import { CreateWebhookDialog } from '#/components/v3/settings/create-webhook-dialog'
-import { RegisterConnectorDialog } from '#/components/v3/integrations/register-connector-dialog'
+} from '#/components/settings/webhook-sections'
+import { CreateWebhookDialog } from '#/components/settings/create-webhook-dialog'
+import { RegisterConnectorDialog } from '#/components/integrations/register-connector-dialog'
 import { createDataClient } from '#/lib/data-client'
 import { sentenceCase } from '#/lib/sentence-case'
 import { canManageSettings, canOpenSettings } from '#/lib/settings-access'

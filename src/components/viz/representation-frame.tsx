@@ -2,7 +2,7 @@ import * as React from 'react'
 
 import { t } from '#/copy'
 import { cn } from '#/lib/utils'
-import { Badge } from '#/components/v3/ui/badge'
+import { Badge } from '#/components/ui/badge'
 import { Icon } from '#/components/icons'
 import type { RepresentationHandle } from '#/lib/representations'
 

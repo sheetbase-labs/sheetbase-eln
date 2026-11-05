@@ -37,7 +37,7 @@ const fetchDefinitionVersions = vi.fn(
     ..._args: unknown[]
   ): Promise<Array<{ id: string; version: number; lifecycle: string }>> => [],
 )
-vi.mock('#/components/v3/ui/object-link', async () => {
+vi.mock('#/components/ui/object-link', async () => {
   const { objectPath } = await import('#/lib/navigation')
   return {
     ObjectLink: (props: { kind: string; id?: string; children?: string }) => (

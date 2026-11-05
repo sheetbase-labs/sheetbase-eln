@@ -5,8 +5,8 @@ import { useRouterState } from '@tanstack/react-router'
 import { useKeyboardInset } from '#/lib/use-keyboard-inset'
 import { useTuckOnScroll } from '#/lib/use-tuck-on-scroll'
 import { Icon } from '#/components/icons'
-import { Skeleton } from '#/components/v3/ui/skeleton'
-import { Sheet, SheetContent } from '#/components/v3/ui/sheet'
+import { Skeleton } from '#/components/ui/skeleton'
+import { Sheet, SheetContent } from '#/components/ui/sheet'
 import {
   OPEN_ASSISTANT_EVENT,
   contextFromPathname,

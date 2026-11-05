@@ -624,9 +624,9 @@ Specification: [tasks/DSYS.md](tasks/DSYS.md).
 
 **Evidence:**
 
-- [`src/components/v3/ui/button.tsx`](../../../src/components/v3/ui/button.tsx)
-- [`src/components/v3/ui/sonner.tsx`](../../../src/components/v3/ui/sonner.tsx)
-- [`src/components/v3/icons.tsx`](../../../src/components/v3/icons.tsx)
+- [`src/components/ui/button.tsx`](../../../src/components/ui/button.tsx)
+- [`src/components/ui/sonner.tsx`](../../../src/components/ui/sonner.tsx)
+- [`src/components/icons.tsx`](../../../src/components/icons.tsx)
 - [`docs/knowledge/roadmap-4/UI_PORT.md`](UI_PORT.md):17
 
 **Remaining:** App-3 kit replaces the original restyle-in-place approach. Reconcile remaining icon consumers, component-state/a11y coverage and legacy-kit use with adopted port; do not rebuild the retired kit.
@@ -638,9 +638,9 @@ Specification: [tasks/DSYS.md](tasks/DSYS.md).
 **Evidence:**
 
 - [`src/components/ui/README.md`](../../../src/components/ui/README.md)
-- [`src/components/v3/ui/source.tsx`](../../../src/components/v3/ui/source.tsx)
-- [`src/components/v3/ui/tree.tsx`](../../../src/components/v3/ui/tree.tsx)
-- [`src/components/v3/ui/secret.tsx`](../../../src/components/v3/ui/secret.tsx)
+- [`src/components/ui/source.tsx`](../../../src/components/ui/source.tsx)
+- [`src/components/ui/tree.tsx`](../../../src/components/ui/tree.tsx)
+- [`src/components/ui/secret.tsx`](../../../src/components/ui/secret.tsx)
 
 **Remaining:** Recorded component delivery retained. Mapping document still names the earlier kit; align it with adopted v3 consumers and verify state/a11y coverage before programme acceptance.
 
@@ -805,8 +805,8 @@ Specification: [tasks/SHELL.md](tasks/SHELL.md).
 
 **Evidence:**
 
-- [`src/components/v3/shell/app-shell.tsx`](../../../src/components/v3/shell/app-shell.tsx):46-106 — current shell mounts its own palette/listener and fixed responsive nav; TopBar at 215 has no workspace switcher.
-- [`src/components/v3/shell/nav.ts`](../../../src/components/v3/shell/nav.ts):15-32 — nav arrays contain no capability/role rules.
+- [`src/components/shell/app-shell.tsx`](../../../src/components/shell/app-shell.tsx):46-106 — current shell mounts its own palette/listener and fixed responsive nav; TopBar at 215 has no workspace switcher.
+- [`src/components/shell/nav.ts`](../../../src/components/shell/nav.ts):15-32 — nav arrays contain no capability/role rules.
 - [`src/routes/__root.tsx`](../../../src/routes/__root.tsx):125-267 — v3 shell used for listed routes; legacy ShellProvider remains for others.
 - [`src/lib/request-auth.ts`](../../../src/lib/request-auth.ts):88 — active-workspace backend selection exists.
 
@@ -819,8 +819,8 @@ Specification: [tasks/SHELL.md](tasks/SHELL.md).
 **Evidence:**
 
 - [`src/components/theme-provider.tsx`](../../../src/components/theme-provider.tsx):63-109 — server read/write and local cache exist, but no storage event or media-query change listener.
-- [`src/components/v3/lib/theme.ts`](../../../src/components/v3/lib/theme.ts):12-58 — separate local listener Set, localStorage read/apply; no cross-tab listener.
-- [`src/components/v3/shell/app-shell.tsx`](../../../src/components/v3/shell/app-shell.tsx):392-449 — account segmented control writes server appearance.
+- [`src/components/lib/theme.ts`](../../../src/components/lib/theme.ts):12-58 — separate local listener Set, localStorage read/apply; no cross-tab listener.
+- [`src/components/shell/app-shell.tsx`](../../../src/components/shell/app-shell.tsx):392-449 — account segmented control writes server appearance.
 
 **Remaining:** Unify provider state; implement and verify cross-tab updates, live System changes and SSR/server initial preference. Persistence alone does not meet exit.
 
@@ -854,7 +854,7 @@ Specification: [tasks/SHELL.md](tasks/SHELL.md).
 
 **Evidence:**
 
-- [`src/components/v3/shell/app-shell.tsx`](../../../src/components/v3/shell/app-shell.tsx):79-102 — full nav at xl, rail at lg, drawer below.
+- [`src/components/shell/app-shell.tsx`](../../../src/components/shell/app-shell.tsx):79-102 — full nav at xl, rail at lg, drawer below.
 - [`tests/browser-scripts/phone.mjs`](../../../tests/browser-scripts/phone.mjs) — responsive coverage exists.
 - [`docs/knowledge/roadmap-4/CHECKLIST.md`](CHECKLIST.md):124-126 — breakpoint step done; old board registration cancelled.
 
@@ -898,7 +898,7 @@ Specification: [tasks/WORK.md](tasks/WORK.md).
 - [`drizzle/0203_notifications.sql`](../../../drizzle/0203_notifications.sql):28-61 — producer handles review request and signature creation only.
 - [`src/lib/email-delivery.server.ts`](../../../src/lib/email-delivery.server.ts) — durable email worker implementation exists.
 - [`src/lib/email-scheduler.server.ts`](../../../src/lib/email-scheduler.server.ts) — scheduler exists.
-- [`src/components/v3/shell/app-shell.tsx`](../../../src/components/v3/shell/app-shell.tsx):340-384 — current bell renders notifications.
+- [`src/components/shell/app-shell.tsx`](../../../src/components/shell/app-shell.tsx):340-384 — current bell renders notifications.
 
 **Remaining:** Complete all eight event producers/addressing and channel mapping; validate preferences, quiet hours, digest and durable delivery end-to-end. Existing outbox code is not proof all events route.
 
@@ -910,7 +910,7 @@ Specification: [tasks/WORK.md](tasks/WORK.md).
 
 - [`src/routes/schedule.tsx`](../../../src/routes/schedule.tsx):78-214 — day/week, bookings, review/material panels implemented.
 - [`src/routes/schedule.tsx`](../../../src/routes/schedule.tsx):234 — unavailable state uses weekend assumption.
-- [`src/components/v3/schedule/schedule-data.ts`](../../../src/components/v3/schedule/schedule-data.ts):151-167 — bookInstrument delegates to existing createBooking.
+- [`src/components/schedule/schedule-data.ts`](../../../src/components/schedule/schedule-data.ts):151-167 — bookInstrument delegates to existing createBooking.
 - [`src/routes/schedule.tsx`](../../../src/routes/schedule.tsx):613-632 — dialog submits directly; no next-free-slot or qualification check.
 
 **Remaining:** Implement real availability, next-free-slot/clash preview and server calibration/qualification refusal; verify active experiment readiness and schedule exit.
@@ -927,8 +927,8 @@ Specification: [tasks/PROJ.md](tasks/PROJ.md).
 
 - [`drizzle/0237_black_ender_wiggin.sql`](../../../drizzle/0237_black_ender_wiggin.sql):16 — typed client property migration.
 - [`drizzle/0238_project_details_clients.sql`](../../../drizzle/0238_project_details_clients.sql):157 — update_project_details exists.
-- [`src/components/v3/projects/projects-page.tsx`](../../../src/components/v3/projects/projects-page.tsx):101-145 — URL-backed filters/sorts and archive exclusion.
-- [`src/components/v3/projects/projects-page.tsx`](../../../src/components/v3/projects/projects-page.tsx):693-790 — new-project dialog accepts title/client/stage only; no copy-structure selection.
+- [`src/components/projects/projects-page.tsx`](../../../src/components/projects/projects-page.tsx):101-145 — URL-backed filters/sorts and archive exclusion.
+- [`src/components/projects/projects-page.tsx`](../../../src/components/projects/projects-page.tsx):693-790 — new-project dialog accepts title/client/stage only; no copy-structure selection.
 
 **Remaining:** Finish copy-structure workflow over members/milestones/protocols, preserving no-record-copy invariant; verify list/dialog acceptance and archived read-only behavior.
 
@@ -1068,7 +1068,7 @@ Specification: [tasks/SRCH.md](tasks/SRCH.md).
 
 **Evidence:**
 
-- [`src/components/v3/search/search-palette.tsx`](../../../src/components/v3/search/search-palette.tsx):86 — palette requests eight search results; keyboard logic at 118-129.
+- [`src/components/search/search-palette.tsx`](../../../src/components/search/search-palette.tsx):86 — palette requests eight search results; keyboard logic at 118-129.
 - [`src/routes/search.tsx`](../../../src/routes/search.tsx):102-136 — requests top 100 unfiltered then local facets/filters.
 
 **Remaining:** Complete scope/contextual palette actions and multi-type/project/date filtering on server with stable pagination/counts; verify keyboard new-tab and focus return.
@@ -1083,7 +1083,7 @@ Specification: [tasks/MOB.md](tasks/MOB.md).
 
 **Evidence:**
 
-- [`src/components/v3/shell/app-shell.tsx`](../../../src/components/v3/shell/app-shell.tsx):89-104 — bottom tabs and navigation drawer exist.
+- [`src/components/shell/app-shell.tsx`](../../../src/components/shell/app-shell.tsx):89-104 — bottom tabs and navigation drawer exist.
 - [`src/routes/index.tsx`](../../../src/routes/index.tsx):189 onward — shared dashboard, no dedicated compact Today state.
 - [`tests/browser-scripts/phone.mjs`](../../../tests/browser-scripts/phone.mjs) — viewport checks exist.
 
@@ -1235,7 +1235,7 @@ Specification: [tasks/SHEET.md](tasks/SHEET.md).
 
 **Evidence:**
 
-- [`src/components/v3/templates/templates-data.ts`](../../../src/components/v3/templates/templates-data.ts):20-22,111-128 — notebook-template catalogue and in-use counts
+- [`src/components/templates/templates-data.ts`](../../../src/components/templates/templates-data.ts):20-22,111-128 — notebook-template catalogue and in-use counts
 - [`src/routes/templates/$templateId/update.tsx`](../../../src/routes/templates/$templateId/update.tsx):45-79 — real preview and revision-checked apply
 - [`src/lib/notebook-template-data.ts`](../../../src/lib/notebook-template-data.ts) — existing canonical lifecycle/upgrade RPCs
 
@@ -1267,7 +1267,7 @@ Specification: [tasks/MDL.md](tasks/MDL.md).
 
 - [`docs/knowledge/decisions/0051-workspace-defined-record-models.md`](../decisions/0051-workspace-defined-record-models.md):24-48 — accepted generic host decision
 - [`src/db/schema.ts`](../../../src/db/schema.ts):1621-1630 — global model_kinds, no workspace record_models
-- [`src/components/v3/models/models-data.ts`](../../../src/components/v3/models/models-data.ts):17-22 — Models UI uses Dataset schema registry
+- [`src/components/models/models-data.ts`](../../../src/components/models/models-data.ts):17-22 — Models UI uses Dataset schema registry
 
 **Remaining:** Accepted decision is complete; all three implementation steps remain: workspace-owned versioned model identity/prefix and RLS; generic records/validation/search/lineage; API/SDK exposure. Dataset schema models do not satisfy custom record kinds.
 
@@ -1280,7 +1280,7 @@ Specification: [tasks/MDL.md](tasks/MDL.md).
 - [`src/routes/models/$modelId/edit.tsx`](../../../src/routes/models/$modelId/edit.tsx):49-52,110-114,136-164 — Dataset schema draft editor exists
 - [`src/routes/models/$modelId/versions.tsx`](../../../src/routes/models/$modelId/versions.tsx):69-99 — status/date/publish table
 - [`src/routes/models/$modelId/datasets.tsx`](../../../src/routes/models/$modelId/datasets.tsx):20-23 — dataset instances in place of model records
-- [`src/components/v3/models/models-data.ts`](../../../src/components/v3/models/models-data.ts):17-22 — current model semantics
+- [`src/components/models/models-data.ts`](../../../src/components/models/models-data.ts):17-22 — current model semantics
 
 **Remaining:** 1 partial routes; rules/relations/usage/record surfaces absent. 2 model_rules with submit effects absent. 3 draft editing exists, reason/record impact/open-experiment migration flow absent. 4 version status list lacks what happened to records. Preserve editor progress; do not mark full model domain complete.
 
@@ -1303,7 +1303,7 @@ Specification: [tasks/MDL.md](tasks/MDL.md).
 **Evidence:**
 
 - [`src/routes/models/$modelId/datasets.tsx`](../../../src/routes/models/$modelId/datasets.tsx):20-42 — lists Dataset schema instances, not generic records
-- [`src/components/v3/models/models-data.ts`](../../../src/components/v3/models/models-data.ts):17-22 — record/measurement split not represented
+- [`src/components/models/models-data.ts`](../../../src/components/models/models-data.ts):17-22 — record/measurement split not represented
 - [`src/routes/records/$recordId/notebook.tsx`](../../../src/routes/records/$recordId/notebook.tsx) — canonical notebook rather than proposed generated model record detail
 
 **Remaining:** All three steps remain after MDL-01: field-driven record list/filter/export; generated versioned form with matching server errors and ID preview; sectioned record detail with version additions, used-by/history/integration results. Existing field editors are reusable baseline only.
@@ -1382,7 +1382,7 @@ Specification: [tasks/LAB.md](tasks/LAB.md).
 - [`src/routes/instruments/$instrumentId.tsx`](../../../src/routes/instruments/$instrumentId.tsx):70-128 — calibration records/history and due status.
 - [`src/routes/instruments/$instrumentId.tsx`](../../../src/routes/instruments/$instrumentId.tsx):272-307 — calibration write dialog.
 - [`drizzle/0257_overconfident_the_fallen.sql`](../../../drizzle/0257_overconfident_the_fallen.sql):1 — instrument calibration table and capability.
-- [`src/components/v3/schedule/schedule-data.ts`](../../../src/components/v3/schedule/schedule-data.ts):151-167 — bookings use unqualified generic createBooking.
+- [`src/components/schedule/schedule-data.ts`](../../../src/components/schedule/schedule-data.ts):151-167 — bookings use unqualified generic createBooking.
 
 **Remaining:** Complete qualified-for/user qualification, booking checks, rename/location/signed-name preservation and used-by/telemetry acceptance; calibration alone covers only part of step 2.
 
@@ -1473,10 +1473,10 @@ Specification: [tasks/SET.md](tasks/SET.md).
 
 **Evidence:**
 
-- [`src/components/v3/settings/settings-general.tsx`](../../../src/components/v3/settings/settings-general.tsx):56 — persisted general settings/prefix editing; lines 219-232 render editing rules as static statements.
+- [`src/components/settings/settings-general.tsx`](../../../src/components/settings/settings-general.tsx):56 — persisted general settings/prefix editing; lines 219-232 render editing rules as static statements.
 - [`src/lib/notebook-data.ts`](../../../src/lib/notebook-data.ts):539 and src/lib/workspace-admin.ts:648 — separate fixed en-GB formatters still exist; shared workspace-driven formatter replacement required by step 1 is not done.
 - [`drizzle/0231_record_identifier_assignment.sql`](../../../drizzle/0231_record_identifier_assignment.sql):27 — prefix overrides used; lines 46-50 persist never-reused counter; drizzle/0234_identifier_assignment_paths.sql:21 extends assignment to model paths.
-- [`src/components/v3/settings/settings-general.tsx`](../../../src/components/v3/settings/settings-general.tsx):177 — ID table has Record/Prefix/Example, no next number; example at line 209 is hardcoded prefix-2025-0001.
+- [`src/components/settings/settings-general.tsx`](../../../src/components/settings/settings-general.tsx):177 — ID table has Record/Prefix/Example, no next number; example at line 209 is hardcoded prefix-2025-0001.
 - [`tests/db/workspace-general.test.ts`](../../../tests/db/workspace-general.test.ts):50 — settings/prefix permissions tests; tests/db/id-sequences.test.ts:53 — ID sequence tests present, not executed.
 
 **Remaining:** 1 Finish applying chosen date/number formats across specified consumers (route currently /settings/, superseding proposed /settings/general needs explicit documentation); 2 expose authoritative next numbers as specified and verify no reuse/audit after prefix change; 3 enforce configured saved-value reasons, signing locks and offline permission on server. Reopen step 1 and step 2 full-scope done claims while retaining their implemented subsets.
@@ -1500,7 +1500,7 @@ Specification: [tasks/SET.md](tasks/SET.md).
 **Evidence:**
 
 - [`src/routes/settings/profile.tsx`](../../../src/routes/settings/profile.tsx):20 — explicitly states initials/job title/timezone have no fields; display name and appearance persist.
-- [`src/components/v3/settings/settings-sessions.tsx`](../../../src/components/v3/settings/settings-sessions.tsx):55 — listSessions and line 65 revokeSession wired; src/components/v3/settings/settings-sessions.test.tsx:48 exercises other-session sign-out.
+- [`src/components/settings/settings-sessions.tsx`](../../../src/components/settings/settings-sessions.tsx):55 — listSessions and line 65 revokeSession wired; src/components/settings/settings-sessions.test.tsx:48 exercises other-session sign-out.
 - [`src/lib/auth.ts`](../../../src/lib/auth.ts):29 — Better Auth configuration has GitHub social providers and hooks; no task-specific inactivity/3-attempt 15-minute lockout/audit configuration.
 
 **Remaining:** 1 Persist initials/job title/timezone and signature status; 3 implement and test inactivity timeout and failed-sign-in lockout/audit, signed-out/offline explanatory state. Step 2 implementation and component-test evidence support preserving done, without a fresh passing-test claim.
@@ -1513,7 +1513,7 @@ Specification: [tasks/SET.md](tasks/SET.md).
 
 - [`src/routes/settings/integrations.tsx`](../../../src/routes/settings/integrations.tsx):38 — real connector list/register flow; src/routes/settings/integrations/$connectorId.tsx:55 pauses/resumes connector and displays existing ingestion/run history.
 - [`src/lib/api-credentials.ts`](../../../src/lib/api-credentials.ts):147 — credential expiry may be null and only rejects past dates; no 90-day maximum.
-- [`src/components/v3/settings/settings-api-tokens.tsx`](../../../src/components/v3/settings/settings-api-tokens.tsx):216 — no expiry displayed as Never; no refusal/unused/replacement workflow found.
+- [`src/components/settings/settings-api-tokens.tsx`](../../../src/components/settings/settings-api-tokens.tsx):216 — no expiry displayed as Never; no refusal/unused/replacement workflow found.
 - [`src/routes/settings/integrations/$connectorId.tsx`](../../../src/routes/settings/integrations/$connectorId.tsx):8 — connector credentials/source/ingestion/run-history components, not webhook delivery history/retry/expiry UI.
 
 **Remaining:** 1 Settings moves mostly landed and former admin/integrations route files removed; document remaining admin disposition/redirect decision. 2 Enforce 90-day max and token last-4/unused/refusal/replacement behavior. 3 Complete requested service-identity connect and delivery retry/pause/expiry-to-Inbox flow; connector pause is not webhook delivery control. Reopen SET-04.3 because checklist label omits its task-step delivery requirement.

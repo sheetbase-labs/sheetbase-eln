@@ -51,7 +51,7 @@ const numberFieldButtonVariants = cva(
 
 const numberFieldInputVariants = cva(
   // The v3 kit draws the focus indicator on the input itself
-  // (`src/components/v3/ui/input.tsx`), not on a wrapper: restyling to
+  // (`src/components/ui/input.tsx`), not on a wrapper: restyling to
   // Sheetbase tokens means the same treatment here, so the focused control —
   // and not only the group around it — shows the ring.
   'w-full min-w-0 flex-1 bg-transparent text-center tabular-nums focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus',

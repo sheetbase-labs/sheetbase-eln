@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Tabs } from '#/components/v3/ui/tabs'
+import { Tabs } from '#/components/ui/tabs'
 
 /**
- * The tab family in `#/components/v3/ui/tabs`: one contract, two modes, three
+ * The tab family in `#/components/ui/tabs`: one contract, two modes, three
  * variants. This story belongs to the survivor of the reconciliation — the two
  * `SearchTabs`, the unused `RouteTabs`, `LinkTabs` and `SegmentLinks` were
  * deleted with it (the module comment says what each one was).

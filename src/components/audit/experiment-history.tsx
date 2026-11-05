@@ -2,8 +2,8 @@ import { Fragment, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
-import { Button, buttonVariants } from '#/components/v3/ui/button'
-import { IconButton } from '#/components/v3/ui/icon-button'
+import { Button, buttonVariants } from '#/components/ui/button'
+import { IconButton } from '#/components/ui/icon-button'
 import {
   Table,
   TableBody,
@@ -11,7 +11,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import {
   auditEventMatchesCategory,
   auditHistoryCategories,
@@ -24,7 +24,7 @@ import {
 } from '#/lib/audit-history'
 import type { AuditEventWire, AuditHistoryCategory } from '#/lib/audit-history'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { Tabs } from '#/components/v3/ui/tabs'
+import { Tabs } from '#/components/ui/tabs'
 import { SavedTrails } from './saved-trails'
 import {
   fetchWorkspaceGeneral,

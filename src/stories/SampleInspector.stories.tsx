@@ -1,17 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Button } from '#/components/v3/ui/button'
-import { SampleHoldMeter } from '#/components/v3/samples/sample-hold-meter'
-import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
-import { SampleRecentHistory } from '#/components/v3/samples/sample-recent-history'
-import { SampleStateBanner } from '#/components/v3/samples/sample-state-banner'
-import { UsageBalanceBar } from '#/components/v3/samples/sample-usage'
+import { Button } from '#/components/ui/button'
+import { SampleHoldMeter } from '#/components/samples/sample-hold-meter'
+import { SampleLabelCard } from '#/components/samples/sample-label-card'
+import { SampleRecentHistory } from '#/components/samples/sample-recent-history'
+import { SampleStateBanner } from '#/components/samples/sample-state-banner'
+import { UsageBalanceBar } from '#/components/samples/sample-usage'
 import type { SampleEvent, SampleRecord } from '#/lib/samples'
 
 /**
  * The sample inspector's surfaces — the hold meter, the printed-label preview,
  * the lifecycle banner, the recent-history list and the usage bar
- * (`src/components/v3/samples/`). They are one file because they are one
+ * (`src/components/samples/`). They are one file because they are one
  * screen: every one is rendered by SampleDetail / SampleLineage / SampleUsage,
  * and each reads only the sample it is given. The stories below show the real
  * states the data can be in, including the honest silences (no recorded hold,

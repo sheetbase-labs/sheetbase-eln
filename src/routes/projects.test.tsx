@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './projects'
 import type * as DataClient from '#/lib/data-client'
-import * as projectData from '#/components/v3/projects/project-data'
+import * as projectData from '#/components/projects/project-data'
 
 /** The route owns the data wiring: which read the page sees, what a stalled
  * read becomes, and the feedback a create gives. The page itself has its own
@@ -34,21 +34,21 @@ vi.mock('@tanstack/react-router', () => ({
     select({ location: { pathname: '/projects' } }),
 }))
 
-vi.mock('#/components/v3/projects/projects-page', () => ({
+vi.mock('#/components/projects/projects-page', () => ({
   ProjectsPage: (props: Record<string, unknown>) => {
     seen.props = props
     return <div data-testid="projects-page" />
   },
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({ toast }))
+vi.mock('#/components/ui/sonner', () => ({ toast }))
 
 vi.mock('#/lib/data-client', async (importOriginal) => ({
   ...(await importOriginal<typeof DataClient>()),
   createDataClient: () => ({ list, rpc: vi.fn() }),
 }))
 
-vi.mock('#/components/v3/projects/project-data', async (importOriginal) => ({
+vi.mock('#/components/projects/project-data', async (importOriginal) => ({
   ...(await importOriginal<typeof projectData>()),
   createProject: vi.fn(async () => ({ id: 'project-1', revision: '1' })),
   fetchWorkspaceMemberIdentities: async () => [],

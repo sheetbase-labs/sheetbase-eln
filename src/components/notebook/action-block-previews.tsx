@@ -7,8 +7,8 @@
  */
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
-import { Status } from '#/components/v3/ui/status'
-import type { Tone } from '#/components/v3/ui/status'
+import { Status } from '#/components/ui/status'
+import type { Tone } from '#/components/ui/status'
 import {
   Table,
   TableBody,
@@ -17,7 +17,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import { cn } from '#/lib/utils'
 import {
   CORRECTIVE_ACTION_STATUS_LABEL,

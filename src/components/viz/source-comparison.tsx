@@ -7,14 +7,14 @@
  * Side A is the source the studio is already on. Side B is chosen here and read
  * the same way as any studio source, so a snapshot is the fixed rows it holds.
  */
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import { datasetOption } from '#/components/v3/record-picker/entity-options'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
+import { datasetOption } from '#/components/record-picker/entity-options'
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { t } from '#/copy'
-import { Notice } from '#/components/v3/ui/alert'
-import { Select } from '#/components/v3/ui/select'
+import { Notice } from '#/components/ui/alert'
+import { Select } from '#/components/ui/select'
 import {
   Table,
   TableBody,
@@ -22,7 +22,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import { resolveDatasetRef, sciDataClient } from '#/lib/chart-data'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import {

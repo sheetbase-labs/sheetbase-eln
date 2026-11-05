@@ -32,7 +32,7 @@ vi.mock('@tanstack/react-router', () => ({
     </a>
   ),
 }))
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))

@@ -21,14 +21,14 @@ Audit of `/Users/garethprice/Developer/sheetbase/sheetbase-app-ui-only` against
 
 ## Not gaps — verified, to stop the list growing
 
-| Checked           | Result                                                                                                                                                                                                                  |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Design primitives | All 28 files in the interface's `src/components/ui/` exist in `src/components/v3/ui/`; the ELN has one more (`confirm-dialog`).                                                                                         |
-| Colour tokens     | All 50 names in `design/tokens.json` resolve somewhere in the ELN's `src` (CSS variables or class tokens).                                                                                                              |
-| Phone behaviour   | Dialogs' `max-md:bottom-0` bottom-sheet rules, 44px targets (`max-md:h-10`, `min-h-11`), bottom tabs and the nav rail are byte-equivalent ports in `src/components/v3/ui/` and `src/components/v3/shell/app-shell.tsx`. |
-| Command palette   | The ⌘K palette and the Command-based record picker both exist; the picker is a separate surface in both builds, not a palette group.                                                                                    |
-| Bench flows       | `/scan` (with an extra jsQR fallback the design build lacks) and `/readings/new` are ports of the same routes with the same checks.                                                                                     |
-| Inspector         | `src/components/v3/ui/layout.tsx` reproduces inline ≥1280 / side panel / bottom sheet exactly.                                                                                                                          |
+| Checked           | Result                                                                                                                                                                                                            |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Design primitives | All 28 files in the interface's `src/components/ui/` exist in `src/components/ui/`; the ELN has one more (`confirm-dialog`).                                                                                      |
+| Colour tokens     | All 50 names in `design/tokens.json` resolve somewhere in the ELN's `src` (CSS variables or class tokens).                                                                                                        |
+| Phone behaviour   | Dialogs' `max-md:bottom-0` bottom-sheet rules, 44px targets (`max-md:h-10`, `min-h-11`), bottom tabs and the nav rail are byte-equivalent ports in `src/components/ui/` and `src/components/shell/app-shell.tsx`. |
+| Command palette   | The ⌘K palette and the Command-based record picker both exist; the picker is a separate surface in both builds, not a palette group.                                                                              |
+| Bench flows       | `/scan` (with an extra jsQR fallback the design build lacks) and `/readings/new` are ports of the same routes with the same checks.                                                                               |
+| Inspector         | `src/components/ui/layout.tsx` reproduces inline ≥1280 / side panel / bottom sheet exactly.                                                                                                                       |
 
 ## Gaps
 
@@ -48,7 +48,7 @@ nothing), and what is missing. Priorities and task owners are in
   only through `object-history-dialog.tsx:66` for sheets; no dataset surface
   mounts it, though datasets are a `change_events` entity type.
 - **Used by:** no `used by`/`usedBy` match in `src/routes/datasets` or
-  `src/components/v3/datasets`.
+  `src/components/datasets`.
 - **Columns:** the interface's own screen is a stub
   (`routes/_app/datasets/$datasetId/columns.tsx` renders a placeholder); column
   identity is already reachable through the Rows grid headers and the Model
@@ -76,7 +76,7 @@ nothing), and what is missing. Priorities and task owners are in
 ### 3. There is no branded not-found screen — `R5-SURF-03`
 
 - Interface: `routes/_app/$.tsx` renders `components/shell/not-found.tsx`.
-- ELN: `src/components/v3/shell/not-found.tsx:16` exists but is mounted nowhere
+- ELN: `src/components/shell/not-found.tsx:16` exists but is mounted nowhere
   (no `<NotFound` outside the file), there is no `$` route, and
   `src/router.tsx` sets no `notFoundComponent`/`defaultNotFoundComponent`.
   Unmatched URLs therefore render the router's stock screen.
@@ -172,10 +172,10 @@ nothing), and what is missing. Priorities and task owners are in
   honest — but nothing can be switched per deployment, and no route has a
   `?state=gap`.
 - **Search and pickers:** no "Include archived" scope, no "Did you mean {id}?"
-  suggestion (`grep` in `src/components/v3/search/search-palette.tsx` → no
+  suggestion (`grep` in `src/components/search/search-palette.tsx` → no
   matches); no shared `FilterMenu` dropdown (lists use chips/checkboxes);
   the record picker's Recent group is unbuilt by design and says so
-  (`src/components/v3/record-picker/record-picker.tsx:14-19`).
+  (`src/components/record-picker/record-picker.tsx:14-19`).
 - **Sign-in:** `src/routes/sign-in.tsx:96-155` is GitHub-only — no
   email/password fallback, no lockout/attempts copy, no workspace line.
 - **Pipelines:** plain `<pre><code>` instead of a syntax-highlighted code block
@@ -188,8 +188,8 @@ nothing), and what is missing. Priorities and task owners are in
   with `INS-…` identities and link each row to `/instruments/$instrumentId`
   (`sheetbase-app-ui-only/src/routes/_app/schedule.tsx:112-127`).
 - ELN: Schedule books `api.calendar_resources`
-  (`src/components/v3/schedule/schedule-data.ts:13`) while the registry lists
-  `api.instruments` (`src/components/v3/instruments/instruments-data.ts:140`).
+  (`src/components/schedule/schedule-data.ts:13`) while the registry lists
+  `api.instruments` (`src/components/instruments/instruments-data.ts:140`).
   The only link is an optional `metadata.instrumentId` convention, and the seeded
   resource ("Ambr 250") does not use it. Consequences: a registered instrument
   cannot be booked, a booking cannot identify its instrument, the inspector's

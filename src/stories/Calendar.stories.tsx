@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { useState } from 'react'
 import type { DateRange } from 'react-day-picker'
-import { Calendar } from '#/components/v3/ui/calendar'
+import { Calendar } from '#/components/ui/calendar'
 
 const meta = {
   title: 'UI/Calendar',

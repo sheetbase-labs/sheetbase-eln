@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { LabelTemplatePicker } from '#/components/v3/samples/label-template-picker'
-import { LocationInput } from '#/components/v3/samples/location-field'
-import { PlaceField } from '#/components/v3/samples/place-field'
-import { PositionPicker } from '#/components/v3/samples/position-picker'
+import { LabelTemplatePicker } from '#/components/samples/label-template-picker'
+import { LocationInput } from '#/components/samples/location-field'
+import { PlaceField } from '#/components/samples/place-field'
+import { PositionPicker } from '#/components/samples/position-picker'
 import type { LabelTemplate } from '#/lib/labels'
 import { positionKeys } from '#/lib/storage-positions'
 import type { PlaceChoice } from '#/lib/storage-positions'
@@ -15,7 +15,7 @@ import { BOX_ID, boxFixtures, positionCells } from './sample-fixtures'
 /**
  * Where a sample goes: the box picker, the compact field that opens it, the
  * typed-location input and the label-template choice
- * (`src/components/v3/samples/`). They are one file because they are one
+ * (`src/components/samples/`). They are one file because they are one
  * decision on the move, aliquot and receive forms. The box list and each box's
  * positions are seeded into the query cache, so nothing is fetched.
  */

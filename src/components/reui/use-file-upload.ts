@@ -16,7 +16,7 @@
  * drag handlers, `isDragging`, and its own size/type validation. It sends
  * nothing anywhere, and ReUI's own note says no example does: the transport,
  * the validation policy and the storage policy stay ours. The shipping surface
- * that composes it is `src/components/v3/ui/file-drop.tsx`.
+ * that composes it is `src/components/ui/file-drop.tsx`.
  *
  * Do not extend or hand-edit this file beyond import-path fixes and restyling
  * to Sheetbase tokens; see docs/knowledge/design/component-comparison-record.md.

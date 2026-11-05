@@ -13,8 +13,8 @@ import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 
 import { cn } from '#/lib/utils'
-import { Button } from '#/components/v3/ui/button'
-import { Spinner } from '#/components/v3/ui/spinner'
+import { Button } from '#/components/ui/button'
+import { Spinner } from '#/components/ui/spinner'
 import { formatClockTime } from '#/components/offline/offline-edits'
 
 export interface OfflineBannerProps {

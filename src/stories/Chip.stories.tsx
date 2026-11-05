@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Chip } from '#/components/v3/ui/chip'
+import { Chip } from '#/components/ui/chip'
 
 /**
- * The forward kit's Chip (src/components/v3/ui/chip.tsx): one pill for the
+ * The forward kit's Chip (src/components/ui/chip.tsx): one pill for the
  * three jobs the app had three class strings for — a removable filter value,
  * a pressed filter or scope, and a phone nav section. The selected pair is one
  * token pair (`border-selection-border` on `bg-selection`) everywhere.

@@ -2,7 +2,7 @@
 
 import { Icon } from '#/components/icons'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { useFavouriteState } from '#/lib/favourites'
 import type { DataClient } from '#/lib/data-client'
 import type { FavouriteObjectKind } from '#/lib/favourites'

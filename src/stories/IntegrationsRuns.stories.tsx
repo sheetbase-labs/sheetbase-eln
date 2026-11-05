@@ -2,8 +2,8 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { expect, userEvent, within } from 'storybook/test'
 
-import { ConnectorCredentialsCard } from '#/components/v3/integrations/credentials-card'
-import { RunHistory } from '#/components/v3/integrations/run-history'
+import { ConnectorCredentialsCard } from '#/components/integrations/credentials-card'
+import { RunHistory } from '#/components/integrations/run-history'
 import { connectorQueryKeys } from '#/lib/connectors/client'
 import type {
   ConnectorRunLogWire,

@@ -11,8 +11,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './pipelines'
 import type * as notebookDataModule from '#/lib/notebook-data'
-import type * as pipelinesDataModule from '#/components/v3/pipelines/pipelines-data'
-import type { PipelineListRow } from '#/components/v3/pipelines/pipelines-data'
+import type * as pipelinesDataModule from '#/components/pipelines/pipelines-data'
+import type { PipelineListRow } from '#/components/pipelines/pipelines-data'
 
 const List = Route.options.component as React.ComponentType
 
@@ -54,7 +54,7 @@ vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   notebookDataClient: { list: async () => [] },
 }))
 
-vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
+vi.mock('#/components/pipelines/pipelines-data', async (importOriginal) => ({
   ...(await importOriginal<typeof pipelinesDataModule>()),
   usePipelineRows: () => ({
     data: state.isError ? undefined : state.rows,

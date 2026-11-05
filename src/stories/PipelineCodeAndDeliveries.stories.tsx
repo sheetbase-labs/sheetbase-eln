@@ -4,14 +4,14 @@ import {
   PipelineSteps,
   TemporaryArtefact,
   TemporaryResultNote,
-} from '#/components/v3/pipelines/pipeline-code'
-import type { PipelineStepConfig } from '#/components/v3/pipelines/pipeline-code'
-import { RunDeliveriesPanel } from '#/components/v3/pipelines/run-deliveries'
-import type { PipelineRunDeliveryWire } from '#/components/v3/pipelines/pipelines-data'
+} from '#/components/pipelines/pipeline-code'
+import type { PipelineStepConfig } from '#/components/pipelines/pipeline-code'
+import { RunDeliveriesPanel } from '#/components/pipelines/run-deliveries'
+import type { PipelineRunDeliveryWire } from '#/components/pipelines/pipelines-data'
 import { screenRoutes } from './screen-stories'
 
 /**
- * Pipeline code and run notifications (`src/components/v3/pipelines/`).
+ * Pipeline code and run notifications (`src/components/pipelines/`).
  *
  * `pipeline-code.tsx` renders a stored step's statement as text — never
  * interpreted — and states what happens to an intermediate result: its table

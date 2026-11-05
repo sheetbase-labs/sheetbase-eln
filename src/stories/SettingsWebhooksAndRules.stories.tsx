@@ -1,15 +1,15 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { instrumentQueryKeys } from '#/components/v3/instruments/instruments-data'
-import { CreateWebhookDialog } from '#/components/v3/settings/create-webhook-dialog'
-import { ReleaseRulesPanel } from '#/components/v3/settings/release-rules-panel'
-import { SampleWorkflowsPanel } from '#/components/v3/settings/sample-workflows-panel'
-import { WebhookParserDialog } from '#/components/v3/settings/webhook-parser-dialog'
+import { instrumentQueryKeys } from '#/components/instruments/instruments-data'
+import { CreateWebhookDialog } from '#/components/settings/create-webhook-dialog'
+import { ReleaseRulesPanel } from '#/components/settings/release-rules-panel'
+import { SampleWorkflowsPanel } from '#/components/settings/sample-workflows-panel'
+import { WebhookParserDialog } from '#/components/settings/webhook-parser-dialog'
 import {
   IncomingWebhooks,
   OutgoingWebhooks,
-} from '#/components/v3/settings/webhook-sections'
+} from '#/components/settings/webhook-sections'
 import { releaseRuleKeys } from '#/lib/release-rules'
 import { workflowKeys } from '#/lib/sample-workflows'
 import type { WorkflowDraft, WorkflowSummary } from '#/lib/sample-workflows'
@@ -20,7 +20,7 @@ import type { ReadSeed } from './screen-stories'
 
 /**
  * Webhooks, release checks and sample workflows in Settings
- * (`src/components/v3/settings/`).
+ * (`src/components/settings/`).
  *
  * Outgoing and incoming webhook lists, the two "add" dialogs, the release-rule
  * panel and the workflow panel. Reads are seeded by query key with

@@ -9,8 +9,8 @@
 
 import { useState } from 'react'
 
-import { Badge } from '#/components/v3/ui/badge'
-import { CodeBlock } from '#/components/v3/ui/code-block'
+import { Badge } from '#/components/ui/badge'
+import { CodeBlock } from '#/components/ui/code-block'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import type {

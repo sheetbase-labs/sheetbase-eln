@@ -1,29 +1,29 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { instrumentQueryKeys } from '#/components/v3/instruments/instruments-data'
-import type { InstrumentRow } from '#/components/v3/instruments/instruments-data'
-import { ApiExample } from '#/components/v3/settings/api-example'
+import { instrumentQueryKeys } from '#/components/instruments/instruments-data'
+import type { InstrumentRow } from '#/components/instruments/instruments-data'
+import { ApiExample } from '#/components/settings/api-example'
 import {
   AuditIntegrityLine,
   CheckNowButton,
   RetentionDialog,
-} from '#/components/v3/settings/audit-retention'
-import { BoxOccupancy } from '#/components/v3/settings/box-occupancy'
-import { DataAccessRoles } from '#/components/v3/settings/data-access-roles'
-import { InstrumentParserTable } from '#/components/v3/settings/instrument-parser-table'
-import { JoinDomainsSection } from '#/components/v3/settings/join-domains'
-import { MemberSessionsDialog } from '#/components/v3/settings/member-sessions-dialog'
-import { MemberUsernameDialog } from '#/components/v3/settings/member-username-dialog'
-import { ParserVersions } from '#/components/v3/settings/parser-versions'
-import { PhoneAlerts } from '#/components/v3/settings/phone-alerts'
-import { SettingsSampleData } from '#/components/v3/settings/settings-sample-data'
+} from '#/components/settings/audit-retention'
+import { BoxOccupancy } from '#/components/settings/box-occupancy'
+import { DataAccessRoles } from '#/components/settings/data-access-roles'
+import { InstrumentParserTable } from '#/components/settings/instrument-parser-table'
+import { JoinDomainsSection } from '#/components/settings/join-domains'
+import { MemberSessionsDialog } from '#/components/settings/member-sessions-dialog'
+import { MemberUsernameDialog } from '#/components/settings/member-username-dialog'
+import { ParserVersions } from '#/components/settings/parser-versions'
+import { PhoneAlerts } from '#/components/settings/phone-alerts'
+import { SettingsSampleData } from '#/components/settings/settings-sample-data'
 import {
   SettingsTwoFactor,
   twoFactorQueryKey,
-} from '#/components/v3/settings/settings-two-factor'
-import { SqlLogins } from '#/components/v3/settings/sql-logins'
-import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'
+} from '#/components/settings/settings-two-factor'
+import { SqlLogins } from '#/components/settings/sql-logins'
+import { WorkspaceAdminsLine } from '#/components/settings/workspace-admins-line'
 import { auditVerificationKeys } from '#/lib/audit-verification-status'
 import { dataAccessKeys } from '#/lib/data-access'
 import { joinDomainKeys } from '#/lib/join-domains'
@@ -38,7 +38,7 @@ import { screenQueryClient, screenRoutes } from './screen-stories'
 import type { ReadSeed } from './screen-stories'
 
 /**
- * Settings sections and dialogs (`src/components/v3/settings/`).
+ * Settings sections and dialogs (`src/components/settings/`).
  *
  * Each of these reads one thing and shows it, so each story seeds that read by
  * its query key with `staleTime: Infinity` and nothing reaches a database or

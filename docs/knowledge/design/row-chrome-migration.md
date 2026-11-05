@@ -19,11 +19,11 @@ that leaves a written map is reviewable, and a map without a decision is not.
 
 ## The set
 
-| Primitive         | File                              | Owns                                                                                                    |
-| ----------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `Row`             | `src/components/v3/ui/row.tsx`    | One row: leading slot, optional eyebrow, title, optional meta, trailing slot — and its interaction form |
-| `RowList`         | `src/components/v3/ui/row.tsx`    | The list: `<ul>`, spacing, hairline or gap, per-row density, empty slot, window (`limit`)               |
-| `DescriptionList` | `src/components/v3/ui/layout.tsx` | Property and metadata rows: a label column and a value, in a `<dl>` (the design's own `.dl`)            |
+| Primitive         | File                           | Owns                                                                                                    |
+| ----------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `Row`             | `src/components/ui/row.tsx`    | One row: leading slot, optional eyebrow, title, optional meta, trailing slot — and its interaction form |
+| `RowList`         | `src/components/ui/row.tsx`    | The list: `<ul>`, spacing, hairline or gap, per-row density, empty slot, window (`limit`)               |
+| `DescriptionList` | `src/components/ui/layout.tsx` | Property and metadata rows: a label column and a value, in a `<dl>` (the design's own `.dl`)            |
 
 Three, not one: a single god-row would have to carry the diff card, the
 checklist row and the step row, which share nothing but `flex`. Two, not three:
@@ -80,7 +80,7 @@ part of shadcn/ui, not a ReUI item"}`), and stock shadcn's compound `Item` has
 
 | File                                                  | What changed                                                                                                       |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `src/components/v3/ui/row.tsx` (new)                  | `Row`, `RowList`                                                                                                   |
+| `src/components/ui/row.tsx` (new)                     | `Row`, `RowList`                                                                                                   |
 | `src/components/scientific/record-link.tsx`           | `RecordLink` is now the v3 `Row` plus its five honest states; gains `density` and `detail`; uses the v3 icon set   |
 | `src/components/record/inspector-sections.tsx`        | `LinkedRecordList` **deleted** (the competing twin); `FileList` and `CheckList` are `RowList` of `Row`             |
 | `src/components/knowledge/relationship-panel.tsx`     | Rows are `RowList limit={RELATIONSHIP_RENDER_LIMIT}` of `RecordLink`; the bespoke window and `<li title>` are gone |
@@ -224,7 +224,7 @@ three local spellings.
    disabled link.
 4. Delete the old `<ul>`/`<li>`/`<a>`/`<div>` spelling in the same change. A
    second implementation left behind is how the twins appeared.
-5. Run the site's own test, `src/components/v3/ui/row.test.tsx`, and look at the
+5. Run the site's own test, `src/components/ui/row.test.tsx`, and look at the
    rendered surface in both themes.
 
 ## Limits

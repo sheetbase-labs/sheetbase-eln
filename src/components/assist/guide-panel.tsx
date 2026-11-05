@@ -10,7 +10,7 @@
  */
 import { t } from '#/copy'
 import type { GuideAcceptKey, GuidedWorkflow } from '#/lib/assist-guide'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 
 import { ExplainPanel } from './explain-panel'
 

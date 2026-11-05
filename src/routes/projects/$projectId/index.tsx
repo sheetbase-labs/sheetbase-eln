@@ -8,23 +8,23 @@ import {
   InspectorSection,
   Muted,
   Section,
-} from '#/components/v3/ui/layout'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Button } from '#/components/v3/ui/button'
-import { Status } from '#/components/v3/ui/status'
-import { TableBox } from '#/components/v3/ui/table'
+} from '#/components/ui/layout'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Button } from '#/components/ui/button'
+import { Status } from '#/components/ui/status'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
   fetchProjectActivity,
   fetchProjectMembers,
   useProjectMilestones,
   useProjectSummary,
-} from '#/components/v3/projects/project-data'
-import { experimentStatus } from '#/components/v3/experiments/experiments-data'
+} from '#/components/projects/project-data'
+import { experimentStatus } from '#/components/experiments/experiments-data'
 import {
   fetchRecordsForProject,
   formatDate,
@@ -32,9 +32,9 @@ import {
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
-import { ObjectLink } from '#/components/v3/ui/object-link'
+import { ObjectLink } from '#/components/ui/object-link'
 import { useUserNames } from '#/lib/user-names'
-import { AddedFields } from '#/components/v3/models/added-fields'
+import { AddedFields } from '#/components/models/added-fields'
 import { describeAuditEvent } from '#/lib/audit-history'
 import { now } from '#/lib/clock'
 import { daysUntilDate } from '#/lib/calendar-days'

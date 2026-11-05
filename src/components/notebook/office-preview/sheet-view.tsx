@@ -8,8 +8,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
-import { Tabs } from '#/components/v3/ui/tabs'
+} from '#/components/ui/table'
+import { Tabs } from '#/components/ui/tabs'
 import { t } from '#/copy'
 import type { PreviewSheet } from '#/lib/office-preview/sheets'
 import { cn } from '#/lib/utils'

@@ -26,7 +26,7 @@ import {
   proseBackspaceAction,
   proseRunMembers,
 } from '#/lib/notebook-prose-runs'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -36,13 +36,13 @@ import {
   ConfirmDialogFooter,
   ConfirmDialogHeader,
   ConfirmDialogTitle,
-} from '#/components/v3/ui/confirm-dialog'
-import { EmptyState } from '#/components/v3/ui/empty-state'
+} from '#/components/ui/confirm-dialog'
+import { EmptyState } from '#/components/ui/empty-state'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '#/components/v3/ui/popover'
+} from '#/components/ui/popover'
 import {
   NotebookBlockHandle,
   NotebookBlockList,

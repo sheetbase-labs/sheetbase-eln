@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { SessionExpiredBanner } from '#/components/v3/shell/session-expired-banner'
+import { SessionExpiredBanner } from '#/components/shell/session-expired-banner'
 
 /**
  * The session ended while the tab was open. The banner names the cause and

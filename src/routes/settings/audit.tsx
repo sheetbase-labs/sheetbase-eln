@@ -2,14 +2,14 @@ import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { LoadMore } from '#/components/v3/ui/load-more'
-import { Notice } from '#/components/v3/ui/alert'
-import { toast } from '#/components/v3/ui/sonner'
-import { Input } from '#/components/v3/ui/input'
-import { DateField } from '#/components/v3/ui/date-field'
-import { Select } from '#/components/v3/ui/select'
-import { Muted } from '#/components/v3/ui/layout'
+import { Button } from '#/components/ui/button'
+import { LoadMore } from '#/components/ui/load-more'
+import { Notice } from '#/components/ui/alert'
+import { toast } from '#/components/ui/sonner'
+import { Input } from '#/components/ui/input'
+import { DateField } from '#/components/ui/date-field'
+import { Select } from '#/components/ui/select'
+import { Muted } from '#/components/ui/layout'
 import {
   Table,
   TableBody,
@@ -17,13 +17,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
-import { SettingsHeader } from '#/components/v3/settings/settings-page'
+} from '#/components/ui/table'
+import { SettingsHeader } from '#/components/settings/settings-page'
 import {
   AuditIntegrityLine,
   CheckNowButton,
   RetentionDialog,
-} from '#/components/v3/settings/audit-retention'
+} from '#/components/settings/audit-retention'
 import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
 import { canManageSettings } from '#/lib/settings-access'
 import { useUserNames } from '#/lib/user-names'

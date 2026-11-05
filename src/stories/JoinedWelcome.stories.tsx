@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { JoinedWelcome } from '#/components/v3/shell/joined-welcome'
+import { JoinedWelcome } from '#/components/shell/joined-welcome'
 import { joinDomainKeys } from '#/lib/join-domains'
 import { screenQueryClient } from './screen-stories'
 

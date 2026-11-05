@@ -4,25 +4,25 @@ import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { Status } from '#/components/v3/ui/status'
-import type { Tone } from '#/components/v3/ui/status'
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Notice } from '#/components/v3/ui/alert'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
+import { Status } from '#/components/ui/status'
+import type { Tone } from '#/components/ui/status'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Notice } from '#/components/ui/alert'
+import { Field, Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
 import {
   DescriptionList,
   Inspector,
   InspectorSection,
   Muted,
-} from '#/components/v3/ui/layout'
-import { TableBox } from '#/components/v3/ui/table'
+} from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
   Dialog,
   DialogBody,
@@ -30,8 +30,8 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/ui/dialog'
+import { toast } from '#/components/ui/sonner'
 import { DataClientError } from '#/lib/data-client'
 import { useUserNames } from '#/lib/user-names'
 import {
@@ -49,13 +49,13 @@ import {
   useTemplateApprovals,
   useTemplateUsers,
   useTemplateVersions,
-} from '#/components/v3/templates/templates-data'
+} from '#/components/templates/templates-data'
 import { Icon } from '#/components/icons'
-import { FieldChangeList } from '#/components/v3/models/field-changes'
+import { FieldChangeList } from '#/components/models/field-changes'
 import {
   diffTemplatePlacements,
   summariseTemplateChanges,
-} from '#/components/v3/templates/template-structure'
+} from '#/components/templates/template-structure'
 import type { ApprovalRequest } from '#/lib/approval-requests'
 import { t } from '#/copy'
 

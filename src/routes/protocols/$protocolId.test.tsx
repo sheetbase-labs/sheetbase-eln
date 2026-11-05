@@ -25,11 +25,11 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children?: React.ReactNode }) => <a>{children}</a>,
 }))
 
-vi.mock('#/components/v3/protocols/protocol-training-roster', () => ({
+vi.mock('#/components/protocols/protocol-training-roster', () => ({
   ProtocolTrainingRoster: () => null,
 }))
 
-vi.mock('#/components/v3/protocols/protocol-document', () => ({
+vi.mock('#/components/protocols/protocol-document', () => ({
   ProtocolDocument: () => null,
 }))
 
@@ -74,7 +74,7 @@ vi.mock('../protocols', () => ({
   protocolStatus: () => ({ tone: 'ok', label: 'Effective' }),
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 

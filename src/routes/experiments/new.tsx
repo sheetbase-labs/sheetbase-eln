@@ -7,29 +7,29 @@ import {
 } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 
-import { PageHeader, Muted } from '#/components/v3/ui/layout'
-import { Button } from '#/components/v3/ui/button'
-import { Field, Input } from '#/components/v3/ui/input'
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import type { PickerOption } from '#/components/v3/record-picker/entity-picker'
+import { PageHeader, Muted } from '#/components/ui/layout'
+import { Button } from '#/components/ui/button'
+import { Field, Input } from '#/components/ui/input'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
+import type { PickerOption } from '#/components/record-picker/entity-picker'
 import {
   personOption,
   projectOption,
   recordSearch,
-} from '#/components/v3/record-picker/entity-options'
-import { Checkbox } from '#/components/v3/ui/checkbox'
+} from '#/components/record-picker/entity-options'
+import { Checkbox } from '#/components/ui/checkbox'
 import {
   AddedFieldsFormSection,
   useAddedFieldDraft,
-} from '#/components/v3/models/added-fields'
+} from '#/components/models/added-fields'
 import { requireBuiltInModel } from '#/lib/built-in-models'
 import { saveNewObjectFields } from '#/lib/model-subtypes'
-import { toast } from '#/components/v3/ui/sonner'
+import { toast } from '#/components/ui/sonner'
 import {
   askedParameters,
   parameterInput,
-} from '#/components/v3/templates/use-template-dialog'
-import { buildTemplateRows } from '#/components/v3/templates/templates-data'
+} from '#/components/templates/use-template-dialog'
+import { buildTemplateRows } from '#/components/templates/templates-data'
 import { acknowledgeProtocolVersion } from '#/lib/controlled-protocols'
 import {
   applyExperimentSetup,

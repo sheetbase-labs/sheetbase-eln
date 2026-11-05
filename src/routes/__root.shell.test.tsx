@@ -75,7 +75,7 @@ vi.mock('@tanstack/react-start/server', () => ({
 
 // The two shells are distinguishable by their wrapper, so the assertion does
 // not depend on either shell's chrome.
-vi.mock('#/components/v3/shell/app-shell', () => ({
+vi.mock('#/components/shell/app-shell', () => ({
   AppShell: ({ children }: { children?: React.ReactNode }) => (
     <div data-testid="v3-shell">{children}</div>
   ),

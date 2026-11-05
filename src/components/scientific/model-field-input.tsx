@@ -3,10 +3,10 @@ import { useEffect, useMemo, useState } from 'react'
 
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 import { definitionOfModelField } from '#/lib/model-fields'
-import { Button } from '#/components/v3/ui/button'
-import { Checkbox } from '#/components/v3/ui/checkbox'
-import { Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
+import { Button } from '#/components/ui/button'
+import { Checkbox } from '#/components/ui/checkbox'
+import { Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
 import {
   fieldEditorPresentation,
   selectableFieldOptions,
@@ -21,13 +21,13 @@ import {
   selectRecordReference,
 } from '#/lib/record-reference-cell'
 import type { RecordReferenceSnapshot } from '#/lib/record-reference-cell'
-import { EntityPickerDialog } from '#/components/v3/record-picker/entity-picker'
+import { EntityPickerDialog } from '#/components/record-picker/entity-picker'
 import type {
   PickerOption,
   PickerSearchResult,
-} from '#/components/v3/record-picker/entity-picker'
-import { modelRecordSearch } from '#/components/v3/record-picker/entity-options'
-import { pickerStatus } from '#/components/v3/record-picker/record-picker-data'
+} from '#/components/record-picker/entity-picker'
+import { modelRecordSearch } from '#/components/record-picker/entity-options'
+import { pickerStatus } from '#/components/record-picker/record-picker-data'
 import type { SheetRecordSearchHit } from '#/lib/sheet-record-search'
 import { isReferenceTargetAllowed } from '#/lib/model-relationships'
 import type { ModelRelationshipRule } from '#/lib/model-relationships'

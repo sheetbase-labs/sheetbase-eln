@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Badge } from '#/components/v3/ui/badge'
-import { Chip } from '#/components/v3/ui/chip'
+import { Badge } from '#/components/ui/badge'
+import { Chip } from '#/components/ui/chip'
 import { Diff } from '#/components/scientific/diff'
 import { Source } from '#/components/scientific/source'
 

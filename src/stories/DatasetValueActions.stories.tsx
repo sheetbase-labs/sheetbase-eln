@@ -5,7 +5,7 @@ import {
   ClearSystemFlagDialog,
   MarkOutOfRangeDialog,
   ValueActions,
-} from '#/components/v3/datasets/value-actions'
+} from '#/components/datasets/value-actions'
 import type { DatasetValueFlag } from '#/lib/dataset-flags'
 import { screenQueryClient } from './screen-stories'
 
@@ -26,7 +26,7 @@ const sample = {
 }
 
 /**
- * The selected-value actions (`src/components/v3/datasets/value-actions.tsx`).
+ * The selected-value actions (`src/components/datasets/value-actions.tsx`).
  *
  * The same three actions wherever a dataset value is selected: mark it out of
  * range, clear the flag on it, or request a repeat. A manual flag and a

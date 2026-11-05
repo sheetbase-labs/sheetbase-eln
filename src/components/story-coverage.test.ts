@@ -13,10 +13,8 @@ import { describe, expect, it } from 'vitest'
  *
  * Two things are deliberately *not* how this works:
  *
- * - A story file whose *name* matches the component is not coverage. The legacy
- *   kit and the forward kit both have a Sheet, a Table, a Dialog and a Kbd, so
- *   `Sheet.stories.tsx` importing `#/components/ui/sheet` says nothing about
- *   `#/components/v3/ui/sheet`. The check is on the module a story imports.
+ * - A story file whose *name* matches the component is not coverage. The check
+ *   is on the module a story imports.
  * - A support import counts. A story that composes `Button` as a fixture is
  *   exercising `button.tsx` in Storybook, which is what this guard is for.
  *
@@ -178,11 +176,10 @@ const REMEDIATION = [
   'Add a story for it, or record why it needs none.',
   '',
   '  A story goes in src/stories/<Name>.stories.tsx and must import the module:',
-  "      import { Thing } from '#/components/v3/ui/thing'",
+  "      import { Thing } from '#/components/ui/thing'",
   '  A story that merely has the same file name as the component is not',
-  '  coverage — the legacy kit and the forward kit have components of the same',
-  '  name. Given the two kits, give a forward-kit story the title',
-  "  'v3 kit/<Name>' and a registry story 'UI/<Name>'.",
+  "  coverage. Give a kit story the title 'UI/<Name>' and a registry copy",
+  "  'UI/Registry <Name>'.",
   '',
   `  A recorded skip goes in ${relative(ROOT, RECORD)}, in the section`,
   '  for its area, as one row of a "| Module | Why no story |" table:',

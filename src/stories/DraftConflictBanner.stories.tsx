@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { DraftConflictBanner } from '#/components/v3/models/draft-conflict-banner'
+import { DraftConflictBanner } from '#/components/models/draft-conflict-banner'
 import type { DraftConflict } from '#/lib/dataset-schema-draft'
 
 /**
  * The stale-draft banner of a model's field editor
- * (`src/components/v3/models/draft-conflict-banner.tsx`), as the models edit
+ * (`src/components/models/draft-conflict-banner.tsx`), as the models edit
  * route renders it when a save was refused because the draft moved underneath
  * it. Which resolution is offered follows `conflict.overlap`: an overlap must be
  * chosen between explicitly (Keep mine), while disjoint edits can be merged.

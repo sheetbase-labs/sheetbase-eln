@@ -2,25 +2,25 @@ import { useState } from 'react'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Status } from '#/components/v3/ui/status'
-import type { Tone } from '#/components/v3/ui/status'
+import { Status } from '#/components/ui/status'
+import type { Tone } from '#/components/ui/status'
 import {
   DescriptionList,
   Muted,
   PageHeader,
   Section,
-} from '#/components/v3/ui/layout'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { TableBox } from '#/components/v3/ui/table'
+} from '#/components/ui/layout'
+import { EmptyState } from '#/components/ui/empty-state'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { Button, buttonVariants } from '#/components/v3/ui/button'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { Button, buttonVariants } from '#/components/ui/button'
 import { Icon } from '#/components/icons'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { Textarea } from '#/components/v3/inventory/list'
+import { Tabs } from '#/components/ui/tabs'
+import { Textarea } from '#/components/inventory/list'
 import { cn } from '#/lib/utils'
 import { now } from '#/lib/clock'
 import { daysUntilDate } from '#/lib/calendar-days'

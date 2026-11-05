@@ -13,7 +13,7 @@ import {
   MessageResponse,
 } from '#/components/assist/chat/message'
 import { PromptBox } from '#/components/assist/chat/prompt-box'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 
 /**
  * The assistant chat's building blocks, after the AI Elements `Conversation`,

@@ -2,10 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { useState } from 'react'
 
-import { LabelTemplatesPanel } from '#/components/v3/settings/label-templates-panel'
-import { SettingsHeader } from '#/components/v3/settings/settings-page'
-import { StorageLocationsPanel } from '#/components/v3/settings/storage-locations-panel'
-import { Tabs } from '#/components/v3/ui/tabs'
+import { LabelTemplatesPanel } from '#/components/settings/label-templates-panel'
+import { SettingsHeader } from '#/components/settings/settings-page'
+import { StorageLocationsPanel } from '#/components/settings/storage-locations-panel'
+import { Tabs } from '#/components/ui/tabs'
 import type { DataClient } from '#/lib/data-client'
 
 /**

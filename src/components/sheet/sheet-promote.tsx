@@ -1,10 +1,10 @@
 import { t } from '#/copy'
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
-import { Notice } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
+import { Notice } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
 import {
   Dialog,
   DialogBody,
@@ -12,8 +12,8 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { Field, Input } from '#/components/v3/ui/input'
+} from '#/components/ui/dialog'
+import { Field, Input } from '#/components/ui/input'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import { listCanonicalDatasetSchemaDefinitions } from '#/lib/dataset-schema-definition-rpc'

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { AddBlockMenu } from '#/components/notebook/add-block-menu'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 
 /**
  * The block picker's menu form (the control that owns its own trigger is

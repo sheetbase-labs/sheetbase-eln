@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 
-import { Button } from '#/components/v3/ui/button'
-import { Checkbox } from '#/components/v3/ui/checkbox'
+import { Button } from '#/components/ui/button'
+import { Checkbox } from '#/components/ui/checkbox'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -12,14 +12,14 @@ import {
   ConfirmDialogFooter,
   ConfirmDialogHeader,
   ConfirmDialogTitle,
-} from '#/components/v3/ui/confirm-dialog'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Input } from '#/components/v3/ui/input'
-import { Muted, Section } from '#/components/v3/ui/layout'
-import { Select } from '#/components/v3/ui/select'
-import { TableBox } from '#/components/v3/ui/table'
-import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+} from '#/components/ui/confirm-dialog'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Input } from '#/components/ui/input'
+import { Muted, Section } from '#/components/ui/layout'
+import { Select } from '#/components/ui/select'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { builtInModel } from '#/lib/built-in-models'
 import { isUuid } from '#/lib/field-value-validation'
 import { createModelRule, removeModelRule } from '#/lib/model-rules'
@@ -29,7 +29,7 @@ import {
   useModelRules,
   useRecordModelFields,
   useWorkspaceRecordModel,
-} from '#/components/v3/models/models-data'
+} from '#/components/models/models-data'
 import { t } from '#/copy'
 
 /**

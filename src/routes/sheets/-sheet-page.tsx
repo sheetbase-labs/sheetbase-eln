@@ -1,18 +1,18 @@
 import { t } from '#/copy'
-import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
+import { RecordUnavailable } from '#/components/ui/record-unavailable'
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 
-import type { Crumb } from '#/components/v3/ui/breadcrumb'
+import type { Crumb } from '#/components/ui/breadcrumb'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
-import { PageHeader } from '#/components/v3/ui/layout'
-import { CopyButton } from '#/components/v3/ui/copy-button'
+import { PageHeader } from '#/components/ui/layout'
+import { CopyButton } from '#/components/ui/copy-button'
 import {
   CollaborationRoom,
   safeBuildRoomId,
 } from '#/components/collaboration/collaboration-room'
 import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
-import { ColumnPromotionsPanel } from '#/components/v3/sheets/column-promotions-panel'
+import { ColumnPromotionsPanel } from '#/components/sheets/column-promotions-panel'
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'
 import {
   notebookDataClient,

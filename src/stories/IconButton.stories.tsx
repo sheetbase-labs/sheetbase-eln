@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { IconButton } from '#/components/v3/ui/icon-button'
+import { IconButton } from '#/components/ui/icon-button'
 
 const meta = {
-  title: 'v3 kit/IconButton',
+  title: 'UI/IconButton',
   component: IconButton,
   tags: ['autodocs'],
   args: { label: 'Edit', icon: 'edit' },

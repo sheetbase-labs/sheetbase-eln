@@ -35,11 +35,11 @@ of the findings below are that gap.
 - **Path:**
   1. The route hides the banner only for historical and archived views (`routes/records/$recordId/notebook.tsx:803-813`), so it shows on a locked notebook directly above `LockedBanner` (`:814`).
   2. "Review v2" opens `/templates/$templateId/update?record=…` (`notebook-template-upgrade-banner.tsx:170-174`).
-  3. The update page loads a preview and enables "Apply v2" without checking `locked_at` (`routes/templates/$templateId/update.tsx:117-130`; `components/v3/templates/template-update-view.tsx:437-441`).
+  3. The update page loads a preview and enables "Apply v2" without checking `locked_at` (`routes/templates/$templateId/update.tsx:117-130`; `components/templates/template-update-view.tsx:437-441`).
   4. Apply is refused by the RPC with `record is locked` (SB011) (`drizzle/0119_core_065_template_placement_data_boundary.sql:328`), shown as a bare "Could not update the notebook" notice (`template-update-view.tsx:268-270`).
 - **Blockers hit:** raw `record is locked`. The only mention of the real rule is a static footnote, "Signed records cannot be updated; use an amendment." (`template-update-view.tsx:453-454`), with no link to amend. The notebook already carries the Amend button (`notebook.tsx:1538-1548`) but the update page does not point back to it.
 - **Verdict:** `dead-end` (step 3: the user does a full preview and conflict-decision pass before the refusal). Fixed in 70e79353.
-- **Fix:** suppress the banner when `lockedAt` is set, or swap it for "Amend first to take v2". On the update page, read `locked_at` (already fetched at `components/v3/templates/templates-data.ts:172`), disable Apply, and show "This notebook is signed. Amend it, then update" with a link back to the notebook.
+- **Fix:** suppress the banner when `lockedAt` is set, or swap it for "Amend first to take v2". On the update page, read `locked_at` (already fetched at `components/templates/templates-data.ts:172`), disable Apply, and show "This notebook is signed. Amend it, then update" with a link back to the notebook.
 - **Severity:** S2.
 
 ### J-NBK-03 Publish or retire a template version

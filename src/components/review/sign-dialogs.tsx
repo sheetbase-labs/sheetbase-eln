@@ -8,7 +8,7 @@
  * (rather than an inline function in the route) so the review signing flow has
  * its own regression test without mounting the whole workspace.
  */
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { Icon } from '#/components/icons'
 import { ESignDialog } from '#/components/notebook/e-sign-dialog'
 import { PreSignSummary } from '#/components/review/pre-sign-summary'

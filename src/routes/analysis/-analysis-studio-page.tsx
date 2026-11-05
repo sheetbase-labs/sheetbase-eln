@@ -18,19 +18,19 @@
  * PostgreSQL and RLS remain authoritative (decisions 0019/0029/0034).
  */
 import { t } from '#/copy'
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import { datasetOption } from '#/components/v3/record-picker/entity-options'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
+import { datasetOption } from '#/components/record-picker/entity-options'
 import { specSourceDatasetId } from '#/lib/analysis-spec-source'
 import { AnalysisFigureGuide } from '#/components/assist/analysis-figure-guide'
-import { RecordPicker } from '#/components/v3/record-picker/record-picker'
-import type { PickerItem } from '#/components/v3/record-picker/record-picker-data'
+import { RecordPicker } from '#/components/record-picker/record-picker'
+import type { PickerItem } from '#/components/record-picker/record-picker-data'
 import { insertBlock } from '#/lib/notebook-mutations'
 import { stableStringify } from '#/lib/notebook-submission'
 import { DataClientError } from '#/lib/data-client'
 import { downloadTextFile } from '#/lib/download'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
-import { toast } from '#/components/v3/ui/sonner'
-import { Spinner } from '#/components/v3/ui/spinner'
+import { toast } from '#/components/ui/sonner'
+import { Spinner } from '#/components/ui/spinner'
 import {
   Dialog,
   DialogBody,
@@ -38,7 +38,7 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
+} from '#/components/ui/dialog'
 import { CompareView } from '#/components/viz/compare-view'
 import { SourceComparison } from '#/components/viz/source-comparison'
 import { SnapshotSourceBanner } from '#/components/viz/snapshot-source-banner'
@@ -51,7 +51,7 @@ import {
   ConfirmDialogFooter,
   ConfirmDialogHeader,
   ConfirmDialogTitle,
-} from '#/components/v3/ui/confirm-dialog'
+} from '#/components/ui/confirm-dialog'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Link,
@@ -67,15 +67,15 @@ import { AnalysisPanel } from '#/components/viz/analysis-panel'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { Icon } from '#/components/icons'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
-import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
 import { returnLabel } from '#/lib/return-to'
-import { Notice } from '#/components/v3/ui/alert'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Skeleton } from '#/components/v3/ui/skeleton'
-import { Inspector as InspectorPanel } from '#/components/v3/ui/layout'
-import { Select } from '#/components/v3/ui/select'
+import { Notice } from '#/components/ui/alert'
+import { Tabs } from '#/components/ui/tabs'
+import { Field, Input } from '#/components/ui/input'
+import { Skeleton } from '#/components/ui/skeleton'
+import { Inspector as InspectorPanel } from '#/components/ui/layout'
+import { Select } from '#/components/ui/select'
 import {
   Table,
   TableBody,
@@ -83,7 +83,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import { Inspector } from '#/components/record/inspector'
 import { InspectorSection, InspectorSectionStack } from '#/components/record'
 import { FigureControls } from '#/components/viz/figure-controls'

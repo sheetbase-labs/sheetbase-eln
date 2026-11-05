@@ -2,11 +2,11 @@ import { useMemo, useState } from 'react'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 
 import { Icon } from '#/components/icons'
-import { ListHeader, ListToolbar } from '#/components/v3/inventory/list'
-import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { useSavedSearches } from '#/components/v3/search/use-saved-searches'
-import { Button } from '#/components/v3/ui/button'
+import { ListHeader, ListToolbar } from '#/components/inventory/list'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { useSavedSearches } from '#/components/search/use-saved-searches'
+import { Button } from '#/components/ui/button'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -16,7 +16,7 @@ import {
   ConfirmDialogFooter,
   ConfirmDialogHeader,
   ConfirmDialogTitle,
-} from '#/components/v3/ui/confirm-dialog'
+} from '#/components/ui/confirm-dialog'
 import {
   Dialog,
   DialogBody,
@@ -24,16 +24,16 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
+} from '#/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
+} from '#/components/ui/dropdown-menu'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Field, Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
 import { now } from '#/lib/clock'
 import { formatListDate } from '#/lib/list-date'
 import { savedQueryToSearch } from '#/lib/search'

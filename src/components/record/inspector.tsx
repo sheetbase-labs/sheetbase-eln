@@ -2,10 +2,10 @@ import { t } from '#/copy'
 import * as React from 'react'
 
 import { cn } from '#/lib/utils'
-import { Button } from '#/components/v3/ui/button'
-import { Skeleton } from '#/components/v3/ui/skeleton'
-import { OverflowTabs } from '#/components/v3/ui/overflow-tabs'
-import { TabsRoot, TabsPanel } from '#/components/v3/ui/tabs'
+import { Button } from '#/components/ui/button'
+import { Skeleton } from '#/components/ui/skeleton'
+import { OverflowTabs } from '#/components/ui/overflow-tabs'
+import { TabsRoot, TabsPanel } from '#/components/ui/tabs'
 import { Icon } from '#/components/icons'
 
 /**

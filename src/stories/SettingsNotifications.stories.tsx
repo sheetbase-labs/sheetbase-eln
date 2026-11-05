@@ -2,7 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { expect, userEvent, within } from 'storybook/test'
 
-import { SettingsNotifications } from '#/components/v3/settings/settings-notifications'
+import { SettingsNotifications } from '#/components/settings/settings-notifications'
 import {
   defaultPreferences,
   notificationPreferencesQueryKeys,

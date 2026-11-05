@@ -1,5 +1,5 @@
 import { t } from '#/copy'
-import { Badge } from '#/components/v3/ui/badge'
+import { Badge } from '#/components/ui/badge'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { cn } from '#/lib/utils'

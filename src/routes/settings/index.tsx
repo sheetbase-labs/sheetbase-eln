@@ -1,11 +1,11 @@
 import { t } from '#/copy'
 import { Link, createFileRoute } from '@tanstack/react-router'
 
-import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { SettingsGeneral } from '#/components/v3/settings/settings-general'
-import { SettingsHeader } from '#/components/v3/settings/settings-page'
+import { WorkspaceAdminsLine } from '#/components/settings/workspace-admins-line'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
+import { SettingsGeneral } from '#/components/settings/settings-general'
+import { SettingsHeader } from '#/components/settings/settings-page'
 import { canOpenSettings } from '#/lib/settings-access'
 
 /** UI port (roadmap-4/ui-app3): General settings. The workspace name, site,

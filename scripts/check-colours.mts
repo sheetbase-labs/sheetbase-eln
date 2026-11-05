@@ -27,7 +27,7 @@ const ALLOWLIST = new Set([
   'src/components/planner/planner-timeline.tsx',
   // GHS hazard pictograms must keep their regulated red, black and white in
   // every theme.
-  'src/components/v3/materials/ghs-pictogram.tsx',
+  'src/components/materials/ghs-pictogram.tsx',
 ])
 
 const PALETTE =

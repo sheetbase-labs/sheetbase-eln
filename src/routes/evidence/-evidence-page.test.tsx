@@ -135,7 +135,7 @@ vi.mock('#/lib/sign-002', () => ({
   createAmendment: mocks.createAmendment,
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: mocks.toast,
   Toaster: () => null,
 }))

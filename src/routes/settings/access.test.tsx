@@ -35,7 +35,7 @@ vi.mock('@tanstack/react-router', () => ({
   }),
 }))
 
-vi.mock('#/components/v3/settings/data-access-roles', () => ({
+vi.mock('#/components/settings/data-access-roles', () => ({
   DataAccessRoles: () => null,
 }))
 
@@ -50,7 +50,7 @@ vi.mock('#/lib/user-names', () => ({
   }),
 }))
 
-vi.mock('#/components/v3/projects/project-data', () => ({
+vi.mock('#/components/projects/project-data', () => ({
   fetchWorkspaceMemberIdentities: async () => [
     { user_id: 'scientist', name: 'Ada Lovelace', role: 'scientist' },
     { user_id: 'lead', name: 'Grace Hopper', role: 'steward' },

@@ -1,18 +1,18 @@
 import { t } from '#/copy'
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import { recordOption } from '#/components/v3/record-picker/entity-options'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
+import { recordOption } from '#/components/record-picker/entity-options'
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Notice } from '#/components/v3/ui/alert'
-import { Muted, Section } from '#/components/v3/ui/layout'
-import { ObjectLink } from '#/components/v3/ui/object-link'
-import { Select } from '#/components/v3/ui/select'
-import { Status } from '#/components/v3/ui/status'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Field, Input } from '#/components/ui/input'
+import { Notice } from '#/components/ui/alert'
+import { Muted, Section } from '#/components/ui/layout'
+import { ObjectLink } from '#/components/ui/object-link'
+import { Select } from '#/components/ui/select'
+import { Status } from '#/components/ui/status'
 import {
   Dialog,
   DialogBody,
@@ -21,13 +21,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTrigger,
-} from '#/components/v3/ui/dialog'
-import { toast } from '#/components/v3/ui/sonner'
-import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'
+} from '#/components/ui/dialog'
+import { toast } from '#/components/ui/sonner'
+import { WorkspaceAdminsLine } from '#/components/settings/workspace-admins-line'
 import {
   SettingsBody,
   SettingsHeader,
-} from '#/components/v3/settings/settings-page'
+} from '#/components/settings/settings-page'
 import { createDataClient } from '#/lib/data-client'
 import { formatPortalDay } from '#/lib/client-portal'
 import {

@@ -130,7 +130,7 @@ self-acknowledgement, retains supplied dates, and handles pending, failed, and
 unavailable states. It is not wired to the legacy record-level training route.
 The Storybook fixtures are explicitly synthetic, not historical human evidence.
 
-`pnpm test src/components/v3/protocols src/lib/controlled-protocols.test.ts`
+`pnpm test src/components/protocols src/lib/controlled-protocols.test.ts`
 checks the native document, prepared acknowledgement UI, and data boundary.
 Rendered component fixtures cover light, dark, narrow, invalid-document,
 failed-acknowledgement, pending, and unavailable states. A disposable migrated

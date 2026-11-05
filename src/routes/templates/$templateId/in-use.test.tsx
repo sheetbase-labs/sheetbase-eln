@@ -10,7 +10,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './in-use'
-import { TEMPLATE_USERS_PAGE_SIZE } from '#/components/v3/templates/templates-data'
+import { TEMPLATE_USERS_PAGE_SIZE } from '#/components/templates/templates-data'
 import type * as NotebookTemplateData from '#/lib/notebook-template-data'
 
 const router = vi.hoisted(() => {

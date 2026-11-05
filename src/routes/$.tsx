@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { NotFound } from '#/components/v3/shell/not-found'
+import { NotFound } from '#/components/shell/not-found'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**

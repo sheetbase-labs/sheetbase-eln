@@ -1,13 +1,13 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { AddRunToNotebook } from '#/components/v3/pipelines/add-run-to-notebook'
-import { AiPipelineBox } from '#/components/v3/pipelines/ai-pipeline-box'
-import { RunAiFix } from '#/components/v3/pipelines/run-ai-fix'
-import { RunDialog } from '#/components/v3/pipelines/run-dialog'
-import { RunLog } from '#/components/v3/pipelines/run-log'
-import { RunResult } from '#/components/v3/pipelines/run-result'
-import { RunStepsRail } from '#/components/v3/pipelines/run-steps-rail'
+import { AddRunToNotebook } from '#/components/pipelines/add-run-to-notebook'
+import { AiPipelineBox } from '#/components/pipelines/ai-pipeline-box'
+import { RunAiFix } from '#/components/pipelines/run-ai-fix'
+import { RunDialog } from '#/components/pipelines/run-dialog'
+import { RunLog } from '#/components/pipelines/run-log'
+import { RunResult } from '#/components/pipelines/run-result'
+import { RunStepsRail } from '#/components/pipelines/run-steps-rail'
 import { PageAiWorkspaceProvider } from '#/lib/use-page-ai'
 import type {
   PipelineDefinitionVersionWire,
@@ -18,7 +18,7 @@ import type { RunStep } from '#/lib/pipelines/run-steps'
 import { screenQueryClient, screenRoutes } from './screen-stories'
 
 /**
- * Pipeline runs and AI help (`src/components/v3/pipelines/`).
+ * Pipeline runs and AI help (`src/components/pipelines/`).
  *
  * The run page's parts (steps rail, log, result), the "Run with…" dialog, the
  * citation button, and the two AI controls that need a live model: describing

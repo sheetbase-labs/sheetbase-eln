@@ -81,7 +81,7 @@ No cross-project leakage in either theme at desktop and phone widths.
 **Outcome:** an unknown URL renders the product's own screen inside the shell,
 not the router default. Priority P0, effort S, low risk. No prerequisite.
 
-**Current state and scope:** `src/components/v3/shell/not-found.tsx:16` is a
+**Current state and scope:** `src/components/shell/not-found.tsx:16` is a
 ported component mounted nowhere; there is no catch-all route and
 `src/router.tsx` sets no not-found component. The component's `LAYOUTS` list
 (`:6-13`) still names `/_app/...` route ids, which do not exist in the ELN, so

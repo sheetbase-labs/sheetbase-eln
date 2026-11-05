@@ -11,11 +11,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { t } from '#/copy'
 import { hasCapability } from '#/lib/capability'
-import { Status } from '#/components/v3/ui/status'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Button } from '#/components/v3/ui/button'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Notice } from '#/components/v3/ui/alert'
+import { Status } from '#/components/ui/status'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Button } from '#/components/ui/button'
+import { Field, Input } from '#/components/ui/input'
+import { Notice } from '#/components/ui/alert'
 import {
   Dialog,
   DialogBody,
@@ -24,13 +24,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTrigger,
-} from '#/components/v3/ui/dialog'
+} from '#/components/ui/dialog'
 import {
   DescriptionList,
   Inspector,
   InspectorSection,
   Muted,
-} from '#/components/v3/ui/layout'
+} from '#/components/ui/layout'
 import {
   ListFooter,
   ListHeader,
@@ -40,17 +40,17 @@ import {
   footerCount,
   nameSorts,
   sortByName,
-} from '#/components/v3/inventory/list'
-import type { NameSort } from '#/components/v3/inventory/list'
+} from '#/components/inventory/list'
+import type { NameSort } from '#/components/inventory/list'
 import {
   RegistryGrid,
   rightAligned,
   useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { ProjectListFailure } from '#/components/v3/projects/project-list'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { ProjectListFailure } from '#/components/projects/project-list'
+import { Tabs } from '#/components/ui/tabs'
+import { toast } from '#/components/ui/sonner'
 import { createPipelineDefinition } from '#/lib/pipelines/data'
 import { suggestPipelineKey } from '#/lib/pipelines/authoring'
 import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
@@ -61,10 +61,10 @@ import {
   runStatus,
   usePipelineRows,
   versionStatus,
-} from '#/components/v3/pipelines/pipelines-data'
-import type { PipelineListRow } from '#/components/v3/pipelines/pipelines-data'
+} from '#/components/pipelines/pipelines-data'
+import type { PipelineListRow } from '#/components/pipelines/pipelines-data'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
-import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
+import { useRunLauncher } from '#/components/pipelines/use-run-launcher'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['all', 'mine', 'needsattention', 'scheduled', 'drafts'] as const

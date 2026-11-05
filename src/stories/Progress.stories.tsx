@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { Progress } from '#/components/v3/ui/progress'
+import { Progress } from '#/components/ui/progress'
 
 /**
  * A horizontal quantity bar. `value` gives a real `progressbar` role with the

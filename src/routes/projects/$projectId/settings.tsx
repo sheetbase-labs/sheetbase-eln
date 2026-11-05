@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Muted, Section } from '#/components/v3/ui/layout'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Button } from '#/components/v3/ui/button'
-import { Notice } from '#/components/v3/ui/alert'
+import { Muted, Section } from '#/components/ui/layout'
+import { Field, Input } from '#/components/ui/input'
+import { Button } from '#/components/ui/button'
+import { Notice } from '#/components/ui/alert'
 import {
   Dialog,
   DialogBody,
@@ -13,13 +13,13 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { toast } from '#/components/v3/ui/sonner'
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import { personOption } from '#/components/v3/record-picker/entity-options'
-import { Select } from '#/components/v3/ui/select'
+} from '#/components/ui/dialog'
+import { toast } from '#/components/ui/sonner'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
+import { personOption } from '#/components/record-picker/entity-options'
+import { Select } from '#/components/ui/select'
 import { useCanManageProject } from '#/lib/project-permissions'
-import { modalities, stages } from '#/components/v3/projects/options'
+import { modalities, stages } from '#/components/projects/options'
 import {
   projectDataClient,
   PROJECTS_KEY,
@@ -27,7 +27,7 @@ import {
   updateProjectDetails,
   fetchWorkspaceMemberIdentities,
   workspaceMemberQueryKeys,
-} from '#/components/v3/projects/project-data'
+} from '#/components/projects/project-data'
 import { t } from '#/copy'
 
 interface ClientWire {

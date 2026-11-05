@@ -1,8 +1,8 @@
 import { t } from '#/copy'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { ColumnPromotionsPanel } from '#/components/v3/sheets/column-promotions-panel'
-import { PageHeader } from '#/components/v3/ui/layout'
+import { ColumnPromotionsPanel } from '#/components/sheets/column-promotions-panel'
+import { PageHeader } from '#/components/ui/layout'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** Where a column promotion request from the Inbox opens: every promotion

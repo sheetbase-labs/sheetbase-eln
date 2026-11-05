@@ -9,9 +9,9 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 
-import { Status } from '#/components/v3/ui/status'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Button } from '#/components/v3/ui/button'
+import { Status } from '#/components/ui/status'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Button } from '#/components/ui/button'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import {
   ListFooter,
@@ -21,28 +21,28 @@ import {
   footerCount,
   nameSorts,
   sortByName,
-} from '#/components/v3/inventory/list'
-import type { NameSort } from '#/components/v3/inventory/list'
+} from '#/components/inventory/list'
+import type { NameSort } from '#/components/inventory/list'
 import {
   RegistryGrid,
   rightAligned,
   useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { Tabs } from '#/components/v3/ui/tabs'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { Tabs } from '#/components/ui/tabs'
 import {
   modelStatus,
   modelsQueryKeys,
   useModels,
-} from '#/components/v3/models/models-data'
-import type { ModelRow } from '#/components/v3/models/models-data'
+} from '#/components/models/models-data'
+import type { ModelRow } from '#/components/models/models-data'
 import {
   ModelCreateDialog,
   describeModelCreateError,
-} from '#/components/v3/models/model-create-dialog'
-import type { ModelCreateInput } from '#/components/v3/models/model-create-dialog'
-import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/models/model-create-dialog'
+import type { ModelCreateInput } from '#/components/models/model-create-dialog'
+import { useWorkspaceMemberNames } from '#/components/projects/project-data'
+import { toast } from '#/components/ui/sonner'
 import { hasCapability } from '#/lib/capability'
 import { createDatasetSchemaDefinition } from '#/lib/dataset-schema-definition-rpc'
 import { returnWithContext, safeReturnTo } from '#/lib/create-context-search'

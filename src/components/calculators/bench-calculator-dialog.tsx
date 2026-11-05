@@ -1,8 +1,8 @@
 import { t } from '#/copy'
 import { useEffect, useMemo, useState } from 'react'
 
-import { Button } from '#/components/v3/ui/button'
-import { CopyButton } from '#/components/v3/ui/copy-button'
+import { Button } from '#/components/ui/button'
+import { CopyButton } from '#/components/ui/copy-button'
 import {
   Dialog,
   DialogBody,
@@ -10,10 +10,10 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
-import { Tabs } from '#/components/v3/ui/tabs'
+} from '#/components/ui/dialog'
+import { Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
+import { Tabs } from '#/components/ui/tabs'
 import {
   convertTemperature,
   convertWithWeight,

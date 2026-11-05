@@ -79,7 +79,7 @@ vi.mock('#/lib/clock', async (importOriginal) => {
   return { ...actual, now: () => clock.now ?? actual.now() }
 })
 
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 

@@ -1,49 +1,49 @@
 import { useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 
-import { Status } from '#/components/v3/ui/status'
+import { Status } from '#/components/ui/status'
 import { isUuid } from '#/lib/field-value-validation'
-import { RecordModelFields } from '#/components/v3/models/record-model-fields-tab'
+import { RecordModelFields } from '#/components/models/record-model-fields-tab'
 import { builtInModel } from '#/lib/built-in-models'
 import { useDataAccess } from '#/lib/data-access'
 import { reportingColumnName } from '#/lib/data-access-handles'
 import type { BuiltInModel } from '#/lib/built-in-models'
-import { BuiltInModelFieldsRoute } from '#/components/v3/models/built-in-model-layout'
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Select } from '#/components/v3/ui/select'
+import { BuiltInModelFieldsRoute } from '#/components/models/built-in-model-layout'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Select } from '#/components/ui/select'
 import {
   DescriptionList,
   Inspector,
   InspectorSection,
   Muted,
-} from '#/components/v3/ui/layout'
-import { TableBox } from '#/components/v3/ui/table'
+} from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   bandRow,
   useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
+} from '#/components/inventory/registry-grid'
 import type {
   RegistryColumn,
   RegistryRow,
-} from '#/components/v3/inventory/registry-grid'
+} from '#/components/inventory/registry-grid'
 import {
   useModelDefinition,
   useModelFields,
   useModelVersions,
-} from '#/components/v3/models/models-data'
-import type { CanonicalDatasetSchemaField } from '#/components/v3/models/models-data'
+} from '#/components/models/models-data'
+import type { CanonicalDatasetSchemaField } from '#/components/models/models-data'
 import {
   columnTypeLabel,
   useInheritedColumnGroups,
-} from '#/components/v3/models/dataset-subtype-ui'
+} from '#/components/models/dataset-subtype-ui'
 import {
   InheritedLabel,
   inheritedRows,
   isInherited,
-} from '#/components/v3/models/inherited-fields-table'
-import type { InheritedRow } from '#/components/v3/models/inherited-fields-table'
+} from '#/components/models/inherited-fields-table'
+import type { InheritedRow } from '#/components/models/inherited-fields-table'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
 

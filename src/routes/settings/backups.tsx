@@ -2,16 +2,16 @@ import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { IconButton } from '#/components/v3/ui/icon-button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Notice } from '#/components/v3/ui/alert'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Muted, Section } from '#/components/v3/ui/layout'
-import { Select } from '#/components/v3/ui/select'
-import { Skeleton } from '#/components/v3/ui/skeleton'
-import { Status } from '#/components/v3/ui/status'
-import { toast } from '#/components/v3/ui/sonner'
+import { Button } from '#/components/ui/button'
+import { IconButton } from '#/components/ui/icon-button'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Notice } from '#/components/ui/alert'
+import { Field, Input } from '#/components/ui/input'
+import { Muted, Section } from '#/components/ui/layout'
+import { Select } from '#/components/ui/select'
+import { Skeleton } from '#/components/ui/skeleton'
+import { Status } from '#/components/ui/status'
+import { toast } from '#/components/ui/sonner'
 import {
   Table,
   TableBody,
@@ -19,14 +19,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
-import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'
+} from '#/components/ui/table'
+import { WorkspaceAdminsLine } from '#/components/settings/workspace-admins-line'
 import {
   CheckRow,
   SettingsBody,
   SettingsHeader,
   SettingsSaveBar,
-} from '#/components/v3/settings/settings-page'
+} from '#/components/settings/settings-page'
 import {
   fetchBackupsFn,
   runBackupNowFn,

@@ -1,14 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { screen, userEvent, within } from 'storybook/test'
 
-import { BookDialog } from '#/components/v3/schedule/book-dialog'
-import type { ScheduleInstrument } from '#/components/v3/schedule/schedule-data'
+import { BookDialog } from '#/components/schedule/book-dialog'
+import type { ScheduleInstrument } from '#/components/schedule/schedule-data'
 import { DataClientError } from '#/lib/data-client'
 import { StubDataClient } from './screen-stories'
 import type { DataClientStub } from './screen-stories'
 
 /**
- * WORK-04.2 — the book-instrument dialog (`src/components/v3/schedule/`).
+ * WORK-04.2 — the book-instrument dialog (`src/components/schedule/`).
  *
  * It collects the instrument, a label and a wall-clock range, and submits
  * through `create_booking`; availability, qualification and calibration stay

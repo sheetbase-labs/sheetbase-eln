@@ -2,23 +2,23 @@ import { formatDate } from '#/lib/format-date'
 import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
-import { PageHeader } from '#/components/v3/ui/layout'
-import { Button } from '#/components/v3/ui/button'
-import { NotFoundNotice } from '#/components/v3/ui/not-found-notice'
-import { ProjectListFailure } from '#/components/v3/projects/project-list'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { Status } from '#/components/v3/ui/status'
+import { PageHeader } from '#/components/ui/layout'
+import { Button } from '#/components/ui/button'
+import { NotFoundNotice } from '#/components/ui/not-found-notice'
+import { ProjectListFailure } from '#/components/projects/project-list'
+import { Tabs } from '#/components/ui/tabs'
+import { Status } from '#/components/ui/status'
 import {
   fetchProjectFolders,
   fetchProjectMembers,
   useProjectMilestones,
   useProjectSummary,
-} from '#/components/v3/projects/project-data'
+} from '#/components/projects/project-data'
 import {
   useProjectDatasetCount,
   useProjectRecordCount,
-} from '#/components/v3/projects/project-lists'
-import { projectSheetsKey } from '#/components/v3/projects/project-sheets'
+} from '#/components/projects/project-lists'
+import { projectSheetsKey } from '#/components/projects/project-sheets'
 import { fetchProjectSheets } from '#/lib/sheet-instance-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'

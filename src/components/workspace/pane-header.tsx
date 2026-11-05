@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
+} from '#/components/ui/dropdown-menu'
 import { currentPlatform, formatShortcut } from '#/lib/shortcuts'
 import { modeLabel } from '#/lib/workspace-state'
 import { rich, t } from '#/copy'

@@ -170,8 +170,8 @@ instrument, and the qualification and calibration checks always run. Priority
 P1, effort L, high risk. Depends on [ADR-0054](../../decisions/0054-a-booking-subject-is-the-instrument.md).
 
 **Current state and scope:** Schedule books `api.calendar_resources`
-(`src/components/v3/schedule/schedule-data.ts:13`); the registry lists
-`api.instruments` (`src/components/v3/instruments/instruments-data.ts:140`). The
+(`src/components/schedule/schedule-data.ts:13`); the registry lists
+`api.instruments` (`src/components/instruments/instruments-data.ts:140`). The
 only link is an optional `metadata.instrumentId` convention, and the seeded
 resource ("Ambr 250", Process Development) has `metadata = {}` while the registry
 holds `INS-0007` and `INS-0008`. Consequences, all observed: a registered

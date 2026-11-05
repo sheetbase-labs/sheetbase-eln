@@ -8,8 +8,8 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 
-import { Skeleton } from '#/components/v3/ui/skeleton'
-import { Button } from '#/components/v3/ui/button'
+import { Skeleton } from '#/components/ui/skeleton'
+import { Button } from '#/components/ui/button'
 import {
   openBesideOnAlt,
   useWorkspaceNavigation,
@@ -18,30 +18,30 @@ import {
   NO_PROJECT_ACCESS_BODY,
   noProjectAccessTitle,
   useHasProjectAccess,
-} from '#/components/v3/projects/project-access'
-import { Status } from '#/components/v3/ui/status'
-import { Input } from '#/components/v3/ui/input'
+} from '#/components/projects/project-access'
+import { Status } from '#/components/ui/status'
+import { Input } from '#/components/ui/input'
 import { Icon } from '#/components/icons'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
-import { RegistryGrid, bandRow } from '#/components/v3/inventory/registry-grid'
+} from '#/components/ui/dropdown-menu'
+import { RegistryGrid, bandRow } from '#/components/inventory/registry-grid'
 import type {
   RegistryColumn,
   RegistryRow,
-} from '#/components/v3/inventory/registry-grid'
-import { FilterMenu } from '#/components/v3/ui/filter-menu'
-import { Tabs } from '#/components/v3/ui/tabs'
+} from '#/components/inventory/registry-grid'
+import { FilterMenu } from '#/components/ui/filter-menu'
+import { Tabs } from '#/components/ui/tabs'
 import {
   ListHeader,
   PHONE_SCROLL_ROW,
   ReadOnlyNote,
-} from '#/components/v3/inventory/list'
-import { Chip } from '#/components/v3/ui/chip'
-import { MobileList, stickyCol } from '#/components/v3/projects/mobile-list'
+} from '#/components/inventory/list'
+import { Chip } from '#/components/ui/chip'
+import { MobileList, stickyCol } from '#/components/projects/mobile-list'
 import {
   EXPERIMENT_LIST_PAGE_SIZE,
   toExperimentListRow,
@@ -52,14 +52,14 @@ import {
   useExperimentTabCounts,
   useProjectNameMap,
   useWorkspaceMemberNames,
-} from '#/components/v3/experiments/experiments-data'
+} from '#/components/experiments/experiments-data'
 import type {
   ExperimentListRow,
   ExperimentListScope,
   ExperimentTabKey,
-} from '#/components/v3/experiments/experiments-data'
-import { RepeatingDialog } from '#/components/v3/recurring/repeating-dialog'
-import { RepeatExperimentDialog } from '#/components/v3/recurring/repeat-experiment-dialog'
+} from '#/components/experiments/experiments-data'
+import { RepeatingDialog } from '#/components/recurring/repeating-dialog'
+import { RepeatExperimentDialog } from '#/components/recurring/repeat-experiment-dialog'
 import { now } from '#/lib/clock'
 import { formatListDate } from '#/lib/list-date'
 import { useUserNames } from '#/lib/user-names'
@@ -69,7 +69,7 @@ import { hasCapability } from '#/lib/capability'
 import {
   useAddedFieldListColumns,
   withAddedColumns,
-} from '#/components/v3/models/added-fields'
+} from '#/components/models/added-fields'
 
 const tabs = [
   'all',

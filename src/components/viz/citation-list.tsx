@@ -16,7 +16,7 @@
 import { Link } from '@tanstack/react-router'
 
 import { t } from '#/copy'
-import { Status } from '#/components/v3/ui/status'
+import { Status } from '#/components/ui/status'
 import {
   Table,
   TableBody,
@@ -24,7 +24,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import type { AnalysisViewCitation } from '#/lib/analysis-studio-data'
 import { formatDate } from '#/lib/format-date'
 

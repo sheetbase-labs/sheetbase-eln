@@ -1,8 +1,8 @@
 import { t } from '#/copy'
 import { useState } from 'react'
 
-import { Notice } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
+import { Notice } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
 import {
   Dialog,
   DialogBody,
@@ -10,9 +10,9 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { Field } from '#/components/v3/ui/input'
-import { Textarea } from '#/components/v3/inventory/list'
+} from '#/components/ui/dialog'
+import { Field } from '#/components/ui/input'
+import { Textarea } from '#/components/inventory/list'
 import { parsePastedTable } from '#/lib/sheet-paste'
 import type { PastedTable } from '#/lib/sheet-paste'
 

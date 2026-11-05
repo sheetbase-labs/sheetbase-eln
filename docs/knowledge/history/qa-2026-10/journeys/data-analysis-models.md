@@ -8,7 +8,7 @@ reading code alone and a data shape I could not confirm, it says "likely".
 Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 `snapshots.tsx` = `routes/datasets/$datasetId/snapshots.tsx`,
 `compare.tsx` = `routes/datasets/$datasetId/compare.tsx`,
-`value-actions` = `components/v3/datasets/value-actions.tsx`,
+`value-actions` = `components/datasets/value-actions.tsx`,
 `readings/new` = `routes/readings/new.tsx`,
 `studio` = `routes/analysis/new.tsx`,
 `sheet-ws` = `components/sheet/canonical-sheet-workspace.tsx`.
@@ -18,7 +18,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 ### J-DAT-01 Dataset shows "N columns missing units" and the user wants it fixed
 
 - **Persona / goal:** Lab scientist who must submit an experiment; the dataset blocks it on units.
-- **Entry:** Datasets list, selected row shows the status "1 column missing a unit" and the inspector button "Open and fix" (`routes/datasets.tsx:350-362`, text from `components/v3/datasets/datasets-data.ts:90-96,107-119`).
+- **Entry:** Datasets list, selected row shows the status "1 column missing a unit" and the inspector button "Open and fix" (`routes/datasets.tsx:350-362`, text from `components/datasets/datasets-data.ts:90-96,107-119`).
 - **Path:**
   1. Click "Open and fix". It is a plain link to `/datasets/$datasetId/rows` (`routes/datasets.tsx:354-361`).
   2. The Data tab loads a read-only grid. The only banner says "Snapshot … · read-only; values change only by import" (`rows.tsx:317-319`).
@@ -198,8 +198,8 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Persona / goal:** Model owner editing a draft that a colleague also edits, then publishing it.
 - **Entry:** `/models/$modelId/edit`; banners for conflict, lock and approval (`edit.tsx:493-516`).
 - **Path:**
-  1. Autosave sends the revision it read. A stale refusal re-reads the server state and sets a conflict (`edit.tsx:255-285`), showing `DraftConflictBanner` with "Reload theirs", "Merge and keep editing" (when fields do not overlap) or a danger-styled "Keep mine" (when they do), plus the count of fields changed elsewhere (`components/v3/models/draft-conflict-banner.tsx:36-81`). Handlers at `edit.tsx:362-391`. Nothing is overwritten without a choice. The status line says "Not saved: draft changed on the server" (`edit.tsx:399-401`).
-  2. A locked draft (open approval request) disables every edit control (`edit.tsx:174`). The approval panel says who must approve and offers Withdraw (`components/v3/models/model-approval-panel.tsx:255-290`). A refused save while locked says "Withdraw the submission to keep editing" (`edit.tsx:289-294`).
+  1. Autosave sends the revision it read. A stale refusal re-reads the server state and sets a conflict (`edit.tsx:255-285`), showing `DraftConflictBanner` with "Reload theirs", "Merge and keep editing" (when fields do not overlap) or a danger-styled "Keep mine" (when they do), plus the count of fields changed elsewhere (`components/models/draft-conflict-banner.tsx:36-81`). Handlers at `edit.tsx:362-391`. Nothing is overwritten without a choice. The status line says "Not saved: draft changed on the server" (`edit.tsx:399-401`).
+  2. A locked draft (open approval request) disables every edit control (`edit.tsx:174`). The approval panel says who must approve and offers Withdraw (`components/models/model-approval-panel.tsx:255-290`). A refused save while locked says "Withdraw the submission to keep editing" (`edit.tsx:289-294`).
   3. Field-contract problems are named inline, per field (`edit.tsx:1229-1314`), and the header status says "Not saved: fix N fields" (`edit.tsx:403-408`).
   4. "Submit for approval" and "Publish" are disabled when there are no changes or any field has an issue (`edit.tsx:465,474`), with no visible reason for the zero-changes case, though the "0 changes since v…" counter is on the page (`edit.tsx:557-560`).
   5. A non-owner sees View only, naming owners and admins (`edit.tsx:493-498`).
@@ -211,7 +211,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 ### J-DAT-14 Record-model versions: start a draft, save a stale draft, publish
 
 - **Persona / goal:** Owner of a workspace record model (for example a Sample type) changing its fields.
-- **Entry:** `/models/<key>/versions`, no draft, or a draft with errors (`components/v3/models/record-model-versions.tsx:196-228`).
+- **Entry:** `/models/<key>/versions`, no draft, or a draft with errors (`components/models/record-model-versions.tsx:196-228`).
 - **Path:**
   1. "Reason for draft" is required before "Start draft vN" enables (`record-model-versions.tsx:206-229`). The disabled reason is the empty field next to it. Complete.
   2. A user without `schema.edit` sees neither the form nor any explanation: the whole form is gated by `!draft && canEdit` (`record-model-versions.tsx:206`), with only "No version is published yet" or "Published vN stays in use…" (`record-model-versions.tsx:200-205`).

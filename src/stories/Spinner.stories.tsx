@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { Spinner } from '#/components/v3/ui/spinner'
+import { Spinner } from '#/components/ui/spinner'
 
 /**
  * The single working indicator. The neighbours own the meaning: a spinner beside

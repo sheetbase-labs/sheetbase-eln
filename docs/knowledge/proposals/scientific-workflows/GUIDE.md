@@ -23,7 +23,7 @@ Read root `AGENTS.md`, `docs/knowledge/NEXT.md`, `docs/knowledge/agent/workflows
 - Match `src/lib/pipelines/data.ts` for typed RPC wrappers and server-owned run identity. Session/actor identity is not supplied as trusted browser input.
 - Use stable field, row, Record and version identities. Labels, visible coordinates and file names are presentation, not binding keys.
 - Generate schema migrations with the repository workflow. Keep generated SQL/journal/schema consistent; inspect the current migration head before choosing the next migration. No hand-assigned future migration numbers appear in this proposal.
-- UI work uses `src/components/v3/` and the repository's Sheetbase design guidance with Impeccable. Inspect actual renders; this proposal makes no visual-completion claim.
+- UI work uses `src/components/` and the repository's Sheetbase design guidance with Impeccable. Inspect actual renders; this proposal makes no visual-completion claim.
 - Keep empty, denied, stale, unavailable, partial and failed states explicit. Preserve user input on recoverable errors. Never replace service failure with plausible fixture data.
 
 ## Verification commands

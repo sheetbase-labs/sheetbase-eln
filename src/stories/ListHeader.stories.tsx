@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Button } from '#/components/v3/ui/button'
-import { ListHeader } from '#/components/v3/inventory/list'
-import { Tabs } from '#/components/v3/ui/tabs'
+import { Button } from '#/components/ui/button'
+import { ListHeader } from '#/components/inventory/list'
+import { Tabs } from '#/components/ui/tabs'
 
 /**
  * The header of a list screen: title, count, actions and the tab strip.
@@ -14,7 +14,7 @@ import { Tabs } from '#/components/v3/ui/tabs'
  * because the screen does not know it yet.
  */
 const meta = {
-  title: 'v3 kit/List header',
+  title: 'UI/List header',
   component: ListHeader,
   parameters: { layout: 'fullscreen' },
   args: {

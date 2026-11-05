@@ -4,8 +4,8 @@ import { FilterBuilder } from '@sheetbase-labs/sheetbase-advanced-search'
 import type { FilterBuilderFieldInput } from '@sheetbase-labs/sheetbase-advanced-search'
 import type { GroupNode } from '@sheetbase-labs/sheetbase-shared'
 
-import { subscribeTheme } from '#/components/v3/lib/theme'
-import { Badge } from '#/components/v3/ui/badge'
+import { subscribeTheme } from '#/components/lib/theme'
+import { Badge } from '#/components/ui/badge'
 
 /**
  * COMP-05 Check-it: a development-only surface rendering the

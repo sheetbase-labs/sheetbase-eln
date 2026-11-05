@@ -14,14 +14,14 @@ import {
   ProjectList,
   ProjectListFailure,
   ProjectListOutOfRange,
-} from '#/components/v3/projects/project-list'
-import { Pager } from '#/components/v3/ui/pager'
+} from '#/components/projects/project-list'
+import { Pager } from '#/components/ui/pager'
 import {
   PROJECT_LIST_PAGE_SIZE,
   parseProjectPage,
   projectPageOffset,
   projectPageSummary,
-} from '#/components/v3/projects/project-lists'
+} from '#/components/projects/project-lists'
 import { useUserNames } from '#/lib/user-names'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { DataClient } from '#/lib/data-client'

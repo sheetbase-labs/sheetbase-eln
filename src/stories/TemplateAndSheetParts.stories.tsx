@@ -6,11 +6,11 @@ import { expect, screen, userEvent } from 'storybook/test'
 import {
   ProjectSheets,
   projectSheetsKey,
-} from '#/components/v3/projects/project-sheets'
-import { BulkUpgradePanel } from '#/components/v3/templates/bulk-upgrade-panel'
-import { TemplateSectionsBoard } from '#/components/v3/templates/template-sections-board'
-import { templateDataQueryKeys } from '#/components/v3/templates/templates-data'
-import { UseTemplateDialog } from '#/components/v3/templates/use-template-dialog'
+} from '#/components/projects/project-sheets'
+import { BulkUpgradePanel } from '#/components/templates/bulk-upgrade-panel'
+import { TemplateSectionsBoard } from '#/components/templates/template-sections-board'
+import { templateDataQueryKeys } from '#/components/templates/templates-data'
+import { UseTemplateDialog } from '#/components/templates/use-template-dialog'
 import { parseNotebookTemplateConfiguration } from '#/lib/notebook-template'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
@@ -19,8 +19,8 @@ import { screenQueryClient, screenRoutes, withApiReads } from './screen-stories'
 import type { ReadSeed } from './screen-stories'
 
 /**
- * Template screens' parts (`src/components/v3/templates/`) and the project's
- * Sheets tab (`src/components/v3/projects/project-sheets`): taking a new
+ * Template screens' parts (`src/components/templates/`) and the project's
+ * Sheets tab (`src/components/projects/project-sheets`): taking a new
  * template version into notebooks already made, the sections board of a
  * template version, starting a notebook from a template, and the working
  * sheets of a project.

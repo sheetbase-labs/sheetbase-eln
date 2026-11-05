@@ -5,13 +5,13 @@
  * Version identity.
  */
 import { t } from '#/copy'
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
-import { Button } from '#/components/v3/ui/button'
-import { Field, Input } from '#/components/v3/ui/input'
+import { Button } from '#/components/ui/button'
+import { Field, Input } from '#/components/ui/input'
 import { Icon } from '#/components/icons'
 import { createDataClient } from '#/lib/data-client'
 import { formatRelativeTime } from '#/lib/notebook-data'

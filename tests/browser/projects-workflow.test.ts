@@ -95,7 +95,7 @@ test('new project is created from the list and the list stays usable', async ({
   ).toBeVisible()
   await page.keyboard.press('Escape')
   await page
-    // The shell's nav landmark is labelled "Main" (src/components/v3/shell/app-shell.tsx:294
+    // The shell's nav landmark is labelled "Main" (src/components/shell/app-shell.tsx:294
     // and the design's app-shell.tsx), not "Primary".
     .getByRole('navigation', { name: 'Main', exact: true })
     .getByRole('link', { name: 'Projects', exact: true })

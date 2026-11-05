@@ -13,29 +13,29 @@ import {
 } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { IconButton } from '#/components/v3/ui/icon-button'
+import { Button } from '#/components/ui/button'
+import { IconButton } from '#/components/ui/icon-button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
+} from '#/components/ui/dropdown-menu'
 import {
   NO_PROJECT_ACCESS_BODY,
   noProjectAccessTitle,
   useHasProjectAccess,
-} from '#/components/v3/projects/project-access'
-import { Select } from '#/components/v3/ui/select'
-import { useProjectNames } from '#/components/v3/samples/samples-data'
-import { Status } from '#/components/v3/ui/status'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
+} from '#/components/projects/project-access'
+import { Select } from '#/components/ui/select'
+import { useProjectNames } from '#/components/samples/samples-data'
+import { Status } from '#/components/ui/status'
+import { EmptyState } from '#/components/ui/empty-state'
+import { DescriptionList, Inspector } from '#/components/ui/layout'
 import { useHasCapability } from '#/lib/use-capability'
 import {
   HazardPictograms,
   MaterialSafetySection,
-} from '#/components/v3/materials/material-safety'
+} from '#/components/materials/material-safety'
 import {
   fetchAllMaterialSafety,
   materialSafetyKeys,
@@ -46,9 +46,9 @@ import {
   RegistryGrid,
   rightAligned,
   useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { Field, Input } from '#/components/v3/ui/input'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { Field, Input } from '#/components/ui/input'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -58,7 +58,7 @@ import {
   ConfirmDialogFooter,
   ConfirmDialogHeader,
   ConfirmDialogTitle,
-} from '#/components/v3/ui/confirm-dialog'
+} from '#/components/ui/confirm-dialog'
 import {
   Dialog,
   DialogBody,
@@ -66,8 +66,8 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/ui/dialog'
+import { toast } from '#/components/ui/sonner'
 import {
   ListFooter,
   ListHeader,
@@ -76,8 +76,8 @@ import {
   MobileList,
   footerCount,
   Textarea,
-} from '#/components/v3/inventory/list'
-import { Tabs } from '#/components/v3/ui/tabs'
+} from '#/components/inventory/list'
+import { Tabs } from '#/components/ui/tabs'
 import {
   ORDER_TONE,
   ReagentOrdersPanel,
@@ -85,14 +85,14 @@ import {
   openOrderFor,
   orderStatusLabel,
   useReagentOrders,
-} from '#/components/v3/materials/reagent-orders'
-import { MakeSolutionDialog } from '#/components/v3/materials/make-solution-dialog'
+} from '#/components/materials/reagent-orders'
+import { MakeSolutionDialog } from '#/components/materials/make-solution-dialog'
 import {
   materialListQueryKeys,
   toMaterialListRow,
   useReagentPage,
-} from '#/components/v3/materials/materials-data'
-import type { MaterialListRow } from '#/components/v3/materials/materials-data'
+} from '#/components/materials/materials-data'
+import type { MaterialListRow } from '#/components/materials/materials-data'
 import {
   createReagent,
   fetchCertificateFile,
@@ -106,7 +106,7 @@ import {
   useAddedFieldDraft,
   useAddedFieldListColumns,
   withAddedColumns,
-} from '#/components/v3/models/added-fields'
+} from '#/components/models/added-fields'
 import type { Reagent } from '#/lib/reagent-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { now as appNow } from '#/lib/clock'

@@ -2,15 +2,15 @@ import { t } from '#/copy'
 import * as React from 'react'
 
 import { cn } from '#/lib/utils'
-import { IconButton } from '#/components/v3/ui/icon-button'
-import { Skeleton } from '#/components/v3/ui/skeleton'
+import { IconButton } from '#/components/ui/icon-button'
+import { Skeleton } from '#/components/ui/skeleton'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
+} from '#/components/ui/dropdown-menu'
 import { Icon } from '#/components/icons'
 
 /**

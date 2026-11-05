@@ -111,7 +111,7 @@ same node is measured on both sides.
 
 ## 3. Shared-component drift — `ListToolbar`
 
-`src/components/v3/inventory/list.tsx` is a **reduced copy** of the reference's:
+`src/components/inventory/list.tsx` is a **reduced copy** of the reference's:
 
 - The reference exports `ViewControls` (Table / Filter / Sort / Group dropdowns)
   and `FieldsButton`, and `ListToolbar` takes a `views?: ViewOptions` prop that
@@ -125,7 +125,7 @@ counterparts all show the controls). `projects-page.tsx` and a few others render
 their own controls, which is why they still show Sort/Filter.
 
 Reference: `sheetbase-app (5)/src/components/inventory/list.tsx:44-98`.
-ELN: `src/components/v3/inventory/list.tsx:89-121`.
+ELN: `src/components/inventory/list.tsx:89-121`.
 
 ## 4. Per-page structural divergences
 

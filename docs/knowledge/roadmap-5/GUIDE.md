@@ -35,7 +35,7 @@ wholesale.
 
 ## Implementation conventions
 
-- Reuse `src/components/v3/` and the v3 shell. Do not add a second kit, a second
+- Reuse `src/components/` and the v3 shell. Do not add a second kit, a second
   theme mechanism or a parallel layout system.
 - Browser data uses the same-origin `/api/db` proxy through `DataClient`, or
   authenticated server functions. PostgreSQL RLS and canonical mutation RPCs

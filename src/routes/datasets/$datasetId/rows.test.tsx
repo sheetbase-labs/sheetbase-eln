@@ -63,7 +63,7 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children?: React.ReactNode }) => <a>{children}</a>,
 }))
 
-vi.mock('#/components/v3/datasets/value-actions', () => ({
+vi.mock('#/components/datasets/value-actions', () => ({
   ValueActions: () => null,
 }))
 

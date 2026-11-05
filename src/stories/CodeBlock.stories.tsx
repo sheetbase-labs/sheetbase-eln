@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { CodeBlock } from '#/components/v3/ui/code-block'
+import { CodeBlock } from '#/components/ui/code-block'
 
 /**
  * A code or payload block: statement, JSON, log — text shown as text. The

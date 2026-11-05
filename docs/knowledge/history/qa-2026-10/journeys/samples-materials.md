@@ -25,7 +25,7 @@ Standing observations that several journeys rely on:
 ### J-SAM-01 Quarantined sample: "View release basis"
 
 - **Persona / goal:** Scientist or steward who finds a sample in quarantine and needs to know why it cannot be released.
-- **Entry:** Sample detail, amber banner "In quarantine since {date}." (`components/v3/samples/sample-state-banner.tsx:28`, copy from `sample-state.ts:183-192`).
+- **Entry:** Sample detail, amber banner "In quarantine since {date}." (`components/samples/sample-state-banner.tsx:28`, copy from `sample-state.ts:183-192`).
 - **Path:**
   1. Banner action button "View release basis" (`routes/samples/$sampleId.tsx:348-356`).
   2. The button is `<Link to="/samples/$sampleId" params={params}>`, the page the user is already on. Nothing changes.
@@ -154,7 +154,7 @@ Standing observations that several journeys rely on:
 ### J-SAM-11 Register sample: no project, or the write fails
 
 - **Persona / goal:** New user registering the first sample.
-- **Entry:** `Register sample` (header, shell command at `components/v3/shell/app-shell.tsx:607`, empty state).
+- **Entry:** `Register sample` (header, shell command at `components/shell/app-shell.tsx:607`, empty state).
 - **Path:**
   1. Project is a required select fed by `useProjectNames` (`samples.tsx:445-457`). A user with no project access gets only "Choose…".
   2. The primary button is disabled while `!projectId` (`samples.tsx:503`) with no message. The list-level no-access copy (`samples.tsx:316-318`) is not repeated in the dialog.
@@ -182,7 +182,7 @@ Standing observations that several journeys rely on:
 ### J-SAM-13 Printed label QR code scanned outside the app
 
 - **Persona / goal:** Technician scanning the printed label with a phone camera before using the sample.
-- **Entry:** QR payload `https://<host>/r/<identifier>` (`components/v3/samples/sample-label-card.tsx:12,73`).
+- **Entry:** QR payload `https://<host>/r/<identifier>` (`components/samples/sample-label-card.tsx:12,73`).
 - **Path:**
   1. `/r/$identifier` resolves the record then always navigates to `/records/$recordId` (`routes/r/$identifier.tsx:35-42`).
   2. `records/$recordId/index.tsx:6-13` redirects to `/records/$recordId/notebook`. For a sample that is the generic notebook page with a sample side-panel whose only status line is the raw `status` string (`routes/records/$recordId/notebook.tsx:457-480`).

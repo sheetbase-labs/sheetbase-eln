@@ -1,18 +1,18 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Button } from '#/components/v3/ui/button'
-import { MobileList } from '#/components/v3/projects/mobile-list'
-import type { MobileRow } from '#/components/v3/projects/mobile-list'
+import { Button } from '#/components/ui/button'
+import { MobileList } from '#/components/projects/mobile-list'
+import type { MobileRow } from '#/components/projects/mobile-list'
 import {
   ProjectList,
   ProjectListFailure,
   ProjectListOutOfRange,
-} from '#/components/v3/projects/project-list'
+} from '#/components/projects/project-list'
 import { DataClientError } from '#/lib/data-client'
 import { screenRoutes } from './screen-stories'
 
 /**
- * A project tab's list and its phone form (`src/components/v3/projects/`).
+ * A project tab's list and its phone form (`src/components/projects/`).
  *
  * `project-list.tsx` renders one kind of a project's own records — desktop
  * table, phone rows — and owns the three honest states around it: nothing yet,

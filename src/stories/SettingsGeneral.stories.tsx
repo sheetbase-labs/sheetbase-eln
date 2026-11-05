@@ -2,7 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { expect, userEvent, within } from 'storybook/test'
 
-import { SettingsGeneral } from '#/components/v3/settings/settings-general'
+import { SettingsGeneral } from '#/components/settings/settings-general'
 import { workspaceGeneralQueryKey } from '#/lib/workspace-general'
 import type { WorkspaceGeneral } from '#/lib/workspace-general'
 import { sampleDataQueryKey } from '#/lib/sample-data'

@@ -1,15 +1,15 @@
 import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
-import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
+import { RecordUnavailable } from '#/components/ui/record-unavailable'
 import { useQuery } from '@tanstack/react-query'
 
 import { AskAiButton } from '#/components/assist/ask-ai-button'
-import { PageHeader } from '#/components/v3/ui/layout'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { Status } from '#/components/v3/ui/status'
-import type { Tone } from '#/components/v3/ui/status'
-import { CopyButton } from '#/components/v3/ui/copy-button'
-import { BookInstrumentButton } from '#/components/v3/experiments/book-instrument-button'
-import { experimentStatus } from '#/components/v3/experiments/experiments-data'
+import { PageHeader } from '#/components/ui/layout'
+import { Tabs } from '#/components/ui/tabs'
+import { Status } from '#/components/ui/status'
+import type { Tone } from '#/components/ui/status'
+import { CopyButton } from '#/components/ui/copy-button'
+import { BookInstrumentButton } from '#/components/experiments/book-instrument-button'
+import { experimentStatus } from '#/components/experiments/experiments-data'
 import {
   fetchProject,
   formatDate,

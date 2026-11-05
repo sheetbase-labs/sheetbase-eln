@@ -13,7 +13,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route, scheduleParametersLabel, scheduleSpecLabel } from './triggers'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
-import type * as pipelinesDataModule from '#/components/v3/pipelines/pipelines-data'
+import type * as pipelinesDataModule from '#/components/pipelines/pipelines-data'
 import type * as PipelineData from '#/lib/pipelines/data'
 import type {
   PipelineDefinitionVersionWire,
@@ -75,7 +75,7 @@ vi.mock('#/lib/pipelines/data', async (importOriginal) => ({
   },
 }))
 
-vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
+vi.mock('#/components/pipelines/pipelines-data', async (importOriginal) => ({
   ...(await importOriginal<typeof pipelinesDataModule>()),
   useSchedules: () => ({ data: state.schedules }),
   useLatestScheduleRuns: () => ({ data: state.latestRuns }),

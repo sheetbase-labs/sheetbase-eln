@@ -1,4 +1,4 @@
-import { RegistrySettingsDialog } from '#/components/v3/registry/registry-settings'
+import { RegistrySettingsDialog } from '#/components/registry/registry-settings'
 import { useState } from 'react'
 import {
   Link,
@@ -8,12 +8,12 @@ import {
   useMatchRoute,
 } from '@tanstack/react-router'
 
-import type { Crumb } from '#/components/v3/ui/breadcrumb'
-import { PageHeader } from '#/components/v3/ui/layout'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { Status } from '#/components/v3/ui/status'
-import { Button } from '#/components/v3/ui/button'
+import type { Crumb } from '#/components/ui/breadcrumb'
+import { PageHeader } from '#/components/ui/layout'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Tabs } from '#/components/ui/tabs'
+import { Status } from '#/components/ui/status'
+import { Button } from '#/components/ui/button'
 import {
   BUILT_IN_KIND_SURFACES,
   modelStatus,
@@ -23,25 +23,25 @@ import {
   useModelFields,
   useModelVersions,
   useWorkspaceRecordModel,
-} from '#/components/v3/models/models-data'
+} from '#/components/models/models-data'
 import {
   useRecordModelRecordCount,
   useRecordModelVersionList,
-} from '#/components/v3/models/record-model-data'
-import { BuiltInModelLayout } from '#/components/v3/models/built-in-model-layout'
+} from '#/components/models/record-model-data'
+import { BuiltInModelLayout } from '#/components/models/built-in-model-layout'
 import {
   BasedOnDialog,
   NewSubtypeDialog,
   SubtypeOf,
   SubtypesList,
   useTypedObjects,
-} from '#/components/v3/models/model-subtype-ui'
+} from '#/components/models/model-subtype-ui'
 import {
   NewTableSubtypeDialog,
   TableBasedOnDialog,
   TableSubtypeOf,
   TableSubtypesList,
-} from '#/components/v3/models/dataset-subtype-ui'
+} from '#/components/models/dataset-subtype-ui'
 import { builtInModel } from '#/lib/built-in-models'
 import { hasCapability } from '#/lib/capability'
 import { isUuid } from '#/lib/field-value-validation'

@@ -25,8 +25,8 @@ const searchState = vi.hoisted((): { value: { code?: string } } => ({
   value: {},
 }))
 
-vi.mock('#/components/v3/scan/scan-data', () => scanData)
-vi.mock('#/components/v3/scan/scan-sample-actions', () => ({
+vi.mock('#/components/scan/scan-data', () => scanData)
+vi.mock('#/components/scan/scan-sample-actions', () => ({
   ScanSampleActions: ({
     sampleId,
     returnTo,

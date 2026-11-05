@@ -11,7 +11,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as router from '@tanstack/react-router'
-import type * as projectData from '#/components/v3/projects/project-data'
+import type * as projectData from '#/components/projects/project-data'
 import type * as notebookData from '#/lib/notebook-data'
 
 import { Home, Route } from './index'
@@ -311,7 +311,7 @@ vi.mock('#/lib/notebook-data', async (importOriginal) => {
   return { ...actual, notebookDataClient: fake }
 })
 
-vi.mock('#/components/v3/projects/project-data', async (importOriginal) => {
+vi.mock('#/components/projects/project-data', async (importOriginal) => {
   const actual = await importOriginal<typeof projectData>()
   return {
     ...actual,

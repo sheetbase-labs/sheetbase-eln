@@ -42,7 +42,7 @@ const credentials = vi.hoisted(() => ({
 
 vi.mock('#/lib/data-access', () => ({ useDataAccess: () => false }))
 
-vi.mock('#/components/v3/settings/sql-logins', () => ({
+vi.mock('#/components/settings/sql-logins', () => ({
   SqlLogins: () => null,
 }))
 

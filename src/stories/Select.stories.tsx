@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { Field } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
+import { Field } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
 
 /**
  * The v3 select is the native `<select>` styled like `Input`, so a story is

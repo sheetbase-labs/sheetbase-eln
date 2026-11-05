@@ -12,7 +12,7 @@ import { t } from '#/copy'
 import { Link } from '@tanstack/react-router'
 import { Icon } from '#/components/icons'
 
-import { Badge } from '#/components/v3/ui/badge'
+import { Badge } from '#/components/ui/badge'
 import {
   PipelineProposalAbsent,
   PipelineProposalBlock,

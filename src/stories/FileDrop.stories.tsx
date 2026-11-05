@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { expect, userEvent, within } from 'storybook/test'
 
-import { FileDrop } from '#/components/v3/ui/file-drop'
+import { FileDrop } from '#/components/ui/file-drop'
 
 /**
  * `FileDrop` — the app's pick-and-drop file field (ADR-0055; ReUI's

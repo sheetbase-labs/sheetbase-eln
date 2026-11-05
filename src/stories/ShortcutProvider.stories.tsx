@@ -5,7 +5,7 @@ import {
   ShortcutProvider,
   useRegisterShortcuts,
 } from '#/components/shortcuts/shortcut-provider'
-import { Kbd } from '#/components/v3/ui/kbd'
+import { Kbd } from '#/components/ui/kbd'
 import type { ShortcutDefinition } from '#/lib/shortcuts'
 
 /**

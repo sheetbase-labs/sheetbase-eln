@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Breadcrumb } from '#/components/v3/ui/breadcrumb'
+import { Breadcrumb } from '#/components/ui/breadcrumb'
 
 /**
  * The trail at the top of a page, which `PageHeader` renders for its `trail`
@@ -15,7 +15,7 @@ import { Breadcrumb } from '#/components/v3/ui/breadcrumb'
  * the `aria-current`.
  */
 const meta = {
-  title: 'v3 kit/Breadcrumb trail',
+  title: 'UI/Breadcrumb trail',
   component: Breadcrumb,
   parameters: { layout: 'padded' },
 } satisfies Meta<typeof Breadcrumb>

@@ -4,12 +4,12 @@
  * is presentation state owned by the route, never persisted block data.
  */
 import { t } from '#/copy'
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
 import { Icon } from '#/components/icons'
-import { InspectorSection } from '#/components/v3/ui/layout'
-import { Status } from '#/components/v3/ui/status'
-import type { Tone } from '#/components/v3/ui/status'
+import { InspectorSection } from '#/components/ui/layout'
+import { Status } from '#/components/ui/status'
+import type { Tone } from '#/components/ui/status'
 import type { NotebookOutlineEntry } from '#/lib/notebook-outline'
 import {
   SIGNATURE_REQUEST_STATE_LABEL,

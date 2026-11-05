@@ -18,7 +18,7 @@
  */
 import * as React from 'react'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 
 export interface SampleSummaryRow {
   label: string

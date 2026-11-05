@@ -5,7 +5,7 @@ import {
   InspectorSectionStack,
 } from '#/components/record/inspector-sections'
 import { Property, PropertyList } from '#/components/scientific/property-list'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 
 /** Section chrome: a dividing rule, a title, and an optional action. */
 const meta = {

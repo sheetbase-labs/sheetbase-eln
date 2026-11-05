@@ -2,9 +2,9 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { t } from '#/copy'
-import { Status } from '#/components/v3/ui/status'
-import { Button } from '#/components/v3/ui/button'
-import { Banner, Notice } from '#/components/v3/ui/alert'
+import { Status } from '#/components/ui/status'
+import { Button } from '#/components/ui/button'
+import { Banner, Notice } from '#/components/ui/alert'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -15,25 +15,25 @@ import {
   ConfirmDialogHeader,
   ConfirmDialogTitle,
   ConfirmDialogTrigger,
-} from '#/components/v3/ui/confirm-dialog'
+} from '#/components/ui/confirm-dialog'
 import {
   DescriptionList,
   Inspector,
   InspectorSection,
   Muted,
   PageHeader,
-} from '#/components/v3/ui/layout'
-import { toast } from '#/components/v3/ui/sonner'
-import { NotFoundNotice } from '#/components/v3/ui/not-found-notice'
-import { ProjectListFailure } from '#/components/v3/projects/project-list'
-import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
-import { RunPromptPanel } from '#/components/v3/pipelines/run-prompt'
-import { AddRunToNotebook } from '#/components/v3/pipelines/add-run-to-notebook'
-import { RunDeliveriesPanel } from '#/components/v3/pipelines/run-deliveries'
-import { RunLog } from '#/components/v3/pipelines/run-log'
-import { RunStepsRail } from '#/components/v3/pipelines/run-steps-rail'
-import { RunResult } from '#/components/v3/pipelines/run-result'
-import { RunAiFix } from '#/components/v3/pipelines/run-ai-fix'
+} from '#/components/ui/layout'
+import { toast } from '#/components/ui/sonner'
+import { NotFoundNotice } from '#/components/ui/not-found-notice'
+import { ProjectListFailure } from '#/components/projects/project-list'
+import { useRunLauncher } from '#/components/pipelines/use-run-launcher'
+import { RunPromptPanel } from '#/components/pipelines/run-prompt'
+import { AddRunToNotebook } from '#/components/pipelines/add-run-to-notebook'
+import { RunDeliveriesPanel } from '#/components/pipelines/run-deliveries'
+import { RunLog } from '#/components/pipelines/run-log'
+import { RunStepsRail } from '#/components/pipelines/run-steps-rail'
+import { RunResult } from '#/components/pipelines/run-result'
+import { RunAiFix } from '#/components/pipelines/run-ai-fix'
 import { TRANSFORM_TARGET } from '#/lib/pipelines/ai-fix'
 import { explainRunError } from '#/lib/pipelines/run-errors'
 import {
@@ -63,7 +63,7 @@ import {
   useRunOutputs,
   useRunPrompts,
   useWorkspaceMemberNames,
-} from '#/components/v3/pipelines/pipelines-data'
+} from '#/components/pipelines/pipelines-data'
 
 /** UI port (roadmap-4/ui-app3): a pipeline run's record — status, log, inputs
  * used and outputs kept; a `waiting` run also shows its confirm prompt and the

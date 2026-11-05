@@ -19,9 +19,9 @@ import {
 } from 'react'
 import type { ReactNode } from 'react'
 
-import { Notice } from '#/components/v3/ui/alert'
+import { Notice } from '#/components/ui/alert'
 import { DraftStepsButton } from '#/components/assist/draft-steps'
-import { ObjectTypeName } from '#/components/v3/models/added-fields'
+import { ObjectTypeName } from '#/components/models/added-fields'
 import { Icon } from '#/components/icons'
 import {
   ExtensionObjectActions,
@@ -51,7 +51,7 @@ import {
   SignNotebookDialog,
   useHasSignatureToGive,
 } from '#/components/notebook/sign-notebook-dialog'
-import { ShareWithClientDialog } from '#/components/v3/client-sharing/share-with-client-dialog'
+import { ShareWithClientDialog } from '#/components/client-sharing/share-with-client-dialog'
 import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
 import { WithdrawReviewDialog } from '#/components/notebook/withdraw-review-dialog'
 import { ReturnedReviewBanner } from '#/components/notebook/returned-review-banner'
@@ -102,18 +102,18 @@ import {
 } from '#/components/scientific'
 import type { InspectorTab } from '#/components/record'
 import { SignaturesTable } from '#/components/review/signatures-table'
-import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
-import { IconButton } from '#/components/v3/ui/icon-button'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
+import { IconButton } from '#/components/ui/icon-button'
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
-import { Inspector as InspectorPanel, Muted } from '#/components/v3/ui/layout'
+} from '#/components/ui/dialog'
+import { Field, Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
+import { Inspector as InspectorPanel, Muted } from '#/components/ui/layout'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import {
@@ -149,8 +149,8 @@ import type {
 import { useUserNames } from '#/lib/user-names'
 import { fetchSignaturesForRecord, signatureQueryKeys } from '#/lib/signatures'
 import type { SignatureWire } from '#/lib/signatures'
-import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
   deleteBlock,
   duplicateBlock,
@@ -221,9 +221,9 @@ import {
 } from '#/lib/notebook-outline'
 import { NotebookOutlinePanel } from '#/components/notebook/notebook-outline-panel'
 import type { NotebookOutlineControls } from '#/components/notebook/notebook-outline-panel'
-import { RecordPickerDialog } from '#/components/v3/record-picker/record-picker'
-import type { PickerItem } from '#/components/v3/record-picker/record-picker-data'
-import { toast } from '#/components/v3/ui/sonner'
+import { RecordPickerDialog } from '#/components/record-picker/record-picker'
+import type { PickerItem } from '#/components/record-picker/record-picker-data'
+import { toast } from '#/components/ui/sonner'
 
 /**
  * UI port (roadmap-4/ui-app3): the notebook renders inside app-3's shell, so

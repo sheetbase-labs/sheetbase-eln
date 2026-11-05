@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { ParserLayoutEditor } from '#/components/v3/settings/parser-layout-editor'
+import { ParserLayoutEditor } from '#/components/settings/parser-layout-editor'
 import type { ParserLayout } from '#/lib/import/parser-layout'
 
 /**

@@ -22,7 +22,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('#/lib/data-access', () => ({ useDataAccess: () => false }))
 
-vi.mock('#/components/v3/models/models-data', () => ({
+vi.mock('#/components/models/models-data', () => ({
   useModelVersions: () => ({ data: [], isLoading: false }),
   useModelFields: () => ({ data: [], isLoading: false }),
   useModelDefinition: () => ({ data: null, isLoading: false }),

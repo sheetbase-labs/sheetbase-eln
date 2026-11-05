@@ -3,9 +3,9 @@ import type { ReactNode } from 'react'
 
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
-import { Button } from '#/components/v3/ui/button'
-import { Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
+import { Button } from '#/components/ui/button'
+import { Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
 import {
   CARTESIAN_CHART_TYPES,
   CHART_TYPES,

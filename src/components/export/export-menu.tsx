@@ -7,7 +7,7 @@
 import { useState } from 'react'
 
 import { t } from '#/copy'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +16,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
+} from '#/components/ui/dropdown-menu'
 
 export interface ExportOption {
   format: string

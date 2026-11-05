@@ -184,7 +184,7 @@ vi.mock('#/lib/user-names', () => ({
   }),
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: sonner.toast,
   Toaster: () => null,
 }))

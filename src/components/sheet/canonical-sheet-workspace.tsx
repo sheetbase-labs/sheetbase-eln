@@ -36,7 +36,7 @@ import {
   ConfirmDialogFooter,
   ConfirmDialogHeader,
   ConfirmDialogTitle,
-} from '#/components/v3/ui/confirm-dialog'
+} from '#/components/ui/confirm-dialog'
 import { listInstanceColumnPromotions } from '#/lib/schema-evolution'
 import { SheetPasteData } from '#/components/sheet/sheet-paste-data'
 import { SheetPromote } from '#/components/sheet/sheet-promote'
@@ -50,9 +50,9 @@ import {
 } from '#/components/sheet/cell-conflict-panel'
 import type { CellConflictRow } from '#/components/sheet/cell-conflict-panel'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
-import { Button } from '#/components/v3/ui/button'
-import { Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
+import { Button } from '#/components/ui/button'
+import { Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
 import { explainSheetWriteBack } from '#/lib/assist-explain'
 import { AiExplainPanel } from '#/components/assist/ai-explain-panel'
 import { createDataClient, DataClientError } from '#/lib/data-client'

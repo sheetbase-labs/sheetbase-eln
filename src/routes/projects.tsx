@@ -8,21 +8,21 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 
-import { ProjectsPage } from '#/components/v3/projects/projects-page'
+import { ProjectsPage } from '#/components/projects/projects-page'
 import type {
   NewProjectInput,
   ProjectsSearch,
   ProjectRow,
-} from '#/components/v3/projects/projects-page'
+} from '#/components/projects/projects-page'
 import { createClientOrganisation } from '#/lib/client-sharing'
 import { createDataClient, DataClientError } from '#/lib/data-client'
-import { toast } from '#/components/v3/ui/sonner'
+import { toast } from '#/components/ui/sonner'
 import {
   createProject,
   fetchWorkspaceMemberIdentities,
   withReadDeadline,
   workspaceMemberQueryKeys,
-} from '#/components/v3/projects/project-data'
+} from '#/components/projects/project-data'
 import { hasCapability } from '#/lib/capability'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { requireBuiltInModel } from '#/lib/built-in-models'

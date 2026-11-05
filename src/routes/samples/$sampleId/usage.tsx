@@ -2,26 +2,26 @@ import { chunkIds } from '#/lib/chunk-ids'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { Section } from '#/components/v3/ui/layout'
-import { ObjectLink } from '#/components/v3/ui/object-link'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { toast } from '#/components/v3/ui/sonner'
-import { TableBox } from '#/components/v3/ui/table'
+import { Button } from '#/components/ui/button'
+import { Section } from '#/components/ui/layout'
+import { ObjectLink } from '#/components/ui/object-link'
+import { EmptyState } from '#/components/ui/empty-state'
+import { toast } from '#/components/ui/sonner'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { UsageBalanceBar } from '#/components/v3/samples/sample-usage'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { UsageBalanceBar } from '#/components/samples/sample-usage'
 import {
   formatQuantityAmount,
   useSampleActions,
-} from '#/components/v3/samples/withdraw-dialog'
+} from '#/components/samples/withdraw-dialog'
 import {
   formatSampleEventDay,
   formatSampleEventTime,
-} from '#/components/v3/samples/sample-history'
+} from '#/components/samples/sample-history'
 import {
   cancelSampleReservation,
   describeSampleError,

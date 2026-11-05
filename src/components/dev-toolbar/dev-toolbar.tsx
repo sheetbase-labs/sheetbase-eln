@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useRouter } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
 
-import { toast } from '#/components/v3/ui/sonner'
+import { toast } from '#/components/ui/sonner'
 import {
   devFlags,
   setDevFlag,

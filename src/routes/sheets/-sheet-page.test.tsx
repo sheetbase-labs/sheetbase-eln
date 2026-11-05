@@ -14,7 +14,7 @@ import {
 } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { toast } from '#/components/v3/ui/sonner'
+import { toast } from '#/components/ui/sonner'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 import { validSheetInstanceState } from '#/lib/sheet-instance.test'
 
@@ -54,7 +54,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
   }),
 }))
 
-vi.mock('#/components/v3/sheets/column-promotions-panel', () => ({
+vi.mock('#/components/sheets/column-promotions-panel', () => ({
   ColumnPromotionsPanel: () => null,
 }))
 
@@ -81,7 +81,7 @@ vi.mock('#/lib/use-page-ai', () => ({
 }))
 vi.mock('#/lib/recents', () => ({ useRecentViewTracking: () => undefined }))
 
-vi.mock('#/components/v3/ui/layout', () => ({
+vi.mock('#/components/ui/layout', () => ({
   PageHeader: ({
     title,
     crumbs,
@@ -103,7 +103,7 @@ vi.mock('#/components/favourites/favourite-toggle', () => ({
   FavouriteToggle: () => null,
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 

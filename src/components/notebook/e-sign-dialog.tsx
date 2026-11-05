@@ -30,9 +30,9 @@
 import { t } from '#/copy'
 import { useEffect, useRef, useState } from 'react'
 
-import { Button } from '#/components/v3/ui/button'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Notice } from '#/components/v3/ui/alert'
+import { Button } from '#/components/ui/button'
+import { Field, Input } from '#/components/ui/input'
+import { Notice } from '#/components/ui/alert'
 import {
   Dialog,
   DialogBody,
@@ -40,8 +40,8 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { Select } from '#/components/v3/ui/select'
+} from '#/components/ui/dialog'
+import { Select } from '#/components/ui/select'
 import { useDemoSigning } from '#/lib/demo-signing'
 import {
   ASSURANCE_LEVEL_STATEMENT,

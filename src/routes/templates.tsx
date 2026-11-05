@@ -10,10 +10,10 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
-import { Status } from '#/components/v3/ui/status'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
+import { Status } from '#/components/ui/status'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
 import {
   Dialog,
   DialogBody,
@@ -22,15 +22,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTrigger,
-} from '#/components/v3/ui/dialog'
-import { Field, Input } from '#/components/v3/ui/input'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/ui/dialog'
+import { Field, Input } from '#/components/ui/input'
+import { toast } from '#/components/ui/sonner'
 import {
   DescriptionList,
   Inspector,
   InspectorSection,
   Muted,
-} from '#/components/v3/ui/layout'
+} from '#/components/ui/layout'
 import {
   ListFooter,
   ListHeader,
@@ -40,23 +40,23 @@ import {
   Textarea,
   nameSorts,
   sortByName,
-} from '#/components/v3/inventory/list'
-import type { NameSort } from '#/components/v3/inventory/list'
+} from '#/components/inventory/list'
+import type { NameSort } from '#/components/inventory/list'
 import {
   RegistryGrid,
   rightAligned,
   useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { Tabs } from '#/components/v3/ui/tabs'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { Tabs } from '#/components/ui/tabs'
 import {
   templateDataQueryKeys,
   templateLifecycle,
   useTemplateRows,
-} from '#/components/v3/templates/templates-data'
-import type { TemplateRow } from '#/components/v3/templates/templates-data'
-import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
-import { UseTemplateDialog } from '#/components/v3/templates/use-template-dialog'
+} from '#/components/templates/templates-data'
+import type { TemplateRow } from '#/components/templates/templates-data'
+import { useWorkspaceMemberNames } from '#/components/projects/project-data'
+import { UseTemplateDialog } from '#/components/templates/use-template-dialog'
 import { createNotebookTemplate } from '#/lib/notebook-template-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { formatDate } from '#/lib/format-date'

@@ -1,0 +1,194 @@
+import { Link } from '@tanstack/react-router'
+import type { LinkProps } from '@tanstack/react-router'
+
+import { Button } from '#/components/ui/button'
+import { rich, t } from '#/copy'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Notice } from '#/components/ui/alert'
+import { Section } from '#/components/ui/layout'
+import {
+  Table,
+  TableBody,
+  TableBox,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/ui/table'
+import { DataClientError } from '#/lib/data-client'
+import { cn } from '#/lib/utils'
+import { MobileList, stickyFirstCell, stickyFirstHead } from './mobile-list'
+import type { MobileRow } from './mobile-list'
+import type { IconName } from '#/components/icons'
+
+/** A project tab that lists one kind of its own records (R5-SURF-02). Same
+ * table pattern as the project Overview sections; phones get stacked rows.
+ * The read is already project-scoped at the boundary, so this component only
+ * renders — it never filters. */
+export type ProjectListCol<T> = {
+  key: string
+  label: React.ReactNode
+  align?: 'right'
+  cell: (row: T) => React.ReactNode
+  className?: string
+}
+
+export function ProjectList<T extends { key: string }>({
+  title,
+  count,
+  action,
+  cols,
+  rows,
+  mobile,
+  empty,
+  footer,
+}: {
+  title: React.ReactNode
+  count?: React.ReactNode
+  action?: React.ReactNode
+  cols: ProjectListCol<T>[]
+  rows: T[]
+  mobile: MobileRow[]
+  /** What to show with no rows, and the one next action that fills them. */
+  empty: {
+    icon?: IconName
+    title: string
+    body: string
+    action?: React.ReactNode
+  }
+  footer?: React.ReactNode
+}) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-auto px-4 py-[22px] md:px-8">
+      <Section title={title} count={count} action={action}>
+        {rows.length ? (
+          <>
+            <MobileList
+              className="-mx-4 border-t border-border md:hidden"
+              label={String(title)}
+              rows={mobile}
+            />
+            <TableBox className="max-md:hidden">
+              <Table aria-label={String(title)}>
+                <TableHeader>
+                  <TableRow>
+                    {cols.map((c) => (
+                      <TableHead
+                        key={c.key}
+                        align={c.align}
+                        className={stickyFirstHead}
+                      >
+                        {c.label}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((r) => (
+                    <TableRow key={r.key}>
+                      {cols.map((c) => (
+                        <TableCell
+                          key={c.key}
+                          align={c.align}
+                          className={cn(stickyFirstCell, c.className)}
+                        >
+                          {c.cell(r)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableBox>
+          </>
+        ) : (
+          <EmptyState
+            className="py-2"
+            icon={empty.icon}
+            title={empty.title}
+            description={empty.body}
+            action={empty.action}
+          />
+        )}
+      </Section>
+      {footer ? <div className="text-label text-fg-muted">{footer}</div> : null}
+    </div>
+  )
+}
+
+/**
+ * The honest state for a page past the end of a project list: a hand-edited
+ * `?page=` must not read as "this project has no rows". The link returns to the
+ * first page.
+ */
+export function ProjectListOutOfRange({
+  total,
+  label,
+  link,
+}: {
+  total: number
+  label: string
+  link: LinkProps
+}) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col overflow-auto px-4 py-[22px] md:px-8">
+      <Notice tone="info" title={t('projects.projectList.pastEnd.title')}>
+        {rich('projects.projectList.pastEnd.body', {
+          total,
+          label,
+          link: (text) => (
+            <Link {...link} className="text-link">
+              {text}
+            </Link>
+          ),
+        })}
+      </Notice>
+    </div>
+  )
+}
+
+/**
+ * The honest state for a project tab whose read failed. A refused read (RLS or
+ * the proxy's denial envelope) says so rather than rendering an empty list that
+ * would read as "this project has no rows"; any other failure offers a retry
+ * and never substitutes sample data.
+ */
+export function ProjectListFailure({
+  error,
+  onRetry,
+  what,
+}: {
+  error: unknown
+  onRetry: () => void
+  what: string
+}) {
+  const denied =
+    error instanceof DataClientError &&
+    (error.code === 'permission_denied' ||
+      error.status === 401 ||
+      error.status === 403)
+  if (denied) {
+    return (
+      <Notice
+        tone="info"
+        icon="lock"
+        title={t('projects.projectList.denied.title', { what })}
+      >
+        {t('projects.projectList.denied.body')}
+      </Notice>
+    )
+  }
+  return (
+    <Notice
+      tone="bad"
+      title={t('projects.projectList.failed.title', { what })}
+      action={
+        <Button size="sm" onClick={onRetry}>
+          {t('common.actions.tryAgain')}
+        </Button>
+      }
+    >
+      {t('projects.projectList.failed.body')}
+    </Notice>
+  )
+}

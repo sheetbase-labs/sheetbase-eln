@@ -12,7 +12,7 @@
 import * as React from 'react'
 
 import { t } from '#/copy'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   Table,
   TableBody,
@@ -20,8 +20,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
-import { Select } from '#/components/v3/ui/select'
+} from '#/components/ui/table'
+import { Select } from '#/components/ui/select'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import { chartUsedFieldIds } from '#/lib/chart-data'
 import { filterRowsByFlags } from '#/lib/dataset-flags'

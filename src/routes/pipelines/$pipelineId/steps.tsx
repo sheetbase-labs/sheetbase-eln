@@ -3,30 +3,30 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { rich, t } from '#/copy'
-import { Button } from '#/components/v3/ui/button'
-import { CodeBlock } from '#/components/v3/ui/code-block'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
-import { Notice } from '#/components/v3/ui/alert'
-import { Section } from '#/components/v3/ui/layout'
-import { toast } from '#/components/v3/ui/sonner'
-import { ParametersEditor } from '#/components/v3/pipelines/parameters-editor'
+import { Button } from '#/components/ui/button'
+import { CodeBlock } from '#/components/ui/code-block'
+import { Field, Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
+import { Notice } from '#/components/ui/alert'
+import { Section } from '#/components/ui/layout'
+import { toast } from '#/components/ui/sonner'
+import { ParametersEditor } from '#/components/pipelines/parameters-editor'
 import {
   PythonPackagesEditor,
   PythonStepEditor,
-} from '#/components/v3/pipelines/python-editor'
-import { SqlEditor } from '#/components/v3/pipelines/sql-editor'
-import { StepsEditor } from '#/components/v3/pipelines/steps-editor'
-import { InputsEditor } from '#/components/v3/pipelines/inputs-editor'
-import { OutputEditor } from '#/components/v3/pipelines/output-editor'
-import { RunDialog } from '#/components/v3/pipelines/run-dialog'
-import type { RunDetails } from '#/components/v3/pipelines/run-dialog'
-import { AiPipelineBox } from '#/components/v3/pipelines/ai-pipeline-box'
-import { TrialPanel } from '#/components/v3/pipelines/trial-panel'
+} from '#/components/pipelines/python-editor'
+import { SqlEditor } from '#/components/pipelines/sql-editor'
+import { StepsEditor } from '#/components/pipelines/steps-editor'
+import { InputsEditor } from '#/components/pipelines/inputs-editor'
+import { OutputEditor } from '#/components/pipelines/output-editor'
+import { RunDialog } from '#/components/pipelines/run-dialog'
+import type { RunDetails } from '#/components/pipelines/run-dialog'
+import { AiPipelineBox } from '#/components/pipelines/ai-pipeline-box'
+import { TrialPanel } from '#/components/pipelines/trial-panel'
 import type {
   OutputDraft,
   OutputMode,
-} from '#/components/v3/pipelines/output-editor'
+} from '#/components/pipelines/output-editor'
 import {
   draftVersion,
   usePythonRuntime,
@@ -34,7 +34,7 @@ import {
   usePipelineDefinition,
   usePipelineVersions,
   useWorkspaceMemberNames,
-} from '#/components/v3/pipelines/pipelines-data'
+} from '#/components/pipelines/pipelines-data'
 import { validatePipelineConfig } from '#/lib/pipelines/config'
 import { readResultPreview } from '#/lib/pipelines/result-preview'
 import type {

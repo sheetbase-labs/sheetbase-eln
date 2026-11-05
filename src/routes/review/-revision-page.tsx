@@ -85,23 +85,23 @@ import {
   ConfirmDialogHeader,
   ConfirmDialogTitle,
   ConfirmDialogTrigger,
-} from '#/components/v3/ui/confirm-dialog'
+} from '#/components/ui/confirm-dialog'
 import { SignatureDialog } from '#/components/review/sign-dialogs'
-import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
-import { IconButton } from '#/components/v3/ui/icon-button'
-import { Skeleton } from '#/components/v3/ui/skeleton'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
+import { IconButton } from '#/components/ui/icon-button'
+import { Skeleton } from '#/components/ui/skeleton'
 import {
   Tabs,
   TabsRoot,
   TabsList,
   TabsPanel,
   TabsTab,
-} from '#/components/v3/ui/tabs'
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import { personOption } from '#/components/v3/record-picker/entity-options'
-import { Select } from '#/components/v3/ui/select'
-import { Textarea } from '#/components/v3/inventory/list'
+} from '#/components/ui/tabs'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
+import { personOption } from '#/components/record-picker/entity-options'
+import { Select } from '#/components/ui/select'
+import { Textarea } from '#/components/inventory/list'
 import { AmendNotebookDialog } from '#/components/notebook/amend-notebook-dialog'
 import { DataClientError } from '#/lib/data-client'
 import {
@@ -180,7 +180,7 @@ import {
   deriveReviewLifecycle,
   deriveSignatureApplicability,
 } from '#/lib/review-lifecycle'
-import { Inspector as InspectorPanel } from '#/components/v3/ui/layout'
+import { Inspector as InspectorPanel } from '#/components/ui/layout'
 import { useUserNames } from '#/lib/user-names'
 import {
   useRegisterShortcuts,
@@ -188,7 +188,7 @@ import {
 } from '#/components/shortcuts/shortcut-provider'
 import { reviewShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
-import { ObjectLink } from '#/components/v3/ui/object-link'
+import { ObjectLink } from '#/components/ui/object-link'
 import { returnToHere } from '#/lib/return-to'
 import { reviewNextStep } from '#/lib/review-next-step'
 import { ReviewNextStepPanel } from '#/components/review/review-next-step'

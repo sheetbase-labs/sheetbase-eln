@@ -6,20 +6,20 @@ import {
   Link,
 } from '@tanstack/react-router'
 
-import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
-import { Notice } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
-import { PageHeader } from '#/components/v3/ui/layout'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { Status } from '#/components/v3/ui/status'
-import { UseTemplateDialog } from '#/components/v3/templates/use-template-dialog'
+import { RecordUnavailable } from '#/components/ui/record-unavailable'
+import { Notice } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
+import { PageHeader } from '#/components/ui/layout'
+import { Tabs } from '#/components/ui/tabs'
+import { Status } from '#/components/ui/status'
+import { UseTemplateDialog } from '#/components/templates/use-template-dialog'
 import {
   publishedTemplateVersion,
   templateLifecycle,
   useTemplate,
   useTemplateVersions,
   useTemplateUsers,
-} from '#/components/v3/templates/templates-data'
+} from '#/components/templates/templates-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { formatDate } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { KindBadge } from '#/components/review/revision-diff-review'
-import { Badge } from '#/components/v3/ui/badge'
+import { Badge } from '#/components/ui/badge'
 
 /**
  * The badge naming what a change did. The four kinds are the canonical set,

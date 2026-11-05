@@ -15,8 +15,8 @@ import { rich, t } from '#/copy'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
-import { Banner } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
+import { Banner } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
 import type { DataClient } from '#/lib/data-client'
 import {
   fetchNotebookTemplate,

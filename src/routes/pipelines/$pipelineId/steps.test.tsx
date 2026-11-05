@@ -16,7 +16,7 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './steps'
-import type * as pipelinesDataModule from '#/components/v3/pipelines/pipelines-data'
+import type * as pipelinesDataModule from '#/components/pipelines/pipelines-data'
 import type { PipelineDefinitionVersionWire } from '#/lib/pipelines/types'
 
 const PipelineSteps = Route.options.component as React.ComponentType
@@ -46,7 +46,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: { rpc } }))
 
-vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
+vi.mock('#/components/pipelines/pipelines-data', async (importOriginal) => ({
   ...(await importOriginal<typeof pipelinesDataModule>()),
   usePipelineVersions: () => ({
     isLoading: false,

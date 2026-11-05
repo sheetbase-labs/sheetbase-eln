@@ -34,7 +34,7 @@ Some v3 routes intentionally use a different path from the original proposed
 screen. Verify behavior and redirects under the existing route; see the
 [route dispositions](RECONCILIATION.md#acceptance-and-design-contract).
 
-The current app-3 kit is `src/components/v3/ui/`; route inclusion is in
+The current app-3 kit is `src/components/ui/`; route inclusion is in
 `src/routes/__root.tsx`. Use the authenticated `/api/db` or session-preserving
 server boundary. Complete capabilities through their existing task, including
 server enforcement and truthful unavailable/empty states.

@@ -23,7 +23,7 @@ design-parity set.
 | -------------- | ------------------------------------------------------ | -------------------------------------------------------------------- |
 | Domain         | `src/components/**` outside `v3/**` and the legacy kit | [`reui-opportunity-scan-domain.md`](reui-opportunity-scan-domain.md) |
 | Route surfaces | `src/routes/**`                                        | [`reui-opportunity-scan-routes.md`](reui-opportunity-scan-routes.md) |
-| v3 surfaces    | `src/components/v3/**`                                 | [`reui-opportunity-scan-v3.md`](reui-opportunity-scan-v3.md)         |
+| v3 surfaces    | `src/components/**`                                    | [`reui-opportunity-scan-v3.md`](reui-opportunity-scan-v3.md)         |
 
 Each ranks by worth-doing rather than by the old tiers, carries file:line
 evidence, records the jobs it checked and found nothing for, names the in-house

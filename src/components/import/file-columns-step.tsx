@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Banner } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
-import { IconButton } from '#/components/v3/ui/icon-button'
-import { Checkbox } from '#/components/v3/ui/checkbox'
-import { Field, Input } from '#/components/v3/ui/input'
-import { PageHeader } from '#/components/v3/ui/layout'
-import { Select } from '#/components/v3/ui/select'
-import { Stepper } from '#/components/v3/ui/stepper'
+import { Banner } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
+import { IconButton } from '#/components/ui/icon-button'
+import { Checkbox } from '#/components/ui/checkbox'
+import { Field, Input } from '#/components/ui/input'
+import { PageHeader } from '#/components/ui/layout'
+import { Select } from '#/components/ui/select'
+import { Stepper } from '#/components/ui/stepper'
 import {
   Table,
   TableBody,
@@ -17,7 +17,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import { createDataClient } from '#/lib/data-client'
 import { createDataset } from '#/lib/dataset-product'
 import {

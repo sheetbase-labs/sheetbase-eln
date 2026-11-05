@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
-import { Button } from '#/components/v3/ui/button'
-import { Field, Input } from '#/components/v3/ui/input'
+import { Button } from '#/components/ui/button'
+import { Field, Input } from '#/components/ui/input'
 import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 import { useWakeLock } from '#/lib/pwa/wake-lock'

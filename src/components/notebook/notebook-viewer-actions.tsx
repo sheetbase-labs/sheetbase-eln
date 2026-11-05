@@ -17,8 +17,8 @@ import { t } from '#/copy'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import * as React from 'react'
 
-import { Notice } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
+import { Notice } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
 import {
   Dialog,
   DialogBody,
@@ -26,9 +26,9 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { Field } from '#/components/v3/ui/input'
-import { Textarea } from '#/components/v3/inventory/list'
+} from '#/components/ui/dialog'
+import { Field } from '#/components/ui/input'
+import { Textarea } from '#/components/inventory/list'
 import { SignaturesTable } from '#/components/review/signatures-table'
 import { DataClientError } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'

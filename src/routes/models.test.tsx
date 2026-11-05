@@ -12,8 +12,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Route } from './models'
 import { WorkspaceNavigationContext } from '#/components/workspace/workspace-navigation'
 import type { WorkspaceNavigation } from '#/components/workspace/workspace-navigation'
-import type * as ModelCreate from '#/components/v3/models/model-create-dialog'
-import type { ModelRow } from '#/components/v3/models/models-data'
+import type * as ModelCreate from '#/components/models/model-create-dialog'
+import type { ModelRow } from '#/components/models/models-data'
 import { DataClientError } from '#/lib/data-client'
 
 /** The route owns the create flow: whether the control is offered at all (the
@@ -69,12 +69,12 @@ vi.mock('@tanstack/react-router', () => ({
     select({ location: { pathname: '/models' } }),
 }))
 
-vi.mock('#/components/v3/models/models-data', async (importOriginal) => ({
+vi.mock('#/components/models/models-data', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   useModels: () => ({ data: rows.value, isLoading: false }),
 }))
 
-vi.mock('#/components/v3/projects/project-data', () => ({
+vi.mock('#/components/projects/project-data', () => ({
   useWorkspaceMemberNames: () => ({ data: undefined }),
 }))
 
@@ -83,18 +83,15 @@ vi.mock('#/lib/dataset-schema-definition-rpc', async (importOriginal) => ({
   createDatasetSchemaDefinition,
 }))
 
-vi.mock(
-  '#/components/v3/models/model-create-dialog',
-  async (importOriginal) => ({
-    ...(await importOriginal<typeof ModelCreate>()),
-    ModelCreateDialog: (props: Record<string, unknown>) => {
-      seen.dialog = props
-      return props.open ? <div data-testid="model-create-dialog" /> : null
-    },
-  }),
-)
+vi.mock('#/components/models/model-create-dialog', async (importOriginal) => ({
+  ...(await importOriginal<typeof ModelCreate>()),
+  ModelCreateDialog: (props: Record<string, unknown>) => {
+    seen.dialog = props
+    return props.open ? <div data-testid="model-create-dialog" /> : null
+  },
+}))
 
-vi.mock('#/components/v3/ui/sonner', () => ({ toast }))
+vi.mock('#/components/ui/sonner', () => ({ toast }))
 
 function model(overrides: Partial<ModelRow> = {}): ModelRow {
   return {

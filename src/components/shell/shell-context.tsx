@@ -7,7 +7,7 @@ import * as React from 'react'
  * `ShellProvider` around the route tree for the recorded internal reference
  * routes (the `docs/*.md` operator documents, the foundations catalogue, the
  * printed-label redirect and the dev grid demo); every product route renders
- * the adopted v3 shell (`#/components/v3/shell/app-shell`) instead.
+ * the adopted v3 shell (`#/components/shell/app-shell`) instead.
  *
  * The legacy ELN chrome that gave those routes their sidebar, top bar,
  * inspector slot and ⌘K palette — and the per-route `useShell()` config that

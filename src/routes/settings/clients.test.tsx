@@ -43,7 +43,7 @@ vi.mock('@tanstack/react-router', () => ({
     </a>
   ),
 }))
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(mocks.toast, { error: mocks.toast }),
 }))
 vi.mock('#/lib/data-client', () => ({
@@ -53,7 +53,7 @@ vi.mock('#/lib/data-client', () => ({
     insert: mocks.insert,
   }),
 }))
-vi.mock('#/components/v3/settings/workspace-admins-line', () => ({
+vi.mock('#/components/settings/workspace-admins-line', () => ({
   WorkspaceAdminsLine: () => null,
 }))
 

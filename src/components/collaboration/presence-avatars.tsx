@@ -1,4 +1,4 @@
-import { AvatarStack } from '#/components/v3/ui/avatar'
+import { AvatarStack } from '#/components/ui/avatar'
 import { useOthers } from '#/lib/collaboration/liveblocks.config'
 
 import { useCollaborationRoomReady } from './collaboration-room'

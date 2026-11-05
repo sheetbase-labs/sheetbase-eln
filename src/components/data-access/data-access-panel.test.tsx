@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { resolveDataAccessHandle } from '#/lib/data-access-handles'
-import { Popover } from '#/components/v3/ui/popover'
+import { Popover } from '#/components/ui/popover'
 import { DataAccessPanel } from './data-access-panel'
 
 function inPopover(ui: React.ReactNode) {

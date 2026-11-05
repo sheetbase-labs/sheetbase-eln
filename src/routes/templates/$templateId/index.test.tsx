@@ -37,7 +37,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 const sonner = vi.hoisted(() => ({ toast: vi.fn(), error: vi.fn() }))
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(sonner.toast, { error: sonner.error }),
 }))
 

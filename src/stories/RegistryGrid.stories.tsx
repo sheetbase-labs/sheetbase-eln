@@ -6,16 +6,16 @@ import {
   bandRow,
   rightAligned,
   useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
+} from '#/components/inventory/registry-grid'
 import type {
   RegistryColumn,
   RegistryRow,
-} from '#/components/v3/inventory/registry-grid'
-import { Status } from '#/components/v3/ui/status'
+} from '#/components/inventory/registry-grid'
+import { Status } from '#/components/ui/status'
 
 /**
  * The registry grid the inventory lists share
- * (`src/components/v3/inventory/registry-grid.tsx`): selectable rows that
+ * (`src/components/inventory/registry-grid.tsx`): selectable rows that
  * drive an inspector, group bands, a right-aligned numeric column, and the
  * loading state. Rows are static fixtures.
  */

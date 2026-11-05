@@ -2,11 +2,9 @@
 
 This file records the deliberate exceptions to the rule that every exported
 React component has a story, and the story-level limits that are deliberate
-rather than gaps. It is written to be the input for a structural guard; no such
-guard exists on this branch yet.
+rather than gaps.
 
-The guard for the forward kit, the registry copies and the icons is
-`src/components/story-coverage.test.ts`; `pnpm validate` runs
+The guard is `src/components/story-coverage.test.ts`; `pnpm validate` runs
 `pnpm build-storybook` after `pnpm build`, so a story that stops compiling or
 stops being collected fails the gate rather than the next person's review.
 
@@ -176,12 +174,10 @@ naming and is kept where it is.
 | `RecordHeaderAvatar`, `RecordHeaderBadge` (`record/record-header.tsx`) | Re-exports of `Avatar` and `Badge`; covered by `Avatar.stories.tsx` and `Badge.stories.tsx`.                                    |
 | `ComposedSheetWorkspace` (`sheet/composed-sheet-workspace.tsx`)        | Re-export of the workspace in `canonical-sheet-workspace.tsx`; one component, one story (`ComposedSheetWorkspace.stories.tsx`). |
 
-## Forward kit, registry and icons
+## The guard
 
 The structural guard in `src/components/story-coverage.test.ts` covers every
-component module under `src/components/`, except the legacy kit
-(`src/components/ui/`) and the component-compare harness
-(`src/components/component-compare/`). It reads every `| Module | Why no story |`
+component module under `src/components/`. It reads every `| Module | Why no story |`
 table in this file, in any section, so an area records its skips in its own
 section with that header. A module a story imports is covered; a module
 listed in one of those tables is a recorded skip; a module that is neither fails
@@ -197,37 +193,27 @@ Not everything in those directories is a component, and this table is only for
 components: non-component modules are named in the prose below instead, since
 the guard never asks about them.
 
-**Titles.** The forward kit and the legacy kit being removed have components of
-the same name — both have a Sheet, a Table, a Dialog, a Kbd and a Checkbox. The
-legacy stories are titled `UI/<Name>`; a same-named forward-kit story therefore
-takes `v3 kit/<Name>`, and a registry copy whose name a legacy story already
-holds takes `UI/Registry <Name>` (after `UI/RegistryKbd`). A story file that
-merely shares its name with a component is not coverage of it.
+**Titles.** Kit stories (`src/components/ui/`) are titled `UI/<Name>`, and a
+registry copy whose name a kit story already holds takes `UI/Registry <Name>`
+(after `UI/RegistryKbd`). A story file that merely shares its name with a
+component is not coverage of it.
 
 | Module | Why no story |
 | ------ | ------------ |
 
 ### Non-component modules in this scope
 
-| Module                                            | What it is                                                                                     |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `src/components/reui/use-file-upload.ts`          | Hook, not a component. It wraps the file input's state and has no rendered surface of its own. |
-| `src/components/v3/ui/component-adoption.test.ts` | The adoption guard, not a component.                                                           |
-| `src/components/story-coverage.test.ts`           | This guard, not a component.                                                                   |
-
-## Outside the guard
-
-| Area                                   | Position                                                                                                                      |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `src/components/ui/**`, the legacy kit | Being retired in favour of `v3/ui`; `src/components/v3/ui/component-adoption.test.ts` tracks the removal.                     |
-| `src/components/component-compare/**`  | A development-only harness that reproduces old variants side by side. It is a tool for choosing between them, not product UI. |
+| Module                                   | What it is                                                                                     |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `src/components/reui/use-file-upload.ts` | Hook, not a component. It wraps the file input's state and has no rendered surface of its own. |
+| `src/components/story-coverage.test.ts`  | This guard, not a component.                                                                   |
 
 ## Assistant, workspace, offline and shell
 
 Modules in these areas that render nothing of their own, or that cannot be
 mounted without the whole application behind them. Everything else in
 `assist/`, `workspace/`, `offline/`, `shell/`, `shortcuts/`, `pwa/`,
-`favourites/`, `data-access/`, `overview/`, `dev-toolbar/` and `v3/shell/` has
+`favourites/`, `data-access/`, `overview/`, `dev-toolbar/` and `shell/` has
 a story.
 
 | Module                                                  | Why no story                                                                                                                                                                                                                                                                                   |
@@ -235,15 +221,15 @@ a story.
 | `src/components/shell/index.ts`                         | Re-export of `ShellProvider`, which renders its children unchanged.                                                                                                                                                                                                                            |
 | `src/components/shell/shell-context.tsx`                | `ShellProvider` renders its children unchanged; there is no chrome to show.                                                                                                                                                                                                                    |
 | `src/components/shortcuts/sheet-keyboard-shortcuts.tsx` | Registers cell shortcuts for a grid and returns `null`. The registry it feeds is shown by `ShortcutsDialog.stories.tsx`.                                                                                                                                                                       |
-| `src/components/v3/lib/theme.ts`                        | Theme cookie and storage constants and the store behind `ThemeProvider`; no rendered surface.                                                                                                                                                                                                  |
+| `src/components/lib/theme.ts`                           | Theme cookie and storage constants and the store behind `ThemeProvider`; no rendered surface.                                                                                                                                                                                                  |
 | `src/components/workspace/use-record-links.ts`          | Hook, plus the drag MIME constant. It wires drag and click handling onto a pane's links and renders nothing.                                                                                                                                                                                   |
 | `src/components/workspace/workspace-navigation.tsx`     | Context, hooks and click helpers for panes; no rendered surface.                                                                                                                                                                                                                               |
 | `src/components/workspace/pane-page.tsx`                | Mounts a second copy of the application's own page router (`getPaneRouter`) for an address, inside the live auth context. A story would need the whole app and its database behind it; `PaneHeader`, `WorkspaceBar`, `PeekCard`, `Shelf` and `WorkspaceStatus` show the pane chrome around it. |
 | `src/components/workspace/workspace-host.tsx`           | The host that owns the open panes, layouts, shelf and link groups and mounts a `PanePage` for each. It reads the root route's auth context and session storage and renders the application's pages, so it cannot stand alone; every piece of its chrome has its own story.                     |
 
-## v3 screens
+## Screens
 
-The screen components under `src/components/v3/{datasets, integrations, models,
+The screen components under `src/components/{datasets, integrations, models,
 pipelines, projects, protocols, samples, schedule, search, settings, shell,
 templates}/**` had no stories when this section was written. They do now.
 
@@ -303,15 +289,15 @@ per module rather than once on the happy path.
 | `src/stories/NotFound.stories.tsx`                  | `shell/not-found`                                                                                                | Not found inside a record, at an unknown record id, and under no section the product has                                                                                                                                                                                                                 |
 
 Three modules are covered beside their components rather than in this
-directory: `src/components/v3/protocols/protocol-document.tsx` and
+directory: `src/components/protocols/protocol-document.tsx` and
 `protocol-version-training.tsx` by
-`src/components/v3/protocols/protocols.stories.tsx` (document, empty and
+`src/components/protocols/protocols.stories.tsx` (document, empty and
 unreadable; training required, failed, pending and unavailable),
 `protocols-registry-grid.tsx` by `src/stories/ProtocolsRegistryGrid.stories.tsx`,
-and `src/components/v3/settings/parser-versions.tsx` by
-`src/components/v3/settings/parser-versions.stories.tsx` (populated and empty).
+and `src/components/settings/parser-versions.tsx` by
+`src/components/settings/parser-versions.stories.tsx` (populated and empty).
 
-`src/components/v3/models/record-model-versions.stories.tsx` was retired in this
+`src/components/models/record-model-versions.stories.tsx` was retired in this
 pass: it rendered `record-model-versions.tsx` with three states, all of them
 subsets of `src/stories/RecordModelVersions.stories.tsx`, which is the survivor.
 One component, one story.
@@ -369,7 +355,7 @@ It is one line for whoever owns `src/components/story-coverage.test.ts`: add the
 twelve directories to `SCOPE`. Two things need attention first, and both are
 why it is not done here:
 
-- `src/components/v3/protocols/protocols.stories.tsx` imports its components
+- `src/components/protocols/protocols.stories.tsx` imports its components
   relatively (`./protocol-document`), and the guard resolves coverage from
   `#/…` specifiers only. Widening the scope without teaching it relative
   specifiers would report those two protocol components as uncovered even
@@ -379,7 +365,7 @@ why it is not done here:
 
 ## Checkbox: the mixed and disabled marks
 
-`src/components/v3/ui/checkbox.tsx` reported `aria-checked="mixed"` while
+`src/components/ui/checkbox.tsx` reported `aria-checked="mixed"` while
 painting its tick in `text-on-accent` on an unfilled `bg-surface` box — a white
 mark on a white box, so a partly selected grid's header looked empty. Measured
 in Chromium before the fix: fill `oklch(1 0 89.9)`, ink `oklch(1 0 89.9)`. The
@@ -428,29 +414,29 @@ those for the model stories in `src/stories/model-fixtures.ts`.
 
 ### Skipped modules
 
-| Module                                            | Why no story                                                                                                      |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `src/components/v3/stocktake/stocktake-shared.ts` | Tone maps and label helpers, not a component. The list, count and summary stories render every one of its states. |
+| Module                                         | Why no story                                                                                                      |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `src/components/stocktake/stocktake-shared.ts` | Tone maps and label helpers, not a component. The list, count and summary stories render every one of its states. |
 
 ## Datasets, instruments, experiments, protocols, reports, templates and viz
 
-The screen parts under `src/components/v3/{datasets, instruments, experiments,
+The screen parts under `src/components/{datasets, instruments, experiments,
 protocols, recurring, reports, scan, schedule, templates}/`,
-`src/components/v3/projects/project-sheets.tsx`, `src/components/viz/` and
+`src/components/projects/project-sheets.tsx`, `src/components/viz/` and
 `src/components/audit/saved-trails.tsx` are covered by these files, one per
 screen, each showing the states that change what the part says:
 
-| Story file                                          | Modules covered                                                                                                                                            |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/stories/DatasetActions.stories.tsx`            | `datasets/{dataset-inspector, column-inspector, dataset-archive, dataset-model-upgrade, dataset-run-pipeline, cite-snapshot-dialog}`                       |
-| `src/stories/InstrumentParts.stories.tsx`           | `instruments/{agent-download, intake-delivery-notice, intake-setup-dialog, live-readings, out-of-service, parser-follow-up, request-qualification-button}` |
-| `src/stories/ExperimentParts.stories.tsx`           | `experiments/{book-instrument-button, save-as-template-dialog, results-workspace}`, `audit/saved-trails`                                                   |
-| `src/stories/ProtocolParts.stories.tsx`             | `protocols/{new-protocol-dialog, protocol-hazards, protocol-inspector, protocol-training-roster, protocol-versions-panel}`                                 |
-| `src/components/v3/protocols/protocols.stories.tsx` | `protocols/{protocol-document, protocol-version-training}` (now imported by `#/` path so the guard sees them)                                              |
-| `src/stories/ReportParts.stories.tsx`               | `reports/{add-section-dialogs, generated-reports, new-report-dialog, report-document, reports-registry-grid, section-card}`                                |
-| `src/stories/BenchActions.stories.tsx`              | `scan/scan-sample-actions`, `schedule/edit-booking-dialog`, `recurring/repeat-fields`                                                                      |
-| `src/stories/TemplateAndSheetParts.stories.tsx`     | `templates/{bulk-upgrade-panel, template-sections-board, use-template-dialog}`, `projects/project-sheets`                                                  |
-| `src/stories/VizParts.stories.tsx`                  | `viz/{chart-renderer-impl, figure-controls, snapshot-source-banner, source-comparison}`                                                                    |
+| Story file                                       | Modules covered                                                                                                                                            |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/stories/DatasetActions.stories.tsx`         | `datasets/{dataset-inspector, column-inspector, dataset-archive, dataset-model-upgrade, dataset-run-pipeline, cite-snapshot-dialog}`                       |
+| `src/stories/InstrumentParts.stories.tsx`        | `instruments/{agent-download, intake-delivery-notice, intake-setup-dialog, live-readings, out-of-service, parser-follow-up, request-qualification-button}` |
+| `src/stories/ExperimentParts.stories.tsx`        | `experiments/{book-instrument-button, save-as-template-dialog, results-workspace}`, `audit/saved-trails`                                                   |
+| `src/stories/ProtocolParts.stories.tsx`          | `protocols/{new-protocol-dialog, protocol-hazards, protocol-inspector, protocol-training-roster, protocol-versions-panel}`                                 |
+| `src/components/protocols/protocols.stories.tsx` | `protocols/{protocol-document, protocol-version-training}` (now imported by `#/` path so the guard sees them)                                              |
+| `src/stories/ReportParts.stories.tsx`            | `reports/{add-section-dialogs, generated-reports, new-report-dialog, report-document, reports-registry-grid, section-card}`                                |
+| `src/stories/BenchActions.stories.tsx`           | `scan/scan-sample-actions`, `schedule/edit-booking-dialog`, `recurring/repeat-fields`                                                                      |
+| `src/stories/TemplateAndSheetParts.stories.tsx`  | `templates/{bulk-upgrade-panel, template-sections-board, use-template-dialog}`, `projects/project-sheets`                                                  |
+| `src/stories/VizParts.stories.tsx`               | `viz/{chart-renderer-impl, figure-controls, snapshot-source-banner, source-comparison}`                                                                    |
 
 Stories answer reads by seeding a query client (`screenQueryClient`) and wrap
 the story in `withApiReads('error' | 'pending')` where a part also polls or
@@ -460,7 +446,7 @@ few seconds, so its story holds the poll pending and leaves the seeded readings
 on screen; and the bulk-upgrade story runs the upgrade against a refused
 server, so every notebook comes back in the "not updated" list.
 
-| Module                                              | Why no story                                                                                                                                   |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/components/v3/experiments/experiments-data.ts` | Query keys, list filters, row mapping and hooks for the experiments list. Nothing renders; the screens that use it have stories.               |
-| `src/components/v3/projects/project-lists.ts`       | Page-size constants, filters, fetchers and hooks behind the project lists (which have stories in `ProjectLists.stories.tsx`). Nothing renders. |
+| Module                                           | Why no story                                                                                                                                   |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/experiments/experiments-data.ts` | Query keys, list filters, row mapping and hooks for the experiments list. Nothing renders; the screens that use it have stories.               |
+| `src/components/projects/project-lists.ts`       | Page-size constants, filters, fetchers and hooks behind the project lists (which have stories in `ProjectLists.stories.tsx`). Nothing renders. |

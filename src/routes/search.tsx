@@ -1,4 +1,4 @@
-import { sampleStatus } from '#/components/v3/samples/samples-data'
+import { sampleStatus } from '#/components/samples/samples-data'
 import { useEffect, useMemo, useState } from 'react'
 import { usePlatform } from '#/lib/use-platform'
 import { formatShortcut } from '#/lib/shortcuts'
@@ -15,47 +15,47 @@ import {
 import type { GroupNode } from '@sheetbase-labs/sheetbase-shared'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { usePageAi } from '#/lib/use-page-ai'
 import { parseSearchAnswer, searchInstruction } from '#/lib/ai-search-filters'
-import { LoadMore } from '#/components/v3/ui/load-more'
-import { Notice } from '#/components/v3/ui/alert'
-import { Input } from '#/components/v3/ui/input'
-import { Status } from '#/components/v3/ui/status'
-import type { Tone } from '#/components/v3/ui/status'
-import { EmptyState } from '#/components/v3/ui/empty-state'
+import { LoadMore } from '#/components/ui/load-more'
+import { Notice } from '#/components/ui/alert'
+import { Input } from '#/components/ui/input'
+import { Status } from '#/components/ui/status'
+import type { Tone } from '#/components/ui/status'
+import { EmptyState } from '#/components/ui/empty-state'
 import { Icon } from '#/components/icons'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '#/components/v3/ui/popover'
+} from '#/components/ui/popover'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
-import { FilterMenu } from '#/components/v3/ui/filter-menu'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { Chip } from '#/components/v3/ui/chip'
-import { ListHeader, PHONE_SCROLL_ROW } from '#/components/v3/inventory/list'
-import { SearchResultIcon } from '#/components/v3/search/result-icon'
-import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { MobileList, stickyCol } from '#/components/v3/projects/mobile-list'
+} from '#/components/ui/dropdown-menu'
+import { FilterMenu } from '#/components/ui/filter-menu'
+import { Tabs } from '#/components/ui/tabs'
+import { Chip } from '#/components/ui/chip'
+import { ListHeader, PHONE_SCROLL_ROW } from '#/components/inventory/list'
+import { SearchResultIcon } from '#/components/search/result-icon'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { MobileList, stickyCol } from '#/components/projects/mobile-list'
 import { now } from '#/lib/clock'
 import { formatListDate } from '#/lib/list-date'
-import { useSearchFields } from '#/components/v3/search/use-search-fields'
-import { Highlight } from '#/components/v3/search/highlight'
-import { SavedSearches } from '#/components/v3/search/saved-searches'
+import { useSearchFields } from '#/components/search/use-search-fields'
+import { Highlight } from '#/components/search/highlight'
+import { SavedSearches } from '#/components/search/saved-searches'
 import {
   searchResultContext,
   searchResultLabel,
   searchResultParentLine,
-} from '#/components/v3/search/result-text'
-import { useProjectNameMap } from '#/components/v3/experiments/experiments-data'
-import type { WorkspaceMemberIdentity } from '#/components/v3/projects/project-data'
+} from '#/components/search/result-text'
+import { useProjectNameMap } from '#/components/experiments/experiments-data'
+import type { WorkspaceMemberIdentity } from '#/components/projects/project-data'
 import { cn } from '#/lib/utils'
 import {
   executeSearch,

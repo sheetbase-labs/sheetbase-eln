@@ -29,7 +29,7 @@ vi.mock('@tanstack/react-router', () => ({
   }),
 }))
 
-vi.mock('#/components/v3/projects/project-data', () => ({
+vi.mock('#/components/projects/project-data', () => ({
   useProjectSummary: () => ({
     project: { id: 'project-1', leadUserId: 'gareth', leadName: 'Gareth P.' },
     query: { isLoading: false },
@@ -43,7 +43,7 @@ vi.mock('#/components/v3/projects/project-data', () => ({
   setProjectMember: (...args: unknown[]) => mocks.setProjectMember(...args),
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 

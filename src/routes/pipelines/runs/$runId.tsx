@@ -1,9 +1,9 @@
 import { createFileRoute, Navigate } from '@tanstack/react-router'
 
 import { t } from '#/copy'
-import { usePipelineIdForRun } from '#/components/v3/pipelines/pipelines-data'
-import { PageHeader } from '#/components/v3/ui/layout'
-import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
+import { usePipelineIdForRun } from '#/components/pipelines/pipelines-data'
+import { PageHeader } from '#/components/ui/layout'
+import { RecordUnavailable } from '#/components/ui/record-unavailable'
 
 /** UI port (roadmap-4/ui-app3): run records moved under their pipeline. Links
  * made before that move (notebook output blocks, admin lists) land here and are

@@ -1,30 +1,30 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
   FieldChangeList,
   FieldChangeRow,
-} from '#/components/v3/models/field-changes'
+} from '#/components/models/field-changes'
 import {
   InheritedLabel,
   InheritedTableRows,
   inheritedRows,
-} from '#/components/v3/models/inherited-fields-table'
+} from '#/components/models/inherited-fields-table'
 import type {
   InheritedGroup,
   InheritedRow,
-} from '#/components/v3/models/inherited-fields-table'
-import { RecordModelEditDialog } from '#/components/v3/models/record-model-edit-dialog'
-import { RecordModelFields } from '#/components/v3/models/record-model-fields-tab'
-import { RecordModelEdit } from '#/components/v3/models/record-model-edit'
-import { modelTypeQueryKeys } from '#/components/v3/models/model-subtype-data'
-import { modelApprovalQueryKeys } from '#/components/v3/models/model-approval-data'
-import { recordModelQueryKeys } from '#/components/v3/models/models-data'
-import { workspaceMemberQueryKeys } from '#/components/v3/projects/project-data'
-import { Table, TableBody, TableBox, TableCell } from '#/components/v3/ui/table'
-import type { FieldChange } from '#/components/v3/models/record-model-fields'
+} from '#/components/models/inherited-fields-table'
+import { RecordModelEditDialog } from '#/components/models/record-model-edit-dialog'
+import { RecordModelFields } from '#/components/models/record-model-fields-tab'
+import { RecordModelEdit } from '#/components/models/record-model-edit'
+import { modelTypeQueryKeys } from '#/components/models/model-subtype-data'
+import { modelApprovalQueryKeys } from '#/components/models/model-approval-data'
+import { recordModelQueryKeys } from '#/components/models/models-data'
+import { workspaceMemberQueryKeys } from '#/components/projects/project-data'
+import { Table, TableBody, TableBox, TableCell } from '#/components/ui/table'
+import type { FieldChange } from '#/components/models/record-model-fields'
 import { RECORD_MODEL_VERSION_KIND } from '#/lib/record-model-versions'
 import type { RecordModelVersionDefinition } from '#/lib/record-model-versions'
 import { screenQueryClient, screenRoutes } from './screen-stories'
@@ -38,7 +38,7 @@ import {
 
 /**
  * How a model's fields are listed, edited and compared
- * (`src/components/v3/models/`): the change rows of a draft, the inherited
+ * (`src/components/models/`): the change rows of a draft, the inherited
  * fields a subtype shows above its own, the published Fields tab, the draft
  * editor and the in-place record edit dialog. Every read is seeded into the
  * query cache the screens use.

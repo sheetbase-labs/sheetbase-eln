@@ -18,7 +18,7 @@
  *   exists only as a data layer (src/lib/dataset-explorer-data.ts): its
  *   relationships and lineage reads have no screen, and
  *   `fetchDatasetRelationshipsFor` is called from src/lib/related-work.ts only.
- * - a Schema tab: src/components/v3/datasets/dataset-detail-tabs.ts records the
+ * - a Schema tab: src/components/datasets/dataset-detail-tabs.ts records the
  *   ruling — column identity is already the grid headers and the Model Fields
  *   tab, so a Columns tab would be a second, thinner view of the same facts.
  * - named saved views (`Saved view name` / `Save current view`):
@@ -93,7 +93,7 @@ let rows: RowWire[] = []
 let totalCount = 0
 
 /** The design's Validation column: issue wording by kind, then review state.
- * Mirrors `datasetValidation` in src/components/v3/datasets/datasets-data.ts. */
+ * Mirrors `datasetValidation` in src/components/datasets/datasets-data.ts. */
 function validationLabel(row: DatasetSummaryWire): string {
   const issues = Number(row.issue_count)
   const suffix =

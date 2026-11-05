@@ -1,7 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 
-import { Breadcrumb } from '#/components/v3/ui/breadcrumb'
-import { buttonVariants } from '#/components/v3/ui/button'
+import { Breadcrumb } from '#/components/ui/breadcrumb'
+import { buttonVariants } from '#/components/ui/button'
 import { t } from '#/copy'
 
 /** Static release help. Lifecycle labels describe states, not workspace records. */

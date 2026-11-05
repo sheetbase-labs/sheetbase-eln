@@ -10,7 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { SampleActionsProvider } from '#/components/v3/samples/withdraw-dialog'
+import { SampleActionsProvider } from '#/components/samples/withdraw-dialog'
 import { Route } from './usage'
 
 const samples = vi.hoisted(() => ({
@@ -56,7 +56,7 @@ vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ names: {}, userLabel: (id: string) => id }),
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 

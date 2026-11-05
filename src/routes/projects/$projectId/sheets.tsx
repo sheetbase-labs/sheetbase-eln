@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { ProjectSheets } from '#/components/v3/projects/project-sheets'
+import { ProjectSheets } from '#/components/projects/project-sheets'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** The project's Sheets tab: the working sheets in this project, with Rename

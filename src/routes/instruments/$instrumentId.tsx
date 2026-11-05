@@ -1,9 +1,9 @@
 import { formatDate } from '#/lib/format-date'
-import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
+import { RecordUnavailable } from '#/components/ui/record-unavailable'
 import { useEffect, useState } from 'react'
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import { projectOption } from '#/components/v3/record-picker/entity-options'
-import { Select } from '#/components/v3/ui/select'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
+import { projectOption } from '#/components/record-picker/entity-options'
+import { Select } from '#/components/ui/select'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -14,13 +14,13 @@ import {
   InspectorSection,
   Muted,
   Section,
-} from '#/components/v3/ui/layout'
-import { Progress } from '#/components/v3/ui/progress'
-import { Status } from '#/components/v3/ui/status'
-import { Notice } from '#/components/v3/ui/alert'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Button } from '#/components/v3/ui/button'
-import { Field, Input } from '#/components/v3/ui/input'
+} from '#/components/ui/layout'
+import { Progress } from '#/components/ui/progress'
+import { Status } from '#/components/ui/status'
+import { Notice } from '#/components/ui/alert'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Button } from '#/components/ui/button'
+import { Field, Input } from '#/components/ui/input'
 import {
   Dialog,
   DialogBody,
@@ -28,7 +28,7 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
+} from '#/components/ui/dialog'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -38,28 +38,28 @@ import {
   ConfirmDialogFooter,
   ConfirmDialogHeader,
   ConfirmDialogTitle,
-} from '#/components/v3/ui/confirm-dialog'
-import { Tooltip } from '#/components/v3/ui/tooltip'
-import { FileDrop } from '#/components/v3/ui/file-drop'
+} from '#/components/ui/confirm-dialog'
+import { Tooltip } from '#/components/ui/tooltip'
+import { FileDrop } from '#/components/ui/file-drop'
 import {
   IntakeDeliveryNotice,
   intakeDeliveryProblem,
-} from '#/components/v3/instruments/intake-delivery-notice'
-import { IntakeProblems } from '#/components/v3/integrations/intake-problems'
-import { CalibrationOverdueNotice } from '#/components/v3/instruments/calibration-overdue'
+} from '#/components/instruments/intake-delivery-notice'
+import { IntakeProblems } from '#/components/integrations/intake-problems'
+import { CalibrationOverdueNotice } from '#/components/instruments/calibration-overdue'
 import {
   BackInServiceDialog,
   MarkOutOfServiceDialog,
   OutOfServiceNotice,
   ServiceLogSection,
   isOutOfService,
-} from '#/components/v3/instruments/out-of-service'
+} from '#/components/instruments/out-of-service'
 import {
   AgentStatusLabel,
   AgentStatusLine,
-} from '#/components/v3/instruments/agent-download'
-import { LiveReadingsSection } from '#/components/v3/instruments/live-readings'
-import { IntakeSetupDialog } from '#/components/v3/instruments/intake-setup-dialog'
+} from '#/components/instruments/agent-download'
+import { LiveReadingsSection } from '#/components/instruments/live-readings'
+import { IntakeSetupDialog } from '#/components/instruments/intake-setup-dialog'
 import {
   findInstrumentConnector,
   intakeSetupQueryKeys,
@@ -73,17 +73,17 @@ import { instrumentTypeLabel } from '#/lib/instrument-type-label'
 import { useInstrumentGateMode } from '#/lib/instrument-gate'
 import { createDataClient } from '#/lib/data-client'
 import { uploadProjectFile } from '#/lib/file-attach'
-import { Textarea } from '#/components/v3/inventory/list'
-import { toast } from '#/components/v3/ui/sonner'
-import { TableBox } from '#/components/v3/ui/table'
+import { Textarea } from '#/components/inventory/list'
+import { toast } from '#/components/ui/sonner'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { hasCapability } from '#/lib/capability'
-import { ParserFollowUpNotice } from '#/components/v3/instruments/parser-follow-up'
-import { RequestQualificationButton } from '#/components/v3/instruments/request-qualification-button'
+import { ParserFollowUpNotice } from '#/components/instruments/parser-follow-up'
+import { RequestQualificationButton } from '#/components/instruments/request-qualification-button'
 import {
   dismissQualificationRequest,
   fetchOpenQualificationRequests,
@@ -110,11 +110,11 @@ import {
   useInstrumentRuns,
   useInstrumentUsedBy,
   useInstrumentWeek,
-} from '#/components/v3/instruments/instruments-data'
+} from '#/components/instruments/instruments-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now as appNow } from '#/lib/clock'
-import { AddedFields } from '#/components/v3/models/added-fields'
+import { AddedFields } from '#/components/models/added-fields'
 import { rich, t } from '#/copy'
 
 const intakeDataClient = createDataClient()

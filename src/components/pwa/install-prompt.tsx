@@ -1,5 +1,5 @@
-import { Button } from '#/components/v3/ui/button'
-import { IconButton } from '#/components/v3/ui/icon-button'
+import { Button } from '#/components/ui/button'
+import { IconButton } from '#/components/ui/icon-button'
 import { Icon } from '#/components/icons'
 import {
   dismissInstallOffer,

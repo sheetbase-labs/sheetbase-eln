@@ -9,11 +9,11 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { t } from '#/copy'
-import { PageHeader } from '#/components/v3/ui/layout'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { Status } from '#/components/v3/ui/status'
-import { Button } from '#/components/v3/ui/button'
-import { toast } from '#/components/v3/ui/sonner'
+import { PageHeader } from '#/components/ui/layout'
+import { Tabs } from '#/components/ui/tabs'
+import { Status } from '#/components/ui/status'
+import { Button } from '#/components/ui/button'
+import { toast } from '#/components/ui/sonner'
 import { publishPipelineDefinitionVersion } from '#/lib/pipelines/data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
@@ -23,10 +23,10 @@ import {
   usePipelineDefinition,
   usePipelineVersions,
   versionStatus,
-} from '#/components/v3/pipelines/pipelines-data'
-import { NotFoundNotice } from '#/components/v3/ui/not-found-notice'
-import { ProjectListFailure } from '#/components/v3/projects/project-list'
-import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
+} from '#/components/pipelines/pipelines-data'
+import { NotFoundNotice } from '#/components/ui/not-found-notice'
+import { ProjectListFailure } from '#/components/projects/project-list'
+import { useRunLauncher } from '#/components/pipelines/use-run-launcher'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { validatePipelineConfig } from '#/lib/pipelines/config'

@@ -29,7 +29,7 @@ const mocks = vi.hoisted(() => ({
   urlSearch: { value: {} },
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({ toast: mocks.toast }))
+vi.mock('#/components/ui/sonner', () => ({ toast: mocks.toast }))
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (options: object) => ({

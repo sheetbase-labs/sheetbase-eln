@@ -3,8 +3,8 @@ import * as React from 'react'
 import { Icon } from '#/components/icons'
 
 import { cn } from '#/lib/utils'
-import { Spinner } from '#/components/v3/ui/spinner'
-import { Tooltip } from '#/components/v3/ui/tooltip'
+import { Spinner } from '#/components/ui/spinner'
+import { Tooltip } from '#/components/ui/tooltip'
 import type { LiveStatus } from '#/lib/live-events'
 
 /**

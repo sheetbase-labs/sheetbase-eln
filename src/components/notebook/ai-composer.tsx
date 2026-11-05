@@ -3,7 +3,7 @@ import type { Editor } from '@tiptap/react'
 
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { summariseNotebookBlocks } from '#/lib/assist-drafts'
 import { plainTextToRichText } from '#/lib/blocks/plain-text'
 import { contextFromPathname } from '#/lib/assistant-context'

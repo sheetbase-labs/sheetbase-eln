@@ -2,9 +2,9 @@ import * as React from 'react'
 
 import { t } from '#/copy'
 import { cn } from '#/lib/utils'
-import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
-import { Skeleton } from '#/components/v3/ui/skeleton'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
+import { Skeleton } from '#/components/ui/skeleton'
 import { Icon } from '#/components/icons'
 
 /**

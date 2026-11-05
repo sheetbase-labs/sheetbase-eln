@@ -1,5 +1,5 @@
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import { recordOption } from '#/components/v3/record-picker/entity-options'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
+import { recordOption } from '#/components/record-picker/entity-options'
 import { useMemo, useState } from 'react'
 import { formatDate } from '#/lib/format-date'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
@@ -10,23 +10,23 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { Status } from '#/components/v3/ui/status'
-import type { Tone } from '#/components/v3/ui/status'
-import { Banner, Notice } from '#/components/v3/ui/alert'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
-import { Muted } from '#/components/v3/ui/layout'
+import { Button } from '#/components/ui/button'
+import { Status } from '#/components/ui/status'
+import type { Tone } from '#/components/ui/status'
+import { Banner, Notice } from '#/components/ui/alert'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Field, Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
+import { Muted } from '#/components/ui/layout'
 import {
   RegistryGrid,
   bandRow,
   useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
+} from '#/components/inventory/registry-grid'
 import type {
   RegistryColumn,
   RegistryRow,
-} from '#/components/v3/inventory/registry-grid'
+} from '#/components/inventory/registry-grid'
 import {
   Dialog,
   DialogBody,
@@ -34,24 +34,24 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/ui/dialog'
+import { toast } from '#/components/ui/sonner'
 import {
   MilestoneTimeline,
   phaseBands,
-} from '#/components/v3/projects/milestone-timeline'
+} from '#/components/projects/milestone-timeline'
 import type {
   MilestoneScale,
   PlanDependency,
   PlanMilestone,
-} from '#/components/v3/projects/milestone-timeline'
+} from '#/components/projects/milestone-timeline'
 import {
   fetchProjectSummaries,
   fetchWorkspaceMemberIdentities,
   PROJECTS_KEY,
   workspaceMemberQueryKeys,
-} from '#/components/v3/projects/project-data'
-import { ProjectListFailure } from '#/components/v3/projects/project-list'
+} from '#/components/projects/project-data'
+import { ProjectListFailure } from '#/components/projects/project-list'
 import { DataClientError } from '#/lib/data-client'
 import {
   fetchRecordsForProject,

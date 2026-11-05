@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import type { RowSelectionState, SortingState } from '@tanstack/react-table'
 
-import { ProtocolsRegistryGrid } from '#/components/v3/protocols/protocols-registry-grid'
+import { ProtocolsRegistryGrid } from '#/components/protocols/protocols-registry-grid'
 import type { NotebookRecord } from '#/lib/notebook-data'
 
 /**

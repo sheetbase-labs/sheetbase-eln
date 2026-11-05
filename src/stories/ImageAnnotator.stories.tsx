@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { ImageAnnotator } from '#/components/notebook/image-annotator'
 import type { ImageAnnotation } from '#/lib/image-annotations'
 

@@ -21,7 +21,7 @@ vi.mock('@tanstack/react-router', () => ({
     }),
   }),
 }))
-vi.mock('#/components/v3/projects/project-data', () => ({
+vi.mock('#/components/projects/project-data', () => ({
   PROJECTS_KEY: ['projects'],
   workspaceMemberQueryKeys: { identities: ['workspace-members'] },
   fetchWorkspaceMemberIdentities: async () => [
@@ -54,7 +54,7 @@ vi.mock('#/components/v3/projects/project-data', () => ({
     query: {},
   }),
 }))
-vi.mock('#/components/v3/ui/sonner', () => ({ toast: vi.fn() }))
+vi.mock('#/components/ui/sonner', () => ({ toast: vi.fn() }))
 
 afterEach(cleanup)
 beforeEach(() => {

@@ -1,16 +1,16 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { AliquotDialog } from '#/components/v3/samples/aliquot-dialog'
-import { BulkRegisterDialog } from '#/components/v3/samples/bulk-register-dialog'
-import { MoveSampleDialog } from '#/components/v3/samples/move-dialog'
-import { PoolDialog } from '#/components/v3/samples/pool-dialog'
+import { AliquotDialog } from '#/components/samples/aliquot-dialog'
+import { BulkRegisterDialog } from '#/components/samples/bulk-register-dialog'
+import { MoveSampleDialog } from '#/components/samples/move-dialog'
+import { PoolDialog } from '#/components/samples/pool-dialog'
 import {
   EditDetailsDialog,
   EditHoldDialog,
   ReceiveStockDialog,
-} from '#/components/v3/samples/sample-edit-dialogs'
-import type { ExperimentOption } from '#/components/v3/samples/withdraw-dialog'
+} from '#/components/samples/sample-edit-dialogs'
+import type { ExperimentOption } from '#/components/samples/withdraw-dialog'
 import type { SampleQuantityBalances } from '#/lib/samples'
 import { positionKeys } from '#/lib/storage-positions'
 import {
@@ -27,7 +27,7 @@ import {
 } from './sample-fixtures'
 
 /**
- * The sample write dialogs (`src/components/v3/samples/`): split into tubes,
+ * The sample write dialogs (`src/components/samples/`): split into tubes,
  * pool, move, bulk register, and the three editors. Each takes its data as
  * props or a seeded cache, so every story is a still frame; the submit
  * callbacks are no-ops.

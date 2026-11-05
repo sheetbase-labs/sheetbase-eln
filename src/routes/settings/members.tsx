@@ -1,20 +1,20 @@
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { useId, useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { Status } from '#/components/v3/ui/status'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
-import { Muted, Section } from '#/components/v3/ui/layout'
+import { Button } from '#/components/ui/button'
+import { Status } from '#/components/ui/status'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Field, Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
+import { Muted, Section } from '#/components/ui/layout'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
+} from '#/components/ui/dropdown-menu'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -24,7 +24,7 @@ import {
   ConfirmDialogFooter,
   ConfirmDialogHeader,
   ConfirmDialogTitle,
-} from '#/components/v3/ui/confirm-dialog'
+} from '#/components/ui/confirm-dialog'
 import {
   Dialog,
   DialogBody,
@@ -32,21 +32,21 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { TableBox } from '#/components/v3/ui/table'
+} from '#/components/ui/dialog'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { toast } from '#/components/v3/ui/sonner'
-import { SettingsHeader } from '#/components/v3/settings/settings-page'
-import { JoinDomainsSection } from '#/components/v3/settings/join-domains'
-import { WorkspaceGroups } from '#/components/v3/settings/workspace-groups'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { toast } from '#/components/ui/sonner'
+import { SettingsHeader } from '#/components/settings/settings-page'
+import { JoinDomainsSection } from '#/components/settings/join-domains'
+import { WorkspaceGroups } from '#/components/settings/workspace-groups'
 import { createDataClient } from '#/lib/data-client'
 import { useUserNames } from '#/lib/user-names'
-import { MemberUsernameDialog } from '#/components/v3/settings/member-username-dialog'
-import { MemberSessionsDialog } from '#/components/v3/settings/member-sessions-dialog'
+import { MemberUsernameDialog } from '#/components/settings/member-username-dialog'
+import { MemberSessionsDialog } from '#/components/settings/member-sessions-dialog'
 import {
   fetchWorkspaceCertifications,
   isCurrentStatement,
@@ -59,7 +59,7 @@ import {
   workspaceAccessKeys,
 } from '#/lib/workspace-access'
 import { emailInvitationFn } from '#/lib/invitation-email'
-import { fetchProjectSummaries } from '#/components/v3/projects/project-data'
+import { fetchProjectSummaries } from '#/components/projects/project-data'
 import {
   adminQueryKeys,
   changeMemberRole,

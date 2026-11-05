@@ -7,7 +7,7 @@ const pipelines = vi.hoisted(() => ({
   usePipelineIdForRun: vi.fn(),
 }))
 
-vi.mock('#/components/v3/pipelines/pipelines-data', () => pipelines)
+vi.mock('#/components/pipelines/pipelines-data', () => pipelines)
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({

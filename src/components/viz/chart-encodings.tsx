@@ -15,9 +15,9 @@ import type { DragEvent } from 'react'
 
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
-import { Button } from '#/components/v3/ui/button'
-import { IconButton } from '#/components/v3/ui/icon-button'
-import { Select } from '#/components/v3/ui/select'
+import { Button } from '#/components/ui/button'
+import { IconButton } from '#/components/ui/icon-button'
+import { Select } from '#/components/ui/select'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
+} from '#/components/ui/dropdown-menu'
 import {
   CHART_ROLES,
   FIELD_DRAG_TYPE,

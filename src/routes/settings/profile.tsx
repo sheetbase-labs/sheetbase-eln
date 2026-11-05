@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 
-import { Button } from '#/components/v3/ui/button'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Section } from '#/components/v3/ui/layout'
-import { toast } from '#/components/v3/ui/sonner'
-import { SettingsSessions } from '#/components/v3/settings/settings-sessions'
-import { SettingsTwoFactor } from '#/components/v3/settings/settings-two-factor'
+import { Button } from '#/components/ui/button'
+import { Field, Input } from '#/components/ui/input'
+import { Section } from '#/components/ui/layout'
+import { toast } from '#/components/ui/sonner'
+import { SettingsSessions } from '#/components/settings/settings-sessions'
+import { SettingsTwoFactor } from '#/components/settings/settings-two-factor'
 import {
   SettingsBody,
   SettingsHeader,
-} from '#/components/v3/settings/settings-page'
-import { updateProfileNameFn } from '#/components/v3/settings/settings-profile-data'
-import { useTheme } from '#/components/v3/lib/theme'
+} from '#/components/settings/settings-page'
+import { updateProfileNameFn } from '#/components/settings/settings-profile-data'
+import { useTheme } from '#/components/lib/theme'
 import { createDataClient } from '#/lib/data-client'
 import { isUsableTimeZone, setDisplayTimeZone } from '#/lib/display-time-zone'
 import {
@@ -23,7 +23,7 @@ import {
   setUserTimeZone,
 } from '#/lib/user-preferences'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { ThemePref } from '#/components/v3/lib/theme'
+import type { ThemePref } from '#/components/lib/theme'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
 

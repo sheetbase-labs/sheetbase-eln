@@ -2,29 +2,29 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { Notice } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
-import { IconButton } from '#/components/v3/ui/icon-button'
-import { Checkbox } from '#/components/v3/ui/checkbox'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Muted, Section } from '#/components/v3/ui/layout'
-import { toast } from '#/components/v3/ui/sonner'
-import { Status } from '#/components/v3/ui/status'
-import { TableBox } from '#/components/v3/ui/table'
+import { Notice } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
+import { IconButton } from '#/components/ui/icon-button'
+import { Checkbox } from '#/components/ui/checkbox'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Field, Input } from '#/components/ui/input'
+import { Muted, Section } from '#/components/ui/layout'
+import { toast } from '#/components/ui/sonner'
+import { Status } from '#/components/ui/status'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { Select } from '#/components/v3/ui/select'
-import { TemplateSectionsBoard } from '#/components/v3/templates/template-sections-board'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { Select } from '#/components/ui/select'
+import { TemplateSectionsBoard } from '#/components/templates/template-sections-board'
 import {
   templateDataQueryKeys,
   templateLifecycle,
   useTemplate,
   useTemplateVersions,
-} from '#/components/v3/templates/templates-data'
+} from '#/components/templates/templates-data'
 import { FIELD_LOGICAL_TYPES } from '#/lib/field-definition'
 import { createNotebookTemplateVersion } from '#/lib/notebook-template-data'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'

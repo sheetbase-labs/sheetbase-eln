@@ -3,25 +3,25 @@ import { useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   Collapsible,
   CollapsiblePanel,
   CollapsibleTrigger,
-} from '#/components/v3/ui/collapsible'
-import { Status } from '#/components/v3/ui/status'
-import { Checkbox } from '#/components/v3/ui/checkbox'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
-import { Notice } from '#/components/v3/ui/alert'
-import { Muted, Section } from '#/components/v3/ui/layout'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/ui/collapsible'
+import { Status } from '#/components/ui/status'
+import { Checkbox } from '#/components/ui/checkbox'
+import { Field, Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
+import { Notice } from '#/components/ui/alert'
+import { Muted, Section } from '#/components/ui/layout'
+import { toast } from '#/components/ui/sonner'
 import {
   CheckRow,
   SettingsBody,
   SettingsHeader,
-} from '#/components/v3/settings/settings-page'
-import { isSigningRole } from '#/components/v3/settings/settings-nav'
+} from '#/components/settings/settings-page'
+import { isSigningRole } from '#/components/settings/settings-nav'
 import { createDataClient } from '#/lib/data-client'
 import {
   adminQueryKeys,

@@ -1,20 +1,20 @@
 import { useMemo } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 
-import { Status } from '#/components/v3/ui/status'
-import { Pager } from '#/components/v3/ui/pager'
+import { Status } from '#/components/ui/status'
+import { Pager } from '#/components/ui/pager'
 import {
   ProjectList,
   ProjectListFailure,
   ProjectListOutOfRange,
-} from '#/components/v3/projects/project-list'
+} from '#/components/projects/project-list'
 import {
   projectPageSummary,
   parseProjectPage,
   useProjectSamplesPage,
   PROJECT_LIST_PAGE_SIZE,
-} from '#/components/v3/projects/project-lists'
-import { toSampleListRow } from '#/components/v3/samples/samples-data'
+} from '#/components/projects/project-lists'
+import { toSampleListRow } from '#/components/samples/samples-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
 

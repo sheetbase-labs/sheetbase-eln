@@ -3,26 +3,26 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
 import { t } from '#/copy'
-import { Badge } from '#/components/v3/ui/badge'
-import { LoadMore } from '#/components/v3/ui/load-more'
-import { Diff } from '#/components/v3/ui/source'
-import { Muted } from '#/components/v3/ui/layout'
-import { Notice } from '#/components/v3/ui/alert'
-import { Select } from '#/components/v3/ui/select'
+import { Badge } from '#/components/ui/badge'
+import { LoadMore } from '#/components/ui/load-more'
+import { Diff } from '#/components/ui/source'
+import { Muted } from '#/components/ui/layout'
+import { Notice } from '#/components/ui/alert'
+import { Select } from '#/components/ui/select'
 import { Icon } from '#/components/icons'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { TableBox } from '#/components/v3/ui/table'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { stickyCell, stickyHead } from '#/components/v3/inventory/list'
-import { FLAG_KIND_LABELS } from '#/components/v3/datasets/value-actions'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { stickyCell, stickyHead } from '#/components/inventory/list'
+import { FLAG_KIND_LABELS } from '#/components/datasets/value-actions'
 import {
   hasMoreSnapshotCompareRows,
   snapshotCompareTotalRows,
-} from '#/components/v3/datasets/snapshot-data'
+} from '#/components/datasets/snapshot-data'
 import { useDatasetVersions } from '../$datasetId'
 import { formatDate } from '#/lib/format-date'
 

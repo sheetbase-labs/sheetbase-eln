@@ -9,10 +9,10 @@ import {
   workspaceAccessKeys,
 } from '#/lib/workspace-access'
 
-import { Section } from '#/components/v3/ui/layout'
-import { Notice } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
-import { Field } from '#/components/v3/ui/input'
+import { Section } from '#/components/ui/layout'
+import { Notice } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
+import { Field } from '#/components/ui/input'
 import {
   Dialog,
   DialogBody,
@@ -20,7 +20,7 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
+} from '#/components/ui/dialog'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -30,7 +30,7 @@ import {
   ConfirmDialogFooter,
   ConfirmDialogHeader,
   ConfirmDialogTitle,
-} from '#/components/v3/ui/confirm-dialog'
+} from '#/components/ui/confirm-dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,24 +39,24 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
-import { TableBox } from '#/components/v3/ui/table'
+} from '#/components/ui/dropdown-menu'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { toast } from '#/components/v3/ui/sonner'
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import { personOption } from '#/components/v3/record-picker/entity-options'
-import { Select } from '#/components/v3/ui/select'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { toast } from '#/components/ui/sonner'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
+import { personOption } from '#/components/record-picker/entity-options'
+import { Select } from '#/components/ui/select'
 import {
   fetchProjectMembers,
   fetchWorkspaceMemberIdentities,
   removeProjectMember,
   setProjectMember,
   useProjectSummary,
-} from '#/components/v3/projects/project-data'
+} from '#/components/projects/project-data'
 import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
 

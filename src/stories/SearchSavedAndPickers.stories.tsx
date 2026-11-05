@@ -2,20 +2,20 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { ExperimentPicker } from '#/components/v3/record-picker/experiment-picker'
+import { ExperimentPicker } from '#/components/record-picker/experiment-picker'
 import {
   RecordPicker,
   RecordPickerDialog,
-} from '#/components/v3/record-picker/record-picker'
-import { SavedSearches } from '#/components/v3/search/saved-searches'
-import { SearchResultIcon } from '#/components/v3/search/result-icon'
+} from '#/components/record-picker/record-picker'
+import { SavedSearches } from '#/components/search/saved-searches'
+import { SearchResultIcon } from '#/components/search/result-icon'
 import { savedSearchQueryKey } from '#/lib/search'
 import type { SavedQuery } from '#/lib/search'
 import { screenQueryClient, screenRoutes } from './screen-stories'
 
 /**
- * Searching and picking records (`src/components/v3/search/`,
- * `src/components/v3/record-picker/`): the saved-searches popover, the icon a
+ * Searching and picking records (`src/components/search/`,
+ * `src/components/record-picker/`): the saved-searches popover, the icon a
  * result leads with, the experiment picker and the record picker.
  *
  * The record picker reads the workspace search through a client built when

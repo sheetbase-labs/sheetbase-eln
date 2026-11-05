@@ -13,9 +13,9 @@ describe the older one.
 - `src/components/ui/**` is the legacy shadcn kit built on the unified `radix-ui`
   package. After the roadmap-4 UI port it backs only the internal `/foundations`
   and `/docs/$name` routes.
-- `src/components/v3/ui/**` is the forward kit, built on `@base-ui/react`. Every
+- `src/components/ui/**` is the forward kit, built on `@base-ui/react`. Every
   ported product screen composes it, and an adoption guard test
-  (`src/components/v3/ui/component-adoption.test.ts`) blocks app code from
+  (`src/components/ui/component-adoption.test.ts`) blocks app code from
   importing the legacy kit wherever a v3 twin exists.
 
 The written rules still said Radix: `DESIGN.md` §5 stated that all components are

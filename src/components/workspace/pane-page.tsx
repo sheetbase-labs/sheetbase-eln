@@ -3,7 +3,7 @@ import { RouterProvider, useRouter } from '@tanstack/react-router'
 import type { HistoryLocation, RouterHistory } from '@tanstack/react-router'
 
 import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
-import { toast } from '#/components/v3/ui/sonner'
+import { toast } from '#/components/ui/sonner'
 import { getPaneRouter } from '#/router'
 import type { RouterContext } from '#/routes/__root'
 import type { ShortcutDefinition } from '#/lib/shortcuts'

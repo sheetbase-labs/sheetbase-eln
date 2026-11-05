@@ -96,7 +96,7 @@ vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ userLabel: (id: string) => `name:${id}` }),
 }))
 
-vi.mock('#/components/v3/datasets/datasets-data', async (importOriginal) => ({
+vi.mock('#/components/datasets/datasets-data', async (importOriginal) => ({
   ...(await importOriginal()),
   useDatasetSummaries: () => ({
     data: [fixtures.datasetRow],
@@ -104,17 +104,17 @@ vi.mock('#/components/v3/datasets/datasets-data', async (importOriginal) => ({
   }),
 }))
 
-vi.mock('#/components/v3/datasets/dataset-imports-tab', () => ({
+vi.mock('#/components/datasets/dataset-imports-tab', () => ({
   DatasetImportsTab: ({ datasetId }: { datasetId: string }) => (
     <div data-testid="imports-panel">{datasetId}</div>
   ),
 }))
-vi.mock('#/components/v3/datasets/dataset-used-by-tab', () => ({
+vi.mock('#/components/datasets/dataset-used-by-tab', () => ({
   DatasetUsedByTab: ({ datasetId }: { datasetId: string }) => (
     <div data-testid="used-by-panel">{datasetId}</div>
   ),
 }))
-vi.mock('#/components/v3/datasets/dataset-run-pipeline', () => ({
+vi.mock('#/components/datasets/dataset-run-pipeline', () => ({
   DatasetRunPipeline: () => null,
   DatasetPipelineMenuItems: () => null,
   useDatasetPipelineRuns: () => ({
@@ -124,7 +124,7 @@ vi.mock('#/components/v3/datasets/dataset-run-pipeline', () => ({
     dialog: null,
   }),
 }))
-vi.mock('#/components/v3/datasets/dataset-history-tab', () => ({
+vi.mock('#/components/datasets/dataset-history-tab', () => ({
   DatasetHistoryTab: ({ datasetId }: { datasetId: string }) => (
     <div data-testid="history-panel">{datasetId}</div>
   ),

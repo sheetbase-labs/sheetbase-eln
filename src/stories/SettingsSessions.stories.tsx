@@ -4,13 +4,13 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import {
   SettingsSessions,
   mySessionsQueryKey,
-} from '#/components/v3/settings/settings-sessions'
-import type { MySession } from '#/components/v3/settings/settings-sessions-data'
+} from '#/components/settings/settings-sessions'
+import type { MySession } from '#/components/settings/settings-sessions-data'
 import { holdRead, screenQueryClient } from './screen-stories'
 import type { ReadSeed } from './screen-stories'
 
 /**
- * My sessions (`src/components/v3/settings/settings-sessions.tsx`).
+ * My sessions (`src/components/settings/settings-sessions.tsx`).
  *
  * The caller's own signed-in devices, with sign-out per session. The read is
  * resolved server-side (`listMySessionsFn`) so a deployment without sign-in

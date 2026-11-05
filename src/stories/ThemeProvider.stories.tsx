@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { ThemeProvider, useTheme } from '#/components/theme-provider'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 
 /**
  * Appearance is per user (System, Light or Dark). The provider shares the

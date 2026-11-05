@@ -1,7 +1,7 @@
 import { t } from '#/copy'
 import { useEffect, useState } from 'react'
 
-import { Notice } from '#/components/v3/ui/alert'
+import { Notice } from '#/components/ui/alert'
 import { webSignOutRetentionStorage } from '#/lib/offline/retention'
 import type { SignOutRetentionStorage } from '#/lib/offline/retention'
 

@@ -7,21 +7,21 @@ import {
   AddedFieldsFormSection,
   ObjectTypeName,
   useAddedFieldDraft,
-} from '#/components/v3/models/added-fields'
-import { builtInModelQueryKeys } from '#/components/v3/models/built-in-model-data'
-import { BuiltInModelFields } from '#/components/v3/models/built-in-model-fields'
+} from '#/components/models/added-fields'
+import { builtInModelQueryKeys } from '#/components/models/built-in-model-data'
+import { BuiltInModelFields } from '#/components/models/built-in-model-fields'
 import {
   BuiltInModelFieldsRoute,
   BuiltInModelLayout,
-} from '#/components/v3/models/built-in-model-layout'
-import { modelTypeQueryKeys } from '#/components/v3/models/model-subtype-data'
+} from '#/components/models/built-in-model-layout'
+import { modelTypeQueryKeys } from '#/components/models/model-subtype-data'
 import { requireBuiltInModel } from '#/lib/built-in-models'
 import { screenQueryClient, screenRoutes } from './screen-stories'
 import { WORKSPACE_ID, experimentFields, modelTypes } from './model-fixtures'
 
 /**
  * The page for a built-in model such as Experiment and the fields a workspace
- * added to it (`src/components/v3/models/`): the layout with its header and
+ * added to it (`src/components/models/`): the layout with its header and
  * tabs, the Fields tab, the added-fields panel on an object, and the inputs
  * the create form shows. Reads are seeded into the cache the hooks use.
  */

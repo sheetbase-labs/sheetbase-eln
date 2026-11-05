@@ -1,7 +1,7 @@
 import { t } from '#/copy'
 import { useState } from 'react'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   Command,
   CommandDialog,
@@ -11,7 +11,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '#/components/v3/ui/command'
+} from '#/components/ui/command'
 import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 import {

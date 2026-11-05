@@ -12,7 +12,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   Link: ({ children }: { children: ReactNode }) => <a>{children}</a>,
 }))
 
-vi.mock('#/components/v3/projects/project-data', () => ({
+vi.mock('#/components/projects/project-data', () => ({
   fetchProjectSummaries: async () => [],
 }))
 

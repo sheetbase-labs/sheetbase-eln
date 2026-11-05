@@ -3,16 +3,16 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Field } from '#/components/v3/ui/input'
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Field } from '#/components/ui/input'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
 import {
   personOption,
   projectOption,
-} from '#/components/v3/record-picker/entity-options'
-import { Select } from '#/components/v3/ui/select'
-import { Muted, Section } from '#/components/v3/ui/layout'
+} from '#/components/record-picker/entity-options'
+import { Select } from '#/components/ui/select'
+import { Muted, Section } from '#/components/ui/layout'
 import {
   Dialog,
   DialogBody,
@@ -20,22 +20,22 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/ui/dialog'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { toast } from '#/components/ui/sonner'
 import {
   SettingsBody,
   SettingsHeader,
-} from '#/components/v3/settings/settings-page'
-import { DataAccessRoles } from '#/components/v3/settings/data-access-roles'
+} from '#/components/settings/settings-page'
+import { DataAccessRoles } from '#/components/settings/data-access-roles'
 import { createDataClient } from '#/lib/data-client'
 import { useUserNames } from '#/lib/user-names'
 import { formatDate } from '#/lib/workspace-admin'
 import {
   fetchWorkspaceMemberIdentities,
   fetchProjectSummaries,
-} from '#/components/v3/projects/project-data'
+} from '#/components/projects/project-data'
 import {
   decideProjectAccessRequest,
   fetchProjectAccessDefaults,

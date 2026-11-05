@@ -50,7 +50,7 @@ vi.mock('#/lib/notebook-data', async (importOriginal) => ({
 vi.mock('#/lib/notebook-create', () => notebookCreate)
 vi.mock('#/lib/controlled-protocols', () => ({ acknowledgeProtocolVersion }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: sonner.toast,
   Toaster: () => null,
 }))

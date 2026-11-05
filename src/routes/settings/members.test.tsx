@@ -38,7 +38,7 @@ vi.mock('@tanstack/react-router', () => ({
     }),
   }),
 }))
-vi.mock('#/components/v3/ui/sonner', () => ({ toast: vi.fn() }))
+vi.mock('#/components/ui/sonner', () => ({ toast: vi.fn() }))
 vi.mock('#/lib/invitation-email', () => ({
   emailInvitationFn: (...args: unknown[]) => emailMock(...args),
 }))

@@ -3,19 +3,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { t } from '#/copy'
-import { DescriptionList, Muted, Section } from '#/components/v3/ui/layout'
-import { Status } from '#/components/v3/ui/status'
-import { Button } from '#/components/v3/ui/button'
-import { toast } from '#/components/v3/ui/sonner'
-import { ObjectLink } from '#/components/v3/ui/object-link'
-import { RecordPickerDialog } from '#/components/v3/record-picker/record-picker'
+import { DescriptionList, Muted, Section } from '#/components/ui/layout'
+import { Status } from '#/components/ui/status'
+import { Button } from '#/components/ui/button'
+import { toast } from '#/components/ui/sonner'
+import { ObjectLink } from '#/components/ui/object-link'
+import { RecordPickerDialog } from '#/components/record-picker/record-picker'
 import {
   datasetIssueSummary,
   datasetValidation,
   useDatasetSummaries,
-} from '#/components/v3/datasets/datasets-data'
-import type { DatasetListRow } from '#/components/v3/datasets/datasets-data'
-import { DatasetIssueActions } from '#/components/v3/datasets/dataset-inspector'
+} from '#/components/datasets/datasets-data'
+import type { DatasetListRow } from '#/components/datasets/datasets-data'
+import { DatasetIssueActions } from '#/components/datasets/dataset-inspector'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import { useDatasetVersions } from '../$datasetId'

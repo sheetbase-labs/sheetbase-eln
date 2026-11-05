@@ -2,20 +2,20 @@ import { useMemo } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { Status } from '#/components/v3/ui/status'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import type { Crumb } from '#/components/v3/ui/breadcrumb'
-import { PageHeader } from '#/components/v3/ui/layout'
-import { TableBox } from '#/components/v3/ui/table'
+import { Button } from '#/components/ui/button'
+import { Status } from '#/components/ui/status'
+import { EmptyState } from '#/components/ui/empty-state'
+import type { Crumb } from '#/components/ui/breadcrumb'
+import { PageHeader } from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { toast } from '#/components/v3/ui/sonner'
-import { BulkUpgradePanel } from '#/components/v3/templates/bulk-upgrade-panel'
-import { NotebookTemplateUpdateView } from '#/components/v3/templates/template-update-view'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { toast } from '#/components/ui/sonner'
+import { BulkUpgradePanel } from '#/components/templates/bulk-upgrade-panel'
+import { NotebookTemplateUpdateView } from '#/components/templates/template-update-view'
 import { applyNotebookTemplateUpgrade } from '#/lib/notebook-template-data'
 import type { NotebookUpgradeDecision } from '#/lib/notebook-template-upgrade'
 import {
@@ -26,7 +26,7 @@ import {
   useTemplateUsers,
   useTemplateVersions,
   templateDataQueryKeys,
-} from '#/components/v3/templates/templates-data'
+} from '#/components/templates/templates-data'
 import { rich, t } from '#/copy'
 
 /** A notebook that can take the target version: the registry's use read. */

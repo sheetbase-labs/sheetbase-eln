@@ -3,11 +3,11 @@ import { returnToHere } from '#/lib/return-to'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
-import { Notice } from '#/components/v3/ui/alert'
+import { Notice } from '#/components/ui/alert'
 import { DataClientError } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { notebookQueryKeysAfterSignature } from '#/lib/notebook-experience'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   fetchReviewCheckResults,
   reviewCheckQueryKeys,

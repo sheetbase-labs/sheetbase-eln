@@ -1,16 +1,16 @@
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   Dialog,
   DialogBody,
   DialogClose,
   DialogContent,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { Spinner } from '#/components/v3/ui/spinner'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/ui/dialog'
+import { Spinner } from '#/components/ui/spinner'
+import { toast } from '#/components/ui/sonner'
 import { t } from '#/copy'
 import { OfficeViewer, useOfficeEditorLive } from '../office-editor'
 import { editableExtension } from '#/lib/office-editor'

@@ -108,7 +108,7 @@ vi.mock('#/lib/user-names', () => ({
 }))
 
 vi.mock(
-  '#/components/v3/instruments/instruments-data',
+  '#/components/instruments/instruments-data',
   async (importOriginal) => ({
     ...(await importOriginal()),
     useInstrument: () => ({

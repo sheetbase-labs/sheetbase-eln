@@ -9,9 +9,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
-import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
+} from '#/components/ui/table'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
 import { ChartFrame } from '#/components/viz/chart-frame'
 import { PlateMap } from '#/components/viz/plate-map'
 

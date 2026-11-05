@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   Command,
   CommandDialog,
@@ -14,11 +14,11 @@ import {
   CommandLoading,
   CommandPopover,
   CommandSeparator,
-} from '#/components/v3/ui/command'
+} from '#/components/ui/command'
 import { Icon } from '#/components/icons'
 
 /**
- * The forward kit's Command (src/components/v3/ui/command.tsx): the one
+ * The forward kit's Command (src/components/ui/command.tsx): the one
  * grouped, keyboard-driven list. It is what the search palette, the record
  * pickers and the notebook's add-block menu compose, and it replaced the
  * legacy cmdk palette (`src/components/ui/command.tsx`) which this change

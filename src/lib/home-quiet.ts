@@ -16,7 +16,7 @@ import type { CalendarBooking, CalendarInstrument } from './calendar'
 import type { DataClient } from './data-client'
 import { recordDestination } from './navigation'
 import type { RecentItem } from './recents'
-import type { ProjectSummary } from '#/components/v3/projects/project-data'
+import type { ProjectSummary } from '#/components/projects/project-data'
 import { dateTimeFormat } from '#/lib/intl-cache'
 
 // ---------------------------------------------------------------------------

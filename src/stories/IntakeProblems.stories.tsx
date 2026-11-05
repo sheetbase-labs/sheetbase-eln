@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { IntakeProblems } from '#/components/v3/integrations/intake-problems'
+import { IntakeProblems } from '#/components/integrations/intake-problems'
 import { intakeQueryKeys } from '#/lib/connectors/intake-client'
 import type { IntakeProblem } from '#/lib/connectors/intake-client'
 import { screenQueryClient } from './screen-stories'

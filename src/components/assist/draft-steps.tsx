@@ -1,8 +1,8 @@
 import { useState } from 'react'
 
-import { Button } from '#/components/v3/ui/button'
-import { Field } from '#/components/v3/ui/input'
-import { Notice } from '#/components/v3/ui/alert'
+import { Button } from '#/components/ui/button'
+import { Field } from '#/components/ui/input'
+import { Notice } from '#/components/ui/alert'
 import {
   Dialog,
   DialogBody,
@@ -10,7 +10,7 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
+} from '#/components/ui/dialog'
 import { t } from '#/copy'
 import {
   STEPS_INSTRUCTION,

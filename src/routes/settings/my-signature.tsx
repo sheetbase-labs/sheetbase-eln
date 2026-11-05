@@ -4,14 +4,14 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   Collapsible,
   CollapsiblePanel,
   CollapsibleTrigger,
-} from '#/components/v3/ui/collapsible'
-import { Status } from '#/components/v3/ui/status'
-import { Checkbox } from '#/components/v3/ui/checkbox'
+} from '#/components/ui/collapsible'
+import { Status } from '#/components/ui/status'
+import { Checkbox } from '#/components/ui/checkbox'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -21,20 +21,20 @@ import {
   ConfirmDialogFooter,
   ConfirmDialogHeader,
   ConfirmDialogTitle,
-} from '#/components/v3/ui/confirm-dialog'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Notice } from '#/components/v3/ui/alert'
-import { Muted, Section } from '#/components/v3/ui/layout'
-import { TableBox } from '#/components/v3/ui/table'
-import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/ui/confirm-dialog'
+import { Field, Input } from '#/components/ui/input'
+import { Notice } from '#/components/ui/alert'
+import { Muted, Section } from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { toast } from '#/components/ui/sonner'
 import { safeReturnTo } from '#/lib/create-context-search'
 import { returnLabel } from '#/lib/return-to'
 import {
   SettingsBody,
   SettingsHeader,
-} from '#/components/v3/settings/settings-page'
+} from '#/components/settings/settings-page'
 import { canManageSettings } from '#/lib/settings-access'
 import {
   SIGNATURE_STATEMENT,

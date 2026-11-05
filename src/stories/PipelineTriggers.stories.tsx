@@ -1,14 +1,14 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { ScheduleDialog } from '#/components/v3/pipelines/schedule-dialog'
-import { ScheduleHistoryDialog } from '#/components/v3/pipelines/schedule-history'
+import { ScheduleDialog } from '#/components/pipelines/schedule-dialog'
+import { ScheduleHistoryDialog } from '#/components/pipelines/schedule-history'
 import {
   ElnActions,
   RunKeeps,
   RunNotifications,
   WebhookCard,
-} from '#/components/v3/pipelines/triggers-outputs'
+} from '#/components/pipelines/triggers-outputs'
 import type {
   PipelineRunWire,
   PipelineScheduleActivityWire,
@@ -17,7 +17,7 @@ import type {
 import { screenQueryClient, screenRoutes } from './screen-stories'
 
 /**
- * Pipeline triggers and outputs (`src/components/v3/pipelines/`).
+ * Pipeline triggers and outputs (`src/components/pipelines/`).
  *
  * The add/edit trigger dialog and one trigger's history, plus the cards that
  * say how a version starts and what it does when it ends: the incoming webhook,

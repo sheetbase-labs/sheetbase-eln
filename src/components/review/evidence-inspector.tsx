@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { SignaturesTable } from '#/components/review/signatures-table'
-import { Notice } from '#/components/v3/ui/alert'
-import { InspectorSection, Muted } from '#/components/v3/ui/layout'
-import { Status } from '#/components/v3/ui/status'
+import { Notice } from '#/components/ui/alert'
+import { InspectorSection, Muted } from '#/components/ui/layout'
+import { Status } from '#/components/ui/status'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   fetchRevisionDrift,

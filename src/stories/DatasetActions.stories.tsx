@@ -3,23 +3,23 @@ import type { QueryClient } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { expect, screen, userEvent } from 'storybook/test'
 
-import { ColumnInspector } from '#/components/v3/datasets/column-inspector'
-import { CiteSnapshotDialog } from '#/components/v3/datasets/cite-snapshot-dialog'
-import { DatasetArchive } from '#/components/v3/datasets/dataset-archive'
+import { ColumnInspector } from '#/components/datasets/column-inspector'
+import { CiteSnapshotDialog } from '#/components/datasets/cite-snapshot-dialog'
+import { DatasetArchive } from '#/components/datasets/dataset-archive'
 import {
   DatasetInspector,
   DatasetIssueActions,
-} from '#/components/v3/datasets/dataset-inspector'
+} from '#/components/datasets/dataset-inspector'
 import {
   DatasetModelUpgrade,
   datasetModelPositionKey,
-} from '#/components/v3/datasets/dataset-model-upgrade'
-import { DatasetRunPipeline } from '#/components/v3/datasets/dataset-run-pipeline'
-import type { DatasetListRow } from '#/components/v3/datasets/datasets-data'
-import type { SnapshotVersion } from '#/components/v3/datasets/snapshot-data'
-import { pipelineDataQueryKeys } from '#/components/v3/pipelines/pipelines-data'
-import type { PipelineListRow } from '#/components/v3/pipelines/pipelines-data'
-import { Inspector } from '#/components/v3/ui/layout'
+} from '#/components/datasets/dataset-model-upgrade'
+import { DatasetRunPipeline } from '#/components/datasets/dataset-run-pipeline'
+import type { DatasetListRow } from '#/components/datasets/datasets-data'
+import type { SnapshotVersion } from '#/components/datasets/snapshot-data'
+import { pipelineDataQueryKeys } from '#/components/pipelines/pipelines-data'
+import type { PipelineListRow } from '#/components/pipelines/pipelines-data'
+import { Inspector } from '#/components/ui/layout'
 import { datasetFlagsQueryKeys } from '#/lib/dataset-flags'
 import type { DatasetValueFlag } from '#/lib/dataset-flags'
 import {
@@ -31,7 +31,7 @@ import {
 
 /**
  * The dataset page's actions and panels that sit beside the grid
- * (`src/components/v3/datasets/`): the list inspector and its issue buttons, the
+ * (`src/components/datasets/`): the list inspector and its issue buttons, the
  * column panel, archive and restore, the move to a newer model version, "Run
  * pipeline…" and citing a snapshot in a notebook. Each is shown at rest and in
  * the state that changes what it offers.

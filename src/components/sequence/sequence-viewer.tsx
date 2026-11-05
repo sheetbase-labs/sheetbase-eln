@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 
-import { Button } from '#/components/v3/ui/button'
-import { copyText } from '#/components/v3/ui/copy-button'
-import { Select } from '#/components/v3/ui/select'
-import { Spinner } from '#/components/v3/ui/spinner'
-import { Tabs } from '#/components/v3/ui/tabs'
+import { Button } from '#/components/ui/button'
+import { copyText } from '#/components/ui/copy-button'
+import { Select } from '#/components/ui/select'
+import { Spinner } from '#/components/ui/spinner'
+import { Tabs } from '#/components/ui/tabs'
 import {
   Table,
   TableBox,
@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
   TableBody,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import { downloadTextFile } from '#/lib/download'
 import { t } from '#/copy'
 import { cn } from '#/lib/utils'

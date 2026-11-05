@@ -1,9 +1,9 @@
 /**
  * The registry surface is one implementation.
  *
- * Nine list screens used to hand-roll the same `v3/ui/table` body; every one of
+ * Nine list screens used to hand-roll the same `ui/table` body; every one of
  * them now renders the shared grid
- * (`src/components/v3/inventory/registry-grid.tsx`). This spec walks all nine
+ * (`src/components/inventory/registry-grid.tsx`). This spec walks all nine
  * on the design seed and asserts what the consolidation promises: the grid is
  * the table (`data-slot=data-grid-table`), it renders the tab's rows, it
  * carries the screen's accessible name, and a screen whose rows drive an

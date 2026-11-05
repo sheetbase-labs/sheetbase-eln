@@ -1,0 +1,230 @@
+import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
+import { t } from '#/copy'
+import { Button } from '#/components/ui/button'
+import { Field, Input } from '#/components/ui/input'
+import {
+  DescriptionList,
+  InspectorSection,
+  Muted,
+} from '#/components/ui/layout'
+import { toast } from '#/components/ui/sonner'
+import { datasetListQueryKeys } from '#/components/datasets/datasets-data'
+import { setDatasetColumnUnit } from '#/lib/dataset-column-unit'
+import { datasetFlagsQueryKeys } from '#/lib/dataset-flags'
+import type { DatasetValueFlag } from '#/lib/dataset-flags'
+import { notebookDataClient } from '#/lib/notebook-data'
+
+interface ColumnField {
+  field_id: string
+  key: string
+  label: string
+  logical_type: string
+}
+
+const TYPE_LABEL: Record<string, string> = {
+  integer: t('data.columnInspector.number0Dp'),
+  decimal: t('data.columnInspector.number'),
+  text: t('data.columnInspector.text'),
+  boolean: t('data.columnInspector.yesOrNo'),
+  date: t('data.columnInspector.date'),
+  timestamp: t('data.columnInspector.dateTime'),
+  category: t('data.columnInspector.choice'),
+  reference: t('data.columnInspector.recordLink'),
+}
+
+function range(values: unknown[]): string | null {
+  const numbers = values
+    .map((v) => (typeof v === 'number' ? v : Number(v)))
+    .filter((n) => Number.isFinite(n))
+  if (!numbers.length) return null
+  return `${Math.min(...numbers)}–${Math.max(...numbers)}`
+}
+
+/**
+ * The dataset grid's column panel: what the column is, the unit it carries and,
+ * when it carries none, a way to set one. A unit is read from the dataset's
+ * current schema version (a snapshot keeps the version it was taken on), and
+ * setting it moves the dataset to a new schema version.
+ */
+export function ColumnInspector({
+  datasetId,
+  field,
+  values,
+  rowCount,
+  flags,
+  fields,
+  canWrite,
+}: {
+  datasetId: string
+  field: ColumnField
+  /** The column's values in the rows loaded so far. */
+  values: unknown[]
+  /** Rows in the dataset. */
+  rowCount: number
+  flags: DatasetValueFlag[]
+  fields: ColumnField[]
+  canWrite: boolean
+}) {
+  const queryClient = useQueryClient()
+  const [unit, setUnit] = useState('')
+  const [reason, setReason] = useState('')
+
+  const current = useQuery({
+    queryKey: ['ui-port', 'dataset-column-unit', datasetId, field.key],
+    queryFn: async () => {
+      const dataset = (
+        await notebookDataClient.list<{ schema_version_id: string }>(
+          'datasets',
+          `?id=eq.${encodeURIComponent(datasetId)}&select=schema_version_id`,
+        )
+      ).at(0)
+      if (!dataset) return null
+      const found = (
+        await notebookDataClient.list<{
+          quantity: { storageUnit?: string } | null
+        }>(
+          'dataset_schema_version_fields',
+          `?schema_version_id=eq.${dataset.schema_version_id}&key=eq.${encodeURIComponent(field.key)}&select=quantity`,
+        )
+      ).at(0)
+      return { unit: found?.quantity?.storageUnit ?? null }
+    },
+  })
+  const set = useMutation({
+    mutationFn: () =>
+      setDatasetColumnUnit(notebookDataClient, {
+        datasetId,
+        fieldKey: field.key,
+        unit: unit.trim(),
+        reason: reason.trim(),
+      }),
+    onSuccess: (result) => {
+      toast(t('data.columnInspector.unitSet', { label: field.label }), {
+        description: t('data.columnInspector.datasetFollowsSchemaV', {
+          schemaVersion: result.schemaVersion,
+        }),
+      })
+      setUnit('')
+      setReason('')
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'dataset-column-unit', datasetId],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: datasetFlagsQueryKeys.active(datasetId),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'dataset-flags', datasetId],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: datasetListQueryKeys.page,
+      })
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('data.columnInspector.couldSetUnit'),
+      ),
+  })
+
+  const missing = current.isSuccess && current.data?.unit == null
+  const seen = range(values)
+  const others = [
+    ...new Set(
+      flags
+        .filter(
+          (f) => f.kind === 'missing_unit' && f.fieldId !== field.field_id,
+        )
+        .map((f) => fields.find((x) => x.field_id === f.fieldId)?.label)
+        .filter((label): label is string => Boolean(label)),
+    ),
+  ]
+  const ready = unit.trim().length > 0 && reason.trim().length > 0
+
+  return (
+    <>
+      <InspectorSection
+        title={t('data.columnInspector.column', { label: field.label })}
+      >
+        <DescriptionList
+          labelWidth={90}
+          items={[
+            [
+              t('data.columnInspector.type'),
+              TYPE_LABEL[field.logical_type] ?? field.logical_type,
+            ],
+            [
+              t('data.columnInspector.unit'),
+              current.isSuccess ? (
+                missing ? (
+                  <span className="text-warning-text">
+                    {t('data.columnInspector.missing')}
+                  </span>
+                ) : (
+                  current.data?.unit
+                )
+              ) : (
+                '…'
+              ),
+            ],
+            [
+              t('data.columnInspector.valuesSeen'),
+              seen ? `${seen} across ${rowCount} rows` : `${rowCount} rows`,
+            ],
+          ]}
+        />
+      </InspectorSection>
+
+      {missing && canWrite ? (
+        <InspectorSection title={t('data.columnInspector.setUnit')}>
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (ready) set.mutate()
+            }}
+          >
+            <Muted>{t('data.columnInspector.dataRecordedWithoutUnit')}</Muted>
+            <Field label={t('data.columnInspector.unit')} required>
+              <Input
+                value={unit}
+                placeholder={t('data.columnInspector.placeholderEGMosmKg')}
+                onChange={(e) => setUnit(e.target.value)}
+              />
+            </Field>
+            <Field label={t('data.columnInspector.reason')} required>
+              <Input
+                value={reason}
+                placeholder={t('data.columnInspector.placeholderWhyUnit')}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </Field>
+            <div className="flex gap-2">
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                disabled={!ready || set.isPending}
+              >
+                {t('data.columnInspector.setUnitRows', { rowCount })}
+              </Button>
+            </div>
+          </form>
+        </InspectorSection>
+      ) : null}
+
+      {others.length ? (
+        <InspectorSection title={t('data.columnInspector.stillFix')}>
+          <Muted>
+            {t('data.columnInspector.noUnitEither', {
+              count: others.length,
+              fields: others.join(', '),
+            })}
+          </Muted>
+        </InspectorSection>
+      ) : null}
+    </>
+  )
+}

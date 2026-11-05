@@ -1,13 +1,13 @@
 import { t } from '#/copy'
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import { datasetOption } from '#/components/v3/record-picker/entity-options'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
+import { datasetOption } from '#/components/record-picker/entity-options'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Icon } from '#/components/icons'
 
-import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -17,8 +17,8 @@ import {
   ConfirmDialogFooter,
   ConfirmDialogHeader,
   ConfirmDialogTitle,
-} from '#/components/v3/ui/confirm-dialog'
-import { Input } from '#/components/v3/ui/input'
+} from '#/components/ui/confirm-dialog'
+import { Input } from '#/components/ui/input'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import {
   extractSheetDefinitionDraft,
@@ -48,7 +48,7 @@ import {
   previewSheetMaterialization,
 } from '#/lib/sheet-materialization-data'
 import { sheetDefinitionUpgradeAvailability } from '#/lib/reuse-upgrade'
-import { ObjectLink } from '#/components/v3/ui/object-link'
+import { ObjectLink } from '#/components/ui/object-link'
 
 /**
  * The server's refusal in the language of the page. A sheet made by pasting or

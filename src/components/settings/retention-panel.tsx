@@ -348,19 +348,23 @@ export function RetentionPanel({
                 {(holds.data ?? []).map((hold) => (
                   <TableRow key={hold.id}>
                     <TableCell>
-                      <span
-                        className="font-medium text-fg"
-                        title={hold.reason ?? undefined}
-                      >
+                      <span className="block max-w-[16rem] truncate font-medium text-fg">
                         {hold.name}
                       </span>
                       {hold.reason ? (
-                        <span className="block max-w-[28rem] truncate text-label text-fg-muted">
+                        <span
+                          className="block max-w-[16rem] truncate text-label text-fg-muted"
+                          title={hold.reason}
+                        >
                           {hold.reason}
                         </span>
                       ) : null}
                     </TableCell>
-                    <TableCell>{covers(hold)}</TableCell>
+                    <TableCell>
+                      <span className="block max-w-[14rem] whitespace-normal">
+                        {covers(hold)}
+                      </span>
+                    </TableCell>
                     <TableCell>{counts.data?.get(hold.id) ?? ''}</TableCell>
                     <TableCell className="text-fg-muted">
                       {formatDate(hold.created_at)}

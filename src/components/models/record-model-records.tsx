@@ -20,11 +20,12 @@ import { SpecVerdictBadge } from '#/components/results/spec-verdict'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   fetchFieldLimits,
-  fetchOutOfSpec,
+  fetchKindResults,
   qualityKeys,
   useQualityOptions,
   worstVerdict,
 } from '#/lib/result-quality'
+import type { SpecVerdict } from '#/lib/result-quality'
 import {
   filterRecordModelRecords,
   recordFieldValue,
@@ -73,14 +74,13 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
   })
   const judged = quality.specLimits && (limitsQuery.data?.length ?? 0) > 0
   const outOfSpec = useQuery({
-    queryKey: qualityKeys.outOfSpec(modelKey),
-    queryFn: () => fetchOutOfSpec(notebookDataClient, modelKey),
+    queryKey: qualityKeys.kindResults(modelKey),
+    queryFn: () => fetchKindResults(notebookDataClient, modelKey),
     enabled: judged,
   })
   const verdictByRecord = useMemo(() => {
-    const grouped = new Map<string, { verdict: 'alert' | 'fail' }[]>()
+    const grouped = new Map<string, { verdict: SpecVerdict }[]>()
     for (const r of outOfSpec.data ?? []) {
-      if (r.verdict === 'pass') continue
       grouped.set(r.recordId, [
         ...(grouped.get(r.recordId) ?? []),
         { verdict: r.verdict },
@@ -100,7 +100,10 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
       fieldValue,
     })
     return judged && results === 'out'
-      ? matching.filter((record) => verdictByRecord.has(record.id))
+      ? matching.filter((record) => {
+          const verdict = verdictByRecord.get(record.id)
+          return verdict === 'fail' || verdict === 'alert'
+        })
       : matching
   }, [
     records,

@@ -31,6 +31,7 @@ import type {
 } from '#/lib/offline/replay'
 import type { OfflineEditScope, OfflineEditStore } from '#/lib/offline/store'
 import type { LiveStatus } from '#/lib/live-events'
+import { OFFLINE_SYNC_EVENT } from '#/lib/offline/service-worker'
 import { Button } from '#/components/v3/ui/button'
 import { describeOfflineEdit, useOfflineEdits } from './offline-edits'
 
@@ -126,6 +127,14 @@ export function OfflineReplayRunner({
     if (previous === null && status.status !== 'live') return
     void runReplay()
   }, [status.status, runReplay])
+
+  // Background sync: the service worker wakes this window when the browser
+  // regains a connection, even if the live stream has not reconnected yet.
+  React.useEffect(() => {
+    const onSync = () => void runReplay()
+    window.addEventListener(OFFLINE_SYNC_EVENT, onSync)
+    return () => window.removeEventListener(OFFLINE_SYNC_EVENT, onSync)
+  }, [runReplay])
 
   const discard = React.useCallback(
     async (editId: string) => {

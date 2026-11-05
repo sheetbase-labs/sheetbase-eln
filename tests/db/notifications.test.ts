@@ -189,8 +189,8 @@ describe('notifications', () => {
 
   it('skips a user who turned in-app delivery off for the event type', async () => {
     await migrator.query(
-      `INSERT INTO api.notification_preferences (user_id, event_type, in_app, email, digest)
-       VALUES ('${MENTIONED}', 'comment_or_mention', false, false, false)
+      `INSERT INTO api.notification_preferences (user_id, event_type, in_app, email, digest, push)
+       VALUES ('${MENTIONED}', 'comment_or_mention', false, false, false, false)
        ON CONFLICT DO NOTHING`,
     )
     await migrator.query(

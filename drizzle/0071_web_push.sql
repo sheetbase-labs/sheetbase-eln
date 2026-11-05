@@ -72,6 +72,10 @@ ALTER TABLE api.notification_events ADD COLUMN default_push boolean DEFAULT fals
 --> statement-breakpoint
 ALTER TABLE api.notification_preferences ADD COLUMN push boolean;
 --> statement-breakpoint
+-- Someone who already switched an event off everywhere meant it: phone alerts
+-- do not come back on for it.
+UPDATE api.notification_preferences SET push = false WHERE NOT in_app AND NOT email AND NOT digest;
+--> statement-breakpoint
 
 -- A notification can name the alert it replaces, so a page that already alerted
 -- (a step timer) and the phone alert for the same thing show once.

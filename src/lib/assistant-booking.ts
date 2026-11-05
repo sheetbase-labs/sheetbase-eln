@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { cancelBooking, createBooking, editBooking } from './calendar'
+import type { BenchAction } from './assistant-bench'
 import type { DataClient } from './data-client'
 
 /**
@@ -100,6 +101,7 @@ export const proposeBookingCancelSchema = z
  * built and checked on the server, run in the browser as the person.
  */
 export type AssistantAction =
+  | BenchAction
   | {
       kind: 'booking.create'
       workspaceId: string
@@ -158,6 +160,11 @@ export async function runAssistantAction(
         expectedMetadataVersion: action.expectedMetadataVersion,
       })
       return
+    default: {
+      // Bench jobs load only when a card's button is pressed.
+      const { runBenchAction } = await import('./assistant-bench-run')
+      await runBenchAction(client, action)
+    }
   }
 }
 

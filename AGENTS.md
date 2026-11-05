@@ -191,6 +191,7 @@ For Amp orb-specific setup (system PostgreSQL, no Docker), see `docs/development
 - **API boundary:** browser data goes through the same-origin `/api/db/*` proxy, never directly to PostgREST.
 - **Auth:** Better Auth with GitHub OAuth and database-backed sessions.
 - **Testing:** Vitest for unit/integration, Playwright for E2E, real PostgreSQL for DB tests.
+- **Phones:** `tests/browser/phone` opens the main pages, menus, popovers and sheets at iPhone size as the installed app, with safe areas and a simulated keyboard, and fails when anything lands off screen or under a system bar. Anything that floats keeps inside the visible area through `src/lib/visible-area.ts` (Base UI popups get it from the shared `Popover`, `DropdownMenu` and `Tooltip`; hand-placed ones use `useAnchoredPlacement`). Bottom sheets ride above the keyboard through `--kb-lift` and `--sheet-max-h`.
 - **Migrations:** use `pnpm db:generate --custom` and write the SQL by hand. Plain
   `pnpm db:generate` has no committed snapshot baseline and emits a full-schema
   migration, so it is not the schema-diff path here. Do not hand-edit SQL that a

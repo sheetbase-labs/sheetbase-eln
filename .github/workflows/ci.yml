@@ -106,6 +106,10 @@ jobs:
               tests/browser/journeys/notebook-keys.test.ts
           - name: workspace panes
             files: tests/browser/workspace-panes.test.ts
+          # iPhone size, installed-app safe areas and a simulated keyboard:
+          # every menu, popover and sheet must open where it can be seen.
+          - name: phone layout
+            files: tests/browser/phone
     env:
       SHEETBASE_DEV_AUTH_FREE: 'false'
     steps:

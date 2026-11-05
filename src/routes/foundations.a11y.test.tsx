@@ -12,7 +12,7 @@ import {
 } from '#/components/scientific'
 import type { StatusDomain } from '#/components/scientific'
 import { Button } from '#/components/v3/ui/button'
-import { Input } from '#/components/ui'
+import { Input } from '#/components/v3/ui/input'
 
 // Stub the router Link as a plain anchor so no route tree is required.
 vi.mock('@tanstack/react-router', () => ({

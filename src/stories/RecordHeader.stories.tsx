@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { RecordHeader } from '#/components/record/record-header'
-import { Badge } from '#/components/ui/badge'
+import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 
 const meta = {
@@ -18,8 +18,8 @@ type Story = StoryObj<typeof meta>
 export const Minimal: Story = {}
 export const Complete: Story = {
   args: {
-    status: <Badge variant="success">Active</Badge>,
-    phase: <Badge variant="outline">Phase 2</Badge>,
+    status: <Badge variant="add">Active</Badge>,
+    phase: <Badge variant="kind">Phase 2</Badge>,
     owner: { name: 'Alex Morgan', initials: 'AM' },
     updatedAt: '5 minutes ago',
     contributors: [
@@ -28,8 +28,8 @@ export const Complete: Story = {
     ],
     tags: (
       <>
-        <Badge variant="secondary">stability</Badge>
-        <Badge variant="secondary">protein</Badge>
+        <Badge variant="kind">stability</Badge>
+        <Badge variant="kind">protein</Badge>
       </>
     ),
     starred: true,

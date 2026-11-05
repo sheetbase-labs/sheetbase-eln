@@ -9,6 +9,7 @@ import { Field, Input } from '#/components/ui/input'
 import { Section } from '#/components/ui/layout'
 import { toast } from '#/components/ui/sonner'
 import { ProfilePhoto } from '#/components/settings/profile-photo'
+import { ChangeEmailDialog } from '#/components/settings/change-email-dialog'
 import { LeaveWorkspace } from '#/components/settings/leave-workspace'
 import { SettingsSessions } from '#/components/settings/settings-sessions'
 import { SettingsTwoFactor } from '#/components/settings/settings-two-factor'
@@ -114,6 +115,7 @@ function Profile() {
   const savedTimeZone = context.timeZone
   const [timeZone, setTimeZone] = useState(savedTimeZone)
   const [busy, setBusy] = useState(false)
+  const [changingEmail, setChangingEmail] = useState(false)
   const queryClient = useQueryClient()
   const profile = useQuery({
     queryKey: myProfileQueryKey,
@@ -275,11 +277,25 @@ function Profile() {
               label={t('settings.profile.email')}
               hint={t('settings.profile.companySignHint')}
             >
-              <Input
-                value={user.email}
-                readOnly
-                className="bg-surface-muted text-fg-muted"
-              />
+              <div className="relative">
+                <Input
+                  value={user.email}
+                  readOnly
+                  className="bg-surface-muted pr-[72px] text-fg-muted"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="quiet"
+                  className="absolute right-0.5 top-0.5"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    setChangingEmail(true)
+                  }}
+                >
+                  {t('account.email.change')}
+                </Button>
+              </div>
             </Field>
             <Field
               label={t('settings.profile.role')}
@@ -376,6 +392,12 @@ function Profile() {
             </label>
           </div>
         </Section>
+        {changingEmail ? (
+          <ChangeEmailDialog
+            current={user.email}
+            onClose={() => setChangingEmail(false)}
+          />
+        ) : null}
 
         <SettingsTwoFactor />
 

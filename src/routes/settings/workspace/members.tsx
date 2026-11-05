@@ -45,6 +45,7 @@ import { JoinDomainsSection } from '#/components/settings/join-domains'
 import { WorkspaceGroups } from '#/components/settings/workspace-groups'
 import { createDataClient } from '#/lib/data-client'
 import { useUserNames } from '#/lib/user-names'
+import { ChangeEmailDialog } from '#/components/settings/change-email-dialog'
 import { MemberUsernameDialog } from '#/components/settings/member-username-dialog'
 import { MemberSessionsDialog } from '#/components/settings/member-sessions-dialog'
 import {
@@ -155,6 +156,7 @@ function Members() {
     | { kind: 'remove'; userId: string; name: string }
     | { kind: 'sessions'; userId: string; name: string }
     | { kind: 'username'; userId: string; name: string; username: string }
+    | { kind: 'email'; userId: string; name: string }
     | { kind: 'suspend'; userId: string; name: string }
     | { kind: 'reinstate'; userId: string; name: string }
     | { kind: 'revoke'; invitationId: string; email: string }
@@ -592,6 +594,17 @@ function Members() {
               >
                 {t('settings.members.username')}
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  setDialog({
+                    kind: 'email',
+                    userId: member.userId,
+                    name: names.userLabel(member.userId),
+                  })
+                }
+              >
+                {t('account.email.change')}
+              </DropdownMenuItem>
               {member.suspendedAt ? (
                 <DropdownMenuItem
                   onClick={() =>
@@ -867,6 +880,13 @@ function Members() {
           userId={dialog.userId}
           name={dialog.name}
           current={dialog.username}
+          onClose={() => setDialog(null)}
+        />
+      ) : dialog?.kind === 'email' ? (
+        <ChangeEmailDialog
+          workspaceId={workspaceId}
+          userId={dialog.userId}
+          name={dialog.name}
           onClose={() => setDialog(null)}
         />
       ) : dialog?.kind === 'invite-link' ? (

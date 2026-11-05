@@ -311,6 +311,7 @@ function AppRoot() {
     '/sign-in',
     '/sign-in_/two-factor',
     '/accept-invitation',
+    '/confirm-email-change',
   ]
   const matches = useMatches()
   const bareRoute = matches.some((match) =>

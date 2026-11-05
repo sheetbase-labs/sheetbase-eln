@@ -496,6 +496,13 @@
       "when": 1801350537830,
       "tag": "0070_biological_registry",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1801354137830,
+      "tag": "0071_web_push",
+      "breakpoints": true
     }
   ]
 }

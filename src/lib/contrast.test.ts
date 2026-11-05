@@ -97,13 +97,13 @@ const LIGHT = {
 } satisfies Record<string, Oklch>
 
 const DARK = {
-  bg: { L: 0.177, C: 0.011, h: 260.6 },
-  surface: { L: 0.216, C: 0.016, h: 256.8 },
-  surfaceMuted: { L: 0.241, C: 0.018, h: 255.7 },
-  text: { L: 0.933, C: 0.007, h: 260.7 },
-  textMuted: { L: 0.712, C: 0.02, h: 255.6 },
-  textFaint: { L: 0.66, C: 0.022, h: 257.5 },
-  surfaceDisabled: { L: 0.237, C: 0.015, h: 256.8 },
+  bg: { L: 0.177, C: 0, h: 0 },
+  surface: { L: 0.216, C: 0, h: 0 },
+  surfaceMuted: { L: 0.241, C: 0, h: 0 },
+  text: { L: 0.933, C: 0, h: 0 },
+  textMuted: { L: 0.712, C: 0, h: 0 },
+  textFaint: { L: 0.66, C: 0, h: 0 },
+  surfaceDisabled: { L: 0.237, C: 0, h: 0 },
   accent: { L: 0.687, C: 0.167, h: 255.6 },
   accentStrong: { L: 0.553, C: 0.175, h: 257.1 },
   primaryText: { L: 0.68, C: 0.175, h: 257.1 },
@@ -114,8 +114,8 @@ const DARK = {
   warningWash: { L: 0.263, C: 0.032, h: 88.9 },
   successText: { L: 0.797, C: 0.129, h: 158.7 },
   successWash: { L: 0.259, C: 0.034, h: 163.1 },
-  inverseBg: { L: 0.933, C: 0.007, h: 260.7 },
-  inverseText: { L: 0.177, C: 0.011, h: 260.6 },
+  inverseBg: { L: 0.933, C: 0, h: 0 },
+  inverseText: { L: 0.177, C: 0, h: 0 },
 } satisfies Record<string, Oklch>
 
 function ratioFor(fg: Oklch, bg: Oklch) {

@@ -76,6 +76,21 @@ return `null` by contract.
 | `AREA_LABELS`, `KIND_META`-derived labels | Constants, not components.         |
 | `exactText`, `focusChange`                | Utility functions, not components. |
 
+## Notebook, sheet, sequence, live and scan modules without a story
+
+| Module                                            | Why no story                                                                                                                                                                                                |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/notebook/callout-styles.ts`       | Constants and a pure helper (`CALLOUT_STYLES`, `calloutVariantOf`), not components. The callout they style is rendered by the notebook block stories.                                                       |
+| `src/components/notebook/index.ts`                | Barrel that re-exports `NotebookBlock`, the block previews and editors and `NotebookDocument`, each of which has its own story.                                                                             |
+| `src/components/notebook/notebook-ai-context.tsx` | Context provider alias (`NotebookAiProvider`) and its hook; it renders `children` unchanged. `AiComposer.stories.tsx` shows the composer that reads it.                                                     |
+| `src/components/sheet/index.ts`                   | Barrel that re-exports `SheetbaseTableGrid` and its types; the grid has its own stories.                                                                                                                    |
+| `src/components/sheet/reference-colors.ts`        | Constant (`REFERENCE_COLORS`), not a component.                                                                                                                                                             |
+| `src/components/sequence/index.ts`                | Barrel that re-exports the sequence viewer, maps and panel, which `SequenceViewer.stories.tsx` renders.                                                                                                     |
+| `src/components/live/index.ts`                    | Barrel for the live-event provider and `ConnectionStatus`; `ConnectionStatus` has its own story.                                                                                                            |
+| `src/components/live/live-event-provider.tsx`     | Provider that opens an `EventSource` to `/api/events` and renders `children` unchanged, so it has no surface of its own and would reach the network. Its status is shown by `ConnectionStatus.stories.tsx`. |
+| `src/components/scan/code-decoder.ts`             | Decoder interfaces, format constants and loaders, not components.                                                                                                                                           |
+| `src/components/scan/jsqr-code-decoder.ts`        | Decoder loader and constants, not a component.                                                                                                                                                              |
+
 ## Collaboration
 
 | Component               | Reason                                                                                                                                                                                                            |

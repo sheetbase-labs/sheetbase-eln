@@ -20,18 +20,24 @@ import { t } from '#/copy'
 export const Route = createFileRoute('/settings/storage')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { tab?: 'labels' | 'release' | 'workflows' } =>
-    search.tab === 'labels' ||
-    search.tab === 'release' ||
+  ): { tab?: 'labels' | 'release' | 'workflows'; workflow?: string } =>
     search.tab === 'workflows'
-      ? { tab: search.tab }
-      : {},
+      ? {
+          tab: 'workflows',
+          ...(typeof search.workflow === 'string' && search.workflow
+            ? { workflow: search.workflow }
+            : {}),
+        }
+      : search.tab === 'labels' || search.tab === 'release'
+        ? { tab: search.tab }
+        : {},
   component: StorageSettings,
 })
 
 function StorageSettings() {
   const { context } = Route.useRouteContext()
-  const { tab } = Route.useSearch()
+  const { tab, workflow } = Route.useSearch()
+  const navigate = Route.useNavigate()
   const workspaceId = context.workspace?.id ?? ''
   const canManage = canManageSettings(context.workspace, 'storage')
   const canRelease = canReleaseSample(context.workspace?.role)
@@ -81,7 +87,18 @@ function StorageSettings() {
           canManage={canManage}
         />
       ) : current === 'workflows' ? (
-        <SampleWorkflowsPanel workspaceId={workspaceId} canManage={canManage} />
+        <SampleWorkflowsPanel
+          workspaceId={workspaceId}
+          canManage={canManage}
+          editing={workflow ?? null}
+          onEdit={(id) =>
+            void navigate({
+              search: id
+                ? { tab: 'workflows', workflow: id }
+                : { tab: 'workflows' },
+            })
+          }
+        />
       ) : current === 'release' ? (
         <ReleaseRulesPanel
           workspaceId={workspaceId}

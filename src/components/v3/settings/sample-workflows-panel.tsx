@@ -62,13 +62,18 @@ function errorMessage(error: unknown): string {
 export function SampleWorkflowsPanel({
   workspaceId,
   canManage,
+  editing,
+  onEdit,
   client = defaultClient,
 }: {
   workspaceId: string
   canManage: boolean
+  /** The workflow being edited (its id, or `new`), kept in the address so a reload returns to it. */
+  editing: string | 'new' | null
+  onEdit: (id: string | 'new' | null) => void
   client?: DataClient
 }) {
-  const [editing, setEditing] = useState<string | 'new' | null>(null)
+  const setEditing = onEdit
   if (editing) {
     return (
       <WorkflowEditor
@@ -313,12 +318,19 @@ function EditorBody({
     const insertAt = draft.stages[lastIndex]?.final ? lastIndex : lastIndex + 1
     const stages = [...draft.stages]
     stages.splice(insertAt, 0, stage)
-    if (insertAt > 0 && !stages[insertAt - 1].final)
+    const after = insertAt + 1 < stages.length ? stages[insertAt + 1] : null
+    if (after) stage.next = [after.key]
+    // The step before now leads to the new one instead of past it.
+    if (insertAt > 0 && !stages[insertAt - 1].final) {
+      const before = stages[insertAt - 1]
       stages[insertAt - 1] = {
-        ...stages[insertAt - 1],
-        next: [...stages[insertAt - 1].next, stage.key],
+        ...before,
+        next:
+          after && before.next.includes(after.key)
+            ? before.next.map((n) => (n === after.key ? stage.key : n))
+            : [...before.next, stage.key],
       }
-    if (insertAt + 1 < stages.length) stage.next = [stages[insertAt + 1].key]
+    }
     patch({ stages })
     setSelectedKey(stage.key)
   }
@@ -498,7 +510,7 @@ function EditorBody({
                   </TableCell>
                   <TableCell>
                     <span
-                      className="block max-w-[22rem] truncate"
+                      className="block max-w-[14rem] truncate"
                       title={stage.actions.map(describeAction).join('; ')}
                     >
                       {stage.actions.map(describeAction).join('; ') || '–'}
@@ -536,7 +548,7 @@ function EditorBody({
       </SettingsBody>
       <aside
         aria-label={t('settings.sampleWorkflows.stepDetails')}
-        className="shrink-0 border-t border-border bg-surface p-4 lg:w-[400px] lg:border-l lg:border-t-0"
+        className="shrink-0 border-t border-border bg-surface p-4 lg:w-[360px] lg:border-l lg:border-t-0"
       >
         {selected ? (
           <StageEditor

@@ -174,6 +174,14 @@ export const NOTIFICATION_EVENTS = [
     defaultPush: false,
   },
   {
+    key: 'shipment_incoming',
+    label: 'A shipment you set up is on its way',
+    group: GROUP_LAB,
+    source: 'inbox',
+    defaultEmail: false,
+    defaultPush: false,
+  },
+  {
     key: 'request',
     label: 'A request is made to you, or someone decides yours',
     group: GROUP_LAB,

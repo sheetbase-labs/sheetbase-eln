@@ -478,3 +478,7 @@ CREATE OR REPLACE VIEW api.inbox_work_items WITH (security_invoker='true') AS
   WHERE ((kind <> 'agent_proposal'::text) OR (EXISTS ( SELECT 1
            FROM api.agent_operation_proposals ap
           WHERE ((ap.id = i.source_id) AND ((ap.approver_user_id IS NULL) OR ((ap.approver_user_id)::text = (api.current_user_id())::text))))));
+--> statement-breakpoint
+
+INSERT INTO api.notification_events (event_type, source, inbox_kinds, default_email)
+VALUES ('shipment_incoming', 'inbox', ARRAY['shipment_incoming'], false);

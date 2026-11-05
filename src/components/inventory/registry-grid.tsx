@@ -15,8 +15,13 @@
  * grouped table draws across the width, e.g. `experiments.tsx`. Bands are not
  * selectable and no row renders behind them.
  *
- * The route keeps ownership of ordering: it sorts the array it passes, exactly
- * as the Sort menus it already had. The grid does not sort.
+ * Ordering: a route that sorts the array it passes keeps doing so, and the grid
+ * leaves the order alone. A route that passes `view` (`useListView`) or
+ * `sorting` gets sortable column headers (click to sort ascending, again for
+ * descending, again for the route's own order), and `view` also adds the menu
+ * at the end of the header: choose columns, export CSV or Excel. What a person
+ * picks is remembered for them. Rows the route loads a page at a time sort
+ * what is loaded unless the route reads `view.sorting` into its query.
  *
  * The component owns the cell geometry — 33px rows, 10px cell padding, the 24px
  * inset on the first data column — because that is what makes the swap
@@ -25,12 +30,17 @@
  * own cell rules and is silently ignored.
  */
 import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { Icon } from '#/components/icons'
+import { ListViewMenu } from './list-view-menu'
+import type { ListView } from '#/lib/list-views'
 import { usePaneContext } from '#/components/workspace/workspace-navigation'
 import type { ReactNode } from 'react'
 import { useTable } from '@tanstack/react-table'
 import type {
+  Column,
   ColumnDef,
   OnChangeFn,
+  ColumnVisibilityState,
   RowData,
   RowSelectionState,
   SortingState,
@@ -40,7 +50,10 @@ import {
   DataGrid,
   dataGridFeatures,
 } from '#/components/reui/data-grid/data-grid'
-import type { DataGridFeatures } from '#/components/reui/data-grid/data-grid'
+import type {
+  DataGridFeatures,
+  DataGridTableInstance,
+} from '#/components/reui/data-grid/data-grid'
 import { DataGridScrollArea } from '#/components/reui/data-grid/data-grid-scroll-area'
 import { DataGridTableVirtual } from '#/components/reui/data-grid/data-grid-table-virtual'
 import { Checkbox } from '#/components/ui/checkbox'
@@ -133,6 +146,60 @@ export function useRowFocus(
   return { rowSelection, onRowSelectionChange }
 }
 
+/** The id of the column that holds the table's own menu (columns, export). */
+const VIEW_COLUMN = '__view'
+
+/**
+ * The order two cells sort in: numbers as numbers, text in the registry's own
+ * collation with numbers inside it in order (SMP-9 before SMP-10), and empty
+ * cells after everything else whichever way the column runs.
+ */
+export function compareCells(a: unknown, b: unknown): number {
+  if (typeof a === 'number' && typeof b === 'number') return a - b
+  return String(a ?? '').localeCompare(String(b ?? ''), 'en-GB', {
+    numeric: true,
+    sensitivity: 'base',
+  })
+}
+
+/** A header the person can click to sort by its column. */
+function SortHeader({
+  column,
+  right,
+  children,
+}: {
+  column: Column<DataGridFeatures, never, unknown>
+  right: boolean
+  children: ReactNode
+}) {
+  const dir = column.getIsSorted()
+  return (
+    <button
+      type="button"
+      className={cn(
+        'group/sort -mx-1 inline-flex cursor-pointer items-center gap-1 rounded-sm border-0 bg-transparent px-1 py-0.5 font-[inherit] text-inherit hover:text-fg',
+        right && 'flex-row-reverse',
+      )}
+      onClick={() => {
+        if (!dir) column.toggleSorting(false)
+        else if (dir === 'asc') column.toggleSorting(true)
+        else column.clearSorting()
+      }}
+    >
+      {children}
+      <Icon
+        name="arrowUp"
+        size={12}
+        className={cn(
+          'shrink-0 transition-opacity',
+          dir === 'desc' && 'rotate-180',
+          dir ? 'opacity-100' : 'opacity-0 group-hover/sort:opacity-40',
+        )}
+      />
+    </button>
+  )
+}
+
 export interface RegistryGridProps<T extends RowData> {
   /** The table's accessible name, e.g. "Samples". */
   label: string
@@ -161,6 +228,13 @@ export interface RegistryGridProps<T extends RowData> {
   /** Ordering the route owns and writes into the grid (the sort toolbar). */
   sorting?: SortingState
   onSortingChange?: OnChangeFn<SortingState>
+  /**
+   * The person's remembered sorting and hidden columns (`useListView`). Turns
+   * on sortable headers and the columns-and-export menu.
+   */
+  view?: ListView
+  /** What the list is called in an export's file name; defaults to `label`. */
+  exportName?: string
   isLoading?: boolean
   /** The extra classes a screen's row needs (e.g. a muted cell). */
   rowClassName?: string
@@ -170,6 +244,38 @@ export interface RegistryGridProps<T extends RowData> {
    * width, which is what it did before it moved onto the grid.
    */
   className?: string
+}
+
+/**
+ * What a column needs to take part in header sorting: the shared comparison,
+ * and a header that is a button. A column with no value to sort (a menu, a row
+ * of buttons) does not sort, and its header stays as the screen wrote it.
+ */
+function sortingFor<T extends RowData>(
+  column: RegistryColumn<T>,
+  sortable: boolean,
+): Partial<RegistryColumn<T>> {
+  const hasValue = 'accessorFn' in column || 'accessorKey' in column
+  const canSort = sortable && hasValue && column.enableSorting !== false
+  const label = typeof column.header === 'string' ? column.header : undefined
+  const meta = label
+    ? { ...column.meta, headerTitle: column.meta?.headerTitle ?? label }
+    : column.meta
+  if (!canSort) {
+    return { enableSorting: false, ...(label ? { meta } : {}) }
+  }
+  const right = Boolean(column.meta?.headerClassName?.includes('text-right'))
+  const header = column.header
+  return {
+    sortFn: column.sortFn ?? compareCells,
+    sortUndefined: 'last',
+    meta,
+    header: (context) => (
+      <SortHeader column={context.column as never} right={right}>
+        {typeof header === 'function' ? header(context) : header}
+      </SortHeader>
+    ),
+  }
 }
 
 export function RegistryGrid<T extends RowData>({
@@ -182,12 +288,46 @@ export function RegistryGrid<T extends RowData>({
   onRowClick,
   selectable = true,
   className,
-  sorting,
-  onSortingChange,
+  sorting: sortingProp,
+  onSortingChange: onSortingChangeProp,
+  view,
+  exportName,
   bulk,
   rowLabel,
   isLoading = false,
 }: RegistryGridProps<T>) {
+  const sorting = sortingProp ?? view?.sorting
+  const onSortingChange: OnChangeFn<SortingState> | undefined =
+    onSortingChangeProp ?? view?.setSorting
+  // A grouped list's bands are headings between records; ordering the rows
+  // would scatter them, so a grouped table keeps the route's order.
+  const grouped = rows.some((row) => isBand(row))
+  const sortable = sorting !== undefined && !grouped
+  const hidden = view?.hidden
+  const columnVisibility = useMemo<ColumnVisibilityState>(
+    () => Object.fromEntries((hidden ?? []).map((id) => [id, false])),
+    [hidden],
+  )
+  const setVisibility = view?.setHidden
+  const onColumnVisibilityChange = useCallback<
+    OnChangeFn<ColumnVisibilityState>
+  >(
+    (next) => {
+      if (!setVisibility) return
+      setVisibility((current) => {
+        const was: ColumnVisibilityState = Object.fromEntries(
+          current.map((id) => [id, false]),
+        )
+        const value = typeof next === 'function' ? next(was) : next
+        return Object.entries(value)
+          .filter(([, shown]) => shown === false)
+          .map(([id]) => id)
+      })
+    },
+    [setVisibility],
+  )
+  const nameRef = useRef(exportName ?? label)
+  nameRef.current = exportName ?? label
   const gridRef = useRef<HTMLDivElement>(null)
   // Read at render of a cell, so a screen's inline function never rebuilds the columns.
   const rowLabelRef = useRef(rowLabel)
@@ -291,7 +431,34 @@ export function RegistryGrid<T extends RowData>({
 
   const allColumns = useMemo<RegistryColumn<RegistryRow<T>>[]>(() => {
     const body = columns as unknown as RegistryColumn<RegistryRow<T>>[]
-    if (!bulk) return body
+    // The menu sits at the end of the header, where it stays put as the
+    // table scrolls sideways.
+    const tools: RegistryColumn<RegistryRow<T>>[] = view
+      ? [
+          {
+            id: VIEW_COLUMN,
+            enableSorting: false,
+            enableHiding: false,
+            enableResizing: false,
+            size: 44,
+            minSize: 44,
+            maxSize: 44,
+            meta: {
+              headerClassName: 'w-11 text-right',
+              cellClassName: 'w-11',
+            },
+            header: ({ table: instance }) => (
+              <ListViewMenu
+                table={instance as unknown as DataGridTableInstance<T>}
+                view={view}
+                name={nameRef.current}
+              />
+            ),
+            cell: () => null,
+          },
+        ]
+      : []
+    if (!bulk) return [...body, ...tools]
     const tick: RegistryColumn<RegistryRow<T>> = {
       id: '__bulk',
       enableSorting: false,
@@ -323,10 +490,10 @@ export function RegistryGrid<T extends RowData>({
         />
       ),
     }
-    return [tick, ...body]
+    return [tick, ...body, ...tools]
     // `ticked.length` and `allTicked` change the header; the row cells read
     // `bulk.has`, which changes with `bulk`.
-  }, [columns, selectable, bulk, allTicked, ticked.length])
+  }, [columns, selectable, bulk, allTicked, ticked.length, view])
 
   /**
    * A band renders as the muted strip the grouped screens draw: every cell
@@ -338,48 +505,56 @@ export function RegistryGrid<T extends RowData>({
   const labelIndex = bulk ? 1 : 0
   const decorated = useMemo<RegistryColumn<RegistryRow<T>>[]>(
     () =>
-      allColumns.map((column, index) => ({
-        ...column,
-        cell: (context) => {
-          const original = context.row.original
-          if (!isBand(original)) {
-            const cell = column.cell
-            return typeof cell === 'function'
-              ? cell(context)
-              : ((context.getValue() as ReactNode) ?? null)
-          }
-          // Every cell paints the strip, so it reads as one band across the
-          // row; the first data column carries the label.
-          // The strip reaches over the cell's own padding: 24px at the table's
-          // outer edges, 10px between cells.
-          const left = index === 0 ? '-ml-6 pl-6' : '-ml-2.5'
-          const right = index === allColumns.length - 1 ? '-mr-6' : '-mr-2.5'
-          const paint = `block h-[33px] bg-surface-muted ${left} ${right}`
-          if (index === labelIndex) {
-            return (
-              <span
-                className={`${paint} flex items-center text-label font-medium text-fg-muted`}
-              >
-                {original.__band}
-                {original.__count !== undefined ? (
-                  <span className="ml-1 font-normal">{original.__count}</span>
-                ) : null}
-              </span>
-            )
-          }
-          if (index === allColumns.length - 1 && original.__action) {
-            return (
-              <span
-                className={`${paint} flex items-center justify-end pr-6 text-label`}
-              >
-                {original.__action}
-              </span>
-            )
-          }
-          return <span className={paint} />
-        },
-      })),
-    [allColumns, selectable, labelIndex],
+      allColumns.map(
+        (column, index) =>
+          ({
+            ...column,
+            ...sortingFor(column, sortable),
+            // Spreading a column definition widens its accessor union.
+            cell: (context) => {
+              const original = context.row.original
+              if (!isBand(original)) {
+                const cell = column.cell
+                return typeof cell === 'function'
+                  ? cell(context)
+                  : ((context.getValue() as ReactNode) ?? null)
+              }
+              // Every cell paints the strip, so it reads as one band across the
+              // row; the first data column carries the label.
+              // The strip reaches over the cell's own padding: 24px at the table's
+              // outer edges, 10px between cells.
+              const left = index === 0 ? '-ml-6 pl-6' : '-ml-2.5'
+              const right =
+                index === allColumns.length - 1 ? '-mr-6' : '-mr-2.5'
+              const paint = `block h-[33px] bg-surface-muted ${left} ${right}`
+              if (index === labelIndex) {
+                return (
+                  <span
+                    className={`${paint} flex items-center text-label font-medium text-fg-muted`}
+                  >
+                    {original.__band}
+                    {original.__count !== undefined ? (
+                      <span className="ml-1 font-normal">
+                        {original.__count}
+                      </span>
+                    ) : null}
+                  </span>
+                )
+              }
+              if (index === allColumns.length - 1 && original.__action) {
+                return (
+                  <span
+                    className={`${paint} flex items-center justify-end pr-6 text-label`}
+                  >
+                    {original.__action}
+                  </span>
+                )
+              }
+              return <span className={paint} />
+            },
+          }) as RegistryColumn<RegistryRow<T>>,
+      ),
+    [allColumns, selectable, labelIndex, sortable],
   )
 
   // When a table is wider than its pane, the row's identity and its state
@@ -387,13 +562,18 @@ export function RegistryGrid<T extends RowData>({
   // the start edge and Status holds the end edge. Only columns already at an
   // edge are pinned, because pinning also moves a column to its edge.
   const columnPinning = useMemo(() => {
-    const ids = allColumns.map((column) => column.id)
+    const all = allColumns.map((column) => column.id)
     // With tick boxes the ID column is the second one; both hold the edge.
-    const first = bulk ? ids.slice(0, 2) : ids.slice(0, 1)
+    const first = bulk ? all.slice(0, 2) : all.slice(0, 1)
+    // The menu column is always the last; Status holds the edge before it.
+    const ids = all.filter((id) => id !== VIEW_COLUMN)
     const last = ids.at(-1)
     return {
       start: first.filter((id): id is string => Boolean(id)),
-      end: last === 'status' && ids.length > 2 ? [last] : [],
+      end: [
+        ...(last === 'status' && ids.length > 2 ? [last] : []),
+        ...(all.includes(VIEW_COLUMN) ? [VIEW_COLUMN] : []),
+      ],
     }
   }, [allColumns, bulk])
 
@@ -401,11 +581,15 @@ export function RegistryGrid<T extends RowData>({
     features: dataGridFeatures,
     columns: decorated,
     data: rows,
-    state: sorting
-      ? { rowSelection, sorting, columnPinning }
-      : { rowSelection, columnPinning },
+    state: {
+      rowSelection,
+      columnPinning,
+      ...(sortable ? { sorting } : {}),
+      ...(view ? { columnVisibility } : {}),
+    },
     onRowSelectionChange,
-    onSortingChange,
+    onSortingChange: sortable ? onSortingChange : undefined,
+    onColumnVisibilityChange: view ? onColumnVisibilityChange : undefined,
     // Bands carry their own id; records go through the screen's own resolver.
     getRowId: (row) => (isBand(row) ? row.id : getRowId(row)),
     // A virtualised grid renders every row, so the paginated row model has to

@@ -137,6 +137,12 @@ export interface DataGridColumnMeta<TData> {
   skeleton?: ReactNode
   expandedContent?: (row: TData) => ReactNode
   autoSize?: boolean
+  /**
+   * What an export writes for this column's cell, when the cell shows more
+   * than the column's value (a link, a status chip). Without it the export
+   * writes the column's accessor value; a column with neither is left out.
+   */
+  exportValue?: (row: TData) => string | number | boolean | null | undefined
   /** Header spans this many leaves: this one and its next adjacent siblings. */
   headerColSpan?: number
   cellEdit?: DataGridColumnCellEdit<TData>

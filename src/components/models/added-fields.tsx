@@ -699,6 +699,24 @@ export function addedFieldListQueryKey(modelKey: string) {
   return [...builtInModelQueryKeys.all, 'list-values', modelKey] as const
 }
 
+/** What a list sorts an added field's column by: the date as written, a
+ * number as a number, anything else as the text a person reads. Empty is
+ * nothing, so it sorts after the rest. */
+function addedFieldSortValue(
+  field: ModelFieldDefinition,
+  customFields: Record<string, unknown> | null | undefined,
+): string | number | undefined {
+  const raw = customFields?.[field.fieldName]
+  if (raw == null || raw === '') return undefined
+  if (field.logicalType === 'date' || field.logicalType === 'timestamp')
+    return String(raw)
+  if (field.logicalType === 'integer' || field.logicalType === 'decimal') {
+    const number = Number(raw)
+    if (Number.isFinite(number)) return number
+  }
+  return addedFieldDisplay(field, raw)
+}
+
 /** List columns for the added fields marked "show as a column". */
 export function addedFieldColumns<T extends object>(
   fields: readonly ModelFieldDefinition[] | undefined,
@@ -709,6 +727,12 @@ export function addedFieldColumns<T extends object>(
     .map((field) => ({
       id: modelFieldColumnId(field.fieldName),
       header: field.label,
+      // Dates and numbers order by their value, not by how they read.
+      accessorFn: (row) => addedFieldSortValue(field, customFieldsOf(row)),
+      meta: {
+        exportValue: (row) =>
+          addedFieldDisplay(field, customFieldsOf(row)?.[field.fieldName]),
+      },
       cell: ({ row }) => {
         const value = customFieldsOf(row.original)?.[field.fieldName]
         return (
@@ -779,6 +803,9 @@ export function useAddedFieldListColumns<T extends object>(
     const typeColumn: RegistryColumn<T> = {
       id: 'model_type',
       header: t('library.models.addedFields.type'),
+      accessorFn: (row) =>
+        typeForVersion(types, byId?.get(String(row[idField]))?.model_version_id)
+          ?.name ?? model.name,
       cell: ({ row }) => {
         const type = typeForVersion(
           types,

@@ -17,6 +17,7 @@ const PAGES: Array<{ prefix: string; title: string }> = [
     title: item.label,
   })),
   { prefix: '/stocktake', title: 'Stocktake' },
+  { prefix: '/models', title: 'Models' },
   { prefix: '/settings', title: 'Settings' },
   { prefix: '/inbox', title: 'Inbox' },
 ]

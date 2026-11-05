@@ -52,6 +52,8 @@ export const recordNav: NavItem[] = [
   { label: 'Materials', icon: 'box', link: { to: '/materials' } },
   // Constructs, cell lines and antibodies, each with one number.
   { label: 'Registry', icon: 'tag', link: { to: '/registry' } },
+  // Incidents, deviations and near misses: any models the lab ticks as a log.
+  { label: 'Incidents', icon: 'warn', link: { to: '/incidents' } },
   // An instrument is an everyday bench object here — it has a stable identifier,
   // a status, qualification and calibration dates and bookings, and the Schedule
   // and reading flows name one — so its registry sits with the other record

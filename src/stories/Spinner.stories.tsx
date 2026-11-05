@@ -33,7 +33,11 @@ export const Sizes: Story = {
 export const PageLoader: Story = {
   render: () => (
     <div className="flex h-64 w-96 items-center justify-center rounded-md border border-border">
-      <Spinner size={40} label="Loading the notebook" className="text-fg-muted" />
+      <Spinner
+        size={40}
+        label="Loading the notebook"
+        className="text-fg-muted"
+      />
     </div>
   ),
 }

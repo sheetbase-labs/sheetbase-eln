@@ -52,6 +52,8 @@ export const recordNav: NavItem[] = [
   { label: 'Templates', icon: 'template', link: { to: '/templates' } },
   { label: 'Samples', icon: 'tube', link: { to: '/samples' } },
   { label: 'Materials', icon: 'box', link: { to: '/materials' } },
+  // Boxes leaving the lab or arriving, with what is in them.
+  { label: 'Shipments', icon: 'move', link: { to: '/shipments' } },
   // Constructs, cell lines and antibodies, each with one number.
   { label: 'Registry', icon: 'tag', link: { to: '/registry' } },
   // Incidents, deviations and near misses: any models the lab ticks as a log.

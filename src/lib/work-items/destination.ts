@@ -39,6 +39,7 @@ export type WorkItemLink =
   | { to: '/pipelines'; search: { q: string | undefined } }
   | { to: '/materials'; search?: { tab: 'orders' } }
   | { to: '/requests'; search: { tab: 'mine' | 'triage' } }
+  | { to: '/shipments' }
   | { to: '/datasets' }
   | {
       to: '/datasets/$datasetId/rows'
@@ -149,6 +150,7 @@ export function itemLink(item: WorkItem): WorkItemLink {
       : { to: '/datasets' }
   if (item.kind === 'reorder_requested' || item.kind === 'reorder_incoming')
     return { to: '/materials', search: { tab: 'orders' } }
+  if (item.kind === 'shipment_incoming') return { to: '/shipments' }
   if (item.kind === 'request_submitted')
     return { to: '/requests', search: { tab: 'triage' } }
   if (item.kind === 'request_update')

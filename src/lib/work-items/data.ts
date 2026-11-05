@@ -28,6 +28,7 @@ export type WorkItemKind =
   | 'reorder_incoming'
   | 'request_submitted'
   | 'request_update'
+  | 'shipment_incoming'
   | 'cell_conflict'
   | 'approval_requested'
   | 'review_returned'
@@ -101,6 +102,7 @@ const KINDS: readonly WorkItemKind[] = [
   'reorder_incoming',
   'request_submitted',
   'request_update',
+  'shipment_incoming',
   'cell_conflict',
   'approval_requested',
   'review_returned',
@@ -348,6 +350,7 @@ export function countByKind(
     reorder_incoming: 0,
     request_submitted: 0,
     request_update: 0,
+    shipment_incoming: 0,
     cell_conflict: 0,
     approval_requested: 0,
     review_returned: 0,

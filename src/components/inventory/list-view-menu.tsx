@@ -84,7 +84,7 @@ export function ListViewMenu<T extends RowData>({
 }) {
   const hideable = table
     .getAllLeafColumns()
-    .filter((column) => column.getCanHide() && column.id !== '__view')
+    .filter((column) => column.getCanHide() && !column.id.startsWith('__'))
 
   const save = (kind: 'csv' | 'xlsx') => {
     const data = exportTable(table)

@@ -44,7 +44,13 @@ export function useLabelTemplateChoice(
     queryFn: () => fetchLabelTemplates(client),
     staleTime: 60_000,
   })
-  const active = activeLabelTemplates(templates.data ?? [], recordKind)
+  const own = activeLabelTemplates(templates.data ?? [], recordKind)
+  // A kind with no template of its own prints with the workspace's templates
+  // for "other records", then with the built-in look.
+  const active =
+    own.length || recordKind === 'sample' || recordKind === 'material'
+      ? own
+      : activeLabelTemplates(templates.data ?? [], 'record')
   const [pickedId, setPickedId] = useState<string | null>(() =>
     remembered(recordKind),
   )

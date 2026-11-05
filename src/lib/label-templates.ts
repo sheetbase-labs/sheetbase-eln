@@ -16,6 +16,7 @@ export const labelTemplateKeys = {
 export const LABEL_RECORD_KINDS = [
   { key: 'sample', label: 'Samples' },
   { key: 'material', label: 'Materials' },
+  { key: 'record', label: 'Other records' },
 ] as const
 
 export const LABEL_SIZE_PRESETS = [

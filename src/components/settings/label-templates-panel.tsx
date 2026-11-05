@@ -22,6 +22,7 @@ import {
 import { toast } from '#/components/ui/sonner'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
+import { fetchModelKinds } from '#/lib/model-fields'
 import {
   EMPTY_LABEL_INPUT,
   LABEL_RECORD_KINDS,
@@ -239,6 +240,25 @@ function TemplateForm({
   )
   const set = (patch: Partial<LabelTemplateInput>) =>
     setInput({ ...input, ...patch })
+  // Any record model can be labelled, so its kind is offered beside the
+  // built-in ones; a template already saved for a kind keeps its own entry.
+  const modelKinds = useQuery({
+    queryKey: ['label-templates', 'record-kinds'],
+    queryFn: () => fetchModelKinds(client),
+    staleTime: 60_000,
+  })
+  const kindOptions: { key: string; label: string }[] = [
+    ...LABEL_RECORD_KINDS,
+  ]
+  for (const kind of modelKinds.data ?? []) {
+    if (
+      kind.identityTable === 'api.records' &&
+      !kindOptions.some((option) => option.key === kind.key)
+    )
+      kindOptions.push({ key: kind.key, label: kind.label })
+  }
+  if (!kindOptions.some((option) => option.key === input.recordKind))
+    kindOptions.push({ key: input.recordKind, label: input.recordKind })
   const problem = validateLabelInput(input)
   const dirty = template
     ? JSON.stringify(input) !== JSON.stringify(inputFromTemplate(template))
@@ -322,7 +342,7 @@ function TemplateForm({
             value={input.recordKind}
             onChange={(e) => set({ recordKind: e.target.value })}
           >
-            {LABEL_RECORD_KINDS.map((kind) => (
+            {kindOptions.map((kind) => (
               <option key={kind.key} value={kind.key}>
                 {kind.label}
               </option>

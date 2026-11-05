@@ -4,7 +4,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { AuditCheckLine } from '#/components/review/audit-check-line'
 import { auditVerificationKeys } from '#/lib/audit-verification-status'
 
-import { screenQueryClient } from './screen-stories'
+import { holdRead, screenQueryClient } from './screen-stories'
 
 /**
  * The information icon beside a signed record's heading. Its tooltip carries
@@ -44,6 +44,7 @@ const failed = screenQueryClient({
 })
 const never = screenQueryClient({ data: [{ key, value: null }] })
 const pending = screenQueryClient()
+holdRead(pending, key)
 
 const meta = {
   title: 'Review/Audit check line',

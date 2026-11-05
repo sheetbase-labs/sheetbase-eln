@@ -4,7 +4,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { ReviewNextStepPanel } from '#/components/review/review-next-step'
 import { workItemsQueryKeys } from '#/lib/work-items/data'
 
-import { screenQueryClient, screenRoutes } from './screen-stories'
+import { holdRead, screenQueryClient, screenRoutes } from './screen-stories'
 
 /**
  * What happens next on a review, and the next review waiting on the reader. The
@@ -26,6 +26,8 @@ const waiting = {
 const withNext = screenQueryClient({
   data: [{ key: workItemsQueryKeys.list(), value: [waiting] }],
 })
+const loading = screenQueryClient()
+holdRead(loading, workItemsQueryKeys.list())
 const none = screenQueryClient({
   data: [{ key: workItemsQueryKeys.list(), value: [] }],
 })
@@ -81,4 +83,4 @@ export const ActionAndNextReview: Story = {
 export const NoOtherReviews: Story = { parameters: { client: none } }
 
 /** The Inbox read is still loading, so no next review is offered. */
-export const Loading: Story = { parameters: { client: screenQueryClient() } }
+export const Loading: Story = { parameters: { client: loading } }

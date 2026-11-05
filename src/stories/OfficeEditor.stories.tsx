@@ -6,7 +6,7 @@ import {
   OfficeViewer,
 } from '#/components/notebook/office-editor'
 
-import { screenQueryClient } from './screen-stories'
+import { holdRead, screenQueryClient } from './screen-stories'
 
 /**
  * The optional browser Office editor. The workspace switch is one read, which a
@@ -20,6 +20,7 @@ const on = screenQueryClient({
     { key: [...STATUS_KEY, 'live'], value: true },
   ],
 })
+holdRead(on, ['office-editor', 'view', 'file-1', 1])
 const off = screenQueryClient({
   data: [{ key: STATUS_KEY, value: { enabled: false } }],
 })

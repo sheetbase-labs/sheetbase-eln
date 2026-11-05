@@ -30,6 +30,7 @@ import type { ConnectorWire } from './types'
 import {
   agentFiles,
   agentTokenName,
+  liveAgentTokenName,
   AGENT_SCOPES,
   AGENT_SEEN_MINUTES,
 } from './agent-package'
@@ -57,6 +58,53 @@ const downloadBody = z
   })
   .strict()
 
+const liveSource = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('file'),
+      path: z.string().trim().min(1).max(500),
+      feed: z.string().trim().max(80).optional(),
+      unit: z.string().trim().max(20).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('network'),
+      host: z.string().trim().min(1).max(253),
+      port: z.number().int().min(1).max(65535),
+      feed: z.string().trim().max(80).optional(),
+      unit: z.string().trim().max(20).optional(),
+    })
+    .strict(),
+])
+
+const liveDownloadBody = z
+  .object({
+    instrumentId: z.uuid(),
+    system: z.enum(['windows', 'mac', 'linux']),
+    live: z.array(liveSource).min(1).max(4),
+  })
+  .strict()
+
+interface LiveInstrument {
+  id: string
+  name: string
+  display_id: string | null
+  retired_at: string | null
+}
+
+async function findLiveInstrument(
+  client: DataClient,
+  workspaceId: string,
+  instrumentId: string,
+): Promise<LiveInstrument | null> {
+  const rows = await client.list<LiveInstrument>(
+    'instruments',
+    `?id=eq.${instrumentId}&workspace_id=eq.${workspaceId}&select=id,name,display_id,retired_at&limit=1`,
+  )
+  return rows.at(0) ?? null
+}
+
 async function realDb(): Promise<Db> {
   return (await import('#/db/client.server')).db
 }
@@ -70,6 +118,29 @@ export const realAgentPackageDeps: AgentPackageDeps = {
   loadDb: realDb,
   loadCredentials: () => import('../api-credentials'),
   agentSource: realAgentSource,
+}
+
+/** Whether the agent holding the token called `name` has been seen lately. */
+async function tokenStatus(
+  all: Awaited<ReturnType<Credentials['listCredentials']>>,
+  name: string,
+  now: Date,
+) {
+  const live = all.filter(
+    (row) => row.name === name && row.kind === 'personal' && !row.revokedAt,
+  )
+  const seen = live
+    .map((row) => row.lastUsedAt)
+    .filter((at): at is Date => at !== null)
+    .sort((a, b) => b.getTime() - a.getTime())
+    .at(0)
+  return {
+    downloaded: live.length > 0,
+    lastSeenAt: seen?.toISOString() ?? null,
+    running: seen
+      ? now.getTime() - seen.getTime() <= AGENT_SEEN_MINUTES * 60_000
+      : false,
+  }
 }
 
 /** The connector, only if the signed-in person can see it. */
@@ -119,83 +190,12 @@ export async function handleAgentPackage(
   const client = (deps.createClient ?? createServerDataClient)(context.token)
   const now = deps.now?.() ?? new Date()
 
-  try {
-    if (request.method === 'GET') {
-      const id = new URL(request.url).searchParams.get('connector') ?? ''
-      if (!z.uuid().safeParse(id).success) {
-        return requestErrorResponse(
-          400,
-          'invalid_request',
-          'Name the instrument connector.',
-        )
-      }
-      const connector = await findConnector(client, context.workspaceId, id)
-      if (!connector)
-        return requestErrorResponse(
-          404,
-          'not_found',
-          'No such instrument connector.',
-        )
-      const name = agentTokenName(connector.key)
-      const live = (
-        await credentials.listCredentials(db, context.workspaceId)
-      ).filter(
-        (row) => row.name === name && row.kind === 'personal' && !row.revokedAt,
-      )
-      const seen = live
-        .map((row) => row.lastUsedAt)
-        .filter((at): at is Date => at !== null)
-        .sort((a, b) => b.getTime() - a.getTime())
-        .at(0)
-      return Response.json({
-        downloaded: live.length > 0,
-        lastSeenAt: seen?.toISOString() ?? null,
-        running: seen
-          ? now.getTime() - seen.getTime() <= AGENT_SEEN_MINUTES * 60_000
-          : false,
-      })
-    }
-
-    const parsed = downloadBody.safeParse(
-      await request.json().catch(() => null),
-    )
-    if (!parsed.success) {
-      return requestErrorResponse(
-        400,
-        'invalid_request',
-        'Choose the instrument computer’s system and the results folder.',
-      )
-    }
-    const body = parsed.data
-    await client.rpc('require_capability', {
-      p_workspace_id: context.workspaceId,
-      p_capability: 'integrations.manage',
-    })
-    const connector = await findConnector(
-      client,
-      context.workspaceId,
-      body.connectorId,
-    )
-    if (!connector)
-      return requestErrorResponse(
-        404,
-        'not_found',
-        'No such instrument connector.',
-      )
-    if (!connector.config['pickup']) {
-      return requestErrorResponse(
-        422,
-        'pickup_not_configured',
-        'Choose where this instrument’s files go before downloading the agent.',
-      )
-    }
-
-    const name = agentTokenName(connector.key)
-    // Replacing the token: copies made earlier stop signing in.
+  // Replacing the token: copies made earlier stop signing in.
+  const mint = async (name: string) => {
     const earlier = (
       await credentials.listCredentials(db, context.workspaceId)
     ).filter((row) => row.name === name && !row.revokedAt)
-    const minted = await db.transaction(async (tx) => {
+    return db.transaction(async (tx) => {
       for (const row of earlier) {
         await credentials.revokeCredential(tx, {
           workspaceId: context.workspaceId,
@@ -229,16 +229,12 @@ export async function handleAgentPackage(
       })
       return created
     })
+  }
 
-    const files = agentFiles({
-      agentSource: await deps.agentSource(),
-      url: origin(request),
-      connectorKey: connector.key,
-      instrumentName: connector.name,
-      folder: body.folder,
-      credential: minted.secret,
-      system: body.system satisfies AgentSystem,
-    })
+  const zipResponse = (
+    files: ReturnType<typeof agentFiles>,
+    fileName: string,
+  ) => {
     const zip = zipSync(
       Object.fromEntries(
         files.map((file) => [
@@ -258,10 +254,154 @@ export async function handleAgentPackage(
       status: 200,
       headers: {
         'content-type': 'application/zip',
-        'content-disposition': `attachment; filename="sheetbase-agent-${connector.key}.zip"`,
+        'content-disposition': `attachment; filename="${fileName}"`,
         'cache-control': 'no-store',
       },
     })
+  }
+
+  try {
+    if (request.method === 'GET') {
+      const instrumentParam = new URL(request.url).searchParams.get(
+        'instrument',
+      )
+      if (instrumentParam !== null) {
+        if (!z.uuid().safeParse(instrumentParam).success) {
+          return requestErrorResponse(
+            400,
+            'invalid_request',
+            'Name the instrument.',
+          )
+        }
+        const instrument = await findLiveInstrument(
+          client,
+          context.workspaceId,
+          instrumentParam,
+        )
+        if (!instrument)
+          return requestErrorResponse(404, 'not_found', 'No such instrument.')
+        return Response.json(
+          await tokenStatus(
+            await credentials.listCredentials(db, context.workspaceId),
+            liveAgentTokenName(instrument.display_id ?? instrument.id),
+            now,
+          ),
+        )
+      }
+      const id = new URL(request.url).searchParams.get('connector') ?? ''
+      if (!z.uuid().safeParse(id).success) {
+        return requestErrorResponse(
+          400,
+          'invalid_request',
+          'Name the instrument connector.',
+        )
+      }
+      const connector = await findConnector(client, context.workspaceId, id)
+      if (!connector)
+        return requestErrorResponse(
+          404,
+          'not_found',
+          'No such instrument connector.',
+        )
+      return Response.json(
+        await tokenStatus(
+          await credentials.listCredentials(db, context.workspaceId),
+          agentTokenName(connector.key),
+          now,
+        ),
+      )
+    }
+
+    const rawBody = await request.json().catch(() => null)
+    if (rawBody && typeof rawBody === 'object' && 'live' in rawBody) {
+      const live = liveDownloadBody.safeParse(rawBody)
+      if (!live.success) {
+        return requestErrorResponse(
+          400,
+          'invalid_request',
+          'Choose the computer’s system and where the readings come from.',
+        )
+      }
+      await client.rpc('require_capability', {
+        p_workspace_id: context.workspaceId,
+        p_capability: 'integrations.manage',
+      })
+      const instrument = await findLiveInstrument(
+        client,
+        context.workspaceId,
+        live.data.instrumentId,
+      )
+      if (!instrument)
+        return requestErrorResponse(404, 'not_found', 'No such instrument.')
+      if (instrument.retired_at) {
+        return requestErrorResponse(
+          422,
+          'instrument_retired',
+          'A retired instrument does not take readings.',
+        )
+      }
+      const minted = await mint(
+        liveAgentTokenName(instrument.display_id ?? instrument.id),
+      )
+      const files = agentFiles({
+        agentSource: await deps.agentSource(),
+        url: origin(request),
+        instrumentName: instrument.name,
+        instrumentId: instrument.id,
+        live: live.data.live,
+        credential: minted.secret,
+        system: live.data.system satisfies AgentSystem,
+      })
+      return zipResponse(
+        files,
+        `sheetbase-live-${(instrument.display_id ?? 'agent').toLowerCase()}.zip`,
+      )
+    }
+
+    const parsed = downloadBody.safeParse(rawBody)
+    if (!parsed.success) {
+      return requestErrorResponse(
+        400,
+        'invalid_request',
+        'Choose the instrument computer’s system and the results folder.',
+      )
+    }
+    const body = parsed.data
+    await client.rpc('require_capability', {
+      p_workspace_id: context.workspaceId,
+      p_capability: 'integrations.manage',
+    })
+    const connector = await findConnector(
+      client,
+      context.workspaceId,
+      body.connectorId,
+    )
+    if (!connector)
+      return requestErrorResponse(
+        404,
+        'not_found',
+        'No such instrument connector.',
+      )
+    if (!connector.config['pickup']) {
+      return requestErrorResponse(
+        422,
+        'pickup_not_configured',
+        'Choose where this instrument’s files go before downloading the agent.',
+      )
+    }
+
+    const minted = await mint(agentTokenName(connector.key))
+
+    const files = agentFiles({
+      agentSource: await deps.agentSource(),
+      url: origin(request),
+      connectorKey: connector.key,
+      instrumentName: connector.name,
+      folder: body.folder,
+      credential: minted.secret,
+      system: body.system satisfies AgentSystem,
+    })
+    return zipResponse(files, `sheetbase-agent-${connector.key}.zip`)
   } catch (error) {
     const message = boundedErrorMessage(error)
     if (/capability required|not permitted|42501/i.test(message)) {

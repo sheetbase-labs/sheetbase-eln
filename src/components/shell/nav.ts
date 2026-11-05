@@ -191,14 +191,14 @@ export const navGroups: NavGroup[] = [
 export const recordNav: NavItem[] = navGroups.flatMap((g) => g.items)
 
 /** Pages a lab may not hide: the notebook itself. */
-export const ALWAYS_SHOWN_PAGES: ReadonlySet<string> = new Set([
+export const alwaysShownPages: ReadonlySet<string> = new Set([
   'projects',
   'experiments',
 ])
 
 /** Whether a lab may hide a page from its sidebar. */
 export function canHideNavPage(key: string): boolean {
-  return recordNav.some((i) => i.key === key) && !ALWAYS_SHOWN_PAGES.has(key)
+  return recordNav.some((i) => i.key === key) && !alwaysShownPages.has(key)
 }
 
 /**

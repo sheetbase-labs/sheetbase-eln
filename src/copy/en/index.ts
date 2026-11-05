@@ -5,6 +5,7 @@
  * language must match.
  */
 import { calculators } from './calculators'
+import { calendarFeed } from './calendar-feed'
 import { common } from './common'
 import { data } from './data'
 import { library } from './library'
@@ -16,11 +17,13 @@ import { registry } from './registry'
 import { requests } from './requests'
 import { safety } from './safety'
 import { sequences } from './sequences'
+import { shipments } from './shipments'
 import { settings } from './settings'
 
 export const en = {
   common,
   calculators,
+  calendarFeed,
   notebook,
   data,
   library,
@@ -29,6 +32,7 @@ export const en = {
   registry,
   quality,
   requests,
+  shipments,
   sequences,
   safety,
   pwa,

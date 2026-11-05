@@ -39,6 +39,7 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ShareTargetRouteImport } from './routes/share-target'
 import { Route as SheetbaseComponentsRouteImport } from './routes/sheetbase-components'
+import { Route as ShipmentsRouteImport } from './routes/shipments'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as StocktakeRouteImport } from './routes/stocktake'
 import { Route as TemplatesRouteImport } from './routes/templates'
@@ -183,6 +184,7 @@ import { Route as TemplatesTemplateIdIndexRouteImport } from './routes/templates
 import { Route as TemplatesTemplateIdInUseRouteImport } from './routes/templates/$templateId/in-use'
 import { Route as TemplatesTemplateIdUpdateRouteImport } from './routes/templates/$templateId/update'
 import { Route as TemplatesTemplateIdVersionsRouteImport } from './routes/templates/$templateId/versions'
+import { Route as ApiCalendarFeedTokenRouteImport } from './routes/api/calendar/feed.$token'
 import { Route as ApiCollaborationResolveRoomsRouteImport } from './routes/api/collaboration/resolve.rooms'
 import { Route as ApiCollaborationResolveUsersRouteImport } from './routes/api/collaboration/resolve.users'
 import { Route as ApiExportDatasetVersionIdRouteImport } from './routes/api/export/dataset-version/$id'
@@ -358,6 +360,11 @@ const ShareTargetRoute = ShareTargetRouteImport.update({
 const SheetbaseComponentsRoute = SheetbaseComponentsRouteImport.update({
   id: '/sheetbase-components',
   path: '/sheetbase-components',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShipmentsRoute = ShipmentsRouteImport.update({
+  id: '/shipments',
+  path: '/shipments',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -1106,6 +1113,11 @@ const TemplatesTemplateIdVersionsRoute =
     path: '/versions',
     getParentRoute: () => TemplatesTemplateIdRoute,
   } as any)
+const ApiCalendarFeedTokenRoute = ApiCalendarFeedTokenRouteImport.update({
+  id: '/api/calendar/feed/$token',
+  path: '/api/calendar/feed/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCollaborationResolveRoomsRoute =
   ApiCollaborationResolveRoomsRouteImport.update({
     id: '/api/collaboration/resolve/rooms',
@@ -1283,6 +1295,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRouteWithChildren
   '/share-target': typeof ShareTargetRoute
   '/sheetbase-components': typeof SheetbaseComponentsRoute
+  '/shipments': typeof ShipmentsRoute
   '/sign-in': typeof SignInRoute
   '/stocktake': typeof StocktakeRoute
   '/templates': typeof TemplatesRouteWithChildren
@@ -1427,6 +1440,7 @@ export interface FileRoutesByFullPath {
   '/records/$recordId/': typeof RecordsRecordIdIndexRoute
   '/samples/$sampleId/': typeof SamplesSampleIdIndexRoute
   '/templates/$templateId/': typeof TemplatesTemplateIdIndexRoute
+  '/api/calendar/feed/$token': typeof ApiCalendarFeedTokenRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
@@ -1481,6 +1495,7 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/share-target': typeof ShareTargetRoute
   '/sheetbase-components': typeof SheetbaseComponentsRoute
+  '/shipments': typeof ShipmentsRoute
   '/sign-in': typeof SignInRoute
   '/stocktake': typeof StocktakeRoute
   '/templates': typeof TemplatesRouteWithChildren
@@ -1616,6 +1631,7 @@ export interface FileRoutesByTo {
   '/records/$recordId': typeof RecordsRecordIdIndexRoute
   '/samples/$sampleId': typeof SamplesSampleIdIndexRoute
   '/templates/$templateId': typeof TemplatesTemplateIdIndexRoute
+  '/api/calendar/feed/$token': typeof ApiCalendarFeedTokenRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
@@ -1675,6 +1691,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRouteWithChildren
   '/share-target': typeof ShareTargetRoute
   '/sheetbase-components': typeof SheetbaseComponentsRoute
+  '/shipments': typeof ShipmentsRoute
   '/sign-in': typeof SignInRoute
   '/stocktake': typeof StocktakeRoute
   '/templates': typeof TemplatesRouteWithChildren
@@ -1819,6 +1836,7 @@ export interface FileRoutesById {
   '/records/$recordId/': typeof RecordsRecordIdIndexRoute
   '/samples/$sampleId/': typeof SamplesSampleIdIndexRoute
   '/templates/$templateId/': typeof TemplatesTemplateIdIndexRoute
+  '/api/calendar/feed/$token': typeof ApiCalendarFeedTokenRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
@@ -1879,6 +1897,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/share-target'
     | '/sheetbase-components'
+    | '/shipments'
     | '/sign-in'
     | '/stocktake'
     | '/templates'
@@ -2023,6 +2042,7 @@ export interface FileRouteTypes {
     | '/records/$recordId/'
     | '/samples/$sampleId/'
     | '/templates/$templateId/'
+    | '/api/calendar/feed/$token'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
@@ -2077,6 +2097,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/share-target'
     | '/sheetbase-components'
+    | '/shipments'
     | '/sign-in'
     | '/stocktake'
     | '/templates'
@@ -2212,6 +2233,7 @@ export interface FileRouteTypes {
     | '/records/$recordId'
     | '/samples/$sampleId'
     | '/templates/$templateId'
+    | '/api/calendar/feed/$token'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
@@ -2270,6 +2292,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/share-target'
     | '/sheetbase-components'
+    | '/shipments'
     | '/sign-in'
     | '/stocktake'
     | '/templates'
@@ -2414,6 +2437,7 @@ export interface FileRouteTypes {
     | '/records/$recordId/'
     | '/samples/$sampleId/'
     | '/templates/$templateId/'
+    | '/api/calendar/feed/$token'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
@@ -2473,6 +2497,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRouteWithChildren
   ShareTargetRoute: typeof ShareTargetRoute
   SheetbaseComponentsRoute: typeof SheetbaseComponentsRoute
+  ShipmentsRoute: typeof ShipmentsRoute
   SignInRoute: typeof SignInRoute
   StocktakeRoute: typeof StocktakeRoute
   TemplatesRoute: typeof TemplatesRouteWithChildren
@@ -2525,6 +2550,7 @@ export interface RootRouteChildren {
   ApiPipelinesTryDraftRoute: typeof ApiPipelinesTryDraftRoute
   ApiSignaturesStepUpRoute: typeof ApiSignaturesStepUpRoute
   ApiTokenIndexRoute: typeof ApiTokenIndexRoute
+  ApiCalendarFeedTokenRoute: typeof ApiCalendarFeedTokenRoute
   ApiCollaborationResolveRoomsRoute: typeof ApiCollaborationResolveRoomsRoute
   ApiCollaborationResolveUsersRoute: typeof ApiCollaborationResolveUsersRoute
   ApiExportDatasetVersionIdRoute: typeof ApiExportDatasetVersionIdRoute
@@ -2754,6 +2780,13 @@ declare module '@tanstack/react-router' {
       path: '/sheetbase-components'
       fullPath: '/sheetbase-components'
       preLoaderRoute: typeof SheetbaseComponentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shipments': {
+      id: '/shipments'
+      path: '/shipments'
+      fullPath: '/shipments'
+      preLoaderRoute: typeof ShipmentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -3764,6 +3797,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TemplatesTemplateIdVersionsRouteImport
       parentRoute: typeof TemplatesTemplateIdRoute
     }
+    '/api/calendar/feed/$token': {
+      id: '/api/calendar/feed/$token'
+      path: '/api/calendar/feed/$token'
+      fullPath: '/api/calendar/feed/$token'
+      preLoaderRoute: typeof ApiCalendarFeedTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/collaboration/resolve/rooms': {
       id: '/api/collaboration/resolve/rooms'
       path: '/api/collaboration/resolve/rooms'
@@ -4430,6 +4470,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRouteWithChildren,
   ShareTargetRoute: ShareTargetRoute,
   SheetbaseComponentsRoute: SheetbaseComponentsRoute,
+  ShipmentsRoute: ShipmentsRoute,
   SignInRoute: SignInRoute,
   StocktakeRoute: StocktakeRoute,
   TemplatesRoute: TemplatesRouteWithChildren,
@@ -4482,6 +4523,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPipelinesTryDraftRoute: ApiPipelinesTryDraftRoute,
   ApiSignaturesStepUpRoute: ApiSignaturesStepUpRoute,
   ApiTokenIndexRoute: ApiTokenIndexRoute,
+  ApiCalendarFeedTokenRoute: ApiCalendarFeedTokenRoute,
   ApiCollaborationResolveRoomsRoute: ApiCollaborationResolveRoomsRoute,
   ApiCollaborationResolveUsersRoute: ApiCollaborationResolveUsersRoute,
   ApiExportDatasetVersionIdRoute: ApiExportDatasetVersionIdRoute,

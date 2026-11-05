@@ -46,6 +46,7 @@ import type { ShellCounts } from '#/lib/shell-counts.server'
 import type { ShellPinned } from '#/lib/shell-chrome.server'
 import type { Notification } from '#/components/types'
 import { parseThemeCookie, themeScript } from '#/lib/theme-cookie'
+import { FAVICON_LIGHT_UI, faviconScript } from '#/lib/favicon'
 import type { ThemePref } from '#/lib/theme-cookie'
 import { clientPortalRedirect } from '#/lib/client-portal-only'
 import { capabilitiesFromEnv } from '#/lib/capabilities'
@@ -152,7 +153,29 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       },
     ],
     links: [
-      { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+      // PNG fallbacks first for browsers without SVG favicons, picked by the
+      // browser's light/dark setting; the SVG last so browsers that support
+      // it prefer it. `faviconScript` swaps the SVG to match the tab strip.
+      {
+        rel: 'icon',
+        href: '/favicon-32.png',
+        type: 'image/png',
+        sizes: '32x32',
+        media: '(prefers-color-scheme: light)',
+      },
+      {
+        rel: 'icon',
+        href: '/favicon-dark-32.png',
+        type: 'image/png',
+        sizes: '32x32',
+        media: '(prefers-color-scheme: dark)',
+      },
+      {
+        rel: 'icon',
+        href: FAVICON_LIGHT_UI,
+        type: 'image/svg+xml',
+        suppressHydrationWarning: true,
+      },
       { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
       { rel: 'manifest', href: '/manifest.webmanifest' },
       ...splashLinks(),
@@ -419,6 +442,10 @@ function AppDocument({ children }: { children: React.ReactNode }) {
             burying real mismatches. */}
         <script
           dangerouslySetInnerHTML={{ __html: themeScript }}
+          suppressHydrationWarning
+        />
+        <script
+          dangerouslySetInnerHTML={{ __html: faviconScript }}
           suppressHydrationWarning
         />
       </head>

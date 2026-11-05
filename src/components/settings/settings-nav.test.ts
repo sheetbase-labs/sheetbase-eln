@@ -24,6 +24,7 @@ const LAB = [
   'Sample release',
   'Sample workflows',
   'Instruments and parsers',
+  'Retention and holds',
 ]
 
 const labels = (
@@ -64,7 +65,9 @@ describe('SHELL-01.2 settings navigation', () => {
   })
 
   it('gives a steward lab setup and integrations without workspace administration', () => {
-    expect(labels('steward', 'lab')).toEqual(LAB)
+    expect(labels('steward', 'lab')).toEqual(
+      LAB.filter((l) => l !== 'Retention and holds'),
+    )
     expect(labels('steward', 'workspace')).toEqual(['Integrations'])
   })
 

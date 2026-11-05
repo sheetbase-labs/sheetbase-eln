@@ -82,4 +82,56 @@ describe('useKeyboardInset', () => {
     android.unmount()
     ua.mockRestore()
   })
+
+  it('re-measures after focus when iOS skips the first viewport resize', () => {
+    vi.useFakeTimers()
+    const viewport = new FakeViewport()
+    Object.defineProperty(window, 'visualViewport', {
+      value: viewport,
+      configurable: true,
+    })
+    Object.defineProperty(window, 'innerHeight', {
+      value: 800,
+      configurable: true,
+    })
+    const root = document.documentElement
+    const { unmount } = renderHook(() => useKeyboardInset(true))
+    expect(root.style.getPropertyValue('--kb-inset')).toBe('0px')
+
+    // The keyboard slides in after focus, with no resize event from the viewport.
+    act(() => {
+      document.body.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+      viewport.height = 464
+      vi.advanceTimersByTime(1000)
+    })
+    expect(root.style.getPropertyValue('--kb-inset')).toBe('336px')
+    expect(root.style.getPropertyValue('--vv-height')).toBe('464px')
+
+    unmount()
+    vi.useRealTimers()
+  })
+
+  it('pads by the safe area only while the keyboard is closed', () => {
+    const viewport = new FakeViewport()
+    Object.defineProperty(window, 'visualViewport', {
+      value: viewport,
+      configurable: true,
+    })
+    Object.defineProperty(window, 'innerHeight', {
+      value: 800,
+      configurable: true,
+    })
+    const root = document.documentElement
+    const { unmount } = renderHook(() => useKeyboardInset(true))
+    expect(root.style.getPropertyValue('--kb-safe-bottom')).toBe(
+      'env(safe-area-inset-bottom)',
+    )
+    act(() => {
+      viewport.height = 464
+      viewport.dispatchEvent(new Event('resize'))
+    })
+    expect(root.style.getPropertyValue('--kb-safe-bottom')).toBe('0px')
+    unmount()
+    expect(root.style.getPropertyValue('--kb-safe-bottom')).toBe('')
+  })
 })

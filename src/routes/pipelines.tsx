@@ -49,7 +49,10 @@ import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { ProjectListFailure } from '#/components/projects/project-list'
 import { Tabs } from '#/components/ui/tabs'
 import { toast } from '#/components/ui/sonner'
-import { createPipelineDefinition } from '#/lib/pipelines/data'
+import {
+  createPipelineDefinition,
+  updatePipelineDefinition,
+} from '#/lib/pipelines/data'
 import { suggestPipelineKey } from '#/lib/pipelines/authoring'
 import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
@@ -66,7 +69,6 @@ import { useRunLauncher } from '#/components/pipelines/use-run-launcher'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { useListView } from '#/lib/list-views'
 import { undoToast } from '#/lib/undo-toast'
-import { updatePipelineDefinition } from '#/lib/pipelines/data'
 
 const tabs = [
   'all',

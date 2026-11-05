@@ -173,4 +173,86 @@ describe('office file block', () => {
       expect.objectContaining({ expanded: true }),
     )
   })
+
+  describe('with the browser editor running', () => {
+    // Its own file: whether a block is full size is remembered per file.
+    const editorPayload = { ...payload, fileRecordId: 'file-2' }
+
+    function stubEditor(session: Response) {
+      const fetcher = vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/api/office-editor/status')) {
+          return Promise.resolve(
+            Response.json({ enabled: true, reachable: true }),
+          )
+        }
+        if (url.includes('/api/office-editor/session')) {
+          return Promise.resolve(session)
+        }
+        return Promise.reject(new Error(`unexpected ${url}`))
+      })
+      vi.stubGlobal('fetch', fetcher)
+      vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {})
+      return fetcher
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+      vi.restoreAllMocks()
+    })
+
+    it('shows the real Office view in place of the built-in preview', async () => {
+      fetchVersions.mockResolvedValue([version(1)])
+      const fetcher = stubEditor(
+        Response.json({
+          actionUrl: 'https://office.example/edit?WOPISrc=x',
+          accessToken: 'token',
+          accessTokenTtl: 1,
+          canEdit: false,
+          lockedReason: null,
+          fileName: 'plate.xlsx',
+        }),
+      )
+      renderBlock(<OfficeFileBlock payload={editorPayload} />)
+      expect(await screen.findByTestId('office-viewer')).toBeTruthy()
+      await waitFor(() =>
+        expect(document.querySelector('iframe')).not.toBeNull(),
+      )
+      expect(load).not.toHaveBeenCalled()
+      const call = fetcher.mock.calls.find(([u]) =>
+        String(u).includes('/session'),
+      )
+      expect(JSON.parse(String(call?.[1]?.body))).toMatchObject({
+        fileRecordId: 'file-2',
+        mode: 'view',
+      })
+    })
+
+    it('falls back to the built-in preview when the editor cannot show the file', async () => {
+      fetchVersions.mockResolvedValue([version(1)])
+      load.mockResolvedValue({
+        kind: 'sheets',
+        sheets: [
+          { name: 'Plate 1', rows: [['A1']], totalRows: 1, totalColumns: 1 },
+        ],
+      })
+      stubEditor(Response.json({ error: { message: 'down' } }, { status: 502 }))
+      renderBlock(<OfficeFileBlock payload={editorPayload} />)
+      expect(await screen.findByText('A1')).toBeTruthy()
+    })
+
+    it('keeps the built-in preview for a version older than the latest', async () => {
+      fetchVersions.mockResolvedValue([version(1), version(2)])
+      load.mockResolvedValue({
+        kind: 'sheets',
+        sheets: [
+          { name: 'Plate 1', rows: [['A1']], totalRows: 1, totalColumns: 1 },
+        ],
+      })
+      stubEditor(Response.json({}))
+      renderBlock(<OfficeFileBlock payload={editorPayload} />)
+      expect(await screen.findByText('A1')).toBeTruthy()
+      expect(screen.queryByTestId('office-viewer')).toBeNull()
+    })
+  })
 })

@@ -12,6 +12,8 @@ import {
 import { Spinner } from '#/components/v3/ui/spinner'
 import { toast } from '#/components/v3/ui/sonner'
 import { t } from '#/copy'
+import { OfficeViewer, useOfficeEditorLive } from '../office-editor'
+import { editableExtension } from '#/lib/office-editor'
 import { uploadFileVersion } from '#/lib/experiment-files'
 import { formatFileSize } from '#/lib/format-numbers'
 import { notebookQueryKeys } from '#/lib/notebook-data'
@@ -196,6 +198,16 @@ export function OfficeFileBlock({
   const addressed = pinned === null ? null : (shown?.version ?? pinned)
 
   const [open, setOpen] = React.useState(() => byteSize <= PREVIEW_AUTO_BYTES)
+  // When the workspace runs the browser editor, the block shows the file as
+  // Office itself draws it. The built-in preview stays for installs without
+  // it, for older versions the editor cannot show, and if it fails to answer.
+  const editor = useOfficeEditorLive()
+  const [viewerFailed, setViewerFailed] = React.useState(false)
+  const wantsViewer =
+    editableExtension(shownName) !== null && !resolved.newer && !viewerFailed
+  const viewer = wantsViewer && editor === 'on'
+  const viewerPending = wantsViewer && editor === 'pending'
+  const canExpand = viewer || (kind !== null && open)
   const [expanded, setExpanded] = useExpanded(fileRecordId)
   const [busy, setBusy] = React.useState(false)
   const input = React.useRef<HTMLInputElement>(null)
@@ -312,7 +324,7 @@ export function OfficeFileBlock({
           </span>
         ) : null}
         <span className="ml-auto flex flex-wrap items-center gap-1.5">
-          {kind && open ? (
+          {canExpand ? (
             <Button size="sm" icon="expand" onClick={() => setExpanded(true)}>
               {t('notebook.officeFiles.expand')}
             </Button>
@@ -354,7 +366,21 @@ export function OfficeFileBlock({
           ) : null}
         </span>
       </div>
-      {kind ? (
+      {viewerPending ? (
+        <div
+          role="status"
+          className="flex min-h-80 items-start gap-2 text-sm text-fg-muted"
+        >
+          <Spinner />
+          {t('notebook.officeFiles.loading')}
+        </div>
+      ) : viewer ? (
+        <OfficeViewer
+          fileRecordId={fileRecordId}
+          version={shown?.version ?? null}
+          onUnavailable={() => setViewerFailed(true)}
+        />
+      ) : kind ? (
         open ? (
           <FilePreview
             fileRecordId={fileRecordId}
@@ -377,12 +403,19 @@ export function OfficeFileBlock({
           </div>
         )
       ) : null}
-      {kind ? (
+      {kind || viewer ? (
         <Dialog open={expanded} onOpenChange={setExpanded}>
           <DialogContent className="top-[5vh] max-h-[90vh] w-[min(1100px,calc(100vw-32px))]">
             <DialogHeader title={shownName} />
             <DialogBody>
-              {expanded ? (
+              {expanded && viewer ? (
+                <OfficeViewer
+                  fileRecordId={fileRecordId}
+                  version={shown?.version ?? null}
+                  tall
+                  onUnavailable={() => setViewerFailed(true)}
+                />
+              ) : expanded && kind ? (
                 <FilePreview
                   fileRecordId={fileRecordId}
                   version={addressed}

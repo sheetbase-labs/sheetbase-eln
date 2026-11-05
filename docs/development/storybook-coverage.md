@@ -429,5 +429,4 @@ server, so every notebook comes back in the "not updated" list.
 | Module                                              | Why no story                                                                                                                                   |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/components/v3/experiments/experiments-data.ts` | Query keys, list filters, row mapping and hooks for the experiments list. Nothing renders; the screens that use it have stories.               |
-| `src/components/v3/projects/project-data.ts`        | The project screens' data client, fetchers, mutations and hooks. Nothing renders.                                                              |
 | `src/components/v3/projects/project-lists.ts`       | Page-size constants, filters, fetchers and hooks behind the project lists (which have stories in `ProjectLists.stories.tsx`). Nothing renders. |

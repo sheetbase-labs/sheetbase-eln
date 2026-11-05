@@ -1415,7 +1415,10 @@ function NotebookDocumentContent({
                   <div
                     className={cn(
                       proseRun && !proseRun.isLast
-                        ? 'absolute inset-x-0 -top-2 flex h-4 items-center justify-center'
+                        ? // On a touch screen there is no hover to reveal it,
+                          // so the hidden button would swallow taps on the
+                          // text it floats over. Typing / inserts there.
+                          'absolute inset-x-0 -top-2 flex h-4 items-center justify-center pointer-coarse:pointer-events-none'
                         : 'contents',
                     )}
                   >

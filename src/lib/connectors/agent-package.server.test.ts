@@ -283,7 +283,7 @@ describe('live readings agent', () => {
     })
     const files = unzipSync(new Uint8Array(await response.arrayBuffer()))
     const settings = JSON.parse(
-      strFromU8(files['sheetbase-agent/sheetbase-agent.json']!),
+      strFromU8(files['sheetbase-agent/sheetbase-agent.json']),
     )
     expect(settings).toEqual({
       url: 'https://eln.example.com',
@@ -291,7 +291,7 @@ describe('live readings agent', () => {
       instrumentId: INSTRUMENT,
       live,
     })
-    expect(strFromU8(files['sheetbase-agent/README.txt']!)).toContain(
+    expect(strFromU8(files['sheetbase-agent/README.txt'])).toContain(
       '192.168.1.20:4001',
     )
   })

@@ -423,12 +423,14 @@ interface RecordLabelWire {
 
 interface DatasetLabelWire {
   id: string
+  display_id: string | null
   name: string
   lifecycle: string
 }
 
 interface SheetLabelWire {
   id: string
+  display_id: string | null
   name: string
   lifecycle: string
 }
@@ -496,13 +498,13 @@ export async function resolveRecentItems(
         client,
         'datasets',
         idsByKind.get('dataset'),
-        'id,name,lifecycle',
+        'id,display_id,name,lifecycle',
       ),
       listByIds<SheetLabelWire>(
         client,
         'sheet_instances',
         idsByKind.get('sheet'),
-        'id,name,lifecycle',
+        'id,display_id,name,lifecycle',
       ),
       listByIds<ProjectWire>(
         client,
@@ -534,6 +536,7 @@ export async function resolveRecentItems(
     datasetRows.map((d) => [
       d.id,
       {
+        displayId: d.display_id,
         name: d.name,
         status: d.lifecycle,
         resumable: d.lifecycle === 'active',
@@ -544,6 +547,7 @@ export async function resolveRecentItems(
     sheetRows.map((s) => [
       s.id,
       {
+        displayId: s.display_id,
         name: s.name,
         status: s.lifecycle,
         resumable: s.lifecycle === 'active',
@@ -594,7 +598,7 @@ export async function resolveRecentItems(
         resolved.push({
           ...item,
           label: dataset.name,
-          identifier: null,
+          identifier: dataset.displayId,
           destination: datasetPath(item.id),
           status: dataset.status,
         })
@@ -606,7 +610,7 @@ export async function resolveRecentItems(
         resolved.push({
           ...item,
           label: sheet.name,
-          identifier: null,
+          identifier: sheet.displayId,
           destination: sheetPath(item.id),
           status: sheet.status,
         })

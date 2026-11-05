@@ -357,9 +357,21 @@ describe('resolveRecentItems', () => {
             deleted_at: null,
           },
         ],
-        datasets: [{ id: 'd-1', name: 'Assay readouts', lifecycle: 'active' }],
+        datasets: [
+          {
+            id: 'd-1',
+            display_id: 'DS-0007',
+            name: 'Assay readouts',
+            lifecycle: 'active',
+          },
+        ],
         sheet_instances: [
-          { id: 's-1', name: 'Dose response', lifecycle: 'active' },
+          {
+            id: 's-1',
+            display_id: 'SH-0003',
+            name: 'Dose response',
+            lifecycle: 'active',
+          },
         ],
         projects: [
           {
@@ -387,6 +399,13 @@ describe('resolveRecentItems', () => {
       ['dataset', '/datasets/d-1'],
       ['project', '/projects/p-1'],
       ['notebook_template', '/templates?template=t-1'],
+    ])
+    expect(items.map((i) => [i.kind, i.identifier])).toEqual([
+      ['sheet', 'SH-0003'],
+      ['record', 'EXP-1'],
+      ['dataset', 'DS-0007'],
+      ['project', 'LV-1'],
+      ['notebook_template', 'pk_study'],
     ])
   })
 

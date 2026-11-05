@@ -1,122 +1,106 @@
--- Biological registry. A governed list of the things a lab makes and keeps
--- using: constructs (plasmids and other DNA), cell lines and antibodies.
+-- Registries. A record model can be ticked as a registry: a governed list of
+-- the things a lab makes and keeps using (constructs, cell lines, antibodies,
+-- strains, anything the lab models). Its records are the entries.
 --
--- Every entry gets a registry number that is never reused or edited (CON-0001,
--- CL-0001, AB-0001), so a plate, a freezer box or a paper can name exactly one
--- thing. Before an entry is added the app asks for a duplicate check: the same
--- sequence, the same name, or the same vendor and catalogue number is reported
--- and the person either uses the existing entry or registers it again on
--- purpose. Entries are retired, never deleted.
+-- A registry adds three things to an ordinary record model:
+--   * a duplicate check: before an entry is added or changed, the app and the
+--     database look for another entry with the same name or with the same
+--     values in the model's "key" fields (say vendor and catalogue number);
+--     a repeat is refused unless the person registers it again on purpose;
+--   * lineage: an entry can name the entries it came from (a plasmid's vector
+--     and insert, a cell line's parent line) with the part each one played,
+--     and loops are refused;
+--   * retiring: an entry is archived, never deleted, and keeps its number.
+-- The number is the model's own identifier (CON-0001) and is never reused.
 --
--- An entry can name the entries it came from (a plasmid's vector and insert, a
--- cell line's parent line and the construct it was transfected with), which is
--- the lineage, and can be linked to the samples and records that use it.
+-- Lineage reuses record links (type 'upstream', the part played in the link
+-- metadata) and "used by" reuses the ordinary incoming links, so the lineage
+-- views already in the app show registry entries without any new plumbing.
 
-CREATE TABLE api.registry_entries (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    workspace_id uuid NOT NULL,
-    kind text NOT NULL,
-    number integer NOT NULL,
-    registry_id text NOT NULL,
-    name text NOT NULL,
-    description text,
-    status text DEFAULT 'active' NOT NULL,
-    -- What is particular to the kind (host species, clone, vector and so on).
-    details jsonb DEFAULT '{}'::jsonb NOT NULL,
-    -- What the duplicate check compares: a hash of the sequence for a construct,
-    -- the cleaned-up name for a cell line, vendor and catalogue number or clone
-    -- for an antibody.
-    fingerprint text,
-    retired_reason text,
-    retired_at timestamp with time zone,
-    created_by text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_by text,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT registry_entries_pkey PRIMARY KEY (id),
-    CONSTRAINT uq_registry_entries_number UNIQUE (workspace_id, kind, number),
-    CONSTRAINT uq_registry_entries_registry_id UNIQUE (workspace_id, registry_id),
-    CONSTRAINT registry_entries_workspace_fk FOREIGN KEY (workspace_id) REFERENCES api.workspaces(id) ON DELETE CASCADE,
-    CONSTRAINT chk_registry_entries_kind CHECK (kind IN ('construct', 'cell_line', 'antibody')),
-    CONSTRAINT chk_registry_entries_status CHECK (status IN ('active', 'retired')),
-    CONSTRAINT chk_registry_entries_name CHECK (btrim(name) <> ''),
-    CONSTRAINT chk_registry_entries_details CHECK (jsonb_typeof(details) = 'object' AND pg_column_size(details) < 16384)
-);
+ALTER TABLE api.record_models
+    ADD COLUMN is_registry boolean DEFAULT false NOT NULL,
+    ADD COLUMN registry_key_fields text[] DEFAULT '{}'::text[] NOT NULL,
+    ADD COLUMN registry_sequence_field text;
 --> statement-breakpoint
-ALTER TABLE api.registry_entries OWNER TO migrator;
---> statement-breakpoint
-CREATE INDEX idx_registry_entries_list ON api.registry_entries (workspace_id, kind, number DESC);
---> statement-breakpoint
-CREATE INDEX idx_registry_entries_fingerprint ON api.registry_entries (workspace_id, kind, fingerprint) WHERE fingerprint IS NOT NULL;
---> statement-breakpoint
-CREATE INDEX idx_registry_entries_name ON api.registry_entries (workspace_id, kind, lower(btrim(name)));
+ALTER TABLE api.record_models
+    ADD CONSTRAINT chk_record_models_registry_keys CHECK (
+      NOT is_registry OR (cardinality(registry_key_fields) <= 4));
 --> statement-breakpoint
 
--- Where an entry came from. One row per parent, with the part it played.
-CREATE TABLE api.registry_parents (
-    entry_id uuid NOT NULL,
-    parent_id uuid NOT NULL,
-    workspace_id uuid NOT NULL,
-    role text DEFAULT 'parent' NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT registry_parents_pkey PRIMARY KEY (entry_id, parent_id),
-    CONSTRAINT registry_parents_entry_fk FOREIGN KEY (entry_id) REFERENCES api.registry_entries(id) ON DELETE CASCADE,
-    CONSTRAINT registry_parents_parent_fk FOREIGN KEY (parent_id) REFERENCES api.registry_entries(id) ON DELETE CASCADE,
-    CONSTRAINT registry_parents_workspace_fk FOREIGN KEY (workspace_id) REFERENCES api.workspaces(id) ON DELETE CASCADE,
-    CONSTRAINT chk_registry_parents_self CHECK (entry_id <> parent_id),
-    CONSTRAINT chk_registry_parents_role CHECK (role IN ('parent', 'vector', 'insert', 'backbone', 'transfected_with', 'clone_of'))
-);
---> statement-breakpoint
-ALTER TABLE api.registry_parents OWNER TO migrator;
---> statement-breakpoint
-CREATE INDEX idx_registry_parents_parent ON api.registry_parents (parent_id);
---> statement-breakpoint
-
--- Samples, lots and other records that use an entry.
-CREATE TABLE api.registry_uses (
-    entry_id uuid NOT NULL,
-    record_id uuid NOT NULL,
-    workspace_id uuid NOT NULL,
-    linked_by text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT registry_uses_pkey PRIMARY KEY (entry_id, record_id),
-    CONSTRAINT registry_uses_entry_fk FOREIGN KEY (entry_id) REFERENCES api.registry_entries(id) ON DELETE CASCADE,
-    CONSTRAINT registry_uses_record_fk FOREIGN KEY (record_id) REFERENCES api.records(id) ON DELETE CASCADE,
-    CONSTRAINT registry_uses_workspace_fk FOREIGN KEY (workspace_id) REFERENCES api.workspaces(id) ON DELETE CASCADE
-);
---> statement-breakpoint
-ALTER TABLE api.registry_uses OWNER TO migrator;
---> statement-breakpoint
-CREATE INDEX idx_registry_uses_record ON api.registry_uses (record_id);
+-- Subtype lookups list the model's columns by name, so they have to learn the
+-- new ones.
+CREATE OR REPLACE FUNCTION internal.model_descendants(p_workspace uuid, p_key text) RETURNS SETOF api.record_models
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  WITH RECURSIVE below AS (
+    SELECT m.*, 1 AS depth FROM api.record_models m WHERE m.workspace_id = p_workspace AND m.parent_key = p_key
+    UNION ALL
+    SELECT m.*, below.depth + 1 FROM api.record_models m
+      JOIN below ON m.workspace_id = p_workspace AND m.parent_key = below.key
+     WHERE below.depth < 64
+  )
+  SELECT id, workspace_id, key, name, description, identifier_prefix, lifecycle, current_version,
+         created_at, updated_at, created_by_user_id, updated_by_user_id, parent_key,
+         is_registry, registry_key_fields, registry_sequence_field
+    FROM below
+$$;
 --> statement-breakpoint
 
-ALTER TABLE api.registry_entries ENABLE ROW LEVEL SECURITY;
+-- Entries that look like the one being added or changed, best match first.
+-- "exact": every key field matches another entry's (and none is empty).
+-- "name": the same name once case and spacing are ignored.
+CREATE FUNCTION internal.registry_matches(
+    p_workspace_id uuid, p_kind text, p_title text, p_custom_fields jsonb, p_exclude_id uuid)
+RETURNS TABLE (id uuid, identifier text, title text, archived boolean, match text)
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_keys text[];
+  v_key text;
+  v_values text[] := '{}';
+  v_complete boolean := true;
+  v_value text;
+BEGIN
+  SELECT registry_key_fields INTO v_keys
+    FROM api.record_models
+   WHERE workspace_id = p_workspace_id AND key = p_kind AND is_registry;
+  IF NOT FOUND THEN RETURN; END IF;
+
+  IF cardinality(v_keys) = 0 THEN
+    v_complete := false;
+  ELSE
+    FOREACH v_key IN ARRAY v_keys LOOP
+      v_value := lower(btrim(coalesce(p_custom_fields ->> v_key, '')));
+      IF v_value = '' THEN v_complete := false; END IF;
+      v_values := v_values || v_value;
+    END LOOP;
+  END IF;
+
+  RETURN QUERY
+  SELECT r.id, r.identifier, r.title, r.archived_at IS NOT NULL,
+         CASE WHEN v_complete AND (
+                SELECT bool_and(lower(btrim(coalesce(r.custom_fields ->> k.name, ''))) = v_values[k.ord])
+                  FROM unnest(v_keys) WITH ORDINALITY AS k(name, ord))
+              THEN 'exact' ELSE 'name' END
+    FROM api.records r
+   WHERE r.workspace_id = p_workspace_id AND r.kind = p_kind AND r.deleted_at IS NULL
+     AND (p_exclude_id IS NULL OR r.id <> p_exclude_id)
+     AND (lower(btrim(r.title)) = lower(btrim(coalesce(p_title, '')))
+          OR (v_complete AND (
+                SELECT bool_and(lower(btrim(coalesce(r.custom_fields ->> k.name, ''))) = v_values[k.ord])
+                  FROM unnest(v_keys) WITH ORDINALITY AS k(name, ord))))
+   ORDER BY 5, r.identifier;
+END $$;
 --> statement-breakpoint
-ALTER TABLE api.registry_parents ENABLE ROW LEVEL SECURITY;
+ALTER FUNCTION internal.registry_matches(p_workspace_id uuid, p_kind text, p_title text, p_custom_fields jsonb, p_exclude_id uuid) OWNER TO migrator;
 --> statement-breakpoint
-ALTER TABLE api.registry_uses ENABLE ROW LEVEL SECURITY;
---> statement-breakpoint
-CREATE POLICY registry_entries_select ON api.registry_entries FOR SELECT TO authenticated
-    USING (api.storage_member_using(workspace_id));
---> statement-breakpoint
-CREATE POLICY registry_parents_select ON api.registry_parents FOR SELECT TO authenticated
-    USING (api.storage_member_using(workspace_id));
---> statement-breakpoint
-CREATE POLICY registry_uses_select ON api.registry_uses FOR SELECT TO authenticated
-    USING (api.storage_member_using(workspace_id));
---> statement-breakpoint
-GRANT SELECT ON TABLE api.registry_entries TO authenticated;
---> statement-breakpoint
-GRANT SELECT ON TABLE api.registry_parents TO authenticated;
---> statement-breakpoint
-GRANT SELECT ON TABLE api.registry_uses TO authenticated;
+REVOKE ALL ON FUNCTION internal.registry_matches(p_workspace_id uuid, p_kind text, p_title text, p_custom_fields jsonb, p_exclude_id uuid) FROM PUBLIC;
 --> statement-breakpoint
 
--- Entries that look like the one being added, best match first. "exact" is the
--- same fingerprint (same sequence, same vendor and catalogue number); "name" is
--- the same name once case and spacing are ignored.
-CREATE FUNCTION api.registry_find_duplicates(p_kind text, p_name text, p_fingerprint text DEFAULT NULL, p_exclude_id uuid DEFAULT NULL)
-RETURNS TABLE (id uuid, registry_id text, name text, status text, match text)
+CREATE FUNCTION api.registry_find_duplicates(p_kind text, p_title text, p_custom_fields jsonb DEFAULT '{}'::jsonb, p_exclude_id uuid DEFAULT NULL)
+RETURNS TABLE (id uuid, identifier text, title text, archived boolean, match text)
     LANGUAGE plpgsql STABLE SECURITY DEFINER
     SET search_path TO ''
     AS $$
@@ -126,207 +110,170 @@ BEGIN
   IF v_workspace_id IS NULL OR NOT api.is_workspace_member(v_workspace_id) THEN
     RAISE EXCEPTION 'not a member of the active workspace' USING ERRCODE = '42501';
   END IF;
-  RETURN QUERY
-  SELECT e.id, e.registry_id, e.name, e.status,
-         CASE WHEN p_fingerprint IS NOT NULL AND e.fingerprint = p_fingerprint THEN 'exact' ELSE 'name' END
-    FROM api.registry_entries e
-   WHERE e.workspace_id = v_workspace_id
-     AND e.kind = p_kind
-     AND (p_exclude_id IS NULL OR e.id <> p_exclude_id)
-     AND ((p_fingerprint IS NOT NULL AND e.fingerprint = p_fingerprint)
-          OR lower(btrim(e.name)) = lower(btrim(coalesce(p_name, ''))))
-   ORDER BY (p_fingerprint IS NOT NULL AND e.fingerprint = p_fingerprint) DESC, e.number;
+  RETURN QUERY SELECT * FROM internal.registry_matches(v_workspace_id, p_kind, p_title, p_custom_fields, p_exclude_id);
 END $$;
 --> statement-breakpoint
-ALTER FUNCTION api.registry_find_duplicates(p_kind text, p_name text, p_fingerprint text, p_exclude_id uuid) OWNER TO migrator;
+ALTER FUNCTION api.registry_find_duplicates(p_kind text, p_title text, p_custom_fields jsonb, p_exclude_id uuid) OWNER TO migrator;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION api.registry_find_duplicates(p_kind text, p_name text, p_fingerprint text, p_exclude_id uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION api.registry_find_duplicates(p_kind text, p_title text, p_custom_fields jsonb, p_exclude_id uuid) FROM PUBLIC;
 --> statement-breakpoint
-GRANT ALL ON FUNCTION api.registry_find_duplicates(p_kind text, p_name text, p_fingerprint text, p_exclude_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION api.registry_find_duplicates(p_kind text, p_title text, p_custom_fields jsonb, p_exclude_id uuid) TO authenticated;
 --> statement-breakpoint
 
--- Add an entry. Fails with SB012 when it duplicates an existing one unless the
--- caller says to register it anyway.
-CREATE FUNCTION api.create_registry_entry(
-    p_kind text, p_name text, p_description text DEFAULT NULL, p_details jsonb DEFAULT '{}'::jsonb,
-    p_fingerprint text DEFAULT NULL,
-    p_parents jsonb DEFAULT '[]'::jsonb, p_allow_duplicate boolean DEFAULT false)
-RETURNS api.registry_entries
+-- The database enforces the check, so an import or an API call cannot add a
+-- repeat either. `register anyway` sets a flag for the one transaction.
+CREATE FUNCTION internal.registry_guard() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
 DECLARE
-  v_workspace_id uuid := api.current_workspace_id();
-  v_entry api.registry_entries;
-  v_number integer;
-  v_prefix text;
-  v_parent jsonb;
-  v_parent_id uuid;
   v_dup text;
-BEGIN IF api.has_capability(v_workspace_id, 'work.samples') IS NOT TRUE THEN RAISE EXCEPTION 'not permitted: needs work.samples' USING ERRCODE = '42501'; END IF; -- capability-guard
-  IF v_workspace_id IS NULL OR NOT api.is_workspace_writer(v_workspace_id) THEN
-    RAISE EXCEPTION 'caller cannot write to the active workspace' USING ERRCODE = '42501';
+BEGIN
+  IF coalesce(current_setting('sheetbase.registry_allow_duplicate', true), '') = 'on' THEN
+    RETURN NEW;
   END IF;
-  IF p_kind IS NULL OR p_kind NOT IN ('construct', 'cell_line', 'antibody') THEN
-    RAISE EXCEPTION 'an entry is a construct, a cell line or an antibody' USING ERRCODE = '22023';
+  IF NEW.deleted_at IS NOT NULL THEN RETURN NEW; END IF;
+  IF NOT EXISTS (SELECT 1 FROM api.record_models m
+                  WHERE m.workspace_id = NEW.workspace_id AND m.key = NEW.kind AND m.is_registry) THEN
+    RETURN NEW;
   END IF;
-  IF btrim(coalesce(p_name, '')) = '' THEN
-    RAISE EXCEPTION 'give the entry a name' USING ERRCODE = '22023';
+  SELECT string_agg(d.identifier, ', ') INTO v_dup
+    FROM internal.registry_matches(NEW.workspace_id, NEW.kind, NEW.title, NEW.custom_fields, NEW.id) d;
+  IF v_dup IS NOT NULL THEN
+    RAISE EXCEPTION 'already in the registry: %', v_dup USING ERRCODE = 'SB012';
   END IF;
+  RETURN NEW;
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION internal.registry_guard() OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION internal.registry_guard() FROM PUBLIC;
+--> statement-breakpoint
+CREATE TRIGGER records_registry_guard BEFORE INSERT OR UPDATE OF title, custom_fields ON api.records
+    FOR EACH ROW EXECUTE FUNCTION internal.registry_guard();
+--> statement-breakpoint
 
-  PERFORM pg_advisory_xact_lock(hashtextextended('registry:' || v_workspace_id::text || ':' || p_kind, 0));
-
-  IF NOT coalesce(p_allow_duplicate, false) THEN
-    SELECT string_agg(d.registry_id, ', ') INTO v_dup
-      FROM api.registry_find_duplicates(p_kind, p_name, p_fingerprint) d;
-    IF v_dup IS NOT NULL THEN
-      RAISE EXCEPTION 'already in the registry: %', v_dup USING ERRCODE = 'SB012';
+-- Tick or untick a model as a registry and choose its duplicate-check fields.
+CREATE FUNCTION api.set_model_registry(
+    p_model_key text, p_is_registry boolean, p_key_fields text[] DEFAULT '{}'::text[],
+    p_sequence_field text DEFAULT NULL)
+RETURNS api.record_models
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_workspace_id uuid := api.current_workspace_id();
+  v_model api.record_models;
+  v_field text;
+BEGIN
+  PERFORM api.require_capability(v_workspace_id, 'schema.edit');
+  SELECT * INTO v_model FROM api.record_models WHERE workspace_id = v_workspace_id AND key = p_model_key;
+  IF v_model.id IS NULL THEN
+    RAISE EXCEPTION 'model not found' USING ERRCODE = 'SB036';
+  END IF;
+  p_key_fields := coalesce(p_key_fields, '{}');
+  IF cardinality(p_key_fields) > 4 THEN
+    RAISE EXCEPTION 'choose at most four fields for the duplicate check' USING ERRCODE = '22023';
+  END IF;
+  FOREACH v_field IN ARRAY p_key_fields || CASE WHEN nullif(p_sequence_field, '') IS NULL THEN '{}'::text[] ELSE ARRAY[p_sequence_field] END LOOP
+    IF NOT EXISTS (SELECT 1 FROM api.record_field_definitions d
+                    WHERE d.workspace_id = v_workspace_id AND d.kind = p_model_key
+                      AND d.field_name = v_field AND d.lifecycle = 'active') THEN
+      RAISE EXCEPTION 'the model has no active field called %', v_field USING ERRCODE = '22023';
     END IF;
-  END IF;
-
-  v_prefix := CASE p_kind WHEN 'construct' THEN 'CON' WHEN 'cell_line' THEN 'CL' ELSE 'AB' END;
-  SELECT coalesce(max(number), 0) + 1 INTO v_number
-    FROM api.registry_entries WHERE workspace_id = v_workspace_id AND kind = p_kind;
-
-  INSERT INTO api.registry_entries
-    (workspace_id, kind, number, registry_id, name, description, details, fingerprint,
-     created_by, updated_by)
-  VALUES
-    (v_workspace_id, p_kind, v_number, v_prefix || '-' || lpad(v_number::text, 4, '0'),
-     btrim(p_name), nullif(btrim(coalesce(p_description, '')), ''),
-     coalesce(p_details, '{}'::jsonb), nullif(p_fingerprint, ''),
-     api.current_user_id(), api.current_user_id())
-  RETURNING * INTO v_entry;
-
-  FOR v_parent IN SELECT * FROM jsonb_array_elements(coalesce(p_parents, '[]'::jsonb)) LOOP
-    v_parent_id := (v_parent ->> 'id')::uuid;
-    IF NOT EXISTS (SELECT 1 FROM api.registry_entries WHERE id = v_parent_id AND workspace_id = v_workspace_id) THEN
-      RAISE EXCEPTION 'parent entry not found' USING ERRCODE = 'SB036';
-    END IF;
-    INSERT INTO api.registry_parents (entry_id, parent_id, workspace_id, role)
-    VALUES (v_entry.id, v_parent_id, v_workspace_id, coalesce(nullif(v_parent ->> 'role', ''), 'parent'))
-    ON CONFLICT DO NOTHING;
   END LOOP;
-
-  RETURN v_entry;
+  UPDATE api.record_models
+     SET is_registry = coalesce(p_is_registry, false),
+         registry_key_fields = CASE WHEN coalesce(p_is_registry, false) THEN p_key_fields ELSE '{}' END,
+         registry_sequence_field = CASE WHEN coalesce(p_is_registry, false) THEN nullif(p_sequence_field, '') END,
+         updated_by_user_id = api.current_user_id(), updated_at = now()
+   WHERE id = v_model.id
+  RETURNING * INTO v_model;
+  RETURN v_model;
 END $$;
 --> statement-breakpoint
-ALTER FUNCTION api.create_registry_entry(p_kind text, p_name text, p_description text, p_details jsonb, p_fingerprint text, p_parents jsonb, p_allow_duplicate boolean) OWNER TO migrator;
+ALTER FUNCTION api.set_model_registry(p_model_key text, p_is_registry boolean, p_key_fields text[], p_sequence_field text) OWNER TO migrator;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION api.create_registry_entry(p_kind text, p_name text, p_description text, p_details jsonb, p_fingerprint text, p_parents jsonb, p_allow_duplicate boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION api.set_model_registry(p_model_key text, p_is_registry boolean, p_key_fields text[], p_sequence_field text) FROM PUBLIC;
 --> statement-breakpoint
-GRANT ALL ON FUNCTION api.create_registry_entry(p_kind text, p_name text, p_description text, p_details jsonb, p_fingerprint text, p_parents jsonb, p_allow_duplicate boolean) TO authenticated;
+GRANT ALL ON FUNCTION api.set_model_registry(p_model_key text, p_is_registry boolean, p_key_fields text[], p_sequence_field text) TO authenticated;
 --> statement-breakpoint
 
--- Change an entry's name, notes or details. The number and kind never change.
-CREATE FUNCTION api.update_registry_entry(
-    p_id uuid, p_name text, p_description text, p_details jsonb,
-    p_fingerprint text DEFAULT NULL)
-RETURNS api.registry_entries
-    LANGUAGE plpgsql SECURITY DEFINER
+-- Add an entry. Same as create_model_record, but a person who has seen the
+-- duplicate warning can register it anyway.
+CREATE FUNCTION api.create_registry_entry(
+    p_project_id uuid, p_kind text, p_title text, p_custom_fields jsonb DEFAULT '{}'::jsonb,
+    p_allow_duplicate boolean DEFAULT false)
+RETURNS api.records
+    LANGUAGE plpgsql
     SET search_path TO ''
     AS $$
 DECLARE
-  v_workspace_id uuid := api.current_workspace_id();
-  v_entry api.registry_entries;
-BEGIN IF api.has_capability(v_workspace_id, 'work.samples') IS NOT TRUE THEN RAISE EXCEPTION 'not permitted: needs work.samples' USING ERRCODE = '42501'; END IF; -- capability-guard
-  IF v_workspace_id IS NULL OR NOT api.is_workspace_writer(v_workspace_id) THEN
-    RAISE EXCEPTION 'caller cannot write to the active workspace' USING ERRCODE = '42501';
+  v_result api.records;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM api.record_models m
+                  WHERE m.workspace_id = api.current_workspace_id() AND m.key = p_kind AND m.is_registry) THEN
+    RAISE EXCEPTION 'that model is not a registry' USING ERRCODE = '22023';
   END IF;
-  IF btrim(coalesce(p_name, '')) = '' THEN
-    RAISE EXCEPTION 'give the entry a name' USING ERRCODE = '22023';
+  IF coalesce(p_allow_duplicate, false) THEN
+    PERFORM set_config('sheetbase.registry_allow_duplicate', 'on', true);
   END IF;
-  UPDATE api.registry_entries
-     SET name = btrim(p_name),
-         description = nullif(btrim(coalesce(p_description, '')), ''),
-         details = coalesce(p_details, '{}'::jsonb),
-         fingerprint = nullif(p_fingerprint, ''),
-         updated_by = api.current_user_id(),
-         updated_at = now()
-   WHERE id = p_id AND workspace_id = v_workspace_id
-  RETURNING * INTO v_entry;
-  IF v_entry.id IS NULL THEN
-    RAISE EXCEPTION 'entry not found' USING ERRCODE = 'SB036';
-  END IF;
-  RETURN v_entry;
+  SELECT * INTO v_result FROM api.create_model_record(p_project_id, p_kind, p_title, 'draft', '{}'::text[], '{}'::jsonb, p_custom_fields);
+  PERFORM set_config('sheetbase.registry_allow_duplicate', 'off', true);
+  RETURN v_result;
 END $$;
 --> statement-breakpoint
-ALTER FUNCTION api.update_registry_entry(p_id uuid, p_name text, p_description text, p_details jsonb, p_fingerprint text) OWNER TO migrator;
+ALTER FUNCTION api.create_registry_entry(p_project_id uuid, p_kind text, p_title text, p_custom_fields jsonb, p_allow_duplicate boolean) OWNER TO migrator;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION api.update_registry_entry(p_id uuid, p_name text, p_description text, p_details jsonb, p_fingerprint text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION api.create_registry_entry(p_project_id uuid, p_kind text, p_title text, p_custom_fields jsonb, p_allow_duplicate boolean) FROM PUBLIC;
 --> statement-breakpoint
-GRANT ALL ON FUNCTION api.update_registry_entry(p_id uuid, p_name text, p_description text, p_details jsonb, p_fingerprint text) TO authenticated;
---> statement-breakpoint
-
--- Retire an entry (or bring it back). It keeps its number and its lineage.
-CREATE FUNCTION api.set_registry_entry_status(p_id uuid, p_status text, p_reason text DEFAULT NULL)
-RETURNS api.registry_entries
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO ''
-    AS $$
-DECLARE
-  v_workspace_id uuid := api.current_workspace_id();
-  v_entry api.registry_entries;
-BEGIN IF api.has_capability(v_workspace_id, 'work.samples') IS NOT TRUE THEN RAISE EXCEPTION 'not permitted: needs work.samples' USING ERRCODE = '42501'; END IF; -- capability-guard
-  IF v_workspace_id IS NULL OR NOT api.is_workspace_writer(v_workspace_id) THEN
-    RAISE EXCEPTION 'caller cannot write to the active workspace' USING ERRCODE = '42501';
-  END IF;
-  IF p_status IS NULL OR p_status NOT IN ('active', 'retired') THEN
-    RAISE EXCEPTION 'an entry is active or retired' USING ERRCODE = '22023';
-  END IF;
-  UPDATE api.registry_entries
-     SET status = p_status,
-         retired_reason = CASE WHEN p_status = 'retired' THEN nullif(btrim(coalesce(p_reason, '')), '') END,
-         retired_at = CASE WHEN p_status = 'retired' THEN now() END,
-         updated_by = api.current_user_id(),
-         updated_at = now()
-   WHERE id = p_id AND workspace_id = v_workspace_id
-  RETURNING * INTO v_entry;
-  IF v_entry.id IS NULL THEN
-    RAISE EXCEPTION 'entry not found' USING ERRCODE = 'SB036';
-  END IF;
-  RETURN v_entry;
-END $$;
---> statement-breakpoint
-ALTER FUNCTION api.set_registry_entry_status(p_id uuid, p_status text, p_reason text) OWNER TO migrator;
---> statement-breakpoint
-REVOKE ALL ON FUNCTION api.set_registry_entry_status(p_id uuid, p_status text, p_reason text) FROM PUBLIC;
---> statement-breakpoint
-GRANT ALL ON FUNCTION api.set_registry_entry_status(p_id uuid, p_status text, p_reason text) TO authenticated;
+GRANT ALL ON FUNCTION api.create_registry_entry(p_project_id uuid, p_kind text, p_title text, p_custom_fields jsonb, p_allow_duplicate boolean) TO authenticated;
 --> statement-breakpoint
 
--- Name where an entry came from. Refuses a loop (an entry cannot descend from
--- its own descendant).
+-- Name where an entry came from. Both must be registry entries; a loop (an
+-- entry coming from its own descendant) is refused.
 CREATE FUNCTION api.add_registry_parent(p_entry_id uuid, p_parent_id uuid, p_role text DEFAULT 'parent')
 RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
+    LANGUAGE plpgsql
     SET search_path TO ''
     AS $$
 DECLARE
-  v_workspace_id uuid := api.current_workspace_id();
-BEGIN IF api.has_capability(v_workspace_id, 'work.samples') IS NOT TRUE THEN RAISE EXCEPTION 'not permitted: needs work.samples' USING ERRCODE = '42501'; END IF; -- capability-guard
-  IF v_workspace_id IS NULL OR NOT api.is_workspace_writer(v_workspace_id) THEN
-    RAISE EXCEPTION 'caller cannot write to the active workspace' USING ERRCODE = '42501';
-  END IF;
+  v_entry api.records;
+  v_parent api.records;
+BEGIN
   IF p_entry_id = p_parent_id THEN
     RAISE EXCEPTION 'an entry cannot come from itself' USING ERRCODE = '22023';
   END IF;
-  IF (SELECT count(*) FROM api.registry_entries
-       WHERE workspace_id = v_workspace_id AND id IN (p_entry_id, p_parent_id)) <> 2 THEN
+  SELECT * INTO v_entry FROM api.records WHERE id = p_entry_id;
+  SELECT * INTO v_parent FROM api.records WHERE id = p_parent_id;
+  IF v_entry.id IS NULL OR v_parent.id IS NULL
+     OR v_entry.workspace_id <> api.current_workspace_id()
+     OR v_parent.workspace_id <> api.current_workspace_id() THEN
     RAISE EXCEPTION 'entry not found' USING ERRCODE = 'SB036';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM api.record_models m
+                  WHERE m.workspace_id = v_entry.workspace_id AND m.key = v_entry.kind AND m.is_registry)
+     OR NOT EXISTS (SELECT 1 FROM api.record_models m
+                  WHERE m.workspace_id = v_parent.workspace_id AND m.key = v_parent.kind AND m.is_registry) THEN
+    RAISE EXCEPTION 'lineage links registry entries to registry entries' USING ERRCODE = '22023';
   END IF;
   IF EXISTS (
     WITH RECURSIVE down AS (
-      SELECT entry_id FROM api.registry_parents WHERE parent_id = p_entry_id
+      SELECT source_record_id AS rid FROM api.record_links
+       WHERE link_type = 'upstream' AND target_record_id = p_entry_id
       UNION
-      SELECT rp.entry_id FROM api.registry_parents rp JOIN down d ON rp.parent_id = d.entry_id
-    ) SELECT 1 FROM down WHERE entry_id = p_parent_id
+      SELECT l.source_record_id FROM api.record_links l JOIN down d ON l.target_record_id = d.rid
+       WHERE l.link_type = 'upstream'
+    ) SELECT 1 FROM down WHERE rid = p_parent_id
   ) THEN
     RAISE EXCEPTION 'that would make the entry come from its own descendant' USING ERRCODE = '22023';
   END IF;
-  INSERT INTO api.registry_parents (entry_id, parent_id, workspace_id, role)
-  VALUES (p_entry_id, p_parent_id, v_workspace_id, coalesce(nullif(p_role, ''), 'parent'))
-  ON CONFLICT (entry_id, parent_id) DO UPDATE SET role = EXCLUDED.role;
+  INSERT INTO api.record_links (source_record_id, target_record_id, target_kind, target_identifier,
+                               link_type, created_by_user_id, link_metadata)
+  VALUES (p_entry_id, p_parent_id, v_parent.kind, v_parent.identifier, 'upstream',
+          api.current_user_id(), jsonb_build_object('role', coalesce(nullif(p_role, ''), 'parent')))
+  ON CONFLICT (source_record_id, target_identifier, link_type)
+  DO UPDATE SET link_metadata = jsonb_build_object('role', coalesce(nullif(p_role, ''), 'parent')), updated_at = now();
 END $$;
 --> statement-breakpoint
 ALTER FUNCTION api.add_registry_parent(p_entry_id uuid, p_parent_id uuid, p_role text) OWNER TO migrator;
@@ -337,18 +284,12 @@ GRANT ALL ON FUNCTION api.add_registry_parent(p_entry_id uuid, p_parent_id uuid,
 --> statement-breakpoint
 
 CREATE FUNCTION api.remove_registry_parent(p_entry_id uuid, p_parent_id uuid) RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
+    LANGUAGE sql
     SET search_path TO ''
     AS $$
-DECLARE
-  v_workspace_id uuid := api.current_workspace_id();
-BEGIN IF api.has_capability(v_workspace_id, 'work.samples') IS NOT TRUE THEN RAISE EXCEPTION 'not permitted: needs work.samples' USING ERRCODE = '42501'; END IF; -- capability-guard
-  IF v_workspace_id IS NULL OR NOT api.is_workspace_writer(v_workspace_id) THEN
-    RAISE EXCEPTION 'caller cannot write to the active workspace' USING ERRCODE = '42501';
-  END IF;
-  DELETE FROM api.registry_parents
-   WHERE entry_id = p_entry_id AND parent_id = p_parent_id AND workspace_id = v_workspace_id;
-END $$;
+  DELETE FROM api.record_links
+   WHERE source_record_id = p_entry_id AND target_record_id = p_parent_id AND link_type = 'upstream'
+$$;
 --> statement-breakpoint
 ALTER FUNCTION api.remove_registry_parent(p_entry_id uuid, p_parent_id uuid) OWNER TO migrator;
 --> statement-breakpoint
@@ -357,34 +298,51 @@ REVOKE ALL ON FUNCTION api.remove_registry_parent(p_entry_id uuid, p_parent_id u
 GRANT ALL ON FUNCTION api.remove_registry_parent(p_entry_id uuid, p_parent_id uuid) TO authenticated;
 --> statement-breakpoint
 
--- Link a sample, lot or other record to an entry, or take the link away.
-CREATE FUNCTION api.set_registry_use(p_entry_id uuid, p_record_id uuid, p_linked boolean) RETURNS void
+-- Set up a ready-made registry: a published model with its fields, already
+-- ticked as a registry. The person can add fields to it afterwards like any
+-- other model. `p_fields` is a list of {field_name, label, logical_type}.
+CREATE FUNCTION api.create_registry_model(
+    p_key text, p_name text, p_prefix text, p_description text, p_fields jsonb,
+    p_key_fields text[], p_sequence_field text DEFAULT NULL)
+RETURNS api.record_models
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
 DECLARE
   v_workspace_id uuid := api.current_workspace_id();
-BEGIN IF api.has_capability(v_workspace_id, 'work.samples') IS NOT TRUE THEN RAISE EXCEPTION 'not permitted: needs work.samples' USING ERRCODE = '42501'; END IF; -- capability-guard
-  IF v_workspace_id IS NULL OR NOT api.is_workspace_writer(v_workspace_id) THEN
-    RAISE EXCEPTION 'caller cannot write to the active workspace' USING ERRCODE = '42501';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM api.registry_entries WHERE id = p_entry_id AND workspace_id = v_workspace_id) THEN
-    RAISE EXCEPTION 'entry not found' USING ERRCODE = 'SB036';
-  END IF;
-  IF coalesce(p_linked, true) THEN
-    IF NOT EXISTS (SELECT 1 FROM api.records WHERE id = p_record_id AND workspace_id = v_workspace_id AND deleted_at IS NULL) THEN
-      RAISE EXCEPTION 'record not found' USING ERRCODE = 'SB036';
-    END IF;
-    INSERT INTO api.registry_uses (entry_id, record_id, workspace_id, linked_by)
-    VALUES (p_entry_id, p_record_id, v_workspace_id, api.current_user_id())
-    ON CONFLICT DO NOTHING;
-  ELSE
-    DELETE FROM api.registry_uses WHERE entry_id = p_entry_id AND record_id = p_record_id AND workspace_id = v_workspace_id;
-  END IF;
+  v_model api.record_models;
+  v_field jsonb;
+  v_order integer := 0;
+  v_fields jsonb := '[]'::jsonb;
+  v_def api.record_field_definitions;
+BEGIN
+  PERFORM api.require_capability(v_workspace_id, 'schema.edit');
+  PERFORM api.require_capability(v_workspace_id, 'schema.publish');
+  v_model := api.create_workspace_model(v_workspace_id, p_key, p_name, p_prefix, p_description);
+  FOR v_field IN SELECT * FROM jsonb_array_elements(p_fields) LOOP
+    v_order := v_order + 1;
+    INSERT INTO api.record_field_definitions
+      (workspace_id, kind, field_name, label, display_order, logical_type, nullable,
+       validation, lifecycle, created_by_user_id, section, show_in_list, ask_on_create)
+    VALUES (v_workspace_id, p_key, v_field ->> 'field_name', v_field ->> 'label', v_order,
+            coalesce(v_field ->> 'logical_type', 'text'), true, '{}'::jsonb, 'active',
+            api.current_user_id(), nullif(v_field ->> 'section', ''),
+            coalesce((v_field ->> 'show_in_list')::boolean, false), true)
+    RETURNING * INTO v_def;
+    v_fields := v_fields || (to_jsonb(v_def) || '{"options":[]}'::jsonb);
+  END LOOP;
+  INSERT INTO api.record_model_versions
+    (workspace_id, model_id, version, revision, lifecycle, definition, published_at,
+     created_by_user_id, updated_by_user_id)
+  VALUES (v_workspace_id, v_model.id, 1, 1, 'published', jsonb_build_object('fields', v_fields), now(),
+          api.current_user_id(), api.current_user_id());
+  UPDATE api.record_models SET lifecycle = 'published' WHERE id = v_model.id;
+  SELECT * INTO v_model FROM api.set_model_registry(p_key, true, p_key_fields, p_sequence_field);
+  RETURN v_model;
 END $$;
 --> statement-breakpoint
-ALTER FUNCTION api.set_registry_use(p_entry_id uuid, p_record_id uuid, p_linked boolean) OWNER TO migrator;
+ALTER FUNCTION api.create_registry_model(p_key text, p_name text, p_prefix text, p_description text, p_fields jsonb, p_key_fields text[], p_sequence_field text) OWNER TO migrator;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION api.set_registry_use(p_entry_id uuid, p_record_id uuid, p_linked boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION api.create_registry_model(p_key text, p_name text, p_prefix text, p_description text, p_fields jsonb, p_key_fields text[], p_sequence_field text) FROM PUBLIC;
 --> statement-breakpoint
-GRANT ALL ON FUNCTION api.set_registry_use(p_entry_id uuid, p_record_id uuid, p_linked boolean) TO authenticated;
+GRANT ALL ON FUNCTION api.create_registry_model(p_key text, p_name text, p_prefix text, p_description text, p_fields jsonb, p_key_fields text[], p_sequence_field text) TO authenticated;

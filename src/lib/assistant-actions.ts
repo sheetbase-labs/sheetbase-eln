@@ -62,6 +62,16 @@ async function readSettings(
   return rows.at(0) ?? null
 }
 
+function usableTimeZone(zone: string | undefined): string | undefined {
+  if (!zone) return undefined
+  try {
+    new Intl.DateTimeFormat('en-GB', { timeZone: zone })
+    return zone
+  } catch {
+    return undefined
+  }
+}
+
 export type AssistantRuntime =
   | {
       ok: true
@@ -84,6 +94,7 @@ export type AssistantRuntime =
 export async function resolveAssistantRuntime(
   workspaceId: string,
   requestHeaders?: Headers,
+  options: { timeZone?: string } = {},
 ): Promise<AssistantRuntime> {
   const session = await loadSession(workspaceId, requestHeaders)
   const { getPublicProviderProfiles } =
@@ -153,6 +164,7 @@ export async function resolveAssistantRuntime(
     actor,
     workspaceId,
     flags: featureFlags,
+    timeZone: usableTimeZone(options.timeZone),
   })
   return {
     ok: true,

@@ -113,6 +113,16 @@ export const assistantChatSchema = z
       .array(objectRefSchema)
       .max(ASSISTANT_MAX_OBJECT_REFS)
       .default([]),
+    /** The person's own clock, so "tomorrow at 10" means their 10. */
+    timeZone: z.string().min(1).max(64).optional(),
+    /** The page the person is on, by name: "Schedule", "Requests". */
+    page: z
+      .object({
+        path: z.string().min(1).max(200),
+        title: z.string().min(1).max(80),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine((input) => input.messages.at(-1)?.role === 'user', {
@@ -428,6 +438,17 @@ function parseJson(text: string): unknown {
 }
 
 /**
+ * Where the person is, so "this week" on the Schedule or "the open ones" on
+ * Requests means what they are looking at. Only the page's name and address
+ * are sent, never its text.
+ */
+export function pageLine(page: AssistantChatInput['page']): string | null {
+  if (!page) return null
+  const path = page.path.replaceAll(/[^\w/?=&.,:-]/g, '')
+  return `The person is on the ${page.title.replaceAll(/[^\p{L}\p{N} ·&'-]/gu, '')} page (${path}). Questions about "this", "here" or "these" are about what that page shows.`
+}
+
+/**
  * Streaming chat turn. Everything before the first byte (readiness, context,
  * budget) is decided here and returned as a plain result, so the caller can
  * answer with a normal error response; only a later failure surfaces inside
@@ -450,9 +471,14 @@ export async function streamAssistant(
     deps.toolkit && run.provider.supportsTools === true
       ? deps.toolkit
       : undefined
-  const instructions = toolkit
-    ? toolkit.instructions
-    : 'You have no tools and cannot look anything up beyond the supplied context.'
+  const instructions = [
+    toolkit
+      ? toolkit.instructions
+      : 'You have no tools and cannot look anything up beyond the supplied context.',
+    pageLine(input.page),
+  ]
+    .filter(Boolean)
+    .join('\n\n')
   const messages: ProviderMessage[] = trimHistory(input.messages)
   const spent = { tokens: 0, cost: 0, latencyMs: 0 }
 

@@ -53,3 +53,27 @@ describe('assistant toolkit proposals', () => {
     })
   })
 })
+
+describe('assistant toolkit lab tools', () => {
+  it('can read the schedule and the lab, and book only when it may draft', async () => {
+    const off = await toolkit({ mcp_draft: false })
+    const on = await toolkit({ mcp_draft: true })
+    const names = (kit: typeof on) => kit?.defs.map((def) => def.name) ?? []
+    for (const kit of [off, on]) {
+      expect(names(kit)).toContain('sheetbase__schedule__read')
+      expect(names(kit)).toContain('sheetbase__schedule__free_time')
+      expect(names(kit)).toContain('sheetbase__lab__list')
+    }
+    expect(names(off)).not.toContain('sheetbase__booking__create')
+    expect(names(on)).toContain('sheetbase__booking__create')
+    expect(names(on)).toContain('sheetbase__booking__move')
+    expect(names(on)).toContain('sheetbase__booking__cancel')
+    expect(off?.instructions).toContain('open the Schedule page')
+  })
+
+  it('tells the model to find things by name and never ask for ids', async () => {
+    const kit = await toolkit({})
+    expect(kit?.instructions).toContain('never ask the person for one')
+    expect(kit?.instructions).toContain('never say Sheetbase cannot do it')
+  })
+})

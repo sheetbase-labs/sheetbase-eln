@@ -50,7 +50,11 @@ export async function handleAssistantChat(request: Request): Promise<Response> {
 
   let runtime: Awaited<ReturnType<typeof resolveAssistantRuntime>>
   try {
-    runtime = await resolveAssistantRuntime(input.workspaceId, request.headers)
+    runtime = await resolveAssistantRuntime(
+      input.workspaceId,
+      request.headers,
+      { timeZone: input.timeZone },
+    )
   } catch {
     return json(403, 'You do not have access to this workspace.')
   }

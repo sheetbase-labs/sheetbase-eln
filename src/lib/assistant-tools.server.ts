@@ -15,6 +15,15 @@ import type { AssistantToolkit } from './assistant'
 import { isProposalTool, proposalToolDefs } from './assistant-proposals'
 import { buildAssistantProposal } from './assistant-proposals.server'
 import {
+  bookingProposalDefs,
+  buildBookingProposal,
+  isBookingProposalTool,
+  isLabReadTool,
+  labToolDefs,
+  runLabReadTool,
+} from './assistant-lab-tools.server'
+import { describeSlot, localFromInstant } from './assistant-booking'
+import {
   MAX_WORKSPACE_PANES,
   WORKSPACE_TOOL_NAME,
   parseWorkspaceRequest,
@@ -79,7 +88,7 @@ function guideDef(): ProviderToolDef {
 function workspaceDef(): ProviderToolDef {
   return {
     name: toWireToolName(WORKSPACE_TOOL_NAME),
-    description: `Open pages side by side in the person's workspace, optionally in a new named workspace and tiled into a layout (only when there are enough pages to fill it). Name each page by route and id (ids come from your lookups); leave id out to open a list such as experiments. At most ${MAX_WORKSPACE_PANES} pages. Use it when the person asks to see, open, compare or set up pages; it changes only what is on screen, never any data.`,
+    description: `Open pages side by side in the person's workspace, optionally in a new named workspace and tiled into a layout (only when there are enough pages to fill it). Name each page by route and id (ids come from your lookups); leave id out to open a list such as experiments, or a page such as schedule, requests, shipments, incidents or registry. At most ${MAX_WORKSPACE_PANES} pages. Use it when the person asks to see, open, compare or set up pages; it changes only what is on screen, never any data.`,
     parameters: stripSchemaKeyword(
       z.toJSONSchema(workspaceRequestSchema, { io: 'input' }),
     ),
@@ -99,7 +108,30 @@ function clip(text: string): string {
     : `${text.slice(0, ASSISTANT_TOOL_RESULT_CHARS)}\n…[cut: the result was too long. Ask for fewer rows or a narrower filter.]`
 }
 
-function instructionsFor(flags: AiFeatureFlags): string {
+/**
+ * How the in-app assistant talks to a scientist. These come after the shared
+ * MCP rules and win where they differ: an external agent cites ids, a person
+ * in the chat never sees one.
+ */
+const CHAT_RULES = [
+  'You are talking to a scientist in the app, not to a program. Name things the way the app shows them: a name, or an identifier such as EXP-12 or INS-0003. Never show an id like a UUID in your answer and never ask the person for one. When they name something, find it yourself with search or a list, and ask which one only if several really fit, naming the choices.',
+  'Sheetbase has a schedule with instrument booking, requests to the lab, sample shipments, an incident log, a registry, sample workflows, result limits, reagent orders, recurring work, stocktakes, label printing and retention. Before saying you cannot do something, check your tools. If no tool does it but the app does, say where in the app it is done and offer to open that page; never say Sheetbase cannot do it.',
+]
+
+function clockLine(timeZone: string, now: Date): string {
+  const local = localFromInstant(now, timeZone)
+  const weekday = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    weekday: 'long',
+  }).format(now)
+  return `It is ${weekday} ${local.replace('T', ' ')} on the person’s clock (${timeZone}). Give and take times on that clock; write them like ${describeSlot(now, new Date(now.getTime() + 3_600_000), timeZone)}.`
+}
+
+function instructionsFor(
+  flags: AiFeatureFlags,
+  timeZone: string,
+  now: Date,
+): string {
   const always = DOMAIN_RESOURCES.filter((resource) =>
     ALWAYS_IN_PROMPT.includes(resource.name),
   )
@@ -113,6 +145,11 @@ function instructionsFor(flags: AiFeatureFlags): string {
     flags.mcp_draft
       ? 'You can open pages in panes with the workspace tool when asked. To change something, use a propose tool: the person sees a card and applies or dismisses it, and nothing changes until they apply. Look up the current text or values first, propose only what was asked, and never claim a change was made. You cannot sign, approve or submit anything.'
       : 'You can open pages in panes with the workspace tool when asked. You can otherwise only read. You cannot change, sign, approve or submit anything.',
+    flags.mcp_draft
+      ? 'To book an instrument: find free time first, then propose the booking with the booking tool. The person presses Book on the card; it is not booked until they do. You can also propose moving or cancelling their own bookings. If they asked for a time that is free, propose it straight away; if not, offer two or three free times.'
+      : 'To book an instrument, find free time and tell the person, then open the Schedule page for them to book it; this workspace does not let the assistant propose changes.',
+    ...CHAT_RULES,
+    clockLine(timeZone, now),
     always,
   ].join('\n\n')
 }
@@ -123,6 +160,9 @@ export async function createAssistantToolkit(deps: {
   actor: AiContextActor
   workspaceId: string
   flags: AiFeatureFlags
+  /** The person's clock, for the schedule. Falls back to UTC. */
+  timeZone?: string
+  now?: Date
 }): Promise<AssistantToolkit | null> {
   if (!deps.flags.mcp_read) return null
 
@@ -170,13 +210,23 @@ export async function createAssistantToolkit(deps: {
       description: tool.description,
       parameters: stripSchemaKeyword(tool.inputSchema),
     }))
-  defs.push(guideDef(), workspaceDef())
+  defs.push(guideDef(), workspaceDef(), ...labToolDefs())
   // Proposals are cards the person applies; offered only when agents may draft.
-  if (deps.flags.mcp_draft) defs.push(...proposalToolDefs())
+  if (deps.flags.mcp_draft) {
+    defs.push(...proposalToolDefs(), ...bookingProposalDefs())
+  }
+  const timeZone = deps.timeZone ?? 'UTC'
+  const labContext = {
+    client: deps.client,
+    workspaceId: deps.workspaceId,
+    userId: deps.actor.id,
+    timeZone,
+    now: deps.now,
+  }
 
   return {
     defs,
-    instructions: instructionsFor(deps.flags),
+    instructions: instructionsFor(deps.flags, timeZone, deps.now ?? new Date()),
     async run(wireName, argumentsJson) {
       const name = fromWireToolName(wireName)
       if (!defs.some((def) => def.name === wireName)) {
@@ -216,6 +266,22 @@ export async function createAssistantToolkit(deps: {
               text: 'That request was not valid: use a route and an id from a lookup, up to four pages.',
               isError: true,
             }
+      }
+
+      if (isLabReadTool(name)) {
+        const result = await runLabReadTool(name, args, labContext)
+        return { text: clip(result.text), isError: result.isError }
+      }
+
+      if (isBookingProposalTool(name)) {
+        const built = await buildBookingProposal(name, args, labContext)
+        return built.ok
+          ? {
+              text: 'The person now sees this as a card with a button to do it. Nothing has been booked or changed yet. Say in one sentence what you proposed, then stop.',
+              isError: false,
+              proposal: built.proposal,
+            }
+          : { text: built.message, isError: true }
       }
 
       if (isProposalTool(name)) {

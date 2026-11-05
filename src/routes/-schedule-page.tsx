@@ -21,6 +21,7 @@ import { ObjectLink } from '#/components/ui/object-link'
 import { Icon } from '#/components/icons'
 import { toast } from '#/components/ui/sonner'
 import { BookDialog } from '#/components/schedule/book-dialog'
+import { SubscribeDialog } from '#/components/schedule/subscribe-dialog'
 import { EditBookingDialog } from '#/components/schedule/edit-booking-dialog'
 import {
   useBookingSamples,
@@ -315,6 +316,7 @@ export function Schedule() {
             { key: 'week', label: t('projects.schedulePage.week') },
           ]}
         />
+        <SubscribeDialog instruments={instruments} />
         <RepeatingDialog
           kind="booking"
           workspaceId={workspaceId}

@@ -11,6 +11,7 @@ import {
   OPEN_ASSISTANT_EVENT,
   contextFromPathname,
 } from '#/lib/assistant-context'
+import { pageFromPathname } from './assistant-page'
 
 // The chat library loads when the panel first opens, not with the shell.
 const AssistantChat = lazy(() => import('./assistant-chat'))
@@ -39,7 +40,14 @@ export function AssistantPanel({
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+  const searchStr = useRouterState({
+    select: (state) => state.location.searchStr,
+  })
   const context = useMemo(() => contextFromPathname(pathname), [pathname])
+  const page = useMemo(
+    () => pageFromPathname(pathname, searchStr),
+    [pathname, searchStr],
+  )
   useKeyboardInset(open)
   // The button floats over the page, so it steps aside while the person
   // scrolls down to read and returns when they scroll back up.
@@ -100,6 +108,7 @@ export function AssistantPanel({
                 workspaceId={workspaceId}
                 role={role}
                 context={context}
+                page={page}
               />
             </Suspense>
           </SheetContent>

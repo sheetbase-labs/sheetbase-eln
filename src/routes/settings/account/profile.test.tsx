@@ -51,6 +51,7 @@ vi.mock('@tanstack/react-router', () => ({
           email: 'owner@sheetbase.test',
         },
         workspace: { id: 'ws', role: 'owner', username: 'gareth' },
+        workspaces: [],
         timeZone: 'Europe/London',
       },
     }),

@@ -410,7 +410,7 @@ function Profile() {
             workspaceId={context.workspace.id}
             workspaceName={context.workspace.name}
             otherWorkspaces={
-              (context.workspaces ?? []).filter(
+              context.workspaces.filter(
                 (w) => w.id !== context.workspace?.id && !w.suspended,
               ).length
             }

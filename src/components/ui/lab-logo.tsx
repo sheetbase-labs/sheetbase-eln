@@ -9,11 +9,9 @@ export function useLabLogoVersion(): string | null {
   // rendered outside one (a story, a test) simply shows no lab logo. The root
   // context re-resolves on a shell refresh, which re-renders these pages.
   const router = useRouter({ warn: false }) as
-    | { state?: { matches?: { context?: unknown }[] } }
-    | undefined
+    { state?: { matches?: { context?: unknown }[] } } | undefined
   const context = router?.state?.matches?.[0]?.context as
-    | { labLogo?: string | null }
-    | undefined
+    { labLogo?: string | null } | undefined
   return context?.labLogo ?? null
 }
 

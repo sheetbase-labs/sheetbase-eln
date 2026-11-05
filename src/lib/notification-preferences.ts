@@ -174,6 +174,14 @@ export const NOTIFICATION_EVENTS = [
     defaultPush: false,
   },
   {
+    key: 'request',
+    label: 'A request is made to you, or someone decides yours',
+    group: GROUP_LAB,
+    source: 'notification',
+    defaultEmail: true,
+    defaultPush: false,
+  },
+  {
     key: 'reagent_order',
     label: 'A reagent reorder is requested, placed, received or cancelled',
     group: GROUP_LAB,

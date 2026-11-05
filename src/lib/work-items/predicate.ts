@@ -72,7 +72,9 @@ export function workItemType(kind: string): WorkItemType {
     kind === 'sample_awaiting_release' ||
     kind === 'sample_hold_exceeded' ||
     kind === 'calibration_overdue' ||
-    kind === 'qualification_granted'
+    kind === 'qualification_granted' ||
+    kind === 'request_submitted' ||
+    kind === 'request_update'
   )
     return 'lab'
   if (

@@ -13,11 +13,16 @@ import {
 } from '#/lib/agent-operations'
 import type { AgentOperation } from '#/lib/agent-operations'
 import type { AssistantProposal } from '#/lib/assistant-proposals'
+import { runAssistantAction } from '#/lib/assistant-booking'
+import type { AssistantActionKind } from '#/lib/assistant-booking'
+import { describeCalendarError } from '#/lib/calendar'
 
 /**
  * A change the assistant suggests, as a card. Nothing has been written. Apply
  * runs the ordinary propose, approve and execute steps as the signed-in person,
  * so the version check and the audit trail are the same as any other change.
+ * An everyday action, such as booking an instrument, instead runs the same RPC
+ * the page would, as the person, when they press its button.
  */
 
 type CardState =
@@ -30,6 +35,32 @@ type CardState =
 
 /** Kept outside the component so a re-render or reopened panel remembers it. */
 const decided = new Map<string, CardState>()
+
+/** Button and done words for an everyday action: "Book", "Booked". */
+function actionWords(kind: AssistantActionKind | undefined) {
+  const key =
+    kind === 'booking.create'
+      ? 'book'
+      : kind === 'booking.move'
+        ? 'move'
+        : kind === 'booking.cancel'
+          ? 'cancel'
+          : null
+  if (key === null) {
+    return {
+      label: t('notebook.assistantPanel.proposal.label'),
+      apply: t('notebook.assistantPanel.proposal.apply'),
+      applying: t('notebook.assistantPanel.proposal.applying'),
+      applied: t('notebook.assistantPanel.proposal.applied'),
+    }
+  }
+  return {
+    label: t('notebook.assistantPanel.proposal.bookingLabel'),
+    apply: t(`notebook.assistantPanel.proposal.${key}.apply`),
+    applying: t(`notebook.assistantPanel.proposal.${key}.applying`),
+    applied: t(`notebook.assistantPanel.proposal.${key}.applied`),
+  }
+}
 
 function failureReason(error: unknown): string {
   const message = error instanceof Error ? error.message : ''
@@ -66,6 +97,24 @@ export function ProposalCard({
 
   async function apply() {
     setState({ phase: 'applying' })
+    if (proposal.action) {
+      try {
+        await runAssistantAction(createDataClient(), proposal.action)
+        setState({ phase: 'applied' })
+        void queryClient.invalidateQueries()
+        void router.invalidate()
+      } catch (error) {
+        setState({
+          phase: 'failed',
+          reason: t('notebook.assistantPanel.proposal.failed', {
+            reason: describeCalendarError(error),
+          }),
+        })
+      }
+      return
+    }
+    const operation = proposal.operation
+    if (!operation) return
     try {
       const client = createDataClient()
       // Runs one operation through propose, approve and execute. `null` means
@@ -103,7 +152,7 @@ export function ProposalCard({
         return row
       }
 
-      const first = await run(proposal.operation, `assistant-${requestId}`)
+      const first = await run(operation, `assistant-${requestId}`)
       if (first === null) {
         setState({ phase: 'signature' })
         return
@@ -154,13 +203,14 @@ export function ProposalCard({
     }
   }
 
+  const words = actionWords(proposal.action?.kind)
   const href = opened ?? proposal.deepLink
   const done = state.phase === 'applied' || state.phase === 'dismissed'
   return (
     <section
       data-testid="assistant-proposal"
       data-state={state.phase}
-      aria-label={t('notebook.assistantPanel.proposal.label')}
+      aria-label={words.label}
       className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3"
     >
       <header className="flex items-start gap-2">
@@ -169,7 +219,7 @@ export function ProposalCard({
         </span>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-label text-fg-muted">
-            {t('notebook.assistantPanel.proposal.label')} · {proposal.target}
+            {words.label} · {proposal.target}
           </span>
           <span className="text-body font-medium text-fg">
             {proposal.title}
@@ -214,7 +264,7 @@ export function ProposalCard({
           <span className="inline-flex items-center gap-1 text-label text-fg-muted">
             <Icon name={state.phase === 'applied' ? 'check' : 'x'} size={12} />
             {state.phase === 'applied'
-              ? t('notebook.assistantPanel.proposal.applied')
+              ? words.applied
               : t('notebook.assistantPanel.proposal.dismissed')}
           </span>
         ) : state.phase === 'signature' ? null : (
@@ -225,9 +275,7 @@ export function ProposalCard({
               disabled={state.phase === 'applying'}
               onClick={() => void apply()}
             >
-              {state.phase === 'applying'
-                ? t('notebook.assistantPanel.proposal.applying')
-                : t('notebook.assistantPanel.proposal.apply')}
+              {state.phase === 'applying' ? words.applying : words.apply}
             </Button>
             <Button
               size="sm"

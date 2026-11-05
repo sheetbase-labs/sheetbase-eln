@@ -1,15 +1,14 @@
 /**
  * iOS has no splash screen from the manifest: it shows a launch image picked
  * by device size, and the page must list one per size. Images live in
- * public/splash, one light and one dark per size, named
- * `<pixel width>x<pixel height>-<light|dark>.png`.
+ * public/splash, named `<pixel width>x<pixel height>.png`: the dark
+ * background (#111111) with a #e9e9e9 mark, matching the dark --background
+ * and --foreground in src/styles.css.
  *
- * Colours match --background and --foreground in src/styles.css: light is
- * #fdfdff with a #111111 mark, dark is #111111 with a #e9e9e9 mark.
- *
- * iOS picks the launch image once, when the app is added to the Home Screen,
- * using the light or dark setting at that moment. Changing the phone's
- * setting later does not change it; removing and re-adding the app does.
+ * Always dark: iOS picks the launch image once, when the app is added to the
+ * Home Screen, and keeps it whatever the phone's setting later. A light image
+ * would flash white for anyone who installed in light mode and now runs dark;
+ * a dark one is easy on the eyes in both.
  */
 export const SPLASH_SIZES: ReadonlyArray<readonly [number, number, number]> = [
   [430, 932, 3],
@@ -36,11 +35,9 @@ export interface SplashLink {
 }
 
 export function splashLinks(): SplashLink[] {
-  return SPLASH_SIZES.flatMap(([width, height, ratio]) =>
-    (['light', 'dark'] as const).map((scheme) => ({
-      rel: 'apple-touch-startup-image' as const,
-      href: `/splash/${width * ratio}x${height * ratio}-${scheme}.png`,
-      media: `(device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait) and (prefers-color-scheme: ${scheme})`,
-    })),
-  )
+  return SPLASH_SIZES.map(([width, height, ratio]) => ({
+    rel: 'apple-touch-startup-image' as const,
+    href: `/splash/${width * ratio}x${height * ratio}.png`,
+    media: `(device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait)`,
+  }))
 }

@@ -355,6 +355,54 @@ parser_ and _Dismiss_; reading the same file later closes the problem. The
 folder agent moves a file to `failed/` only for permanent causes; an unreachable
 or slow webhook service answers `502` so the file is retried.
 
+## Live instrument readings (migration 0068)
+
+Some instruments never write a result file while they run (a balance, a pH
+meter, a freezer probe, a bioreactor); they report readings as they happen. The
+same agent can follow them.
+
+```text
+log file or network port → scripts/instrument-agent.mjs → POST /api/connectors/stream
+  → api.record_instrument_readings → api.instrument_feeds + api.instrument_readings
+```
+
+- **Feeds and readings.** A feed is one named measurement on an instrument
+  (`Chamber temperature`, unit `°C`), made the first time a reading names it (up
+  to 50 per instrument). It keeps its latest value, time and count. Readings are
+  `(feed, taken_at, value)`, kept 90 days (pruned as readings arrive; no job).
+  Both tables are read-only to clients; writes go through the RPCs.
+- **Endpoint.** `POST /api/connectors/stream` takes
+  `{ instrumentId, readings: [{ feed, value, unit?, at? }] }` (1–2000 readings, 512 KB)
+  with a personal token holding `datasets:write`. Who may send is decided by the
+  database: anyone who can write in the workspace (`is_workspace_writer`), on an
+  instrument that is not retired. 403 means give up, 422 means the batch was
+  refused, 5xx or 429 means try again.
+- **Agent.** `live` in `sheetbase-agent.json` (or `--instrument <id>`,
+  `--live-file <path>`, `--live-tcp host:port`, `--feed`, `--unit`) names the
+  sources. A file is followed as it grows (a new file or a truncated one is read
+  from its top). A network port is read line by line and reconnected when it
+  drops. A line is a lone value (`12.345 g`, as a balance prints it) or delimited
+  (comma, semicolon, tab or spaces), with or without a header such as
+  `Time, Temperature (°C)`; a header's brackets give the unit. Batches go out
+  every second; readings wait, bounded at 5000, while the network or server is down.
+- **Download.** `POST /api/connectors/agent` with `{ instrumentId, system, live }`
+  (needs `integrations.manage`) returns an agent with its sources and a token
+  named `Live agent · <display id>`; `GET ?instrument=<id>` says whether it is running.
+  No connector or results folder is needed.
+- **Limits.** `set_instrument_feed_limits` sets a low and a high limit and the
+  unit. When the latest reading crosses a limit the instrument's owner is told
+  once (event `instrument_service`), and again when it is back in range. A
+  reading that arrives late does not move the latest value or the state.
+- **Page.** The instrument page shows a _Live readings_ section: a table of
+  measurements (latest value, limits, last reading, status) and a chart of the
+  chosen one over 15 minutes to 7 days, from `list_instrument_feed_series` (cut
+  into at most 240 slices of lowest, average and highest). The page asks again
+  every three seconds.
+
+Not built: readings are not Datasets (a run worth keeping goes through file
+pickup), no OPC-UA/MQTT/serial (the agent reads files and TCP lines), and no
+alert channel beyond the owner's notification.
+
 ## Product surface
 
 `/integrations` lists the workspace's connectors; `/integrations/$connectorId`

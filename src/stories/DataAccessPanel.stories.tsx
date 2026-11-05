@@ -8,6 +8,11 @@ import {
 import { resolveDataAccessHandle } from '#/lib/data-access-handles'
 import type { DataAccessHandle } from '#/lib/data-access-handles'
 import { QueryClientProvider } from '@tanstack/react-query'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '#/components/v3/ui/popover'
 import { screenQueryClient, screenRoutes } from './screen-stories'
 
 /**
@@ -44,11 +49,28 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+/** The panel sits in a popover, as it does under the header button. */
+function InPopover({ handle }: { handle: DataAccessHandle }) {
+  return (
+    <Popover open>
+      <PopoverTrigger render={<span className="inline-block h-1 w-1" />} />
+      <PopoverContent align="start">
+        <DataAccessPanel handle={handle} />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 /** A list page. */
-export const List: Story = {}
+export const List: Story = {
+  render: (args) => <InPopover handle={args.handle} />,
+}
 
 /** A single record, addressed by its display ID. */
-export const Record: Story = { args: { handle: RECORD } }
+export const Record: Story = {
+  args: { handle: RECORD },
+  render: (args) => <InPopover handle={args.handle} />,
+}
 
 /** The header button; the panel opens in a popover. */
 export const Button: Story = {

@@ -67,7 +67,7 @@ import type {
 } from '@tanstack/react-virtual'
 import { cn } from '#/lib/utils'
 
-import { Spinner } from '#/components/reui/spinner'
+import { Spinner } from '#/components/ui/spinner'
 
 type DataGridTableVirtualScrollElements = {
   containerElement: HTMLDivElement | null
@@ -539,7 +539,7 @@ function DataGridTableVirtualBody<TData extends object>({
       return (
         <DataGridTableVirtualStatusRow table={table}>
           <div className="flex items-center justify-center gap-2">
-            <Spinner className="size-4 opacity-60" />
+            <Spinner size={16} className="opacity-60" />
             {loadingMoreMessage}
           </div>
         </DataGridTableVirtualStatusRow>
@@ -633,7 +633,7 @@ function DataGridTableVirtualBody<TData extends object>({
     renderedRows.push(
       <DataGridTableVirtualStatusRow key="virtual-status-loading" table={table}>
         <div className="flex items-center justify-center gap-2">
-          <Spinner className="size-4 opacity-60" />
+          <Spinner size={16} className="opacity-60" />
           {loadingMoreMessage}
         </div>
       </DataGridTableVirtualStatusRow>,

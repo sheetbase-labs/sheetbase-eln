@@ -25,6 +25,7 @@ import {
 import { Input } from '#/components/ui/input'
 import { Textarea } from '#/components/inventory/list'
 import { Icon } from '#/components/icons'
+import { Spinner } from '#/components/ui/spinner'
 import { SheetbaseTableGrid } from './sheetbase-grid'
 import type {
   SheetbaseGridCellChange,
@@ -229,7 +230,7 @@ function SaveStatusIndicator({
             : t('notebook.scientificSheetBlock.savingAriaLabel')
         }
       >
-        <Icon name="clock" size={12} className="animate-spin" />
+        <Spinner size={12} />
         {status === 'retrying'
           ? t('notebook.scientificSheetBlock.offlineRetrying')
           : t('common.states.saving')}

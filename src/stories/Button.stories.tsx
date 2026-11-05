@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
+import { Spinner } from '#/components/ui/spinner'
 
 /**
  * The v3 button set: 28px (`md`, the default), border before shadow, and one
@@ -62,7 +63,7 @@ export const States: Story = {
     <div className="flex gap-2">
       <Button disabled>Disabled</Button>
       <Button disabled>
-        <Icon name="loader" className="animate-spin" /> Saving…
+        <Spinner size={14} /> Saving…
       </Button>
     </div>
   ),

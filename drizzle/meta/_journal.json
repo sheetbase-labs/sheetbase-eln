@@ -559,6 +559,20 @@
       "when": 1801375737830,
       "tag": "0077_sample_shipments",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1801379337830,
+      "tag": "0078_instrument_booking_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1801382937830,
+      "tag": "0079_calendar_feeds",
+      "breakpoints": true
     }
   ]
 }

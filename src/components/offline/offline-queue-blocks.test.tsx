@@ -13,6 +13,7 @@ import {
   OfflineEditsProvider,
   canEditBlockOffline,
   describeOfflineEdit,
+  overlayQueuedBlocks,
   useOfflineEdits,
 } from './offline-edits'
 
@@ -207,5 +208,23 @@ describe('samePayload', () => {
     ).toBe(true)
     expect(samePayload({ a: 1 }, { a: 2 })).toBe(false)
     expect(samePayload([1], [1, 2])).toBe(false)
+  })
+})
+
+describe('overlayQueuedBlocks', () => {
+  it('shows the queued payload and leaves other blocks untouched', async () => {
+    const { store, result } = setup()
+    await act(async () => {
+      await result.current.queueBlockPayload(block(1), checklist(true))
+    })
+    const edits = await store.listEdits(scope)
+    const blocks = [
+      { id: 'b1', payload: checklist(false) },
+      { id: 'b2', payload: { other: true } },
+    ]
+    const shown = overlayQueuedBlocks(blocks, edits)
+    expect(shown[0]!.payload).toEqual(checklist(true))
+    expect(shown[1]).toBe(blocks[1])
+    expect(overlayQueuedBlocks(blocks, [])).toBe(blocks)
   })
 })

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { PageHeader } from '#/components/ui/layout'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { Tabs } from '#/components/ui/tabs'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
@@ -250,6 +251,7 @@ function ExperimentLayout() {
                 <BookInstrumentButton experimentId={e.id} />
               )}
               <ExperimentLifecycleActions experiment={e} canWrite={canWrite} />
+              <FavouriteToggle kind="record" objectId={e.id} />
               <AskAiButton />
             </>
           }

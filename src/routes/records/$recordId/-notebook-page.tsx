@@ -1476,9 +1476,11 @@ export function StickyRecordHeader({
             <PresenceStack />
           </span>
           {/* FIND-02: deliberate pin for fast return; optimistic, never blocking. */}
-          <span className="contents max-md:hidden">
-            <FavouriteToggle kind="record" objectId={record.id} />
-          </span>
+          {embedded ? null : (
+            <span className="contents max-md:hidden">
+              <FavouriteToggle kind="record" objectId={record.id} />
+            </span>
+          )}
           {offered ? null : <RecordActionsMenu actions={recordActions} />}
           {showSubmit ? (
             <ConnectionRequired

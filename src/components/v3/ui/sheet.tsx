@@ -25,7 +25,7 @@ export function SheetContent({
   className,
   children,
   ...props
-}: DialogPrimitive.Popup.Props & {
+}: Omit<DialogPrimitive.Popup.Props, 'title'> & {
   side?: keyof typeof sides
   title: React.ReactNode
 }) {

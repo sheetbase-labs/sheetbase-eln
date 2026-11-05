@@ -203,7 +203,10 @@ function ShareTargetPage() {
         ) : (
           <Notice>
             {t('pwa.shareTarget.nothing')}{' '}
-            <Link to="/" className="text-link underline-offset-2 hover:underline">
+            <Link
+              to="/"
+              className="text-link underline-offset-2 hover:underline"
+            >
               {t('common.actions.back')}
             </Link>
           </Notice>

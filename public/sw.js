@@ -172,3 +172,50 @@ self.addEventListener('notificationclick', (event) => {
     }),
   )
 })
+
+// ---------------------------------------------------------------------------
+// Share target: "Share to Sheetbase" from another app on a phone.
+//
+// The share arrives as a POST with the files in a form. The files are parked in
+// a cache (the page cannot read a POST body), then the person is sent to the
+// page that asks which experiment they belong to. Keep the cache name and key
+// shape in step with src/lib/pwa/shared-inbox.ts.
+// ---------------------------------------------------------------------------
+const SHARE_CACHE = 'sheetbase-share-v1'
+
+async function receiveShare(request) {
+  const params = new URLSearchParams()
+  try {
+    const form = await request.formData()
+    await caches.delete(SHARE_CACHE)
+    const cache = await caches.open(SHARE_CACHE)
+    let index = 0
+    for (const value of form.getAll('files')) {
+      if (typeof value === 'string') continue
+      await cache.put(
+        '/__shared/' + index++,
+        new Response(value, {
+          headers: {
+            'content-type': value.type || 'application/octet-stream',
+            'x-file-name': encodeURIComponent(value.name || 'shared-file'),
+          },
+        }),
+      )
+    }
+    for (const key of ['title', 'text', 'url']) {
+      const value = form.get(key)
+      if (typeof value === 'string' && value.trim()) params.set(key, value.trim())
+    }
+  } catch {
+    // Fall through: the page explains that nothing came through.
+  }
+  const query = params.toString()
+  return Response.redirect('/share-target' + (query ? '?' + query : ''), 303)
+}
+
+self.addEventListener('fetch', (event) => {
+  const request = event.request
+  if (request.method !== 'POST') return
+  if (new URL(request.url).pathname !== '/share-target') return
+  event.respondWith(receiveShare(request))
+})

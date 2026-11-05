@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   act,
   cleanup,
@@ -151,6 +152,8 @@ vi.mock('#/lib/user-preferences', () => ({
   setNavFolded: vi.fn(async () => {}),
   setUserAppearance: vi.fn(async () => {}),
   setActiveWorkspace: vi.fn(async () => {}),
+  myProfileQueryKey: ['my-profile'],
+  fetchMyProfile: vi.fn(async () => ({ initials: '', jobTitle: '' })),
 }))
 
 afterEach(cleanup)
@@ -160,22 +163,24 @@ function renderShell(
   children: React.ReactNode = <p>Content</p>,
 ) {
   return render(
-    <AppShell
-      data={{
-        me: { id: 'u-1', name: 'Gareth P.', initials: 'GP', role: 'Member' },
-        notifications: [],
-        pinned: [],
-        counts: { inbox: '3', datasets: '2', pipelines: '1' },
-        workspace: { id: 'ws-1', name: 'Process Development' },
-        workspaces: [
-          { id: 'ws-1', name: 'Process Development' },
-          { id: 'ws-2', name: 'Analytical' },
-        ],
-        ...overrides,
-      }}
-    >
-      {children}
-    </AppShell>,
+    <QueryClientProvider client={new QueryClient()}>
+      <AppShell
+        data={{
+          me: { id: 'u-1', name: 'Gareth P.', initials: 'GP', role: 'Member' },
+          notifications: [],
+          pinned: [],
+          counts: { inbox: '3', datasets: '2', pipelines: '1' },
+          workspace: { id: 'ws-1', name: 'Process Development' },
+          workspaces: [
+            { id: 'ws-1', name: 'Process Development' },
+            { id: 'ws-2', name: 'Analytical' },
+          ],
+          ...overrides,
+        }}
+      >
+        {children}
+      </AppShell>
+    </QueryClientProvider>,
   )
 }
 

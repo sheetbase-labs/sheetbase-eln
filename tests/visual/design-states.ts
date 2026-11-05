@@ -519,7 +519,7 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
   { screen: 'PipelineRuns', route: '/pipelines/PL-0003/runs' },
   { screen: 'PipelineRun', route: '/pipelines/PL-0003/runs/latest' },
   { screen: 'PipelineRunFailed', route: '/pipelines/PL-0014/runs/latest' },
-  { screen: 'SettingsGeneral', route: '/settings' },
+  { screen: 'SettingsGeneral', route: '/settings/workspace' },
   { screen: 'SettingsMembers', route: '/settings/workspace/members' },
   { screen: 'SettingsAccess', route: '/settings/workspace/access' },
   {

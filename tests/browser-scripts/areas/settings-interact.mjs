@@ -5,7 +5,7 @@ const ids = await discover()
 const { browser, page, errors } = await launch()
 
 const sections = [
-  ['General', '/settings'],
+  ['General', '/settings/workspace'],
   ['Members and roles', '/settings/workspace/members'],
   ['Electronic signatures', '/settings/workspace/signatures'],
   ['Instruments and parsers', '/settings/lab/instruments'],

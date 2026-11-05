@@ -308,7 +308,9 @@ function today(timeZone: string, now: Date): string {
   return localFromInstant(now, timeZone).slice(0, 10)
 }
 
-async function memberNames(client: DataClient): Promise<Map<string, string>> {
+export async function memberNames(
+  client: DataClient,
+): Promise<Map<string, string>> {
   try {
     const members = await client.rpc<Array<{ user_id: string; name: string }>>(
       'workspace_members_list',
@@ -320,7 +322,7 @@ async function memberNames(client: DataClient): Promise<Map<string, string>> {
   }
 }
 
-async function bookingsBetween(
+export async function bookingsBetween(
   client: DataClient,
   workspaceId: string,
   start: Date,

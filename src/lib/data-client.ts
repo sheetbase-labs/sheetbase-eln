@@ -148,7 +148,7 @@ function readStoreFor(fetchImpl: object): Map<string, SharedRead> | null {
 
 /** Functions that only look things up, or only note a view, change no rows a read returns. */
 const READ_ONLY_RPC =
-  /^\/rpc\/(my_|is_|can_|has_|get_|list_|query_|compare_|record_recent_view$|require_capability$|project_members$|workspace_(members_list|member_status|groups_list|project_access_rules)$|[a-z_]*_list$)/
+  /^\/rpc\/(set_list_view$|my_|is_|can_|has_|get_|list_|query_|compare_|record_recent_view$|require_capability$|project_members$|workspace_(members_list|member_status|groups_list|project_access_rules)$|[a-z_]*_list$)/
 
 function changesRows(path: string, method: string | undefined): boolean {
   if (method === undefined || method === 'GET') return false

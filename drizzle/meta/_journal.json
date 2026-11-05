@@ -594,6 +594,13 @@
       "when": 1801393737830,
       "tag": "0086_display_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1801393837830,
+      "tag": "0087_list_views",
+      "breakpoints": true
     }
   ]
 }

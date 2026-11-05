@@ -5,14 +5,13 @@ import { Button } from '#/components/ui/button'
 import { ImageAnnotator } from '#/components/notebook/image-annotator'
 import type { ImageAnnotation } from '#/lib/image-annotations'
 
+import { GEL } from './gel-fixture'
+
 /**
  * The annotate dialog for a notebook image. It saves only the marks, so the
  * story's save resolves without writing anything. The dialog is portalled, so
  * each story holds it open from a trigger the story owns.
  */
-const GEL = `data:image/svg+xml;utf8,${encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="560" height="320"><rect width="560" height="320" fill="#1b2433"/><rect x="60" y="120" width="44" height="10" rx="3" fill="#d8e2f0"/><rect x="170" y="150" width="44" height="10" rx="3" fill="#d8e2f0"/></svg>`,
-)}`
 
 const marked: ImageAnnotation[] = [
   { id: 'l1', kind: 'lane', x: 0.15, text: 'Ladder', color: 'yellow' },

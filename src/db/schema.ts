@@ -5793,7 +5793,7 @@ export const recentlyViewed = api.table(
     ),
     check(
       'chk_recently_viewed_object_kind',
-      sql`${table.objectKind} IN ('record', 'dataset', 'sheet', 'project', 'notebook_template')`,
+      sql`${table.objectKind} IN ('record', 'dataset', 'sheet', 'project', 'notebook_template', 'instrument', 'pipeline', 'analysis_view')`,
     ),
     // Read path: WHERE user_id = $1 ORDER BY viewed_at DESC LIMIT n.
     index('idx_recently_viewed_user_viewed').on(table.userId, table.viewedAt),
@@ -5839,7 +5839,7 @@ export const userFavourites = api.table(
     ),
     check(
       'chk_user_favourites_object_kind',
-      sql`${table.objectKind} IN ('record', 'dataset', 'sheet', 'project', 'notebook_template')`,
+      sql`${table.objectKind} IN ('record', 'dataset', 'sheet', 'project', 'notebook_template', 'instrument', 'pipeline', 'analysis_view')`,
     ),
     // Read path: WHERE user_id = $1 ORDER BY created_at DESC LIMIT n.
     index('idx_user_favourites_user_created').on(table.userId, table.createdAt),

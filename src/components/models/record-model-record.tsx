@@ -5,6 +5,8 @@ import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
 import { DescriptionList, PageHeader, Section } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
+import { SpecVerdictBadge } from '#/components/results/spec-verdict'
+import { describeLimits, useRecordQuality } from '#/lib/result-quality'
 import { RecordHistoryTimeline } from '#/components/audit/record-history-timeline'
 import { pickerStatus } from '#/components/record-picker/record-picker-data'
 import { formatDate, notebookDataClient } from '#/lib/notebook-data'
@@ -98,6 +100,7 @@ export function RecordModelRecord({
         isLoading: ownFields.isLoading || types.isLoading,
       }
   const usedByQuery = useRecordModelUsedBy(recordId)
+  const quality = useRecordQuality(model.data?.workspace_id, modelKey, recordId)
   const timelineQuery = useRecordModelTimeline(recordId)
 
   const [editing, setEditing] = useState(false)
@@ -135,6 +138,13 @@ export function RecordModelRecord({
   }
 
   const laterFields = record ? laterAddedModelFields(fields, record) : []
+  const results = quality.results
+  const resultByField = new Map(results.map((r) => [r.fieldName, r] as const))
+  const limitsByField = quality.limitsByField
+  const labelOf = (fieldName: string) =>
+    fields.find((f) => f.fieldName === fieldName)?.label ?? fieldName
+  const failing = results.filter((r) => r.verdict === 'fail')
+  const alerting = results.filter((r) => r.verdict === 'alert')
   const status = record ? pickerStatus(record.status) : null
   const isRegistry = Boolean(model.data?.is_registry)
   const canWrite = hasCapability(role, 'record.create')
@@ -225,6 +235,33 @@ export function RecordModelRecord({
             {t('registry.entry.retiredBanner')}
           </div>
         ) : null}
+        {quality.onHold ? (
+          <div
+            role="status"
+            className="rounded-md border border-border bg-surface-muted px-3 py-2 text-label"
+          >
+            {t('quality.retention.recordBanner')}
+          </div>
+        ) : null}
+        {failing.length ? (
+          <div
+            role="status"
+            className="rounded-md border border-danger bg-surface-muted px-3 py-2 text-label"
+          >
+            {t('quality.limits.outOfSpecBanner', {
+              fields: failing.map((r) => labelOf(r.fieldName)).join(', '),
+            })}
+          </div>
+        ) : alerting.length ? (
+          <div
+            role="status"
+            className="rounded-md border border-border bg-surface-muted px-3 py-2 text-label"
+          >
+            {t('quality.limits.alertBanner', {
+              fields: alerting.map((r) => labelOf(r.fieldName)).join(', '),
+            })}
+          </div>
+        ) : null}
         {laterFields.length ? (
           <div className="rounded-md border border-border bg-surface-muted px-3 py-2 text-label">
             {rich('library.models.recordModelRecord.addedToThisModelLater', {
@@ -293,11 +330,31 @@ export function RecordModelRecord({
                         // A date-typed field stores an ISO date; show it in the
                         // same short form as the record's own metadata.
                         const raw = recordFieldValue(record, field.fieldName)
-                        return [
-                          field.label,
+                        const shown =
                           field.logicalType === 'date'
                             ? formatDate(raw == null ? null : String(raw))
-                            : displayModelFieldValue(field, raw),
+                            : displayModelFieldValue(field, raw)
+                        const result = resultByField.get(field.fieldName)
+                        const limits = limitsByField.get(field.fieldName)
+                        return [
+                          field.label,
+                          result ? (
+                            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                              <span>{shown}</span>
+                              <SpecVerdictBadge
+                                verdict={result.verdict}
+                                title={
+                                  limits
+                                    ? t('quality.limits.limitsTip', {
+                                        range: describeLimits(limits),
+                                      })
+                                    : undefined
+                                }
+                              />
+                            </span>
+                          ) : (
+                            shown
+                          ),
                         ]
                       },
                     )}

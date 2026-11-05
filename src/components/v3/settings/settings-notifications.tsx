@@ -7,6 +7,7 @@ import { Notice } from '#/components/v3/ui/alert'
 import { toast } from '#/components/v3/ui/sonner'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { SettingsSaveBar } from './settings-page'
+import { PhoneAlerts } from './phone-alerts'
 import {
   Table,
   TableBody,
@@ -78,7 +79,8 @@ export function SettingsNotifications() {
           before &&
           before.inApp === row.inApp &&
           before.email === row.email &&
-          before.digest === row.digest
+          before.digest === row.digest &&
+          before.push === row.push
         )
           continue
         await saveNotificationPreference(row)
@@ -113,7 +115,8 @@ export function SettingsNotifications() {
         !before ||
         before.inApp !== row.inApp ||
         before.email !== row.email ||
-        before.digest !== row.digest
+        before.digest !== row.digest ||
+        before.push !== row.push
       )
     }) ||
     quietStart !== (timingQuery.data?.quietHoursStart ?? null) ||
@@ -133,7 +136,7 @@ export function SettingsNotifications() {
 
   const toggle = (
     eventType: NotificationPreference['eventType'],
-    channel: 'inApp' | 'email' | 'digest',
+    channel: 'inApp' | 'email' | 'digest' | 'push',
   ) => {
     setRows((current) =>
       current.map((row) =>
@@ -158,6 +161,8 @@ export function SettingsNotifications() {
         <Notice tone="warn">{t('settings.notifications.emailNotSetUp')}</Notice>
       ) : null}
 
+      <PhoneAlerts />
+
       <TableBox>
         <Table
           aria-label={t('settings.notifications.notificationChannelsAria')}
@@ -169,6 +174,7 @@ export function SettingsNotifications() {
                 [
                   ['app', 'appHint'],
                   ['email', 'emailHint'],
+                  ['phone', 'phoneHint'],
                   ['dailyDigest', 'digestHint'],
                 ] as const
               ).map(([label, hint]) => (
@@ -187,7 +193,7 @@ export function SettingsNotifications() {
               <Fragment key={group.name}>
                 <TableRow>
                   <TableCell
-                    colSpan={4}
+                    colSpan={5}
                     className="bg-surface-muted text-label font-medium text-fg-muted"
                   >
                     {group.name}
@@ -198,15 +204,19 @@ export function SettingsNotifications() {
                     <TableCell>
                       {NOTIFICATION_EVENT_LABELS[row.eventType]}
                     </TableCell>
-                    {(['inApp', 'email', 'digest'] as const).map((channel) => (
-                      <TableCell key={channel} className="text-center">
-                        <Checkbox
-                          aria-label={`${NOTIFICATION_EVENT_LABELS[row.eventType]} ${channel}`}
-                          checked={row[channel]}
-                          onCheckedChange={() => toggle(row.eventType, channel)}
-                        />
-                      </TableCell>
-                    ))}
+                    {(['inApp', 'email', 'push', 'digest'] as const).map(
+                      (channel) => (
+                        <TableCell key={channel} className="text-center">
+                          <Checkbox
+                            aria-label={`${NOTIFICATION_EVENT_LABELS[row.eventType]} ${channel}`}
+                            checked={row[channel]}
+                            onCheckedChange={() =>
+                              toggle(row.eventType, channel)
+                            }
+                          />
+                        </TableCell>
+                      ),
+                    )}
                   </TableRow>
                 ))}
               </Fragment>

@@ -797,6 +797,24 @@ export const settings = {
     email: 'Email',
     dailyDigest: 'Daily digest',
     appHint: 'Shows it in your Inbox and the bell. Turn it off to mute it.',
+    phone: 'Phone',
+    phoneHint:
+      'Sends an alert to your phone and other devices that have alerts turned on, even with the app closed. Held until quiet hours end, except reviews and signatures.',
+    phoneUnsupported:
+      'This browser can’t send alerts to your phone. On an iPhone, add Sheetbase to your Home Screen first, then open it from there.',
+    phoneBlocked:
+      'Alerts are blocked for Sheetbase in this browser. Allow notifications for this site in the browser’s settings to turn them on.',
+    phoneOnTitle: 'Alerts are on for this device.',
+    phoneOffTitle: 'Get alerts on this device.',
+    phoneOnBody:
+      'Timers, booking reminders, signature requests and mentions reach you with the app closed. Choose which ones in the Phone column.',
+    phoneOffBody:
+      'Hear about finished timers, upcoming bookings, signature requests and mentions with the app closed.',
+    phoneTurnOn: 'Turn on',
+    phoneTurnOff: 'Turn off',
+    phoneNotReady:
+      'The server isn’t ready to send alerts yet. Try again in a minute.',
+    phoneCouldNotChange: 'Couldn’t change alerts for this device.',
     emailHint:
       'Emails it to you. Held until quiet hours end, except reviews and signatures.',
     digestHint: 'Adds it to your daily digest email.',

@@ -73,6 +73,7 @@ import {
   blockEditTargetKey,
   useIsOnline,
   canEditBlockOffline,
+  overlayQueuedBlocks,
   useOfflineEdits,
 } from '#/components/offline/offline-edits'
 import { requestBackgroundSync } from '#/lib/offline/service-worker'
@@ -2170,6 +2171,10 @@ function EditableNotebook({
   const liveStatus = useLiveStatus()
   const offline = liveStatus.status === 'offline'
   const offlineEdits = useOfflineEdits()
+  const shownBlocks = useMemo(
+    () => overlayQueuedBlocks(blocks, offlineEdits.edits),
+    [blocks, offlineEdits.edits],
+  )
   const [hasUnsavedWork, setHasUnsavedWork] = useState(false)
   const [embedOpen, setEmbedOpen] = useState(false)
   const [embedAfterBlockId, setEmbedAfterBlockId] = useState<
@@ -2767,7 +2772,7 @@ function EditableNotebook({
       ) : null}
       <RoutedNotebookDocument
         record={record}
-        blocks={blocks}
+        blocks={shownBlocks}
         onSaveBlock={handleSave}
         offline={offline}
         onUnsavedWorkChange={(value) => {

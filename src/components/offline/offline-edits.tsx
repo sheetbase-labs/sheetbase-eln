@@ -270,6 +270,29 @@ export function losslessPlainText(payload: unknown): string | null {
   return JSON.stringify(rebuilt) === JSON.stringify(payload) ? text : null
 }
 
+/**
+ * The blocks as the person left them: each block with a queued edit shows the
+ * queued payload, so a re-render or reload does not put the server's older
+ * text back in front of them while the edit waits to sync. Blocks without a
+ * queued edit are returned untouched.
+ */
+export function overlayQueuedBlocks<
+  T extends { id: string; payload: Record<string, unknown> },
+>(blocks: T[], edits: readonly OfflineEdit[]): T[] {
+  const queued = new Map<string, Record<string, unknown>>()
+  for (const edit of edits) {
+    if (edit.kind === 'block_payload') queued.set(edit.blockId, edit.payload)
+    else if (edit.kind === 'block_text') {
+      queued.set(edit.blockId, richTextPayloadFromText(edit.text))
+    }
+  }
+  if (queued.size === 0) return blocks
+  return blocks.map((block) => {
+    const payload = queued.get(block.id)
+    return payload ? { ...block, payload } : block
+  })
+}
+
 const EMPTY_OFFLINE_EDITS: OfflineEditsContextValue = {
   edits: [],
   loading: false,

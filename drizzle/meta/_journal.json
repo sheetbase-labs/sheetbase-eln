@@ -608,6 +608,13 @@
       "when": 1801393937830,
       "tag": "0088_account_basics",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1801394037830,
+      "tag": "0089_pin_anything",
+      "breakpoints": true
     }
   ]
 }

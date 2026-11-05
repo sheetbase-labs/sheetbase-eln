@@ -493,7 +493,7 @@ function TopBar({
     // The brand link gives way to the menu button, help and the assistant sit
     // in other places, and the workspace name is the one control that shrinks
     // (it truncates), so nothing is clipped and the bar never wraps.
-    <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 md:gap-3 md:px-3">
+    <header className="flex h-topbar shrink-0 standalone:box-content standalone:pt-[env(safe-area-inset-top)] items-center gap-2 border-b border-border bg-surface px-2 md:gap-3 md:px-3">
       <IconButton
         variant="quiet"
         icon="panelLeft"

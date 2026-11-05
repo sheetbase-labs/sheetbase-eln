@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { toWireToolName } from './agent-tool-catalogue'
 import type { AgentOperation } from './agent-operations'
+import type { AssistantAction } from './assistant-booking'
 import {
   INPUT_NAME_RE,
   MAX_INPUTS,
@@ -249,14 +250,21 @@ export interface ProposalChange {
 
 /** What the card needs, and what Apply sends through the approval path. */
 export interface AssistantProposal {
-  tool: ProposalToolName
+  /** The proposing tool: a change tool here, or a booking tool. */
+  tool: ProposalToolName | `sheetbase.booking.${'create' | 'move' | 'cancel'}`
   title: string
   summary: string
   /** Where it goes, for the card: "EXP-12 · Notebook". */
   target: string
   deepLink: string | null
   changes: ProposalChange[]
-  operation: AgentOperation
+  /** A change that goes through the propose, approve and execute path. */
+  operation?: AgentOperation
+  /**
+   * Or an everyday action the person takes themselves, such as booking an
+   * instrument: run as them through the ordinary RPC when they press the button.
+   */
+  action?: AssistantAction
   /**
    * A second step run right after the first, once the first has made
    * something it depends on: a new pipeline gets its first draft version.
@@ -274,7 +282,9 @@ export function proposalFromOutput(output: unknown): AssistantProposal | null {
     return null
   const proposal = output.proposal
   if (proposal === null || typeof proposal !== 'object') return null
-  return 'tool' in proposal && 'operation' in proposal && 'changes' in proposal
+  return 'tool' in proposal &&
+    ('operation' in proposal || 'action' in proposal) &&
+    'changes' in proposal
     ? (proposal as AssistantProposal)
     : null
 }

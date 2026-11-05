@@ -91,6 +91,7 @@ import {
 import type { WorkspaceOpenOptions } from './workspace-navigation'
 import { WorkspaceBar } from './workspace-bar'
 import { statusHints, WorkspaceStatus } from './workspace-status'
+import { canNativeShare, shareLink } from '#/lib/pwa/share'
 import { t } from '#/copy'
 
 const ID_PATTERN = /^[A-Z]{2,5}-[A-Z0-9-]{2,}$/
@@ -1307,6 +1308,23 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                               ?.identifier
                           }
                           onSaveTrail={() => void saveTrail(pane.id)}
+                          onShare={
+                            canNativeShare()
+                              ? () => {
+                                  void shareLink({
+                                    title: pane.identifier
+                                      ? `${pane.identifier} · ${pane.title}`
+                                      : pane.title,
+                                    url: `${location.origin}${pane.href}`,
+                                  }).then((outcome) => {
+                                    if (outcome === 'failed')
+                                      toast.error(t('pwa.share.failed'))
+                                    if (outcome === 'copied')
+                                      toast.success(t('pwa.share.copied'))
+                                  })
+                                }
+                              : undefined
+                          }
                           onCopyLink={() => {
                             void navigator.clipboard
                               .writeText(`${location.origin}${pane.href}`)

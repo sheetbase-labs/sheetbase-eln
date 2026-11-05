@@ -61,6 +61,8 @@ export interface PaneHeaderProps {
   onMakeDriver: () => void
   onCompareNewer: () => void
   onCopyLink: () => void
+  /** Hand the link to the phone's share sheet; absent where there is none. */
+  onShare?: () => void
   /** The record a saved trail would be attached to (the primary pane's). */
   trailTarget?: string
   onSaveTrail: () => void
@@ -324,6 +326,11 @@ export function PaneHeader(props: PaneHeaderProps) {
             <DropdownMenuItem onClick={props.onCopyLink}>
               {t('projects.paneHeader.copyLink')}
             </DropdownMenuItem>
+            {props.onShare ? (
+              <DropdownMenuItem onClick={props.onShare}>
+                {t('pwa.share.action')}
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem
               onClick={props.onSaveTrail}
               disabled={!props.trailTarget}

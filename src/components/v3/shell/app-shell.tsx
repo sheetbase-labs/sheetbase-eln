@@ -71,6 +71,7 @@ import {
   LazyShortcutsDialog,
 } from '#/components/v3/shell/lazy-overlays'
 import { ContextHelp } from '#/components/v3/help/context-help'
+import { InstallPrompt } from '#/components/pwa/install-prompt'
 import { AssistantTrigger } from '#/components/assist/ask-ai-button'
 import { openAssistant } from '#/lib/assistant-context'
 import { AssistantPanel } from '#/components/assist/assistant-panel'
@@ -309,6 +310,7 @@ export function AppShell({
             onOpenNav={() => setNavOpen(true)}
           />
           {banner}
+          <InstallPrompt />
           <Sheet open={navOpen} onOpenChange={setNavOpen}>
             <SheetContent
               side="left"

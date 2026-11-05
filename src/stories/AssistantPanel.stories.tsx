@@ -15,12 +15,24 @@ import { screenQueryClient, screenRoutes } from './screen-stories'
  * closed it is inert.
  */
 const WORKSPACE_ID = AI_WORKSPACE_ID.slice(0, -2) + 'd1'
+const READY_WORKSPACE_ID = AI_WORKSPACE_ID.slice(0, -2) + 'd2'
 
 const client = screenQueryClient({
   data: [
     {
       key: ['ai-settings', WORKSPACE_ID],
       value: { readiness: { ready: false, reason: 'disabled' } },
+    },
+    {
+      key: ['ai-settings', READY_WORKSPACE_ID],
+      value: {
+        readiness: {
+          ready: true,
+          mode: 'provider',
+          profileId: 'workspace-model',
+          dataClass: 'cloud',
+        },
+      },
     },
   ],
 })
@@ -62,8 +74,26 @@ export const Closed: Story = {}
 export const Open: Story = {
   render: (args) => (
     <>
-      <OpenOnMount />
       <AssistantPanel {...args} />
+      {/* After the panel, so its listener is in place when this fires. */}
+      <OpenOnMount />
+    </>
+  ),
+}
+
+/**
+ * Opened with AI on, so the message box shows. Check it at phone size: below
+ * desktop width the panel is a bottom sheet, and its message box and note must
+ * sit clear of the iPhone home indicator and, with the keyboard up, of the
+ * keyboard's accessory bar.
+ */
+export const OpenReady: Story = {
+  args: { workspaceId: READY_WORKSPACE_ID },
+  render: (args) => (
+    <>
+      <AssistantPanel {...args} />
+      {/* After the panel, so its listener is in place when this fires. */}
+      <OpenOnMount />
     </>
   ),
 }

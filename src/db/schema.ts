@@ -510,6 +510,8 @@ export const workspaceSettings = api.table(
      * session idles out after 30 minutes. Off for new workspaces.
      */
     regulatedLab: boolean('regulated_lab').notNull().default(false),
+    /** Pages the lab took out of everyone's sidebar (migration 0084). */
+    hiddenNavPages: text('hidden_nav_pages').array().notNull().default([]),
     /**
      * What happens when an instrument that is overdue for calibration, retired
      * or not qualified for the person takes new data (a run or an import):
@@ -6092,6 +6094,8 @@ export const userPreferences = api.table(
       .references(() => user.id, { onDelete: 'cascade' }),
     appearance: text('appearance').notNull().default('system'),
     navCollapsed: boolean('nav_collapsed').notNull().default(false),
+    /** Sidebar groups this person folded (migration 0084). */
+    navFolded: text('nav_folded').array().notNull().default([]),
     /**
      * The workspace the user last switched to (SHELL-01.4). Resolution uses it
      * only while the user is still a member; otherwise the first membership.

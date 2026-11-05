@@ -112,12 +112,16 @@ describe('the event list', () => {
       event_type: string
       source: string
       default_email: boolean
-    }>('SELECT event_type, source, default_email FROM api.notification_events')
+      default_push: boolean
+    }>(
+      'SELECT event_type, source, default_email, default_push FROM api.notification_events',
+    )
     for (const event of NOTIFICATION_EVENTS) {
       const row = rows.find((r) => r.event_type === event.key)
       expect(row, event.key).toMatchObject({
         source: event.source,
         default_email: event.defaultEmail,
+        default_push: event.defaultPush,
       })
     }
   })

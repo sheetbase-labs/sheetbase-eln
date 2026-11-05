@@ -3,6 +3,7 @@ import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Muted, Section } from '#/components/ui/layout'
+import { ProjectMembers } from './-members-panel'
 import { Field, Input } from '#/components/ui/input'
 import { Button } from '#/components/ui/button'
 import { Notice } from '#/components/ui/alert'
@@ -321,6 +322,8 @@ function ProjectSettings() {
             </Button>
           </div>
         </Section>
+
+        <ProjectMembers projectId={projectId} />
 
         <Section title={t('projects.projectSettings.portal.title')}>
           {project.clientCode || project.clientName ? (

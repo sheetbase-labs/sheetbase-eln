@@ -16,6 +16,9 @@ import {
   ProjectListOutOfRange,
 } from '#/components/projects/project-list'
 import { Pager } from '#/components/ui/pager'
+import { Tabs } from '#/components/ui/tabs'
+import { ProjectSheets } from '#/components/projects/project-sheets'
+import { ProjectFolders } from './-folders-panel'
 import {
   PROJECT_LIST_PAGE_SIZE,
   parseProjectPage,
@@ -30,17 +33,27 @@ import { t } from '#/copy'
 import { getFileType } from '#/components/reui/file-type'
 
 export const Route = createFileRoute('/projects/$projectId/files')({
-  validateSearch: (search: Record<string, unknown>): { page?: number } => {
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { page?: number; view?: FilesView } => {
     const page = parseProjectPage(search.page)
-    return page > 1 ? { page } : {}
+    const view =
+      search.view === 'folders' || search.view === 'sheets'
+        ? search.view
+        : undefined
+    return { ...(page > 1 ? { page } : {}), ...(view ? { view } : {}) }
   },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) throw redirect(signInRedirect(location))
     return { context }
   },
-  component: ProjectFilesTab,
+  component: ProjectFilesPage,
 })
+
+/** What the Files tab shows: the uploaded files, the folders they are
+ * organised in, or the project's working sheets. */
+type FilesView = 'folders' | 'sheets'
 
 interface FileRecordWire {
   id: string
@@ -169,6 +182,59 @@ function day(value: string): string {
       timeZone: 'UTC',
     })
     .replace('Sept', 'Sep')
+}
+
+/** One Files tab for everything the project keeps: files, folders and sheets. */
+function ProjectFilesPage() {
+  const { projectId } = Route.useParams()
+  const { view } = Route.useSearch()
+  const params = { projectId }
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="px-4 pt-3 md:px-8">
+        <Tabs
+          mode="url"
+          variant="segment"
+          label={t('projects.projectFiles.views.label')}
+          value={view ?? 'files'}
+          items={[
+            {
+              key: 'files',
+              label: t('projects.projectFiles.views.files'),
+              link: { to: '/projects/$projectId/files', params, search: {} },
+            },
+            {
+              key: 'folders',
+              label: t('projects.projectFiles.views.folders'),
+              link: {
+                to: '/projects/$projectId/files',
+                params,
+                search: { view: 'folders' },
+              },
+            },
+            {
+              key: 'sheets',
+              label: t('projects.projectFiles.views.sheets'),
+              link: {
+                to: '/projects/$projectId/files',
+                params,
+                search: { view: 'sheets' },
+              },
+            },
+          ]}
+        />
+      </div>
+      <div className="flex min-h-0 min-w-0 flex-1">
+        {view === 'folders' ? (
+          <ProjectFolders projectId={projectId} />
+        ) : view === 'sheets' ? (
+          <ProjectSheets projectId={projectId} />
+        ) : (
+          <ProjectFilesTab />
+        )}
+      </div>
+    </div>
+  )
 }
 
 function ProjectFilesTab() {

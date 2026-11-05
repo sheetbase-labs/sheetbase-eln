@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { Route } from './members'
+import { ProjectMembers as Panel } from './-members-panel'
 
 const mocks = vi.hoisted(() => ({
   fetchProjectMembers: vi.fn(),
@@ -22,9 +22,7 @@ for (const prop of ['offsetHeight', 'clientHeight'] as const) {
 }
 
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (options: object) => ({
-    options,
-    useParams: () => ({ projectId: 'project-1' }),
+  getRouteApi: () => ({
     useRouteContext: () => ({ context: { user: { id: 'gareth' } } }),
   }),
 }))
@@ -67,7 +65,7 @@ beforeEach(() => {
   mocks.setProjectMember.mockResolvedValue(undefined)
 })
 
-const ProjectMembers = Route.options.component as React.ComponentType
+const ProjectMembers = () => <Panel projectId="project-1" />
 
 function renderScreen() {
   const client = new QueryClient({

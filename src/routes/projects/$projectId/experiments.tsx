@@ -105,7 +105,8 @@ function ProjectExperimentsTab() {
       action={
         <span className="flex items-center gap-3 text-label">
           <Link
-            to="/projects/$projectId/folders"
+            to="/projects/$projectId/files"
+            search={{ view: 'folders' }}
             params={{ projectId }}
             className="text-link"
           >

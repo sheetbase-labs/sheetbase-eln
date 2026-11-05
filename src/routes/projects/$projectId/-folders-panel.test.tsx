@@ -9,16 +9,14 @@ import {
 import type { ReactNode } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 
-import { Route } from './folders'
+import { ProjectFolders } from './-folders-panel'
 
 const { moveRecords } = vi.hoisted(() => ({
   moveRecords: vi.fn().mockResolvedValue(1),
 }))
 
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (options: object) => ({
-    options,
-    useParams: () => ({ projectId: 'p1' }),
+  getRouteApi: () => ({
     useRouteContext: () => ({ context: { user: { id: 'u1' } } }),
   }),
   Link: ({ children }: { children: ReactNode }) => <a>{children}</a>,
@@ -77,7 +75,7 @@ afterEach(() => {
 })
 
 it('moves to the second instance’s destination without reading the first dialog', async () => {
-  const Folders = Route.options.component!
+  const Folders = () => <ProjectFolders projectId="p1" />
   const mount = () =>
     render(
       <QueryClientProvider

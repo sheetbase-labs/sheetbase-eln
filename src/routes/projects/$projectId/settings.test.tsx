@@ -54,6 +54,7 @@ vi.mock('#/components/projects/project-data', () => ({
     query: {},
   }),
 }))
+vi.mock('./-members-panel', () => ({ ProjectMembers: () => null }))
 vi.mock('#/components/ui/sonner', () => ({ toast: vi.fn() }))
 
 afterEach(cleanup)

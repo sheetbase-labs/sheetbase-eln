@@ -409,12 +409,12 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
   { screen: 'ProjectLVV', route: '/projects/PRJ-0214', state: rec('PRJ-0214') },
   {
     screen: 'ProjectFiles',
-    route: '/projects/PRJ-0217/folders',
+    route: '/projects/PRJ-0217/files?view=folders',
     state: rec('PRJ-0217'),
   },
   {
     screen: 'ProjectMembers',
-    route: '/projects/PRJ-0217/members',
+    route: '/projects/PRJ-0217/settings',
     state: rec('PRJ-0217'),
   },
   {

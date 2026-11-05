@@ -6,23 +6,13 @@ import {
 } from '#/components/notebook/annotated-image'
 import type { ImageAnnotation } from '#/lib/image-annotations'
 
+import { GEL } from './gel-fixture'
+
 /**
  * A notebook image with its marks drawn above it. The picture is an inline SVG
  * of a gel, so the story needs no file; the marks are positions as fractions of
  * the image, so they hold at any size.
  */
-const GEL = `data:image/svg+xml;utf8,${encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="560" height="320" viewBox="0 0 560 320">
-    <rect width="560" height="320" fill="#1b2433"/>
-    ${[0.15, 0.3, 0.45, 0.6, 0.75, 0.9]
-      .map(
-        (x, i) =>
-          `<rect x="${x * 560 - 22}" y="${70 + i * 6}" width="44" height="10" rx="3" fill="#d8e2f0" opacity="0.85"/>
-           <rect x="${x * 560 - 22}" y="${170 - i * 8}" width="44" height="8" rx="3" fill="#d8e2f0" opacity="0.55"/>`,
-      )
-      .join('')}
-  </svg>`,
-)}`
 
 const annotations: ImageAnnotation[] = [
   { id: 'l1', kind: 'lane', x: 0.15, text: 'Ladder', color: 'yellow' },

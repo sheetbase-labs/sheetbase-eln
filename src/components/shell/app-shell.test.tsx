@@ -196,6 +196,14 @@ function notification(overrides: Partial<Notification> = {}): Notification {
   }
 }
 
+const PIN = {
+  kind: 'project',
+  id: 'p-1',
+  name: 'Assay development',
+  page: 'projects',
+  to: '/projects/p-1',
+}
+
 describe('v3 AppShell navigation (SHELL-01)', () => {
   it('renders every destination as a focusable link', () => {
     renderShell()
@@ -243,29 +251,68 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
     )
   })
 
-  it('puts Settings above the pinned projects, which fold like the groups', async () => {
-    const { container } = renderShell({
-      pinned: [{ id: 'p-1', name: 'Assay development', tone: 'progress' }],
-    })
+  it('sets Settings apart, after a rule and outside every group', () => {
+    const { container } = renderShell()
     const sidebar = Array.from(container.querySelectorAll('nav')).find((n) =>
       n.className.includes('w-nav'),
     )!
     const settings = within(sidebar).getByRole('link', { name: 'Settings' })
-    // Settings stands apart from the groups, after a rule.
     expect(settings.closest('[role="group"]')).toBeNull()
     expect(settings.previousElementSibling?.getAttribute('role')).toBe(
       'separator',
     )
-    const pinned = within(sidebar).getByRole('link', {
-      name: 'Assay development',
+  })
+
+  it('lists each pin under its own page, and folds them per page', async () => {
+    const { container } = renderShell({
+      pinned: [
+        PIN,
+        {
+          kind: 'instrument',
+          id: 'i-1',
+          name: 'Plate reader 2',
+          page: 'instruments',
+          to: '/instruments/i-1',
+        },
+      ],
+    })
+    const sidebar = Array.from(container.querySelectorAll('nav')).find((n) =>
+      n.className.includes('w-nav'),
+    )!
+    const underInstruments = within(sidebar).getByRole('list', {
+      name: 'Pinned Instruments',
     })
     expect(
-      settings.compareDocumentPosition(pinned) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      within(underInstruments).getByRole('link', { name: 'Plate reader 2' }),
     ).toBeTruthy()
+    expect(
+      within(
+        within(sidebar).getByRole('list', { name: 'Pinned Projects' }),
+      ).getByRole('link', { name: 'Assay development' }),
+    ).toBeTruthy()
+    expect(within(sidebar).queryByText('Pinned projects')).toBeNull()
+
     fireEvent.click(
-      within(sidebar).getByRole('button', { name: 'Hide Pinned projects' }),
+      within(sidebar).getByRole('button', { name: 'Hide pinned Instruments' }),
     )
+    await waitFor(() =>
+      expect(within(sidebar).queryByText('Plate reader 2')).toBeNull(),
+    )
+    // Folding one page's pins leaves the others alone.
+    expect(within(sidebar).getByText('Assay development')).toBeTruthy()
+    await waitFor(() =>
+      expect(vi.mocked(setNavFolded)).toHaveBeenCalledWith(expect.anything(), [
+        'pins-instruments',
+      ]),
+    )
+  })
+
+  it('hides pins with their group when the group is folded', async () => {
+    const { container } = renderShell({ pinned: [PIN] })
+    const sidebar = Array.from(container.querySelectorAll('nav')).find((n) =>
+      n.className.includes('w-nav'),
+    )!
+    fireEvent.click(within(sidebar).getByRole('button', { name: 'Hide Work' }))
     await waitFor(() =>
       expect(within(sidebar).queryByText('Assay development')).toBeNull(),
     )
@@ -307,13 +354,13 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
 
   it('collapses the sidebar to the rail with ⌘B and saves the preference', async () => {
     renderShell({
-      pinned: [{ id: 'p-1', name: 'Assay development', tone: 'progress' }],
+      pinned: [PIN],
     })
     expect(screen.getByText('Assay development')).toBeTruthy()
-    expect(screen.getByText('Pinned projects')).toBeTruthy()
+    expect(screen.getByText('Assay development')).toBeTruthy()
     fireEvent.keyDown(window, { key: 'b', metaKey: true })
     await waitFor(() =>
-      expect(screen.queryByText('Pinned projects')).toBeNull(),
+      expect(screen.queryByText('Assay development')).toBeNull(),
     )
     // The rail keeps Settings reachable.
     expect(screen.getAllByRole('link', { name: 'Settings' }).length).toBe(1)
@@ -328,7 +375,7 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
 
   it('leaves no pinned heading when the caller has pinned nothing', () => {
     renderShell()
-    expect(screen.queryByText('Pinned projects')).toBeNull()
+    expect(screen.queryByText('Assay development')).toBeNull()
   })
 
   it('opens the generated shortcuts dialog with ?', async () => {
@@ -671,10 +718,10 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
       navFolded: [],
     })
     renderShell({
-      pinned: [{ id: 'p-1', name: 'Assay development', tone: 'progress' }],
+      pinned: [PIN],
     })
     await waitFor(() =>
-      expect(screen.queryByText('Pinned projects')).toBeNull(),
+      expect(screen.queryByText('Assay development')).toBeNull(),
     )
   })
 
@@ -687,13 +734,13 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
       }),
     )
     renderShell({
-      pinned: [{ id: 'p-1', name: 'Assay development', tone: 'progress' }],
+      pinned: [PIN],
     })
-    expect(screen.getByText('Pinned projects')).toBeTruthy()
+    expect(screen.getByText('Assay development')).toBeTruthy()
 
     fireEvent.keyDown(window, { key: 'b', metaKey: true })
     await waitFor(() =>
-      expect(screen.queryByText('Pinned projects')).toBeNull(),
+      expect(screen.queryByText('Assay development')).toBeNull(),
     )
 
     // The response that arrives after the toggle must not reopen the sidebar.
@@ -701,7 +748,7 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
     await act(async () => {
       await Promise.resolve()
     })
-    expect(screen.queryByText('Pinned projects')).toBeNull()
+    expect(screen.queryByText('Assay development')).toBeNull()
   })
 })
 

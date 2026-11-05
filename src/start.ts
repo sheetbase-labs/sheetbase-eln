@@ -41,6 +41,13 @@ const emailSchedulerMiddleware = createMiddleware().server(async ({ next }) => {
   return next()
 })
 
+// Phone alerts: Web Push sender, booking reminders and the server's push key.
+const pushSchedulerMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startPushScheduler } = await import('#/lib/push-delivery.server')
+  startPushScheduler()
+  return next()
+})
+
 // DSET-04.2: Dataset snapshot retention sweep. Calls
 // api.prune_dataset_versions on an interval with the privileged app
 // connection; guarded like the pipeline scheduler and never started under
@@ -205,6 +212,7 @@ export const startInstance = createStart(() => ({
     pipelineSchedulerMiddleware,
     pipelineWorkerMiddleware,
     emailSchedulerMiddleware,
+    pushSchedulerMiddleware,
     datasetRetentionSchedulerMiddleware,
     fileTextBackfillMiddleware,
     sampleHoldSchedulerMiddleware,

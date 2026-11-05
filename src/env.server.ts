@@ -159,6 +159,9 @@ export const env = createEnv({
       .int()
       .positive()
       .optional(),
+    // Phone alerts: the contact (mailto: or https address) push services can
+    // reach about this install. Defaults to the app's own https address.
+    PUSH_VAPID_SUBJECT: z.string().min(1).optional(),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

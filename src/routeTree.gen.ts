@@ -28,6 +28,7 @@ import { Route as PipelinesRouteImport } from './routes/pipelines'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as PromotionsRouteImport } from './routes/promotions'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
+import { Route as RegistryRouteImport } from './routes/registry'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as SamplesRouteImport } from './routes/samples'
 import { Route as SavedSearchesRouteImport } from './routes/saved-searches'
@@ -68,6 +69,7 @@ import { Route as ProtocolsProtocolIdRouteImport } from './routes/protocols/$pro
 import { Route as RIdentifierRouteImport } from './routes/r/$identifier'
 import { Route as ReadingsNewRouteImport } from './routes/readings/new'
 import { Route as RecordsRecordIdRouteImport } from './routes/records/$recordId'
+import { Route as RegistryEntryIdRouteImport } from './routes/registry_.$entryId'
 import { Route as ReportsReportIdRouteImport } from './routes/reports/$reportId'
 import { Route as ReviewIndexRouteImport } from './routes/review/index'
 import { Route as ReviewRevisionIdRouteImport } from './routes/review/$revisionId'
@@ -300,6 +302,11 @@ const ProtocolsRoute = ProtocolsRouteImport.update({
   path: '/protocols',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RegistryRoute = RegistryRouteImport.update({
+  id: '/registry',
+  path: '/registry',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -498,6 +505,11 @@ const ReadingsNewRoute = ReadingsNewRouteImport.update({
 const RecordsRecordIdRoute = RecordsRecordIdRouteImport.update({
   id: '/records/$recordId',
   path: '/records/$recordId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegistryEntryIdRoute = RegistryEntryIdRouteImport.update({
+  id: '/registry_/$entryId',
+  path: '/registry/$entryId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsReportIdRoute = ReportsReportIdRouteImport.update({
@@ -1242,6 +1254,7 @@ export interface FileRoutesByFullPath {
   '/projects': typeof ProjectsRouteWithChildren
   '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
+  '/registry': typeof RegistryRoute
   '/reports': typeof ReportsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
   '/saved-searches': typeof SavedSearchesRoute
@@ -1279,6 +1292,7 @@ export interface FileRoutesByFullPath {
   '/r/$identifier': typeof RIdentifierRoute
   '/readings/new': typeof ReadingsNewRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
+  '/registry/$entryId': typeof RegistryEntryIdRoute
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
@@ -1436,6 +1450,7 @@ export interface FileRoutesByTo {
   '/projects': typeof ProjectsRouteWithChildren
   '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
+  '/registry': typeof RegistryRoute
   '/reports': typeof ReportsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
   '/saved-searches': typeof SavedSearchesRoute
@@ -1466,6 +1481,7 @@ export interface FileRoutesByTo {
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/r/$identifier': typeof RIdentifierRoute
   '/readings/new': typeof ReadingsNewRoute
+  '/registry/$entryId': typeof RegistryEntryIdRoute
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/settings/access': typeof SettingsAccessRoute
@@ -1624,6 +1640,7 @@ export interface FileRoutesById {
   '/projects': typeof ProjectsRouteWithChildren
   '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
+  '/registry': typeof RegistryRoute
   '/reports': typeof ReportsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
   '/saved-searches': typeof SavedSearchesRoute
@@ -1661,6 +1678,7 @@ export interface FileRoutesById {
   '/r/$identifier': typeof RIdentifierRoute
   '/readings/new': typeof ReadingsNewRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
+  '/registry_/$entryId': typeof RegistryEntryIdRoute
   '/reports/$reportId': typeof ReportsReportIdRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
@@ -1823,6 +1841,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/promotions'
     | '/protocols'
+    | '/registry'
     | '/reports'
     | '/samples'
     | '/saved-searches'
@@ -1860,6 +1879,7 @@ export interface FileRouteTypes {
     | '/r/$identifier'
     | '/readings/new'
     | '/records/$recordId'
+    | '/registry/$entryId'
     | '/reports/$reportId'
     | '/review/$revisionId'
     | '/samples/$sampleId'
@@ -2017,6 +2037,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/promotions'
     | '/protocols'
+    | '/registry'
     | '/reports'
     | '/samples'
     | '/saved-searches'
@@ -2047,6 +2068,7 @@ export interface FileRouteTypes {
     | '/protocols/$protocolId'
     | '/r/$identifier'
     | '/readings/new'
+    | '/registry/$entryId'
     | '/reports/$reportId'
     | '/review/$revisionId'
     | '/settings/access'
@@ -2204,6 +2226,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/promotions'
     | '/protocols'
+    | '/registry'
     | '/reports'
     | '/samples'
     | '/saved-searches'
@@ -2241,6 +2264,7 @@ export interface FileRouteTypes {
     | '/r/$identifier'
     | '/readings/new'
     | '/records/$recordId'
+    | '/registry_/$entryId'
     | '/reports/$reportId'
     | '/review/$revisionId'
     | '/samples/$sampleId'
@@ -2402,6 +2426,7 @@ export interface RootRouteChildren {
   ProjectsRoute: typeof ProjectsRouteWithChildren
   PromotionsRoute: typeof PromotionsRoute
   ProtocolsRoute: typeof ProtocolsRouteWithChildren
+  RegistryRoute: typeof RegistryRoute
   ReportsRoute: typeof ReportsRouteWithChildren
   SamplesRoute: typeof SamplesRouteWithChildren
   SavedSearchesRoute: typeof SavedSearchesRoute
@@ -2424,6 +2449,7 @@ export interface RootRouteChildren {
   RIdentifierRoute: typeof RIdentifierRoute
   ReadingsNewRoute: typeof ReadingsNewRoute
   RecordsRecordIdRoute: typeof RecordsRecordIdRouteWithChildren
+  RegistryEntryIdRoute: typeof RegistryEntryIdRoute
   ReviewRevisionIdRoute: typeof ReviewRevisionIdRoute
   SheetDefinitionsDefinitionIdRoute: typeof SheetDefinitionsDefinitionIdRoute
   SheetsSheetIdRoute: typeof SheetsSheetIdRoute
@@ -2613,6 +2639,13 @@ declare module '@tanstack/react-router' {
       path: '/protocols'
       fullPath: '/protocols'
       preLoaderRoute: typeof ProtocolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/registry': {
+      id: '/registry'
+      path: '/registry'
+      fullPath: '/registry'
+      preLoaderRoute: typeof RegistryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports': {
@@ -2893,6 +2926,13 @@ declare module '@tanstack/react-router' {
       path: '/records/$recordId'
       fullPath: '/records/$recordId'
       preLoaderRoute: typeof RecordsRecordIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/registry_/$entryId': {
+      id: '/registry_/$entryId'
+      path: '/registry/$entryId'
+      fullPath: '/registry/$entryId'
+      preLoaderRoute: typeof RegistryEntryIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports/$reportId': {
@@ -4318,6 +4358,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsRoute: ProjectsRouteWithChildren,
   PromotionsRoute: PromotionsRoute,
   ProtocolsRoute: ProtocolsRouteWithChildren,
+  RegistryRoute: RegistryRoute,
   ReportsRoute: ReportsRouteWithChildren,
   SamplesRoute: SamplesRouteWithChildren,
   SavedSearchesRoute: SavedSearchesRoute,
@@ -4340,6 +4381,7 @@ const rootRouteChildren: RootRouteChildren = {
   RIdentifierRoute: RIdentifierRoute,
   ReadingsNewRoute: ReadingsNewRoute,
   RecordsRecordIdRoute: RecordsRecordIdRouteWithChildren,
+  RegistryEntryIdRoute: RegistryEntryIdRoute,
   ReviewRevisionIdRoute: ReviewRevisionIdRoute,
   SheetDefinitionsDefinitionIdRoute: SheetDefinitionsDefinitionIdRoute,
   SheetsSheetIdRoute: SheetsSheetIdRoute,

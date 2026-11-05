@@ -1867,6 +1867,7 @@ export const projects = {
     import: 'Import',
     scan: 'Scan',
     stocktake: 'Stocktake',
+    registry: 'Registry',
     readings: 'Readings',
     promotions: 'Column requests',
     page: 'Page',

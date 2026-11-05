@@ -104,6 +104,12 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     area: 'audit',
   },
   {
+    label: 'Retention and holds',
+    link: { to: '/settings/retention' },
+    match: (p) => p.startsWith('/settings/retention'),
+    area: 'general',
+  },
+  {
     label: 'Diagnostics',
     link: { to: '/settings/diagnostics' },
     match: (p) => p.startsWith('/settings/diagnostics'),

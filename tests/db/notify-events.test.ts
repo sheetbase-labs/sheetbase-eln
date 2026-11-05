@@ -136,6 +136,7 @@ describe('the event list', () => {
       ),
     )
     kinds.delete('following')
+    kinds.delete('project_following')
     const covered = await migrator.query<{ kind: string }>(
       'SELECT unnest(inbox_kinds) AS kind FROM api.notification_events',
     )

@@ -1027,8 +1027,12 @@
 }
 
 @container workspace-page (max-width: 700px) {
+  /* Top and sides only: the header's own bottom padding is there when it has
+     no tabs, and a tab strip sits flush on the header's rule so the current
+     tab's underline meets it. */
   .workspace-page [data-page-header] {
-    padding: 12px 16px;
+    padding-top: 12px;
+    padding-inline: 16px;
   }
   .workspace-page [data-page-header] h1 {
     font-size: 18px;

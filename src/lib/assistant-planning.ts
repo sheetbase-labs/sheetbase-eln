@@ -285,7 +285,9 @@ export type PlanningAction =
 
 export type PlanningActionKind = PlanningAction['kind']
 
-export function isPlanningAction(action: { kind: string }): boolean {
+export function isPlanningAction(action: {
+  kind: string
+}): action is PlanningAction {
   return [
     'experiment.start',
     'record.assign',

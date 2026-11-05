@@ -27,6 +27,14 @@ import {
   buildBenchProposal,
   isBenchProposalTool,
 } from './assistant-bench.server'
+import {
+  buildPlanningProposal,
+  inboxToolDefs,
+  isInboxReadTool,
+  isPlanningProposalTool,
+  planningProposalDefs,
+  readInbox,
+} from './assistant-planning.server'
 import { describeSlot, localFromInstant } from './assistant-booking'
 import {
   MAX_WORKSPACE_PANES,
@@ -120,7 +128,7 @@ function clip(text: string): string {
  */
 const CHAT_RULES = [
   'You are talking to a scientist in the app, not to a program. Name things the way the app shows them: a name, or an identifier such as EXP-12 or INS-0003. Never show an id like a UUID in your answer and never ask the person for one. When they name something, find it yourself with search or a list, and ask which one only if several really fit, naming the choices.',
-  'Sheetbase has a schedule with instrument booking, sample logging, moving and splitting, requests to the lab, sample shipments, an incident log, a registry, sample workflows, result limits, reagent orders, recurring work, stocktakes, label printing and retention. Before saying you cannot do something, check your tools. If no tool does it but the app does, say where in the app it is done and offer to open that page; never say Sheetbase cannot do it.',
+  'Sheetbase has a schedule with instrument booking and repeating bookings, sample logging, moving and splitting, starting experiments from templates, handing records to people and asking them about a record, requests to the lab, sample shipments, an incident log, a registry, sample workflows, result limits, reagent orders, recurring work, stocktakes, label printing and retention. Before saying you cannot do something, check your tools. If no tool does it but the app does, say where in the app it is done and offer to open that page; never say Sheetbase cannot do it.',
 ]
 
 function clockLine(timeZone: string, now: Date): string {
@@ -156,6 +164,9 @@ function instructionsFor(
     flags.mcp_draft
       ? 'Bench jobs work the same way: ordering a reagent or marking it received, logging samples, using, moving or splitting a sample, reporting an incident, sending a request to the lab, moving a sample to its next workflow stage, and taking an instrument out of service. Propose a card for each; the person presses the button. Fill forms only with what the person said and ask for anything missing; never invent a value. You cannot sign, approve, decide a request or release a sample: say those are done on the page by a person.'
       : 'Bench jobs such as ordering a reagent, logging or moving samples or reporting an incident are done on their pages; this workspace does not let the assistant propose changes, so say where to do it.',
+    flags.mcp_draft
+      ? 'You can also propose planning and follow-up as cards the person presses: start an experiment from a template, hand a record to someone, ask someone about a record (a comment that mentions them), repeat a booking on a pattern, start a timer on a step, send a shipment and mark one received. For "what is waiting on me" or "what do I need to do today", read the inbox and list what is waiting, each as a link. You cannot sign, approve, decide a request or release a sample: say those are for the person and offer to open the page.'
+      : 'For "what is waiting on me", read the inbox and list what is waiting, each as a link.',
     ...CHAT_RULES,
     clockLine(timeZone, now),
     always,
@@ -218,13 +229,14 @@ export async function createAssistantToolkit(deps: {
       description: tool.description,
       parameters: stripSchemaKeyword(tool.inputSchema),
     }))
-  defs.push(guideDef(), workspaceDef(), ...labToolDefs())
+  defs.push(guideDef(), workspaceDef(), ...labToolDefs(), ...inboxToolDefs())
   // Proposals are cards the person applies; offered only when agents may draft.
   if (deps.flags.mcp_draft) {
     defs.push(
       ...proposalToolDefs(),
       ...bookingProposalDefs(),
       ...benchProposalDefs(),
+      ...planningProposalDefs(),
     )
   }
   const timeZone = deps.timeZone ?? 'UTC'
@@ -283,6 +295,22 @@ export async function createAssistantToolkit(deps: {
       if (isLabReadTool(name)) {
         const result = await runLabReadTool(name, args, labContext)
         return { text: clip(result.text), isError: result.isError }
+      }
+
+      if (isInboxReadTool(name)) {
+        const result = await readInbox(args, labContext)
+        return { text: clip(result.text), isError: result.isError }
+      }
+
+      if (isPlanningProposalTool(name)) {
+        const built = await buildPlanningProposal(name, args, labContext)
+        return built.ok
+          ? {
+              text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
+              isError: false,
+              proposal: built.proposal,
+            }
+          : { text: built.message, isError: true }
       }
 
       if (isBookingProposalTool(name)) {

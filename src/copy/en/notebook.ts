@@ -90,6 +90,29 @@ export const notebook = {
         applying: 'Saving…',
         applied: 'Received',
       },
+      startExperiment: {
+        apply: 'Start experiment',
+        applying: 'Starting…',
+        applied: 'Started',
+      },
+      assign: { apply: 'Assign', applying: 'Assigning…', applied: 'Assigned' },
+      ask: { apply: 'Send', applying: 'Sending…', applied: 'Sent' },
+      repeat: {
+        apply: 'Book all',
+        applying: 'Booking…',
+        applied: 'Booked',
+      },
+      timer: {
+        apply: 'Start timer',
+        applying: 'Starting…',
+        applied: 'Timer running',
+      },
+      sendShipment: { apply: 'Send', applying: 'Sending…', applied: 'Sent' },
+      receiveShipment: {
+        apply: 'Mark received',
+        applying: 'Saving…',
+        applied: 'Received',
+      },
       logSamples: {
         apply: 'Log samples',
         applying: 'Logging…',
@@ -179,6 +202,14 @@ export const notebook = {
       bench: {
         running: 'Getting that ready…',
         done: 'Got that ready',
+      },
+      inbox: {
+        running: 'Checking what is waiting on you…',
+        done: 'Checked what is waiting on you',
+      },
+      planning: {
+        running: 'Checking the details…',
+        done: 'Checked the details',
       },
       generic: {
         running: 'Looking something up…',

@@ -714,7 +714,10 @@ function Members() {
         border={false}
         actions={
           <>
-            <Button nativeButton={false} render={<Link to="/settings/workspace/roles" />}>
+            <Button
+              nativeButton={false}
+              render={<Link to="/settings/workspace/roles" />}
+            >
               {t('settings.members.rolesPermissions')}
             </Button>
             {canManage ? (

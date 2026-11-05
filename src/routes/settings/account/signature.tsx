@@ -172,7 +172,10 @@ export function VerificationPath({
               size="sm"
               nativeButton={false}
               render={
-                <Link to="/settings/workspace/members" search={{ invite: 'admin' }} />
+                <Link
+                  to="/settings/workspace/members"
+                  search={{ invite: 'admin' }}
+                />
               }
             >
               {t('settings.mySignature.inviteAnotherAdministrator')}

@@ -18,7 +18,10 @@ function Roles() {
       <SettingsHeader
         title={t('settings.roles.rolesPermissions')}
         actions={
-          <Button nativeButton={false} render={<Link to="/settings/workspace/members" />}>
+          <Button
+            nativeButton={false}
+            render={<Link to="/settings/workspace/members" />}
+          >
             {t('settings.roles.backMembers')}
           </Button>
         }

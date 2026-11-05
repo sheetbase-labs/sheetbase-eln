@@ -31,7 +31,7 @@ const OFFLINE_PAGE =
 
 function isCacheableStatic(url) {
   return url.pathname.startsWith('/assets/') ||
-    /^\/(favicon\.svg|icon-\d+\.png|apple-touch-icon\.png|manifest\.webmanifest)$/.test(url.pathname)
+    /^\/(favicon(-dark)?\.svg|favicon(-dark)?-32\.png|icon-\d+\.png|apple-touch-icon\.png|manifest\.webmanifest)$/.test(url.pathname)
 }
 
 function isNeverCached(url) {

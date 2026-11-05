@@ -23,6 +23,7 @@ import { useReportFrozen } from '#/components/workspace/workspace-navigation'
 import { hasCapability } from '#/lib/capability'
 import { RecordTitleInput } from '../records/$recordId/-notebook-page'
 import { ExperimentLifecycleActions } from './$expId/-lifecycle-actions'
+import { RecordActionsProvider } from '#/components/notebook/record-actions'
 
 /** The experiment page: one frame, one URL. Notebook is the default tab and the
  * working surface; Overview, Samples, Datasets, Results, Files and History sit
@@ -164,139 +165,142 @@ function ExperimentLayout() {
     rows.filter((l) => l.target_kind === kind).length
   const status = experimentStatusFor(e.status)
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <PageHeader
-        trail={[
-          ...(e.project_id
-            ? [
-                {
-                  label:
-                    project.data?.title ?? t('projects.experimentPage.project'),
-                  link: {
-                    to: '/projects/$projectId' as const,
-                    params: { projectId: e.project_id },
+    <RecordActionsProvider>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <PageHeader
+          trail={[
+            ...(e.project_id
+              ? [
+                  {
+                    label:
+                      project.data?.title ??
+                      t('projects.experimentPage.project'),
+                    link: {
+                      to: '/projects/$projectId' as const,
+                      params: { projectId: e.project_id },
+                    },
                   },
-                },
-              ]
-            : []),
-          {
-            label: t('projects.experimentPage.experiments'),
-            link: { to: '/experiments' },
-          },
-          { label: e.identifier, mono: true },
-        ]}
-        title={
-          e.locked_at || e.archived_at ? (
-            e.title
-          ) : (
-            <RecordTitleInput
-              recordId={e.id}
-              title={e.title}
-              tags={e.tags ?? []}
-              className="h-auto w-full min-w-0 border-transparent bg-transparent px-0 text-title shadow-none max-md:text-[18px] max-md:leading-6"
-            />
-          )
-        }
-        meta={
-          <>
-            <span className="text-fg">
-              <Status tone={status.tone}>{status.label}</Status>
-            </span>
-            <span>
-              {t('projects.experimentPage.owner', {
-                name: userLabel(e.created_by_user_id),
-              })}
-            </span>
-            <span className="max-lg:hidden">
-              {e.status === 'draft' || e.status === 'planned'
-                ? t('projects.experimentPage.notStarted')
-                : t('projects.experimentPage.started', {
-                    date: formatDate(e.created_at),
-                  })}
-            </span>
-            {protocolLink ? (
-              <span className="max-lg:hidden">
-                {rich('projects.experimentPage.protocol', {
-                  link: (
-                    <Link
-                      to="/protocols/$protocolId"
-                      params={{
-                        protocolId: protocolLink.target_record_id ?? '',
-                      }}
-                      className="mono text-link"
-                    >
-                      {protocolLink.target_identifier}
-                    </Link>
-                  ),
+                ]
+              : []),
+            {
+              label: t('projects.experimentPage.experiments'),
+              link: { to: '/experiments' },
+            },
+            { label: e.identifier, mono: true },
+          ]}
+          title={
+            e.locked_at || e.archived_at ? (
+              e.title
+            ) : (
+              <RecordTitleInput
+                recordId={e.id}
+                title={e.title}
+                tags={e.tags ?? []}
+                className="h-auto w-full min-w-0 border-transparent bg-transparent px-0 text-title shadow-none max-md:text-[18px] max-md:leading-6"
+              />
+            )
+          }
+          meta={
+            <>
+              <span className="text-fg">
+                <Status tone={status.tone}>{status.label}</Status>
+              </span>
+              <span>
+                {t('projects.experimentPage.owner', {
+                  name: userLabel(e.created_by_user_id),
                 })}
               </span>
-            ) : null}
-          </>
-        }
-        actions={
-          <>
-            <CopyButton
-              value={() => window.location.href}
-              className="max-lg:hidden"
-              copiedMessage={t('projects.experimentPage.copied')}
-              failedMessage={t('projects.experimentPage.copyFailed')}
-            >
-              {t('projects.experimentPage.share')}
-            </CopyButton>
-            {!canWrite || e.locked_at || e.archived_at ? null : (
-              <BookInstrumentButton experimentId={e.id} />
-            )}
-            {canWrite ? <ExperimentLifecycleActions experiment={e} /> : null}
-            <AskAiButton />
-          </>
-        }
-        tabs={
-          <Tabs
-            mode="url"
-            label={t('projects.experimentPage.sections')}
-            items={[
-              {
-                label: t('projects.experimentPage.tabs.overview'),
-                link: { to: '/experiments/$expId/overview', params },
-              },
-              {
-                label: t('projects.experimentPage.tabs.notebook'),
-                link: { to: '/experiments/$expId/notebook', params },
-              },
-              {
-                label: t('projects.experimentPage.tabs.samples'),
-                count: kindCount('sample'),
-                link: { to: '/experiments/$expId/samples', params },
-              },
-              {
-                label: t('projects.experimentPage.tabs.datasets'),
-                count: kindCount('dataset'),
-                link: { to: '/experiments/$expId/datasets', params },
-              },
-              {
-                label: t('projects.experimentPage.tabs.results'),
-                link: { to: '/experiments/$expId/results', params },
-              },
-              {
-                label: t('projects.experimentPage.tabs.files'),
-                count: kindCount('file'),
-                link: { to: '/experiments/$expId/files', params },
-              },
-              {
-                label: t('projects.experimentPage.tabs.signatures'),
-                link: { to: '/experiments/$expId/signatures', params },
-              },
-              {
-                label: t('projects.experimentPage.tabs.history'),
-                link: { to: '/experiments/$expId/history', params },
-              },
-            ]}
-          />
-        }
-      />
-      <div className="flex min-h-0 flex-1">
-        <Outlet />
+              <span className="max-lg:hidden">
+                {e.status === 'draft' || e.status === 'planned'
+                  ? t('projects.experimentPage.notStarted')
+                  : t('projects.experimentPage.started', {
+                      date: formatDate(e.created_at),
+                    })}
+              </span>
+              {protocolLink ? (
+                <span className="max-lg:hidden">
+                  {rich('projects.experimentPage.protocol', {
+                    link: (
+                      <Link
+                        to="/protocols/$protocolId"
+                        params={{
+                          protocolId: protocolLink.target_record_id ?? '',
+                        }}
+                        className="mono text-link"
+                      >
+                        {protocolLink.target_identifier}
+                      </Link>
+                    ),
+                  })}
+                </span>
+              ) : null}
+            </>
+          }
+          actions={
+            <>
+              <CopyButton
+                value={() => window.location.href}
+                className="max-lg:hidden"
+                copiedMessage={t('projects.experimentPage.copied')}
+                failedMessage={t('projects.experimentPage.copyFailed')}
+              >
+                {t('projects.experimentPage.share')}
+              </CopyButton>
+              {!canWrite || e.locked_at || e.archived_at ? null : (
+                <BookInstrumentButton experimentId={e.id} />
+              )}
+              <ExperimentLifecycleActions experiment={e} canWrite={canWrite} />
+              <AskAiButton />
+            </>
+          }
+          tabs={
+            <Tabs
+              mode="url"
+              label={t('projects.experimentPage.sections')}
+              items={[
+                {
+                  label: t('projects.experimentPage.tabs.overview'),
+                  link: { to: '/experiments/$expId/overview', params },
+                },
+                {
+                  label: t('projects.experimentPage.tabs.notebook'),
+                  link: { to: '/experiments/$expId/notebook', params },
+                },
+                {
+                  label: t('projects.experimentPage.tabs.samples'),
+                  count: kindCount('sample'),
+                  link: { to: '/experiments/$expId/samples', params },
+                },
+                {
+                  label: t('projects.experimentPage.tabs.datasets'),
+                  count: kindCount('dataset'),
+                  link: { to: '/experiments/$expId/datasets', params },
+                },
+                {
+                  label: t('projects.experimentPage.tabs.results'),
+                  link: { to: '/experiments/$expId/results', params },
+                },
+                {
+                  label: t('projects.experimentPage.tabs.files'),
+                  count: kindCount('file'),
+                  link: { to: '/experiments/$expId/files', params },
+                },
+                {
+                  label: t('projects.experimentPage.tabs.signatures'),
+                  link: { to: '/experiments/$expId/signatures', params },
+                },
+                {
+                  label: t('projects.experimentPage.tabs.history'),
+                  link: { to: '/experiments/$expId/history', params },
+                },
+              ]}
+            />
+          }
+        />
+        <div className="flex min-h-0 flex-1">
+          <Outlet />
+        </div>
       </div>
-    </div>
+    </RecordActionsProvider>
   )
 }

@@ -150,6 +150,15 @@ function renderWithQuery(ui: React.ReactNode) {
   )
 }
 
+/** The record's actions are in one ⋯ menu; open it and name what it offers. */
+async function menuActions() {
+  await userEvent.click(
+    screen.getByRole('button', { name: 'More record actions' }),
+  )
+  const items = await screen.findAllByRole('menuitem')
+  return items.map((item) => item.textContent?.trim() ?? '')
+}
+
 describe('StickyRecordHeader', () => {
   it('shows the kind, identifier, status, title and project context', () => {
     renderWithQuery(
@@ -167,9 +176,11 @@ describe('StickyRecordHeader', () => {
     expect(provenance()).toContain('In progress')
     expect(provenance()).toContain('Working')
     expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy()
-    // The record actions are quiet icon buttons, named for assistive tech.
-    expect(screen.getByRole('button', { name: 'Duplicate' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Print' })).toBeTruthy()
+    // One main button; the rest are in the ⋯ menu.
+    expect(
+      screen.getByRole('button', { name: 'More record actions' }),
+    ).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Print' })).toBeNull()
   })
 
   it('leaves the title and identifier to the experiment page when embedded', () => {
@@ -196,9 +207,9 @@ describe('StickyRecordHeader', () => {
         currentUserId="u1"
       />,
     )
-    for (const name of ['Print', 'Duplicate', 'Link records…']) {
-      expect(screen.getByRole('button', { name })).toBeTruthy()
-    }
+    expect(await menuActions()).toEqual(
+      expect.arrayContaining(['Print', 'Duplicate', 'Link records…']),
+    )
   })
 
   it('offers Duplicate only for an experiment, never for a protocol', async () => {
@@ -210,7 +221,7 @@ describe('StickyRecordHeader', () => {
         currentUserId="u1"
       />,
     )
-    expect(screen.queryByRole('button', { name: 'Duplicate' })).toBeNull()
+    expect(await menuActions()).not.toContain('Duplicate')
   })
 
   it('keeps tags in the properties inspector instead of the document header', () => {
@@ -277,9 +288,7 @@ describe('StickyRecordHeader withdraws a submission from the notebook menu', () 
         review={submission(submittedBy)}
       />,
     )
-    return screen
-      .queryAllByRole('button')
-      .map((b) => b.getAttribute('aria-label') ?? '')
+    return menuActions()
   }
 
   it('offers Withdraw to the person who submitted it', async () => {
@@ -396,7 +405,7 @@ describe('LockedBanner', () => {
 })
 
 describe('StickyRecordHeader — lock state', () => {
-  it('shows a Submitted badge when the record is locked', () => {
+  it('shows a Submitted badge when the record is locked', async () => {
     renderWithQuery(
       <StickyRecordHeader
         record={lockedRecord}
@@ -409,7 +418,7 @@ describe('StickyRecordHeader — lock state', () => {
     expect(provenance()).toContain('Submitted')
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Sign' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Open review' })).toBeTruthy()
+    expect(await menuActions()).toContain('Open review')
   })
 
   it('shows snapshot title in the header for a historical revision', () => {
@@ -437,7 +446,7 @@ describe('StickyRecordHeader — lock state', () => {
     expect(screen.queryByRole('button', { name: 'Duplicate' })).toBeNull()
   })
 
-  it('hides Duplicate on a historical revision after amendment and live metadata edits', () => {
+  it('hides Duplicate on a historical revision after amendment and live metadata edits', async () => {
     renderWithQuery(
       <StickyRecordHeader
         record={{
@@ -459,7 +468,7 @@ describe('StickyRecordHeader — lock state', () => {
     expect(
       screen.getByRole('heading', { name: 'Submitted title' }),
     ).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Duplicate' })).toBeNull()
+    expect(await menuActions()).not.toContain('Duplicate')
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
     expect(provenance()).toContain('Submitted')
   })
@@ -482,7 +491,7 @@ describe('StickyRecordHeader — lock state', () => {
     expect(provenance()).toContain('Working')
   })
 
-  it('shows Open review but not Sign while the submission is unsigned', () => {
+  it('shows Open review but not Sign while the submission is unsigned', async () => {
     renderWithQuery(
       <StickyRecordHeader
         record={record}
@@ -517,13 +526,10 @@ describe('StickyRecordHeader — lock state', () => {
     expect(provenance()).not.toContain('Working')
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull()
-    expect(screen.getByRole('link', { name: 'Open review' })).toBeTruthy()
-    expect(
-      screen.getByRole('link', { name: 'Open review' }).getAttribute('href'),
-    ).toContain('rev-sub')
+    expect(await menuActions()).toContain('Open review')
   })
 
-  it('shows Sign and Open review for an approved but still unlocked Notebook', () => {
+  it('shows Sign and Open review for an approved but still unlocked Notebook', async () => {
     renderWithQuery(
       <StickyRecordHeader
         record={record}
@@ -557,10 +563,7 @@ describe('StickyRecordHeader — lock state', () => {
     expect(provenance()).toContain('In review')
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Sign' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Open review' })).toBeTruthy()
-    expect(
-      screen.getByRole('link', { name: 'Open review' }).getAttribute('href'),
-    ).toContain('rev-approved')
+    expect(await menuActions()).toContain('Open review')
   })
 })
 
@@ -842,7 +845,7 @@ describe('NotebookInspector', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <NotebookInspector
-          record={lockedRecord}
+          record={{ ...lockedRecord, kind: 'sample' }}
           links={[]}
           linksLoading={false}
           defaultTab="properties"
@@ -940,7 +943,7 @@ describe('NotebookInspector', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <NotebookInspector
-          record={record}
+          record={{ ...record, kind: 'sample' }}
           links={[]}
           linksLoading={false}
           defaultTab="properties"
@@ -966,7 +969,7 @@ describe('NotebookInspector', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <NotebookInspector
-          record={historical}
+          record={{ ...historical, kind: 'sample' }}
           links={[]}
           linksLoading={false}
           defaultTab="properties"

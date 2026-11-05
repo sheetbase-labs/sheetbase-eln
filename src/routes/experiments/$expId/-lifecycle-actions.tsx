@@ -24,6 +24,11 @@ import {
 import { Field, Input } from '#/components/ui/input'
 import { toast } from '#/components/ui/sonner'
 import { Icon } from '#/components/icons'
+import {
+  RecordActionItems,
+  RecordActionsMenu,
+  useOfferedRecordActions,
+} from '#/components/notebook/record-actions'
 import { SaveAsTemplateDialog } from '#/components/experiments/save-as-template-dialog'
 import {
   archiveExperiment,
@@ -56,9 +61,13 @@ function errorText(error: unknown): string {
  */
 export function ExperimentLifecycleActions({
   experiment: e,
+  canWrite = true,
 }: {
   experiment: ExperimentRow
+  /** A viewer still gets Print and the exports, but none of the changes. */
+  canWrite?: boolean
 }) {
+  const offered = useOfferedRecordActions()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [dialog, setDialog] = useState<DialogKind>(null)
@@ -198,7 +207,9 @@ export function ExperimentLifecycleActions({
   const isActive = e.status === 'in_progress'
   const isHold = e.status === 'on_hold'
   const isFinished = e.status === 'completed'
-  if (archived) return null
+  if (archived || !canWrite) {
+    return <RecordActionsMenu actions={offered} />
+  }
 
   return (
     <>
@@ -263,6 +274,12 @@ export function ExperimentLifecycleActions({
           }
         />
         <DropdownMenuContent align="end">
+          {offered.length > 0 ? (
+            <>
+              <RecordActionItems actions={offered} />
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
           {isActive ? (
             <DropdownMenuItem
               icon="pause"

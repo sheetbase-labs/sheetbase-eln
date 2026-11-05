@@ -1051,6 +1051,10 @@ export const records = api.table(
     reviewerUserId: text('reviewer_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    // Who the record is assigned to; set through `assign_record`.
+    assigneeUserId: text('assignee_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     plannedEnd: date('planned_end'),
     // Experiment results (RM-118): the recorded decision and its note.
     decision: text('decision'),

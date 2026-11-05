@@ -41,7 +41,6 @@ export function useEdgeSwipeOpen(onOpen: () => void, enabled = true): void {
       const touch = event.touches[0]
       start =
         event.touches.length === 1 &&
-        touch &&
         window.matchMedia(PHONE_QUERY).matches &&
         startsAtLeftEdge({ x: touch.clientX, y: touch.clientY })
           ? { x: touch.clientX, y: touch.clientY }
@@ -51,8 +50,10 @@ export function useEdgeSwipeOpen(onOpen: () => void, enabled = true): void {
       const touch = event.changedTouches[0]
       const from = start
       start = null
-      if (!from || !touch) return
-      if (classifySwipe(from, { x: touch.clientX, y: touch.clientY }) === 'right')
+      if (!from) return
+      if (
+        classifySwipe(from, { x: touch.clientX, y: touch.clientY }) === 'right'
+      )
         onOpen()
     }
     const cancel = () => {
@@ -76,7 +77,7 @@ export function useSwipeToClose(onClose: () => void) {
     onTouchStart: (event: React.TouchEvent) => {
       const touch = event.touches[0]
       start.current =
-        event.touches.length === 1 && touch
+        event.touches.length === 1
           ? { x: touch.clientX, y: touch.clientY }
           : null
     },
@@ -84,8 +85,10 @@ export function useSwipeToClose(onClose: () => void) {
       const touch = event.changedTouches[0]
       const from = start.current
       start.current = null
-      if (!from || !touch) return
-      if (classifySwipe(from, { x: touch.clientX, y: touch.clientY }) === 'left')
+      if (!from) return
+      if (
+        classifySwipe(from, { x: touch.clientX, y: touch.clientY }) === 'left'
+      )
         onClose()
     },
   }

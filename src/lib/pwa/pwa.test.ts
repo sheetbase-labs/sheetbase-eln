@@ -1,0 +1,154 @@
+// @vitest-environment jsdom
+import { describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+
+import {
+  INSTALL_SNOOZE_KEY,
+  INSTALL_SNOOZE_MS,
+  installSnoozed,
+  isIos,
+  isIosSafari,
+  snoozeInstall,
+} from './install'
+import { classifySwipe, startsAtLeftEdge } from './edge-swipe'
+import { canNativeShare, shareLink } from './share'
+import { SPLASH_SIZES, splashLinks } from './splash'
+import { wakeLockSupported } from './wake-lock'
+
+const IPHONE =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
+
+describe('install offer', () => {
+  it('recognises iPhones, iPads posing as Macs, and other browsers on iOS', () => {
+    expect(isIos(IPHONE, 'iPhone', 5)).toBe(true)
+    expect(isIos('Mozilla/5.0 (Macintosh)', 'MacIntel', 5)).toBe(true)
+    expect(isIos('Mozilla/5.0 (Macintosh)', 'MacIntel', 0)).toBe(false)
+    expect(isIosSafari(IPHONE)).toBe(true)
+    expect(isIosSafari(IPHONE.replace('Version/18.0', 'CriOS/130'))).toBe(false)
+  })
+
+  it('stays quiet for a month after Not now', () => {
+    const store = new Map<string, string>()
+    const storage = {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => void store.set(key, value),
+    }
+    expect(installSnoozed(storage, 1000)).toBe(false)
+    snoozeInstall(storage, 1000)
+    expect(store.get(INSTALL_SNOOZE_KEY)).toBe(String(1000 + INSTALL_SNOOZE_MS))
+    expect(installSnoozed(storage, 2000)).toBe(true)
+    expect(installSnoozed(storage, 1000 + INSTALL_SNOOZE_MS + 1)).toBe(false)
+  })
+
+  it('survives storage that throws', () => {
+    const broken = {
+      getItem: () => {
+        throw new Error('blocked')
+      },
+      setItem: () => {
+        throw new Error('blocked')
+      },
+    }
+    expect(installSnoozed(broken, 1)).toBe(false)
+    expect(() => snoozeInstall(broken, 1)).not.toThrow()
+  })
+})
+
+describe('edge swipe', () => {
+  it('opens only from the left edge, sideways, far enough', () => {
+    expect(startsAtLeftEdge({ x: 10, y: 300 })).toBe(true)
+    expect(startsAtLeftEdge({ x: 120, y: 300 })).toBe(false)
+    expect(classifySwipe({ x: 8, y: 300 }, { x: 120, y: 310 })).toBe('right')
+    expect(classifySwipe({ x: 200, y: 300 }, { x: 80, y: 300 })).toBe('left')
+    expect(classifySwipe({ x: 8, y: 300 }, { x: 30, y: 300 })).toBeNull()
+    // A scroll that drifts sideways is not a swipe.
+    expect(classifySwipe({ x: 8, y: 300 }, { x: 80, y: 420 })).toBeNull()
+  })
+})
+
+describe('share', () => {
+  it('uses the share sheet when there is one', async () => {
+    const share = vi.fn().mockResolvedValue(undefined)
+    const nav = { share } as unknown as Navigator
+    expect(canNativeShare(nav)).toBe(true)
+    await expect(
+      shareLink({ title: 'A', url: 'https://x/y' }, nav),
+    ).resolves.toBe('shared')
+    expect(share).toHaveBeenCalledWith({ title: 'A', url: 'https://x/y' })
+  })
+
+  it('treats closing the sheet as a choice, not a failure', async () => {
+    const nav = {
+      share: vi.fn().mockRejectedValue(new DOMException('x', 'AbortError')),
+    } as unknown as Navigator
+    await expect(shareLink({ title: 'A', url: 'u' }, nav)).resolves.toBe(
+      'cancelled',
+    )
+  })
+
+  it('copies the link where there is no share sheet, and says when it cannot', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    const nav = { clipboard: { writeText } } as unknown as Navigator
+    await expect(shareLink({ title: 'A', url: 'u' }, nav)).resolves.toBe(
+      'copied',
+    )
+    expect(writeText).toHaveBeenCalledWith('u')
+    const none = {
+      clipboard: { writeText: vi.fn().mockRejectedValue(new Error('no')) },
+    } as unknown as Navigator
+    await expect(shareLink({ title: 'A', url: 'u' }, none)).resolves.toBe(
+      'failed',
+    )
+  })
+})
+
+describe('wake lock', () => {
+  it('reports support from the navigator', () => {
+    expect(wakeLockSupported({} as Navigator)).toBe(false)
+    expect(wakeLockSupported({ wakeLock: {} } as unknown as Navigator)).toBe(
+      true,
+    )
+  })
+})
+
+describe('splash screens', () => {
+  it('lists a light and a dark image per size, each of which exists', () => {
+    const links = splashLinks()
+    expect(links).toHaveLength(SPLASH_SIZES.length * 2)
+    for (const link of links) {
+      expect(() => readFileSync(`public${link.href}`)).not.toThrow()
+      expect(link.media).toMatch(/prefers-color-scheme: (light|dark)/)
+    }
+  })
+})
+
+describe('manifest', () => {
+  const manifest = JSON.parse(
+    readFileSync('public/manifest.webmanifest', 'utf8'),
+  ) as {
+    shortcuts: { url: string }[]
+    share_target: { action: string; method: string }
+    file_handlers: { action: string }[]
+  }
+
+  it('offers the three shortcuts', () => {
+    expect(manifest.shortcuts.map((shortcut) => shortcut.url)).toEqual([
+      '/scan',
+      '/experiments/new',
+      '/schedule',
+    ])
+  })
+
+  it('receives shares and opened files on the share page', () => {
+    expect(manifest.share_target).toMatchObject({
+      action: '/share-target',
+      method: 'POST',
+    })
+    expect(manifest.file_handlers[0]?.action).toBe('/share-target')
+  })
+
+  it('has the service worker take shares at the same address', () => {
+    const worker = readFileSync('public/sw.js', 'utf8')
+    expect(worker).toContain("'/share-target'")
+  })
+})

@@ -34,7 +34,11 @@ export function InstallPrompt() {
         </span>
       </div>
       {ios ? null : (
-        <Button size="sm" variant="primary" onClick={() => void promptInstall()}>
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={() => void promptInstall()}
+        >
           {t('pwa.install.action')}
         </Button>
       )}

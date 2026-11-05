@@ -29,14 +29,15 @@ export function useWakeLock(active: boolean): void {
     if (!wakeLockSupported()) return
     const api = (navigator as Navigator & { wakeLock: WakeLockApi }).wakeLock
     let sentinel: WakeLockSentinelLike | null = null
-    let cancelled = false
+    const state = { cancelled: false }
+    const stopped = () => state.cancelled
 
     const acquire = async () => {
-      if (cancelled || sentinel || document.visibilityState !== 'visible')
+      if (stopped() || sentinel || document.visibilityState !== 'visible')
         return
       try {
         const next = await api.request('screen')
-        if (cancelled) {
+        if (stopped()) {
           void next.release().catch(() => undefined)
           return
         }
@@ -53,7 +54,7 @@ export function useWakeLock(active: boolean): void {
     void acquire()
     document.addEventListener('visibilitychange', onVisible)
     return () => {
-      cancelled = true
+      state.cancelled = true
       document.removeEventListener('visibilitychange', onVisible)
       const held = sentinel
       sentinel = null

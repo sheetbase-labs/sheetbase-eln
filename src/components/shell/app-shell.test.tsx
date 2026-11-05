@@ -251,6 +251,11 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
       n.className.includes('w-nav'),
     )!
     const settings = within(sidebar).getByRole('link', { name: 'Settings' })
+    // Settings stands apart from the groups, after a rule.
+    expect(settings.closest('[role="group"]')).toBeNull()
+    expect(settings.previousElementSibling?.getAttribute('role')).toBe(
+      'separator',
+    )
     const pinned = within(sidebar).getByRole('link', {
       name: 'Assay development',
     })

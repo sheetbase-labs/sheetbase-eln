@@ -1434,6 +1434,8 @@ function SideNav({
           </div>
         )
       })}
+      {/* Settings is not part of any group: a rule sets it apart. */}
+      <div role="separator" className="mx-2 my-2 h-px shrink-0 bg-border" />
       <Link
         to={settingsTo}
         className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline [&_svg]:text-fg-muted"

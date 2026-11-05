@@ -26,9 +26,9 @@ export function InstallPrompt() {
     >
       <Icon name={ios ? 'share' : 'download'} size={16} />
       <div className="min-w-0 flex-1">
-        <span className="font-semibold">
+        <span className="block font-semibold">
           {ios ? t('pwa.install.ios.title') : t('pwa.install.title')}
-        </span>{' '}
+        </span>
         <span className="text-fg-muted">
           {ios ? t('pwa.install.ios.body') : t('pwa.install.body')}
         </span>

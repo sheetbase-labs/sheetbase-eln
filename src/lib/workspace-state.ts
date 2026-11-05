@@ -472,6 +472,11 @@ export function revisionOf(href: string): string | undefined {
 const EDITABLE_PAGE =
   /^\/(experiments\/(?!new(\/|$))|records\/|sheets\/|sheet-definitions\/)/
 
+/** Whether an address is a page with something to edit (not Home, a list or a tool). */
+export function isEditablePage(href: string): boolean {
+  return EDITABLE_PAGE.test(href.split(/[?#]/)[0] ?? '')
+}
+
 export function paneMode(
   href: string,
   primary: boolean,

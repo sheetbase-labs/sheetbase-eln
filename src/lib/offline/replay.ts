@@ -588,7 +588,7 @@ export function createCanonicalOfflineReplayWriter(
     async readServerBlockPayload(edit) {
       try {
         const current = await serverBlock(edit)
-        return (current?.payload) ?? null
+        return current?.payload ?? null
       } catch {
         return null
       }

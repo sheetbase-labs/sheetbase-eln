@@ -75,7 +75,6 @@ import { ContextHelp } from '#/components/help/context-help'
 import { useEdgeSwipeOpen, useSwipeToClose } from '#/lib/pwa/edge-swipe'
 import { InstallPrompt } from '#/components/pwa/install-prompt'
 import { AssistantTrigger } from '#/components/assist/ask-ai-button'
-import { openAssistant } from '#/lib/assistant-context'
 import { AssistantPanel } from '#/components/assist/assistant-panel'
 import { authClient } from '#/lib/auth-client'
 import { Notice } from '#/components/ui/alert'
@@ -407,10 +406,6 @@ export function AppShell({
                 folded={folded}
                 onToggleFold={toggleFold}
                 settingsTo={settingsTo}
-                onAsk={() => {
-                  setNavOpen(false)
-                  openAssistant()
-                }}
                 className="min-h-full w-full! border-r-0"
               />
             </SheetContent>
@@ -660,7 +655,7 @@ function TopBar({
         </button>
       </div>
       <NewMenu open={createOpen} onOpenChange={onCreateOpenChange} />
-      <AssistantTrigger className="max-md:hidden" />
+      <AssistantTrigger />
       <ContextHelp />
       <Notifications
         items={data.notifications}
@@ -1365,7 +1360,6 @@ function SideNav({
   folded,
   onToggleFold,
   settingsTo,
-  onAsk,
   className,
 }: {
   pinned: ShellData['pinned']
@@ -1376,8 +1370,6 @@ function SideNav({
   folded: ReadonlySet<string>
   onToggleFold: (group: string) => void
   settingsTo: string
-  /** Phone drawer only: the assistant has no other entry point there. */
-  onAsk?: () => void
   className?: string
 }) {
   const withCount = (item: NavItem): NavItem => {
@@ -1467,19 +1459,6 @@ function SideNav({
                 </Link>
               ))}
         </div>
-      ) : null}
-      {onAsk ? (
-        <>
-          <div className="flex-1" />
-          <Button
-            variant="quiet"
-            icon="spark"
-            onClick={onAsk}
-            className="h-[30px] justify-start gap-2 px-2 font-normal [&_svg]:text-fg-muted"
-          >
-            {t('notebook.askAiButton.ariaLabel')}
-          </Button>
-        </>
       ) : null}
     </nav>
   )

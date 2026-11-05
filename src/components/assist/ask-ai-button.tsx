@@ -23,7 +23,7 @@ export function AskAiButton({ className }: { className?: string }) {
         icon="spark"
         aria-label={t('notebook.askAiButton.label')}
         data-testid="ask-ai-button"
-        // On a phone the assistant opens from the navigation drawer, so the
+        // On a phone the assistant opens from the top bar, so the
         // page header keeps its room for the page's own actions.
         className={cn('max-md:hidden', className)}
         onClick={() => openAssistant()}
@@ -32,7 +32,8 @@ export function AskAiButton({ className }: { className?: string }) {
   )
 }
 
-/** The shell-level trigger, next to search and help. */
+/** The shell-level trigger in the top bar, beside help and the bell, on
+ * every screen size. */
 export function AssistantTrigger({ className }: { className?: string }) {
   const platform = usePlatform()
   const { available } = usePageAi()

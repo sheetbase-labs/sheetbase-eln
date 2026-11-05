@@ -1,5 +1,5 @@
 /**
- * Saved list views (migration 0086): the sorting and hidden columns a person
+ * Saved list views (migration 0087): the sorting and hidden columns a person
  * chose for a list are theirs alone.
  */
 import type { Client } from 'pg'

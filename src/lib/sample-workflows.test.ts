@@ -24,10 +24,10 @@ describe('validateWorkflow', () => {
 
   it('refuses duplicate step names and bad turnarounds', () => {
     const draft = valid()
-    draft.stages[1]!.name = draft.stages[0]!.name.toUpperCase()
+    draft.stages[1].name = draft.stages[0].name.toUpperCase()
     expect(validateWorkflow(draft)).toMatch(/Two steps/)
-    draft.stages[1]!.name = 'Done'
-    draft.stages[0]!.turnaroundDays = '1.5'
+    draft.stages[1].name = 'Done'
+    draft.stages[0].turnaroundDays = '1.5'
     expect(validateWorkflow(draft)).toMatch(/whole days/)
   })
 
@@ -36,15 +36,24 @@ describe('validateWorkflow', () => {
     const extra = blankStage('Side')
     draft.stages.splice(1, 0, extra)
     expect(validateWorkflow(draft)).toMatch(/can’t be reached/)
-    draft.stages[0]!.next.push(extra.key)
+    draft.stages[0].next.push(extra.key)
     expect(validateWorkflow(draft)).toMatch(/leads nowhere/)
-    extra.next = [draft.stages[2]!.key]
+    extra.next = [draft.stages[2].key]
+    expect(validateWorkflow(draft)).toBeNull()
+  })
+
+  it('follows a chain of steps from the first to the last', () => {
+    const draft = valid()
+    const middle = blankStage('In QC')
+    draft.stages.splice(1, 0, middle)
+    draft.stages[0].next = [middle.key]
+    middle.next = [draft.stages[2].key]
     expect(validateWorkflow(draft)).toBeNull()
   })
 
   it('wants an automation to be complete', () => {
     const draft = valid()
-    draft.stages[0]!.actions = [blankAction('start_experiment')]
+    draft.stages[0].actions = [blankAction('start_experiment')]
     expect(validateWorkflow(draft)).toMatch(/template/)
   })
 })
@@ -52,13 +61,13 @@ describe('validateWorkflow', () => {
 describe('draftToWire', () => {
   it('leaves nothing after the last step and drops empty strings', () => {
     const draft = valid()
-    draft.stages[1]!.next = [draft.stages[0]!.key]
-    draft.stages[0]!.turnaroundDays = ' 3 '
+    draft.stages[1].next = [draft.stages[0].key]
+    draft.stages[0].turnaroundDays = ' 3 '
     const wire = draftToWire(draft) as {
       stages: { next: string[]; turnaroundDays: number | null }[]
     }
-    expect(wire.stages[1]!.next).toEqual([])
-    expect(wire.stages[0]!.turnaroundDays).toBe(3)
+    expect(wire.stages[1].next).toEqual([])
+    expect(wire.stages[0].turnaroundDays).toBe(3)
   })
 })
 

@@ -373,7 +373,8 @@ export function validateWorkflow(draft: WorkflowDraft): string | null {
   const reachable = new Set<string>([draft.stages[0].key])
   const queue = [draft.stages[0].key]
   while (queue.length) {
-    const stage = draft.stages.find((s) => s.key === queue.pop())
+    const key = queue.pop()
+    const stage = draft.stages.find((s) => s.key === key)
     for (const next of stage && !stage.final ? stage.next : []) {
       if (!reachable.has(next)) {
         reachable.add(next)

@@ -33,6 +33,8 @@ import {
   updateWorkspaceEditingRules,
   updateWorkspaceOfflineEditing,
   setRegulatedLab,
+  setRetentionEnabled,
+  setSpecLimitsEnabled,
   workspaceGeneralQueryKey,
   ID_PREFIX_KINDS,
 } from '#/lib/workspace-general'
@@ -50,6 +52,8 @@ const DEFAULTS: WorkspaceGeneral = {
   requireChangeReason: false,
   lockOnSign: true,
   regulatedLab: false,
+  specLimitsEnabled: false,
+  retentionEnabled: false,
   idPrefixes: {},
 }
 
@@ -80,6 +84,8 @@ function sameGeneral(a: WorkspaceGeneral, b: WorkspaceGeneral): boolean {
     a.requireChangeReason === b.requireChangeReason &&
     a.lockOnSign === b.lockOnSign &&
     a.regulatedLab === b.regulatedLab &&
+    a.specLimitsEnabled === b.specLimitsEnabled &&
+    a.retentionEnabled === b.retentionEnabled &&
     sameIdPrefixes(a.idPrefixes, b.idPrefixes)
   )
 }
@@ -170,6 +176,12 @@ export function SettingsGeneral({
       })
       if (form.regulatedLab !== saved?.regulatedLab) {
         await setRegulatedLab(workspaceId, form.regulatedLab)
+      }
+      if (form.specLimitsEnabled !== saved?.specLimitsEnabled) {
+        await setSpecLimitsEnabled(workspaceId, form.specLimitsEnabled)
+      }
+      if (form.retentionEnabled !== saved?.retentionEnabled) {
+        await setRetentionEnabled(workspaceId, form.retentionEnabled)
       }
     },
     onSuccess: () => {
@@ -396,6 +408,36 @@ export function SettingsGeneral({
               disabled={query.isLoading || query.isError || save.isPending}
               onCheckedChange={(checked) =>
                 setForm((current) => ({ ...current, regulatedLab: checked }))
+              }
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <h3 className="text-label font-medium text-fg">
+              {t('quality.general.title')}
+            </h3>
+            <CheckRow
+              title={t('quality.general.limitsTitle')}
+              body={t('quality.general.limitsHint')}
+              checked={form.specLimitsEnabled}
+              disabled={query.isLoading || query.isError || save.isPending}
+              onCheckedChange={(checked) =>
+                setForm((current) => ({
+                  ...current,
+                  specLimitsEnabled: checked,
+                }))
+              }
+            />
+            <CheckRow
+              title={t('quality.general.retentionTitle')}
+              body={t('quality.general.retentionHint')}
+              checked={form.retentionEnabled}
+              disabled={query.isLoading || query.isError || save.isPending}
+              onCheckedChange={(checked) =>
+                setForm((current) => ({
+                  ...current,
+                  retentionEnabled: checked,
+                }))
               }
             />
           </div>

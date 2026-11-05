@@ -20,6 +20,7 @@ import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as IncidentsRouteImport } from './routes/incidents'
 import { Route as InstrumentsRouteImport } from './routes/instruments'
 import { Route as MaterialsRouteImport } from './routes/materials'
 import { Route as ModelsRouteImport } from './routes/models'
@@ -88,6 +89,7 @@ import { Route as SettingsMembersRouteImport } from './routes/settings/members'
 import { Route as SettingsMySignatureRouteImport } from './routes/settings/my-signature'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
 import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
+import { Route as SettingsRetentionRouteImport } from './routes/settings/retention'
 import { Route as SettingsRolesRouteImport } from './routes/settings/roles'
 import { Route as SettingsSignaturesRouteImport } from './routes/settings/signatures'
 import { Route as SettingsStorageRouteImport } from './routes/settings/storage'
@@ -260,6 +262,11 @@ const ImportRoute = ImportRouteImport.update({
 const InboxRoute = InboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IncidentsRoute = IncidentsRouteImport.update({
+  id: '/incidents',
+  path: '/incidents',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InstrumentsRoute = InstrumentsRouteImport.update({
@@ -600,6 +607,11 @@ const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
 const SettingsProfileRoute = SettingsProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsRetentionRoute = SettingsRetentionRouteImport.update({
+  id: '/retention',
+  path: '/retention',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsRolesRoute = SettingsRolesRouteImport.update({
@@ -1246,6 +1258,7 @@ export interface FileRoutesByFullPath {
   '/help': typeof HelpRouteWithChildren
   '/import': typeof ImportRouteWithChildren
   '/inbox': typeof InboxRoute
+  '/incidents': typeof IncidentsRoute
   '/instruments': typeof InstrumentsRouteWithChildren
   '/materials': typeof MaterialsRouteWithChildren
   '/models': typeof ModelsRouteWithChildren
@@ -1309,6 +1322,7 @@ export interface FileRoutesByFullPath {
   '/settings/my-signature': typeof SettingsMySignatureRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
+  '/settings/retention': typeof SettingsRetentionRoute
   '/settings/roles': typeof SettingsRolesRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
   '/settings/storage': typeof SettingsStorageRoute
@@ -1442,6 +1456,7 @@ export interface FileRoutesByTo {
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
   '/inbox': typeof InboxRoute
+  '/incidents': typeof IncidentsRoute
   '/instruments': typeof InstrumentsRouteWithChildren
   '/materials': typeof MaterialsRouteWithChildren
   '/models': typeof ModelsRouteWithChildren
@@ -1497,6 +1512,7 @@ export interface FileRoutesByTo {
   '/settings/my-signature': typeof SettingsMySignatureRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
+  '/settings/retention': typeof SettingsRetentionRoute
   '/settings/roles': typeof SettingsRolesRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
   '/settings/storage': typeof SettingsStorageRoute
@@ -1632,6 +1648,7 @@ export interface FileRoutesById {
   '/help': typeof HelpRouteWithChildren
   '/import': typeof ImportRouteWithChildren
   '/inbox': typeof InboxRoute
+  '/incidents': typeof IncidentsRoute
   '/instruments': typeof InstrumentsRouteWithChildren
   '/materials': typeof MaterialsRouteWithChildren
   '/models': typeof ModelsRouteWithChildren
@@ -1695,6 +1712,7 @@ export interface FileRoutesById {
   '/settings/my-signature': typeof SettingsMySignatureRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
+  '/settings/retention': typeof SettingsRetentionRoute
   '/settings/roles': typeof SettingsRolesRoute
   '/settings/signatures': typeof SettingsSignaturesRoute
   '/settings/storage': typeof SettingsStorageRoute
@@ -1833,6 +1851,7 @@ export interface FileRouteTypes {
     | '/help'
     | '/import'
     | '/inbox'
+    | '/incidents'
     | '/instruments'
     | '/materials'
     | '/models'
@@ -1896,6 +1915,7 @@ export interface FileRouteTypes {
     | '/settings/my-signature'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings/retention'
     | '/settings/roles'
     | '/settings/signatures'
     | '/settings/storage'
@@ -2029,6 +2049,7 @@ export interface FileRouteTypes {
     | '/experiments'
     | '/foundations'
     | '/inbox'
+    | '/incidents'
     | '/instruments'
     | '/materials'
     | '/models'
@@ -2084,6 +2105,7 @@ export interface FileRouteTypes {
     | '/settings/my-signature'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings/retention'
     | '/settings/roles'
     | '/settings/signatures'
     | '/settings/storage'
@@ -2218,6 +2240,7 @@ export interface FileRouteTypes {
     | '/help'
     | '/import'
     | '/inbox'
+    | '/incidents'
     | '/instruments'
     | '/materials'
     | '/models'
@@ -2281,6 +2304,7 @@ export interface FileRouteTypes {
     | '/settings/my-signature'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings/retention'
     | '/settings/roles'
     | '/settings/signatures'
     | '/settings/storage'
@@ -2418,6 +2442,7 @@ export interface RootRouteChildren {
   HelpRoute: typeof HelpRouteWithChildren
   ImportRoute: typeof ImportRouteWithChildren
   InboxRoute: typeof InboxRoute
+  IncidentsRoute: typeof IncidentsRoute
   InstrumentsRoute: typeof InstrumentsRouteWithChildren
   MaterialsRoute: typeof MaterialsRouteWithChildren
   ModelsRoute: typeof ModelsRouteWithChildren
@@ -2583,6 +2608,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof InboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/incidents': {
+      id: '/incidents'
+      path: '/incidents'
+      fullPath: '/incidents'
+      preLoaderRoute: typeof IncidentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/instruments': {
@@ -3059,6 +3091,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/settings/profile'
       preLoaderRoute: typeof SettingsProfileRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/retention': {
+      id: '/settings/retention'
+      path: '/retention'
+      fullPath: '/settings/retention'
+      preLoaderRoute: typeof SettingsRetentionRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/roles': {
@@ -4246,6 +4285,7 @@ interface SettingsRouteChildren {
   SettingsMySignatureRoute: typeof SettingsMySignatureRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   SettingsProfileRoute: typeof SettingsProfileRoute
+  SettingsRetentionRoute: typeof SettingsRetentionRoute
   SettingsRolesRoute: typeof SettingsRolesRoute
   SettingsSignaturesRoute: typeof SettingsSignaturesRoute
   SettingsStorageRoute: typeof SettingsStorageRoute
@@ -4268,6 +4308,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsMySignatureRoute: SettingsMySignatureRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
   SettingsProfileRoute: SettingsProfileRoute,
+  SettingsRetentionRoute: SettingsRetentionRoute,
   SettingsRolesRoute: SettingsRolesRoute,
   SettingsSignaturesRoute: SettingsSignaturesRoute,
   SettingsStorageRoute: SettingsStorageRoute,
@@ -4350,6 +4391,7 @@ const rootRouteChildren: RootRouteChildren = {
   HelpRoute: HelpRouteWithChildren,
   ImportRoute: ImportRouteWithChildren,
   InboxRoute: InboxRoute,
+  IncidentsRoute: IncidentsRoute,
   InstrumentsRoute: InstrumentsRouteWithChildren,
   MaterialsRoute: MaterialsRouteWithChildren,
   ModelsRoute: ModelsRouteWithChildren,

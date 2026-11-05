@@ -1912,6 +1912,7 @@ export const projects = {
       experiment: 'Experiment',
       project: 'Project',
       owner: 'Owner',
+      assignee: 'Assigned to',
       protocol: 'Protocol',
       status: 'Status',
       issues: 'Open issues',

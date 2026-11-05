@@ -12,6 +12,7 @@ import {
   RegistryGrid,
   rightAligned,
 } from '#/components/inventory/registry-grid'
+import type { BulkSelection } from '#/components/inventory/bulk-selection'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
 import type { NotebookRecord } from '#/lib/notebook-data'
@@ -83,6 +84,8 @@ export interface ProtocolsRegistryGridProps {
   onOpen: (row: NotebookRecord, event?: React.MouseEvent) => void
   /** Columns for the workspace's own Protocol fields, placed before Updated. */
   addedColumns?: ColumnDef<DataGridFeatures, NotebookRecord>[]
+  /** Tick boxes for bulk actions. */
+  bulk?: BulkSelection
 }
 
 export function ProtocolsRegistryGrid({
@@ -95,6 +98,7 @@ export function ProtocolsRegistryGrid({
   onRowSelectionChange,
   onOpen,
   addedColumns,
+  bulk,
 }: ProtocolsRegistryGridProps) {
   const baseColumns = useMemo<ColumnDef<DataGridFeatures, NotebookRecord>[]>(
     () => [
@@ -179,6 +183,7 @@ export function ProtocolsRegistryGrid({
       rows={rows}
       columns={columns}
       getRowId={(p) => p.id}
+      bulk={bulk}
       rowSelection={rowSelection}
       onRowSelectionChange={onRowSelectionChange}
       onRowClick={onOpen}

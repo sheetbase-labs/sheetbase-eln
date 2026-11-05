@@ -63,6 +63,8 @@ import { BulkRegisterDialog } from '#/components/samples/bulk-register-dialog'
 import { SampleInspector } from '#/components/samples/sample-inspector'
 import { PlaceField } from '#/components/samples/place-field'
 import { PrintLabelsDialog } from '#/components/samples/sample-label-sheet'
+import { useBulkSelection } from '#/components/inventory/bulk-selection'
+import { RecordBulkBar } from '#/components/inventory/record-bulk-bar'
 import {
   SAMPLE_LIST_PAGE_SIZE,
   sampleListQueryKeys,
@@ -177,6 +179,7 @@ function SamplesList() {
   const tab: SampleTab = search.tab ?? 'instock'
   const [selected, setSelected] = useState<string | null>(null)
   const [printOpen, setPrintOpen] = useState(false)
+  const bulk = useBulkSelection()
   const [limit, setLimit] = useState(SAMPLE_LIST_PAGE_SIZE)
   const q = (search.q ?? '').trim()
   // The database applies the open tab and the search, so the list and the tab
@@ -566,10 +569,22 @@ function SamplesList() {
             })
           }
         />
+        <RecordBulkBar
+          selection={bulk}
+          kind="sample"
+          move="location"
+          canWrite={canWrite}
+          onChanged={() =>
+            void queryClient.invalidateQueries({
+              queryKey: sampleListQueryKeys.page,
+            })
+          }
+        />
         <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
           {page.isPending || visible.length > 0 ? (
             <RegistryGrid
               className="max-md:hidden"
+              bulk={bulk}
               label={t('library.samples.list.samples')}
               rows={visible}
               columns={columns}

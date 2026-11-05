@@ -7,7 +7,7 @@ import {
   useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { SortingState } from '@tanstack/react-table'
 
 import { Button } from '#/components/ui/button'
@@ -32,6 +32,8 @@ import {
   protocolStatus,
 } from '#/components/protocols/protocols-registry-grid'
 import { useRowFocus } from '#/components/inventory/registry-grid'
+import { useBulkSelection } from '#/components/inventory/bulk-selection'
+import { RecordBulkBar } from '#/components/inventory/record-bulk-bar'
 import { Tabs } from '#/components/ui/tabs'
 import { NewProtocolDialog } from '#/components/protocols/new-protocol-dialog'
 import { useAddedFieldListColumns } from '#/components/models/added-fields'
@@ -154,6 +156,8 @@ function ProtocolsList() {
     })
   }, [navigate])
   const [sorting, setSorting] = useState<SortingState>(SORTS.Updated)
+  const queryClient = useQueryClient()
+  const bulk = useBulkSelection()
   const [selectedId, setSelectedId] = useState<string | null>(
     search.selected ?? null,
   )
@@ -275,9 +279,21 @@ function ProtocolsList() {
             })
           }
         />
+        <RecordBulkBar
+          selection={bulk}
+          kind="protocol_template"
+          archive={false}
+          canWrite={canWrite}
+          onChanged={() =>
+            void queryClient.invalidateQueries({
+              queryKey: ['ui-port', 'protocols'],
+            })
+          }
+        />
         <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
           {query.isPending || visible.length > 0 ? (
             <ProtocolsRegistryGrid
+              bulk={bulk}
               addedColumns={addedColumns}
               rows={visible}
               ownerLabel={names.userLabel}

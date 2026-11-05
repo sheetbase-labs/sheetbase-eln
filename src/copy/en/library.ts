@@ -3470,6 +3470,127 @@ export const library = {
         'Unsigned records are still on this version. Ask their owners to update them or finish and sign them, then retire.',
     },
   },
+  bulk: {
+    bar: 'Actions for the selected rows',
+    selectAll: 'Select all rows',
+    selectRow: 'Select {id}',
+    selected: '{count} selected',
+    printLabels: 'Print labels',
+    printLabel: 'Print label',
+    assign: 'Assign',
+    setField: 'Set field',
+    setFieldMixed: 'Pick records of one kind to set a field on them',
+    move: 'Move',
+    archive: 'Archive',
+    clear: 'Clear',
+    done: {
+      archive: {
+        one: '{count} record archived',
+        other: '{count} records archived',
+      },
+      move: {
+        one: '{count} record moved',
+        other: '{count} records moved',
+      },
+      assign: {
+        one: '{count} record assigned',
+        other: '{count} records assigned',
+      },
+      field: {
+        one: '{count} record updated',
+        other: '{count} records updated',
+      },
+    },
+    partial: '{done} of {total} done. The rest stay selected.',
+    errors: {
+      generic: 'It could not be changed.',
+      changed: 'Someone else changed it. Reload and try again.',
+      archived: 'It is archived, so it cannot be changed.',
+      alreadyArchived: 'It is already archived.',
+      alreadyThere: 'It is already there.',
+      locked: 'It is signed and locked.',
+      draftOnly: 'Only a draft can move.',
+      noAccess: 'You do not have access to change it.',
+    },
+    labels: {
+      thisRecord: 'this record',
+      scope: {
+        one: 'the selected record',
+        other: 'the {count} selected records',
+      },
+      willGoToPrint: {
+        one: '{count} label will go to your browser’s print dialog as one sheet.',
+        other:
+          '{count} labels will go to your browser’s print dialog as one sheet.',
+      },
+    },
+    archiveDialog: {
+      title: {
+        one: 'Archive {count} record?',
+        other: 'Archive {count} records?',
+      },
+      body: 'Archived records leave the lists. They keep their numbers and can be restored.',
+      confirm: {
+        one: 'Archive {count} record',
+        other: 'Archive {count} records',
+      },
+      busy: 'Archiving…',
+    },
+    moveDialog: {
+      project: {
+        title: {
+          one: 'Move {count} experiment',
+          other: 'Move {count} experiments',
+        },
+        hint: 'Only draft experiments can move to another project.',
+        label: 'Project',
+        choose: 'Choose a project…',
+      },
+      location: {
+        title: {
+          one: 'Move {count} sample',
+          other: 'Move {count} samples',
+        },
+        hint: 'Every selected sample goes to the same place.',
+        label: 'Storage place',
+      },
+      confirm: {
+        one: 'Move {count} record',
+        other: 'Move {count} records',
+      },
+      busy: 'Moving…',
+    },
+    assignDialog: {
+      title: {
+        one: 'Assign {count} record',
+        other: 'Assign {count} records',
+      },
+      hint: 'The person it is assigned to is shown on the record.',
+      person: 'Assign to',
+      choose: 'Choose a person…',
+      nobody: 'Nobody (clear the assignment)',
+      confirm: {
+        one: 'Assign {count} record',
+        other: 'Assign {count} records',
+      },
+      busy: 'Assigning…',
+    },
+    fieldDialog: {
+      title: {
+        one: 'Set a field on {count} record',
+        other: 'Set a field on {count} records',
+      },
+      hint: 'The same value goes into every selected record. Signed or archived records are skipped.',
+      field: 'Field',
+      choose: 'Choose a field…',
+      none: 'This kind of record has no fields to set yet. Add one in Models.',
+      confirm: {
+        one: 'Update {count} record',
+        other: 'Update {count} records',
+      },
+      busy: 'Updating…',
+    },
+  },
   stocktake: {
     title: 'Stocktake',
     subtitle: 'Count a freezer, shelf, rack or box against its records',

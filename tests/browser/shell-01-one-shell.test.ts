@@ -75,8 +75,7 @@ test('the project files tab keeps its section navigation', async ({ page }) => {
   for (const label of [
     'Overview',
     'Milestones',
-    'Folders',
-    'Members',
+    'Files',
     'Settings',
   ]) {
     await expect(sections.getByRole('link', { name: label })).toBeVisible()

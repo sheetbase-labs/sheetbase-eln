@@ -78,15 +78,22 @@ const ITEM: Record<TabVariant, string> = {
 }
 
 /**
- * The current tab's tokens. Written out twice, unprefixed for a link and
- * prefixed for a tab's `data-active`: Tailwind reads the class names as text in
- * this file, so a name composed at runtime (`data-active:${token}`) is a name it
- * never generates — the strip then renders with no active state at all.
+ * The current tab's tokens, behind a variant so they always beat the item's
+ * own resting tokens (`border-transparent`, `text-fg-muted`, `border-border`).
+ * Plain utilities of the same property are ordered by Tailwind, not by the
+ * class attribute, so appending `border-link` to a link that already carries
+ * `border-transparent` loses and the current tab shows no underline. A variant
+ * is emitted after every plain utility, so these always win.
+ *
+ * Written out twice, for a link's `aria-current="page"` and for a tab's
+ * `data-active`: Tailwind reads the class names as text in this file, so a name
+ * composed at runtime (`data-active:${token}`) is a name it never generates.
  */
-const ACTIVE: Record<TabVariant, string> = {
-  strip: 'border-link text-fg',
-  segment: 'bg-surface text-fg shadow-[0_0_0_1px_var(--border)]',
-  chip: 'border-selection-border bg-selection font-medium hover:bg-selection',
+const ACTIVE_LINK: Record<TabVariant, string> = {
+  strip: 'aria-[current=page]:border-link aria-[current=page]:text-fg',
+  segment:
+    'aria-[current=page]:bg-surface aria-[current=page]:text-fg aria-[current=page]:shadow-[0_0_0_1px_var(--border)]',
+  chip: 'aria-[current=page]:border-selection-border aria-[current=page]:bg-selection aria-[current=page]:font-medium aria-[current=page]:hover:bg-selection',
 }
 
 const ACTIVE_DATA: Record<TabVariant, string> = {
@@ -231,14 +238,16 @@ function UrlTabs({
             key={item.key ?? item.link.to ?? index}
             {...item.link}
             aria-current={current ? 'page' : undefined}
-            className={cn(ITEM[variant], current && ACTIVE[variant])}
+            className={cn(ITEM[variant], ACTIVE_LINK[variant])}
             // Where the caller names the current key, only that key is current:
             // the router's own match is narrowed to the same URL, so its
             // `aria-current` can never disagree with the key. Without a key the
             // router's match is the only rule there is (a path per tab), and the
             // search is left out of it — a filter in the query string must not
             // unhighlight the section you are standing in.
-            activeProps={{ className: ACTIVE[variant] }}
+            // The router marks its match with `aria-current="page"`, which is
+            // what `ACTIVE_LINK` styles; no extra class is added for it.
+            activeProps={{}}
             activeOptions={{
               exact: value !== undefined,
               includeSearch: value !== undefined,

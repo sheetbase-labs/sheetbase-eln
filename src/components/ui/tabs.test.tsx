@@ -181,6 +181,20 @@ describe('Tabs — url mode is a nav of links', () => {
     ])
   })
 
+  it('styles the current tab from aria-current, so it beats the resting tokens', () => {
+    render(<Tabs mode="url" label="Dataset lists" value="mine" items={items} />)
+    // An unprefixed `border-link` loses to the item's own `border-transparent`
+    // (Tailwind orders same-property utilities, not the class attribute), and
+    // the strip showed no current tab on the experiment page. The variant
+    // always wins, and it follows whichever tab the router or key marks.
+    for (const link of screen.getAllByRole('link')) {
+      const classes = link.className.split(/\s+/)
+      expect(classes).toContain('aria-[current=page]:border-link')
+      expect(classes).toContain('aria-[current=page]:text-fg')
+      expect(classes).not.toContain('border-link')
+    }
+  })
+
   it('leaves the current tab to the router when the caller names no key', () => {
     lastLinks.props.length = 0
     render(

@@ -333,7 +333,7 @@ describe('dataset snapshots route', () => {
 
     await screen.findByText('S-5')
     expect(
-      screen.getByText('S-5 is due for row removal on 2027-10-03.'),
+      screen.getByText('S-5 is due for row removal on 3 Oct 2027.'),
     ).toBeTruthy()
 
     await user.click(screen.getAllByRole('button', { name: 'Keep S-5' })[0])
@@ -385,7 +385,7 @@ describe('dataset snapshots route', () => {
 
     await screen.findByText('S-5')
     expect(
-      screen.getByText('S-5 is due for row removal on 2027-10-03.'),
+      screen.getByText('S-5 is due for row removal on 3 Oct 2027.'),
     ).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Keep S-5' })).toBeNull()
   })

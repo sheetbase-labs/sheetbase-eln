@@ -16,6 +16,7 @@ import { DescriptionList, Inspector, Muted } from '#/components/ui/layout'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { objectPath } from '#/lib/navigation'
 import { RegistryGrid, useRowFocus } from '#/components/inventory/registry-grid'
+import { useListView } from '#/lib/list-views'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Button } from '#/components/ui/button'
 import { Field, Input } from '#/components/ui/input'
@@ -330,6 +331,8 @@ function InstrumentsList() {
       {
         id: 'identifier',
         header: 'ID',
+        accessorFn: (i) => i.displayId ?? i.id.slice(0, 8),
+        enableHiding: false,
         cell: ({ row }) => (
           <span className="mono">
             {row.original.displayId ?? row.original.id.slice(0, 8)}
@@ -339,6 +342,11 @@ function InstrumentsList() {
       {
         id: 'name',
         header: t('library.instruments.list.nameAndType'),
+        accessorFn: (i) => i.name,
+        meta: {
+          exportValue: (i: InstrumentRow) =>
+            `${i.name} (${instrumentTypeLabel(i.instrumentType)})`,
+        },
         // The grid zeroes a cell's own vertical padding, so a two-line cell
         // carries its line height and padding on its content instead. The
         // bespoke body's two-line rows were 46px, and stay 46px.
@@ -370,7 +378,12 @@ function InstrumentsList() {
       {
         id: 'model',
         header: t('library.instruments.list.makeAndModel'),
-        meta: { cellClassName: 'max-w-[180px]' },
+        accessorFn: (i) => i.model ?? undefined,
+        meta: {
+          cellClassName: 'max-w-[180px]',
+          exportValue: (i: InstrumentRow) =>
+            [i.vendor, i.model].filter(Boolean).join(' '),
+        },
         cell: ({ row }) => (
           <span className="block py-1.5 leading-[17px]">
             <span className="block truncate">{row.original.model ?? '—'}</span>
@@ -383,11 +396,13 @@ function InstrumentsList() {
       {
         id: 'location',
         header: 'Location',
+        accessorFn: (i) => i.location ?? undefined,
         cell: ({ row }) => row.original.location ?? '—',
       },
       {
         id: 'intake',
         header: t('library.instruments.list.howDataGetsIn'),
+        accessorFn: (i) => intakeMethodLabel(i.intakeMethod),
         cell: ({ row }) => {
           const health = healthFor(row.original)
           return (
@@ -412,7 +427,12 @@ function InstrumentsList() {
       {
         id: 'calibration',
         header: t('library.instruments.list.calibrationDue'),
-        meta: { cellClassName: 'py-1.5 leading-[17px]' },
+        // Ordered by the due date, soonest first; no date sorts last.
+        accessorFn: (i) => latest.get(i.id)?.dueAt ?? undefined,
+        meta: {
+          cellClassName: 'py-1.5 leading-[17px]',
+          exportValue: (i: InstrumentRow) => latest.get(i.id)?.dueAt ?? '',
+        },
         cell: ({ row }) => {
           const c = calFor(row.original.id)
           return (
@@ -434,6 +454,7 @@ function InstrumentsList() {
       {
         id: 'owner',
         header: 'Owner',
+        accessorFn: (i) => (i.ownerId ? names.userLabel(i.ownerId) : undefined),
         // The grid owns cell padding (`px-2.5` on every cell), so a column's
         // own trailing space has to be requested explicitly — this column was
         // the last one in the table before the swap and carried `pr-6`.
@@ -454,6 +475,7 @@ function InstrumentsList() {
       openInstrument,
     ],
   )
+  const view = useListView('instruments')
   const columns = useMemo(
     () => withAddedColumns(baseColumns, addedColumns),
     [baseColumns, addedColumns],
@@ -682,6 +704,7 @@ function InstrumentsList() {
               <RegistryGrid
                 className="max-md:hidden"
                 label={t('library.instruments.list.instruments')}
+                view={view}
                 rows={visible}
                 columns={columns}
                 getRowId={(i) => i.id}

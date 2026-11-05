@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { SortingState } from '@tanstack/react-table'
+import { useListView } from '#/lib/list-views'
 
 import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
@@ -155,7 +156,11 @@ function ProtocolsList() {
       replace: true,
     })
   }, [navigate])
-  const [sorting, setSorting] = useState<SortingState>(SORTS.Updated)
+  // The person's own sorting (a header click, or the Sort menu) is remembered;
+  // with none, the newest-updated protocols lead.
+  const view = useListView('protocols')
+  const sorting = view.sorting.length ? view.sorting : SORTS.Updated
+  const setSorting = view.setSorting
   const queryClient = useQueryClient()
   const bulk = useBulkSelection()
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -298,6 +303,7 @@ function ProtocolsList() {
               rows={visible}
               ownerLabel={names.userLabel}
               isLoading={query.isPending}
+              view={view}
               sorting={sorting}
               onSortingChange={setSorting}
               rowSelection={rowSelection}

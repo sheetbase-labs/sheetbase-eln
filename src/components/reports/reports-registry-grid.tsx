@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
+import type { ListView } from '#/lib/list-views'
 import type {
   ColumnDef,
   OnChangeFn,
@@ -31,6 +32,8 @@ export interface ReportsRegistryGridProps {
   isLoading?: boolean
   sorting: SortingState
   onSortingChange: OnChangeFn<SortingState>
+  /** The person's remembered columns; adds the columns-and-export menu. */
+  view?: ListView
   rowSelection: RowSelectionState
   onRowSelectionChange: OnChangeFn<RowSelectionState>
   onOpen: (row: ReportListRow, event?: React.MouseEvent) => void
@@ -43,6 +46,7 @@ export function ReportsRegistryGrid({
   isLoading = false,
   sorting,
   onSortingChange,
+  view,
   rowSelection,
   onRowSelectionChange,
   onOpen,
@@ -145,6 +149,7 @@ export function ReportsRegistryGrid({
       onRowClick={onOpen}
       sorting={sorting}
       onSortingChange={onSortingChange}
+      view={view}
       isLoading={isLoading}
     />
   )

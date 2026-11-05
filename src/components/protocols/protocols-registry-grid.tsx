@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
+import type { ListView } from '#/lib/list-views'
 import type {
   ColumnDef,
   OnChangeFn,
@@ -78,6 +79,8 @@ export interface ProtocolsRegistryGridProps {
   isLoading?: boolean
   sorting: SortingState
   onSortingChange: OnChangeFn<SortingState>
+  /** The person's remembered columns; adds the columns-and-export menu. */
+  view?: ListView
   rowSelection: RowSelectionState
   onRowSelectionChange: OnChangeFn<RowSelectionState>
   /** Open a protocol: from its name link (with the click) or a row click. */
@@ -94,6 +97,7 @@ export function ProtocolsRegistryGrid({
   isLoading = false,
   sorting,
   onSortingChange,
+  view,
   rowSelection,
   onRowSelectionChange,
   onOpen,
@@ -190,6 +194,7 @@ export function ProtocolsRegistryGrid({
       onRowClick={onOpen}
       sorting={sorting}
       onSortingChange={onSortingChange}
+      view={view}
       isLoading={isLoading}
     />
   )

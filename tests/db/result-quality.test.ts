@@ -231,7 +231,9 @@ describe('the incident log', () => {
   it('can be ticked and unticked on any model, by someone who may edit models', async () => {
     await owner.query(`select api.set_model_incident_log('assay', true)`)
     await owner.query(`select api.set_model_incident_log('assay', false)`)
-    const logs = await owner.query(`select model_key from api.model_incident_logs`)
+    const logs = await owner.query(
+      `select model_key from api.model_incident_logs`,
+    )
     expect(logs.rows).toEqual([{ model_key: 'incident' }])
     await expectDenied(
       viewer.query(`select api.set_model_incident_log('assay', true)`),
@@ -315,14 +317,22 @@ describe('legal holds', () => {
   it('are readable only by people who can see general settings, and managed by those who manage them', async () => {
     const mine = await owner.query(`select name from api.legal_holds`)
     expect(mine.rows.map((r) => r.name)).toContain('Case 12')
-    expect((await viewer.query(`select name from api.legal_holds`)).rows).toEqual([])
+    expect(
+      (await viewer.query(`select name from api.legal_holds`)).rows,
+    ).toEqual([])
     await expectDenied(
-      member.query(`select * from api.create_legal_hold('x',null,null,'assay','{}')`),
+      member.query(
+        `select * from api.create_legal_hold('x',null,null,'assay','{}')`,
+      ),
       'SB056',
     )
-    expect((await stranger.query(`select * from api.legal_holds`)).rows).toEqual([])
+    expect(
+      (await stranger.query(`select * from api.legal_holds`)).rows,
+    ).toEqual([])
     await expect(
-      owner.query(`select * from api.create_legal_hold('Nothing',null,null,null,'{}')`),
+      owner.query(
+        `select * from api.create_legal_hold('Nothing',null,null,null,'{}')`,
+      ),
     ).rejects.toThrow(/what the hold covers/)
   })
 
@@ -334,7 +344,9 @@ describe('legal holds', () => {
       hold.id,
     ])
     await expect(
-      owner.query(`select * from api.release_legal_hold($1,'again')`, [hold.id]),
+      owner.query(`select * from api.release_legal_hold($1,'again')`, [
+        hold.id,
+      ]),
     ).rejects.toThrow(/already released/)
     await owner.query(`select api.archive_record($1, 1)`, [held.id])
   })
@@ -345,18 +357,24 @@ describe('retention rules', () => {
     const old = await record('incident', 'Old incident', { severity: 'minor' })
     const heldOld = await record('incident', 'Old held incident', {})
     const recent = await record('incident', 'Recent incident', {})
-    await migrator.query(`alter table api.records disable trigger set_updated_at`)
+    await migrator.query(
+      `alter table api.records disable trigger set_updated_at`,
+    )
     await migrator.query(
       `update api.records set updated_at = now() - interval '30 months'
         where id in ($1,$2)`,
       [old.id, heldOld.id],
     )
-    await migrator.query(`alter table api.records enable trigger set_updated_at`)
+    await migrator.query(
+      `alter table api.records enable trigger set_updated_at`,
+    )
     await owner.query(
       `select * from api.create_legal_hold('Hold old',null,null,null,$1)`,
       [[heldOld.id]],
     )
-    await owner.query(`select * from api.set_retention_rule('incident',24,'Quality procedure')`)
+    await owner.query(
+      `select * from api.set_retention_rule('incident',24,'Quality procedure')`,
+    )
     const due = (await owner.query(`select * from api.retention_due()`)).rows
     expect(due.map((d) => d.title)).toEqual(['Old incident'])
     expect(
@@ -375,7 +393,9 @@ describe('retention rules', () => {
       { title: 'Old incident', archived: true },
       { title: 'Recent incident', archived: false },
     ])
-    expect((await owner.query(`select api.apply_retention() as n`)).rows[0].n).toBe(0)
+    expect(
+      (await owner.query(`select api.apply_retention() as n`)).rows[0].n,
+    ).toBe(0)
   })
 
   it('validate the rule, and can be removed', async () => {
@@ -385,8 +405,12 @@ describe('retention rules', () => {
     await expect(
       owner.query(`select * from api.set_retention_rule('nope',12,null)`),
     ).rejects.toThrow(/model not found/)
-    await owner.query(`select * from api.set_retention_rule('incident',null,null)`)
-    expect((await owner.query(`select * from api.retention_rules`)).rows).toEqual([])
+    await owner.query(
+      `select * from api.set_retention_rule('incident',null,null)`,
+    )
+    expect(
+      (await owner.query(`select * from api.retention_rules`)).rows,
+    ).toEqual([])
   })
 
   it('are an administrator job', async () => {
@@ -395,7 +419,12 @@ describe('retention rules', () => {
       'SB056',
     )
     await expectDenied(member.query(`select api.apply_retention()`), 'SB056')
-    await expectDenied(member.query(`select * from api.retention_due()`), 'SB056')
-    expect((await member.query(`select * from api.retention_rules`)).rows).toEqual([])
+    await expectDenied(
+      member.query(`select * from api.retention_due()`),
+      'SB056',
+    )
+    expect(
+      (await member.query(`select * from api.retention_rules`)).rows,
+    ).toEqual([])
   })
 })

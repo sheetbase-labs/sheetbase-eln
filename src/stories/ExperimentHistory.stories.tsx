@@ -89,6 +89,8 @@ const workspace: WorkspaceGeneral = {
   requireChangeReason: false,
   lockOnSign: true,
   regulatedLab: false,
+  specLimitsEnabled: false,
+  retentionEnabled: false,
   idPrefixes: { experiment: 'EXP' },
 }
 

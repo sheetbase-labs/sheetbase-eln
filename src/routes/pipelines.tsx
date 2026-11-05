@@ -38,10 +38,8 @@ import {
   ListToolbar,
   MobileList,
   footerCount,
-  nameSorts,
   sortByName,
 } from '#/components/inventory/list'
-import type { NameSort } from '#/components/inventory/list'
 import {
   RegistryGrid,
   rightAligned,
@@ -66,8 +64,18 @@ import type { PipelineListRow } from '#/components/pipelines/pipelines-data'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { useRunLauncher } from '#/components/pipelines/use-run-launcher'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { useListView } from '#/lib/list-views'
+import { undoToast } from '#/lib/undo-toast'
+import { updatePipelineDefinition } from '#/lib/pipelines/data'
 
-const tabs = ['all', 'mine', 'needsattention', 'scheduled', 'drafts'] as const
+const tabs = [
+  'all',
+  'mine',
+  'needsattention',
+  'scheduled',
+  'drafts',
+  'archived',
+] as const
 type PipelineTab = (typeof tabs)[number]
 const tabLabel: Record<PipelineTab, string> = {
   all: t('data.pipelinesList.all'),
@@ -75,6 +83,7 @@ const tabLabel: Record<PipelineTab, string> = {
   needsattention: t('data.pipelinesList.needsAttention'),
   scheduled: t('data.pipelinesList.scheduled'),
   drafts: t('data.pipelinesList.drafts'),
+  archived: t('data.pipelinesList.archived'),
 }
 
 /** UI port (roadmap-4/ui-app3): the Pipelines board on the AUTO-01/02/03
@@ -113,6 +122,9 @@ function inTab(
   scheduledIds: Set<string>,
   currentUserId: string,
 ): boolean {
+  // An archived pipeline is out of every working list.
+  if (tab === 'archived') return p.lifecycle === 'retired'
+  if (p.lifecycle === 'retired') return false
   if (tab === 'all') return true
   if (tab === 'mine') return p.created_by_user_id === currentUserId
   if (tab === 'needsattention')
@@ -138,7 +150,7 @@ function PipelinesList() {
   const query = usePipelineRows()
   const rows = query.data ?? []
   const tab: PipelineTab = search.tab ?? 'all'
-  const [sort, setSort] = useState<NameSort>('Name')
+  const view = useListView('pipelines')
   const currentUserId = context.user.id
   // The selected pipeline lives in the URL (`?selected=`) like the rest of the
   // page's state, so a selection is shareable and survives a refresh. With no
@@ -183,7 +195,7 @@ function PipelinesList() {
           !q ||
           `${p.display_id ?? ''} ${p.key} ${p.name}`.toLowerCase().includes(q),
       ),
-    sort,
+    'Name',
     (p) => p.name,
     (p) => p.display_id ?? p.key,
   )
@@ -202,6 +214,8 @@ function PipelinesList() {
       {
         id: 'key',
         header: 'ID',
+        accessorFn: (p) => p.display_id ?? p.key,
+        enableHiding: false,
         cell: ({ row }) => (
           <span className="mono">
             {row.original.display_id ?? row.original.key}
@@ -211,6 +225,7 @@ function PipelinesList() {
       {
         id: 'name',
         header: t('data.pipelinesList.pipeline'),
+        accessorFn: (p) => p.name,
         cell: ({ row }) => (
           <Link
             to="/pipelines/$pipelineId"
@@ -293,12 +308,52 @@ function PipelinesList() {
       }),
   )
 
+  const queryClient = useQueryClient()
+  // Archiving a pipeline retires it: it leaves the working lists and its runs
+  // and versions stay. Restoring puts it back; each is the other's Undo.
+  const setArchived = useMutation({
+    mutationFn: (input: { pipeline: PipelineListRow; archived: boolean }) =>
+      updatePipelineDefinition(notebookDataClient, {
+        workspaceId,
+        definitionId: input.pipeline.id,
+        lifecycle: input.archived ? 'retired' : 'active',
+      }),
+    onSuccess: (_, { pipeline, archived }) => {
+      const refresh = () =>
+        queryClient.invalidateQueries({ queryKey: pipelineDataQueryKeys.list })
+      void refresh()
+      undoToast(
+        t(
+          archived
+            ? 'data.pipelinesList.archivedToast'
+            : 'data.pipelinesList.restoredToast',
+          { name: pipeline.name },
+        ),
+        () =>
+          updatePipelineDefinition(notebookDataClient, {
+            workspaceId,
+            definitionId: pipeline.id,
+            lifecycle: archived ? 'active' : 'retired',
+          }),
+        () => void refresh(),
+      )
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof Error ? error.message : t('common.errors.generic'),
+      ),
+  })
+
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
           title={t('data.pipelinesList.pipelines')}
-          total={query.isError || query.isPending ? undefined : rows.length}
+          total={
+            query.isError || query.isPending
+              ? undefined
+              : rows.filter((p) => p.lifecycle !== 'retired').length
+          }
           actions={
             <>
               {canManage ? (
@@ -349,11 +404,6 @@ function PipelinesList() {
           q={search.q}
           label={t('data.pipelinesList.searchPipelines')}
           placeholder={t('data.pipelinesList.searchPipelines')}
-          views={{
-            sorts: [...nameSorts],
-            sort,
-            onSort: (s) => setSort(s as NameSort),
-          }}
           onSearch={(next) =>
             void navigate({
               to: '/pipelines',
@@ -376,6 +426,7 @@ function PipelinesList() {
             <RegistryGrid
               className="max-md:hidden"
               label={t('data.pipelinesList.pipelines')}
+              view={view}
               rows={visible}
               columns={columns}
               getRowId={(p) => p.id}
@@ -415,16 +466,20 @@ function PipelinesList() {
                 title={
                   q
                     ? t('data.pipelinesList.pipelinesMatch', { q })
-                    : rows.length === 0
-                      ? t('data.pipelinesList.noPipelinesYet')
-                      : t('data.pipelinesList.noPipelinesIn', {
-                          tab: tabLabel[tab],
-                        })
+                    : tab === 'archived'
+                      ? t('data.pipelinesList.noArchivedPipelines')
+                      : rows.length === 0
+                        ? t('data.pipelinesList.noPipelinesYet')
+                        : t('data.pipelinesList.noPipelinesIn', {
+                            tab: tabLabel[tab],
+                          })
                 }
                 description={
-                  rows.length === 0
-                    ? t('data.pipelinesList.createPipelineAuthorSql')
-                    : t('data.pipelinesList.searchLooksPipelineKeys')
+                  tab === 'archived'
+                    ? t('data.pipelinesList.archivedStayHere')
+                    : rows.length === 0
+                      ? t('data.pipelinesList.createPipelineAuthorSql')
+                      : t('data.pipelinesList.searchLooksPipelineKeys')
                 }
                 action={
                   rows.length === 0 && !q ? (
@@ -504,6 +559,24 @@ function PipelinesList() {
               >
                 {t('common.actions.open')}
               </Button>
+              {canManage ? (
+                <Button
+                  size="sm"
+                  variant="quiet"
+                  icon={sel.lifecycle === 'retired' ? 'undo' : 'archive'}
+                  disabled={setArchived.isPending}
+                  onClick={() =>
+                    setArchived.mutate({
+                      pipeline: sel,
+                      archived: sel.lifecycle !== 'retired',
+                    })
+                  }
+                >
+                  {sel.lifecycle === 'retired'
+                    ? t('common.actions.restore')
+                    : t('common.actions.archive')}
+                </Button>
+              ) : null}
             </div>
             {sel.current?.lifecycle !== 'published' ? (
               <Muted className="mt-1">

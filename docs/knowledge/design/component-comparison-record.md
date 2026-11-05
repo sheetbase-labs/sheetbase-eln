@@ -1,4 +1,6 @@
 ---
+
+> The comparison harness (`/component-compare`, `src/components/component-compare/`) was removed on 5 November 2026 once every decision below was made. This record keeps the results; the paths it names no longer exist.
 title: Component comparison record — ADR-0055
 status: living record — one row per compared component
 last_reviewed: 2026-10-16
@@ -19,7 +21,7 @@ the second attempt could not be judged against the first, and neither reason
 could be reconstructed. A row here is what stops that happening again.
 
 The evidence comes from the comparison harness at `/component-compare`
-(development-only; runbook [`docs/development/component-compare.md`](../../development/component-compare.md),
+(development-only; runbook [`docs/knowledge/design/component-comparison-record.md`](../../development/component-compare.md),
 code `src/components/component-compare/`). The harness holds the fixtures, the
 checklist and the two columns; this file holds the results and the decision.
 Neither replaces the other: an adoption is not proposed here, and a row without
@@ -2145,5 +2147,5 @@ job and its control classes, run the two vitest suites and the browser spec, the
 add the pair's row above and its detail section with: what we use now, what the
 candidate offers, the per-item checklist result for both sides, the automated
 evidence with its commands, the conditions an adoption would carry, the decision
-and the reason, and the limits. `docs/development/component-compare.md` has the
+and the reason, and the limits. `docs/knowledge/design/component-comparison-record.md` has the
 step-by-step.

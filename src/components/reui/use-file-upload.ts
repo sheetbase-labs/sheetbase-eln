@@ -19,7 +19,7 @@
  * that composes it is `src/components/v3/ui/file-drop.tsx`.
  *
  * Do not extend or hand-edit this file beyond import-path fixes and restyling
- * to Sheetbase tokens; see docs/development/component-compare.md.
+ * to Sheetbase tokens; see docs/knowledge/design/component-comparison-record.md.
  */
 import type React from 'react'
 import {

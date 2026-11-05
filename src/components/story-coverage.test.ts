@@ -6,8 +6,7 @@ import { describe, expect, it } from 'vitest'
 /**
  * Storybook coverage guard (ADR-0055).
  *
- * Every component module under src/components (bar the legacy kit and the
- * component-compare harness) must be exercised by a story, or be recorded as a
+ * Every component module under src/components must be exercised by a story, or be recorded as a
  * deliberate skip in `docs/development/storybook-coverage.md`. Storybook is
  * checked nowhere else: a component with no story renders nowhere, and before
  * this guard the only way to notice was to read the catalogue by hand.
@@ -31,15 +30,8 @@ const RECORD = join(ROOT, 'docs/development/storybook-coverage.md')
 /** The surfaces this guard owns: every component under src/components. */
 const SCOPE = ['src/components']
 
-/**
- * Left out on purpose: the legacy kit, which is being retired in favour of
- * v3/ui, and the component-compare harness, a dev tool that reproduces old
- * variants side by side.
- */
-const EXCLUDED = ['src/components/ui/', 'src/components/component-compare/']
 const ICON_MODULES: string[] = []
 
-const ADOPTION_GUARD = 'src/components/v3/ui/component-adoption.test.ts'
 const THIS_FILE = 'src/components/story-coverage.test.ts'
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -127,8 +119,7 @@ function componentModules(): string[] {
     for (const path of walk(join(ROOT, root))) {
       const repoPath = relative(ROOT, path)
       if (/\.test\.tsx?$|\.stories\.tsx$/.test(repoPath)) continue
-      if (repoPath === ADOPTION_GUARD || repoPath === THIS_FILE) continue
-      if (EXCLUDED.some((prefix) => repoPath.startsWith(prefix))) continue
+      if (repoPath === THIS_FILE) continue
       if (isComponentModule(repoPath)) modules.add(repoPath)
     }
   }

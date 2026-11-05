@@ -11,8 +11,7 @@
  * violations with colour contrast on.
  *
  * The record-history panel and the typed audit trail share that surface; their
- * behaviour is pinned by `src/components/audit/*.test.tsx`, and the A/B
- * evidence is the `history-rows` pair on `/component-compare`.
+ * behaviour is pinned by `src/components/audit/*.test.tsx`.
  *
  * Set HISTORY_SHOTS=<dir> to keep the screenshots beside the comparison record.
  */

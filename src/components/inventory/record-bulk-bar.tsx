@@ -15,6 +15,7 @@ import {
 import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { toast } from '#/components/ui/sonner'
+import { undoToast } from '#/lib/undo-toast'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import {
   fetchProjectSummaries,
@@ -24,6 +25,7 @@ import { t } from '#/copy'
 import {
   bulkArchive,
   bulkAssign,
+  bulkRestore,
   bulkMoveToLocation,
   bulkMoveToProject,
   bulkSetField,
@@ -44,7 +46,7 @@ import type { BulkSelection } from './bulk-selection'
 
 type DialogName = 'archive' | 'move' | 'assign' | 'field' | 'labels'
 
-type ActionName = 'archive' | 'move' | 'assign' | 'field'
+type ActionName = 'archive' | 'restore' | 'move' | 'assign' | 'field'
 
 /**
  * The strip above a list that acts on the rows ticked in it: print labels,
@@ -58,6 +60,7 @@ export function RecordBulkBar({
   kind,
   move,
   archive = true,
+  restore = false,
   canWrite,
   onChanged,
   client = notebookDataClient,
@@ -75,17 +78,43 @@ export function RecordBulkBar({
    * governed lifecycle (a controlled protocol) leaves it out.
    */
   archive?: boolean
+  /**
+   * The list is showing archived records: the bar offers Restore, the one
+   * thing that makes sense for them, in place of the other actions.
+   */
+  restore?: boolean
   canWrite: boolean
   /** The list reloads after an action. */
   onChanged: () => void
   client?: DataClient
 }) {
   const [dialog, setDialog] = useState<DialogName | null>(null)
+  const [restoring, setRestoring] = useState(false)
   if (selection.count === 0) return null
 
   const report = (action: ActionName, outcome: BulkOutcome) => {
     if (outcome.failed.length === 0) {
-      toast(t(`library.bulk.done.${action}`, { count: outcome.done.length }))
+      const message = t(`library.bulk.done.${action}`, {
+        count: outcome.done.length,
+      })
+      // Archiving and restoring are each other's undo.
+      if (action === 'archive' || action === 'restore') {
+        undoToast(
+          message,
+          async () => {
+            const targets = await fetchBulkTargets(client, outcome.doneIds)
+            const undone = await (action === 'archive'
+              ? bulkRestore(client, targets)
+              : bulkArchive(client, targets))
+            if (undone.failed.length > 0) {
+              throw new Error(undone.failed[0].message)
+            }
+          },
+          onChanged,
+        )
+      } else {
+        toast(message)
+      }
     } else {
       const first = outcome.failed[0]
       toast.error(
@@ -122,10 +151,43 @@ export function RecordBulkBar({
       <span className="num mr-1 text-label font-medium">
         {t('library.bulk.selected', { count: selection.count })}
       </span>
-      <Button size="sm" icon="tag" onClick={() => setDialog('labels')}>
-        {t('library.bulk.printLabels')}
-      </Button>
-      {canWrite ? (
+      {restore ? null : (
+        <Button size="sm" icon="tag" onClick={() => setDialog('labels')}>
+          {t('library.bulk.printLabels')}
+        </Button>
+      )}
+      {canWrite && restore ? (
+        <Button
+          size="sm"
+          icon="undo"
+          disabled={restoring}
+          onClick={() => {
+            setRestoring(true)
+            void (async () => {
+              try {
+                report(
+                  'restore',
+                  await bulkRestore(
+                    client,
+                    await fetchBulkTargets(client, selection.ids),
+                  ),
+                )
+              } catch (error) {
+                toast.error(
+                  error instanceof Error
+                    ? error.message
+                    : t('library.bulk.errors.generic'),
+                )
+              } finally {
+                setRestoring(false)
+              }
+            })()
+          }}
+        >
+          {t('library.bulk.restore')}
+        </Button>
+      ) : null}
+      {canWrite && !restore ? (
         <>
           <Button size="sm" icon="user" onClick={() => setDialog('assign')}>
             {t('library.bulk.assign')}

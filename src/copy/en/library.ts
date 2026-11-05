@@ -2786,6 +2786,7 @@ export const library = {
       reserved: 'Reserved',
       quarantine: 'Quarantine',
       consumed: 'Consumed',
+      archived: 'Archived',
       id: 'ID',
       name: 'Name',
       type: 'Type',
@@ -2809,6 +2810,9 @@ export const library = {
       created: 'Created',
       noSamplesMatch: 'No samples match “{q}”',
       noSamplesIn: 'No samples in {toLowerCase}',
+      noArchivedSamples: 'No archived samples',
+      archivedStayHere:
+        'A sample you archive is kept here, and can be restored.',
       searchLooksAtIdName: 'Search looks at ID, name, type and location.',
       registerASampleOrImport:
         'Register a sample or import a plate map to start the registry.',
@@ -3497,6 +3501,21 @@ export const library = {
         'Unsigned records are still on this version. Ask their owners to update them or finish and sign them, then retire.',
     },
   },
+  listView: {
+    options: 'Columns and export',
+    columns: 'Columns',
+    reset: 'Reset sorting and columns',
+    sortBy: 'Sort by {column}',
+    exportCsv: 'Export as CSV',
+    exportExcel: 'Export as Excel',
+    exported: {
+      one: 'Exported {count} row to {file}',
+      other: 'Exported {count} rows to {file}',
+    },
+    exportFailed: 'Could not export this list',
+    exportFailedDetail: 'The download did not start.',
+    nothingToExport: 'There is nothing in this list to export yet.',
+  },
   bulk: {
     bar: 'Actions for the selected rows',
     selectAll: 'Select all rows',
@@ -3514,6 +3533,10 @@ export const library = {
       archive: {
         one: '{count} record archived',
         other: '{count} records archived',
+      },
+      restore: {
+        one: '{count} record restored',
+        other: '{count} records restored',
       },
       move: {
         one: '{count} record moved',
@@ -3534,6 +3557,7 @@ export const library = {
       changed: 'Someone else changed it. Reload and try again.',
       archived: 'It is archived, so it cannot be changed.',
       alreadyArchived: 'It is already archived.',
+      notArchived: 'It is not archived.',
       alreadyThere: 'It is already there.',
       locked: 'It is signed and locked.',
       draftOnly: 'Only a draft can move.',
@@ -3551,6 +3575,7 @@ export const library = {
           '{count} labels will go to your browser’s print dialog as one sheet.',
       },
     },
+    restore: 'Restore',
     archiveDialog: {
       title: {
         one: 'Archive {count} record?',

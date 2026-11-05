@@ -108,6 +108,7 @@ import { samplePath } from '#/lib/navigation'
 import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { undoToast } from '#/lib/undo-toast'
 import { rich, t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the sample detail frame, wired to real sample
@@ -494,9 +495,17 @@ function SampleLayout() {
         expectedMetadataVersion: sample!.metadataVersion,
         notes: input.notes,
       }),
-    onSuccess: () => {
+    onSuccess: (archived) => {
       invalidate()
-      toast(t('library.samples.record.sampleArchived'))
+      undoToast(
+        t('library.samples.record.sampleArchived'),
+        () =>
+          restoreSample(notebookDataClient, {
+            recordId: sampleId,
+            expectedMetadataVersion: archived.metadataVersion,
+          }),
+        invalidate,
+      )
       setDialog(null)
     },
     onError,

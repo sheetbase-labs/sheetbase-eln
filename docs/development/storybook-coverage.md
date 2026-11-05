@@ -222,6 +222,25 @@ merely shares its name with a component is not coverage of it.
 | `src/components/ui/**`, the legacy kit | Being retired in favour of `v3/ui`; `src/components/v3/ui/component-adoption.test.ts` tracks the removal.                     |
 | `src/components/component-compare/**`  | A development-only harness that reproduces old variants side by side. It is a tool for choosing between them, not product UI. |
 
+## Assistant, workspace, offline and shell
+
+Modules in these areas that render nothing of their own, or that cannot be
+mounted without the whole application behind them. Everything else in
+`assist/`, `workspace/`, `offline/`, `shell/`, `shortcuts/`, `pwa/`,
+`favourites/`, `data-access/`, `overview/`, `dev-toolbar/` and `v3/shell/` has
+a story.
+
+| Module                                                  | Why no story                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/shell/index.ts`                         | Re-export of `ShellProvider`, which renders its children unchanged.                                                                                                                                                                                                                            |
+| `src/components/shell/shell-context.tsx`                | `ShellProvider` renders its children unchanged; there is no chrome to show.                                                                                                                                                                                                                    |
+| `src/components/shortcuts/sheet-keyboard-shortcuts.tsx` | Registers cell shortcuts for a grid and returns `null`. The registry it feeds is shown by `ShortcutsDialog.stories.tsx`.                                                                                                                                                                       |
+| `src/components/v3/lib/theme.ts`                        | Theme cookie and storage constants and the store behind `ThemeProvider`; no rendered surface.                                                                                                                                                                                                  |
+| `src/components/workspace/use-record-links.ts`          | Hook, plus the drag MIME constant. It wires drag and click handling onto a pane's links and renders nothing.                                                                                                                                                                                   |
+| `src/components/workspace/workspace-navigation.tsx`     | Context, hooks and click helpers for panes; no rendered surface.                                                                                                                                                                                                                               |
+| `src/components/workspace/pane-page.tsx`                | Mounts a second copy of the application's own page router (`getPaneRouter`) for an address, inside the live auth context. A story would need the whole app and its database behind it; `PaneHeader`, `WorkspaceBar`, `PeekCard`, `Shelf` and `WorkspaceStatus` show the pane chrome around it. |
+| `src/components/workspace/workspace-host.tsx`           | The host that owns the open panes, layouts, shelf and link groups and mounts a `PanePage` for each. It reads the root route's auth context and session storage and renders the application's pages, so it cannot stand alone; every piece of its chrome has its own story.                     |
+
 ## v3 screens
 
 The screen components under `src/components/v3/{datasets, integrations, models,

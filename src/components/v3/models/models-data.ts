@@ -801,11 +801,21 @@ export function useRecordModelUsedBy(
 ) {
   return useQuery({
     queryKey: recordModelDetailQueryKeys.usedBy(recordId),
-    queryFn: () =>
-      client.list<RecordModelUsedBy>(
+    queryFn: async () => {
+      const rows = await client.list<{
+        link_type: string
+        created_at: string
+        source: RecordModelUsedBy['source']
+      }>(
         'record_links',
         `?target_record_id=eq.${encodeURIComponent(recordId)}&select=link_type,created_at,source:source_record_id(id,identifier,title,kind)&order=created_at.desc`,
-      ),
+      )
+      return rows.map((row): RecordModelUsedBy => ({
+        linkType: row.link_type,
+        createdAt: row.created_at,
+        source: row.source,
+      }))
+    },
     enabled: Boolean(recordId),
     staleTime: 15_000,
   })

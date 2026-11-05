@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { useState } from 'react'
 
 import { Icon, ICON_NAMES } from '#/components/icons'
 import { useTheme } from '#/components/theme-provider'
@@ -25,27 +26,20 @@ import {
   CommentList,
 } from '#/components/record'
 import { Button } from '#/components/v3/ui/button'
+import { Badge } from '#/components/v3/ui/badge'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-  Badge,
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  Textarea,
-} from '#/components/ui'
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+  ConfirmDialogTrigger,
+} from '#/components/v3/ui/confirm-dialog'
+import { Tabs } from '#/components/v3/ui/tabs'
+import { Textarea } from '#/components/v3/inventory/list'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,7 +47,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '#/components/v3/ui/dropdown-menu'
-import { Input } from '#/components/v3/ui/input'
+import { Field, Input } from '#/components/v3/ui/input'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { contrastRatio, oklchToSrgb } from '#/lib/contrast'
 import type { Oklch } from '#/lib/contrast'
@@ -94,7 +88,7 @@ function FoundationsPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Foundations
               </p>
-              <Badge variant="outline">Development only</Badge>
+              <Badge variant="kind">Development only</Badge>
             </div>
             <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight">
               Visual rules and semantic tokens
@@ -865,64 +859,30 @@ function PrimitivesGrid() {
         </div>
       </Preview>
 
-      <Preview title="Badges — semantic statuses">
+      <Preview title="Badges — change and kind">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge>Default</Badge>
-          <Badge variant="secondary">Secondary</Badge>
-          <Badge variant="secondary">Archived</Badge>
-          <Badge variant="success">In progress</Badge>
-          <Badge variant="info">Needs review</Badge>
-          <Badge variant="warning">Expiring</Badge>
-          <Badge variant="danger">Failed</Badge>
-          <Badge variant="violet">Custom</Badge>
+          <Badge variant="add">Added</Badge>
+          <Badge variant="chg">Changed</Badge>
+          <Badge variant="del">Removed</Badge>
+          <Badge variant="kind">CSV</Badge>
         </div>
       </Preview>
 
-      <Preview title="Field — label, description, error">
-        <Field>
-          <FieldLabel htmlFor="sample-title">Experiment title</FieldLabel>
-          <Input
-            id="sample-title"
-            aria-describedby="sample-title-help sample-title-err"
-            aria-invalid="true"
-            defaultValue="Virus Stability"
-          />
-          <FieldDescription id="sample-title-help">
-            Shown in the project notebook list.
-          </FieldDescription>
-          <FieldError id="sample-title-err">
-            A notebook with this title already exists in this project.
-          </FieldError>
+      <Preview title="Field — label, hint, error">
+        <Field
+          label="Experiment title"
+          hint="Shown in the project notebook list."
+          error="A notebook with this title already exists in this project."
+        >
+          <Input aria-invalid="true" defaultValue="Virus Stability" />
         </Field>
-        <div className="mt-4">
-          <FieldLabel htmlFor="sample-notes">Notes</FieldLabel>
-          <Textarea id="sample-notes" placeholder="Free-text observations…" />
-        </div>
+        <Field label="Notes" className="mt-4">
+          <Textarea placeholder="Free-text observations…" />
+        </Field>
       </Preview>
 
       <Preview title="Tabs — keyboard navigation">
-        <Tabs defaultValue="properties">
-          <TabsList>
-            <TabsTrigger value="properties">Properties</TabsTrigger>
-            <TabsTrigger value="activity">Activity</TabsTrigger>
-            <TabsTrigger value="files">Files</TabsTrigger>
-          </TabsList>
-          <TabsContent value="properties">
-            <p className="text-sm text-muted-foreground">
-              Property list placeholder.
-            </p>
-          </TabsContent>
-          <TabsContent value="activity">
-            <p className="text-sm text-muted-foreground">
-              Audit trail placeholder.
-            </p>
-          </TabsContent>
-          <TabsContent value="files">
-            <p className="text-sm text-muted-foreground">
-              Attachments placeholder.
-            </p>
-          </TabsContent>
-        </Tabs>
+        <TabsPreview />
       </Preview>
 
       <Preview title="Tooltip">
@@ -945,28 +905,60 @@ function PrimitivesGrid() {
         </DropdownMenu>
       </Preview>
 
-      <Preview title="Destructive confirmation (AlertDialog)">
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
+      <Preview title="Destructive confirmation">
+        <ConfirmDialog>
+          <ConfirmDialogTrigger>
             <Button variant="danger-fill">Delete notebook</Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Permanently delete notebook?</AlertDialogTitle>
-              <AlertDialogDescription>
+          </ConfirmDialogTrigger>
+          <ConfirmDialogContent>
+            <ConfirmDialogHeader>
+              <ConfirmDialogTitle>
+                Permanently delete notebook?
+              </ConfirmDialogTitle>
+              <ConfirmDialogDescription>
                 All blocks, links and audit history will be removed. This cannot
                 be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              </ConfirmDialogDescription>
+            </ConfirmDialogHeader>
+            <ConfirmDialogFooter>
+              <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+              <ConfirmDialogAction variant="danger-fill">
                 Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              </ConfirmDialogAction>
+            </ConfirmDialogFooter>
+          </ConfirmDialogContent>
+        </ConfirmDialog>
       </Preview>
+    </div>
+  )
+}
+
+const PREVIEW_TABS = [
+  { key: 'properties', label: 'Properties' },
+  { key: 'activity', label: 'Activity' },
+  { key: 'files', label: 'Files' },
+] as const
+
+const PREVIEW_TAB_BODIES: Record<string, string> = {
+  properties: 'Property list placeholder.',
+  activity: 'Audit trail placeholder.',
+  files: 'Attachments placeholder.',
+}
+
+function TabsPreview() {
+  const [tab, setTab] = useState<string>('properties')
+  return (
+    <div>
+      <Tabs
+        mode="state"
+        label="Record sections"
+        items={PREVIEW_TABS}
+        value={tab}
+        onValueChange={setTab}
+      />
+      <p className="mt-3 text-sm text-muted-foreground">
+        {PREVIEW_TAB_BODIES[tab]}
+      </p>
     </div>
   )
 }

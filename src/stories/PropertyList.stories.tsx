@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { PropertyList, Property } from '#/components/scientific/property-list'
-import { Badge } from '#/components/ui/badge'
+import { Badge } from '#/components/v3/ui/badge'
 
 const properties = [
   ['ID', 'EXP-2025-0014'],
@@ -36,11 +36,11 @@ export const WithBadges: Story = {
     <PropertyList>
       <Property label="ID">EXP-2025-0014</Property>
       <Property label="Status">
-        <Badge variant="success">In progress</Badge>
+        <Badge variant="add">In progress</Badge>
       </Property>
       <Property label="Type">Lentiviral vector</Property>
       <Property label="Project">
-        <Badge variant="outline">Vector stability</Badge>
+        <Badge variant="kind">Vector stability</Badge>
       </Property>
     </PropertyList>
   ),

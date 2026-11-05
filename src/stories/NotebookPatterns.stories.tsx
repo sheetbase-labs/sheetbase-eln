@@ -9,8 +9,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/ui/table'
-import { Badge } from '#/components/ui/badge'
+} from '#/components/v3/ui/table'
+import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { ChartFrame } from '#/components/viz/chart-frame'
 import { PlateMap } from '#/components/viz/plate-map'
@@ -72,13 +72,13 @@ export const BlockLanguage: Story = {
       <NotebookBlock label="Materials" title="Materials" draggable>
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            DPBS <Badge variant="outline">50 mL</Badge>
+            DPBS <Badge variant="kind">50 mL</Badge>
           </li>
           <li>
-            qPCR kit <Badge variant="outline">1 kit</Badge>
+            qPCR kit <Badge variant="kind">1 kit</Badge>
           </li>
           <li>
-            96-well plate <Badge variant="outline">1 plate</Badge>
+            96-well plate <Badge variant="kind">1 plate</Badge>
           </li>
         </ul>
       </NotebookBlock>

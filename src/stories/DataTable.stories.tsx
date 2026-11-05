@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTable } from '#/components/scientific/data-table'
 import type { DataTableFeatures } from '#/components/scientific/data-table'
-import { Badge } from '#/components/ui/badge'
+import { Badge } from '#/components/v3/ui/badge'
 
 interface SampleRow {
   id: string
@@ -75,10 +75,10 @@ const columns: ColumnDef<DataTableFeatures, SampleRow>[] = [
       <Badge
         variant={
           row.original.status === 'In stock'
-            ? 'success'
+            ? 'add'
             : row.original.status === 'Low stock'
-              ? 'warning'
-              : 'danger'
+              ? 'chg'
+              : 'del'
         }
       >
         {row.original.status}

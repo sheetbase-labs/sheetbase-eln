@@ -1,7 +1,7 @@
 import { t } from '#/copy'
 import { useState } from 'react'
 
-import { Calendar } from '#/components/ui/calendar'
+import { Calendar } from '#/components/v3/ui/calendar'
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
 import {

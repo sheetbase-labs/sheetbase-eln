@@ -52,12 +52,13 @@ const meta = {
       </QueryClientProvider>
     ),
   ],
+  args: { canWrite: true },
 } satisfies Meta<typeof ShipmentsPage>
 export default meta
 type Story = StoryObj<typeof meta>
 
 /** The shipments list for a writer. */
-export const Page: Story = { args: { canWrite: true } }
+export const Page: Story = {}
 
 /** Creating a shipment. */
 export const New: Story = {

@@ -40,12 +40,6 @@ const meta = {
       </QueryClientProvider>
     ),
   ],
-} satisfies Meta<typeof RequestsPage>
-export default meta
-type Story = StoryObj<typeof meta>
-
-/** The page for a writer who handles requests, while the lists load. */
-export const Page: Story = {
   args: {
     userId: 'user-1',
     canWrite: true,
@@ -53,7 +47,12 @@ export const Page: Story = {
     tab: 'mine',
     onTabChange: () => {},
   },
-}
+} satisfies Meta<typeof RequestsPage>
+export default meta
+type Story = StoryObj<typeof meta>
+
+/** The page for a writer who handles requests, while the lists load. */
+export const Page: Story = {}
 
 /** The request form: pick a model, say what is needed, send it. */
 export const Form: Story = {

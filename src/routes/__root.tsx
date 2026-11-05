@@ -111,7 +111,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       },
       {
         name: 'viewport',
-        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
+        // maximum-scale=1 stops iOS zooming into a focused field, so fields
+        // can keep the same type size as the rest of the UI.
+        content:
+          'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover',
       },
       {
         title: t('settings.root.sheetbase'),

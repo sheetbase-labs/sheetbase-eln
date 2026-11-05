@@ -3157,7 +3157,7 @@ function activityItemsFromEvents(
   currentUserId?: string | null,
 ): {
   id: string
-  actor: { name: string; initials?: string }
+  actor: { name: string; initials?: string; userId?: string | null }
   action: string
   target?: string
   at: string
@@ -3165,8 +3165,8 @@ function activityItemsFromEvents(
   return activity.map((event) => {
     const isSelf = currentUserId && event.actorUserId === currentUserId
     const actor = isSelf
-      ? { name: 'You', initials: 'Y' }
-      : { name: 'A collaborator', initials: '••' }
+      ? { name: 'You', initials: 'Y', userId: event.actorUserId }
+      : { name: 'A collaborator', initials: '••', userId: event.actorUserId }
     const action = OPERATION_LABELS[event.operation] ?? event.operation
     const target = ENTITY_LABELS[event.entityType] ?? event.entityType
     return {

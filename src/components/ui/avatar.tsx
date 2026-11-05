@@ -1,3 +1,6 @@
+import { useEffect, useState } from 'react'
+
+import { useAvatarPhotoUrl } from '#/lib/avatar-photos-context'
 import { cn } from '#/lib/utils'
 
 const tones = {
@@ -10,8 +13,10 @@ export type AvatarTone = keyof typeof tones
 
 /** The size scale. A stack's `+N` chip is drawn on the same one. */
 const sizes = {
+  xs: 'size-5 text-[0.6rem]',
   sm: 'size-[22px] text-[10px]',
   md: 'size-7 text-[11px]',
+  lg: 'size-14 text-[18px]',
 } as const
 export type AvatarSize = keyof typeof sizes
 
@@ -39,12 +44,16 @@ export interface AvatarPerson {
   name: string
   /** Overrides the name-derived initials. */
   initials?: string
+  /** Shows this person's profile photo when they have one. */
+  userId?: string | null
   tone?: AvatarTone
 }
 
 export function Avatar({
   initials,
   name,
+  userId,
+  src,
   tone = 'accent',
   size = 'md',
   className,
@@ -53,23 +62,44 @@ export function Avatar({
   /** Shown as given; when absent, derived from `name`. */
   initials?: string
   name?: string
+  /** The person's profile photo replaces the initials when they have one. */
+  userId?: string | null
+  /** A photo to show as given (a preview); wins over `userId`. */
+  src?: string
   tone?: AvatarTone
   size?: AvatarSize
 }) {
+  const stored = useAvatarPhotoUrl(userId)
+  const photo = src ?? stored
+  // A photo that fails to load falls back to the initials, and a new photo
+  // gets a fresh chance.
+  const [failed, setFailed] = useState<string | null>(null)
+  useEffect(() => setFailed(null), [photo])
+  const showPhoto = photo !== undefined && failed !== photo
   return (
     <span
       role={name ? 'img' : undefined}
       aria-label={name}
       title={name}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-fg',
+        'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold text-fg',
         sizes[size],
         tones[tone],
         className,
       )}
       {...props}
     >
-      {initials ?? (name ? initialsFromName(name) : '?')}
+      {showPhoto ? (
+        <img
+          src={photo}
+          alt=""
+          draggable={false}
+          className="size-full rounded-full object-cover"
+          onError={() => setFailed(photo)}
+        />
+      ) : (
+        (initials ?? (name ? initialsFromName(name) : '?'))
+      )}
     </span>
   )
 }
@@ -109,6 +139,7 @@ export function AvatarStack({
           key={person.id ?? `${person.name}-${index}`}
           name={person.name}
           initials={person.initials}
+          userId={person.userId}
           tone={person.tone}
           size={size}
           className="ring-2 ring-surface"

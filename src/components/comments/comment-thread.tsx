@@ -126,6 +126,7 @@ function CommentRow({
         <span className="inline-flex items-center gap-2">
           <Avatar
             name={label}
+            userId={comment.author_user_id}
             initials={deleted ? '?' : undefined}
             size="sm"
             className={deleted ? 'bg-surface-muted text-fg-muted' : undefined}

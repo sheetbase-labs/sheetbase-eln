@@ -13,6 +13,8 @@ import { useCollaborationRoomReady } from './collaboration-room'
 /** Minimal structural shape of a Liveblocks "other" the stack reads. */
 export interface PresenceStackPeer {
   connectionId?: number
+  /** The signed-in user the connection belongs to. */
+  id?: string
   info?: { name?: string; avatar?: string }
 }
 
@@ -54,6 +56,7 @@ function PresenceStackInner({
       people={peers.map((peer, index) => ({
         id: `peer-${peer.connectionId ?? index}`,
         name: peer.info?.name?.trim() || 'Someone',
+        userId: peer.id,
       }))}
     />
   )

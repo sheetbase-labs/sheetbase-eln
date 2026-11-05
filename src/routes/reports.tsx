@@ -10,15 +10,15 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import type { SortingState } from '@tanstack/react-table'
 
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { ObjectLink } from '#/components/v3/ui/object-link'
-import { Status } from '#/components/v3/ui/status'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
+import { ObjectLink } from '#/components/ui/object-link'
+import { Status } from '#/components/ui/status'
 import {
   DescriptionList,
   Inspector,
   InspectorSection,
-} from '#/components/v3/ui/layout'
+} from '#/components/ui/layout'
 import {
   ListFooter,
   ListHeader,
@@ -26,11 +26,11 @@ import {
   ListToolbar,
   MobileList,
   footerCount,
-} from '#/components/v3/inventory/list'
-import { useRowFocus } from '#/components/v3/inventory/registry-grid'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { NewReportDialog } from '#/components/v3/reports/new-report-dialog'
-import { ReportsRegistryGrid } from '#/components/v3/reports/reports-registry-grid'
+} from '#/components/inventory/list'
+import { useRowFocus } from '#/components/inventory/registry-grid'
+import { Tabs } from '#/components/ui/tabs'
+import { NewReportDialog } from '#/components/reports/new-report-dialog'
+import { ReportsRegistryGrid } from '#/components/reports/reports-registry-grid'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchReports, reportKeys, reportStatus } from '#/lib/reports'
 import type { ReportListRow } from '#/lib/reports'

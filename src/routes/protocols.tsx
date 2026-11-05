@@ -10,15 +10,15 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import type { SortingState } from '@tanstack/react-table'
 
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Status } from '#/components/v3/ui/status'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Status } from '#/components/ui/status'
 import {
   DescriptionList,
   Inspector,
   InspectorSection,
   Muted,
-} from '#/components/v3/ui/layout'
+} from '#/components/ui/layout'
 import {
   ListFooter,
   ListHeader,
@@ -26,15 +26,15 @@ import {
   ListToolbar,
   MobileList,
   footerCount,
-} from '#/components/v3/inventory/list'
+} from '#/components/inventory/list'
 import {
   ProtocolsRegistryGrid,
   protocolStatus,
-} from '#/components/v3/protocols/protocols-registry-grid'
-import { useRowFocus } from '#/components/v3/inventory/registry-grid'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { NewProtocolDialog } from '#/components/v3/protocols/new-protocol-dialog'
-import { useAddedFieldListColumns } from '#/components/v3/models/added-fields'
+} from '#/components/protocols/protocols-registry-grid'
+import { useRowFocus } from '#/components/inventory/registry-grid'
+import { Tabs } from '#/components/ui/tabs'
+import { NewProtocolDialog } from '#/components/protocols/new-protocol-dialog'
+import { useAddedFieldListColumns } from '#/components/models/added-fields'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { NotebookRecord } from '#/lib/notebook-data'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'

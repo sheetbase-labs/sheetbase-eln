@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 
 import { t } from '#/copy'
-import { Button } from '#/components/v3/ui/button'
-import { Notice } from '#/components/v3/ui/alert'
+import { Button } from '#/components/ui/button'
+import { Notice } from '#/components/ui/alert'
 import {
   Dialog,
   DialogBody,
@@ -11,9 +11,9 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { Field } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
+} from '#/components/ui/dialog'
+import { Field } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
 import {
   Table,
   TableBody,
@@ -22,7 +22,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import {
   buildSheetState,
   OfficeSheetError,

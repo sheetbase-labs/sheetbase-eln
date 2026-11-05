@@ -18,8 +18,8 @@
 
 import { t } from '#/copy'
 import { cn } from '#/lib/utils'
-import { Notice } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
+import { Notice } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
 
 export interface ConflictBannerProps {
   /** Human-readable explanation of the conflict. */

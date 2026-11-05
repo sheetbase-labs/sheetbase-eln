@@ -12,7 +12,7 @@ import {
   CommandItem,
   CommandList,
   CommandLoading,
-} from '#/components/v3/ui/command'
+} from '#/components/ui/command'
 import type { NotebookRecord } from '#/lib/notebook-data'
 import { formatRecordReferenceLabel } from '#/lib/record-reference-cell'
 

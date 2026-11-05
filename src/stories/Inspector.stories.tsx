@@ -13,7 +13,7 @@ import {
 } from '#/components/record/inspector-sections'
 import { Property, PropertyList } from '#/components/scientific/property-list'
 import { RecordLink } from '#/components/scientific/record-link'
-import { RowList } from '#/components/v3/ui/row'
+import { RowList } from '#/components/ui/row'
 import { StatusBadge } from '#/components/scientific/status-badge'
 
 /**

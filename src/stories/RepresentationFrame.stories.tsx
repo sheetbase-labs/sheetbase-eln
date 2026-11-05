@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { RepresentationFrame } from '#/components/viz/representation-frame'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
 import type { ChartSpec } from '#/lib/chart-spec'
 import {

@@ -1,7 +1,7 @@
 import { AuditTrail } from './audit-trail'
 import type { AuditEvent } from './audit-trail'
 import { AUDIT_DECISION_ICONS, AUDIT_OPERATION_ICONS } from './history-timeline'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { formatRelativeTime } from '#/lib/notebook-data'
 import type { TimelineEventWire } from '#/lib/sign-002'
 import { t } from '#/copy'

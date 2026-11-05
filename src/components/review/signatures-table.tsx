@@ -11,9 +11,9 @@
  */
 
 import { AuditCheckLine } from '#/components/review/audit-check-line'
-import { Badge } from '#/components/v3/ui/badge'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Muted } from '#/components/v3/ui/layout'
+import { Badge } from '#/components/ui/badge'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Muted } from '#/components/ui/layout'
 import {
   Table,
   TableBody,
@@ -22,7 +22,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { SIGNATURE_MEANING_LABEL } from '#/lib/signatures'
 import type { SignatureWire } from '#/lib/signatures'

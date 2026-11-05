@@ -22,8 +22,8 @@ import {
 import { useId, useState } from 'react'
 
 import { Icon } from '#/components/icons'
-import { Button } from '#/components/v3/ui/button'
-import { Tabs } from '#/components/v3/ui/tabs'
+import { Button } from '#/components/ui/button'
+import { Tabs } from '#/components/ui/tabs'
 import { RecordPicker } from './record-picker'
 import { ScientificRecordSummary } from './scientific-record-summary'
 import { DataClientError } from '#/lib/data-client'

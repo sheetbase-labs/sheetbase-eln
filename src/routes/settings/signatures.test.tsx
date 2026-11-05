@@ -37,7 +37,7 @@ vi.mock('#/lib/workspace-admin', async (importOriginal) => ({
     signaturePolicy: { reauth: 'batch' },
   }),
 }))
-vi.mock('#/components/v3/ui/sonner', () => ({ toast: vi.fn() }))
+vi.mock('#/components/ui/sonner', () => ({ toast: vi.fn() }))
 
 function certification(
   userId: string,

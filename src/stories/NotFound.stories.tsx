@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { NotFound } from '#/components/v3/shell/not-found'
+import { NotFound } from '#/components/shell/not-found'
 import { screenRoutes } from './screen-stories'
 
 /**

@@ -75,7 +75,7 @@ vi.mock('#/lib/signatures', async (importOriginal) => ({
 vi.mock('#/lib/regulated-lab', () => ({
   useRegulatedLab: () => ({ regulated: mocks.regulated, loaded: true }),
 }))
-vi.mock('#/components/v3/ui/sonner', () => ({ toast: vi.fn() }))
+vi.mock('#/components/ui/sonner', () => ({ toast: vi.fn() }))
 
 function certification(
   userId: string,

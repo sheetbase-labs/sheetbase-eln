@@ -1,14 +1,14 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { ProjectsPage } from '#/components/v3/projects/projects-page'
-import { projectAccessQueryKey } from '#/components/v3/projects/project-access'
-import type { ProjectRow } from '#/components/v3/projects/types'
+import { ProjectsPage } from '#/components/projects/projects-page'
+import { projectAccessQueryKey } from '#/components/projects/project-access'
+import type { ProjectRow } from '#/components/projects/types'
 import { holdRead, screenQueryClient, screenRoutes } from './screen-stories'
 import type { ReadSeed } from './screen-stories'
 
 /**
- * The Projects screen (`src/components/v3/projects/projects-page.tsx`), wired
+ * The Projects screen (`src/components/projects/projects-page.tsx`), wired
  * to the props the route passes.
  *
  * The screen's own reads are the caller's role, whether the person can see any

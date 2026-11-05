@@ -3,18 +3,18 @@ import { formatDate } from '#/lib/format-date'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Notice } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Muted, Section } from '#/components/v3/ui/layout'
-import { Select } from '#/components/v3/ui/select'
-import { Skeleton } from '#/components/v3/ui/skeleton'
-import { toast } from '#/components/v3/ui/sonner'
+import { Notice } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
+import { Field, Input } from '#/components/ui/input'
+import { Muted, Section } from '#/components/ui/layout'
+import { Select } from '#/components/ui/select'
+import { Skeleton } from '#/components/ui/skeleton'
+import { toast } from '#/components/ui/sonner'
 import {
   CheckRow,
   SettingsBody,
   SettingsHeader,
-} from '#/components/v3/settings/settings-page'
+} from '#/components/settings/settings-page'
 import {
   getAiSettingsFn,
   updateAiFeatureFlagsFn,

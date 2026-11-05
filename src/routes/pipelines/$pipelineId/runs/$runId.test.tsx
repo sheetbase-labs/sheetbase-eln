@@ -15,8 +15,8 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './$runId'
-import type * as pipelineDataModule from '#/components/v3/pipelines/pipelines-data'
-import type { PipelineRunDeliveryWire } from '#/components/v3/pipelines/pipelines-data'
+import type * as pipelineDataModule from '#/components/pipelines/pipelines-data'
+import type { PipelineRunDeliveryWire } from '#/components/pipelines/pipelines-data'
 import type * as pipelineLibData from '#/lib/pipelines/data'
 import type {
   PipelineRunOutputWire,
@@ -69,7 +69,7 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
 }))
 
-vi.mock('#/components/v3/pipelines/use-run-launcher', () => ({
+vi.mock('#/components/pipelines/use-run-launcher', () => ({
   useRunLauncher: () => ({
     launch: dataLayer.launch,
     pending: false,
@@ -77,7 +77,7 @@ vi.mock('#/components/v3/pipelines/use-run-launcher', () => ({
   }),
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(notifications.toast, { error: notifications.error }),
 }))
 
@@ -87,7 +87,7 @@ vi.mock('#/lib/pipelines/data', async (importOriginal) => ({
   cancelPipelineRun: dataLayer.cancel,
 }))
 
-vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
+vi.mock('#/components/pipelines/pipelines-data', async (importOriginal) => ({
   ...(await importOriginal<typeof pipelineDataModule>()),
   usePipelineRun: () => ({
     data: state.run,

@@ -7,8 +7,8 @@ import {
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
-import { Button } from '#/components/v3/ui/button'
-import { Muted } from '#/components/v3/ui/layout'
+import { Button } from '#/components/ui/button'
+import { Muted } from '#/components/ui/layout'
 import { withReopen } from '#/lib/return-to'
 import { fetchSignaturesForRecord, signatureQueryKeys } from '#/lib/signatures'
 import { useExperimentRecord } from '../$expId'

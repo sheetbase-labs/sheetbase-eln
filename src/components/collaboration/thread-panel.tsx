@@ -4,9 +4,9 @@ import * as React from 'react'
 import { Composer, Thread } from '@liveblocks/react-ui'
 
 import { useCollaborationRoomReady } from './collaboration-room'
-import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
-import { Checkbox } from '#/components/v3/ui/checkbox'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
+import { Checkbox } from '#/components/ui/checkbox'
 import { cn } from '#/lib/utils'
 import {
   anchorBelongsToRoom,

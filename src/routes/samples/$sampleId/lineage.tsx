@@ -1,17 +1,17 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { Section } from '#/components/v3/ui/layout'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Notice } from '#/components/v3/ui/alert'
-import { Status } from '#/components/v3/ui/status'
-import { sampleStatus } from '#/components/v3/samples/samples-data'
-import { toast } from '#/components/v3/ui/sonner'
+import { Button } from '#/components/ui/button'
+import { Section } from '#/components/ui/layout'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Notice } from '#/components/ui/alert'
+import { Status } from '#/components/ui/status'
+import { sampleStatus } from '#/components/samples/samples-data'
+import { toast } from '#/components/ui/sonner'
 import {
   computeSampleHold,
   formatHoldDate,
-} from '#/components/v3/samples/sample-hold-meter'
+} from '#/components/samples/sample-hold-meter'
 import {
   fetchLineageGraph,
   LINEAGE_MINI_DEPTH,

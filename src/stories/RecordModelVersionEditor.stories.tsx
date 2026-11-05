@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { RecordModelVersionEditor } from '#/components/v3/models/record-model-version-editor'
-import type { ModelFieldImpact } from '#/components/v3/models/model-field-impact'
+import { RecordModelVersionEditor } from '#/components/models/record-model-version-editor'
+import type { ModelFieldImpact } from '#/components/models/model-field-impact'
 import type { RecordModelVersion } from '#/lib/record-model-versions'
 
 /**
  * The draft field editor of a model version
- * (`src/components/v3/models/record-model-version-editor.tsx`), as the Versions
+ * (`src/components/models/record-model-version-editor.tsx`), as the Versions
  * screen mounts it in its inspector. Its props are the draft, what the change
  * would touch, which field keys are already published and whether a save is in
  * flight, so the stories set those directly: a draft that keeps two published

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { LoadMore } from '#/components/v3/ui/load-more'
+import { LoadMore } from '#/components/ui/load-more'
 
 /**
  * The tail of a growing-window list.
@@ -12,7 +12,7 @@ import { LoadMore } from '#/components/v3/ui/load-more'
  * only the audit log said anything about).
  */
 const meta = {
-  title: 'v3 kit/Load more',
+  title: 'UI/Load more',
   component: LoadMore,
   parameters: { layout: 'padded' },
   args: {

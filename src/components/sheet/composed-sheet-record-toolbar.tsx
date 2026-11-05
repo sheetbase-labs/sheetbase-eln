@@ -4,7 +4,7 @@ import { RemoteSelectionChips } from '#/components/collaboration/presence-select
 
 import type { ResolvedSheetRecordAction } from '#/lib/sheet-record-actions'
 import type { SheetRecordGridError } from '#/lib/sheet-record-grid-errors'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 
 export function ComposedSheetRecordToolbar({
   actions,

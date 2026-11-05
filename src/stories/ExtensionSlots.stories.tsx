@@ -4,7 +4,7 @@ import {
   ExtensionCommandGroup,
   ExtensionObjectActions,
 } from '#/components/extensions/extension-slots'
-import { Command, CommandInput, CommandList } from '#/components/v3/ui/command'
+import { Command, CommandInput, CommandList } from '#/components/ui/command'
 import type { ResolvedExtensionContribution } from '#/lib/extensions/registry'
 
 /**

@@ -80,11 +80,11 @@ const experimentRows = vi.hoisted(() => ({
   }[],
 }))
 
-vi.mock('#/components/v3/experiments/experiments-data', () => ({
+vi.mock('#/components/experiments/experiments-data', () => ({
   useExperimentRecords: () => ({ data: experimentRows.data }),
 }))
 
-vi.mock('#/components/v3/instruments/instruments-data', () => ({
+vi.mock('#/components/instruments/instruments-data', () => ({
   useInstruments: () => ({ data: [] }),
   useLatestCalibrationsByInstrument: () => ({ data: new Map() }),
   calibrationStatus: () => ({ tone: 'none', label: 'Not calibrated' }),

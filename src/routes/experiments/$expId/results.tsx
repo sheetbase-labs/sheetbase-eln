@@ -2,30 +2,30 @@ import { useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   Dialog,
   DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Section } from '#/components/v3/ui/layout'
-import { Status } from '#/components/v3/ui/status'
-import { TableBox } from '#/components/v3/ui/table'
+} from '#/components/ui/dialog'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Field, Input } from '#/components/ui/input'
+import { Section } from '#/components/ui/layout'
+import { Status } from '#/components/ui/status'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { toast } from '#/components/v3/ui/sonner'
-import { ObjectLink } from '#/components/v3/ui/object-link'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { toast } from '#/components/ui/sonner'
+import { ObjectLink } from '#/components/ui/object-link'
 import { useExperimentLinks } from '../$expId'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
-import { ResultsWorkspace } from '#/components/v3/experiments/results-workspace'
+import { ResultsWorkspace } from '#/components/experiments/results-workspace'
 import { t } from '#/copy'
 
 /** UI port (RM-118): an experiment's results — the datasets it produced, the

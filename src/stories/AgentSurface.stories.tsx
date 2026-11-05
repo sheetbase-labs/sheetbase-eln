@@ -3,9 +3,9 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import {
   AgentPoliciesPanel,
   AgentWorkflowsPanel,
-} from '#/components/v3/pipelines/agents/agent-surface'
-import { AgentProposalsBoard } from '#/components/v3/pipelines/agents/proposals-board'
-import type { AgentPolicyCredentialOption } from '#/components/v3/pipelines/agents/agents-data'
+} from '#/components/pipelines/agents/agent-surface'
+import { AgentProposalsBoard } from '#/components/pipelines/agents/proposals-board'
+import type { AgentPolicyCredentialOption } from '#/components/pipelines/agents/agents-data'
 import type {
   AgentOperation,
   AgentOperationEvent,
@@ -22,7 +22,7 @@ import type {
 import { screenRoutes } from './screen-stories'
 
 /**
- * The agent surface (`src/components/v3/pipelines/agents/agent-surface.tsx`) —
+ * The agent surface (`src/components/pipelines/agents/agent-surface.tsx`) —
  * the three panels `/pipelines/agents` shows: operation proposals, agent
  * workflows, and the execution policies that delegate a write.
  *

@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { ModelCreateDialog } from '#/components/v3/models/model-create-dialog'
+import { ModelCreateDialog } from '#/components/models/model-create-dialog'
 
 /**
  * The Models board's create dialog
- * (`src/components/v3/models/model-create-dialog.tsx`). It is controlled and
+ * (`src/components/models/model-create-dialog.tsx`). It is controlled and
  * stateless about its own errors: the board passes whether a create is in flight
  * and the refusal it got back, so the stories show the dialog open, a create in
  * flight, and the two refusals `describeModelCreateError` names for the board.

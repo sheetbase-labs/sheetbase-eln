@@ -20,7 +20,7 @@ vi.mock('#/lib/protocol-deviations', async (importOriginal) => ({
   fetchStepDeviations: (...args: unknown[]) => mocks.fetch(...args),
   recordDeviationReason: (...args: unknown[]) => mocks.record(...args),
 }))
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign((...args: unknown[]) => mocks.toast(...args), {
     error: vi.fn(),
   }),

@@ -1,8 +1,8 @@
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
 import {
   datasetOption,
   recordOption,
-} from '#/components/v3/record-picker/entity-options'
+} from '#/components/record-picker/entity-options'
 import { useMemo, useState } from 'react'
 import {
   Link,
@@ -13,12 +13,12 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { rich, t } from '#/copy'
-import { Button } from '#/components/v3/ui/button'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Notice } from '#/components/v3/ui/alert'
-import { PageHeader } from '#/components/v3/ui/layout'
-import { Select } from '#/components/v3/ui/select'
-import { toast } from '#/components/v3/ui/sonner'
+import { Button } from '#/components/ui/button'
+import { Field, Input } from '#/components/ui/input'
+import { Notice } from '#/components/ui/alert'
+import { PageHeader } from '#/components/ui/layout'
+import { Select } from '#/components/ui/select'
+import { toast } from '#/components/ui/sonner'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { parseCreateContext } from '#/lib/create-context-search'
 import type { CreateContextSearch } from '#/lib/create-context-search'

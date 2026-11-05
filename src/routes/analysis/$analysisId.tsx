@@ -11,8 +11,8 @@ import {
   ChartStack,
   FieldsPane,
   exclusionCounts,
-} from '#/components/v3/analysis/analysis-document'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/analysis/analysis-document'
+import { toast } from '#/components/ui/sonner'
 import {
   ANALYSIS_MAX_CHARTS,
   nextChart,
@@ -24,12 +24,12 @@ import {
   Inspector,
   InspectorSection,
   Muted,
-} from '#/components/v3/ui/layout'
-import { Notice } from '#/components/v3/ui/alert'
-import { Status } from '#/components/v3/ui/status'
+} from '#/components/ui/layout'
+import { Notice } from '#/components/ui/alert'
+import { Status } from '#/components/ui/status'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
-import { Button, buttonVariants } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Button, buttonVariants } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
 import { resolveChartDataset, materialiseLiveChart } from '#/lib/chart-data'
 import {
   analysisStudioDataClient,
@@ -40,11 +40,11 @@ import {
   validateAnalysisSpec,
 } from '#/lib/analysis-studio-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
-import { DuplicateAnalysisDialog } from '#/components/v3/analysis/duplicate-analysis-dialog'
+import { DuplicateAnalysisDialog } from '#/components/analysis/duplicate-analysis-dialog'
 import { CitationList } from '#/components/viz/citation-list'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
-import { useDatasetSummaries } from '#/components/v3/datasets/datasets-data'
+import { useDatasetSummaries } from '#/components/datasets/datasets-data'
 import { fetchProject, notebookDataClient } from '#/lib/notebook-data'
 import { formatDate } from '#/lib/format-date'
 

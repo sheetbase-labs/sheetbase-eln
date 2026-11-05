@@ -1,14 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { MilestoneTimeline } from '#/components/v3/projects/milestone-timeline'
+import { MilestoneTimeline } from '#/components/projects/milestone-timeline'
 import type {
   PlanDependency,
   PlanMilestone,
   PlanPhase,
-} from '#/components/v3/projects/milestone-timeline'
+} from '#/components/projects/milestone-timeline'
 
 /**
- * The project plan timeline (`src/components/v3/projects/milestone-timeline.tsx`).
+ * The project plan timeline (`src/components/projects/milestone-timeline.tsx`).
  *
  * It draws real milestone dates and real dependency edges: phase bands, a today
  * marker, client-visible rings, and risk colours that follow the risk read

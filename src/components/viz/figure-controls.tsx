@@ -1,9 +1,9 @@
 import { t } from '#/copy'
 import { InspectorSection } from '#/components/record'
-import { Checkbox } from '#/components/v3/ui/checkbox'
-import { Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
-import { Textarea } from '#/components/v3/inventory/list'
+import { Checkbox } from '#/components/ui/checkbox'
+import { Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
+import { Textarea } from '#/components/inventory/list'
 import { LEGEND_POSITIONS } from '#/lib/chart-spec'
 import type { ChartSpec, LegendPosition } from '#/lib/chart-spec'
 import {

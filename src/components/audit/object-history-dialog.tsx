@@ -1,13 +1,13 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   Dialog,
   DialogBody,
   DialogContent,
   DialogHeader,
   DialogTrigger,
-} from '#/components/v3/ui/dialog'
+} from '#/components/ui/dialog'
 import { ObjectHistoryTimeline } from './object-history-timeline'
 import { auditHistoryDataClient, fetchAuditEvents } from '#/lib/audit-history'
 import { DataClientError } from '#/lib/data-client'

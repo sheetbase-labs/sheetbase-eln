@@ -1,0 +1,288 @@
+import { Fragment, useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
+import { Checkbox } from '#/components/ui/checkbox'
+import { Input } from '#/components/ui/input'
+import { Notice } from '#/components/ui/alert'
+import { toast } from '#/components/ui/sonner'
+import { Tooltip } from '#/components/ui/tooltip'
+import { SettingsSaveBar } from './settings-page'
+import { PhoneAlerts } from './phone-alerts'
+import {
+  Table,
+  TableBody,
+  TableBox,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/ui/table'
+import {
+  defaultPreferences,
+  fetchNotificationPreferences,
+  fetchNotificationTiming,
+  notificationPreferencesQueryKeys,
+  NOTIFICATION_EVENTS,
+  NOTIFICATION_EVENT_LABELS,
+  saveNotificationPreference,
+  saveNotificationTiming,
+} from '#/lib/notification-preferences'
+import { emailStatusQueryKeys, fetchEmailStatusFn } from '#/lib/email-status'
+import type { NotificationPreference } from '#/lib/notification-preferences'
+import { useDisplayTimeZone } from '#/lib/display-time-zone'
+import { t } from '#/copy'
+
+/**
+ * WORK-03.1 — SettingsNotifications: choose where each event reaches the
+ * caller, quiet hours and the daily digest time. UI port: app-3's v3 kit.
+ */
+export function SettingsNotifications() {
+  const queryClient = useQueryClient()
+  const preferencesQuery = useQuery({
+    queryKey: notificationPreferencesQueryKeys.preferences(),
+    queryFn: () => fetchNotificationPreferences(),
+  })
+  const timingQuery = useQuery({
+    queryKey: notificationPreferencesQueryKeys.timing(),
+    queryFn: () => fetchNotificationTiming(),
+  })
+
+  const emailStatus = useQuery({
+    queryKey: emailStatusQueryKeys.status(),
+    queryFn: () => fetchEmailStatusFn(),
+    staleTime: 5 * 60_000,
+  })
+
+  const zone = useDisplayTimeZone()
+  const [rows, setRows] = useState<NotificationPreference[]>(defaultPreferences)
+  const [quietStart, setQuietStart] = useState<string | null>(null)
+  const [quietEnd, setQuietEnd] = useState<string | null>(null)
+  const [digestTime, setDigestTime] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (preferencesQuery.data) setRows(preferencesQuery.data)
+  }, [preferencesQuery.data])
+
+  useEffect(() => {
+    if (!timingQuery.data) return
+    setQuietStart(timingQuery.data.quietHoursStart)
+    setQuietEnd(timingQuery.data.quietHoursEnd)
+    setDigestTime(timingQuery.data.digestTime)
+  }, [timingQuery.data])
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const saved = preferencesQuery.data ?? defaultPreferences()
+      for (const row of rows) {
+        const before = saved.find((s) => s.eventType === row.eventType)
+        if (
+          before &&
+          before.inApp === row.inApp &&
+          before.email === row.email &&
+          before.digest === row.digest &&
+          before.push === row.push
+        )
+          continue
+        await saveNotificationPreference(row)
+      }
+      await saveNotificationTiming({
+        quietHoursStart: quietStart,
+        quietHoursEnd: quietEnd,
+        digestTime,
+      })
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: notificationPreferencesQueryKeys.preferences(),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: notificationPreferencesQueryKeys.timing(),
+      })
+      // Only on a resolved save, so the confirmation cannot claim a write that
+      // failed — the panel's own Notice reports failures.
+      toast(t('settings.notifications.notificationSettingsSavedToast'))
+    },
+  })
+
+  // The form is dirty only against what the server last returned, so Save is
+  // inert until something actually changes. Times are wall-clock values in the
+  // person's own zone; the delivery and digest queries read them there.
+  const savedRows = preferencesQuery.data ?? defaultPreferences()
+  const dirty =
+    rows.some((row) => {
+      const before = savedRows.find((s) => s.eventType === row.eventType)
+      return (
+        !before ||
+        before.inApp !== row.inApp ||
+        before.email !== row.email ||
+        before.digest !== row.digest ||
+        before.push !== row.push
+      )
+    }) ||
+    quietStart !== (timingQuery.data?.quietHoursStart ?? null) ||
+    quietEnd !== (timingQuery.data?.quietHoursEnd ?? null) ||
+    digestTime !== (timingQuery.data?.digestTime ?? null)
+
+  const groups = NOTIFICATION_EVENTS.reduce<
+    Array<{ name: string; rows: NotificationPreference[] }>
+  >((acc, event) => {
+    const row = rows.find((r) => r.eventType === event.key)
+    if (!row) return acc
+    const last = acc.at(-1)
+    if (last && last.name === event.group) last.rows.push(row)
+    else acc.push({ name: event.group, rows: [row] })
+    return acc
+  }, [])
+
+  const toggle = (
+    eventType: NotificationPreference['eventType'],
+    channel: 'inApp' | 'email' | 'digest' | 'push',
+  ) => {
+    setRows((current) =>
+      current.map((row) =>
+        row.eventType === eventType
+          ? { ...row, [channel]: !row[channel] }
+          : row,
+      ),
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {save.isError ? (
+        <Notice tone="bad">
+          {save.error instanceof Error
+            ? save.error.message
+            : t('settings.notifications.couldSaveNotification')}
+        </Notice>
+      ) : null}
+
+      {emailStatus.data && !emailStatus.data.configured ? (
+        <Notice tone="warn">{t('settings.notifications.emailNotSetUp')}</Notice>
+      ) : null}
+
+      <PhoneAlerts />
+
+      <TableBox>
+        <Table
+          aria-label={t('settings.notifications.notificationChannelsAria')}
+        >
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('settings.notifications.event')}</TableHead>
+              {(
+                [
+                  ['app', 'appHint'],
+                  ['email', 'emailHint'],
+                  ['phone', 'phoneHint'],
+                  ['dailyDigest', 'digestHint'],
+                ] as const
+              ).map(([label, hint]) => (
+                <TableHead key={label} className="text-center">
+                  <Tooltip content={t(`settings.notifications.${hint}`)}>
+                    <span className="cursor-help underline decoration-dotted underline-offset-2">
+                      {t(`settings.notifications.${label}`)}
+                    </span>
+                  </Tooltip>
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {groups.map((group) => (
+              <Fragment key={group.name}>
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="bg-surface-muted text-label font-medium text-fg-muted"
+                  >
+                    {group.name}
+                  </TableCell>
+                </TableRow>
+                {group.rows.map((row) => (
+                  <TableRow key={row.eventType}>
+                    <TableCell>
+                      {NOTIFICATION_EVENT_LABELS[row.eventType]}
+                    </TableCell>
+                    {(['inApp', 'email', 'push', 'digest'] as const).map(
+                      (channel) => (
+                        <TableCell key={channel} className="text-center">
+                          <Checkbox
+                            aria-label={`${NOTIFICATION_EVENT_LABELS[row.eventType]} ${channel}`}
+                            checked={row[channel]}
+                            onCheckedChange={() =>
+                              toggle(row.eventType, channel)
+                            }
+                          />
+                        </TableCell>
+                      ),
+                    )}
+                  </TableRow>
+                ))}
+              </Fragment>
+            ))}
+          </TableBody>
+        </Table>
+      </TableBox>
+
+      <div className="flex flex-col gap-2">
+        <h3 className="text-label font-medium text-fg">
+          {t('settings.notifications.quietHours')}
+        </h3>
+        <div className="flex flex-wrap items-center gap-2 text-body">
+          <span className="text-fg-muted">
+            {t('settings.notifications.holdEmailBetween')}
+          </span>
+          <Input
+            type="time"
+            aria-label={t('settings.notifications.quietHoursStartAria')}
+            className="w-32"
+            value={quietStart ?? ''}
+            onChange={(event) => setQuietStart(event.target.value || null)}
+          />
+          <span className="text-fg-muted">and</span>
+          <Input
+            type="time"
+            aria-label={t('settings.notifications.quietHoursEndAria')}
+            className="w-32"
+            value={quietEnd ?? ''}
+            onChange={(event) => setQuietEnd(event.target.value || null)}
+          />
+        </div>
+        <p className="m-0 text-label text-fg-muted">
+          {t('settings.notifications.reviewsDueToday', { zone })}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <h3 className="text-label font-medium text-fg">
+          {t('settings.notifications.digest')}
+        </h3>
+        <div className="flex flex-wrap items-center gap-2 text-body">
+          <span className="text-fg-muted">
+            {t('settings.notifications.send')}
+          </span>
+          <Input
+            type="time"
+            aria-label={t('settings.notifications.digestTimeAria')}
+            className="w-32"
+            value={digestTime ?? ''}
+            onChange={(event) => setDigestTime(event.target.value || null)}
+          />
+          <span className="text-fg-muted">
+            {t('settings.notifications.everyDay', { zone })}
+          </span>
+        </div>
+        <p className="m-0 text-label text-fg-muted">
+          {t('settings.notifications.digestGoesOut')}
+        </p>
+      </div>
+      <SettingsSaveBar
+        dirty={dirty}
+        pending={save.isPending}
+        disabled={preferencesQuery.isLoading || timingQuery.isLoading}
+        onSave={() => save.mutate()}
+      />
+    </div>
+  )
+}

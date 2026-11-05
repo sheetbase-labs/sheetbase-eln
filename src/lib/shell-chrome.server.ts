@@ -5,7 +5,7 @@
  */
 import { db } from '#/db/client.server'
 
-import type { Notification, NotificationTarget } from '#/components/v3/types'
+import type { Notification, NotificationTarget } from '#/components/types'
 
 /** A pinned project as the sidebar renders it. */
 export interface ShellPinned {

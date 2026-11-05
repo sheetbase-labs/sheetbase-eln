@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   SettingsBody,
   SettingsHeader,
-} from '#/components/v3/settings/settings-page'
-import { ParserSettings } from '#/components/v3/settings/parser-settings'
-import { InstrumentGateSetting } from '#/components/v3/settings/instrument-gate-setting'
+} from '#/components/settings/settings-page'
+import { ParserSettings } from '#/components/settings/parser-settings'
+import { InstrumentGateSetting } from '#/components/settings/instrument-gate-setting'
 import { canManageSettings } from '#/lib/settings-access'
 import { t } from '#/copy'
 

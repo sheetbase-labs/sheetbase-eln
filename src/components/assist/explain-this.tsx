@@ -1,13 +1,13 @@
 import { useState } from 'react'
 
 import { t } from '#/copy'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   Popover,
   PopoverContent,
   PopoverTitle,
   PopoverTrigger,
-} from '#/components/v3/ui/popover'
+} from '#/components/ui/popover'
 import { explainInstruction } from '#/lib/ai-explain-data'
 import type { PageAiInput } from '#/lib/page-ai'
 import { usePageAi } from '#/lib/use-page-ai'

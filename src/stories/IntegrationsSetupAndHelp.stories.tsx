@@ -1,12 +1,12 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { ShareWithClientDialog } from '#/components/v3/client-sharing/share-with-client-dialog'
-import { ContextHelp } from '#/components/v3/help/context-help'
-import { ConnectorConfigCard } from '#/components/v3/integrations/config-card'
-import { DatasetLandingLink } from '#/components/v3/integrations/dataset-landing'
-import { PickupCard } from '#/components/v3/integrations/pickup-card'
-import { LabSetupDialog } from '#/components/v3/setup/lab-setup-dialog'
+import { ShareWithClientDialog } from '#/components/client-sharing/share-with-client-dialog'
+import { ContextHelp } from '#/components/help/context-help'
+import { ConnectorConfigCard } from '#/components/integrations/config-card'
+import { DatasetLandingLink } from '#/components/integrations/dataset-landing'
+import { PickupCard } from '#/components/integrations/pickup-card'
+import { LabSetupDialog } from '#/components/setup/lab-setup-dialog'
 import { recordSharingKey } from '#/lib/client-sharing'
 import type { ConnectorWire } from '#/lib/connectors/types'
 import { screenQueryClient, screenRoutes } from './screen-stories'
@@ -14,7 +14,7 @@ import type { ReadSeed } from './screen-stories'
 
 /**
  * Connector cards, client sharing, setup and page help
- * (`src/components/v3/{integrations,client-sharing,setup,help}/`).
+ * (`src/components/{integrations,client-sharing,setup,help}/`).
  *
  * Each reads at most a handful of things, so each story seeds them by query key
  * with `staleTime: Infinity`; none is saved, shared or finished, so nothing

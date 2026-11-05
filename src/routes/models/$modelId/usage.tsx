@@ -1,14 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Muted, Section } from '#/components/v3/ui/layout'
-import { TableBox } from '#/components/v3/ui/table'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Muted, Section } from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { fetchModelFieldsWithUsage } from '#/lib/model-fields'
 import {
   countActionableModelImpact,
@@ -18,7 +18,7 @@ import {
 import { builtInModel } from '#/lib/built-in-models'
 import { isUuid } from '#/lib/field-value-validation'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { useWorkspaceRecordModel } from '#/components/v3/models/models-data'
+import { useWorkspaceRecordModel } from '#/components/models/models-data'
 import { t } from '#/copy'
 
 /**

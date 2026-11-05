@@ -17,8 +17,8 @@ import {
 } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   resolveObjectByIdentifier,

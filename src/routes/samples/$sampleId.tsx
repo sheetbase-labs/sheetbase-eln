@@ -1,25 +1,21 @@
 import { useEffect, useState } from 'react'
-import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
+import { RecordUnavailable } from '#/components/ui/record-unavailable'
 import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
+} from '#/components/ui/dropdown-menu'
 import { useRecentViewTracking } from '#/lib/recents'
-import { Status } from '#/components/v3/ui/status'
-import {
-  PageHeader,
-  Inspector,
-  InspectorSection,
-} from '#/components/v3/ui/layout'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { Field, Input } from '#/components/v3/ui/input'
+import { Status } from '#/components/ui/status'
+import { PageHeader, Inspector, InspectorSection } from '#/components/ui/layout'
+import { Tabs } from '#/components/ui/tabs'
+import { Field, Input } from '#/components/ui/input'
 import {
   Dialog,
   DialogBody,
@@ -27,37 +23,37 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/ui/dialog'
+import { toast } from '#/components/ui/sonner'
 import {
   sampleListQueryKeys,
   sampleStatus,
   storageLocationsQueryKey,
-} from '#/components/v3/samples/samples-data'
-import { MoveSampleDialog } from '#/components/v3/samples/move-dialog'
+} from '#/components/samples/samples-data'
+import { MoveSampleDialog } from '#/components/samples/move-dialog'
 import {
   LabelTemplatePicker,
   useLabelTemplateChoice,
-} from '#/components/v3/samples/label-template-picker'
-import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
+} from '#/components/samples/label-template-picker'
+import { SampleLabelCard } from '#/components/samples/sample-label-card'
 import {
   PrintLabelButton,
   SampleLabelPrint,
-} from '#/components/v3/samples/sample-label-print'
-import { SampleHoldMeter } from '#/components/v3/samples/sample-hold-meter'
-import { SampleRecentHistory } from '#/components/v3/samples/sample-recent-history'
+} from '#/components/samples/sample-label-print'
+import { SampleHoldMeter } from '#/components/samples/sample-hold-meter'
+import { SampleRecentHistory } from '#/components/samples/sample-recent-history'
 import {
   EditDetailsDialog,
   EditHoldDialog,
   ReceiveStockDialog,
-} from '#/components/v3/samples/sample-edit-dialogs'
-import { AliquotDialog } from '#/components/v3/samples/aliquot-dialog'
-import type { AliquotDialogInput } from '#/components/v3/samples/aliquot-dialog'
-import { PoolDialog } from '#/components/v3/samples/pool-dialog'
-import type { PoolDialogInput } from '#/components/v3/samples/pool-dialog'
-import { ReleaseChecksPanel } from '#/components/v3/samples/release-checks-panel'
-import { SampleWorkflowPanel } from '#/components/v3/samples/sample-workflow-panel'
-import { SampleStateBanner } from '#/components/v3/samples/sample-state-banner'
+} from '#/components/samples/sample-edit-dialogs'
+import { AliquotDialog } from '#/components/samples/aliquot-dialog'
+import type { AliquotDialogInput } from '#/components/samples/aliquot-dialog'
+import { PoolDialog } from '#/components/samples/pool-dialog'
+import type { PoolDialogInput } from '#/components/samples/pool-dialog'
+import { ReleaseChecksPanel } from '#/components/samples/release-checks-panel'
+import { SampleWorkflowPanel } from '#/components/samples/sample-workflow-panel'
+import { SampleStateBanner } from '#/components/samples/sample-state-banner'
 import {
   canDisposeSample,
   canEditSample,
@@ -66,7 +62,7 @@ import {
   canWithdrawSample,
   isTerminalSampleStatus,
   sampleStateKind,
-} from '#/components/v3/samples/sample-state'
+} from '#/components/samples/sample-state'
 import {
   aliquotSample,
   poolSamples,
@@ -101,11 +97,11 @@ import {
   SampleActionsProvider,
   WithdrawDialog,
   describeWithdrawError,
-} from '#/components/v3/samples/withdraw-dialog'
+} from '#/components/samples/withdraw-dialog'
 import type {
   ReserveDialogInput,
   WithdrawDialogInput,
-} from '#/components/v3/samples/withdraw-dialog'
+} from '#/components/samples/withdraw-dialog'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { downloadTextFile } from '#/lib/download'
 import { samplePath } from '#/lib/navigation'

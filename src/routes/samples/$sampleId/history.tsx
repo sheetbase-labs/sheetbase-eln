@@ -1,11 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
-import { Section } from '#/components/v3/ui/layout'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { TableBox } from '#/components/v3/ui/table'
-import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { Section } from '#/components/ui/layout'
+import { EmptyState } from '#/components/ui/empty-state'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import type { SampleEvent } from '#/lib/samples'
 import {
   formatSampleEventTime,
@@ -13,7 +13,7 @@ import {
   sampleEventAction,
   sampleEventChange,
   sampleEventDetail,
-} from '#/components/v3/samples/sample-history'
+} from '#/components/samples/sample-history'
 import { fetchSampleEvents } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'

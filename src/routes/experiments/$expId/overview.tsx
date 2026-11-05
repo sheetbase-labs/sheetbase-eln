@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import { ExperimentOverview } from '#/components/overview/overview-view'
-import { AddedFields } from '#/components/v3/models/added-fields'
+import { AddedFields } from '#/components/models/added-fields'
 import type { ExperimentReadiness } from '#/components/overview/readiness'
 import {
   fetchBlocksForRecord,

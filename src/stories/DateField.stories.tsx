@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { DateField } from '#/components/v3/ui/date-field'
+import { DateField } from '#/components/ui/date-field'
 
 /**
  * A day picked from a calendar and shown in the workspace's date format. The

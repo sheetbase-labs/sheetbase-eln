@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import { Icon } from '#/components/icons'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { t } from '#/copy'
 import { usePageAi } from '#/lib/use-page-ai'
 import { preSignFacts } from '#/lib/pre-sign-review'

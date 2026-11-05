@@ -38,7 +38,7 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({ toast: mocks.toast }))
+vi.mock('#/components/ui/sonner', () => ({ toast: mocks.toast }))
 vi.mock('#/lib/data-client', () => ({ createDataClient: () => ({}) }))
 vi.mock('#/lib/admin-platform', () => ({
   fetchUsageFn: mocks.usage,

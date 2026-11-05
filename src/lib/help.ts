@@ -1,7 +1,7 @@
 /**
  * Help centre data: what varies per deployment. Guides, articles and
  * shortcuts are static content bundled with the release
- * (`#/components/v3/help/help-content`); this answers the running release and
+ * (`#/components/help/help-content`); this answers the running release and
  * the support desk.
  *
  * Support requests need a service-desk integration, which is not built, so
@@ -11,7 +11,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 
-import type { Tone } from '#/components/v3/ui/status'
+import type { Tone } from '#/components/ui/status'
 
 export interface ReleaseInfo {
   version: string

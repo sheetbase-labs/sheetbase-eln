@@ -7,22 +7,19 @@ import {
 } from '@tanstack/react-query'
 
 import { rich, t } from '#/copy'
-import { LoadMore } from '#/components/v3/ui/load-more'
-import { Button } from '#/components/v3/ui/button'
-import { Checkbox } from '#/components/v3/ui/checkbox'
-import { Input } from '#/components/v3/ui/input'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Inspector, InspectorSection, Muted } from '#/components/v3/ui/layout'
-import { TableBox } from '#/components/v3/ui/table'
-import {
-  RegistryGrid,
-  useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { ColumnInspector } from '#/components/v3/datasets/column-inspector'
-import { ValueActions } from '#/components/v3/datasets/value-actions'
-import type { RepeatSourceSample } from '#/components/v3/datasets/value-actions'
-import { datasetListQueryKeys } from '#/components/v3/datasets/datasets-data'
+import { LoadMore } from '#/components/ui/load-more'
+import { Button } from '#/components/ui/button'
+import { Checkbox } from '#/components/ui/checkbox'
+import { Input } from '#/components/ui/input'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Inspector, InspectorSection, Muted } from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid, useRowFocus } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { ColumnInspector } from '#/components/datasets/column-inspector'
+import { ValueActions } from '#/components/datasets/value-actions'
+import type { RepeatSourceSample } from '#/components/datasets/value-actions'
+import { datasetListQueryKeys } from '#/components/datasets/datasets-data'
 import { hasCapability } from '#/lib/capability'
 import {
   buildFlagIndex,

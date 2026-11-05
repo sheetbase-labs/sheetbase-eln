@@ -19,7 +19,7 @@ import * as React from 'react'
 
 import { BlockPreview } from '#/components/notebook/block-preview'
 import { FrozenSheetEvidencePanel } from '#/components/notebook/notebook-sheet-block'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { Icon } from '#/components/icons'
 import type {
   CommentTarget,

@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { useState } from 'react'
 
-import { OverflowTabs } from '#/components/v3/ui/overflow-tabs'
-import { TabsPanel, TabsRoot } from '#/components/v3/ui/tabs'
+import { OverflowTabs } from '#/components/ui/overflow-tabs'
+import { TabsPanel, TabsRoot } from '#/components/ui/tabs'
 
 const items = [
   { value: 'properties', label: 'Properties' },

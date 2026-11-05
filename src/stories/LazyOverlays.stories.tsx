@@ -6,8 +6,8 @@ import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
 import {
   LazySearchPalette,
   LazyShortcutsDialog,
-} from '#/components/v3/shell/lazy-overlays'
-import { Button } from '#/components/v3/ui/button'
+} from '#/components/shell/lazy-overlays'
+import { Button } from '#/components/ui/button'
 import { PANE_SHORTCUTS, SCOPED_SHORTCUTS } from '#/lib/shortcut-scopes'
 import {
   StubDataClient,

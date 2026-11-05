@@ -1,9 +1,9 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { DatasetHistoryTab } from '#/components/v3/datasets/dataset-history-tab'
-import { DatasetImportsTab } from '#/components/v3/datasets/dataset-imports-tab'
-import { DatasetUsedByTab } from '#/components/v3/datasets/dataset-used-by-tab'
+import { DatasetHistoryTab } from '#/components/datasets/dataset-history-tab'
+import { DatasetImportsTab } from '#/components/datasets/dataset-imports-tab'
+import { DatasetUsedByTab } from '#/components/datasets/dataset-used-by-tab'
 import type { DatasetImportRecord } from '#/lib/import/types'
 import { auditHistoryQueryKeys } from '#/lib/audit-history'
 import type { AuditEventWire } from '#/lib/audit-history'
@@ -19,7 +19,7 @@ import type { ReadSeed } from './screen-stories'
 
 /**
  * The three data tabs of a dataset's detail page — Imports, Used by and History
- * (`src/components/v3/datasets/`). They are one file because they are one
+ * (`src/components/datasets/`). They are one file because they are one
  * screen's surfaces: each is a read of one canonical model, and each has the
  * same four states (loading, denied, failure, an honestly empty list), which
  * the stories below show per tab rather than once on the happy path.

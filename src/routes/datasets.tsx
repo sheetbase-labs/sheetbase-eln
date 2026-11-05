@@ -9,14 +9,14 @@ import {
 } from '@tanstack/react-router'
 
 import { t } from '#/copy'
-import { Status } from '#/components/v3/ui/status'
+import { Status } from '#/components/ui/status'
 import {
   NO_PROJECT_ACCESS_BODY,
   noProjectAccessTitle,
   useHasProjectAccess,
-} from '#/components/v3/projects/project-access'
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
+} from '#/components/projects/project-access'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { datasetPath } from '#/lib/navigation'
 import {
@@ -24,20 +24,20 @@ import {
   ReadOnlyNote,
   ListToolbar,
   MobileList,
-} from '#/components/v3/inventory/list'
+} from '#/components/inventory/list'
 import {
   RegistryGrid,
   rightAligned,
   useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { DatasetInspector } from '#/components/v3/datasets/dataset-inspector'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { Tabs } from '#/components/ui/tabs'
+import { DatasetInspector } from '#/components/datasets/dataset-inspector'
 import {
   datasetValidation,
   useDatasetSummaries,
-} from '#/components/v3/datasets/datasets-data'
-import type { DatasetListRow } from '#/components/v3/datasets/datasets-data'
+} from '#/components/datasets/datasets-data'
+import type { DatasetListRow } from '#/components/datasets/datasets-data'
 import { useHasCapability } from '#/lib/use-capability'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 

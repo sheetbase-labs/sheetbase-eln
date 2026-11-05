@@ -25,7 +25,7 @@ import {
   CommandItem,
   CommandList,
   CommandLoading,
-} from '#/components/v3/ui/command'
+} from '#/components/ui/command'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import { cn } from '#/lib/utils'
 import type { ScientificRecordKind } from '#/lib/scientific-records'

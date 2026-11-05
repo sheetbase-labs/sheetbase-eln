@@ -5,13 +5,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
 import { Icon } from '#/components/icons'
-import { Button } from '#/components/v3/ui/button'
-import { Row, RowList } from '#/components/v3/ui/row'
+import { Button } from '#/components/ui/button'
+import { Row, RowList } from '#/components/ui/row'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '#/components/v3/ui/popover'
+} from '#/components/ui/popover'
 import {
   fetchLatestReviews,
   fetchMyNotifications,

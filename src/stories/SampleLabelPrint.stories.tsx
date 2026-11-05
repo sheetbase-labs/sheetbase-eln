@@ -4,11 +4,11 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import {
   PrintLabelButton,
   SampleLabelPrint,
-} from '#/components/v3/samples/sample-label-print'
+} from '#/components/samples/sample-label-print'
 import { screenQueryClient } from './screen-stories'
 
 /**
- * LAB-05.2 — the browser print path (`src/components/v3/samples/sample-label-print.tsx`).
+ * LAB-05.2 — the browser print path (`src/components/samples/sample-label-print.tsx`).
  *
  * `SampleLabelPrint` is a print document, not screen chrome: its root is
  * `hidden` and the stylesheet makes it the only visible element under

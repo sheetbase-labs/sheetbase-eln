@@ -1,8 +1,8 @@
 import { t } from '#/copy'
 import { useQuery } from '@tanstack/react-query'
 
-import { Banner } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
+import { Banner } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import { listInstanceColumnPromotions } from '#/lib/schema-evolution'

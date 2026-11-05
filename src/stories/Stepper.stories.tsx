@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Stepper } from '#/components/v3/ui/stepper'
+import { Stepper } from '#/components/ui/stepper'
 
 /**
- * The step-progress row (`src/components/v3/ui/stepper.tsx`): an ordered list of
+ * The step-progress row (`src/components/ui/stepper.tsx`): an ordered list of
  * stages with the steps behind the current one ticked, `aria-current="step"` on
  * the current one, and a `failed` marker reserved for a flow that stopped on a
  * step. It is display-only — the row reports progress, it is not a picker, so

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { Icon } from '#/components/icons'
-import { Button } from '#/components/v3/ui/button'
-import { Notice } from '#/components/v3/ui/alert'
+import { Button } from '#/components/ui/button'
+import { Notice } from '#/components/ui/alert'
 import {
   Dialog,
   DialogBody,
@@ -10,7 +10,7 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
+} from '#/components/ui/dialog'
 import { t } from '#/copy'
 import {
   HOME_BRIEF_INSTRUCTION,

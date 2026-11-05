@@ -401,7 +401,7 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   (General, Notifications, Profile sessions, API tokens, workspace service
   credentials) and every integrations component (connector detail, run history,
   register dialog, credentials card, instrument ingestion, enterprise sources)
-  now live under `src/components/v3/` and use the v3 kit; the legacy
+  now live under `src/components/` and use the v3 kit; the legacy
   `components/settings` and `components/integrations` directories are deleted.
 
 - **Remaining legacy UI (recorded)**: the record notebook's block/editor
@@ -643,7 +643,7 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   connector registry and `/settings/integrations/$connectorId` shows config, run
   history, instrument ingestion and enterprise sources (S3 / external
   PostgreSQL) with pause/activate through the connector RPCs. The connector
-  components are on app-3's v3 kit (`src/components/v3/integrations/`); the
+  components are on app-3's v3 kit (`src/components/integrations/`); the
   standalone `/integrations` routes, their test and the legacy
   `components/integrations` directory are deleted, the admin links retarget,
   and the settings nav now includes Integrations.
@@ -663,7 +663,7 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   real SET-01/SET-03 modules (workspace general and id prefixes, personal API
   tokens, user name via Better Auth, appearance via the shared theme store,
   sessions, notification preferences), reskinned onto app-3's v3 kit
-  (`src/components/v3/settings/`). `/settings/api` also carries the owner-only
+  (`src/components/settings/`). `/settings/api` also carries the owner-only
   workspace service credentials (list, create, rotate, revoke) via the
   owner-gated admin server functions, so the previous link into legacy
   `/admin` is gone. Members and roles (`/settings/members`)
@@ -802,7 +802,7 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
   The old 1988-line Home and its test are deleted; the root chrome switch now
   includes `/`.
 
-- Foundations staged under `src/components/v3/`: UI kit, icons, shared types,
+- Foundations staged under `src/components/`: UI kit, icons, shared types,
   Projects pieces, shell + nav + theme, token-name bridge, `@base-ui/react`.
 - Root chrome switch: `__root.tsx` renders app-3's `AppShell` for routes listed
   in `v3RouteIds` and the ELN shell for everything else, so areas can be ported
@@ -836,7 +836,7 @@ Acceptance: `tests/areas/projects-inter.mjs` and the `/projects*` URLs in
 ## Shell completion slices (2 October 2026, branch `GWP/roadmap-4-shell`)
 
 - **SHELL-02 — appearance (done).** One shared appearance store
-  (`src/components/v3/lib/theme.ts`) now owns the `sheetbase-theme` cache, the
+  (`src/components/lib/theme.ts`) now owns the `sheetbase-theme` cache, the
   `.dark` class, `data-theme`/`data-theme-pref`, and listens for `storage`
   (another tab) and `prefers-color-scheme` (live System while the preference is
   System). The ELN `ThemeProvider` and the v3 shell both use it. Unit tests cover

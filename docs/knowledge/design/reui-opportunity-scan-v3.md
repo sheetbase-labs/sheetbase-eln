@@ -26,15 +26,15 @@ exists (`src/components/component-compare/`) and has one row.
 
 - **Base:** branch `scan/v3-opportunities` from `origin/GWP/notebook-document-surface`
   at `35423ec`. All counts and line numbers are from that revision.
-- **Scanned:** `src/components/v3/**` — 186 TypeScript files (37,612 lines), of
+- **Scanned:** `src/components/**` — 186 TypeScript files (37,612 lines), of
   which 26,156 lines outside tests and stories — plus the route screens that
   compose the v3 kit, because in this tree the v3 screen body lives in a route
-  for some areas (143 routes import `#/components/v3`). Where a finding sits in a
+  for some areas (143 routes import `#/components`). Where a finding sits in a
   route screen it says so.
 - **Method:** source reading only. No browser, no render, no axe, no execution.
   Counts are exact occurrences of the cited pattern at this revision; line counts
   drift.
-- **What the kit already owns** (`src/components/v3/ui/`, 27 primitives): alert
+- **What the kit already owns** (`src/components/ui/`, 27 primitives): alert
   (`Notice` + `Banner`), avatar, badge (`Tag`), button, checkbox, choice, command,
   confirm-dialog, dialog, dropdown-menu, empty-state, filter-menu, input (+
   `Field`), kbd, layout (`PageHeader`, `Inspector`, `Section`, `DescriptionList`,
@@ -58,14 +58,14 @@ exists (`src/components/component-compare/`) and has one row.
 
 Reported as found; nothing below proposes them.
 
-| Exclusion (source)                                        | What the scan found                                                                                                                                                                                                                                                                                                                                               |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sheet grid — `@sheetbase-labs/sheetbase-table` (ADR-0048) | Present as expected: `src/components/sheet/sheetbase-table-grid-client.tsx`, `canonical-sheet-workspace.tsx`, `scientific-sheet-block.tsx`. No candidate proposed.                                                                                                                                                                                                |
-| Figure renderers — `src/components/viz/**`                | Charts, `analysis-panel.tsx`, `chart-configurator.tsx`. `role="img"` progress meters and `Showing … of …` sampling notes live here; treated as domain surfaces, not candidates. No candidate proposed.                                                                                                                                                            |
-| Scientific status vocabulary (ADR-0011)                   | `src/components/v3/ui/status.tsx` is the v3 vocabulary (tone + dot + text, never colour alone) and is used consistently. No candidate proposed.                                                                                                                                                                                                                   |
-| `sheetbase-advanced-search` filter builder                | Its only in-tree use is the dev-only catalogue `src/routes/sheetbase-components.tsx:4-5`. The plan's exclusion stands for the FilterBuilder surface. One **adjacent** finding is flagged, not proposed: the list toolbars' Filter menu (`src/components/v3/inventory/list.tsx:156-175`) is a filter affordance and must wait for the filter-model reconciliation. |
-| Notebook blocks and their chrome (Part A)                 | `src/components/notebook/**` was not scanned for candidates. Two findings touch it only as evidence of a shared job (`Textarea` imported from an inventory-area file at `block-editor.tsx:38`).                                                                                                                                                                   |
-| Empty states (owner decision, plan §11.2)                 | `ui/empty-state.tsx` plus 91 call sites; findings recorded in the plan, untouched here. The empty states encountered in this scan (dataset tabs, sessions, deliveries, policies) are consistent with it.                                                                                                                                                          |
+| Exclusion (source)                                        | What the scan found                                                                                                                                                                                                                                                                                                                                            |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sheet grid — `@sheetbase-labs/sheetbase-table` (ADR-0048) | Present as expected: `src/components/sheet/sheetbase-table-grid-client.tsx`, `canonical-sheet-workspace.tsx`, `scientific-sheet-block.tsx`. No candidate proposed.                                                                                                                                                                                             |
+| Figure renderers — `src/components/viz/**`                | Charts, `analysis-panel.tsx`, `chart-configurator.tsx`. `role="img"` progress meters and `Showing … of …` sampling notes live here; treated as domain surfaces, not candidates. No candidate proposed.                                                                                                                                                         |
+| Scientific status vocabulary (ADR-0011)                   | `src/components/ui/status.tsx` is the v3 vocabulary (tone + dot + text, never colour alone) and is used consistently. No candidate proposed.                                                                                                                                                                                                                   |
+| `sheetbase-advanced-search` filter builder                | Its only in-tree use is the dev-only catalogue `src/routes/sheetbase-components.tsx:4-5`. The plan's exclusion stands for the FilterBuilder surface. One **adjacent** finding is flagged, not proposed: the list toolbars' Filter menu (`src/components/inventory/list.tsx:156-175`) is a filter affordance and must wait for the filter-model reconciliation. |
+| Notebook blocks and their chrome (Part A)                 | `src/components/notebook/**` was not scanned for candidates. Two findings touch it only as evidence of a shared job (`Textarea` imported from an inventory-area file at `block-editor.tsx:38`).                                                                                                                                                                |
+| Empty states (owner decision, plan §11.2)                 | `ui/empty-state.tsx` plus 91 call sites; findings recorded in the plan, untouched here. The empty states encountered in this scan (dataset tabs, sessions, deliveries, policies) are consistent with it.                                                                                                                                                       |
 
 ## How the ranking works
 
@@ -107,9 +107,9 @@ router links:
 - `src/routes/projects/$projectId/files.tsx:270-300`
 
 All four render the same block inside the `footer` prop of
-`ProjectList` (`src/components/v3/projects/project-list.tsx`), and all four get
+`ProjectList` (`src/components/projects/project-list.tsx`), and all four get
 their arithmetic from the shared helper `projectPageSummary`
-(`src/components/v3/projects/project-lists.ts:79-87`). The arithmetic was already
+(`src/components/projects/project-lists.ts:79-87`). The arithmetic was already
 recognised as shared; the **markup was copied anyway**, which is the maintenance
 burden: a change to the disabled rule or the label is four edits.
 
@@ -119,8 +119,8 @@ Load-more controls (cursor / growing window), six in v3 surfaces:
 - `src/routes/experiments.tsx:533-540` — Button, raises a `limit`
 - `src/routes/datasets/$datasetId/rows.tsx:349-380` — "Showing N of M rows" + "Load more (N left)"
 - `src/routes/datasets/$datasetId/compare.tsx:374-386` — "Load more (N left)"
-- `src/components/v3/integrations/enterprise-source-panel.tsx:436-446` — continuation token
-- `src/components/v3/datasets/dataset-history-tab.tsx:53-56` — delegates to `ObjectHistoryTimeline`
+- `src/components/integrations/enterprise-source-panel.tsx:436-446` — continuation token
+- `src/components/datasets/dataset-history-tab.tsx:53-56` — delegates to `ObjectHistoryTimeline`
 
 Three further peers do the same job outside v3:
 `src/components/audit/object-history-timeline.tsx:302`,
@@ -147,20 +147,20 @@ models will fit neither.
 
 **Four v3-internal renderings of one job, in two homes.**
 
-- `src/components/v3/projects/select.tsx:5-25` — `NativeSelect`: a styled
+- `src/components/projects/select.tsx:5-25` — `NativeSelect`: a styled
   `<select>` plus a chevron; rendered by 39 files (127 occurrences), imported by
   38 — including legacy-area consumers such as `viz/chart-configurator.tsx` (9),
   `viz/analysis-panel.tsx` (9), `notebook/block-editor.tsx` (14) and
   `import/import-flow.tsx` (6). Its own doc comment says "Wrap in `<Field>`
   (a `<label>`) so it gets its name".
-- `src/components/v3/inventory/list.tsx:387-404` — `Select`: the same job as a
+- `src/components/inventory/list.tsx:387-404` — `Select`: the same job as a
   second definition, and it differs: no `appearance-none`, no chevron, a
   mobile-size branch (`max-md:h-10`) and a `invalid` prop instead of the
   `aria-invalid` pass-through, and it is born inside a table-toolbar file.
-- `src/components/v3/models/record-model-records.tsx:144-156` and `:157-169` —
+- `src/components/models/record-model-records.tsx:144-156` and `:157-169` —
   raw `<select>` with `h-8 … text-label`, no chevron, no invalid treatment, in a
   toolbar beside `Input` and `Button`.
-- `src/components/v3/settings/workspace-groups.tsx:104-118` — raw `<select>`,
+- `src/components/settings/workspace-groups.tsx:104-118` — raw `<select>`,
   default browser chrome.
 
 In v3-composed route screens the raw copy continues:
@@ -172,7 +172,7 @@ milestones 2).
 
 **What is materially worse.** A _primitive_ is imported from an area folder:
 39 files — including the notebook block editor and the sheet block — reach into
-`#/components/v3/projects/select` for a select. The second definition in
+`#/components/projects/select` for a select. The second definition in
 `inventory/list.tsx` means two vocabularies for one control. The raw copies lose
 the chevron, the 30px height, the focus ring and the `aria-invalid` treatment, so
 the same form can show a styled and an unstyled select side by side.
@@ -193,13 +193,13 @@ primitive needs its own.
 
 **Four renderings, one of them correct.**
 
-- `src/components/v3/samples/sample-hold-meter.tsx:179-196` — correct:
+- `src/components/samples/sample-hold-meter.tsx:179-196` — correct:
   `role="progressbar"` with `aria-valuemin` / `aria-valuemax` / `aria-valuenow`,
   fill changes by state (`bg-danger-text` when expired).
-- `src/components/v3/home/home-quiet.tsx:281-300` — `role="img"` with a prose
+- `src/components/home/home-quiet.tsx:281-300` — `role="img"` with a prose
   `aria-label` ("`{n}` of `{m}` experiments approved"), single success fill, no
   value semantics.
-- `src/components/v3/samples/sample-usage.tsx:58-76` — `role="img"` with a prose
+- `src/components/samples/sample-usage.tsx:58-76` — `role="img"` with a prose
   label; a three-segment bar (used / reserved / free).
 - `src/routes/instruments/$instrumentId.tsx:533-535` — the Runs table's Progress
   column renders the bare text `{r.progressPercent}%`.
@@ -226,7 +226,7 @@ the same bar more cheaply if the item's restyle is not wanted.
 **One nav owner, 24 call sites, 12 separator spellings.**
 
 `PageHeader` owns the `<nav aria-label="Breadcrumb">` and the crumb line
-(`src/components/v3/ui/layout.tsx:39-46`). The trail itself is passed as a React
+(`src/components/ui/layout.tsx:39-46`). The trail itself is passed as a React
 node by each screen: 24 files pass `crumbs=`, 57 occurrences across them (each
 screen usually spells two — its loading/not-found one-crumb variant and its real
 one). The separator idiom —
@@ -262,15 +262,15 @@ item's ownership of the nav element is reconciled with `PageHeader`'s.
 
 **One deliberate in-house component, three ad-hoc `<pre>`s.**
 
-- `src/components/v3/pipelines/pipeline-code.tsx:55-116` — `CodeBlock`: language
+- `src/components/pipelines/pipeline-code.tsx:55-116` — `CodeBlock`: language
   label, focusable scroll region (`tabIndex={0}`, `role="group"`, aria-label),
   empty-statement state, and a **documented decision** at `:9-21` that
   highlighting is deliberately deferred (no highlighter is a dependency).
-- `src/components/v3/pipelines/agents/agent-surface.tsx:117-126` — `JsonValue`
+- `src/components/pipelines/agents/agent-surface.tsx:117-126` — `JsonValue`
   before/after blocks in the "Proposed diff" (`max-h-40`, `text-[11px]`).
-- `src/components/v3/integrations/run-history.tsx:201-208` — the run's technical
+- `src/components/integrations/run-history.tsx:201-208` — the run's technical
   result payload, inside a `<details>`, `max-h-40`.
-- `src/components/v3/settings/parser-settings.tsx:242-246` — parser output
+- `src/components/settings/parser-settings.tsx:242-246` — parser output
   sample, `max-h-[240px]`.
 
 **What is materially worse.** Four class strings and four max-heights; three of
@@ -282,7 +282,7 @@ the kit, so nothing else can use it.
 **Verdict.** Worth doing. Two acceptable shapes: adopt ReUI `Code Block` (check the
 item's dependencies first — if it pulls a syntax highlighter, the documented
 decision at `pipeline-code.tsx:20-21` has to be revisited by the owner, not
-side-stepped), or promote the existing `CodeBlock` to `src/components/v3/ui/` with
+side-stepped), or promote the existing `CodeBlock` to `src/components/ui/` with
 a copy button and use it in the three `<pre>` sites. Per plan §11.3.4, read the
 item's own install command before assuming a slug.
 
@@ -292,11 +292,11 @@ item's own install command before assuming a slug.
 
 **Three `<details>` in v3, one imperative expander.**
 
-- `src/components/v3/integrations/run-history.tsx:201-208` — "Technical result payload".
-- `src/components/v3/settings/parser-settings.tsx:238-246` — parser sample output.
-- `src/components/v3/projects/projects-page.tsx:1385-1404` — "Agreement and start
+- `src/components/integrations/run-history.tsx:201-208` — "Technical result payload".
+- `src/components/settings/parser-settings.tsx:238-246` — parser sample output.
+- `src/components/projects/projects-page.tsx:1385-1404` — "Agreement and start
   date", a disclosure **inside the New project form**, wrapping two `Field`s.
-- Expander: `src/components/v3/integrations/run-history.tsx:150-157` +
+- Expander: `src/components/integrations/run-history.tsx:150-157` +
   `ExpandedRunRow` (`:161-225`) — the table owns a single-open `expandedRun`
   (`:60-61`) and renders a quiet Button labelled `Show`/`Hide`; the expanded
   content is a sibling `<tr>`.
@@ -323,13 +323,13 @@ table-row expander, which is the one place with a real accessibility defect.
 
 ## 7. Command and listbox — one job, two implementations
 
-- `src/components/v3/ui/command.tsx` (465 lines) exports `Command`, `CommandInput`,
+- `src/components/ui/command.tsx` (465 lines) exports `Command`, `CommandInput`,
   `CommandList`, `CommandGroup`, `CommandItem`, `CommandEmpty`, `CommandLoading`,
   `CommandSeparator`, `CommandFooter`, `CommandDialog`, `CommandPopover` and
   `optionId`; composed by four files: `record-picker/record-picker.tsx:13`,
   `scientific/record-picker.tsx:27`, `sheet/sheet-record-picker.tsx:14`,
   `notebook/add-block-menu.tsx:13`.
-- `src/components/v3/search/search-palette.tsx` (664 lines) hand-rolls the same
+- `src/components/search/search-palette.tsx` (664 lines) hand-rolls the same
   job: its own `role="combobox"` input (`:380-397`, with
   `aria-activedescendant`) and its own `role="listbox"` / `role="option"` list
   (`:527-610`) with `activeIndex`, `onMouseMove` selection and its own header
@@ -354,13 +354,13 @@ are the reference for any change to it.
 
 ## 8. Chip and toggle pill (in-house)
 
-| Renderer                   | Path                                                        | Shape                                                                                                            |
-| -------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Removable filter chip      | `src/components/v3/projects/chip.tsx:4-26`                  | `h-6`, `border-border`, 18px `x` button with `aria-label`                                                        |
-| Toggle chip (filter/scope) | `src/components/v3/record-picker/record-picker.tsx:267-298` | `h-7` (`max-md:h-9`), `aria-pressed`, optional icon and count, selected = `border-selection-border bg-selection` |
-| Toggle pill (search scope) | `src/components/v3/search/search-palette.tsx:414-430`       | the record-picker chip's class string, inline, not the component                                                 |
-| Nav pill (settings, phone) | `src/routes/settings.tsx:65-88`                             | `h-8` (`max-md:h-9`), `aria-current="page"`, selected = same token pair                                          |
-| Nav pill (client portal)   | `src/routes/client-portal.tsx:501-518`                      | `h-9`, two full class branches instead of a `cn()` conditional                                                   |
+| Renderer                   | Path                                                     | Shape                                                                                                            |
+| -------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Removable filter chip      | `src/components/projects/chip.tsx:4-26`                  | `h-6`, `border-border`, 18px `x` button with `aria-label`                                                        |
+| Toggle chip (filter/scope) | `src/components/record-picker/record-picker.tsx:267-298` | `h-7` (`max-md:h-9`), `aria-pressed`, optional icon and count, selected = `border-selection-border bg-selection` |
+| Toggle pill (search scope) | `src/components/search/search-palette.tsx:414-430`       | the record-picker chip's class string, inline, not the component                                                 |
+| Nav pill (settings, phone) | `src/routes/settings.tsx:65-88`                          | `h-8` (`max-md:h-9`), `aria-current="page"`, selected = same token pair                                          |
+| Nav pill (client portal)   | `src/routes/client-portal.tsx:501-518`                   | `h-9`, two full class branches instead of a `cn()` conditional                                                   |
 
 **What is materially worse.** Three class strings for one visual idea, two sizes
 for the same mobile treatment, and one of the five is a copy of another's string
@@ -383,7 +383,7 @@ cover.
 
 | #   | Job                                           | Implementations (count, paths)                                                                                                                                               | What one component's API must cover                                                                                                                                                                                         | Story today |
 | --- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| 1   | List/table screen chrome                      | `src/components/v3/inventory/list.tsx` (500 lines, **12 exports**) imported by **28 files**, 8 of them outside the inventory area                                            | Header (title, total, actions, tabs) · toolbar (settled search, sort/filter/fields, right slot) · footer (count + bulk-selection slot) · skeleton (columns, inspector flag) · sticky first cell/head · mobile rows          | None        |
+| 1   | List/table screen chrome                      | `src/components/inventory/list.tsx` (500 lines, **12 exports**) imported by **28 files**, 8 of them outside the inventory area                                               | Header (title, total, actions, tabs) · toolbar (settled search, sort/filter/fields, right slot) · footer (count + bulk-selection slot) · skeleton (columns, inspector flag) · sticky first cell/head · mobile rows          | None        |
 | 2   | Credential panel (token + service credential) | `settings-api-tokens.tsx` (314) and `settings-service-credentials.tsx` (313) — identical but for the function name                                                           | Item shape (name, prefix, scopes, created, last used, expires, status, actions) · create dialog copy · reveal-once `Secret` · revoke/rotate actions                                                                         | None        |
 | 3   | Chip / toggle pill                            | 5 (see candidate 8)                                                                                                                                                          | `removable` · `toggle` (aria-pressed, icon, count) · `nav` (aria-current) · sizes                                                                                                                                           | None        |
 | 4   | Form primitives (select, textarea, field)     | 2 select definitions + 2 raw `<select>` in v3; 1 shared `Textarea` + 2 raw `<textarea>`; `Field` already in `ui/input.tsx`                                                   | native-first select · textarea · invalid/disabled/size variants · error + hint wiring through `Field`                                                                                                                       | None        |
@@ -411,7 +411,7 @@ that are not lists at all: `components/notebook/block-editor.tsx:38` (Textarea),
 (`stickyCell`/`stickyHead`),
 `routes/instruments/$instrumentId.tsx:34` (`Select`, `Textarea`),
 `routes/templates/$templateId/index.tsx:22` (`Select`),
-`src/components/v3/models/model-approval-panel.tsx:18` (`Textarea`).
+`src/components/models/model-approval-panel.tsx:18` (`Textarea`).
 Two named behaviours ride on it and both are currently local:
 `ListFooter`'s `max-xl:mr-28` (`:328`) is the inspector-button dodge the plan
 already flagged, and `ListToolbar`'s 200 ms settle (`:25`, `:289`) is the debounce
@@ -439,19 +439,19 @@ what was searched and what was found.
 | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Drawer                                                                               | side panels, slide-overs                                             | `ui/sheet.tsx` with sides `left`/`right`/`bottom`/`auto`; `Inspector` composes it for laptop/phone (`ui/layout.tsx:63-96`)                                                                                                                                                                                                  | A v3 twin already covers the job; nothing is hand-rolled                                                                                                                                                      |
 | Scroll area                                                                          | custom scrollbars, bounded panels                                    | 7 `[scrollbar-width:none]` horizontal strips (`ui/tabs.tsx:16`, `ui/layout.tsx:61`, `inventory/list.tsx:93`, `projects-page.tsx:396`, `record-picker.tsx:140`, `settings.tsx:67`, `client-portal.tsx:502`) + 6 `max-h-*` scroll panels                                                                                      | Native scrolling is deliberate and defended (keyboard, find-in-page, print); a JS scroll area would trade those for styled scrollbars, and the strips are a two-class utility, not a component job            |
-| Spinner                                                                              | `animate-spin`, `Loader2`, loader icons                              | Zero in `src/components/v3/**`. Loading is `Skeleton` (`ui/table.tsx:63`, `ui/command.tsx:353`, `inventory/list.tsx:335`) and text states ("Loading…": `dataset-imports-tab.tsx:108`, `settings-sessions.tsx:79`, `run-deliveries.tsx:114`)                                                                                 | Nothing is hand-rolled to replace, and a spinner beside skeletons would add a second loading language. If one is wanted, it is a design decision made with the Skeleton family, not an opportunistic adoption |
+| Spinner                                                                              | `animate-spin`, `Loader2`, loader icons                              | Zero in `src/components/**`. Loading is `Skeleton` (`ui/table.tsx:63`, `ui/command.tsx:353`, `inventory/list.tsx:335`) and text states ("Loading…": `dataset-imports-tab.tsx:108`, `settings-sessions.tsx:79`, `run-deliveries.tsx:114`)                                                                                    | Nothing is hand-rolled to replace, and a spinner beside skeletons would add a second loading language. If one is wanted, it is a design decision made with the Skeleton family, not an opportunistic adoption |
 | Context menu                                                                         | `onContextMenu`                                                      | Zero occurrences in `src`                                                                                                                                                                                                                                                                                                   | Nothing to replace                                                                                                                                                                                            |
 | Hover card                                                                           | `onMouseEnter`, hover previews                                       | None. The only preview is `ProjectPeek` (`projects-page.tsx:1074-1160`), a click-opened `Inspector`                                                                                                                                                                                                                         | No hand-rolled hover card; adding one would be new interaction design, not a replacement                                                                                                                      |
 | Icon stack (overlapping avatars)                                                     | `-space-x`, stacked avatars                                          | Only `Avatar` in the account menu (`shell/app-shell.tsx:880,884`); the notebook's `ContributorAvatars` is notebook chrome (excluded)                                                                                                                                                                                        | No v3 site                                                                                                                                                                                                    |
 | Colour picker                                                                        | `type="color"`, swatches, palettes                                   | None; tones are a typed enum (`ui/status.tsx:5-15`)                                                                                                                                                                                                                                                                         | No colour-choosing UI in v3                                                                                                                                                                                   |
-| Input OTP · Phone input · Rating · Carousel · Scrollspy                              | `otp`, `tel`, `type="tel"`, stars/rating, `scroll-snap`, `scrollspy` | Zero matches each in `src/components/v3/**`                                                                                                                                                                                                                                                                                 | Nothing to replace; all would be net-new chrome                                                                                                                                                               |
+| Input OTP · Phone input · Rating · Carousel · Scrollspy                              | `otp`, `tel`, `type="tel"`, stars/rating, `scroll-snap`, `scrollspy` | Zero matches each in `src/components/**`                                                                                                                                                                                                                                                                                    | Nothing to replace; all would be net-new chrome                                                                                                                                                               |
 | Questionnaire                                                                        | Question-set forms                                                   | The nearest thing is the pipeline run prompt (`pipelines/run-prompt.tsx:204-399`): an author-typed field schema rendered as a form with typed answers, required flags and a decision. One implementation, singular, and its semantics (decision, reason, expiry, who is asked) are the ADR-0052 pause-for-a-person contract | Adopting a questionnaire component would replace nothing and put domain decision semantics behind a generic form; if it is ever wanted, the ownership question is the ADR, not the catalogue                  |
 | Kanban (Board view)                                                                  | Boards, columns, drag between columns                                | No board implementation. The product names the intent and parks it: `inventory/list.tsx:150-153` renders a "Table" menu with `Board` disabled and `hint="Later"`                                                                                                                                                            | Nothing hand-rolled to replace. Recorded as product intent: if Board is built, ReUI `Kanban` is the only viable candidate, and it would be a new surface (and its own comparison row), not an adoption        |
 | Message / bubble                                                                     | Chat, bubbles, `Message`, `Bubble`                                   | None. Agent surfaces are tables + inspector (`agent-surface.tsx:451-491`), the prompt panel is a form                                                                                                                                                                                                                       | No chat-shaped surface exists                                                                                                                                                                                 |
-| File-type chips · attachment lists                                                   | `attachment`, `mediaType`, file kind                                 | **Zero** `attachment` matches in `src/components/v3/**`. File kind is a text column (`routes/projects/$projectId/files.tsx:235,261`) and a filename link (`dataset-imports-tab.tsx:154-167`)                                                                                                                                | Nothing hand-rolled to replace; a file-type chip or an attachment list would be net-new chrome on a thin surface. Revisit when a file surface is next built                                                   |
+| File-type chips · attachment lists                                                   | `attachment`, `mediaType`, file kind                                 | **Zero** `attachment` matches in `src/components/**`. File kind is a text column (`routes/projects/$projectId/files.tsx:235,261`) and a filename link (`dataset-imports-tab.tsx:154-167`)                                                                                                                                   | Nothing hand-rolled to replace; a file-type chip or an attachment list would be net-new chrome on a thin surface. Revisit when a file surface is next built                                                   |
 | Alert / banner                                                                       | Hand-rolled alert boxes                                              | `ui/alert.tsx` owns `Notice` (tone, title, action, icon) and `Banner` (page strip). The only hand-rolled banners are two in `home-quiet.tsx:106-136`                                                                                                                                                                        | v3 twin exists and is richer; the two home banners are an in-house composition slip (see the componentisation list, item 10), not a ReUI opportunity                                                          |
 | Tooltips via `title=`                                                                | Native `title` attributes                                            | 29 v3 files carry `title=` (13 occurrences in `agent-surface.tsx`, 6 in `home-quiet.tsx`)                                                                                                                                                                                                                                   | `ui/tooltip.tsx` exists; this is internal composition, not a ReUI evaluation                                                                                                                                  |
-| Resizable / slider / switch / toggle group / separator                               | `role="switch"`, `type="range"`, `<hr>`, separator, resize           | Zero matches in `src/components/v3/**`. The kit's closest relatives are `checkbox` and `radio-group`; the only toggle-shaped control is the chip family (row 8)                                                                                                                                                             | Nothing to replace; all would be net-new primitives with no screen asking for them                                                                                                                            |
+| Resizable / slider / switch / toggle group / separator                               | `role="switch"`, `type="range"`, `<hr>`, separator, resize           | Zero matches in `src/components/**`. The kit's closest relatives are `checkbox` and `radio-group`; the only toggle-shaped control is the chip family (row 8)                                                                                                                                                                | Nothing to replace; all would be net-new primitives with no screen asking for them                                                                                                                            |
 | Charts, sheet grid, status vocabulary, filter builder, notebook chrome, empty states | —                                                                    | As expected by the plan and the ADRs                                                                                                                                                                                                                                                                                        | Exclusions held; nothing proposed (see Exclusions table)                                                                                                                                                      |
 
 ## Storybook position

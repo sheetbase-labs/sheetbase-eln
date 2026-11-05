@@ -241,27 +241,27 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 - `/projects/$projectId/milestones` — src/routes/projects/$projectId/milestones.tsx:139 `const canEdit = hasCapability(context.workspace?.role, 'schema.edit')`; capability.ts:57-61 maps schema.edit to GOVERNED_SCHEMA_ROLES; notice copy at :565-567.
 - `/projects/$projectId/milestones` — src/routes/projects/$projectId/milestones.tsx:89-91 accepts 'denied'\|'empty'; :140 `const denied = state === 'denied' \|\| !canEdit`; `empty` appears nowhere else in the file.
 - `/projects/$projectId/milestones` — src/routes/projects/$projectId/milestones.tsx:1098 `disabled={busy \|\| title.trim().length < 3 \|\| !dueAt}` — no `error`/hint on the Name field.
-- `/projects/$projectId/milestones` — src/components/v3/projects/milestone-timeline.tsx:330-336 `band.end < now ? 'bg-success-wash' : ...`.
+- `/projects/$projectId/milestones` — src/components/projects/milestone-timeline.tsx:330-336 `band.end < now ? 'bg-success-wash' : ...`.
 - `/projects/$projectId/milestones` — src/routes/projects/$projectId/milestones.tsx:99 AT_RISK_RULE; :102-111 milestoneStatus returns review/in progress before the due-date check.
-- `/projects/$projectId/milestones` — src/components/v3/projects/milestone-timeline.tsx RISK_FILL `unknown: 'bg-border-strong'` vs legend at ~:380-400 listing only On track/At risk/Late/Done/Client-visible.
+- `/projects/$projectId/milestones` — src/components/projects/milestone-timeline.tsx RISK_FILL `unknown: 'bg-border-strong'` vs legend at ~:380-400 listing only On track/At risk/Late/Done/Client-visible.
 
 </details>
 
 #### Instruments (7 findings)
 
-| Sev   | Where                                                                    | Defect                                                                                                                                                                                                                                                                                                                                                                                                                               | Status           | Fix            |
-| ----- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- | -------------- |
-| major | `src/routes/instruments.tsx:104-134 vs src/components/v3/instruments/i…` | Calibration 'due' windows disagree: the registry calls a calibration 'due soon' at ≤14 days and the filter says 'Due in 14 days', while the record page's `calibrationStatus` says 'Due soon' at ≤30 days. The same instrument is 'due' on one surface and 'valid' on the other.                                                                                                                                                     | code             | fixed          |
-| major | `src/routes/instruments.tsx:173-177`                                     | Registry-list health ignores parser readiness. `healthFor` passes only `lastImport`; the inspector passes `parserReady`. An automated-method instrument with no validated parser reads "Waiting for first data" in the list but "Parser not validated" in the inspector — two different truthful states for the same instrument.                                                                                                     | needs live check | fixed          |
-| major | `src/routes/instruments/$instrumentId.tsx (whole page)`                  | Qualification is unreachable. Booking requires a current `instrument_qualifications` row (ADR-0054/LAB-06.3, unconditional), but no UI renders, grants or revokes a qualification: the record page has Calibration/Data intake/Runs only, and nothing in src calls `set_instrument_qualification` / `revoke_instrument_qualification`. An unqualified user is refused with no way to fix it, and the schema comment that 'the instr… | code             | fixed          |
-| minor | `src/routes/instruments.tsx:342-346,428`                                 | Vocabulary drift for the same concept: the filter and column are labelled 'Connection', the tab 'Connected', while the registry inspector and detail call the same field 'How data gets in' / intake method.                                                                                                                                                                                                                         | code             | fixed          |
-| minor | `src/routes/instruments.tsx:563-567`                                     | Footer denominator includes retired instruments while the label claims 'in service': `counts.all = rows.length` (all, incl. retired) but the 'all' tab's visible list excludes retired.                                                                                                                                                                                                                                              | code             | fixed          |
-| minor | `src/routes/instruments.tsx:895-900`                                     | Register-instrument server errors are surfaced under the Serial number field only: `onError` sets `serverError` and `errors.serial = ... serverError`, so an unrelated refusal (permission, workspace) renders as if the serial were wrong.                                                                                                                                                                                          | code             | fixed          |
-| minor | `src/routes/instruments/$instrumentId.tsx:365-366`                       | Placeholder/coming-soon copy in a product path: the calibration dialog's Notes hint says "Certificate upload comes with the file capability."                                                                                                                                                                                                                                                                                        | code             | copy corrected |
+| Sev   | Where                                                                 | Defect                                                                                                                                                                                                                                                                                                                                                                                                                               | Status           | Fix            |
+| ----- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- | -------------- |
+| major | `src/routes/instruments.tsx:104-134 vs src/components/instruments/i…` | Calibration 'due' windows disagree: the registry calls a calibration 'due soon' at ≤14 days and the filter says 'Due in 14 days', while the record page's `calibrationStatus` says 'Due soon' at ≤30 days. The same instrument is 'due' on one surface and 'valid' on the other.                                                                                                                                                     | code             | fixed          |
+| major | `src/routes/instruments.tsx:173-177`                                  | Registry-list health ignores parser readiness. `healthFor` passes only `lastImport`; the inspector passes `parserReady`. An automated-method instrument with no validated parser reads "Waiting for first data" in the list but "Parser not validated" in the inspector — two different truthful states for the same instrument.                                                                                                     | needs live check | fixed          |
+| major | `src/routes/instruments/$instrumentId.tsx (whole page)`               | Qualification is unreachable. Booking requires a current `instrument_qualifications` row (ADR-0054/LAB-06.3, unconditional), but no UI renders, grants or revokes a qualification: the record page has Calibration/Data intake/Runs only, and nothing in src calls `set_instrument_qualification` / `revoke_instrument_qualification`. An unqualified user is refused with no way to fix it, and the schema comment that 'the instr… | code             | fixed          |
+| minor | `src/routes/instruments.tsx:342-346,428`                              | Vocabulary drift for the same concept: the filter and column are labelled 'Connection', the tab 'Connected', while the registry inspector and detail call the same field 'How data gets in' / intake method.                                                                                                                                                                                                                         | code             | fixed          |
+| minor | `src/routes/instruments.tsx:563-567`                                  | Footer denominator includes retired instruments while the label claims 'in service': `counts.all = rows.length` (all, incl. retired) but the 'all' tab's visible list excludes retired.                                                                                                                                                                                                                                              | code             | fixed          |
+| minor | `src/routes/instruments.tsx:895-900`                                  | Register-instrument server errors are surfaced under the Serial number field only: `onError` sets `serverError` and `errors.serial = ... serverError`, so an unrelated refusal (permission, workspace) renders as if the serial were wrong.                                                                                                                                                                                          | code             | fixed          |
+| minor | `src/routes/instruments/$instrumentId.tsx:365-366`                    | Placeholder/coming-soon copy in a product path: the calibration dialog's Notes hint says "Certificate upload comes with the file capability."                                                                                                                                                                                                                                                                                        | code             | copy corrected |
 
 <details><summary>Evidence</summary>
 
-- `src/routes/instruments.tsx:104-134 vs src/components/v3/instruments/i…` — `if (days <= 14) return { state:'soon', ... }` (instruments.tsx:124) vs `if (due - now.getTime() <= 30 * 86_400_000) return { tone:'warn', label:'Due soon' }` (instruments-data.ts).
+- `src/routes/instruments.tsx:104-134 vs src/components/instruments/i…` — `if (days <= 14) return { state:'soon', ... }` (instruments.tsx:124) vs `if (due - now.getTime() <= 30 * 86_400_000) return { tone:'warn', label:'Due soon' }` (instruments-data.ts).
 - `src/routes/instruments.tsx:173-177` — list: `intakeHealth(instrument.intakeMethod, { lastImport: ... })`; inspector: `intakeHealth(..., { parserReady: parsers.isSuccess ? parserReady : undefined, lastImport: ... })` (instruments.tsx:603).
 - `src/routes/instruments/$instrumentId.tsx (whole page)` — src/db/schema.ts:4226-4228 comment; grep src for `qualification`/`valid_until` = booking dialog comments only; drizzle 0365 grants both RPCs. `$instrumentId.tsx` Sections: Data intake, Calibration, Runs.
 - `src/routes/instruments.tsx:342-346,428` — `<label ...>Connection` + `<TableHead>Connection</TableHead>` vs `InspectorSection title='Connection'` items `['Method', intakeMethodLabel(...)]` and the RadioGroup 'How data gets in'.
@@ -273,23 +273,23 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Materials (7 findings)
 
-| Sev     | Where                                                   | Defect                                                                                                                                                                                                                                                                                                                                                         | Status           | Fix            |
-| ------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | -------------- |
-| blocker | `src/lib/reagent-data.ts:607-609`                       | Replacement-lot lookup can never match. The query uses a SQL subquery inside PostgREST `in.()` — `source_record_id=in.(select id from api.records where identifier=eq.X)` — which PostgREST treats as a single literal (and fails to cast to uuid), so the request errors and the inspector always falls through to "No replacement lot" even when one exists. | verified live    | fixed          |
-| major   | `src/routes/materials.tsx:165-181,413-423`              | Quarantining a lot is one-way in the UI. The movement RPC supports operation 'restore' and `MOVEMENT_LABELS` names 'Restored', but the inspector only offers Quarantine, with no confirm dialog and a hard-coded reason 'Held for review' written into the audit ledger.                                                                                       | code             | fixed          |
-| major   | `src/routes/materials.tsx:232-248`                      | Receive-lot mutation has no `onError`. A refused receive (wrong state, permission, concurrency) leaves the dialog open with no toast and no error, so the user sees a silent no-op.                                                                                                                                                                            | code             | fixed          |
-| minor   | `src/components/v3/materials/materials-data.ts:180-200` | Tab count labels/counts are page-scoped while the header shows the server total: `counts` is computed from the fetched page (limit 200) but `ListHeader total={page.data?.total}`. With >200 lots the tab counts and footer understate.                                                                                                                        | needs live check | fixed          |
-| minor   | `src/components/v3/materials/materials-data.ts:94`      | The expiring tab is labelled "Expiring in 30 days", but per-lot `expiry_warning_days` overrides the 30-day default in `reagentAttention`, so a lot can appear/disappear from 'Expiring in 30 days' on a different window.                                                                                                                                      | code             | copy corrected |
-| minor   | `src/routes/materials.tsx:417-418`                      | The Quarantine button's disabled state is decided by string-matching the display label (`sel.status.label.startsWith('Quarantine')`) rather than the status code; an expired lot (label 'Expired…') keeps the button enabled and no confirmation/undo is offered.                                                                                              | code             | fixed          |
-| minor   | `src/routes/materials.tsx:464-471`                      | The 'No replacement lot' block always asserts "Experiments cannot reference an expired lot." regardless of whether the selected lot is expired or even in stock — a claim about a state the lot may not be in.                                                                                                                                                 | code             | copy corrected |
+| Sev     | Where                                                | Defect                                                                                                                                                                                                                                                                                                                                                         | Status           | Fix            |
+| ------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | -------------- |
+| blocker | `src/lib/reagent-data.ts:607-609`                    | Replacement-lot lookup can never match. The query uses a SQL subquery inside PostgREST `in.()` — `source_record_id=in.(select id from api.records where identifier=eq.X)` — which PostgREST treats as a single literal (and fails to cast to uuid), so the request errors and the inspector always falls through to "No replacement lot" even when one exists. | verified live    | fixed          |
+| major   | `src/routes/materials.tsx:165-181,413-423`           | Quarantining a lot is one-way in the UI. The movement RPC supports operation 'restore' and `MOVEMENT_LABELS` names 'Restored', but the inspector only offers Quarantine, with no confirm dialog and a hard-coded reason 'Held for review' written into the audit ledger.                                                                                       | code             | fixed          |
+| major   | `src/routes/materials.tsx:232-248`                   | Receive-lot mutation has no `onError`. A refused receive (wrong state, permission, concurrency) leaves the dialog open with no toast and no error, so the user sees a silent no-op.                                                                                                                                                                            | code             | fixed          |
+| minor   | `src/components/materials/materials-data.ts:180-200` | Tab count labels/counts are page-scoped while the header shows the server total: `counts` is computed from the fetched page (limit 200) but `ListHeader total={page.data?.total}`. With >200 lots the tab counts and footer understate.                                                                                                                        | needs live check | fixed          |
+| minor   | `src/components/materials/materials-data.ts:94`      | The expiring tab is labelled "Expiring in 30 days", but per-lot `expiry_warning_days` overrides the 30-day default in `reagentAttention`, so a lot can appear/disappear from 'Expiring in 30 days' on a different window.                                                                                                                                      | code             | copy corrected |
+| minor   | `src/routes/materials.tsx:417-418`                   | The Quarantine button's disabled state is decided by string-matching the display label (`sel.status.label.startsWith('Quarantine')`) rather than the status code; an expired lot (label 'Expired…') keeps the button enabled and no confirmation/undo is offered.                                                                                              | code             | fixed          |
+| minor   | `src/routes/materials.tsx:464-471`                   | The 'No replacement lot' block always asserts "Experiments cannot reference an expired lot." regardless of whether the selected lot is expired or even in stock — a claim about a state the lot may not be in.                                                                                                                                                 | code             | copy corrected |
 
 <details><summary>Evidence</summary>
 
 - `src/lib/reagent-data.ts:607-609` — `?source_record_id=in.(select id from api.records where identifier=eq.${encodeURIComponent(identifier)})&link_type=eq.material...` — PostgREST `in.(...)` is a value list, not a SQL expression.
 - `src/routes/materials.tsx:165-181,413-423` — `recordReagentMovement(..., { operation:'quarantine', quantityDelta:0, reason:'Held for review', ... })`; the only action buttons are `Register replacement lot` and `Quarantine`; grep for `operation: 'restore'` in src finds no caller.
 - `src/routes/materials.tsx:232-248` — `const receive = useMutation({ mutationFn: (...) => recordReagentMovement(...), onSuccess: () => { ...; toast('Lot received'); setReceiveOpen(false) } })` — no `onError` key.
-- `src/components/v3/materials/materials-data.ts:180-200` — `fetchReagentsPage(client, EMPTY_QUERY)` (pageSize 200) and `const counts = ...rows.filter(...)`, while `total: fetchReagentsCount`.
-- `src/components/v3/materials/materials-data.ts:94` — `expiring: 'Expiring in 30 days'` vs `const warningDays = reagent.expiryWarningDays ?? DEFAULT_EXPIRY_WARNING_DAYS` (30).
+- `src/components/materials/materials-data.ts:180-200` — `fetchReagentsPage(client, EMPTY_QUERY)` (pageSize 200) and `const counts = ...rows.filter(...)`, while `total: fetchReagentsCount`.
+- `src/components/materials/materials-data.ts:94` — `expiring: 'Expiring in 30 days'` vs `const warningDays = reagent.expiryWarningDays ?? DEFAULT_EXPIRY_WARNING_DAYS` (30).
 - `src/routes/materials.tsx:417-418` — `disabled={quarantine.isPending \|\| sel.status.label.startsWith('Quarantine')}`
 - `src/routes/materials.tsx:464-471` — `replacementLink.data ? ... : 'Experiments cannot reference an expired lot.'`
 
@@ -314,7 +314,7 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 - `/templates/$templateId/versions` — src/routes/templates/$templateId/versions.tsx:159 `denied = search.state === 'denied'`; 248-252 renders the Notice only; 371-381 renders `Publish v{n}…` for any draft and 386-392 renders `Retire v{n}…` — neither condition references `denied`.
 - `/templates/$templateId` — src/routes/templates/$templateId.tsx:91 `count: latest?.configuration.placements.length` (latest = highest version); src/routes/templates/$templateId/index.tsx:37-39 `shownVersion` prefers `published`.
 - `/templates/$templateId` — src/routes/templates/$templateId.tsx:44-55 `if (!t) … title={template.isLoading ? 'Loading template…' : 'Template not found'}` — no `isError` branch.
-- `/templates/$templateId/in-use` — src/components/v3/templates/templates-data.ts:206 `…&limit=200` in `useTemplateUsers`; `countTemplateUse`/`inUseStaleness` aggregate that capped array (in-use.tsx:79-86, :99-104).
+- `/templates/$templateId/in-use` — src/components/templates/templates-data.ts:206 `…&limit=200` in `useTemplateUsers`; `countTemplateUse`/`inUseStaleness` aggregate that capped array (in-use.tsx:79-86, :99-104).
 - `/templates, /models` — src/routes/templates.tsx:293-296; same pattern src/routes/models.tsx:281-284.
 
 </details>
@@ -353,17 +353,17 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Shell / notification bell (3 findings)
 
-| Sev   | Where                                           | Defect                                                                                                                                                                                                                                                                                                                  | Status           | Fix   |
-| ----- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
-| major | `src/components/v3/shell/app-shell.tsx:230`     | Bottom-tab Inbox unread badge is computed from the server-provided `data.notifications` array and is completely independent of the bell popover's local read state, so opening the bell and pressing "Mark all read" never clears the phone badge during the session.                                                   | needs live check | fixed |
-| major | `src/components/v3/shell/app-shell.tsx:598-635` | "Mark all read" performs no write — it only flips a local `read` boolean. Unread is re-derived from the SSR snapshot on every reopen, so the action has no persistent effect and the rows revert to unread on reload. A persistence path (`mark_notifications_read` RPC) already exists and is used by the legacy bell. | needs live check | fixed |
-| major | `src/components/v3/shell/app-shell.tsx:637-653` | Every notification row hard-codes `to="/inbox"`, discarding the per-item `n.to` target. The server computes a typed target (pipeline-run/dataset/sample/sheet/review) in shell-chrome.server.ts:notificationTarget, so clicking a pipeline-failure notification lands on the Inbox instead of the run.                  | code             | fixed |
+| Sev   | Where                                        | Defect                                                                                                                                                                                                                                                                                                                  | Status           | Fix   |
+| ----- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
+| major | `src/components/shell/app-shell.tsx:230`     | Bottom-tab Inbox unread badge is computed from the server-provided `data.notifications` array and is completely independent of the bell popover's local read state, so opening the bell and pressing "Mark all read" never clears the phone badge during the session.                                                   | needs live check | fixed |
+| major | `src/components/shell/app-shell.tsx:598-635` | "Mark all read" performs no write — it only flips a local `read` boolean. Unread is re-derived from the SSR snapshot on every reopen, so the action has no persistent effect and the rows revert to unread on reload. A persistence path (`mark_notifications_read` RPC) already exists and is used by the legacy bell. | needs live check | fixed |
+| major | `src/components/shell/app-shell.tsx:637-653` | Every notification row hard-codes `to="/inbox"`, discarding the per-item `n.to` target. The server computes a typed target (pipeline-run/dataset/sample/sheet/review) in shell-chrome.server.ts:notificationTarget, so clicking a pipeline-failure notification lands on the Inbox instead of the run.                  | code             | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/shell/app-shell.tsx:230` — `unread={data.notifications.filter((n) => n.unread).length}` (230) vs `const unread = read ? 0 : items.filter(...)` (600) in a separate component.
-- `src/components/v3/shell/app-shell.tsx:598-635` — `const [read, setRead] = useState(false)` (line 599); `onClick={() => setRead(true)}` (632); compare `markNotificationsRead` -> `client.rpc('mark_notifications_read'…)` in src/lib/notifications-data.ts:63-65.
-- `src/components/v3/shell/app-shell.tsx:637-653` — `<Link key={n.id} to="/inbox" …>` (639-641); target computed at src/lib/shell-chrome.server.ts:90-98 and never read.
+- `src/components/shell/app-shell.tsx:230` — `unread={data.notifications.filter((n) => n.unread).length}` (230) vs `const unread = read ? 0 : items.filter(...)` (600) in a separate component.
+- `src/components/shell/app-shell.tsx:598-635` — `const [read, setRead] = useState(false)` (line 599); `onClick={() => setRead(true)}` (632); compare `markNotificationsRead` -> `client.rpc('mark_notifications_read'…)` in src/lib/notifications-data.ts:63-65.
+- `src/components/shell/app-shell.tsx:637-653` — `<Link key={n.id} to="/inbox" …>` (639-641); target computed at src/lib/shell-chrome.server.ts:90-98 and never read.
 
 </details>
 
@@ -385,14 +385,14 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 <details><summary>Evidence</summary>
 
-- `/models/$modelId/records/$recordId` — src/components/v3/models/record-model-record.tsx:203-209 — the paragraph text is a literal; nothing queries integration writes.
-- `/models/$modelId/records/new` — src/components/v3/models/record-model-new.tsx:72-76 `canSubmit` omits `validation.blocks`; :223-233 renders blocks in the list; :248 `disabled={!canSubmit}`.
-- `/models` — src/components/v3/models/models-data.ts:100-130 `buildModelRows` uses `list.at(0)` (sorted desc) for `fieldCount`/`datasetCount`; src/routes/models.tsx:178-196 renders them unlabelled as the model's numbers.
+- `/models/$modelId/records/$recordId` — src/components/models/record-model-record.tsx:203-209 — the paragraph text is a literal; nothing queries integration writes.
+- `/models/$modelId/records/new` — src/components/models/record-model-new.tsx:72-76 `canSubmit` omits `validation.blocks`; :223-233 renders blocks in the list; :248 `disabled={!canSubmit}`.
+- `/models` — src/components/models/models-data.ts:100-130 `buildModelRows` uses `list.at(0)` (sorted desc) for `fieldCount`/`datasetCount`; src/routes/models.tsx:178-196 renders them unlabelled as the model's numbers.
 - `/models/$modelId` — src/routes/models/$modelId.tsx:63-71 ("Loading model…" : "Model not found") and :230-245 ("Model not found" / "No model …") with no error check.
 - `/models/$modelId/edit` — src/routes/models/$modelId/edit.tsx:865-871 `disabled={denied \|\| saving}` vs the `locked` guard used for every field/Add-field control (:740-760, :370-375).
 - `/models/$modelId/edit` — src/routes/models/$modelId/edit.tsx:392-405 `savedState` derives from `dirty`/`saveState`, and the inspector writes arbitrary `validation.pattern`/unit text (:520-560) with no client validation.
-- `/models/$modelId/records/$recordId` — src/components/v3/models/record-model-record.tsx:149 `['Status', record.status]` vs :99-101 `pickerStatus(record.status)` in the header.
-- `/models/$modelId/records/new` — src/components/v3/models/record-model-new.tsx:61 `selectedProject = projectId \|\| projects[0]?.id \|\| ''`; :198-217 renders the Project select only `if (projects.length > 1)`; :248 disables on `!canSubmit`.
+- `/models/$modelId/records/$recordId` — src/components/models/record-model-record.tsx:149 `['Status', record.status]` vs :99-101 `pickerStatus(record.status)` in the header.
+- `/models/$modelId/records/new` — src/components/models/record-model-new.tsx:61 `selectedProject = projectId \|\| projects[0]?.id \|\| ''`; :198-217 renders the Project select only `if (projects.length > 1)`; :248 disables on `!canSubmit`.
 - `/models/$modelId/relations` — src/routes/models/$modelId/relations.tsx:184-190 `onClick={() => remove(rule.id)}`; no dialog introduced before the call.
 - `/models/$modelId/rules` — src/routes/models/$modelId/rules.tsx:156-163 `remove()` has only try/finally; :204-209 `onClick={() => remove(rule.id)}` with no confirm dialog.
 - `/models/$modelId/versions` — src/routes/models/$modelId/versions.tsx:279-292 gates on `policy.isSuccess` without an isError branch or notice.
@@ -483,17 +483,17 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Scan (3 findings)
 
-| Sev   | Where                                          | Defect                                                                                                                                                                                                                                                                                                                                                                                                             | Status           | Fix   |
-| ----- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- | ----- |
-| major | `src/components/v3/scan/scan-data.ts:37,46,81` | Scanned instruments always read "Disconnected". The scanner resolves instrument status from the legacy `connection_status` column, but the registry's connection concept was replaced by `intake_method` (migration 0424) and no product code writes `connection_status` any more (only the legacy `api.update_instrument_connection` RPC, which nothing in src calls). New instruments default to 'disconnected'. | needs live check | fixed |
-| major | `src/routes/scan.tsx:40-58`                    | The scan flow swallows lookup failures. `resolve` has `try { … } finally { setBusy(false) }` with no `catch`, and is invoked as `void resolve(raw)`, so a rejected `resolveScanCode` (network/RLS error) produces no message at all — the spinner stops and nothing happens.                                                                                                                                       | code             | fixed |
-| minor | `src/components/v3/scan/scan-data.ts:66-73`    | A scanned record's status is always rendered with the neutral 'stored' tone and the raw underscore-replaced status, regardless of the real status, so a consumed/quarantined sample looks the same as an available one.                                                                                                                                                                                            | code             | fixed |
+| Sev   | Where                                       | Defect                                                                                                                                                                                                                                                                                                                                                                                                             | Status           | Fix   |
+| ----- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- | ----- |
+| major | `src/components/scan/scan-data.ts:37,46,81` | Scanned instruments always read "Disconnected". The scanner resolves instrument status from the legacy `connection_status` column, but the registry's connection concept was replaced by `intake_method` (migration 0424) and no product code writes `connection_status` any more (only the legacy `api.update_instrument_connection` RPC, which nothing in src calls). New instruments default to 'disconnected'. | needs live check | fixed |
+| major | `src/routes/scan.tsx:40-58`                 | The scan flow swallows lookup failures. `resolve` has `try { … } finally { setBusy(false) }` with no `catch`, and is invoked as `void resolve(raw)`, so a rejected `resolveScanCode` (network/RLS error) produces no message at all — the spinner stops and nothing happens.                                                                                                                                       | code             | fixed |
+| minor | `src/components/scan/scan-data.ts:66-73`    | A scanned record's status is always rendered with the neutral 'stored' tone and the raw underscore-replaced status, regardless of the real status, so a consumed/quarantined sample looks the same as an available one.                                                                                                                                                                                            | code             | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/scan/scan-data.ts:37,46,81` — `?select=${INSTRUMENT_FIELDS}` where INSTRUMENT_FIELDS ends `...instrument_type,connection_status`; status: `row.connection_status === 'connected' ? {tone:'ok',label:'Connected'} : {tone:'stored',label:'Disconnected'}`. grep src for `connection_status` = only scan-data.ts + db/schema.ts.
+- `src/components/scan/scan-data.ts:37,46,81` — `?select=${INSTRUMENT_FIELDS}` where INSTRUMENT_FIELDS ends `...instrument_type,connection_status`; status: `row.connection_status === 'connected' ? {tone:'ok',label:'Connected'} : {tone:'stored',label:'Disconnected'}`. grep src for `connection_status` = only scan-data.ts + db/schema.ts.
 - `src/routes/scan.tsx:40-58` — `const resolve = async (raw) => { setBusy(true); try { const r = await resolveScanCode(trimmed); setResult(r); ... } finally { setBusy(false) } }`; `onScan={(raw) => void resolve(raw)}`.
-- `src/components/v3/scan/scan-data.ts:66-73` — `status: { tone: 'stored', label: row.status.replace(/_/g, ' ') }` in `toRecordTarget`.
+- `src/components/scan/scan-data.ts:66-73` — `status: { tone: 'stored', label: row.status.replace(/_/g, ' ') }` in `toRecordTarget`.
 
 </details>
 
@@ -522,9 +522,9 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 <details><summary>Evidence</summary>
 
-- `/experiments` — src/components/v3/experiments/experiments-data.ts:98 `...order=updated_at.desc&limit=300`; footer src/routes/experiments.tsx:445-449 uses rows.length.
+- `/experiments` — src/components/experiments/experiments-data.ts:98 `...order=updated_at.desc&limit=300`; footer src/routes/experiments.tsx:445-449 uses rows.length.
 - `/experiments` — src/routes/experiments.tsx:77,82-85 validateSearch group; :188-201 groups rows; grep finds no UI setting `group`.
-- `/experiments` — src/components/v3/experiments/experiments-data.ts:~78 `started: row.created_at.slice(0, 10)`.
+- `/experiments` — src/components/experiments/experiments-data.ts:~78 `started: row.created_at.slice(0, 10)`.
 - `/experiments` — src/routes/experiments.tsx:158 `<span className="num ...">{rows.length}</span>`; no-access branch at :397-401.
 
 </details>
@@ -540,25 +540,25 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 <details><summary>Evidence</summary>
 
-- `/projects` — src/components/v3/projects/projects-page.tsx:801 `<Button variant="primary" onClick={onNew}>New project</Button>` vs projects-page.tsx:719 `open={canCreate && !!search.new}`. Header button at :214 is guarded by `disabled={!canCreate}`, the empty-state one is not.
-- `/projects` — src/components/v3/projects/projects-page.tsx:625-640 checkbox column; footer shows only `{checked.size} selected` (~:636), no archive/export/move control wired to `checked`.
-- `/projects` — src/components/v3/projects/projects-page.tsx:176-178 `sort === 'id' ? b.id.localeCompare(a.id)`.
-- `/projects` — src/components/v3/projects/projects-page.tsx:196 `const colSpan = 5 + cols.length`; the header is checkbox + ID + Project + cols + Status = 4 + cols.length columns (pages 625-700).
+- `/projects` — src/components/projects/projects-page.tsx:801 `<Button variant="primary" onClick={onNew}>New project</Button>` vs projects-page.tsx:719 `open={canCreate && !!search.new}`. Header button at :214 is guarded by `disabled={!canCreate}`, the empty-state one is not.
+- `/projects` — src/components/projects/projects-page.tsx:625-640 checkbox column; footer shows only `{checked.size} selected` (~:636), no archive/export/move control wired to `checked`.
+- `/projects` — src/components/projects/projects-page.tsx:176-178 `sort === 'id' ? b.id.localeCompare(a.id)`.
+- `/projects` — src/components/projects/projects-page.tsx:196 `const colSpan = 5 + cols.length`; the header is checkbox + ID + Project + cols + Status = 4 + cols.length columns (pages 625-700).
 
 </details>
 
 #### Protocols (4 findings)
 
-| Sev   | Where                                                          | Defect                                                                                                                                                                                                                                                                                                                                                                                                         | Status           | Fix   |
-| ----- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
-| major | `src/components/v3/protocols/protocol-version-training.tsx:18` | Two contradictory training models, and the design's is dead code. `ProtocolVersionTraining` (per-frozen-version acknowledgement, 'A new version requires a new acknowledgement') is referenced only from stories/tests; the live Training tab uses `protocol_training` with record-level statuses Trained/Required/Expired via `record_protocol_training` (drizzle 0271), which has no version linkage at all. | code             | fixed |
-| minor | `src/routes/protocols.tsx:49,79-81`                            | Tab says "Retired" while the status chip for the same rows says "Archived" (`protocolStatus('archived') -> 'Archived'`).                                                                                                                                                                                                                                                                                       | code             | fixed |
-| minor | `src/routes/protocols/$protocolId.tsx:381-390`                 | The Training tab claims 'experiments should only start from a version their owner is trained on', but nothing enforces or surfaces that at experiment start (training is record-level, unversioned), so the statement is aspirational copy.                                                                                                                                                                    | code             | fixed |
-| minor | `src/routes/protocols/$protocolId.tsx:445-465`                 | Record-training dialog initialises the person before members load: `useState(members.at(0)?.user_id ?? '')` runs once, so when the workspace-member RPC resolves after first paint the select stays blank and Save is disabled until the user re-picks.                                                                                                                                                        | needs live check | fixed |
+| Sev   | Where                                                       | Defect                                                                                                                                                                                                                                                                                                                                                                                                         | Status           | Fix   |
+| ----- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
+| major | `src/components/protocols/protocol-version-training.tsx:18` | Two contradictory training models, and the design's is dead code. `ProtocolVersionTraining` (per-frozen-version acknowledgement, 'A new version requires a new acknowledgement') is referenced only from stories/tests; the live Training tab uses `protocol_training` with record-level statuses Trained/Required/Expired via `record_protocol_training` (drizzle 0271), which has no version linkage at all. | code             | fixed |
+| minor | `src/routes/protocols.tsx:49,79-81`                         | Tab says "Retired" while the status chip for the same rows says "Archived" (`protocolStatus('archived') -> 'Archived'`).                                                                                                                                                                                                                                                                                       | code             | fixed |
+| minor | `src/routes/protocols/$protocolId.tsx:381-390`              | The Training tab claims 'experiments should only start from a version their owner is trained on', but nothing enforces or surfaces that at experiment start (training is record-level, unversioned), so the statement is aspirational copy.                                                                                                                                                                    | code             | fixed |
+| minor | `src/routes/protocols/$protocolId.tsx:445-465`              | Record-training dialog initialises the person before members load: `useState(members.at(0)?.user_id ?? '')` runs once, so when the workspace-member RPC resolves after first paint the select stays blank and Save is disabled until the user re-picks.                                                                                                                                                        | needs live check | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/protocols/protocol-version-training.tsx:18` — grep `ProtocolVersionTraining` = component, its test, and protocols.stories.tsx only; protocols/$protocolId.tsx TrainingTab uses `client.list('protocol_training', ...)` + `rpc('record_protocol_training', ...)`.
+- `src/components/protocols/protocol-version-training.tsx:18` — grep `ProtocolVersionTraining` = component, its test, and protocols.stories.tsx only; protocols/$protocolId.tsx TrainingTab uses `client.list('protocol_training', ...)` + `rpc('record_protocol_training', ...)`.
 - `src/routes/protocols.tsx:49,79-81` — `retired: 'Retired'` in tabLabel; `case 'archived': return { tone:'stored', label:'Archived' }`.
 - `src/routes/protocols/$protocolId.tsx:381-390` — EmptyState body text; no reader of `protocol_training` outside this tab (grep).
 - `src/routes/protocols/$protocolId.tsx:445-465` — `const [userId, setUserId] = useState(members.at(0)?.user_id ?? '')` where `members = members.data ?? []` from an async query.
@@ -599,33 +599,33 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Schedule / booking dialog (3 findings)
 
-| Sev   | Where                                              | Defect                                                                                                                                                                                                                                                                                              | Status           | Fix   |
-| ----- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
-| major | `src/components/v3/schedule/book-dialog.tsx:65-67` | Bookings are always written with `timezone: 'UTC'` and wall-clock times appended with `Z`, ignoring the workspace timezone. Home and the Schedule grid then disagree (Home converts to workspace TZ), so a booking made for 09:00 can display at a different time on Home.                          | needs live check | fixed |
-| minor | `src/components/v3/schedule/book-dialog.tsx:56-60` | No client validation that the end time is after the start (or that a date is set); a reversed or empty range is submitted and only refused server-side.                                                                                                                                             | code             | fixed |
-| minor | `src/components/v3/schedule/book-dialog.tsx:69-72` | After a successful booking the dialog resets `title` and `resourceId` but leaves `date`/`start`/`end`, and `date` is initialised from `defaultDate` only on first mount — so the next booking silently reuses stale times, and the prop-derived default never updates as the user changes week/day. | code             | fixed |
+| Sev   | Where                                           | Defect                                                                                                                                                                                                                                                                                              | Status           | Fix   |
+| ----- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
+| major | `src/components/schedule/book-dialog.tsx:65-67` | Bookings are always written with `timezone: 'UTC'` and wall-clock times appended with `Z`, ignoring the workspace timezone. Home and the Schedule grid then disagree (Home converts to workspace TZ), so a booking made for 09:00 can display at a different time on Home.                          | needs live check | fixed |
+| minor | `src/components/schedule/book-dialog.tsx:56-60` | No client validation that the end time is after the start (or that a date is set); a reversed or empty range is submitted and only refused server-side.                                                                                                                                             | code             | fixed |
+| minor | `src/components/schedule/book-dialog.tsx:69-72` | After a successful booking the dialog resets `title` and `resourceId` but leaves `date`/`start`/`end`, and `date` is initialised from `defaultDate` only on first mount — so the next booking silently reuses stale times, and the prop-derived default never updates as the user changes week/day. | code             | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/schedule/book-dialog.tsx:65-67` — `startsAt: \`${date}T${start}:00.000Z\``, `endsAt: \`${date}T${end}:00.000Z\``, `timezone: 'UTC'`(65-67) vs Home`toLocaleTimeString('en-GB', { timeZone })` (index.tsx:760-764).
-- `src/components/v3/schedule/book-dialog.tsx:56-60` — Submit guard checks only `!resourceId \|\| !title.trim()` (56-59); start/end are free `type=time` inputs (120-129).
-- `src/components/v3/schedule/book-dialog.tsx:69-72` — `setTitle('')`/`setResourceId('')` (71-72) but no date/start/end reset; `const [date, setDate] = useState(defaultDate)` (46); `defaultDate={view === 'day' ? anchor : addDays(today, 3)}` (schedule.tsx:184).
+- `src/components/schedule/book-dialog.tsx:65-67` — `startsAt: \`${date}T${start}:00.000Z\``, `endsAt: \`${date}T${end}:00.000Z\``, `timezone: 'UTC'`(65-67) vs Home`toLocaleTimeString('en-GB', { timeZone })` (index.tsx:760-764).
+- `src/components/schedule/book-dialog.tsx:56-60` — Submit guard checks only `!resourceId \|\| !title.trim()` (56-59); start/end are free `type=time` inputs (120-129).
+- `src/components/schedule/book-dialog.tsx:69-72` — `setTitle('')`/`setResourceId('')` (71-72) but no date/start/end reset; `const [date, setDate] = useState(defaultDate)` (46); `defaultDate={view === 'day' ? anchor : addDays(today, 3)}` (schedule.tsx:184).
 
 </details>
 
 #### Search / command palette (3 findings)
 
-| Sev   | Where                                                             | Defect                                                                                                                                                                                                                                                        | Status           | Fix   |
-| ----- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
-| major | `src/components/v3/search/search-palette.tsx:145-156`             | The palette's `executeSearch` promise has no `.catch`; a failing search leaves `res === null`, so the "No matches" branch (`res !== null && …`) never shows and the user sees an empty results box, plus an unhandled rejection. No error/retry state exists. | code             | fixed |
-| minor | `src/components/v3/search/search-palette.tsx:137-155`             | While the debounced query is in flight `res` remains from the prior query or null, and there is no "searching" state — an empty listbox is shown with no progress indication.                                                                                 | needs live check | fixed |
-| minor | `src/components/v3/search/search-palette.tsx:82-96 (scope) + 341` | With a project scope selected the palette client-filters results (`filterBySearchScope`); if the scope removes all rows the palette shows the generic "No matches for …" with no hint that the scope caused it and no way to clear the scope from that state. | needs live check | fixed |
+| Sev   | Where                                                          | Defect                                                                                                                                                                                                                                                        | Status           | Fix   |
+| ----- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
+| major | `src/components/search/search-palette.tsx:145-156`             | The palette's `executeSearch` promise has no `.catch`; a failing search leaves `res === null`, so the "No matches" branch (`res !== null && …`) never shows and the user sees an empty results box, plus an unhandled rejection. No error/retry state exists. | code             | fixed |
+| minor | `src/components/search/search-palette.tsx:137-155`             | While the debounced query is in flight `res` remains from the prior query or null, and there is no "searching" state — an empty listbox is shown with no progress indication.                                                                                 | needs live check | fixed |
+| minor | `src/components/search/search-palette.tsx:82-96 (scope) + 341` | With a project scope selected the palette client-filters results (`filterBySearchScope`); if the scope removes all rows the palette shows the generic "No matches for …" with no hint that the scope caused it and no way to clear the scope from that state. | needs live check | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/search/search-palette.tsx:145-156` — `void executeSearch(notebookDataClient, {…}).then((rows) => { if (live) { setRes(rows) … } })` (145-155); empty-state guard at ~340-345 requires `res !== null`.
-- `src/components/v3/search/search-palette.tsx:137-155` — `setRes(null)` on empty term (139); fetch only sets `res` on resolution (150-155).
-- `src/components/v3/search/search-palette.tsx:82-96 (scope) + 341` — `scoped = filterBySearchScope(items, scope === SEARCH_SCOPE_ALL ? undefined : scope)` (208-214); empty state text at 341-345.
+- `src/components/search/search-palette.tsx:145-156` — `void executeSearch(notebookDataClient, {…}).then((rows) => { if (live) { setRes(rows) … } })` (145-155); empty-state guard at ~340-345 requires `res !== null`.
+- `src/components/search/search-palette.tsx:137-155` — `setRes(null)` on empty term (139); fetch only sets `res` on resolution (150-155).
+- `src/components/search/search-palette.tsx:82-96 (scope) + 341` — `scoped = filterBySearchScope(items, scope === SEARCH_SCOPE_ALL ? undefined : scope)` (208-214); empty state text at 341-345.
 
 </details>
 
@@ -647,17 +647,17 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Shell / workspace switcher (3 findings)
 
-| Sev   | Where                                           | Defect                                                                                                                                                                                                                     | Status           | Fix            |
-| ----- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | -------------- |
-| major | `src/components/v3/shell/app-shell.tsx:500-501` | The workspace switcher trigger is `hidden … sm:flex` and is not offered anywhere else (the mobile menu Sheet renders only SideNav). Below the sm breakpoint a phone user has no way to see or change the active workspace. | needs live check | fixed          |
-| minor | `src/components/v3/shell/app-shell.tsx:149-156` | A refused workspace switch is swallowed and `router.invalidate()` still runs, so the menu checkmark/selection does not move and the user gets no error — the click appears to do nothing.                                  | needs live check | fixed          |
-| minor | `src/components/v3/shell/app-shell.tsx:534`     | The workspace menu's only non-membership entry is a permanently disabled "Create workspace" item with no explanation or route — a dead affordance.                                                                         | code             | copy corrected |
+| Sev   | Where                                        | Defect                                                                                                                                                                                                                     | Status           | Fix            |
+| ----- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | -------------- |
+| major | `src/components/shell/app-shell.tsx:500-501` | The workspace switcher trigger is `hidden … sm:flex` and is not offered anywhere else (the mobile menu Sheet renders only SideNav). Below the sm breakpoint a phone user has no way to see or change the active workspace. | needs live check | fixed          |
+| minor | `src/components/shell/app-shell.tsx:149-156` | A refused workspace switch is swallowed and `router.invalidate()` still runs, so the menu checkmark/selection does not move and the user gets no error — the click appears to do nothing.                                  | needs live check | fixed          |
+| minor | `src/components/shell/app-shell.tsx:534`     | The workspace menu's only non-membership entry is a permanently disabled "Create workspace" item with no explanation or route — a dead affordance.                                                                         | code             | copy corrected |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/shell/app-shell.tsx:500-501` — `className="hidden max-w-52 gap-1.5 sm:flex"` (501); Sheet at 232-242 contains only `<SideNav>`.
-- `src/components/v3/shell/app-shell.tsx:149-156` — `try { await setActiveWorkspace(...) } catch { /* keep the current workspace if the switch is refused */ } router.invalidate()` (150-156).
-- `src/components/v3/shell/app-shell.tsx:534` — `<DropdownMenuItem disabled>Create workspace</DropdownMenuItem>` (534).
+- `src/components/shell/app-shell.tsx:500-501` — `className="hidden max-w-52 gap-1.5 sm:flex"` (501); Sheet at 232-242 contains only `<SideNav>`.
+- `src/components/shell/app-shell.tsx:149-156` — `try { await setActiveWorkspace(...) } catch { /* keep the current workspace if the switch is refused */ } router.invalidate()` (150-156).
+- `src/components/shell/app-shell.tsx:534` — `<DropdownMenuItem disabled>Create workspace</DropdownMenuItem>` (534).
 
 </details>
 
@@ -775,15 +775,15 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Settings · API and SDK (2 findings)
 
-| Sev   | Where                                                        | Defect                                                                                                                                                                                                                     | Status           | Fix   |
-| ----- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
-| major | `src/routes/settings/api.tsx:86-129`                         | Revoke and rotate for both personal tokens and service credentials have no `onError` and their errors are never rendered — a failed revoke/rotate silently leaves the token active while the user believes it was revoked. | needs live check | fixed |
-| minor | `src/components/v3/settings/settings-api-tokens.tsx:236-241` | Revoke (immediate, permanent) and Rotate (invalidates the current secret) fire straight from the table row with no confirmation dialog.                                                                                    | code             | fixed |
+| Sev   | Where                                                     | Defect                                                                                                                                                                                                                     | Status           | Fix   |
+| ----- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
+| major | `src/routes/settings/api.tsx:86-129`                      | Revoke and rotate for both personal tokens and service credentials have no `onError` and their errors are never rendered — a failed revoke/rotate silently leaves the token active while the user believes it was revoked. | needs live check | fixed |
+| minor | `src/components/settings/settings-api-tokens.tsx:236-241` | Revoke (immediate, permanent) and Rotate (invalidates the current secret) fire straight from the table row with no confirmation dialog.                                                                                    | code             | fixed |
 
 <details><summary>Evidence</summary>
 
 - `src/routes/settings/api.tsx:86-129` — `const revokeToken = useMutation({ mutationFn: …, onSuccess: invalidate })` (no onError); only `createToken.isError` is rendered in the page body.
-- `src/components/v3/settings/settings-api-tokens.tsx:236-241` — `onClick={() => onRevoke(row.id)}` / `onClick={() => onRotate(row.id)}`; identical shape in settings-service-credentials.tsx.
+- `src/components/settings/settings-api-tokens.tsx:236-241` — `onClick={() => onRevoke(row.id)}` / `onClick={() => onRotate(row.id)}`; identical shape in settings-service-credentials.tsx.
 
 </details>
 
@@ -995,13 +995,13 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Registries (shared) (1 findings)
 
-| Sev   | Where                                         | Defect                                                                                                                                                                                                                                                                                                              | Status           | Fix   |
-| ----- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
-| major | `src/components/v3/inventory/list.tsx:83-212` | Sort / Filter / Fields / Group controls are non-functional on Samples, Materials and Protocols. `ListToolbar` passes `views` through to `ViewControls`, but the routes never pass `onSort`, and the Filter/Fields menu items have no handlers — selecting 'Sort: …' only relabels the trigger and never re-queries. | needs live check | fixed |
+| Sev   | Where                                      | Defect                                                                                                                                                                                                                                                                                                              | Status           | Fix   |
+| ----- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
+| major | `src/components/inventory/list.tsx:83-212` | Sort / Filter / Fields / Group controls are non-functional on Samples, Materials and Protocols. `ListToolbar` passes `views` through to `ViewControls`, but the routes never pass `onSort`, and the Filter/Fields menu items have no handlers — selecting 'Sort: …' only relabels the trigger and never re-queries. | needs live check | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/inventory/list.tsx:83-212` — `const pick = (s) => { setLocalSort(s); onSort?.(s) }` with no `onSort` from routes (samples.tsx:172-176, materials.tsx, protocols.tsx pass `views` only); `<DropdownMenuItem key={f} className='pl-[30px]'>{f}…</DropdownMenuItem>` and `FieldsButton` items `icon='check'` with no onClick.
+- `src/components/inventory/list.tsx:83-212` — `const pick = (s) => { setLocalSort(s); onSort?.(s) }` with no `onSort` from routes (samples.tsx:172-176, materials.tsx, protocols.tsx pass `views` only); `<DropdownMenuItem key={f} className='pl-[30px]'>{f}…</DropdownMenuItem>` and `FieldsButton` items `icon='check'` with no onClick.
 
 </details>
 
@@ -1067,18 +1067,18 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Pipelines · Agents (4 findings)
 
-| Sev   | Where                                                                | Defect                                                                                                                                                                                                                            | Status           | Fix            |
-| ----- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | -------------- |
-| minor | `src/components/v3/pipelines/agents/agent-surface.tsx:39-46,150-160` | Pending proposals are grouped into “Waiting on others” purely from the viewer's capability flag, so a proposal nobody in the workspace can approve is labelled as if a colleague is handling it.                                  | needs live check | copy corrected |
-| minor | `src/components/v3/pipelines/agents/agent-surface.tsx:736-738,801`   | When the workspace has no service credentials, the policy form shows a “No credentials” option and the Create policy button is disabled, but nothing explains why the action is unavailable.                                      | code             | fixed          |
-| minor | `src/components/v3/pipelines/agents/agent-surface.tsx:860-868`       | Disabling an execution policy (removing a delegation) happens immediately from the table with no confirmation dialog.                                                                                                             | code             | fixed          |
-| minor | `src/routes/pipelines/agents.tsx:236-252`                            | The UI's own approval matrix maps operation_kind → capability (record.create / pipelines.manage / schema.edit) independently of the server's decide RPC; if the two drift the UI will show or hide the decision controls wrongly. | needs live check | not a defect   |
+| Sev   | Where                                                             | Defect                                                                                                                                                                                                                            | Status           | Fix            |
+| ----- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | -------------- |
+| minor | `src/components/pipelines/agents/agent-surface.tsx:39-46,150-160` | Pending proposals are grouped into “Waiting on others” purely from the viewer's capability flag, so a proposal nobody in the workspace can approve is labelled as if a colleague is handling it.                                  | needs live check | copy corrected |
+| minor | `src/components/pipelines/agents/agent-surface.tsx:736-738,801`   | When the workspace has no service credentials, the policy form shows a “No credentials” option and the Create policy button is disabled, but nothing explains why the action is unavailable.                                      | code             | fixed          |
+| minor | `src/components/pipelines/agents/agent-surface.tsx:860-868`       | Disabling an execution policy (removing a delegation) happens immediately from the table with no confirmation dialog.                                                                                                             | code             | fixed          |
+| minor | `src/routes/pipelines/agents.tsx:236-252`                         | The UI's own approval matrix maps operation_kind → capability (record.create / pipelines.manage / schema.edit) independently of the server's decide RPC; if the two drift the UI will show or hide the decision controls wrongly. | needs live check | not a defect   |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/pipelines/agents/agent-surface.tsx:39-46,150-160` — `if (p.status === 'pending') (canApprove ? needsYou : waiting).push(p)` — `waiting` means “waiting on others”, including when there are no others.
-- `src/components/v3/pipelines/agents/agent-surface.tsx:736-738,801` — `<option value="">No credentials</option>` plus `disabled={!valid}` where `valid` requires `credentialId.length > 0`; no hint text.
-- `src/components/v3/pipelines/agents/agent-surface.tsx:860-868` — `<Button variant="danger" size="sm" onClick={() => onDisable(p)}>Disable</Button>` in AgentPoliciesPanel.
+- `src/components/pipelines/agents/agent-surface.tsx:39-46,150-160` — `if (p.status === 'pending') (canApprove ? needsYou : waiting).push(p)` — `waiting` means “waiting on others”, including when there are no others.
+- `src/components/pipelines/agents/agent-surface.tsx:736-738,801` — `<option value="">No credentials</option>` plus `disabled={!valid}` where `valid` requires `credentialId.length > 0`; no hint text.
+- `src/components/pipelines/agents/agent-surface.tsx:860-868` — `<Button variant="danger" size="sm" onClick={() => onDisable(p)}>Disable</Button>` in AgentPoliciesPanel.
 - `src/routes/pipelines/agents.tsx:236-252` — `canApprove` ternary on `selectedProposal.operation_kind` with `hasCapability(...)`; no shared source with the RPC policy.
 
 </details>
@@ -1171,15 +1171,15 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Settings · General (2 findings)
 
-| Sev   | Where                                                     | Defect                                                                                                                                                                                  | Status | Fix   |
-| ----- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- |
-| minor | `src/components/v3/settings/settings-general.tsx:131-140` | Time zone is a free-text input with no validation or IANA list, so an invalid zone can be saved (the RPC is the only guard) and Save is enabled regardless of whether anything changed. | code   | fixed |
-| nit   | `src/components/v3/settings/settings-general.tsx:222`     | The record-ID example is hard-coded to a past year — `{prefix}-2025-0001` — while the page is otherwise data-driven; in 2026 the example demonstrates stale numbering.                  | code   | fixed |
+| Sev   | Where                                                  | Defect                                                                                                                                                                                  | Status | Fix   |
+| ----- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- |
+| minor | `src/components/settings/settings-general.tsx:131-140` | Time zone is a free-text input with no validation or IANA list, so an invalid zone can be saved (the RPC is the only guard) and Save is enabled regardless of whether anything changed. | code   | fixed |
+| nit   | `src/components/settings/settings-general.tsx:222`     | The record-ID example is hard-coded to a past year — `{prefix}-2025-0001` — while the page is otherwise data-driven; in 2026 the example demonstrates stale numbering.                  | code   | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/settings/settings-general.tsx:131-140` — <Input aria-label="Time zone" value={form.timezone} onChange={…} />; Save button only disabled on `save.isPending \|\| query.isLoading \|\| query.isError`.
-- `src/components/v3/settings/settings-general.tsx:222` — `{prefix ? `${prefix}-2025-0001` : '—'}`.
+- `src/components/settings/settings-general.tsx:131-140` — <Input aria-label="Time zone" value={form.timezone} onChange={…} />; Save button only disabled on `save.isPending \|\| query.isLoading \|\| query.isError`.
+- `src/components/settings/settings-general.tsx:222` — `{prefix ? `${prefix}-2025-0001` : '—'}`.
 
 </details>
 
@@ -1197,13 +1197,13 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Datasets › Imports tab (1 findings)
 
-| Sev   | Where                                                        | Defect                                                                                                                                                                             | Status    | Fix   |
-| ----- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----- |
-| minor | `src/components/v3/datasets/dataset-imports-tab.tsx:134-135` | Import receipts are inert: rows carry the receipt id but no link to /import/$importId (or any drill-down), so a failed import shown here cannot be opened or retried from the tab. | code-only | fixed |
+| Sev   | Where                                                     | Defect                                                                                                                                                                             | Status    | Fix   |
+| ----- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----- |
+| minor | `src/components/datasets/dataset-imports-tab.tsx:134-135` | Import receipts are inert: rows carry the receipt id but no link to /import/$importId (or any drill-down), so a failed import shown here cannot be opened or retried from the tab. | code-only | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/datasets/dataset-imports-tab.tsx:134-135` — `{rows.map((row) => (<TableRow key={row.id}>` with no `<Link>`; the receipt `id` is the only identity rendered nowhere clickable.
+- `src/components/datasets/dataset-imports-tab.tsx:134-135` — `{rows.map((row) => (<TableRow key={row.id}>` with no `<Link>`; the receipt `id` is the only identity rendered nowhere clickable.
 
 </details>
 
@@ -1233,13 +1233,13 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Datasets › list toolbar (1 findings)
 
-| Sev   | Where                                                                    | Defect                                                                                                                                 | Status    | Fix   |
-| ----- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----- |
-| minor | `src/components/v3/inventory/list.tsx:186-196 (used by src/routes/data…` | The toolbar 'Filter' dropdown lists Status/Owner/Updated items with no onClick (and no filter UI behind them) — clicking does nothing. | code-only | fixed |
+| Sev   | Where                                                                 | Defect                                                                                                                                 | Status    | Fix   |
+| ----- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----- |
+| minor | `src/components/inventory/list.tsx:186-196 (used by src/routes/data…` | The toolbar 'Filter' dropdown lists Status/Owner/Updated items with no onClick (and no filter UI behind them) — clicking does nothing. | code-only | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/inventory/list.tsx:186-196 (used by src/routes/data…` — `{(filters?.length ? filters : ['Status','Owner','Updated']).map((f) => <DropdownMenuItem key={f} className="pl-[30px]">{f}…</DropdownMenuItem>)}` with no handler.
+- `src/components/inventory/list.tsx:186-196 (used by src/routes/data…` — `{(filters?.length ? filters : ['Status','Owner','Updated']).map((f) => <DropdownMenuItem key={f} className="pl-[30px]">{f}…</DropdownMenuItem>)}` with no handler.
 
 </details>
 
@@ -1329,13 +1329,13 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Instruments (list) (1 findings)
 
-| Sev   | Where                                                       | Defect                                                                                                                                                                                                                                                                                           | Status           | Fix   |
-| ----- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- | ----- |
-| minor | `src/components/v3/instruments/instruments-data.ts:600-614` | The registry 'Calibration due' column uses the calibration with the greatest `due_at` per instrument (ordered `due_at.desc`), not the most recently performed one. A recalibration with a nearer due date can be masked by an older row carrying a later due date, hiding an overdue instrument. | needs live check | fixed |
+| Sev   | Where                                                    | Defect                                                                                                                                                                                                                                                                                           | Status           | Fix   |
+| ----- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- | ----- |
+| minor | `src/components/instruments/instruments-data.ts:600-614` | The registry 'Calibration due' column uses the calibration with the greatest `due_at` per instrument (ordered `due_at.desc`), not the most recently performed one. A recalibration with a nearer due date can be masked by an older row carrying a later due date, hiding an overdue instrument. | needs live check | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/instruments/instruments-data.ts:600-614` — `?select=...&order=due_at.desc,id.desc&limit=500` then `if (!latest.has(row.instrumentId)) latest.set(...)`.
+- `src/components/instruments/instruments-data.ts:600-614` — `?select=...&order=due_at.desc,id.desc&limit=500` then `if (!latest.has(row.instrumentId)) latest.set(...)`.
 
 </details>
 
@@ -1359,7 +1359,7 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 <details><summary>Evidence</summary>
 
-- `/projects/$projectId/datasets` — src/components/v3/projects/project-lists.ts:216-234 fetchProjectDatasetsPage counts `datasets` but lists via the RPC; the same mismatch is surfaced in $projectId.tsx:53 useProjectDatasetCount.
+- `/projects/$projectId/datasets` — src/components/projects/project-lists.ts:216-234 fetchProjectDatasetsPage counts `datasets` but lists via the RPC; the same mismatch is surfaced in $projectId.tsx:53 useProjectDatasetCount.
 
 </details>
 
@@ -1437,13 +1437,13 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Samples (withdraw) (1 findings)
 
-| Sev   | Where                                                   | Defect                                                                                                                                                                                                                                                                          | Status           | Fix   |
-| ----- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
-| minor | `src/components/v3/samples/withdraw-dialog.tsx:315-318` | When the sample has no stored unit, the unit select defaults to 'mL' and the free/available figures are shown with the balance's unit, so the form can submit a unit that doesn't match the balance; the mismatch is only caught server-side (surfaced via SB006 text parsing). | needs live check | fixed |
+| Sev   | Where                                                | Defect                                                                                                                                                                                                                                                                          | Status           | Fix   |
+| ----- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
+| minor | `src/components/samples/withdraw-dialog.tsx:315-318` | When the sample has no stored unit, the unit select defaults to 'mL' and the free/available figures are shown with the balance's unit, so the form can submit a unit that doesn't match the balance; the mismatch is only caught server-side (surfaced via SB006 text parsing). | needs live check | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/samples/withdraw-dialog.tsx:315-318` — `const [unit, setUnit] = useState(sample.quantityUnit ?? 'mL')` vs `free = balances?.free ?? sample.quantity ?? 0` and `unitLabel = balances?.unit ?? sample.quantityUnit ?? null`.
+- `src/components/samples/withdraw-dialog.tsx:315-318` — `const [unit, setUnit] = useState(sample.quantityUnit ?? 'mL')` vs `free = balances?.free ?? sample.quantity ?? 0` and `unitLabel = balances?.unit ?? sample.quantityUnit ?? null`.
 
 </details>
 
@@ -1509,13 +1509,13 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Settings · Notifications (1 findings)
 
-| Sev   | Where                                                           | Defect                                                                                                                                                                                              | Status | Fix   |
-| ----- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- |
-| minor | `src/components/v3/settings/settings-notifications.tsx:139-176` | Quiet-hours start/end and digest time accept any combination with no validation and no stated time zone, so an end before the start is silently savable; Save is enabled even when nothing changed. | code   | fixed |
+| Sev   | Where                                                        | Defect                                                                                                                                                                                              | Status | Fix   |
+| ----- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- |
+| minor | `src/components/settings/settings-notifications.tsx:139-176` | Quiet-hours start/end and digest time accept any combination with no validation and no stated time zone, so an end before the start is silently savable; Save is enabled even when nothing changed. | code   | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/settings/settings-notifications.tsx:139-176` — Free `<Input type="time">` fields bound straight to state; no comparison or zone label; Save disabled only for `save.isPending \|\| preferencesQuery.isLoading`.
+- `src/components/settings/settings-notifications.tsx:139-176` — Free `<Input type="time">` fields bound straight to state; no comparison or zone label; Save disabled only for `save.isPending \|\| preferencesQuery.isLoading`.
 
 </details>
 
@@ -1545,13 +1545,13 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Shell / bottom tabs (1 findings)
 
-| Sev | Where                                           | Defect                                                                                                                                                                                                  | Status | Fix   |
-| --- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- |
-| nit | `src/components/v3/shell/app-shell.tsx:337-347` | The same `/` destination is labelled "Today" in the phone bottom bar and "Home" in the sidebar/rail and page header, and "Today" is also used for the inspector section — three labels for one concept. | code   | fixed |
+| Sev | Where                                        | Defect                                                                                                                                                                                                  | Status | Fix   |
+| --- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- |
+| nit | `src/components/shell/app-shell.tsx:337-347` | The same `/` destination is labelled "Today" in the phone bottom bar and "Home" in the sidebar/rail and page header, and "Today" is also used for the inspector section — three labels for one concept. | code   | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/shell/app-shell.tsx:337-347` — bottom tab `<Icon name="calendar"/>Today` (345-347) vs nav label `Home` (nav.ts:30).
+- `src/components/shell/app-shell.tsx:337-347` — bottom tab `<Icon name="calendar"/>Today` (345-347) vs nav label `Home` (nav.ts:30).
 
 </details>
 
@@ -1569,73 +1569,73 @@ the QA sweep (§2). “Fix” is the outcome of the fix pass (§4).
 
 #### Shell / notification popover (1 findings)
 
-| Sev   | Where                                           | Defect                                                                                                                                                                                                        | Status           | Fix   |
-| ----- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
-| minor | `src/components/v3/shell/app-shell.tsx:636-658` | The v3 bell popover has no max-height/overflow (12 items) and every row is a navigation link that neither dismisses the popover nor marks the row read — unlike the legacy bell which scrolls and marks read. | needs live check | fixed |
+| Sev   | Where                                        | Defect                                                                                                                                                                                                        | Status           | Fix   |
+| ----- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
+| minor | `src/components/shell/app-shell.tsx:636-658` | The v3 bell popover has no max-height/overflow (12 items) and every row is a navigation link that neither dismisses the popover nor marks the row read — unlike the legacy bell which scrolls and marks read. | needs live check | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/shell/app-shell.tsx:636-658` — `<PopoverContent className="w-[380px]">` with no `max-h`/`overflow-y` (637 area); compare legacy `max-h-80 … overflow-y-auto` and `markRead.mutate()` (notifications-bell.tsx:76-99).
+- `src/components/shell/app-shell.tsx:636-658` — `<PopoverContent className="w-[380px]">` with no `max-h`/`overflow-y` (637 area); compare legacy `max-h-80 … overflow-y-auto` and `markRead.mutate()` (notifications-bell.tsx:76-99).
 
 </details>
 
 #### Shell / sidebar (1 findings)
 
-| Sev | Where                                           | Defect                                                                                                           | Status           | Fix   |
-| --- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
-| nit | `src/components/v3/shell/app-shell.tsx:874-875` | The "Pinned projects" section header is always rendered even when `pinned` is empty, leaving a dangling heading. | needs live check | fixed |
+| Sev | Where                                        | Defect                                                                                                           | Status           | Fix   |
+| --- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
+| nit | `src/components/shell/app-shell.tsx:874-875` | The "Pinned projects" section header is always rendered even when `pinned` is empty, leaving a dangling heading. | needs live check | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/shell/app-shell.tsx:874-875` — Unconditional `<div>Pinned projects</div>` (874-875) precedes `pinned.map(...)` (877).
+- `src/components/shell/app-shell.tsx:874-875` — Unconditional `<div>Pinned projects</div>` (874-875) precedes `pinned.map(...)` (877).
 
 </details>
 
 #### Shell / theme+collapse (1 findings)
 
-| Sev   | Where                                           | Defect                                                                                                                                                                                  | Status           | Fix   |
-| ----- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
-| minor | `src/components/v3/shell/app-shell.tsx:108-127` | Sidebar collapse applies `localStorage` first, then overwrites it with the server preference when that fetch resolves — a user's local collapse can flip after load; no reconciliation. | needs live check | fixed |
+| Sev   | Where                                        | Defect                                                                                                                                                                                  | Status           | Fix   |
+| ----- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
+| minor | `src/components/shell/app-shell.tsx:108-127` | Sidebar collapse applies `localStorage` first, then overwrites it with the server preference when that fetch resolves — a user's local collapse can flip after load; no reconciliation. | needs live check | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/shell/app-shell.tsx:108-127` — `setCollapsed(saved)` (119) then `.then((preferences) => { if (!cancelled && preferences) setCollapsed(preferences.navCollapsed) })` (124-126).
+- `src/components/shell/app-shell.tsx:108-127` — `setCollapsed(saved)` (119) then `.then((preferences) => { if (!cancelled && preferences) setCollapsed(preferences.navCollapsed) })` (124-126).
 
 </details>
 
 #### UI primitives · ConfirmDialog (1 findings)
 
-| Sev | Where                                           | Defect                                                                                                                                                                                                          | Status | Fix   |
-| --- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- |
-| nit | `src/components/v3/ui/confirm-dialog.tsx:29-36` | `ConfirmDialogTrigger` declares an `asChild` prop that it ignores (it renders via base-ui `render={children}`), so call sites like ActionButtons pass a prop with no effect — a misuse trap for future callers. | code   | fixed |
+| Sev | Where                                        | Defect                                                                                                                                                                                                          | Status | Fix   |
+| --- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- |
+| nit | `src/components/ui/confirm-dialog.tsx:29-36` | `ConfirmDialogTrigger` declares an `asChild` prop that it ignores (it renders via base-ui `render={children}`), so call sites like ActionButtons pass a prop with no effect — a misuse trap for future callers. | code   | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/ui/confirm-dialog.tsx:29-36` — `export function ConfirmDialogTrigger({ children }: { children: React.ReactElement; asChild?: boolean }) { return <DialogPrimitive.Trigger render={children} /> }`.
+- `src/components/ui/confirm-dialog.tsx:29-36` — `export function ConfirmDialogTrigger({ children }: { children: React.ReactElement; asChild?: boolean }) { return <DialogPrimitive.Trigger render={children} /> }`.
 
 </details>
 
 #### UI primitives · Secret (1 findings)
 
-| Sev   | Where                                   | Defect                                                                                                                                                             | Status | Fix   |
-| ----- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | ----- |
-| minor | `src/components/v3/ui/secret.tsx:19-22` | A copy that fails (insecure context, permission denied) still shows the “Copied” toast, so the user may paste nothing from a clipboard they think holds the token. | code   | fixed |
+| Sev   | Where                                | Defect                                                                                                                                                             | Status | Fix   |
+| ----- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | ----- |
+| minor | `src/components/ui/secret.tsx:19-22` | A copy that fails (insecure context, permission denied) still shows the “Copied” toast, so the user may paste nothing from a clipboard they think holds the token. | code   | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/ui/secret.tsx:19-22` — `void navigator.clipboard.writeText(value); toast(copiedMessage)` — promise result ignored.
+- `src/components/ui/secret.tsx:19-22` — `void navigator.clipboard.writeText(value); toast(copiedMessage)` — promise result ignored.
 
 </details>
 
 #### UI primitives · Table (1 findings)
 
-| Sev | Where                                | Defect                                                                                                                                                                                                                                         | Status | Fix   |
-| --- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- |
-| nit | `src/components/v3/ui/table.tsx:4-9` | The Table primitive provides no empty/loading affordance or caption slot, and call sites frequently render a bare header-only table mid-load (e.g. settings/audit.tsx, settings/members.tsx) — the shell invites an empty table with no state. | code   | fixed |
+| Sev | Where                             | Defect                                                                                                                                                                                                                                         | Status | Fix   |
+| --- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----- |
+| nit | `src/components/ui/table.tsx:4-9` | The Table primitive provides no empty/loading affordance or caption slot, and call sites frequently render a bare header-only table mid-load (e.g. settings/audit.tsx, settings/members.tsx) — the shell invites an empty table with no state. | code   | fixed |
 
 <details><summary>Evidence</summary>
 
-- `src/components/v3/ui/table.tsx:4-9` — `<table data-slot="table" className={cn('num w-full border-collapse text-body', className)}>` — no children handling; audit.tsx:206 only adds an EmptyState after `!isLoading`.
+- `src/components/ui/table.tsx:4-9` — `<table data-slot="table" className={cn('num w-full border-collapse text-body', className)}>` — no children handling; audit.tsx:206 only adds an EmptyState after `!isLoading`.
 
 </details>
 
@@ -1686,11 +1686,11 @@ so a later pass does not re-file it.
 
 | Id     | Where                                           | Why it is not a defect                                                                                                                                                                                                                                                                                       |
 | ------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| QA-035 | `src/lib/nav-visibility.ts:40-47 + nav.ts:3-12` | src/components/v3/settings/settings-nav.ts declares roles: WORKSPACE_ADMIN_ROLES on General (30), Members (36), Signatures (42), Project access (60), Audit (66), Diagnostics (72) and Usage (78) and capability 'integrations.manage' on Instruments and parsers (48) and Integrations (54); settingsNavFo… |
+| QA-035 | `src/lib/nav-visibility.ts:40-47 + nav.ts:3-12` | src/components/settings/settings-nav.ts declares roles: WORKSPACE_ADMIN_ROLES on General (30), Members (36), Signatures (42), Project access (60), Audit (66), Diagnostics (72) and Usage (78) and capability 'integrations.manage' on Instruments and parsers (48) and Integrations (54); settingsNavFo…    |
 | QA-059 | `/projects/$projectId/*`                        | src/routes/projects/$projectId.tsx:53-64 returns the PageHeader alone (no LinkTabs, no <Outlet/>) when !project; and src/routes/projects/$projectId/settings.tsx:167-176 already renders a 'Project not found.' paragraph, contradicting the finding's cited lines. The index/members `if (!project) return… |
-| QA-060 | `/projects/$projectId/datasets`                 | src/components/v3/projects/project-lists.ts:62-69 projectDatasetFilter = `primary_project_id=eq.X&archived_at=is.null`; drizzle/0422_dataset_list_summary_project.sql filters `(p_project_id IS NULL OR d.primary_project_id = p_project_id) AND (p_include_archived OR d.archived_at IS NULL)` and the fun… |
+| QA-060 | `/projects/$projectId/datasets`                 | src/components/projects/project-lists.ts:62-69 projectDatasetFilter = `primary_project_id=eq.X&archived_at=is.null`; drizzle/0422_dataset_list_summary_project.sql filters `(p_project_id IS NULL OR d.primary_project_id = p_project_id) AND (p_include_archived OR d.archived_at IS NULL)` and the fun…    |
 | QA-068 | `/experiments/$expId`                           | countKind (src/routes/experiments/$expId.tsx:103-105) filters useExperimentLinks (source_record_id=eq.recordId) and -links-tab.tsx lists exactly those rows for the same kinds, so the count always equals the rows the tab shows. target_kind describes the target: notebook linking (src/routes/records/$… |
-| QA-096 | `src/routes/datasets/$datasetId.tsx:80-90`      | drizzle/0422_dataset_list_summary_project.sql:20-25 defines dataset_list_summary(p_project_id DEFAULT NULL, p_include_archived DEFAULT true, p_limit DEFAULT NULL, p_offset DEFAULT 0); useDatasetSummaries (src/components/v3/datasets/datasets-data.ts:130) calls it with {}, and toDatasetListRow maps a… |
+| QA-096 | `src/routes/datasets/$datasetId.tsx:80-90`      | drizzle/0422_dataset_list_summary_project.sql:20-25 defines dataset_list_summary(p_project_id DEFAULT NULL, p_include_archived DEFAULT true, p_limit DEFAULT NULL, p_offset DEFAULT 0); useDatasetSummaries (src/components/datasets/datasets-data.ts:130) calls it with {}, and toDatasetListRow maps a…    |
 | QA-159 | `keyboard model`                                | The grid's own accessible description documents it — src/components/sheet/sheetbase-grid.tsx:428 'at a horizontal edge, Tab returns to the page' — and the predicate at sheet-keyboard-shortcuts.tsx:61-65 keeps that boundary because Tab is the focus-advance key and wrapping would trap focus. `pnpm ex… |
 | QA-179 | `src/routes/pipelines/agents.tsx:236-252`       | src/routes/pipelines/agents.tsx:236-252 maps dataset_rows.commit→hasCapability('record.create'), pipeline_definition.*→'pipelines.manage', else→'schema.edit' on selectedProposal.operation_kind. drizzle/0148_auto_04_agent_operations.sql:494-514 (internal.require_agent_operation_capability) requires…  |
 

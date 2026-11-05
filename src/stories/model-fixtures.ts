@@ -1,6 +1,6 @@
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 import type { ModelType } from '#/lib/model-subtypes'
-import type { WorkspaceRecordModel } from '#/components/v3/models/models-data'
+import type { WorkspaceRecordModel } from '#/components/models/models-data'
 
 /**
  * Static model fixtures for the model-area stories: a built-in Experiment

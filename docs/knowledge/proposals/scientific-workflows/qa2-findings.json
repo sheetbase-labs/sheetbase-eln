@@ -287,7 +287,7 @@
    "expected": "The documented shortcut 'Cmd Enter - open in new tab' (rendered in the palette footer) opens the highlighted result in a new tab and leaves the palette/current page alone.",
    "observed": "Nothing happens at all. palette stays open, location stays '/', a window.open spy installed on the page (verified working: it records a manual window.open call) records [] after the keypress, and page.on('popup') never fires. Plain Enter on the very same highlighted row does work and navigates the current tab. The keyboard handler does run for the modified key: preventDefault() is observed (defaultPrevented true on the bubbled keydown) and the modifier is delivered, because with a nonsense query (0 results) Meta+Enter DOES run the fallback and navigates to /search?q=zzzzz.",
    "repro": "1. Open http://localhost:3000/ at 1440. 2. Click the topbar 'Search experiments, samples, datasets' button (or press Cmd+K). 3. Type EXP-0091 and wait for the result row. 4. With the first row highlighted, press Cmd+Enter (macOS) or Ctrl+Enter. 5. Observe: no new tab, no navigation, palette still open. Compare with step 4 using plain Enter, which navigates to /records/00000000-0000-4000-8000-0000000003b0/notebook.",
-   "evidence": "window.open spy self-test recorded 1 call for a manual window.open(); after Meta+Enter and after Ctrl+Enter the array was []. page.on('popup') resolved null; location.pathname+location.search stayed '/'; document.querySelector('[role=\"dialog\"]') stayed non-null. Source path that should run: src/components/v3/search/search-palette.tsx line 336 'activate(entries[activeIndex], e.metaKey || e.ctrlKey)' -> go(result, true) -> window.open(searchResultNewTabUrl(...), '_blank', 'noopener,noreferrer'); no unit test in search-palette.test.tsx covers metaKey/window.open.",
+   "evidence": "window.open spy self-test recorded 1 call for a manual window.open(); after Meta+Enter and after Ctrl+Enter the array was []. page.on('popup') resolved null; location.pathname+location.search stayed '/'; document.querySelector('[role=\"dialog\"]') stayed non-null. Source path that should run: src/components/search/search-palette.tsx line 336 'activate(entries[activeIndex], e.metaKey || e.ctrlKey)' -> go(result, true) -> window.open(searchResultNewTabUrl(...), '_blank', 'noopener,noreferrer'); no unit test in search-palette.test.tsx covers metaKey/window.open.",
    "verified": "verified-live",
    "source": "result-search.json",
    "also_reported_by": [],
@@ -323,7 +323,7 @@
    "width": 1440,
    "action": "Clicked 'Save changes' in the Workspace policy section of Electronic signatures while watching the network and the DOM with a MutationObserver.",
    "expected": "The action's confirmation is visible ('Signature policy saved', sonner toast, 6 s duration).",
-   "observed": "The save really runs (POST /api/db/rpc/update_workspace_settings 200, followed by a re-read of workspace_signature_certifications 200) but no toast is ever rendered: 0 elements with [data-sonner-toast], 0 elements with class containing 'sonner', and no section[aria-label=\"Notifications alt+T\"]. The <Toaster> component (src/components/v3/ui/sonner.tsx) is never mounted \u2014 it appears only in tests and stories (grep 'Toaster' finds no mount in any route or the root). Every toast-only confirmation in the app is therefore silent: 'Signature policy saved' (signatures.tsx), 'Checks finished' / 'Copied <id>' (diagnostics.tsx:203,601), 'sheetbase-usage.csv exported' (usage.tsx:167), the 6 toasts in members.tsx, the 6 in access.tsx and the 3 in profile.tsx.",
+   "observed": "The save really runs (POST /api/db/rpc/update_workspace_settings 200, followed by a re-read of workspace_signature_certifications 200) but no toast is ever rendered: 0 elements with [data-sonner-toast], 0 elements with class containing 'sonner', and no section[aria-label=\"Notifications alt+T\"]. The <Toaster> component (src/components/ui/sonner.tsx) is never mounted \u2014 it appears only in tests and stories (grep 'Toaster' finds no mount in any route or the root). Every toast-only confirmation in the app is therefore silent: 'Signature policy saved' (signatures.tsx), 'Checks finished' / 'Copied <id>' (diagnostics.tsx:203,601), 'sheetbase-usage.csv exported' (usage.tsx:167), the 6 toasts in members.tsx, the 6 in access.tsx and the 3 in profile.tsx.",
    "repro": "Open /settings/signatures, click 'Save changes' under Workspace policy (scroll to it). Watch DevTools: a 200 RPC fires, no visible feedback appears anywhere on screen.",
    "evidence": "MutationObserver on document.body captured [] across the click; document.querySelector('[aria-label=\"Notifications alt+T\"]') === false; document.querySelectorAll('[data-sonner-toast]').length === 0; RPC list shows '200 update_workspace_settings'. Screenshot /tmp/qa2/shots/sig-policy-save.png.",
    "verified": "verified-live",
@@ -351,9 +351,9 @@
    "outcome": "fixed",
    "outcome_change": "The Sessions panel lists sessions through a server function that resolves the app session (reporting the single deployment-identity session when the deployment runs without sign-in), instead of calling Better Auth's list-sessions endpoint which always 401s there.",
    "outcome_files": [
-    "src/components/v3/settings/settings-sessions-data.ts",
-    "src/components/v3/settings/settings-sessions.tsx",
-    "src/components/v3/settings/settings-sessions.test.tsx"
+    "src/components/settings/settings-sessions-data.ts",
+    "src/components/settings/settings-sessions.tsx",
+    "src/components/settings/settings-sessions.test.tsx"
    ],
    "outcome_proof": "Live /settings/profile Sessions shows 'My sessions ... Unknown device \u00b7 this device \u2014 \u00b7 started 13 Oct 2026 Current' with zero /api/auth/list-sessions requests and no 'Unauthorized'; tests 'lists the devices...' and 'reports a deployment session without a sign-out it cannot perform' pass."
   },
@@ -567,13 +567,13 @@
    "outcome_change": "The project_list_summary read now runs under a 15 s deadline (one silent retry), so an unanswered data layer becomes a stated failure with 'Try again' instead of endless loading; the header states no count while the read is unresolved, and the disabled 'New project' carries its reason in title.",
    "outcome_files": [
     "src/routes/projects.tsx",
-    "src/components/v3/projects/projects-page.tsx",
-    "src/components/v3/projects/project-data.ts",
+    "src/components/projects/projects-page.tsx",
+    "src/components/projects/project-data.ts",
     "src/routes/projects.test.tsx",
-    "src/components/v3/projects/projects-page.test.tsx",
-    "src/components/v3/projects/project-data.test.ts"
+    "src/components/projects/projects-page.test.tsx",
+    "src/components/projects/project-data.test.ts"
    ],
-   "outcome_proof": "Confirmed live before the change (with /api/db/** stalled: 'Settings Projects 0 New project Loading projects\u2026', button {disabled:true,title:null}); after the change the same stall reads 'Settings Projects New project Loading projects\u2026' with title 'Waiting for the project list to load.'. Tests: src/routes/projects.test.tsx 'turns a stalled project read into a stated failure the page can retry' (never-answering read -> loading:false, error 'The project list did not answer within 15 s.', onRetry clears it), 'does not assert a project count while the read is unresolved' and 'states the read failure and offers a retry' in src/components/v3/projects/projects-page.test.tsx, 'withReadDeadline' in src/components/v3/projects/project-data.test.ts. Live re-drive of the timed-out/error state could not be completed: the shared Chromium stopped navigating (machine load ~476, Page.navigate timeouts) and the stalled interception gave way before 15 s."
+   "outcome_proof": "Confirmed live before the change (with /api/db/** stalled: 'Settings Projects 0 New project Loading projects\u2026', button {disabled:true,title:null}); after the change the same stall reads 'Settings Projects New project Loading projects\u2026' with title 'Waiting for the project list to load.'. Tests: src/routes/projects.test.tsx 'turns a stalled project read into a stated failure the page can retry' (never-answering read -> loading:false, error 'The project list did not answer within 15 s.', onRetry clears it), 'does not assert a project count while the read is unresolved' and 'states the read failure and offers a retry' in src/components/projects/projects-page.test.tsx, 'withReadDeadline' in src/components/projects/project-data.test.ts. Live re-drive of the timed-out/error state could not be completed: the shared Chromium stopped navigating (machine load ~476, Page.navigate timeouts) and the stalled interception gave way before 15 s."
   },
   {
    "id": "QA2-SEARCH-3",
@@ -592,10 +592,10 @@
    "outcome": "fixed",
    "outcome_change": "A result row now leads with a human label (the identifier only when the RPC's `identifier` is not the object's own id \u2014 sheets and datasets returned their own UUID) and the palette ranks rows with the existing `rankByTier` and orders its sections by their best row, so the closest match is first instead of the fixed 'Sheet and dataset rows' section.",
    "outcome_files": [
-    "src/components/v3/search/result-text.ts",
-    "src/components/v3/search/search-palette.tsx",
+    "src/components/search/result-text.ts",
+    "src/components/search/search-palette.tsx",
     "src/routes/search.tsx",
-    "src/components/v3/search/search-palette.test.tsx",
+    "src/components/search/search-palette.test.tsx",
     "src/routes/search.test.tsx"
    ],
    "outcome_proof": "Live palette for 'clarification' after the change: sections 'Records 6', 'Sheet and dataset rows 2', 'Files 1', 'Templates 1' with option 0 = 'EXP-0142 Harvest clarification: depth filter screening' and the sheet row leading with 'Clarification working sheet' (before: row 0 was '67d5c8d3-129b-44e8-bcbc-a1018b0d8041 Clarification working sheet'). Tests: search-palette.test.tsx 'leads a sheet row with its name, not with the id the RPC returns' and 'puts the closest match above the section that would otherwise lead'."
@@ -617,8 +617,8 @@
    "outcome": "fixed",
    "outcome_change": "Prefix equality ignores empty entries, so a prefix cleared back to \"\" compares equal to an absent key and Save returns to disabled instead of staying enabled forever.",
    "outcome_files": [
-    "src/components/v3/settings/settings-general.tsx",
-    "src/components/v3/settings/settings-general.test.tsx"
+    "src/components/settings/settings-general.tsx",
+    "src/components/settings/settings-general.test.tsx"
    ],
    "outcome_proof": "Live: on /settings, typing into the experiment prefix enables Save, clearing it disables Save again; test 'treats a cleared record-ID prefix as unchanged' passes."
   },
@@ -696,7 +696,7 @@
    "width": 390,
    "action": "At 390 loaded `/`, clicked the bottom-tab `Menu` button to open the navigation drawer, and read the `Inbox` badge in both the bottom tab bar and the drawer in the same rendered page (also read the topbar bell's accessible name).",
    "expected": "The badge on a link to `/inbox` counts what `/inbox` shows, and the bottom tab bar and the drawer agree with each other, since both point at the same destination.",
-   "observed": "In one page load the bottom tab read `Inbox 3` while the drawer entry read `Inbox 8`; the accessible name of the bell was `Notifications, 3 unread`, i.e. the phone bottom-tab badge is showing the unread-notification count, not the inbox count. Confirmed against the sidebar at 1440 px, which showed `Inbox 7` at the start of the run and `Inbox 8` later (peers writing), never 3. Source confirms the two navs use different inputs: `<BottomTabs ... unread={unreadIds.size} />` vs `SideNav ... counts={data.counts}` in `src/components/v3/shell/app-shell.tsx:274-296`.",
+   "observed": "In one page load the bottom tab read `Inbox 3` while the drawer entry read `Inbox 8`; the accessible name of the bell was `Notifications, 3 unread`, i.e. the phone bottom-tab badge is showing the unread-notification count, not the inbox count. Confirmed against the sidebar at 1440 px, which showed `Inbox 7` at the start of the run and `Inbox 8` later (peers writing), never 3. Source confirms the two navs use different inputs: `<BottomTabs ... unread={unreadIds.size} />` vs `SideNav ... counts={data.counts}` in `src/components/shell/app-shell.tsx:274-296`.",
    "repro": "1) Open http://localhost:3000/ at width 390. 2) Note the bottom tab bar shows `Inbox` with a badge of 3 while the bell in the topbar says `Notifications, 3 unread`. 3) Click `Menu` to open the drawer. 4) The drawer's `Inbox` row shows a different number (8) in the same render. 5) Tap the bottom-tab `Inbox`; the page shows the inbox needs-action list, not 3 items.",
    "evidence": "screenshot /tmp/qa2/shots/390-after-menu.png (drawer `Inbox 8`) plus the same page's bottom bar reading `Inbox3`; topbar bell read `Notifications, 3 unread`",
    "verified": "verified-live",
@@ -705,10 +705,10 @@
    "outcome": "fixed",
    "outcome_change": "BottomTabs now renders the same Inbox count the drawer and desktop rail show (ShellData.counts.inbox) instead of the bell's unread-notification count, so both navs point at /inbox with the same number.",
    "outcome_files": [
-    "src/components/v3/shell/app-shell.tsx",
-    "src/components/v3/shell/app-shell.test.tsx"
+    "src/components/shell/app-shell.tsx",
+    "src/components/shell/app-shell.test.tsx"
    ],
-   "outcome_proof": "New regression test 'agrees the Inbox badge between the bottom bar and the navigation drawer' passes (asserts the bottom-bar Inbox link text equals the drawer Inbox link text, both 'Inbox 5'); updated 'marks every unread notification read through the API, clearing the bell' passes (clearing notifications no longer moves the phone Inbox badge). vitest run src/components/v3/shell/app-shell.test.tsx: 24 passed."
+   "outcome_proof": "New regression test 'agrees the Inbox badge between the bottom bar and the navigation drawer' passes (asserts the bottom-bar Inbox link text equals the drawer Inbox link text, both 'Inbox 5'); updated 'marks every unread notification read through the API, clearing the bell' passes (clearing notifications no longer moves the phone Inbox badge). vitest run src/components/shell/app-shell.test.tsx: 24 passed."
   },
   {
    "id": "QA2-shell-3",
@@ -842,10 +842,10 @@
    "id": "QA2-SEARCH-4",
    "outcome": "fixed",
    "files": [
-    "src/components/v3/search/result-text.ts",
-    "src/components/v3/search/search-palette.tsx",
+    "src/components/search/result-text.ts",
+    "src/components/search/search-palette.tsx",
     "src/routes/search.tsx",
-    "src/components/v3/search/search-palette.test.tsx"
+    "src/components/search/search-palette.test.tsx"
    ],
    "change": "The palette renders a result's matched context through `searchResultContext` \u2014 the same `parseMatchedContext` the results page uses, plus dropping the object's own id from the snippet \u2014 so the row shows text and a `<mark>` emphasis instead of the raw ts_headline markup and a UUID.",
    "proof": "Live after the change: every palette row reports markup=false and uuid=false with the matched term still emphasised (row for the sheet: text 'Clarification working sheet Clarification working sheet Working sheet', marks ['Clarification']); the results page snippet for the same row is 'Clarification working sheet Clarification working sheet Working sheet title ...' with no `<b>` and no UUID. Test: search-palette.test.tsx 'SearchPalette result labels and ranking (SRCH-02) > shows the matched snippet as text, without headline markup or its own id' asserts no '<b>'/'</b>', no UUID, and mark.textContent === 'Clarification'.",
@@ -855,10 +855,10 @@
    "found_by": "fix pass",
    "outcome_change": "The palette renders a result's matched context through `searchResultContext` \u2014 the same `parseMatchedContext` the results page uses, plus dropping the object's own id from the snippet \u2014 so the row shows text and a `<mark>` emphasis instead of the raw ts_headline markup and a UUID.",
    "outcome_files": [
-    "src/components/v3/search/result-text.ts",
-    "src/components/v3/search/search-palette.tsx",
+    "src/components/search/result-text.ts",
+    "src/components/search/search-palette.tsx",
     "src/routes/search.tsx",
-    "src/components/v3/search/search-palette.test.tsx"
+    "src/components/search/search-palette.test.tsx"
    ],
    "outcome_proof": "Live after the change: every palette row reports markup=false and uuid=false with the matched term still emphasised (row for the sheet: text 'Clarification working sheet Clarification working sheet Working sheet', marks ['Clarification']); the results page snippet for the same row is 'Clarification working sheet Clarification working sheet Working sheet title ...' with no `<b>` and no UUID. Test: search-palette.test.tsx 'SearchPalette result labels and ranking (SRCH-02) > shows the matched snippet as text, without headline markup or its own id' asserts no '<b>'/'</b>', no UUID, and mark.textContent === 'Clarification'."
   },

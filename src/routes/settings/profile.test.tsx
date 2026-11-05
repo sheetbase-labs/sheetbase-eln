@@ -29,15 +29,15 @@ vi.mock('#/lib/user-preferences', async (importActual) => ({
   setUserProfileFields: preferences.setUserProfileFields,
   fetchMyProfile: preferences.fetchMyProfile,
 }))
-vi.mock('#/components/v3/ui/sonner', () => ({ toast: sonner.toast }))
-vi.mock('#/components/v3/settings/settings-profile-data', () => profileData)
-vi.mock('#/components/v3/settings/settings-two-factor', () => ({
+vi.mock('#/components/ui/sonner', () => ({ toast: sonner.toast }))
+vi.mock('#/components/settings/settings-profile-data', () => profileData)
+vi.mock('#/components/settings/settings-two-factor', () => ({
   SettingsTwoFactor: () => null,
 }))
-vi.mock('#/components/v3/settings/settings-sessions', () => ({
+vi.mock('#/components/settings/settings-sessions', () => ({
   SettingsSessions: () => null,
 }))
-vi.mock('#/components/v3/lib/theme', () => ({
+vi.mock('#/components/lib/theme', () => ({
   useTheme: () => ({ pref: 'system', setPref: vi.fn() }),
 }))
 vi.mock('@tanstack/react-router', () => ({

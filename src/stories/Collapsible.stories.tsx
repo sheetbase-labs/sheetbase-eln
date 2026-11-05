@@ -4,10 +4,10 @@ import {
   Collapsible,
   CollapsiblePanel,
   CollapsibleTrigger,
-} from '#/components/v3/ui/collapsible'
-import { CodeBlock } from '#/components/v3/ui/code-block'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Muted } from '#/components/v3/ui/layout'
+} from '#/components/ui/collapsible'
+import { CodeBlock } from '#/components/ui/code-block'
+import { Field, Input } from '#/components/ui/input'
+import { Muted } from '#/components/ui/layout'
 
 /**
  * A disclosure: one trigger, one panel. The trigger carries `aria-expanded` and

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { Icon } from '#/components/icons'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 
 /**
  * The v3 button set: 28px (`md`, the default), border before shadow, and one

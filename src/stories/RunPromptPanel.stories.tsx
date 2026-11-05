@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { RunPromptPanel } from '#/components/v3/pipelines/run-prompt'
+import { RunPromptPanel } from '#/components/pipelines/run-prompt'
 import type { PipelineRunPromptWire } from '#/lib/pipelines/types'
 
 /**
- * The run's human gate (`src/components/v3/pipelines/run-prompt.tsx`).
+ * The run's human gate (`src/components/pipelines/run-prompt.tsx`).
  *
  * A step that raises a prompt stops the run until someone answers it. The panel
  * renders the author's own form schema — fields, required markers, the proposal

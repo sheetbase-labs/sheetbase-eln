@@ -8,10 +8,10 @@ import {
   DialogClose,
   DialogContent,
   DialogFooter,
-} from '#/components/v3/ui/dialog'
-import { Button } from '#/components/v3/ui/button'
+} from '#/components/ui/dialog'
+import { Button } from '#/components/ui/button'
 import { Icon } from '#/components/icons'
-import { Kbd } from '#/components/v3/ui/kbd'
+import { Kbd } from '#/components/ui/kbd'
 import { cn } from '#/lib/utils'
 import { useShortcuts } from './shortcut-provider'
 import {

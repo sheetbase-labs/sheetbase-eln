@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 
 import { t } from '#/copy'
-import { Banner } from '#/components/v3/ui/alert'
-import { FileDrop } from '#/components/v3/ui/file-drop'
-import { PageHeader, Section } from '#/components/v3/ui/layout'
-import { Status } from '#/components/v3/ui/status'
+import { Banner } from '#/components/ui/alert'
+import { FileDrop } from '#/components/ui/file-drop'
+import { PageHeader, Section } from '#/components/ui/layout'
+import { Status } from '#/components/ui/status'
 import {
   Table,
   TableBody,
@@ -14,7 +14,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { uploadImportFile } from '#/lib/import/data'
 import type { DatasetImportRecord } from '#/lib/import/types'

@@ -12,18 +12,18 @@ import {
 } from '#/components/sheet/function-autocomplete'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { DataClientError } from '#/lib/data-client'
-import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
-import { IconButton } from '#/components/v3/ui/icon-button'
-import { Dialog, DialogContent, DialogHeader } from '#/components/v3/ui/dialog'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
+import { IconButton } from '#/components/ui/icon-button'
+import { Dialog, DialogContent, DialogHeader } from '#/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
-import { Input } from '#/components/v3/ui/input'
-import { Textarea } from '#/components/v3/inventory/list'
+} from '#/components/ui/dropdown-menu'
+import { Input } from '#/components/ui/input'
+import { Textarea } from '#/components/inventory/list'
 import { Icon } from '#/components/icons'
 import { SheetbaseTableGrid } from './sheetbase-grid'
 import type {

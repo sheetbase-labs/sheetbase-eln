@@ -8,15 +8,15 @@ import {
   InspectorSection,
   Muted,
   PageHeader,
-} from '#/components/v3/ui/layout'
-import { Button } from '#/components/v3/ui/button'
-import { Badge } from '#/components/v3/ui/badge'
-import { Status } from '#/components/v3/ui/status'
-import { Notice } from '#/components/v3/ui/alert'
-import { Field, Input } from '#/components/v3/ui/input'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Select } from '#/components/v3/ui/select'
-import { Textarea } from '#/components/v3/inventory/list'
+} from '#/components/ui/layout'
+import { Button } from '#/components/ui/button'
+import { Badge } from '#/components/ui/badge'
+import { Status } from '#/components/ui/status'
+import { Notice } from '#/components/ui/alert'
+import { Field, Input } from '#/components/ui/input'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Select } from '#/components/ui/select'
+import { Textarea } from '#/components/inventory/list'
 import {
   Table,
   TableBody,
@@ -24,7 +24,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import {
   Dialog,
   DialogBody,
@@ -32,8 +32,8 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/ui/dialog'
+import { toast } from '#/components/ui/sonner'
 import { hasCapability } from '#/lib/capability'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { DATASET_SCHEMA_VERSION_KIND } from '#/lib/approval-requests'
@@ -66,22 +66,22 @@ import {
   useModelDefinition,
   useModelFields,
   useModelVersions,
-} from '#/components/v3/models/models-data'
-import { useModelApprovalIndex } from '#/components/v3/models/model-approval-data'
-import { ModelApprovalPanel } from '#/components/v3/models/model-approval-panel'
-import { DraftConflictBanner } from '#/components/v3/models/draft-conflict-banner'
-import { useInheritedColumnGroups } from '#/components/v3/models/dataset-subtype-ui'
+} from '#/components/models/models-data'
+import { useModelApprovalIndex } from '#/components/models/model-approval-data'
+import { ModelApprovalPanel } from '#/components/models/model-approval-panel'
+import { DraftConflictBanner } from '#/components/models/draft-conflict-banner'
+import { useInheritedColumnGroups } from '#/components/models/dataset-subtype-ui'
 import {
   InheritedLabel,
   InheritedTableRows,
   TableBand,
-} from '#/components/v3/models/inherited-fields-table'
-import { RecordModelEdit } from '#/components/v3/models/record-model-edit'
+} from '#/components/models/inherited-fields-table'
+import { RecordModelEdit } from '#/components/models/record-model-edit'
 import { isUuid } from '#/lib/field-value-validation'
 import {
   canPublishDraft,
   pendingRequest,
-} from '#/components/v3/models/model-approval'
+} from '#/components/models/model-approval'
 import { t } from '#/copy'
 
 /**

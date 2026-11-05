@@ -3,19 +3,19 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { t } from '#/copy'
-import { buttonVariants } from '#/components/v3/ui/button'
-import { PageHeader } from '#/components/v3/ui/layout'
-import { Tabs } from '#/components/v3/ui/tabs'
+import { buttonVariants } from '#/components/ui/button'
+import { PageHeader } from '#/components/ui/layout'
+import { Tabs } from '#/components/ui/tabs'
 import {
   AgentPoliciesPanel,
   AgentWorkflowsPanel,
-} from '#/components/v3/pipelines/agents/agent-surface'
-import { AgentPoliciesBoard } from '#/components/v3/pipelines/agents/policies-board'
+} from '#/components/pipelines/agents/agent-surface'
+import { AgentPoliciesBoard } from '#/components/pipelines/agents/policies-board'
 import {
   AgentProposalsBoard,
   proposalBoardGroups,
-} from '#/components/v3/pipelines/agents/proposals-board'
-import { AgentWorkflowsBoard } from '#/components/v3/pipelines/agents/workflows-board'
+} from '#/components/pipelines/agents/proposals-board'
+import { AgentWorkflowsBoard } from '#/components/pipelines/agents/workflows-board'
 import {
   agentOperationQueryKeys,
   createAgentOperationPolicy,

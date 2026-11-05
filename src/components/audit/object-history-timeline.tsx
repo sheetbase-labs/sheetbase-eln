@@ -4,7 +4,7 @@ import {
   HistoryTimeline,
 } from './history-timeline'
 import type { HistoryEntry } from './history-timeline'
-import { Badge } from '#/components/v3/ui/badge'
+import { Badge } from '#/components/ui/badge'
 import {
   auditLinkFor,
   describeAuditEvent,

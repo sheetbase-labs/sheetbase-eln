@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { ColumnPromotionsPanel } from '#/components/v3/sheets/column-promotions-panel'
+import { ColumnPromotionsPanel } from '#/components/sheets/column-promotions-panel'
 
 import {
   screenQueryClient,

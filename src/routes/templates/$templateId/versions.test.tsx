@@ -34,7 +34,7 @@ vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ userLabel: (id: string) => id, names: {} }),
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({ toast: vi.fn() }))
+vi.mock('#/components/ui/sonner', () => ({ toast: vi.fn() }))
 
 const client = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
 const publish = vi.hoisted(() => vi.fn())

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { ObjectLink } from '#/components/v3/ui/object-link'
+import { ObjectLink } from '#/components/ui/object-link'
 
 /**
  * An identifier that opens the thing it names. Every screen that mentions an

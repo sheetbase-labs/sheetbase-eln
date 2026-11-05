@@ -1,11 +1,11 @@
-import { ShareWithClientDialog } from '#/components/v3/client-sharing/share-with-client-dialog'
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import { projectOption } from '#/components/v3/record-picker/entity-options'
+import { ShareWithClientDialog } from '#/components/client-sharing/share-with-client-dialog'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
+import { projectOption } from '#/components/record-picker/entity-options'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   Dialog,
   DialogBody,
@@ -13,18 +13,18 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
+} from '#/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
-import { Field, Input } from '#/components/v3/ui/input'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/ui/dropdown-menu'
+import { Field, Input } from '#/components/ui/input'
+import { toast } from '#/components/ui/sonner'
 import { Icon } from '#/components/icons'
-import { SaveAsTemplateDialog } from '#/components/v3/experiments/save-as-template-dialog'
+import { SaveAsTemplateDialog } from '#/components/experiments/save-as-template-dialog'
 import {
   archiveExperiment,
   createNewRun,

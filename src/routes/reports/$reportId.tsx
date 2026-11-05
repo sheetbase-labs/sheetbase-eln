@@ -2,27 +2,27 @@ import { useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { ShareWithClientDialog } from '#/components/v3/client-sharing/share-with-client-dialog'
+import { ShareWithClientDialog } from '#/components/client-sharing/share-with-client-dialog'
 import {
   AddEvidenceDialog,
   AddTextDialog,
-} from '#/components/v3/reports/add-section-dialogs'
-import { GeneratedReports } from '#/components/v3/reports/generated-reports'
-import { ReportDocument } from '#/components/v3/reports/report-document'
-import { SectionCard } from '#/components/v3/reports/section-card'
+} from '#/components/reports/add-section-dialogs'
+import { GeneratedReports } from '#/components/reports/generated-reports'
+import { ReportDocument } from '#/components/reports/report-document'
+import { SectionCard } from '#/components/reports/section-card'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
-import { Notice } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Notice } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
 import {
   DescriptionList,
   Inspector,
   InspectorSection,
   PageHeader,
-} from '#/components/v3/ui/layout'
-import { Status } from '#/components/v3/ui/status'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/ui/layout'
+import { Status } from '#/components/ui/status'
+import { Tabs } from '#/components/ui/tabs'
+import { toast } from '#/components/ui/sonner'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   fetchReport,

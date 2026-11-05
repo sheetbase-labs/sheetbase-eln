@@ -6,9 +6,9 @@
 
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
-import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
-import { Spinner } from '#/components/v3/ui/spinner'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
+import { Spinner } from '#/components/ui/spinner'
 import type { ScientificDatasetSchemaBinding } from '#/lib/scientific-sheet-data'
 
 export interface SchemaBadgeProps {

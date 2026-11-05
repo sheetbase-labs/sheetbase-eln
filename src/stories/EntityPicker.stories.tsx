@@ -4,9 +4,9 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import {
   PickerMultiSelect,
   PickerSelect,
-} from '#/components/v3/record-picker/entity-picker'
-import type { PickerOption } from '#/components/v3/record-picker/entity-picker'
-import { Field } from '#/components/v3/ui/input'
+} from '#/components/record-picker/entity-picker'
+import type { PickerOption } from '#/components/record-picker/entity-picker'
+import { Field } from '#/components/ui/input'
 
 const stages = ['Discovery', 'Process development', 'Clinical supply']
 const leads = ['Priya Nair', 'Tom Eriksen', 'Amara Okafor', 'Jonas Weber']

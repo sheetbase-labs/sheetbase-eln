@@ -2,13 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { Checkbox } from '#/components/v3/ui/checkbox'
+import { Button } from '#/components/ui/button'
+import { Checkbox } from '#/components/ui/checkbox'
 import { Icon } from '#/components/icons'
-import { Muted } from '#/components/v3/ui/layout'
-import { Notice } from '#/components/v3/ui/alert'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Field, Input } from '#/components/v3/ui/input'
+import { Muted } from '#/components/ui/layout'
+import { Notice } from '#/components/ui/alert'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Field, Input } from '#/components/ui/input'
 import {
   Dialog,
   DialogBody,
@@ -16,18 +16,18 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { TableBox } from '#/components/v3/ui/table'
+} from '#/components/ui/dialog'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
   useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { Status } from '#/components/v3/ui/status'
-import { toast } from '#/components/v3/ui/sonner'
-import { Select } from '#/components/v3/ui/select'
-import { ObjectLink } from '#/components/v3/ui/object-link'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { Status } from '#/components/ui/status'
+import { toast } from '#/components/ui/sonner'
+import { Select } from '#/components/ui/select'
+import { ObjectLink } from '#/components/ui/object-link'
 import {
   createProjectFolder,
   deleteProjectFolder,
@@ -36,8 +36,8 @@ import {
   fetchProjectMembers,
   moveRecordsToFolder,
   useProjectSummary,
-} from '#/components/v3/projects/project-data'
-import type { ProjectFolder } from '#/components/v3/projects/project-data'
+} from '#/components/projects/project-data'
+import type { ProjectFolder } from '#/components/projects/project-data'
 import { statusLabel, statusTone } from '../$projectId'
 import {
   fetchRecordsForProject,

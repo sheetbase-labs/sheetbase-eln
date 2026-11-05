@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Pager } from '#/components/v3/ui/pager'
+import { Pager } from '#/components/ui/pager'
 
 /**
  * The pager at the foot of a paged list.
@@ -18,7 +18,7 @@ const linkFor = (page: number) => ({
 })
 
 const meta = {
-  title: 'v3 kit/Pager',
+  title: 'UI/Pager',
   component: Pager,
   parameters: { layout: 'padded' },
   args: {

@@ -2,9 +2,9 @@ import { t } from '#/copy'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { Button } from '#/components/v3/ui/button'
-import { Field } from '#/components/v3/ui/input'
-import { Notice } from '#/components/v3/ui/alert'
+import { Button } from '#/components/ui/button'
+import { Field } from '#/components/ui/input'
+import { Notice } from '#/components/ui/alert'
 import {
   Dialog,
   DialogBody,
@@ -12,8 +12,8 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { Textarea } from '#/components/v3/inventory/list'
+} from '#/components/ui/dialog'
+import { Textarea } from '#/components/inventory/list'
 import { DataClientError } from '#/lib/data-client'
 import { createAmendment, sign002DataClient } from '#/lib/sign-002'
 import {

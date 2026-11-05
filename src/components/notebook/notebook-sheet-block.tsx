@@ -7,13 +7,13 @@ import { ZodError } from 'zod'
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'
 import type { SheetCellSelection } from '#/components/sheet/canonical-sheet-workspace'
 import { useUnsyncedCellState } from '#/components/offline/offline-edits'
-import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '#/components/v3/ui/popover'
+} from '#/components/ui/popover'
 import {
   Table,
   TableBody,
@@ -22,7 +22,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import { DataClientError } from '#/lib/data-client'
 import { frozenSheetGridFromEvidence } from '#/lib/frozen-sheet-grid'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'

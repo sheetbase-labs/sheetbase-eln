@@ -10,23 +10,23 @@ import {
   useSearch,
 } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from '#/components/v3/ui/sonner'
+import { toast } from '#/components/ui/sonner'
 import { notebookDataClient } from '#/lib/notebook-data'
 
-import { Button } from '#/components/v3/ui/button'
-import { LoadMore } from '#/components/v3/ui/load-more'
-import { Dot, Status } from '#/components/v3/ui/status'
-import type { Tone } from '#/components/v3/ui/status'
-import { Checkbox } from '#/components/v3/ui/checkbox'
+import { Button } from '#/components/ui/button'
+import { LoadMore } from '#/components/ui/load-more'
+import { Dot, Status } from '#/components/ui/status'
+import type { Tone } from '#/components/ui/status'
+import { Checkbox } from '#/components/ui/checkbox'
 import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
-import { Kbd } from '#/components/v3/ui/kbd'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { ListHeader, PHONE_SCROLL_ROW } from '#/components/v3/inventory/list'
+import { Kbd } from '#/components/ui/kbd'
+import { Tabs } from '#/components/ui/tabs'
+import { ListHeader, PHONE_SCROLL_ROW } from '#/components/inventory/list'
 import {
   useRegisterShortcuts,
   useShortcutScope,
 } from '#/components/shortcuts/shortcut-provider'
-import { resolveRunForWorkItem } from '#/components/v3/pipelines/pipelines-data'
+import { resolveRunForWorkItem } from '#/components/pipelines/pipelines-data'
 import { listShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
 import {

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTable } from '#/components/scientific/data-table'
 import type { DataTableFeatures } from '#/components/scientific/data-table'
-import { Badge } from '#/components/v3/ui/badge'
+import { Badge } from '#/components/ui/badge'
 
 interface SampleRow {
   id: string

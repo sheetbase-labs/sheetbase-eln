@@ -1,19 +1,19 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { RecordModelNew } from '#/components/v3/models/record-model-new'
-import { RecordModelRecord } from '#/components/v3/models/record-model-record'
-import { RecordModelRecords } from '#/components/v3/models/record-model-records'
+import { RecordModelNew } from '#/components/models/record-model-new'
+import { RecordModelRecord } from '#/components/models/record-model-record'
+import { RecordModelRecords } from '#/components/models/record-model-records'
 import {
   recordModelDetailQueryKeys,
   recordModelQueryKeys,
-} from '#/components/v3/models/models-data'
+} from '#/components/models/models-data'
 import type {
   RecordModelProject,
   RecordModelRecord as ModelRecord,
   RecordModelUsedBy,
   WorkspaceRecordModel,
-} from '#/components/v3/models/models-data'
+} from '#/components/models/models-data'
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 import type { ModelRule } from '#/lib/model-rules'
 import type { TimelineEventWire } from '#/lib/sign-002'
@@ -22,7 +22,7 @@ import type { ReadSeed, UnseededRead } from './screen-stories'
 
 /**
  * The three screens of a workspace-defined model's records
- * (`src/components/v3/models/`): the list, the generated create form and the
+ * (`src/components/models/`): the list, the generated create form and the
  * record page. They are one file because they are one flow over one model — the
  * same fields, records and projects — and because the reads they share are the
  * states a reader wants to compare: the loaded screen, the honestly empty one,

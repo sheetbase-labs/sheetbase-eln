@@ -75,7 +75,7 @@ specifications; [PROGRAMME_MAP.md](PROGRAMME_MAP.md) is the only status table.
 
 ## Boundaries
 
-- The adopted v3 interface (`src/components/v3/`) and the accepted decisions are
+- The adopted v3 interface (`src/components/`) and the accepted decisions are
   authoritative. This programme does not re-open ADR-0048 (shared grid and
   formula authority) or ADR-0051 (workspace-defined Record Models).
 - PostgreSQL and RLS stay the permission and state authority; browser data keeps

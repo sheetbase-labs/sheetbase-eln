@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 
-import { Button } from '#/components/v3/ui/button'
-import { Notice } from '#/components/v3/ui/alert'
-import { Status } from '#/components/v3/ui/status'
+import { Button } from '#/components/ui/button'
+import { Notice } from '#/components/ui/alert'
+import { Status } from '#/components/ui/status'
 import { Icon } from '#/components/icons'
 import { CameraScanner } from '#/components/scan/camera-scanner'
 import {
   resolveScanCode,
   scanTargetActionLabel,
   scanTargetHref,
-} from '#/components/v3/scan/scan-data'
-import type { ScanResolution, ScanTarget } from '#/components/v3/scan/scan-data'
-import { ScanSampleActions } from '#/components/v3/scan/scan-sample-actions'
+} from '#/components/scan/scan-data'
+import type { ScanResolution, ScanTarget } from '#/components/scan/scan-data'
+import { ScanSampleActions } from '#/components/scan/scan-sample-actions'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
 

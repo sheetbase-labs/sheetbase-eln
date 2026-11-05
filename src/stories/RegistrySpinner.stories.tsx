@@ -10,7 +10,7 @@ import { Spinner } from '#/components/reui/spinner'
  *
  * The comparison that declined it is row 9 of
  * `docs/knowledge/design/component-comparison-record.md`: the in-house
- * `src/components/v3/ui/spinner.tsx` owns the job, and the one thing this item
+ * `src/components/ui/spinner.tsx` owns the job, and the one thing this item
  * has that ours did not — `motion-reduce:animate-none` — was the fix adopted.
  * The story stays so the declined candidate is reviewable in the repository.
  */

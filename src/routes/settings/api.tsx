@@ -2,22 +2,22 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Notice } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
-import { ApiExample } from '#/components/v3/settings/api-example'
-import { SqlLogins } from '#/components/v3/settings/sql-logins'
+import { Notice } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
+import { ApiExample } from '#/components/settings/api-example'
+import { SqlLogins } from '#/components/settings/sql-logins'
 import { useDataAccess } from '#/lib/data-access'
 import {
   SettingsCredentials,
   personalTokensCopy,
   serviceCredentialsCopy,
-} from '#/components/v3/settings/settings-credentials'
+} from '#/components/settings/settings-credentials'
 import {
   SettingsBody,
   SettingsHeader,
-} from '#/components/v3/settings/settings-page'
-import { Muted } from '#/components/v3/ui/layout'
-import { Tabs } from '#/components/v3/ui/tabs'
+} from '#/components/settings/settings-page'
+import { Muted } from '#/components/ui/layout'
+import { Tabs } from '#/components/ui/tabs'
 import {
   apiCredentialQueryKey,
   createApiCredentialFn,

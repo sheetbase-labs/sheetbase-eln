@@ -11,13 +11,13 @@ import {
   canOpenSettingsItem,
   settingsItemForPath,
   settingsNavForRole,
-} from '#/components/v3/settings/settings-nav'
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Notice } from '#/components/v3/ui/alert'
-import { SettingsHeader } from '#/components/v3/settings/settings-page'
-import { Tabs } from '#/components/v3/ui/tabs'
-import type { SettingsNavItem } from '#/components/v3/settings/settings-nav'
+} from '#/components/settings/settings-nav'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Notice } from '#/components/ui/alert'
+import { SettingsHeader } from '#/components/settings/settings-page'
+import { Tabs } from '#/components/ui/tabs'
+import type { SettingsNavItem } from '#/components/settings/settings-nav'
 import { settingsAccessOf } from '#/lib/settings-access'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'

@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { RecordModelRecord } from '#/components/v3/models/record-model-record'
+import { RecordModelRecord } from '#/components/models/record-model-record'
 
 /**
  * MDL-04.3: a record page for a workspace record model. `$modelId` is the

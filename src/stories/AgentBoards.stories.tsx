@@ -3,9 +3,9 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import {
   RiskGlyph,
   linkifyIdentifiers,
-} from '#/components/v3/pipelines/agents/board-parts'
-import { AgentPoliciesBoard } from '#/components/v3/pipelines/agents/policies-board'
-import { AgentWorkflowsBoard } from '#/components/v3/pipelines/agents/workflows-board'
+} from '#/components/pipelines/agents/board-parts'
+import { AgentPoliciesBoard } from '#/components/pipelines/agents/policies-board'
+import { AgentWorkflowsBoard } from '#/components/pipelines/agents/workflows-board'
 import type {
   AgentDefinition,
   AgentPolicyRevision,
@@ -14,7 +14,7 @@ import type {
 import { screenRoutes } from './screen-stories'
 
 /**
- * The Agents boards (`src/components/v3/pipelines/agents/`).
+ * The Agents boards (`src/components/pipelines/agents/`).
  *
  * The workflows board lists each automation with what starts it and how its
  * last run went; the policies board shows what each may do on its own with the

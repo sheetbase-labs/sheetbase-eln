@@ -2,7 +2,7 @@ import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { expect, screen, userEvent } from 'storybook/test'
 
-import { WorkspaceGroups } from '#/components/v3/settings/workspace-groups'
+import { WorkspaceGroups } from '#/components/settings/workspace-groups'
 import type { WorkspaceGroup } from '#/lib/workspace-access'
 import { withApiReads } from './screen-stories'
 

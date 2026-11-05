@@ -3,12 +3,12 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { t } from '#/copy'
-import { Status } from '#/components/v3/ui/status'
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { ProjectListFailure } from '#/components/v3/projects/project-list'
-import { Notice } from '#/components/v3/ui/alert'
-import { Muted, Section } from '#/components/v3/ui/layout'
+import { Status } from '#/components/ui/status'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
+import { ProjectListFailure } from '#/components/projects/project-list'
+import { Notice } from '#/components/ui/alert'
+import { Muted, Section } from '#/components/ui/layout'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -19,14 +19,14 @@ import {
   ConfirmDialogHeader,
   ConfirmDialogTitle,
   ConfirmDialogTrigger,
-} from '#/components/v3/ui/confirm-dialog'
-import { TableBox } from '#/components/v3/ui/table'
+} from '#/components/ui/confirm-dialog'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { toast } from '#/components/ui/sonner'
 import {
   deletePipelineSchedule,
   updatePipelineSchedule,
@@ -52,16 +52,16 @@ import {
   currentVersion,
   draftVersion,
   declaredRunInputs,
-} from '#/components/v3/pipelines/pipelines-data'
+} from '#/components/pipelines/pipelines-data'
 import {
   ElnActions,
   RunKeeps,
   RunNotifications,
   WebhookCard,
-} from '#/components/v3/pipelines/triggers-outputs'
+} from '#/components/pipelines/triggers-outputs'
 import type { PipelineConfig } from '#/lib/pipelines/config'
-import { ScheduleDialog } from '#/components/v3/pipelines/schedule-dialog'
-import { ScheduleHistoryDialog } from '#/components/v3/pipelines/schedule-history'
+import { ScheduleDialog } from '#/components/pipelines/schedule-dialog'
+import { ScheduleHistoryDialog } from '#/components/pipelines/schedule-history'
 
 /** UI port (roadmap-4/ui-app3): pipeline triggers. A trigger starts runs of
  * the published version on a schedule or when something happens. It can be

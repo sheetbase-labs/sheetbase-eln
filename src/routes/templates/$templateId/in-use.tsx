@@ -1,19 +1,19 @@
 import { useMemo } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Notice } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
-import { Status } from '#/components/v3/ui/status'
-import type { Tone } from '#/components/v3/ui/status'
-import { Select } from '#/components/v3/ui/select'
-import { Inspector, InspectorSection, Muted } from '#/components/v3/ui/layout'
-import { TableBox } from '#/components/v3/ui/table'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Notice } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
+import { Status } from '#/components/ui/status'
+import type { Tone } from '#/components/ui/status'
+import { Select } from '#/components/ui/select'
+import { Inspector, InspectorSection, Muted } from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { useUserNames } from '#/lib/user-names'
 import {
   buildInUseMatrix,
@@ -29,7 +29,7 @@ import {
   useTemplateProjects,
   useTemplateUsers,
   useTemplateVersions,
-} from '#/components/v3/templates/templates-data'
+} from '#/components/templates/templates-data'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
 import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'

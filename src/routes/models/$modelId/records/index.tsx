@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { isUuid } from '#/lib/field-value-validation'
 
-import { RecordModelRecords } from '#/components/v3/models/record-model-records'
+import { RecordModelRecords } from '#/components/models/record-model-records'
 
 /**
  * MDL-04.1: the records list of a workspace-defined record model. `$modelId`

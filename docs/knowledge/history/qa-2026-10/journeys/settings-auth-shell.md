@@ -14,7 +14,7 @@ Role facts used throughout:
 - `hasCapability(role, 'workspace.admin')` is true for `owner` only
   (`lib/capability.ts:56-58`). The `admin` role is not an owner.
 - `WORKSPACE_ADMIN_ROLES = ['owner', 'admin']` (`lib/nav-visibility.ts:29`)
-  decides which settings pages the nav shows (`components/v3/settings/settings-nav.ts:25-85`).
+  decides which settings pages the nav shows (`components/settings/settings-nav.ts:25-85`).
 - Invite, role change, suspend and remove are owner-only in SQL
   (`drizzle/0054_admin_001_workspace_admin.sql:136,186,204`).
 
@@ -56,7 +56,7 @@ Role facts used throughout:
 - **Entry:** Any signed-in page.
 - **Path:**
   1. `getCurrentContext` returns `workspace: null` when there are no memberships (`lib/current-user.ts:40-60`). Bootstrap runs only at user creation (`lib/auth.ts:84-96`), so removal is permanent. `api.remove_member` deletes the row (`drizzle/0054_admin_001_workspace_admin.sql:200-211`).
-  2. The shell renders normally: the workspace switcher says "No workspace" (`components/v3/shell/app-shell.tsx:66`).
+  2. The shell renders normally: the workspace switcher says "No workspace" (`components/shell/app-shell.tsx:66`).
   3. Home reads `workspaceId = undefined`. Every home query has `enabled: Boolean(workspaceId)` (`routes/index.tsx:293-304`, 315, ...).
   4. A disabled React Query v5 query stays `isPending`. The page returns `Loading your home…` forever (`routes/index.tsx:667-671`). The error branch (`651`) is never reached.
 - **Blockers hit:** `Loading your home…` with no timeout, no cause and no action. Other routes use `context.workspace?.id ?? ''` and show empty lists.
@@ -128,7 +128,7 @@ Role facts used throughout:
 ### J-SET-08 Admin turns off "Allow offline editing"
 
 - **Persona / goal:** An admin of a regulated site disables offline editing so edits cannot be held on devices.
-- **Entry:** Settings, General, "Allow offline editing on this workspace’s devices" (`components/v3/settings/settings-general.tsx:322-335`).
+- **Entry:** Settings, General, "Allow offline editing on this workspace’s devices" (`components/settings/settings-general.tsx:322-335`).
 - **Path:**
   1. The switch saves `allow_offline_editing` through the SET-01 RPC (`lib/workspace-general.ts:115`).
   2. Nothing reads it. Grep of `src/` for `offlineEditingAllowed` and `allow_offline_editing` outside the settings form and its data module finds only a comment in `lib/offline/store.ts:20-27` that says the value is not wired.
@@ -141,12 +141,12 @@ Role facts used throughout:
 ### J-SET-09 Bell: "Notification settings" and notification preferences
 
 - **Persona / goal:** Any member wants to change which events reach them.
-- **Entry:** Bell popover footer link "Notification settings" (`components/v3/shell/app-shell.tsx:792`).
+- **Entry:** Bell popover footer link "Notification settings" (`components/shell/app-shell.tsx:792`).
 - **Path:**
   1. The link goes to `/settings`, which is General, not `/settings/notifications`.
   2. A non-admin lands on the lock state "Only workspace admins can see workspace settings… Ask a workspace admin to change them." (`routes/settings/index.tsx:111-137`). Its only action is "Open your profile settings".
   3. The user must find Notifications in the rail (`settings-nav.ts:93-97`).
-  4. On the Notifications page, the preference reads fall back to defaults when a read fails. `preferencesQuery.isError` is never shown, so defaults look like saved choices (`components/v3/settings/settings-notifications.tsx:39-48`, `77-90`). Saving then overwrites the stored choices.
+  4. On the Notifications page, the preference reads fall back to defaults when a read fails. `preferencesQuery.isError` is never shown, so defaults look like saved choices (`components/settings/settings-notifications.tsx:39-48`, `77-90`). Saving then overwrites the stored choices.
   5. "Email" is offered for every event, but the email worker runs only when `SMTP_HOST` is set (`lib/email-delivery.server.ts:82-98`). Diagnostics has no email check (`routes/settings/diagnostics.tsx`: no SMTP row), so nobody is told email is off.
 - **Blockers hit:** Wrong link target; silent default fallback; email channel that may never send.
 - **Verdict:** `partial`. The page works once reached (steps 3 onward). **Fixed in a4142585.**
@@ -190,7 +190,7 @@ Role facts used throughout:
 - **Persona / goal:** A member creates a token for a notebook. An owner manages a service credential.
 - **Entry:** Settings, API and SDK.
 - **Path:**
-  1. "Create token" is disabled until a name and at least one scope exist, with no message for either cause (`components/v3/settings/settings-credentials.tsx:239-245`).
+  1. "Create token" is disabled until a name and at least one scope exist, with no message for either cause (`components/settings/settings-credentials.tsx:239-245`).
   2. Secrets are shown once with a Copy control and "I have stored it" (`settings-credentials.tsx:154-177`). This part is complete.
   3. Expired rows have Rotate disabled with no explanation. The user must create a new token (`settings-credentials.tsx:292-298`).
   4. Non-owners do not see service credentials at all. The header says only "managed here by owners" (`routes/settings/api.tsx:146-149`, `182-198`).
@@ -264,7 +264,7 @@ Role facts used throughout:
 ### J-SET-17 Search: no matches, search failure, empty query
 
 - **Persona / goal:** Find a record by ID or value, and recover when nothing is found.
-- **Entry:** `/search`, ⌘K palette, or the not-found screen's Search button (`components/v3/shell/not-found.tsx:94-100`).
+- **Entry:** `/search`, ⌘K palette, or the not-found screen's Search button (`components/shell/not-found.tsx:94-100`).
 - **Path:**
   1. Empty query: "Search names, IDs, cell values, comments and files. Type an ID like EXP-0142…" (`routes/search.tsx:342-350`).
   2. Service failure: "Search could not run. The search service did not answer. This is not a result of nothing matching." with "Try again" (`search.tsx:371-389`). The did-you-mean lookup is skipped on error (`search.tsx:161-172`).
@@ -281,12 +281,12 @@ Role facts used throughout:
 ## Additional observations (not counted as journeys)
 
 - **Audit and retention** (`routes/settings/audit.tsx`): the nav label promises retention, but the page is the log only; no retention setting appears (grep `retention` in the file: no match). The CSV export omits the Change and Reason columns that the grid shows (header at `audit.tsx:337-345` versus columns at `277-283`). Record and Project cells show a raw UUID or an 8-character prefix, not links (`audit.tsx:174-176`). Read failure and empty states are handled well (`audit.tsx:240-255`, `290-294`).
-- **Sessions** (`components/v3/settings/settings-sessions.tsx`): load error with Try again is complete; per-session sign-out has no confirmation (`settings-sessions.tsx:120-126`).
+- **Sessions** (`components/settings/settings-sessions.tsx`): load error with Try again is complete; per-session sign-out has no confirmation (`settings-sessions.tsx:120-126`).
 - **Profile** (`routes/settings/profile.tsx:134-140`): "Role. Set by an administrator." shows the raw role key and does not name who.
 - **Integrations** (`routes/settings/integrations.tsx:162-165`): names the roles that can register ("owners, admins and stewards"). Complete for the disabled-control case. The connector list error is text only, with no Retry (`integrations.tsx:126-133`).
-- **Unknown URLs** (`components/v3/shell/not-found.tsx:53-112`): complete: names the section, offers Back and Search.
+- **Unknown URLs** (`components/shell/not-found.tsx:53-112`): complete: names the section, offers Back and Search.
 - **Route errors:** the router sets `defaultNotFoundComponent` but no `defaultErrorComponent` (`router.tsx:27`). A failure in the root `beforeLoad` (for example the database is down, `routes/__root.tsx:114-131`) shows the framework's default error screen.
-- **Sign-out** (`components/v3/shell/app-shell.tsx:817-853`): failure keeps the user signed in and says "Try again". Complete.
+- **Sign-out** (`components/shell/app-shell.tsx:817-853`): failure keeps the user signed in and says "Try again". Complete.
 
 ---
 

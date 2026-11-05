@@ -1,10 +1,10 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { ModelApprovalPanel } from '#/components/v3/models/model-approval-panel'
-import type { ModelApprovalPanelProps } from '#/components/v3/models/model-approval-panel'
-import { approvalActorIds } from '#/components/v3/models/model-approval'
-import type { ApprovalDecision } from '#/components/v3/models/model-approval'
+import { ModelApprovalPanel } from '#/components/models/model-approval-panel'
+import type { ModelApprovalPanelProps } from '#/components/models/model-approval-panel'
+import { approvalActorIds } from '#/components/models/model-approval'
+import type { ApprovalDecision } from '#/components/models/model-approval'
 import type { ApprovalRequest } from '#/lib/approval-requests'
 import { RECORD_MODEL_VERSION_KIND } from '#/lib/record-model-versions'
 import { screenQueryClient, stubDataClient } from './screen-stories'
@@ -12,7 +12,7 @@ import type { ReadSeed } from './screen-stories'
 
 /**
  * The approval panel of one model version
- * (`src/components/v3/models/model-approval-panel.tsx`). Every state it renders
+ * (`src/components/models/model-approval-panel.tsx`). Every state it renders
  * comes from its props — the version, the requests read for it, its decisions
  * and the signed-in role — so the stories put it in each state directly rather
  * than driving it there: not yet submitted, waiting (as an approver, as the

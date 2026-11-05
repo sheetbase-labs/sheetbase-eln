@@ -1,8 +1,8 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 
-import { Button } from '#/components/v3/ui/button'
-import { RolesAndPermissions } from '#/components/v3/settings/roles-and-permissions'
-import { SettingsHeader } from '#/components/v3/settings/settings-page'
+import { Button } from '#/components/ui/button'
+import { RolesAndPermissions } from '#/components/settings/roles-and-permissions'
+import { SettingsHeader } from '#/components/settings/settings-page'
 import { t } from '#/copy'
 
 /** Settings → Members and roles → Roles and permissions: what each role does

@@ -2,8 +2,8 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
-import { JoinedWelcome } from '#/components/v3/shell/joined-welcome'
-import { LabSetupDialog } from '#/components/v3/setup/lab-setup-dialog'
+import { JoinedWelcome } from '#/components/shell/joined-welcome'
+import { LabSetupDialog } from '#/components/setup/lab-setup-dialog'
 import {
   fetchLabSetupSkipped,
   rememberSetupSkipped,
@@ -16,29 +16,29 @@ import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import { reagentPath } from '#/lib/navigation'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { HomeBrief } from '#/components/assist/home-brief'
-import { Button } from '#/components/v3/ui/button'
-import { Skeleton } from '#/components/v3/ui/skeleton'
-import { Notice } from '#/components/v3/ui/alert'
+import { Button } from '#/components/ui/button'
+import { Skeleton } from '#/components/ui/skeleton'
+import { Notice } from '#/components/ui/alert'
 import { Icon } from '#/components/icons'
 import {
   Inspector,
   InspectorSection,
   PageHeader,
   Section,
-} from '#/components/v3/ui/layout'
-import { Dot, Status } from '#/components/v3/ui/status'
-import { TableBox } from '#/components/v3/ui/table'
+} from '#/components/ui/layout'
+import { Dot, Status } from '#/components/ui/status'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { HomeQuiet, recentTone } from '#/components/v3/home/home-quiet'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { EmptyState } from '#/components/ui/empty-state'
+import { HomeQuiet, recentTone } from '#/components/home/home-quiet'
 import {
   fetchProjectSummaries,
   fetchWorkspaceMemberIdentities,
-} from '#/components/v3/projects/project-data'
+} from '#/components/projects/project-data'
 import {
   fetchCalendarBookings,
   fetchCalendarInstruments,

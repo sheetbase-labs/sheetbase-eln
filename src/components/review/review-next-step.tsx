@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { nextReviewItem } from '#/lib/review-next-step'
 import { reviewsDataClient } from '#/lib/reviews'
 import type { ReviewNextStep } from '#/lib/review-next-step'

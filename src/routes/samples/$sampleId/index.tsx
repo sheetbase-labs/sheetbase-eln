@@ -3,31 +3,31 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { Section, DescriptionList } from '#/components/v3/ui/layout'
-import { Status } from '#/components/v3/ui/status'
-import { TableBox } from '#/components/v3/ui/table'
+import { Button } from '#/components/ui/button'
+import { Section, DescriptionList } from '#/components/ui/layout'
+import { Status } from '#/components/ui/status'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
   computeSampleHold,
   formatHoldDate,
-} from '#/components/v3/samples/sample-hold-meter'
+} from '#/components/samples/sample-hold-meter'
 import {
   describeReleaseChecks,
   isTerminalSampleStatus,
-} from '#/components/v3/samples/sample-state'
-import { sampleStatus } from '#/components/v3/samples/samples-data'
-import { useLabelTemplateChoice } from '#/components/v3/samples/label-template-picker'
-import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
-import { AddedFields } from '#/components/v3/models/added-fields'
+} from '#/components/samples/sample-state'
+import { sampleStatus } from '#/components/samples/samples-data'
+import { useLabelTemplateChoice } from '#/components/samples/label-template-picker'
+import { SampleLabelCard } from '#/components/samples/sample-label-card'
+import { AddedFields } from '#/components/models/added-fields'
 import {
   formatSampleEventDateTime,
   formatSampleEventDayTime,
-} from '#/components/v3/samples/sample-history'
+} from '#/components/samples/sample-history'
 import {
   deriveSampleVolumeSummary,
   fetchSampleDerivedSamples,

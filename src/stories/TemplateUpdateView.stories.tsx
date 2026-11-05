@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { screen, userEvent } from 'storybook/test'
 
-import { NotebookTemplateUpdateView } from '#/components/v3/templates/template-update-view'
+import { NotebookTemplateUpdateView } from '#/components/templates/template-update-view'
 import type {
   NotebookUpgradeDecision,
   NotebookUpgradePreview,
@@ -9,7 +9,7 @@ import type {
 
 /**
  * SHEET-04.4 — the per-notebook template update view
- * (`src/components/v3/templates/template-update-view.tsx`).
+ * (`src/components/templates/template-update-view.tsx`).
  *
  * The parent owns the preview read and the apply RPC, so these stories pass
  * the preview the parent would render and a stub `onApply`: the view's own

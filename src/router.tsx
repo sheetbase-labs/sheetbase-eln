@@ -7,7 +7,7 @@ import type { RouterContext } from './routes/__root'
 
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 import { createRouterContext } from './integrations/tanstack-query/router-context'
-import { NotFound } from '#/components/v3/shell/not-found'
+import { NotFound } from '#/components/shell/not-found'
 import { noCapabilities } from './lib/capabilities'
 import { ROOT_CONTEXT_QUERY_KEY } from './lib/root-context-cache'
 

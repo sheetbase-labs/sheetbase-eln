@@ -17,7 +17,7 @@
  * come from the canonical records and destinations exclusively from
  * `src/lib/navigation.ts` — never hand-built URLs.
  */
-import { sampleStatus } from '#/components/v3/samples/samples-data'
+import { sampleStatus } from '#/components/samples/samples-data'
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 

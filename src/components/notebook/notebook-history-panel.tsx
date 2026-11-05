@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
 import { RecordHistoryTimeline } from '#/components/audit/record-history-timeline'
-import { EmptyState } from '#/components/v3/ui/empty-state'
+import { EmptyState } from '#/components/ui/empty-state'
 import {
   fetchRevisionsForRecord,
   fetchRecordTimeline,

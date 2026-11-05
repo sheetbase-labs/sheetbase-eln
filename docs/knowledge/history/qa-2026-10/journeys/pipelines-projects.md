@@ -11,7 +11,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - `PS` = `src/routes/pipelines/$pipelineId/steps.tsx`
 - `PT` = `src/routes/pipelines/$pipelineId/triggers.tsx`
 - `PR` = `src/routes/pipelines/$pipelineId/runs/$runId.tsx`
-- `AG` = `src/components/v3/pipelines/agents/agent-surface.tsx`
+- `AG` = `src/components/pipelines/agents/agent-surface.tsx`
 - `MS` = `src/routes/projects/$projectId/milestones.tsx`
 
 ---

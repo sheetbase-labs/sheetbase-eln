@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 
-import { CodeBlock } from '#/components/v3/ui/code-block'
-import { CopyButton } from '#/components/v3/ui/copy-button'
+import { CodeBlock } from '#/components/ui/code-block'
+import { CopyButton } from '#/components/ui/copy-button'
 import {
   Popover,
   PopoverContent,
   PopoverTitle,
   PopoverTrigger,
-} from '#/components/v3/ui/popover'
-import { Tabs } from '#/components/v3/ui/tabs'
+} from '#/components/ui/popover'
+import { Tabs } from '#/components/ui/tabs'
 import {
   apiRoute,
   dataAccessSnippets,

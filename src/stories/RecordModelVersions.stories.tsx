@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { RecordModelVersions } from '#/components/v3/models/record-model-versions'
+import { RecordModelVersions } from '#/components/models/record-model-versions'
 import { RECORD_MODEL_VERSION_KIND } from '#/lib/record-model-versions'
 import type {
   ModelChangeScope,
@@ -10,14 +10,14 @@ import type {
 import type { ObjectDependency } from '#/lib/object-dependencies'
 import type { ApprovalRequest } from '#/lib/approval-requests'
 import type { DataClient } from '#/lib/data-client'
-import type { WorkspaceRecordModel } from '#/components/v3/models/models-data'
-import type { ApprovalDecision } from '#/components/v3/models/model-approval'
+import type { WorkspaceRecordModel } from '#/components/models/models-data'
+import type { ApprovalDecision } from '#/components/models/model-approval'
 import { screenQueryClient, stubDataClient } from './screen-stories'
 import type { ClientRead, ReadSeed } from './screen-stories'
 
 /**
  * The Versions screen of a workspace model
- * (`src/components/v3/models/record-model-versions.tsx`): what is published,
+ * (`src/components/models/record-model-versions.tsx`): what is published,
  * what is waiting for approval, and the draft's fields.
  *
  * The screen takes its own `client` — its prop, defaulted to the app's — so the

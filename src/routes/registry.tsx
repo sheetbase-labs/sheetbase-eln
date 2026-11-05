@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { RegistryList } from '#/components/v3/registry/registry-list'
+import { RegistryList } from '#/components/registry/registry-list'
 import { hasCapability } from '#/lib/capability'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 

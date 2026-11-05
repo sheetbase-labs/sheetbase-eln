@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
 
-import { Button } from '#/components/v3/ui/button'
-import { Field } from '#/components/v3/ui/input'
-import { Notice } from '#/components/v3/ui/alert'
+import { Button } from '#/components/ui/button'
+import { Field } from '#/components/ui/input'
+import { Notice } from '#/components/ui/alert'
 import { t } from '#/copy'
 import {
   FILL_INSTRUCTION,

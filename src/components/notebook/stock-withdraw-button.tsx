@@ -1,8 +1,8 @@
 import { t } from '#/copy'
 import { useMutation } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { toast } from '#/components/v3/ui/sonner'
+import { Button } from '#/components/ui/button'
+import { toast } from '#/components/ui/sonner'
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { isWithdrawn, withdrawItemFromStock } from '#/lib/stock-withdraw'

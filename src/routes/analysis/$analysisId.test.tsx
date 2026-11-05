@@ -56,7 +56,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   }
 })
 
-vi.mock('#/components/v3/datasets/datasets-data', async (importOriginal) => ({
+vi.mock('#/components/datasets/datasets-data', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   useDatasetSummaries: () => ({ data: mocks.datasets, isLoading: false }),
 }))

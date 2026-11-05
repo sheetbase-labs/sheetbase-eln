@@ -13,7 +13,7 @@
  * deployment switches any of them off. The surfaces that are still unbuilt (the
  * deployment support bundle, the support-request form) are unbuilt for every
  * deployment, so they render `CapabilityGap`
- * (`src/components/v3/ui/capability-gap.tsx`) directly rather than behind a
+ * (`src/components/ui/capability-gap.tsx`) directly rather than behind a
  * flag.
  *
  * Register a key only when a screen must branch on a capability a deployment

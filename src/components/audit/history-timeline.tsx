@@ -2,15 +2,15 @@ import type { ReactNode } from 'react'
 
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
 import {
   Collapsible,
   CollapsiblePanel,
   CollapsibleTrigger,
-} from '#/components/v3/ui/collapsible'
-import { Notice } from '#/components/v3/ui/alert'
-import { Skeleton } from '#/components/v3/ui/skeleton'
+} from '#/components/ui/collapsible'
+import { Notice } from '#/components/ui/alert'
+import { Skeleton } from '#/components/ui/skeleton'
 import {
   Timeline,
   TimelineContent,

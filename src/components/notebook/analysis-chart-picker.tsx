@@ -1,9 +1,9 @@
 import { t } from '#/copy'
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   analysisDefinitionQueryKeys,
   composeAnalysisDefinition,

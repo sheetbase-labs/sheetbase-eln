@@ -10,7 +10,7 @@ import {
   initTheme,
   readStoredThemePref,
   useTheme as useThemeStore,
-} from '#/components/v3/lib/theme'
+} from '#/components/lib/theme'
 
 type Theme = Appearance
 
@@ -25,7 +25,7 @@ const ThemeContext = React.createContext<ThemeContextValue | null>(null)
  * Theme provider for the application shell (SHELL-02).
  *
  * Appearance is per user (System/Light/Dark). The shared store
- * (`#/components/v3/lib/theme`) owns the cache, the DOM and the cross-tab and
+ * (`#/components/lib/theme`) owns the cache, the DOM and the cross-tab and
  * System listeners; this provider adds the server read/write so the server
  * preference is the source of truth once signed in.
  */

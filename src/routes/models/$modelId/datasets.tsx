@@ -1,20 +1,20 @@
 import { useMemo } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 
-import { Status } from '#/components/v3/ui/status'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Muted } from '#/components/v3/ui/layout'
-import { TableBox } from '#/components/v3/ui/table'
+import { Status } from '#/components/ui/status'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Muted } from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
   useModelDatasets,
   useModelVersions,
-} from '#/components/v3/models/models-data'
-import type { ModelDatasetUse } from '#/components/v3/models/models-data'
+} from '#/components/models/models-data'
+import type { ModelDatasetUse } from '#/components/models/models-data'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
 

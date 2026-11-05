@@ -15,7 +15,7 @@ import {
   RegisterInstrument,
   calibrationState,
 } from './instruments'
-import type { InstrumentRow } from '#/components/v3/instruments/instruments-data'
+import type { InstrumentRow } from '#/components/instruments/instruments-data'
 import type * as router from '@tanstack/react-router'
 
 // The register dialog writes through the canonical RPC and the inspector reads through the data
@@ -61,7 +61,7 @@ vi.mock('#/lib/clock', async (importOriginal) => ({
   now: () => new Date('2026-10-10T12:00:00.000Z'),
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 

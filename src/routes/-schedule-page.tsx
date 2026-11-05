@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, getRouteApi, useNavigate } from '@tanstack/react-router'
 
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import {
   Dialog,
   DialogBody,
@@ -12,35 +12,35 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { Dot } from '#/components/v3/ui/status'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Muted } from '#/components/v3/ui/layout'
-import { ObjectLink } from '#/components/v3/ui/object-link'
+} from '#/components/ui/dialog'
+import { Dot } from '#/components/ui/status'
+import { Tabs } from '#/components/ui/tabs'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Muted } from '#/components/ui/layout'
+import { ObjectLink } from '#/components/ui/object-link'
 import { Icon } from '#/components/icons'
-import { toast } from '#/components/v3/ui/sonner'
-import { BookDialog } from '#/components/v3/schedule/book-dialog'
-import { EditBookingDialog } from '#/components/v3/schedule/edit-booking-dialog'
+import { toast } from '#/components/ui/sonner'
+import { BookDialog } from '#/components/schedule/book-dialog'
+import { EditBookingDialog } from '#/components/schedule/edit-booking-dialog'
 import {
   useBookingSamples,
   useExperimentSamples,
   useRangeBookings,
   useScheduleInstruments,
-} from '#/components/v3/schedule/schedule-data'
+} from '#/components/schedule/schedule-data'
 import type {
   BookableSample,
   BookingSample,
   ScheduleBooking,
   ScheduleInstrument,
-} from '#/components/v3/schedule/schedule-data'
-import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
+} from '#/components/schedule/schedule-data'
+import { useWorkspaceMemberNames } from '#/components/projects/project-data'
 import { useWorkItems } from '#/lib/work-items/data'
 import { homeIsoDay } from '#/lib/home-quiet'
 import { cancelBooking, describeCalendarError } from '#/lib/calendar'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { describeRepeatResult } from '#/lib/recurring'
-import { RepeatingDialog } from '#/components/v3/recurring/repeating-dialog'
+import { RepeatingDialog } from '#/components/recurring/repeating-dialog'
 import { isUuid } from '#/lib/identifier-resolution'
 import {
   fetchWorkspaceGeneral,

@@ -9,7 +9,7 @@ import { StockWithdrawButton } from './stock-withdraw-button'
 const toast = vi.hoisted(() => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
-vi.mock('#/components/v3/ui/sonner', () => toast)
+vi.mock('#/components/ui/sonner', () => toast)
 
 afterEach(() => {
   cleanup()

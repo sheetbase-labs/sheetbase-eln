@@ -4,9 +4,9 @@ import {
   FillFromText,
   addedFillFields,
 } from '#/components/assist/fill-from-text'
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import { projectOption } from '#/components/v3/record-picker/entity-options'
-import { Select } from '#/components/v3/ui/select'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
+import { projectOption } from '#/components/record-picker/entity-options'
+import { Select } from '#/components/ui/select'
 import {
   Link,
   Outlet,
@@ -16,32 +16,32 @@ import {
 } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { IconButton } from '#/components/v3/ui/icon-button'
+import { Button } from '#/components/ui/button'
+import { IconButton } from '#/components/ui/icon-button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLinkItem,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
+} from '#/components/ui/dropdown-menu'
 import {
   NO_PROJECT_ACCESS_BODY,
   noProjectAccessTitle,
   useHasProjectAccess,
-} from '#/components/v3/projects/project-access'
-import { Status } from '#/components/v3/ui/status'
-import { LocationPath, shortLocation } from '#/components/v3/ui/location-path'
-import { EmptyState } from '#/components/v3/ui/empty-state'
+} from '#/components/projects/project-access'
+import { Status } from '#/components/ui/status'
+import { LocationPath, shortLocation } from '#/components/ui/location-path'
+import { EmptyState } from '#/components/ui/empty-state'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { samplePath } from '#/lib/navigation'
 import {
   RegistryGrid,
   rightAligned,
   useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { Field, Input } from '#/components/v3/ui/input'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { Field, Input } from '#/components/ui/input'
 import {
   Dialog,
   DialogBody,
@@ -49,20 +49,20 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { toast } from '#/components/v3/ui/sonner'
+} from '#/components/ui/dialog'
+import { toast } from '#/components/ui/sonner'
 import {
   ListFooter,
   ListHeader,
   ListToolbar,
   MobileList,
   footerCount,
-} from '#/components/v3/inventory/list'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { BulkRegisterDialog } from '#/components/v3/samples/bulk-register-dialog'
-import { SampleInspector } from '#/components/v3/samples/sample-inspector'
-import { PlaceField } from '#/components/v3/samples/place-field'
-import { PrintLabelsDialog } from '#/components/v3/samples/sample-label-sheet'
+} from '#/components/inventory/list'
+import { Tabs } from '#/components/ui/tabs'
+import { BulkRegisterDialog } from '#/components/samples/bulk-register-dialog'
+import { SampleInspector } from '#/components/samples/sample-inspector'
+import { PlaceField } from '#/components/samples/place-field'
+import { PrintLabelsDialog } from '#/components/samples/sample-label-sheet'
 import {
   SAMPLE_LIST_PAGE_SIZE,
   sampleListQueryKeys,
@@ -71,8 +71,8 @@ import {
   useSampleList,
   useSampleTabCounts,
   useStorageLocations,
-} from '#/components/v3/samples/samples-data'
-import type { SampleListRow } from '#/components/v3/samples/samples-data'
+} from '#/components/samples/samples-data'
+import type { SampleListRow } from '#/components/samples/samples-data'
 import { parseCreateContext } from '#/lib/create-context-search'
 import { linkExperimentToSample } from '#/lib/notebook-create'
 import { hasCapability } from '#/lib/capability'
@@ -84,8 +84,8 @@ import {
   AddedFieldsFormSection,
   addedFieldColumns,
   useAddedFieldDraft,
-} from '#/components/v3/models/added-fields'
-import { useBuiltInModelFields } from '#/components/v3/models/built-in-model-data'
+} from '#/components/models/added-fields'
+import { useBuiltInModelFields } from '#/components/models/built-in-model-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { requireBuiltInModel } from '#/lib/built-in-models'

@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
+import { RecordUnavailable } from '#/components/ui/record-unavailable'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { Status } from '#/components/v3/ui/status'
-import { Tabs } from '#/components/v3/ui/tabs'
+import { Button } from '#/components/ui/button'
+import { Status } from '#/components/ui/status'
+import { Tabs } from '#/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -14,13 +14,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
+} from '#/components/ui/dropdown-menu'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -30,15 +30,15 @@ import {
   ConfirmDialogFooter,
   ConfirmDialogHeader,
   ConfirmDialogTitle,
-} from '#/components/v3/ui/confirm-dialog'
+} from '#/components/ui/confirm-dialog'
 import {
   DescriptionList,
   Inspector,
   InspectorSection,
   PageHeader,
-} from '#/components/v3/ui/layout'
+} from '#/components/ui/layout'
 import { ReplacementForm, stockOfTotal } from '../-materials-page'
-import { Field, Input } from '#/components/v3/ui/input'
+import { Field, Input } from '#/components/ui/input'
 import {
   Dialog,
   DialogBody,
@@ -46,13 +46,13 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { toast } from '#/components/v3/ui/sonner'
-import { Textarea } from '#/components/v3/inventory/list'
+} from '#/components/ui/dialog'
+import { toast } from '#/components/ui/sonner'
+import { Textarea } from '#/components/inventory/list'
 import {
   materialListQueryKeys,
   toMaterialListRow,
-} from '#/components/v3/materials/materials-data'
+} from '#/components/materials/materials-data'
 import {
   MOVEMENT_LABELS,
   fetchCertificateFile,
@@ -68,25 +68,25 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { useUserNames } from '#/lib/user-names'
-import { MakeSolutionDialog } from '#/components/v3/materials/make-solution-dialog'
+import { MakeSolutionDialog } from '#/components/materials/make-solution-dialog'
 import {
   fetchMadeFrom,
   fetchPreparedWith,
   solutionQueryKeys,
 } from '#/lib/solution-prep'
-import { AddedFields } from '#/components/v3/models/added-fields'
+import { AddedFields } from '#/components/models/added-fields'
 import {
   HazardPictograms,
   MaterialSafetySection,
   SignalWordBadge,
   useMaterialSafety,
-} from '#/components/v3/materials/material-safety'
+} from '#/components/materials/material-safety'
 import {
   LabelTemplatePicker,
   useLabelTemplateChoice,
-} from '#/components/v3/samples/label-template-picker'
-import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
-import { SampleLabelPrint } from '#/components/v3/samples/sample-label-print'
+} from '#/components/samples/label-template-picker'
+import { SampleLabelCard } from '#/components/samples/sample-label-card'
+import { SampleLabelPrint } from '#/components/samples/sample-label-print'
 import { useHasCapability } from '#/lib/use-capability'
 import { t } from '#/copy'
 

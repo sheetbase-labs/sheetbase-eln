@@ -10,9 +10,9 @@ import {
   ConfirmDialogFooter,
   ConfirmDialogHeader,
   ConfirmDialogTitle,
-} from '#/components/v3/ui/confirm-dialog'
-import { Button } from '#/components/v3/ui/button'
-import { Textarea } from '#/components/v3/inventory/list'
+} from '#/components/ui/confirm-dialog'
+import { Button } from '#/components/ui/button'
+import { Textarea } from '#/components/inventory/list'
 import { notebookQueryKeysAfterSignature } from '#/lib/notebook-experience'
 import {
   DECISION_CONSEQUENCE,

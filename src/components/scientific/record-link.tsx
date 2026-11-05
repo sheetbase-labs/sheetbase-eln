@@ -3,8 +3,8 @@ import * as React from 'react'
 
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
-import { Row } from '#/components/v3/ui/row'
-import type { RowDensity } from '#/components/v3/ui/row'
+import { Row } from '#/components/ui/row'
+import type { RowDensity } from '#/components/ui/row'
 import { cn } from '#/lib/utils'
 
 /**

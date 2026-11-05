@@ -46,7 +46,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 vi.mock('#/lib/help', () => ({ useHelp: () => undefined }))
-vi.mock('#/components/v3/ui/sonner', () => ({ toast: mocks.toast }))
+vi.mock('#/components/ui/sonner', () => ({ toast: mocks.toast }))
 vi.mock('#/lib/admin-platform', () => ({
   fetchDiagnosticsFn: mocks.diagnostics,
   fetchRunHealthFn: mocks.runHealth,

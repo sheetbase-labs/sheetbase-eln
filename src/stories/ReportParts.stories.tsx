@@ -8,12 +8,12 @@ import type { RowSelectionState, SortingState } from '@tanstack/react-table'
 import {
   AddEvidenceDialog,
   AddTextDialog,
-} from '#/components/v3/reports/add-section-dialogs'
-import { GeneratedReports } from '#/components/v3/reports/generated-reports'
-import { NewReportDialog } from '#/components/v3/reports/new-report-dialog'
-import { ReportDocument } from '#/components/v3/reports/report-document'
-import { ReportsRegistryGrid } from '#/components/v3/reports/reports-registry-grid'
-import { SectionCard } from '#/components/v3/reports/section-card'
+} from '#/components/reports/add-section-dialogs'
+import { GeneratedReports } from '#/components/reports/generated-reports'
+import { NewReportDialog } from '#/components/reports/new-report-dialog'
+import { ReportDocument } from '#/components/reports/report-document'
+import { ReportsRegistryGrid } from '#/components/reports/reports-registry-grid'
+import { SectionCard } from '#/components/reports/section-card'
 import { reportKeys } from '#/lib/reports'
 import type {
   ReportDetail,
@@ -25,7 +25,7 @@ import { screenQueryClient, screenRoutes, withApiReads } from './screen-stories'
 import type { ReadSeed } from './screen-stories'
 
 /**
- * The report builder's parts (`src/components/v3/reports/`): the registry
+ * The report builder's parts (`src/components/reports/`): the registry
  * list, the report as a reader sees it, each section card, the two "add a
  * section" dialogs, the dialog that starts a report, and the documents
  * generated from one.

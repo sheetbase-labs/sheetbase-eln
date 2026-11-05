@@ -1,9 +1,9 @@
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import type { PickerOption } from '#/components/v3/record-picker/entity-picker'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
+import type { PickerOption } from '#/components/record-picker/entity-picker'
 import {
   datasetOption,
   recordSearch,
-} from '#/components/v3/record-picker/entity-options'
+} from '#/components/record-picker/entity-options'
 import { useEffect, useId, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
@@ -12,14 +12,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
-import { Banner } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { FileDrop } from '#/components/v3/ui/file-drop'
-import { Input } from '#/components/v3/ui/input'
-import { PageHeader, Section } from '#/components/v3/ui/layout'
-import { Status } from '#/components/v3/ui/status'
-import { Stepper } from '#/components/v3/ui/stepper'
+import { Banner } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
+import { FileDrop } from '#/components/ui/file-drop'
+import { Input } from '#/components/ui/input'
+import { PageHeader, Section } from '#/components/ui/layout'
+import { Status } from '#/components/ui/status'
+import { Stepper } from '#/components/ui/stepper'
 import {
   Table,
   TableBody,
@@ -27,8 +27,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
-import { Select } from '#/components/v3/ui/select'
+} from '#/components/ui/table'
+import { Select } from '#/components/ui/select'
 import { usePageAi } from '#/lib/use-page-ai'
 import {
   buildMappingInstruction,
@@ -36,12 +36,12 @@ import {
   parseMappingAnswer,
 } from '#/lib/ai-import-mapping'
 import type { AiMappingSuggestion } from '#/lib/ai-import-mapping'
-import { useExperimentRecords } from '#/components/v3/experiments/experiments-data'
+import { useExperimentRecords } from '#/components/experiments/experiments-data'
 import {
   calibrationStatus,
   useInstruments,
   useLatestCalibrationsByInstrument,
-} from '#/components/v3/instruments/instruments-data'
+} from '#/components/instruments/instruments-data'
 import { cancelTarget } from '#/lib/create-context-search'
 import { createDataClient } from '#/lib/data-client'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'

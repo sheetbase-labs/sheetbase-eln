@@ -1,24 +1,24 @@
 import { t } from '#/copy'
 import { useState } from 'react'
 import { getDisplayTimeZone } from '#/lib/display-time-zone'
-import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'
+import { WorkspaceAdminsLine } from '#/components/settings/workspace-admins-line'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { CopyButton } from '#/components/v3/ui/copy-button'
-import { Status } from '#/components/v3/ui/status'
-import type { Tone } from '#/components/v3/ui/status'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { DescriptionList, Muted, Section } from '#/components/v3/ui/layout'
-import { Skeleton } from '#/components/v3/ui/skeleton'
-import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { toast } from '#/components/v3/ui/sonner'
+import { Button } from '#/components/ui/button'
+import { CopyButton } from '#/components/ui/copy-button'
+import { Status } from '#/components/ui/status'
+import type { Tone } from '#/components/ui/status'
+import { EmptyState } from '#/components/ui/empty-state'
+import { DescriptionList, Muted, Section } from '#/components/ui/layout'
+import { Skeleton } from '#/components/ui/skeleton'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { toast } from '#/components/ui/sonner'
 import {
   SettingsBody,
   SettingsHeader,
-} from '#/components/v3/settings/settings-page'
+} from '#/components/settings/settings-page'
 import {
   fetchConnectorDiagnosticsFn,
   fetchDiagnosticsFn,

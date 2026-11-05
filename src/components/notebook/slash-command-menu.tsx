@@ -8,7 +8,7 @@ import {
 import type { BlockPickerOption } from '#/lib/blocks/registry'
 import { cn } from '#/lib/utils'
 import { Icon } from '#/components/icons'
-import { Kbd } from '#/components/v3/ui/kbd'
+import { Kbd } from '#/components/ui/kbd'
 
 /**
  * Slash command menu — a Notion-style floating dropdown that appears when

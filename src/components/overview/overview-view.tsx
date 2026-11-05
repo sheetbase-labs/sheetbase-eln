@@ -18,9 +18,9 @@ import {
   InspectorSection,
   Muted,
   Section,
-} from '#/components/v3/ui/layout'
-import { Button } from '#/components/v3/ui/button'
-import { Status } from '#/components/v3/ui/status'
+} from '#/components/ui/layout'
+import { Button } from '#/components/ui/button'
+import { Status } from '#/components/ui/status'
 import {
   Table,
   TableBody,
@@ -29,9 +29,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
-import { ObjectLink } from '#/components/v3/ui/object-link'
-import { experimentStatus } from '#/components/v3/experiments/experiments-data'
+} from '#/components/ui/table'
+import { ObjectLink } from '#/components/ui/object-link'
+import { experimentStatus } from '#/components/experiments/experiments-data'
 import type { SignatureWire } from '#/lib/signatures'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { withReopen } from '#/lib/return-to'

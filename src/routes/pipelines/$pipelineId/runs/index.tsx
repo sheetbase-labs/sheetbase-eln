@@ -1,27 +1,27 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 
 import { t } from '#/copy'
-import { Status } from '#/components/v3/ui/status'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { buttonVariants } from '#/components/v3/ui/button'
-import { ProjectListFailure } from '#/components/v3/projects/project-list'
-import { Muted, Section } from '#/components/v3/ui/layout'
-import { TableBox } from '#/components/v3/ui/table'
+import { Status } from '#/components/ui/status'
+import { EmptyState } from '#/components/ui/empty-state'
+import { buttonVariants } from '#/components/ui/button'
+import { ProjectListFailure } from '#/components/projects/project-list'
+import { Muted, Section } from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
 import { triggerLabel } from '#/lib/pipeline-schedule-form'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
   runDuration,
   runStatus,
   useDefinitionRuns,
   useRunNumbers,
   usePipelineVersions,
-} from '#/components/v3/pipelines/pipelines-data'
+} from '#/components/pipelines/pipelines-data'
 
 /** UI port (roadmap-4/ui-app3): the pipeline's runs, newest first, across
  * every version. */

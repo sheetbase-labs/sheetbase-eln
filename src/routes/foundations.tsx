@@ -11,7 +11,7 @@ import {
   statusVocabularies,
 } from '#/components/scientific'
 import type { StatusDomain } from '#/components/scientific'
-import { RowList } from '#/components/v3/ui/row'
+import { RowList } from '#/components/ui/row'
 import { NotebookBlock } from '#/components/notebook/notebook-block'
 import { ChartFrame, PlateMap } from '#/components/viz'
 import type { PlateWell } from '#/components/viz'
@@ -25,8 +25,8 @@ import {
   ActivityFeed,
   CommentList,
 } from '#/components/record'
-import { Button } from '#/components/v3/ui/button'
-import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/ui/button'
+import { Badge } from '#/components/ui/badge'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -37,18 +37,18 @@ import {
   ConfirmDialogHeader,
   ConfirmDialogTitle,
   ConfirmDialogTrigger,
-} from '#/components/v3/ui/confirm-dialog'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { Textarea } from '#/components/v3/inventory/list'
+} from '#/components/ui/confirm-dialog'
+import { Tabs } from '#/components/ui/tabs'
+import { Textarea } from '#/components/inventory/list'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Tooltip } from '#/components/v3/ui/tooltip'
+} from '#/components/ui/dropdown-menu'
+import { Field, Input } from '#/components/ui/input'
+import { Tooltip } from '#/components/ui/tooltip'
 import { contrastRatio, oklchToSrgb } from '#/lib/contrast'
 import type { Oklch } from '#/lib/contrast'
 import { cn } from '#/lib/utils'

@@ -4,18 +4,15 @@ import { rich, t } from '#/copy'
 import {
   PipelineSteps,
   TemporaryArtefact,
-} from '#/components/v3/pipelines/pipeline-code'
-import { ProjectListFailure } from '#/components/v3/projects/project-list'
-import { Status } from '#/components/v3/ui/status'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { buttonVariants } from '#/components/v3/ui/button'
-import { Muted, Section } from '#/components/v3/ui/layout'
-import { TableBox } from '#/components/v3/ui/table'
-import {
-  RegistryGrid,
-  useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+} from '#/components/pipelines/pipeline-code'
+import { ProjectListFailure } from '#/components/projects/project-list'
+import { Status } from '#/components/ui/status'
+import { EmptyState } from '#/components/ui/empty-state'
+import { buttonVariants } from '#/components/ui/button'
+import { Muted, Section } from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid, useRowFocus } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import {
@@ -23,7 +20,7 @@ import {
   draftVersion,
   usePipelineVersions,
   versionStatus,
-} from '#/components/v3/pipelines/pipelines-data'
+} from '#/components/pipelines/pipelines-data'
 
 /** UI port (roadmap-4/ui-app3): the pipeline Overview reads the current
  * version's configuration. Editing steps is deferred to the Steps tab; the

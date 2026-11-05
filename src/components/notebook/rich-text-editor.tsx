@@ -9,7 +9,7 @@ import Subscript from '@tiptap/extension-subscript'
 import Superscript from '@tiptap/extension-superscript'
 import { Icon } from '#/components/icons'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { RichTextContent } from '#/lib/blocks/rich-text'
 import type { RichTextDocument, RichTextPayload } from '#/lib/blocks/rich-text'
 import { cn } from '#/lib/utils'

@@ -6,7 +6,7 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 
-import { Muted, PageHeader } from '#/components/v3/ui/layout'
+import { Muted, PageHeader } from '#/components/ui/layout'
 import {
   ListFooter,
   ListHeader,
@@ -14,11 +14,11 @@ import {
   ListToolbar,
   MobileList,
   footerCount,
-} from '#/components/v3/inventory/list'
-import { Button } from '#/components/v3/ui/button'
-import { Status } from '#/components/v3/ui/status'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Tabs } from '#/components/v3/ui/tabs'
+} from '#/components/inventory/list'
+import { Button } from '#/components/ui/button'
+import { Status } from '#/components/ui/status'
+import { EmptyState } from '#/components/ui/empty-state'
+import { Tabs } from '#/components/ui/tabs'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,12 +27,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
-import {
-  RegistryGrid,
-  useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+} from '#/components/ui/dropdown-menu'
+import { RegistryGrid, useRowFocus } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { useUserNames } from '#/lib/user-names'
 import { formatDate } from '#/lib/format-date'
 import { createDataClient } from '#/lib/data-client'

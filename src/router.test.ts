@@ -9,7 +9,7 @@ vi.mock('./routeTree.gen', async () => {
   const { createRootRoute } = await import('@tanstack/react-router')
   return { routeTree: createRootRoute() }
 })
-vi.mock('#/components/v3/shell/not-found', () => ({ NotFound: () => null }))
+vi.mock('#/components/shell/not-found', () => ({ NotFound: () => null }))
 
 describe('getRouter', () => {
   it('drops the cached root context whenever the router is invalidated', async () => {

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { AccessBlockedSurface } from '#/components/v3/shell/access-blocked'
+import { AccessBlockedSurface } from '#/components/shell/access-blocked'
 import { screenRoutes } from './screen-stories'
 
 /**

@@ -1,6 +1,6 @@
 import * as React from 'react'
 
-import { Skeleton } from '#/components/v3/ui/skeleton'
+import { Skeleton } from '#/components/ui/skeleton'
 import type { ChartRendererProps } from './chart-renderer-impl'
 
 export type {

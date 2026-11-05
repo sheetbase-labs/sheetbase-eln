@@ -184,7 +184,7 @@ async function main() {
         timezoneId: 'Europe/London',
       })
       await context.addInitScript((value) => {
-        // The application reads `sheetbase-theme` (src/components/v3/lib/theme.ts,
+        // The application reads `sheetbase-theme` (src/components/lib/theme.ts,
         // `THEME_STORAGE_KEY`); the vendored design snapshot's component runtime
         // reads `sheetbase.theme` and resolves the canvas `data-theme` from it.
         // Seed both so the reference states the same appearance the app does.

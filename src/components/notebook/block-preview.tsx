@@ -29,7 +29,7 @@ import type { MaterialItem } from '#/lib/protocol-materials'
 import {
   HazardPictograms,
   SignalWordBadge,
-} from '#/components/v3/materials/material-safety'
+} from '#/components/materials/material-safety'
 import {
   fetchMaterialSafetyFor,
   isHazardous,
@@ -41,12 +41,12 @@ import {
   formatCellValue,
   formatMetricValue,
 } from '#/lib/format-numbers'
-import { Badge } from '#/components/v3/ui/badge'
+import { Badge } from '#/components/ui/badge'
 import { SequenceFileViewer } from '#/components/sequence'
 import { isSequenceFileName } from '#/lib/sequence'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { StepTimerControl } from './step-timer'
 import { OfficeFileBlock } from './office-preview/office-file-block'
 import { formatDuration, stepDurationSeconds } from '#/lib/step-timers'

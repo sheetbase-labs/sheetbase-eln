@@ -35,7 +35,7 @@ vi.mock('#/lib/model-rules', () => ({
   removeModelRule: (...args: unknown[]) => mocks.removeModelRule(...args),
 }))
 
-vi.mock('#/components/v3/models/models-data', () => ({
+vi.mock('#/components/models/models-data', () => ({
   useWorkspaceRecordModel: () => ({ data: { name: 'Contact' } }),
   useRecordModelFields: () => ({
     data: [{ fieldName: 'value', label: 'Value' }],

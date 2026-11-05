@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { SessionExpiredBanner } from '#/components/v3/shell/session-expired-banner'
+import { SessionExpiredBanner } from '#/components/shell/session-expired-banner'
 import { createDataClient } from './data-client'
 import {
   resetSessionExpired,

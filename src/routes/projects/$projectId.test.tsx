@@ -49,7 +49,7 @@ vi.mock('@tanstack/react-router', () => ({
   },
 }))
 
-vi.mock('#/components/v3/projects/project-data', () => ({
+vi.mock('#/components/projects/project-data', () => ({
   fetchProjectMembers: async () => [],
   fetchProjectFolders: async () =>
     Array.from({ length: state.folders }, (_, i) => ({ id: `folder-${i}` })),
@@ -61,7 +61,7 @@ vi.mock('#/components/v3/projects/project-data', () => ({
   }),
   useProjectSummary: () => ({ project: state.project, query: {} }),
 }))
-vi.mock('#/components/v3/projects/project-lists', () => ({
+vi.mock('#/components/projects/project-lists', () => ({
   useProjectRecordCount: () => ({ data: state.samples }),
   useProjectDatasetCount: () => ({ data: state.datasets }),
 }))

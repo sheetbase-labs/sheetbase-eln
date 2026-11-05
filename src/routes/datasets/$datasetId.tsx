@@ -6,31 +6,31 @@ import {
   useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
-import { RecordUnavailable } from '#/components/v3/ui/record-unavailable'
+import { RecordUnavailable } from '#/components/ui/record-unavailable'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { t } from '#/copy'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { ExplainThis } from '#/components/assist/explain-this'
-import { PageHeader } from '#/components/v3/ui/layout'
-import { Button } from '#/components/v3/ui/button'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { Status } from '#/components/v3/ui/status'
+import { PageHeader } from '#/components/ui/layout'
+import { Button } from '#/components/ui/button'
+import { Tabs } from '#/components/ui/tabs'
+import { Status } from '#/components/ui/status'
 import {
   datasetValidation,
   useDatasetSummaries,
-} from '#/components/v3/datasets/datasets-data'
-import { isDatasetDetailTab } from '#/components/v3/datasets/dataset-detail-tabs'
-import type { DatasetDetailTab } from '#/components/v3/datasets/dataset-detail-tabs'
-import { DatasetHistoryTab } from '#/components/v3/datasets/dataset-history-tab'
-import { DatasetArchive } from '#/components/v3/datasets/dataset-archive'
-import { DatasetImportsTab } from '#/components/v3/datasets/dataset-imports-tab'
-import { DatasetModelUpgrade } from '#/components/v3/datasets/dataset-model-upgrade'
+} from '#/components/datasets/datasets-data'
+import { isDatasetDetailTab } from '#/components/datasets/dataset-detail-tabs'
+import type { DatasetDetailTab } from '#/components/datasets/dataset-detail-tabs'
+import { DatasetHistoryTab } from '#/components/datasets/dataset-history-tab'
+import { DatasetArchive } from '#/components/datasets/dataset-archive'
+import { DatasetImportsTab } from '#/components/datasets/dataset-imports-tab'
+import { DatasetModelUpgrade } from '#/components/datasets/dataset-model-upgrade'
 import {
   DatasetPipelineMenuItems,
   useDatasetPipelineRuns,
-} from '#/components/v3/datasets/dataset-run-pipeline'
+} from '#/components/datasets/dataset-run-pipeline'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,11 +38,11 @@ import {
   DropdownMenuLinkItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
+} from '#/components/ui/dropdown-menu'
 import { hasCapability } from '#/lib/capability'
-import { DatasetUsedByTab } from '#/components/v3/datasets/dataset-used-by-tab'
+import { DatasetUsedByTab } from '#/components/datasets/dataset-used-by-tab'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
-import { ObjectLink } from '#/components/v3/ui/object-link'
+import { ObjectLink } from '#/components/ui/object-link'
 import { fetchProject, notebookDataClient } from '#/lib/notebook-data'
 import { useRecentViewTracking } from '#/lib/recents'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'

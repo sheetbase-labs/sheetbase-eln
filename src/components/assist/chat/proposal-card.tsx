@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { createDataClient } from '#/lib/data-client'
 import {
   decideAgentOperation,

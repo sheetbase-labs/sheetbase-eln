@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { Button } from '#/components/v3/ui/button'
-import { Field } from '#/components/v3/ui/input'
-import { Textarea } from '#/components/v3/inventory/list'
+import { Button } from '#/components/ui/button'
+import { Field } from '#/components/ui/input'
+import { Textarea } from '#/components/inventory/list'
 import {
   Dialog,
   DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
+} from '#/components/ui/dialog'
 import { registerChangeReasonAsker } from '#/lib/change-reason'
 import { t } from '#/copy'
 

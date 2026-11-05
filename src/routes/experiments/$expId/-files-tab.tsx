@@ -2,24 +2,21 @@ import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { FileDrop } from '#/components/v3/ui/file-drop'
+import { EmptyState } from '#/components/ui/empty-state'
+import { FileDrop } from '#/components/ui/file-drop'
 import {
   DescriptionList,
   Inspector,
   InspectorSection,
   Section,
-} from '#/components/v3/ui/layout'
-import { ObjectLink } from '#/components/v3/ui/object-link'
-import { Select } from '#/components/v3/ui/select'
-import { toast } from '#/components/v3/ui/sonner'
-import { TableBox } from '#/components/v3/ui/table'
-import {
-  RegistryGrid,
-  useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { buttonVariants } from '#/components/v3/ui/button'
+} from '#/components/ui/layout'
+import { ObjectLink } from '#/components/ui/object-link'
+import { Select } from '#/components/ui/select'
+import { toast } from '#/components/ui/sonner'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid, useRowFocus } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { buttonVariants } from '#/components/ui/button'
 import {
   previewLines,
   uploadFileToExperiment,

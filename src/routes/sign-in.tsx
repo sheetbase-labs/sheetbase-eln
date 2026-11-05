@@ -1,4 +1,4 @@
-import { BrandMark } from '#/components/v3/ui/brand-mark'
+import { BrandMark } from '#/components/ui/brand-mark'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
@@ -9,8 +9,8 @@ import {
   SignedOutSurface,
   useRetainedDrafts,
 } from '#/components/offline/signed-out-surface'
-import { Button, buttonVariants } from '#/components/v3/ui/button'
-import { Notice } from '#/components/v3/ui/alert'
+import { Button, buttonVariants } from '#/components/ui/button'
+import { Notice } from '#/components/ui/alert'
 import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 import { safeNextPath } from '#/lib/sign-in-redirect'

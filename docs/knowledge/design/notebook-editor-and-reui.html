@@ -506,7 +506,7 @@
   <thead><tr><th>Kit</th><th>Primitives</th><th>Status</th></tr></thead>
   <tbody>
     <tr><td><code>#/components/ui/**</code></td><td>Radix (<code>radix-ui</code>), plus <code>cmdk</code>, <code>sonner</code>, <code>react-day-picker</code></td><td>Legacy; now backs <code>/foundations</code> and <code>/docs/$name</code> only</td></tr>
-    <tr><td><code>#/components/v3/ui/**</code></td><td>Base UI (<code>@base-ui/react</code>)</td><td>Forward; the app-3 ported shell and every ported screen compose it</td></tr>
+    <tr><td><code>#/components/ui/**</code></td><td>Base UI (<code>@base-ui/react</code>)</td><td>Forward; the app-3 ported shell and every ported screen compose it</td></tr>
   </tbody>
 </table>
 
@@ -738,7 +738,7 @@
     <tr><td>Sheet and formula</td><td class="ev"><code>src/lib/formula-profile.ts:4-34</code>; <code>src/lib/scientific-workbook.ts</code>; <code>src/components/sheet/sheetbase-table-grid-client.tsx</code>; ADR-0048</td></tr>
     <tr><td>ADRs</td><td class="ev">0012, 0015, 0018, 0025, 0026, 0027, 0036, 0047, 0048, 0050, 0051 under <code>docs/knowledge/decisions/</code></td></tr>
     <tr><td>Product and design law</td><td class="ev"><code>docs/knowledge/DESIGN.md:284,338,344-348,402,421-423</code>; <code>docs/knowledge/PRODUCT.md:158-161,203-215</code>; <code>docs/knowledge/product/non-goals.md</code>; <code>docs/knowledge/architecture/system-overview.md:114-117</code></td></tr>
-    <tr><td>UI substrate</td><td class="ev"><code>components.json:21-23</code>; <code>eslint.config.js:19-36</code>; <code>src/components/v3/ui/component-adoption.test.ts</code>; <code>src/components/ui/README.md:3-4,12-43</code>; <code>scripts/check-colours.mts</code></td></tr>
+    <tr><td>UI substrate</td><td class="ev"><code>components.json:21-23</code>; <code>eslint.config.js:19-36</code>; <code>src/components/ui/component-adoption.test.ts</code>; <code>src/components/ui/README.md:3-4,12-43</code>; <code>scripts/check-colours.mts</code></td></tr>
     <tr><td>ReUI history</td><td class="ev"><code>docs/knowledge/roadmap-4/UI_PORT.md:189-193,335-338</code>; git <code>3b0951fd</code>, <code>1b915579</code>, <code>9ced9f6d</code></td></tr>
     <tr><td>Parts and licence context</td><td class="ev"><code>docs/knowledge/roadmap-2/tasks/COLLAB.md:13</code>; <code>docs/knowledge/roadmap-3/tasks/NOTE.md:47-112</code>; <code>package.json</code> (Tiptap 3.28, TanStack Table 8.21.3, Base UI, Radix, React 19.2, Tailwind 4)</td></tr>
   </tbody>
@@ -945,7 +945,7 @@
   <li><code>pnpm check</code> — prettier, plus <code>scripts/check-colours.mts</code>: no palette class, no hex and no <code>rgb()</code> in <code>src/**/*.{ts,tsx}</code> outside a three-file allowlist. <em>This</em> is the colour check ADR-0055 means; the design submodule's <code>check-design.py</code> is not one.</li>
   <li><code>pnpm lint</code> — <code>src/components/reui/**</code> is the only relaxed path.</li>
   <li><code>pnpm typecheck</code>.</li>
-  <li><code>pnpm test</code> — includes the adoption guard (<code>src/components/v3/ui/component-adoption.test.ts</code>), the component axe gate, the contrast pairs and the token-mapping pin.</li>
+  <li><code>pnpm test</code> — includes the adoption guard (<code>src/components/ui/component-adoption.test.ts</code>), the component axe gate, the contrast pairs and the token-mapping pin.</li>
   <li><code>pnpm build</code>; and <code>pnpm generate-routes</code> when a route is added.</li>
   <li>The Playwright browser suite — where the stand-in for a screen with no design row lives.</li>
 </ol>

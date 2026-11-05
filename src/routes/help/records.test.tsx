@@ -7,7 +7,7 @@ import {
 } from '@tanstack/react-router'
 import { describe, expect, it } from 'vitest'
 
-import { helpArticles, helpTopics } from '#/components/v3/help/help-content'
+import { helpArticles, helpTopics } from '#/components/help/help-content'
 import { Route } from './records'
 
 describe('HelpRecords', () => {

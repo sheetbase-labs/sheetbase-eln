@@ -17,7 +17,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
 import { EmptyHint, InspectorSection } from '#/components/record'
-import { Row, RowList } from '#/components/v3/ui/row'
+import { Row, RowList } from '#/components/ui/row'
 import {
   buildTableData,
   fetchLineageGraph,

@@ -2,12 +2,12 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { screen, userEvent, within } from 'storybook/test'
 
-import { RepeatExperimentDialog } from '#/components/v3/recurring/repeat-experiment-dialog'
-import { RepeatingDialog } from '#/components/v3/recurring/repeating-dialog'
-import { recurringQueryKeys } from '#/components/v3/recurring/recurring-data'
-import type { RepeatRow } from '#/components/v3/recurring/recurring-data'
-import { BookDialog } from '#/components/v3/schedule/book-dialog'
-import type { ScheduleInstrument } from '#/components/v3/schedule/schedule-data'
+import { RepeatExperimentDialog } from '#/components/recurring/repeat-experiment-dialog'
+import { RepeatingDialog } from '#/components/recurring/repeating-dialog'
+import { recurringQueryKeys } from '#/components/recurring/recurring-data'
+import type { RepeatRow } from '#/components/recurring/recurring-data'
+import { BookDialog } from '#/components/schedule/book-dialog'
+import type { ScheduleInstrument } from '#/components/schedule/schedule-data'
 import { toRepeatSchedule } from '#/lib/recurring'
 import type { RepeatScheduleWire } from '#/lib/recurring'
 import {
@@ -17,7 +17,7 @@ import {
 } from './screen-stories'
 
 /**
- * Work that repeats (`src/components/v3/recurring/`): booking an instrument
+ * Work that repeats (`src/components/recurring/`): booking an instrument
  * every week, the Repeating list with what each repeat made and could not
  * make, and starting experiments from a template on a schedule or at time
  * points. Reads are seeded into the query cache, so no request leaves the page.

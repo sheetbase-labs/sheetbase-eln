@@ -7,9 +7,9 @@ import {
   ChartSettings,
   ChartStack,
   FieldsPane,
-} from '#/components/v3/analysis/analysis-document'
-import { DuplicateAnalysisDialog } from '#/components/v3/analysis/duplicate-analysis-dialog'
-import { Button } from '#/components/v3/ui/button'
+} from '#/components/analysis/analysis-document'
+import { DuplicateAnalysisDialog } from '#/components/analysis/duplicate-analysis-dialog'
+import { Button } from '#/components/ui/button'
 import { CHART_PALETTE } from '#/lib/chart-spec'
 import type { ChartSpec } from '#/lib/chart-spec'
 import type { ResolvedDataset } from '#/lib/chart-data'

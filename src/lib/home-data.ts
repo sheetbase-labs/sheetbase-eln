@@ -8,12 +8,12 @@ import type { ProjectWire } from './notebook-data'
 import type {
   WorkspaceMemberIdentity,
   ProjectMember,
-} from '#/components/v3/projects/project-data'
+} from '#/components/projects/project-data'
 import {
   datasetValidation,
   toDatasetListRow,
-} from '#/components/v3/datasets/datasets-data'
-import type { DatasetListRow } from '#/components/v3/datasets/datasets-data'
+} from '#/components/datasets/datasets-data'
+import type { DatasetListRow } from '#/components/datasets/datasets-data'
 import { fetchActiveDatasetFlags } from './dataset-flags'
 import { fetchNeedsActionCounts, toWorkItem } from './work-items/data'
 import type { WorkItem, WorkItemWire } from './work-items/data'

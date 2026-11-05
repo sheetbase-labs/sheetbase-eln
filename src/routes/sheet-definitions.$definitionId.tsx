@@ -4,10 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { z } from 'zod'
 
-import { Notice } from '#/components/v3/ui/alert'
-import { Button } from '#/components/v3/ui/button'
-import { PageHeader, Section } from '#/components/v3/ui/layout'
-import { Select } from '#/components/v3/ui/select'
+import { Notice } from '#/components/ui/alert'
+import { Button } from '#/components/ui/button'
+import { PageHeader, Section } from '#/components/ui/layout'
+import { Select } from '#/components/ui/select'
 import {
   Table,
   TableBody,
@@ -16,7 +16,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import {
   ConfirmDialog,
   ConfirmDialogContent,
@@ -26,7 +26,7 @@ import {
   ConfirmDialogFooter,
   ConfirmDialogCancel,
   ConfirmDialogAction,
-} from '#/components/v3/ui/confirm-dialog'
+} from '#/components/ui/confirm-dialog'
 import { hasCapability } from '#/lib/capability'
 import { safeReturnTo } from '#/lib/create-context-search'
 import { signInRedirect } from '#/lib/sign-in-redirect'

@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Button } from '#/components/v3/ui/button'
-import { Muted, Section } from '#/components/v3/ui/layout'
+import { Button } from '#/components/ui/button'
+import { Muted, Section } from '#/components/ui/layout'
 import {
   CheckRow,
   SettingsBody,
   SettingsHeader,
-} from '#/components/v3/settings/settings-page'
+} from '#/components/settings/settings-page'
 
 /**
  * The chrome every settings page shares (`settings-page.tsx`): the header with

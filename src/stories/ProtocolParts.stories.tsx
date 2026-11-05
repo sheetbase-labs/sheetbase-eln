@@ -3,15 +3,15 @@ import type { QueryClient } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { expect, screen, userEvent } from 'storybook/test'
 
-import { NewProtocolDialog } from '#/components/v3/protocols/new-protocol-dialog'
-import { ProtocolHazards } from '#/components/v3/protocols/protocol-hazards'
-import { ProtocolInspector } from '#/components/v3/protocols/protocol-inspector'
-import { ProtocolTrainingRoster } from '#/components/v3/protocols/protocol-training-roster'
+import { NewProtocolDialog } from '#/components/protocols/new-protocol-dialog'
+import { ProtocolHazards } from '#/components/protocols/protocol-hazards'
+import { ProtocolInspector } from '#/components/protocols/protocol-inspector'
+import { ProtocolTrainingRoster } from '#/components/protocols/protocol-training-roster'
 import {
   ProtocolVersionsPanel,
   protocolVersionsKey,
-} from '#/components/v3/protocols/protocol-versions-panel'
-import { modelApprovalQueryKeys } from '#/components/v3/models/model-approval-data'
+} from '#/components/protocols/protocol-versions-panel'
+import { modelApprovalQueryKeys } from '#/components/models/model-approval-data'
 import {
   PROTOCOL_REVISION_KIND,
   protocolTrainingKey,
@@ -25,7 +25,7 @@ import { screenQueryClient, screenRoutes, withApiReads } from './screen-stories'
 import type { ReadSeed } from './screen-stories'
 
 /**
- * The protocol page's parts (`src/components/v3/protocols/`): the versions
+ * The protocol page's parts (`src/components/protocols/`): the versions
  * panel and its approval trail, the right-hand inspector, the training roster,
  * the hazards of the materials a protocol uses, and the dialog that starts a
  * protocol. The working document and the per-version training notice have

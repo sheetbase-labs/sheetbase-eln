@@ -28,8 +28,8 @@ import type { JSX, ReactNode } from 'react'
 import { useDataGrid } from '#/components/reui/data-grid/data-grid'
 
 import { cn } from '#/lib/utils'
-import { Button } from '#/components/v3/ui/button'
-import { Skeleton } from '#/components/v3/ui/skeleton'
+import { Button } from '#/components/ui/button'
+import { Skeleton } from '#/components/ui/skeleton'
 import { Icon } from '#/components/icons'
 
 interface DataGridPaginationProps {
@@ -203,7 +203,7 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
             {/* Sheetbase has no v3 select: the app's own convention for a
                 small control like this is a native select in the input's
                 style, which keeps keyboard and screen-reader behaviour for
-                free (see `src/components/v3/inventory/list.tsx`). The item
+                free (see `src/components/inventory/list.tsx`). The item
                 ships a Radix select here; that kit is not extended
                 (ADR-0055 decision 1), so this is the one control the copy
                 re-points rather than restyles. */}

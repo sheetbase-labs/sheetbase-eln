@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { userEvent, within } from 'storybook/test'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { SheetPasteData } from '#/components/sheet/sheet-paste-data'
 
 /**

@@ -108,7 +108,7 @@ vi.mock('#/lib/user-names', () => ({
 }))
 
 // The dropdown is irrelevant to list rendering and pulls in the floating layer.
-vi.mock('#/components/v3/ui/dropdown-menu', () => ({
+vi.mock('#/components/ui/dropdown-menu', () => ({
   DropdownMenu: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),

@@ -24,8 +24,8 @@
 import * as React from 'react'
 import { Icon } from '#/components/icons'
 
-import { Button } from '#/components/v3/ui/button'
-import { CommandGroup, CommandItem } from '#/components/v3/ui/command'
+import { Button } from '#/components/ui/button'
+import { CommandGroup, CommandItem } from '#/components/ui/command'
 import type { InspectorTab } from '#/components/record'
 import type { ResolvedExtensionContribution } from '#/lib/extensions/registry'
 import { t } from '#/copy'

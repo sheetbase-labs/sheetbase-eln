@@ -7,7 +7,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { rich, t } from '#/copy'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { sciDataClient } from '#/lib/chart-data'
 import { listDatasetVersionSummaries } from '#/lib/dataset-explorer-data'
 import { formatDate } from '#/lib/format-date'

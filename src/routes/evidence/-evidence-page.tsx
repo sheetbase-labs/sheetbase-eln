@@ -8,11 +8,11 @@ import {
   Inspector,
   InspectorSection,
   Muted,
-} from '#/components/v3/ui/layout'
-import { Notice } from '#/components/v3/ui/alert'
-import { Status } from '#/components/v3/ui/status'
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
+} from '#/components/ui/layout'
+import { Notice } from '#/components/ui/alert'
+import { Status } from '#/components/ui/status'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
 import {
   Dialog,
   DialogBody,
@@ -20,15 +20,15 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { Textarea } from '#/components/v3/inventory/list'
-import { toast } from '#/components/v3/ui/sonner'
-import { TableBox } from '#/components/v3/ui/table'
+} from '#/components/ui/dialog'
+import { Textarea } from '#/components/inventory/list'
+import { toast } from '#/components/ui/sonner'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
   EvidenceDrift,
   EvidenceSignatures,

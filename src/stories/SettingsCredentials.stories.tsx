@@ -4,11 +4,11 @@ import {
   SettingsCredentials,
   personalTokensCopy,
   serviceCredentialsCopy,
-} from '#/components/v3/settings/settings-credentials'
-import type { CredentialRow } from '#/components/v3/settings/settings-credentials'
+} from '#/components/settings/settings-credentials'
+import type { CredentialRow } from '#/components/settings/settings-credentials'
 
 /**
- * The credential panel (src/components/v3/settings/settings-credentials.tsx):
+ * The credential panel (src/components/settings/settings-credentials.tsx):
  * one component for both Settings sections. Personal tokens and workspace
  * service credentials differ only in the `copy` preset they are handed, which
  * is what the two former files (settings-api-tokens, settings-service-credentials)

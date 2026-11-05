@@ -55,7 +55,7 @@ vi.mock('#/lib/notebook-data', () => ({
   notebookDataClient: { list: mocks.list, rpc: mocks.rpc },
 }))
 
-vi.mock('#/components/v3/experiments/experiments-data', () => ({
+vi.mock('#/components/experiments/experiments-data', () => ({
   // The page resolves a result's project id to its name through this map.
   useProjectNameMap: () => ({
     data: new Map([['project-a', 'Process Development']]),

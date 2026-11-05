@@ -2,7 +2,7 @@ import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { expect, screen, userEvent } from 'storybook/test'
 
-import { RegisterConnectorDialog } from '#/components/v3/integrations/register-connector-dialog'
+import { RegisterConnectorDialog } from '#/components/integrations/register-connector-dialog'
 import { withApiReads } from './screen-stories'
 
 /**

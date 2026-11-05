@@ -5,17 +5,17 @@
 import * as React from 'react'
 
 import { t } from '#/copy'
-import { Button } from '#/components/v3/ui/button'
-import { Input } from '#/components/v3/ui/input'
-import { IconButton } from '#/components/v3/ui/icon-button'
-import { Notice } from '#/components/v3/ui/alert'
+import { Button } from '#/components/ui/button'
+import { Input } from '#/components/ui/input'
+import { IconButton } from '#/components/ui/icon-button'
+import { Notice } from '#/components/ui/alert'
 import {
   Dialog,
   DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
+} from '#/components/ui/dialog'
 import {
   ANNOTATION_COLORS,
   ANNOTATION_COLOR_HEX,

@@ -4,23 +4,23 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { DialogRootActions } from '@base-ui/react/dialog'
 
 import { t } from '#/copy'
-import { Status } from '#/components/v3/ui/status'
-import { Notice } from '#/components/v3/ui/alert'
+import { Status } from '#/components/ui/status'
+import { Notice } from '#/components/ui/alert'
 import {
   DescriptionList,
   Inspector,
   InspectorSection,
   Muted,
-} from '#/components/v3/ui/layout'
-import { TableBox } from '#/components/v3/ui/table'
+} from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
   useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { Button, buttonVariants } from '#/components/v3/ui/button'
-import { CiteSnapshotDialog } from '#/components/v3/datasets/cite-snapshot-dialog'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { Button, buttonVariants } from '#/components/ui/button'
+import { CiteSnapshotDialog } from '#/components/datasets/cite-snapshot-dialog'
 import {
   Dialog,
   DialogBody,
@@ -28,11 +28,11 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Select } from '#/components/v3/ui/select'
-import { toast } from '#/components/v3/ui/sonner'
-import { stickyCell, stickyHead } from '#/components/v3/inventory/list'
+} from '#/components/ui/dialog'
+import { Field, Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
+import { toast } from '#/components/ui/sonner'
+import { stickyCell, stickyHead } from '#/components/inventory/list'
 import {
   countSnapshotCitations,
   describeKeepError,
@@ -45,8 +45,8 @@ import {
   isSnapshotPrunable,
   isSnapshotTombstone,
   mostUrgentPruneWarning,
-} from '#/components/v3/datasets/snapshot-data'
-import type { SnapshotVersion } from '#/components/v3/datasets/snapshot-data'
+} from '#/components/datasets/snapshot-data'
+import type { SnapshotVersion } from '#/components/datasets/snapshot-data'
 import { hasCapability } from '#/lib/capability'
 import { keepDatasetVersion } from '#/lib/dataset-explorer-data'
 import { snapshotDataset } from '#/lib/dataset-product'

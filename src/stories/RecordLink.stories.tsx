@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { Icon } from '#/components/icons'
 import { RecordLink } from '#/components/scientific/record-link'
-import { Button } from '#/components/v3/ui/button'
-import { RowList } from '#/components/v3/ui/row'
+import { Button } from '#/components/ui/button'
+import { RowList } from '#/components/ui/row'
 
 const meta = {
   title: 'Scientific/Record link',

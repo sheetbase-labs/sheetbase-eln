@@ -27,7 +27,7 @@ vi.mock('../$projectId', () => ({
   statusLabel: (status: string) => status,
   statusTone: () => 'neutral',
 }))
-vi.mock('#/components/v3/projects/project-data', () => ({
+vi.mock('#/components/projects/project-data', () => ({
   useProjectSummary: () => ({ project: { id: 'p1', title: 'Project' } }),
   fetchProjectFolders: async () => [
     { id: 'f1', name: 'First destination', parent_id: null },
@@ -56,7 +56,7 @@ vi.mock('#/lib/notebook-data', () => ({
 }))
 
 // Keep both dialogs addressable. Modal focus trapping is not the ownership contract.
-vi.mock('#/components/v3/ui/dialog', () => {
+vi.mock('#/components/ui/dialog', () => {
   const Content = ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   )

@@ -1,7 +1,7 @@
 [
  {
   "area": "Shell / notification bell",
-  "route": "src/components/v3/shell/app-shell.tsx:598-635",
+  "route": "src/components/shell/app-shell.tsx:598-635",
   "severity": "major",
   "issue": "\"Mark all read\" performs no write \u2014 it only flips a local `read` boolean. Unread is re-derived from the SSR snapshot on every reopen, so the action has no persistent effect and the rows revert to unread on reload. A persistence path (`mark_notifications_read` RPC) already exists and is used by the legacy bell.",
   "evidence": "`const [read, setRead] = useState(false)` (line 599); `onClick={() => setRead(true)}` (632); compare `markNotificationsRead` -> `client.rpc('mark_notifications_read'\u2026)` in src/lib/notifications-data.ts:63-65.",
@@ -12,13 +12,13 @@
   "outcome_change": "Mark all read now writes the unread ids through markNotificationsRead (api.mark_notifications_read) instead of flipping a local boolean, remembers them until the shell re-resolves and calls router.invalidate(), and reports a failure in the popover instead of pretending success.",
   "outcome_proof": "app-shell.tsx:185-193 (markNotifications awaits markNotificationsRead, then setReadNotifications, then router.invalidate) and the new test 'marks every unread notification read through the API, clearing the phone badge', which asserts markNotificationsRead was called with the ids and that invalidate ran; legacy RPC surface at src/lib/notifications-data.ts:63-65.",
   "outcome_files": [
-   "src/components/v3/shell/app-shell.tsx",
-   "src/components/v3/shell/app-shell.test.tsx"
+   "src/components/shell/app-shell.tsx",
+   "src/components/shell/app-shell.test.tsx"
   ]
  },
  {
   "area": "Shell / notification bell",
-  "route": "src/components/v3/shell/app-shell.tsx:230",
+  "route": "src/components/shell/app-shell.tsx:230",
   "severity": "major",
   "issue": "Bottom-tab Inbox unread badge is computed from the server-provided `data.notifications` array and is completely independent of the bell popover's local read state, so opening the bell and pressing \"Mark all read\" never clears the phone badge during the session.",
   "evidence": "`unread={data.notifications.filter((n) => n.unread).length}` (230) vs `const unread = read ? 0 : items.filter(...)` (600) in a separate component.",
@@ -29,13 +29,13 @@
   "outcome_change": "The unread set is now derived once in AppShell (server snapshot minus the ids this session marked read) and shared by the bell popover and the phone bottom-tab badge, so marking read clears both.",
   "outcome_proof": "app-shell.tsx:196-205 (unreadIds memo) passed to BottomTabs as unread={unreadIds.size} (line 276) and into the bell; the test asserts the bottom nav shows '2' before Mark all read and queryByText('2') is null after it.",
   "outcome_files": [
-   "src/components/v3/shell/app-shell.tsx",
-   "src/components/v3/shell/app-shell.test.tsx"
+   "src/components/shell/app-shell.tsx",
+   "src/components/shell/app-shell.test.tsx"
   ]
  },
  {
   "area": "Shell / notification bell",
-  "route": "src/components/v3/shell/app-shell.tsx:637-653",
+  "route": "src/components/shell/app-shell.tsx:637-653",
   "severity": "major",
   "issue": "Every notification row hard-codes `to=\"/inbox\"`, discarding the per-item `n.to` target. The server computes a typed target (pipeline-run/dataset/sample/sheet/review) in shell-chrome.server.ts:notificationTarget, so clicking a pipeline-failure notification lands on the Inbox instead of the run.",
   "evidence": "`<Link key={n.id} to=\"/inbox\" \u2026>` (639-641); target computed at src/lib/shell-chrome.server.ts:90-98 and never read.",
@@ -46,8 +46,8 @@
   "outcome_change": "Each popover row now links through the server-computed NotificationTarget via notificationLink(), mapping pipeline-run/dataset/sample/sheet to their routes and the review fallback to /records/$recordId, instead of hard-coding /inbox.",
   "outcome_proof": "app-shell.tsx:693-720 notificationLink; the test 'opens a row on the record its target names and marks that row read' asserts a pipeline-run target renders href '/pipelines/runs/run-9' and the review target '/records/rec-3'.",
   "outcome_files": [
-   "src/components/v3/shell/app-shell.tsx",
-   "src/components/v3/shell/app-shell.test.tsx"
+   "src/components/shell/app-shell.tsx",
+   "src/components/shell/app-shell.test.tsx"
   ]
  },
  {
@@ -84,7 +84,7 @@
  },
  {
   "area": "Shell / workspace switcher",
-  "route": "src/components/v3/shell/app-shell.tsx:500-501",
+  "route": "src/components/shell/app-shell.tsx:500-501",
   "severity": "major",
   "issue": "The workspace switcher trigger is `hidden \u2026 sm:flex` and is not offered anywhere else (the mobile menu Sheet renders only SideNav). Below the sm breakpoint a phone user has no way to see or change the active workspace.",
   "evidence": "`className=\"hidden max-w-52 gap-1.5 sm:flex\"` (501); Sheet at 232-242 contains only `<SideNav>`.",
@@ -95,13 +95,13 @@
   "outcome_change": "WorkspaceSwitcher takes a className for its trigger and is rendered a second time inside the phone navigation drawer below the sm breakpoint, so a phone user can see and change the active workspace.",
   "outcome_proof": "app-shell.tsx:277-292 (drawer copy, sm:hidden) and the test 'offers the workspace switcher in the phone drawer', which opens the drawer, switches to the second workspace and asserts setActiveWorkspace was called with ws-2. Live check at 390x844 on http://localhost:3001: the drawer listed Fixture Workspace / Process Development, choosing Fixture Workspace switched the app (page then rendered 'Fixture Workspace'), closed the drawer and the shell re-resolved; the active workspace was written back to Process Development afterwards.",
   "outcome_files": [
-   "src/components/v3/shell/app-shell.tsx",
-   "src/components/v3/shell/app-shell.test.tsx"
+   "src/components/shell/app-shell.tsx",
+   "src/components/shell/app-shell.test.tsx"
   ]
  },
  {
   "area": "Shell / workspace switcher",
-  "route": "src/components/v3/shell/app-shell.tsx:534",
+  "route": "src/components/shell/app-shell.tsx:534",
   "severity": "minor",
   "issue": "The workspace menu's only non-membership entry is a permanently disabled \"Create workspace\" item with no explanation or route \u2014 a dead affordance.",
   "evidence": "`<DropdownMenuItem disabled>Create workspace</DropdownMenuItem>` (534).",
@@ -112,12 +112,12 @@
   "outcome_change": "The permanently disabled 'Create workspace' entry was removed from the workspace menu, which now lists only the memberships the caller can actually open; a workspace is owner-provisioned and no surface in the product creates one.",
   "outcome_proof": "app-shell.tsx:608-631 (menu content: Workspaces group plus the membership items only); the product has no creation path \u2014 api.workspaces grants no INSERT to authenticated (drizzle/0004_workspace_rls.sql:85) and no create_workspace RPC or route exists.",
   "outcome_files": [
-   "src/components/v3/shell/app-shell.tsx"
+   "src/components/shell/app-shell.tsx"
   ]
  },
  {
   "area": "Shell / workspace switcher",
-  "route": "src/components/v3/shell/app-shell.tsx:149-156",
+  "route": "src/components/shell/app-shell.tsx:149-156",
   "severity": "minor",
   "issue": "A refused workspace switch is swallowed and `router.invalidate()` still runs, so the menu checkmark/selection does not move and the user gets no error \u2014 the click appears to do nothing.",
   "evidence": "`try { await setActiveWorkspace(...) } catch { /* keep the current workspace if the switch is refused */ } router.invalidate()` (150-156).",
@@ -128,13 +128,13 @@
   "outcome_change": "A refused switch is no longer swallowed: switchWorkspace rejects, the menu stays open and shows the reason in a Notice while no router.invalidate() runs, so the shell is never re-resolved onto a workspace the caller is not active in; a successful switch closes the menu and re-resolves.",
   "outcome_proof": "app-shell.tsx:173-183 (switchWorkspace) and 568-595 (choose keeps the menu open on failure); the tests 'switches workspace and re-resolves the shell when the switch succeeds' and 'reports a refused switch instead of re-resolving onto it' (asserts role=alert with the reason, invalidate not called, trigger still showing Process Development). Live: the RPC refusal returns 'not a member of that workspace' (403 via /api/db/rpc/set_active_workspace).",
   "outcome_files": [
-   "src/components/v3/shell/app-shell.tsx",
-   "src/components/v3/shell/app-shell.test.tsx"
+   "src/components/shell/app-shell.tsx",
+   "src/components/shell/app-shell.test.tsx"
   ]
  },
  {
   "area": "Shell / sidebar",
-  "route": "src/components/v3/shell/app-shell.tsx:874-875",
+  "route": "src/components/shell/app-shell.tsx:874-875",
   "severity": "nit",
   "issue": "The \"Pinned projects\" section header is always rendered even when `pinned` is empty, leaving a dangling heading.",
   "evidence": "Unconditional `<div>Pinned projects</div>` (874-875) precedes `pinned.map(...)` (877).",
@@ -145,13 +145,13 @@
   "outcome_change": "The 'Pinned projects' heading is rendered only when the caller has pinned projects, matching the legacy shell, so an empty sidebar no longer ends in a dangling heading.",
   "outcome_proof": "app-shell.tsx:1056-1073 (the heading and list are inside one pinned.length guard); the existing collapse test now passes a pinned project so it asserts a real header, and the new test 'leaves no pinned heading when the caller has pinned nothing' asserts the heading is absent with no pinned projects.",
   "outcome_files": [
-   "src/components/v3/shell/app-shell.tsx",
-   "src/components/v3/shell/app-shell.test.tsx"
+   "src/components/shell/app-shell.tsx",
+   "src/components/shell/app-shell.test.tsx"
   ]
  },
  {
   "area": "Shell / theme+collapse",
-  "route": "src/components/v3/shell/app-shell.tsx:108-127",
+  "route": "src/components/shell/app-shell.tsx:108-127",
   "severity": "minor",
   "issue": "Sidebar collapse applies `localStorage` first, then overwrites it with the server preference when that fetch resolves \u2014 a user's local collapse can flip after load; no reconciliation.",
   "evidence": "`setCollapsed(saved)` (119) then `.then((preferences) => { if (!cancelled && preferences) setCollapsed(preferences.navCollapsed) })` (124-126).",
@@ -162,13 +162,13 @@
   "outcome_change": "The collapse preference is reconciled instead of overwritten: a toggle the user made while the preferences fetch was in flight wins, and when the stored value is applied it is written back to the localStorage mirror so the two agree on the next load.",
   "outcome_proof": "app-shell.tsx:104-106, 127-151 and 156-157; the tests 'applies the stored collapse preference when the user has not touched it' and 'never lets a late preference response undo a collapse the user made' (a deferred fetch resolved after the \u2318\\ toggle, which leaves the sidebar collapsed).",
   "outcome_files": [
-   "src/components/v3/shell/app-shell.tsx",
-   "src/components/v3/shell/app-shell.test.tsx"
+   "src/components/shell/app-shell.tsx",
+   "src/components/shell/app-shell.test.tsx"
   ]
  },
  {
   "area": "Shell / bottom tabs",
-  "route": "src/components/v3/shell/app-shell.tsx:337-347",
+  "route": "src/components/shell/app-shell.tsx:337-347",
   "severity": "nit",
   "issue": "The same `/` destination is labelled \"Today\" in the phone bottom bar and \"Home\" in the sidebar/rail and page header, and \"Today\" is also used for the inspector section \u2014 three labels for one concept.",
   "evidence": "bottom tab `<Icon name=\"calendar\"/>Today` (345-347) vs nav label `Home` (nav.ts:30).",
@@ -179,8 +179,8 @@
   "outcome_change": "The phone bottom bar's home destination is labelled 'Home' with the home icon, matching the sidebar, rail and page header, so one destination has one name.",
   "outcome_proof": "app-shell.tsx:399-402; the test 'keeps the bench destinations in the phone bottom bar' now expects Home/Scan/Inbox, and the live shell at 390x844 showed the tab as 'Home'.",
   "outcome_files": [
-   "src/components/v3/shell/app-shell.tsx",
-   "src/components/v3/shell/app-shell.test.tsx"
+   "src/components/shell/app-shell.tsx",
+   "src/components/shell/app-shell.test.tsx"
   ]
  },
  {
@@ -303,7 +303,7 @@
  },
  {
   "area": "Search / command palette",
-  "route": "src/components/v3/search/search-palette.tsx:145-156",
+  "route": "src/components/search/search-palette.tsx:145-156",
   "severity": "major",
   "issue": "The palette's `executeSearch` promise has no `.catch`; a failing search leaves `res === null`, so the \"No matches\" branch (`res !== null && \u2026`) never shows and the user sees an empty results box, plus an unhandled rejection. No error/retry state exists.",
   "evidence": "`void executeSearch(notebookDataClient, {\u2026}).then((rows) => { if (live) { setRes(rows) \u2026 } })` (145-155); empty-state guard at ~340-345 requires `res !== null`.",
@@ -312,15 +312,15 @@
   "id": "QA-019",
   "outcome": "fixed",
   "outcome_change": "The palette search is one runSearch() function with a .catch: a failure clears the results, keeps the cause in state and renders a 'Search could not run' state with a Try again button that re-runs the same query, so a failing search is no longer an empty listbox plus an unhandled rejection. A generation counter stops a superseded or closed-over response from writing into the palette.",
-  "outcome_proof": "src/components/v3/search/search-palette.test.tsx 'says the search failed and retries it': after a rejected search the error state shows, no 'No matches for' text appears, and Try again renders the found row (EXP-0142).",
+  "outcome_proof": "src/components/search/search-palette.test.tsx 'says the search failed and retries it': after a rejected search the error state shows, no 'No matches for' text appears, and Try again renders the found row (EXP-0142).",
   "outcome_files": [
-   "src/components/v3/search/search-palette.tsx",
-   "src/components/v3/search/search-palette.test.tsx"
+   "src/components/search/search-palette.tsx",
+   "src/components/search/search-palette.test.tsx"
   ]
  },
  {
   "area": "Search / command palette",
-  "route": "src/components/v3/search/search-palette.tsx:82-96 (scope) + 341",
+  "route": "src/components/search/search-palette.tsx:82-96 (scope) + 341",
   "severity": "minor",
   "issue": "With a project scope selected the palette client-filters results (`filterBySearchScope`); if the scope removes all rows the palette shows the generic \"No matches for \u2026\" with no hint that the scope caused it and no way to clear the scope from that state.",
   "evidence": "`scoped = filterBySearchScope(items, scope === SEARCH_SCOPE_ALL ? undefined : scope)` (208-214); empty state text at 341-345.",
@@ -329,15 +329,15 @@
   "id": "QA-020",
   "outcome": "fixed",
   "outcome_change": "When a project scope is what removed the rows (the server returned rows but filterBySearchScope dropped them all, e.g. workspace-level templates), the palette names the scope by project name, says how many matches are outside it and offers 'Search all projects', instead of the generic 'No matches for \u2026'.",
-  "outcome_proof": "src/components/v3/search/search-palette.test.tsx 'names the project scope as the reason for no matches': with scope project-a and only a workspace-level template returned, 'No matches in Process Development' renders and clicking 'Search all projects' shows PT-0001.",
+  "outcome_proof": "src/components/search/search-palette.test.tsx 'names the project scope as the reason for no matches': with scope project-a and only a workspace-level template returned, 'No matches in Process Development' renders and clicking 'Search all projects' shows PT-0001.",
   "outcome_files": [
-   "src/components/v3/search/search-palette.tsx",
-   "src/components/v3/search/search-palette.test.tsx"
+   "src/components/search/search-palette.tsx",
+   "src/components/search/search-palette.test.tsx"
   ]
  },
  {
   "area": "Search / command palette",
-  "route": "src/components/v3/search/search-palette.tsx:137-155",
+  "route": "src/components/search/search-palette.tsx:137-155",
   "severity": "minor",
   "issue": "While the debounced query is in flight `res` remains from the prior query or null, and there is no \"searching\" state \u2014 an empty listbox is shown with no progress indication.",
   "evidence": "`setRes(null)` on empty term (139); fetch only sets `res` on resolution (150-155).",
@@ -346,10 +346,10 @@
   "id": "QA-021",
   "outcome": "fixed",
   "outcome_change": "The palette tracks a `searching` state set when a term is typed (before the 120ms debounce) and cleared when the run resolves or fails; it renders a 'Searching\u2026' status row and aria-busy on the listbox, and the empty state is gated on !searching so an in-flight search never reads as 'No matches'.",
-  "outcome_proof": "src/components/v3/search/search-palette.test.tsx 'says a search is running instead of showing an empty list': while the RPC promise is pending 'Searching\u2026' is shown and it disappears once the promise resolves.",
+  "outcome_proof": "src/components/search/search-palette.test.tsx 'says a search is running instead of showing an empty list': while the RPC promise is pending 'Searching\u2026' is shown and it disappears once the promise resolves.",
   "outcome_files": [
-   "src/components/v3/search/search-palette.tsx",
-   "src/components/v3/search/search-palette.test.tsx"
+   "src/components/search/search-palette.tsx",
+   "src/components/search/search-palette.test.tsx"
   ]
  },
  {
@@ -404,7 +404,7 @@
  },
  {
   "area": "Schedule / booking dialog",
-  "route": "src/components/v3/schedule/book-dialog.tsx:65-67",
+  "route": "src/components/schedule/book-dialog.tsx:65-67",
   "severity": "major",
   "issue": "Bookings are always written with `timezone: 'UTC'` and wall-clock times appended with `Z`, ignoring the workspace timezone. Home and the Schedule grid then disagree (Home converts to workspace TZ), so a booking made for 09:00 can display at a different time on Home.",
   "evidence": "`startsAt: \\`${date}T${start}:00.000Z\\``, `endsAt: \\`${date}T${end}:00.000Z\\``, `timezone: 'UTC'` (65-67) vs Home `toLocaleTimeString('en-GB', { timeZone })` (index.tsx:760-764).",
@@ -415,13 +415,13 @@
   "outcome_change": "The dialog reads the workspace time zone (fetchWorkspaceGeneral \u2192 workspace_settings.timezone, the same source Home formats in), converts the entered wall clock to its UTC instant with a two-pass zone-offset conversion (so DST days settle), records that zone as the booking's timezone, and refuses the booking with a visible message when the zone cannot be read or resolved instead of guessing one.",
   "outcome_proof": "DB: `select timezone, count(*) from api.calendar_bookings group by 1` \u2192 Europe/London for all seeded bookings, whose instants are the true UTC instants of London wall clocks (e.g. 08:00Z = 09:00 BST); `workspace_settings.timezone` = Europe/London. Tests: book-dialog.test.tsx 'books the typed wall clock as an instant in the workspace zone on %s' (14:00 London \u2192 14:00Z in January, 13:00Z in July) and 'refuses the booking when the workspace time zone cannot be read'.",
   "outcome_files": [
-   "src/components/v3/schedule/book-dialog.tsx",
-   "src/components/v3/schedule/book-dialog.test.tsx"
+   "src/components/schedule/book-dialog.tsx",
+   "src/components/schedule/book-dialog.test.tsx"
   ]
  },
  {
   "area": "Schedule / booking dialog",
-  "route": "src/components/v3/schedule/book-dialog.tsx:56-60",
+  "route": "src/components/schedule/book-dialog.tsx:56-60",
   "severity": "minor",
   "issue": "No client validation that the end time is after the start (or that a date is set); a reversed or empty range is submitted and only refused server-side.",
   "evidence": "Submit guard checks only `!resourceId || !title.trim()` (56-59); start/end are free `type=time` inputs (120-129).",
@@ -430,15 +430,15 @@
   "id": "QA-026",
   "outcome": "fixed",
   "outcome_change": "submit() validates client-side before the RPC: the date and both times must be real (the conversion returns null otherwise) and the end must be after the start (compared as parsed instants), each with its own message in the dialog's alert; the server stays the authority for clash, qualification and calibration.",
-  "outcome_proof": "src/components/v3/schedule/book-dialog.test.tsx 'refuses an end time that is not after the start before calling the RPC' asserts the message and that the RPC was not called.",
+  "outcome_proof": "src/components/schedule/book-dialog.test.tsx 'refuses an end time that is not after the start before calling the RPC' asserts the message and that the RPC was not called.",
   "outcome_files": [
-   "src/components/v3/schedule/book-dialog.tsx",
-   "src/components/v3/schedule/book-dialog.test.tsx"
+   "src/components/schedule/book-dialog.tsx",
+   "src/components/schedule/book-dialog.test.tsx"
   ]
  },
  {
   "area": "Schedule / booking dialog",
-  "route": "src/components/v3/schedule/book-dialog.tsx:69-72",
+  "route": "src/components/schedule/book-dialog.tsx:69-72",
   "severity": "minor",
   "issue": "After a successful booking the dialog resets `title` and `resourceId` but leaves `date`/`start`/`end`, and `date` is initialised from `defaultDate` only on first mount \u2014 so the next booking silently reuses stale times, and the prop-derived default never updates as the user changes week/day.",
   "evidence": "`setTitle('')`/`setResourceId('')` (71-72) but no date/start/end reset; `const [date, setDate] = useState(defaultDate)` (46); `defaultDate={view === 'day' ? anchor : addDays(today, 3)}` (schedule.tsx:184).",
@@ -447,10 +447,10 @@
   "id": "QA-027",
   "outcome": "fixed",
   "outcome_change": "Closing the dialog (after a booking or a cancel) restores the wall-clock defaults 09:00/10:00 and the date to the current defaultDate prop, via an effect keyed on (open, defaultDate), so the next booking no longer reuses stale times and the view's anchor is picked up as the person changes week or day.",
-  "outcome_proof": "src/components/v3/schedule/book-dialog.test.tsx: 'restores the default times for the next booking' (From 09:00, To 10:00 after a booking) and 'takes the date from the view the person is looking at, not from first mount' (re-render with defaultDate 2026-10-19 \u2192 the Date input follows).",
+  "outcome_proof": "src/components/schedule/book-dialog.test.tsx: 'restores the default times for the next booking' (From 09:00, To 10:00 after a booking) and 'takes the date from the view the person is looking at, not from first mount' (re-render with defaultDate 2026-10-19 \u2192 the Date input follows).",
   "outcome_files": [
-   "src/components/v3/schedule/book-dialog.tsx",
-   "src/components/v3/schedule/book-dialog.test.tsx"
+   "src/components/schedule/book-dialog.tsx",
+   "src/components/schedule/book-dialog.test.tsx"
   ]
  },
  {
@@ -480,10 +480,10 @@
   "id": "QA-029",
   "outcome": "fixed",
   "outcome_change": "Residual half of QA-029 (its Schedule-page half is fixed in src/routes/schedule.tsx by that file's owner): the book dialog now states why its picker is empty \u2014 'No instruments are registered in this workspace yet, so there is nothing to book. Add one in the registry first.' \u2014 instead of leaving 'Choose\u2026' as the only option.",
-  "outcome_proof": "src/components/v3/schedule/book-dialog.test.tsx 'says why the picker is empty when the workspace has no instruments'.",
+  "outcome_proof": "src/components/schedule/book-dialog.test.tsx 'says why the picker is empty when the workspace has no instruments'.",
   "outcome_files": [
-   "src/components/v3/schedule/book-dialog.tsx",
-   "src/components/v3/schedule/book-dialog.test.tsx"
+   "src/components/schedule/book-dialog.tsx",
+   "src/components/schedule/book-dialog.test.tsx"
   ],
   "outcome_extra": "EXTRA-03"
  },
@@ -555,7 +555,7 @@
  },
  {
   "area": "Shell / notification popover",
-  "route": "src/components/v3/shell/app-shell.tsx:636-658",
+  "route": "src/components/shell/app-shell.tsx:636-658",
   "severity": "minor",
   "issue": "The v3 bell popover has no max-height/overflow (12 items) and every row is a navigation link that neither dismisses the popover nor marks the row read \u2014 unlike the legacy bell which scrolls and marks read.",
   "evidence": "`<PopoverContent className=\"w-[380px]\">` with no `max-h`/`overflow-y` (637 area); compare legacy `max-h-80 \u2026 overflow-y-auto` and `markRead.mutate()` (notifications-bell.tsx:76-99).",
@@ -566,8 +566,8 @@
   "outcome_change": "The popover body scrolls (max-h-80, overflow-y-auto), a row click marks that row read and dismisses the popover once the write resolves (staying open with the reason when it fails), already-read rows dismiss on click, and an empty bell states that there is nothing new instead of rendering nothing.",
   "outcome_proof": "app-shell.tsx:753-774 (markRead/readRow) and 810-846 (scrolling list, row onClick); the test 'opens a row on the record its target names and marks that row read' asserts the per-row write and that the popover closes, and 'keeps the bell open with the reason when the write fails' asserts the failure notice and the unchanged unread label.",
   "outcome_files": [
-   "src/components/v3/shell/app-shell.tsx",
-   "src/components/v3/shell/app-shell.test.tsx"
+   "src/components/shell/app-shell.tsx",
+   "src/components/shell/app-shell.test.tsx"
   ]
  },
  {
@@ -581,7 +581,7 @@
   "id": "QA-035",
   "outcome": "not-a-defect",
   "outcome_change": "No change: the role filter is not a no-op \u2014 nav items do declare roles and capability.",
-  "outcome_proof": "src/components/v3/settings/settings-nav.ts declares roles: WORKSPACE_ADMIN_ROLES on General (30), Members (36), Signatures (42), Project access (60), Audit (66), Diagnostics (72) and Usage (78) and capability 'integrations.manage' on Instruments and parsers (48) and Integrations (54); settingsNavForRole (106-107) filters with filterNavForRole and the behaviour is covered in the product path by src/components/v3/settings/settings-nav.test.ts. Only primaryNav/recordNav declare neither, which shell/nav.ts:10-14 documents as intent (everyday scientific navigation must never disappear), and app-shell.tsx:108-109 applies the same filter to them.",
+  "outcome_proof": "src/components/settings/settings-nav.ts declares roles: WORKSPACE_ADMIN_ROLES on General (30), Members (36), Signatures (42), Project access (60), Audit (66), Diagnostics (72) and Usage (78) and capability 'integrations.manage' on Instruments and parsers (48) and Integrations (54); settingsNavForRole (106-107) filters with filterNavForRole and the behaviour is covered in the product path by src/components/settings/settings-nav.test.ts. Only primaryNav/recordNav declare neither, which shell/nav.ts:10-14 documents as intent (everyday scientific navigation must never disappear), and app-shell.tsx:108-109 applies the same filter to them.",
   "outcome_files": []
  },
  {
@@ -589,7 +589,7 @@
   "route": "/projects",
   "severity": "major",
   "issue": "Empty-state \"New project\" is a dead control for users without record.create: it calls onNew (setSearch new:true) but the dialog only opens when canCreate is true, so the click does nothing.",
-  "evidence": "src/components/v3/projects/projects-page.tsx:801 `<Button variant=\"primary\" onClick={onNew}>New project</Button>` vs projects-page.tsx:719 `open={canCreate && !!search.new}`. Header button at :214 is guarded by `disabled={!canCreate}`, the empty-state one is not.",
+  "evidence": "src/components/projects/projects-page.tsx:801 `<Button variant=\"primary\" onClick={onNew}>New project</Button>` vs projects-page.tsx:719 `open={canCreate && !!search.new}`. Header button at :214 is guarded by `disabled={!canCreate}`, the empty-state one is not.",
   "verified": "code-only (conclusive)",
   "reviewer": "QaProjectsExperiments",
   "id": "QA-036",
@@ -597,8 +597,8 @@
   "outcome_change": "EmptyProjects now receives canCreate, disables 'New project' when the role cannot create projects (matching the header button) and states why, so the empty-state click is no longer silently dropped.",
   "outcome_proof": "projects-page.tsx: `disabled={!canCreate}` plus the 'Your role cannot create projects\u2026' paragraph; new test 'disables the empty-state New project and says why when the role cannot create' passes.",
   "outcome_files": [
-   "src/components/v3/projects/projects-page.tsx",
-   "src/components/v3/projects/projects-page.test.tsx"
+   "src/components/projects/projects-page.tsx",
+   "src/components/projects/projects-page.test.tsx"
   ]
  },
  {
@@ -606,7 +606,7 @@
   "route": "/projects",
   "severity": "minor",
   "issue": "Row checkboxes and a \"N selected\" footer exist, but there is no bulk action anywhere \u2014 selection is a dead affordance.",
-  "evidence": "src/components/v3/projects/projects-page.tsx:625-640 checkbox column; footer shows only `{checked.size} selected` (~:636), no archive/export/move control wired to `checked`.",
+  "evidence": "src/components/projects/projects-page.tsx:625-640 checkbox column; footer shows only `{checked.size} selected` (~:636), no archive/export/move control wired to `checked`.",
   "verified": "code-only (conclusive)",
   "reviewer": "QaProjectsExperiments",
   "id": "QA-037",
@@ -614,8 +614,8 @@
   "outcome_change": "Selection now has a real bulk action: the footer archives the selected projects through api.archive_project (behind a ConfirmDialog, with a persistent error line if the server refuses) and restores archived ones through api.unarchive_project; the checkbox column appears only for a workspace owner or admin, the roles those RPCs accept.",
   "outcome_proof": "projects-page.tsx bulk mutation (Promise.allSettled over archive_project/unarchive_project, invalidate PROJECTS_KEY, toast/inline error), role query on workspace_memberships and `canBulkArchive`; new test 'archives the selected projects only after the confirmation' asserts the RPC is not called before confirming and is called with the selected uuid.",
   "outcome_files": [
-   "src/components/v3/projects/projects-page.tsx",
-   "src/components/v3/projects/projects-page.test.tsx"
+   "src/components/projects/projects-page.tsx",
+   "src/components/projects/projects-page.test.tsx"
   ]
  },
  {
@@ -623,7 +623,7 @@
   "route": "/projects",
   "severity": "nit",
   "issue": "Group header cell over-spans by one column, so the group band runs one cell past the table's last column.",
-  "evidence": "src/components/v3/projects/projects-page.tsx:196 `const colSpan = 5 + cols.length`; the header is checkbox + ID + Project + cols + Status = 4 + cols.length columns (pages 625-700).",
+  "evidence": "src/components/projects/projects-page.tsx:196 `const colSpan = 5 + cols.length`; the header is checkbox + ID + Project + cols + Status = 4 + cols.length columns (pages 625-700).",
   "verified": "needs-live-check",
   "reviewer": "QaProjectsExperiments",
   "id": "QA-038",
@@ -631,8 +631,8 @@
   "outcome_change": "The group band's colSpan is now the table's real column count (checkbox column + ID + Project + visible columns + Status) instead of one more, so the band no longer runs past the last column.",
   "outcome_proof": "projects-page.tsx `const colSpan = (canBulkArchive ? 4 : 3) + cols.length` (the header renders checkbox, ID, Project, cols, Status); new test 'spans a group band across exactly the table columns' compares the band's colspan with the number of columnheaders.",
   "outcome_files": [
-   "src/components/v3/projects/projects-page.tsx",
-   "src/components/v3/projects/projects-page.test.tsx"
+   "src/components/projects/projects-page.tsx",
+   "src/components/projects/projects-page.test.tsx"
   ]
  },
  {
@@ -640,7 +640,7 @@
   "route": "/projects",
   "severity": "minor",
   "issue": "Sort by \"ID\" sorts descending (Z\u2192A) while Name sorts ascending \u2014 inconsistent and counter to the label.",
-  "evidence": "src/components/v3/projects/projects-page.tsx:176-178 `sort === 'id' ? b.id.localeCompare(a.id)`.",
+  "evidence": "src/components/projects/projects-page.tsx:176-178 `sort === 'id' ? b.id.localeCompare(a.id)`.",
   "verified": "code-only (conclusive)",
   "reviewer": "QaProjectsExperiments",
   "id": "QA-039",
@@ -648,8 +648,8 @@
   "outcome_change": "Sort by ID now sorts ascending (a.id.localeCompare(b.id)), matching the 'ID' label and the Name sort instead of Z\u2192A.",
   "outcome_proof": "projects-page.tsx sort comparator; new test 'sorts by ID ascending, matching the label and the Name order' expects PRJ-0100, PRJ-0217, PRJ-0320.",
   "outcome_files": [
-   "src/components/v3/projects/projects-page.tsx",
-   "src/components/v3/projects/projects-page.test.tsx"
+   "src/components/projects/projects-page.tsx",
+   "src/components/projects/projects-page.test.tsx"
   ]
  },
  {
@@ -731,7 +731,7 @@
   "id": "QA-044",
   "outcome": "fixed",
   "outcome_change": "fetchRecordsForProject now filters `deleted_at=is.null` next to `archived_at=is.null`, so soft-deleted records stop leaking into the project overview, the folders tab and the other callers (projects-page, related-work, notebook), matching the project-list builders.",
-  "outcome_proof": "src/lib/notebook-data.ts:344 query is now `?project_id=eq.\u2026&order=created_at.desc&archived_at=is.null&deleted_at=is.null&select=\u2026`; src/components/v3/projects/project-lists.ts:55-64 (projectRecordFilter) already filtered both columns.",
+  "outcome_proof": "src/lib/notebook-data.ts:344 query is now `?project_id=eq.\u2026&order=created_at.desc&archived_at=is.null&deleted_at=is.null&select=\u2026`; src/components/projects/project-lists.ts:55-64 (projectRecordFilter) already filtered both columns.",
   "outcome_files": [
    "src/lib/notebook-data.ts"
   ]
@@ -830,7 +830,7 @@
   "id": "QA-050",
   "outcome": "fixed",
   "outcome_change": "Add-milestone's Name field now shows an inline error ('Use at least 3 characters so the plan names the milestone.') as soon as a too-short name is typed, so the disabled submit button is explained instead of silent.",
-  "outcome_proof": "milestones.tsx:1071-1086 `error={title.length > 0 && title.trim().length < 3 ? \u2026 : undefined}` on the Field (the Field component renders `error` in place of `hint`, src/components/v3/ui/input.tsx:44-48).",
+  "outcome_proof": "milestones.tsx:1071-1086 `error={title.length > 0 && title.trim().length < 3 ? \u2026 : undefined}` on the Field (the Field component renders `error` in place of `hint`, src/components/ui/input.tsx:44-48).",
   "outcome_files": [
    "src/routes/projects/$projectId/milestones.tsx"
   ]
@@ -840,7 +840,7 @@
   "route": "/projects/$projectId/milestones",
   "severity": "minor",
   "issue": "Phase band is painted success-green whenever its span has passed, regardless of whether its milestones are done \u2014 a completed-looking bar over open work.",
-  "evidence": "src/components/v3/projects/milestone-timeline.tsx:330-336 `band.end < now ? 'bg-success-wash' : ...`.",
+  "evidence": "src/components/projects/milestone-timeline.tsx:330-336 `band.end < now ? 'bg-success-wash' : ...`.",
   "verified": "needs-live-check",
   "reviewer": "QaProjectsExperiments",
   "id": "QA-051",
@@ -848,8 +848,8 @@
   "outcome_change": "A phase band whose span has passed is only painted success-green when every milestone in it is completed; with open work it now reads danger (overdue) instead of looking finished.",
   "outcome_proof": "milestone-timeline.test.tsx > 'paints a passed phase as overdue while its milestones are open' (expects bg-danger-wash) and '...as done once every milestone is completed' (expects bg-success-wash); both pass.",
   "outcome_files": [
-   "src/components/v3/projects/milestone-timeline.tsx",
-   "src/components/v3/projects/milestone-timeline.test.tsx"
+   "src/components/projects/milestone-timeline.tsx",
+   "src/components/projects/milestone-timeline.test.tsx"
   ]
  },
  {
@@ -857,16 +857,16 @@
   "route": "/projects/$projectId/milestones",
   "severity": "nit",
   "issue": "Timeline legend omits the grey \"unknown\" risk swatch that RISK_FILL/base state actually renders when the risk read has no row.",
-  "evidence": "src/components/v3/projects/milestone-timeline.tsx RISK_FILL `unknown: 'bg-border-strong'` vs legend at ~:380-400 listing only On track/At risk/Late/Done/Client-visible.",
+  "evidence": "src/components/projects/milestone-timeline.tsx RISK_FILL `unknown: 'bg-border-strong'` vs legend at ~:380-400 listing only On track/At risk/Late/Done/Client-visible.",
   "verified": "code-only (conclusive)",
   "reviewer": "QaProjectsExperiments",
   "id": "QA-052",
   "outcome": "fixed",
   "outcome_change": "The timeline legend now includes the grey 'Unknown risk' swatch that RISK_FILL.unknown renders, so the legend accounts for every marker the timeline can draw.",
-  "outcome_proof": "src/components/v3/projects/milestone-timeline.tsx legend includes a size-2 rotate-45 bg-border-strong 'Unknown risk' swatch matching RISK_FILL.unknown; milestone-timeline.test.tsx > 'lists the unknown-risk swatch in the legend' passes.",
+  "outcome_proof": "src/components/projects/milestone-timeline.tsx legend includes a size-2 rotate-45 bg-border-strong 'Unknown risk' swatch matching RISK_FILL.unknown; milestone-timeline.test.tsx > 'lists the unknown-risk swatch in the legend' passes.",
   "outcome_files": [
-   "src/components/v3/projects/milestone-timeline.tsx",
-   "src/components/v3/projects/milestone-timeline.test.tsx"
+   "src/components/projects/milestone-timeline.tsx",
+   "src/components/projects/milestone-timeline.test.tsx"
   ]
  },
  {
@@ -988,13 +988,13 @@
   "route": "/projects/$projectId/datasets",
   "severity": "minor",
   "issue": "Header/tab count is read with `client.count('datasets', ...primary_project_id...archived_at...)` while the rows come from `dataset_list_summary`; if the two boundaries disagree (RLS, archived handling) the count and the list diverge.",
-  "evidence": "src/components/v3/projects/project-lists.ts:216-234 fetchProjectDatasetsPage counts `datasets` but lists via the RPC; the same mismatch is surfaced in $projectId.tsx:53 useProjectDatasetCount.",
+  "evidence": "src/components/projects/project-lists.ts:216-234 fetchProjectDatasetsPage counts `datasets` but lists via the RPC; the same mismatch is surfaced in $projectId.tsx:53 useProjectDatasetCount.",
   "verified": "needs-live-check",
   "reviewer": "QaProjectsExperiments",
   "id": "QA-060",
   "outcome": "not-a-defect",
   "outcome_change": "No change. The tab total and the rows come from the same column at the same boundary under the same RLS, so the count and the list cannot diverge as described.",
-  "outcome_proof": "src/components/v3/projects/project-lists.ts:62-69 projectDatasetFilter = `primary_project_id=eq.X&archived_at=is.null`; drizzle/0422_dataset_list_summary_project.sql filters `(p_project_id IS NULL OR d.primary_project_id = p_project_id) AND (p_include_archived OR d.archived_at IS NULL)` and the function is SECURITY INVOKER, so both the count and the RPC read api.datasets under the caller's RLS. Read-only pg check on the dev DB: count of active datasets equalled the row count of dataset_list_summary(project,false) for every project that has datasets (7/7, 1/1, 1/1). No project currently holds an archived dataset, so the archived branch is settled by the identical predicate rather than a live sample.",
+  "outcome_proof": "src/components/projects/project-lists.ts:62-69 projectDatasetFilter = `primary_project_id=eq.X&archived_at=is.null`; drizzle/0422_dataset_list_summary_project.sql filters `(p_project_id IS NULL OR d.primary_project_id = p_project_id) AND (p_include_archived OR d.archived_at IS NULL)` and the function is SECURITY INVOKER, so both the count and the RPC read api.datasets under the caller's RLS. Read-only pg check on the dev DB: count of active datasets equalled the row count of dataset_list_summary(project,false) for every project that has datasets (7/7, 1/1, 1/1). No project currently holds an archived dataset, so the archived branch is settled by the identical predicate rather than a live sample.",
   "outcome_files": []
  },
  {
@@ -1018,17 +1018,17 @@
   "route": "/experiments",
   "severity": "major",
   "issue": "The list read is capped at 300 with no paging and no \"showing 300 of N\" indicator, so a busy workspace silently loses experiments (and the \"N of M\" footer uses the truncated total).",
-  "evidence": "src/components/v3/experiments/experiments-data.ts:98 `...order=updated_at.desc&limit=300`; footer src/routes/experiments.tsx:445-449 uses rows.length.",
+  "evidence": "src/components/experiments/experiments-data.ts:98 `...order=updated_at.desc&limit=300`; footer src/routes/experiments.tsx:445-449 uses rows.length.",
   "verified": "code-only (conclusive)",
   "reviewer": "QaProjectsExperiments",
   "id": "QA-062",
   "outcome": "fixed",
   "outcome_change": "The list read is parameterised (useExperimentRecords(workspaceId, limit), EXPERIMENT_LIST_PAGE_SIZE) and the exact totals now come from the database (useExperimentTabCounts -> client.count per tab), so the footer states the real total plus how many rows are loaded and a Load more control raises the page until everything is loaded; the header count and tab counts are the database totals, not the truncated page.",
-  "outcome_proof": "Live /experiments footer reads '135 of 135 \u00b7 filtered to last 30 days' (the RLS-scoped exact total, matching the 135 experiments this user can see), with no Load more because 135 < the 300 page. Tests pass: 'useExperimentRecords reads the page the caller asked for, not a fixed cap' asserts limit=600 and the shared kind=eq.experiment&deleted_at=is.null filter; 'useExperimentTabCounts counts every tab from the database under the list\u2019s own filter' asserts all=12 (a workspace total larger than any page) and each tab's own predicate. pnpm exec vitest run src/components/v3/experiments/experiments-data.test.ts -> 3 passed.",
+  "outcome_proof": "Live /experiments footer reads '135 of 135 \u00b7 filtered to last 30 days' (the RLS-scoped exact total, matching the 135 experiments this user can see), with no Load more because 135 < the 300 page. Tests pass: 'useExperimentRecords reads the page the caller asked for, not a fixed cap' asserts limit=600 and the shared kind=eq.experiment&deleted_at=is.null filter; 'useExperimentTabCounts counts every tab from the database under the list\u2019s own filter' asserts all=12 (a workspace total larger than any page) and each tab's own predicate. pnpm exec vitest run src/components/experiments/experiments-data.test.ts -> 3 passed.",
   "outcome_files": [
-   "src/components/v3/experiments/experiments-data.ts",
+   "src/components/experiments/experiments-data.ts",
    "src/routes/experiments.tsx",
-   "src/components/v3/experiments/experiments-data.test.ts"
+   "src/components/experiments/experiments-data.test.ts"
   ]
  },
  {
@@ -1036,7 +1036,7 @@
   "route": "/experiments",
   "severity": "minor",
   "issue": "\"Started\" column is populated from created_at (record creation), so it is not the experiment start date the label implies.",
-  "evidence": "src/components/v3/experiments/experiments-data.ts:~78 `started: row.created_at.slice(0, 10)`.",
+  "evidence": "src/components/experiments/experiments-data.ts:~78 `started: row.created_at.slice(0, 10)`.",
   "verified": "code-only (conclusive)",
   "reviewer": "QaProjectsExperiments",
   "id": "QA-063",
@@ -1044,9 +1044,9 @@
   "outcome_change": "The mislabelled column is now true: the row field is `created` (from created_at) and the table header reads 'Created', with the docstrings stating that the model carries no experiment start date, so nothing claims a start date the data does not have.",
   "outcome_proof": "Test 'carries the record\u2019s own creation and update dates' asserts created='2026-09-02' / updated='2026-10-11' for a wire row; live /experiments renders the 'Created' header and no 'Started' header.",
   "outcome_files": [
-   "src/components/v3/experiments/experiments-data.ts",
+   "src/components/experiments/experiments-data.ts",
    "src/routes/experiments.tsx",
-   "src/components/v3/experiments/experiments-data.test.ts"
+   "src/components/experiments/experiments-data.test.ts"
   ]
  },
  {
@@ -1524,7 +1524,7 @@
  },
  {
   "area": "Datasets \u203a Imports tab",
-  "route": "src/components/v3/datasets/dataset-imports-tab.tsx:134-135",
+  "route": "src/components/datasets/dataset-imports-tab.tsx:134-135",
   "severity": "minor",
   "issue": "Import receipts are inert: rows carry the receipt id but no link to /import/$importId (or any drill-down), so a failed import shown here cannot be opened or retried from the tab.",
   "evidence": "`{rows.map((row) => (<TableRow key={row.id}>` with no `<Link>`; the receipt `id` is the only identity rendered nowhere clickable.",
@@ -1533,10 +1533,10 @@
   "id": "QA-092",
   "outcome": "fixed",
   "outcome_change": "Each receipt's File cell now links to the retained import file (/import/$importId) with the search that resumes its map/check steps (dataset, experiment and parser key from the receipt's frozen provenance), so a failed import can be opened and retried from the tab; connector imports with no retained file stay plain text.",
-  "outcome_proof": "dataset-imports-tab.tsx:42-50 and :88-94 build importFileId/resumeSearch from the receipt (:116-119 renders the Link); new test 'opens a failed import at its retained file so it can be retried' asserts the row links to /import/file-9; `pnpm exec vitest run src/components/v3/datasets/dataset-imports-tab.test.tsx` passes 4/4 (a router mock was added because Link needs router context).",
+  "outcome_proof": "dataset-imports-tab.tsx:42-50 and :88-94 build importFileId/resumeSearch from the receipt (:116-119 renders the Link); new test 'opens a failed import at its retained file so it can be retried' asserts the row links to /import/file-9; `pnpm exec vitest run src/components/datasets/dataset-imports-tab.test.tsx` passes 4/4 (a router mock was added because Link needs router context).",
   "outcome_files": [
-   "src/components/v3/datasets/dataset-imports-tab.tsx",
-   "src/components/v3/datasets/dataset-imports-tab.test.tsx"
+   "src/components/datasets/dataset-imports-tab.tsx",
+   "src/components/datasets/dataset-imports-tab.test.tsx"
   ]
  },
  {
@@ -1550,14 +1550,14 @@
   "id": "QA-093",
   "outcome": "fixed",
   "outcome_change": "The dataset inspector always offers a link to the dataset ('Open dataset'; 'Open and fix' when it has issues), so a dataset with no issues \u2014 which has no other route on a phone, where the table is hidden \u2014 can be opened.",
-  "outcome_proof": "datasets.tsx inspector header: the Button+Link is no longer inside `{sel.issues > 0 ? \u2026 : null}`; the Inspector renders its own floating 'Details' Sheet button below xl (src/components/v3/ui/layout.tsx:89-102).",
+  "outcome_proof": "datasets.tsx inspector header: the Button+Link is no longer inside `{sel.issues > 0 ? \u2026 : null}`; the Inspector renders its own floating 'Details' Sheet button below xl (src/components/ui/layout.tsx:89-102).",
   "outcome_files": [
    "src/routes/datasets.tsx"
   ]
  },
  {
   "area": "Datasets \u203a list toolbar",
-  "route": "src/components/v3/inventory/list.tsx:186-196 (used by src/routes/datasets.tsx)",
+  "route": "src/components/inventory/list.tsx:186-196 (used by src/routes/datasets.tsx)",
   "severity": "minor",
   "issue": "The toolbar 'Filter' dropdown lists Status/Owner/Updated items with no onClick (and no filter UI behind them) \u2014 clicking does nothing.",
   "evidence": "`{(filters?.length ? filters : ['Status','Owner','Updated']).map((f) => <DropdownMenuItem key={f} className=\"pl-[30px]\">{f}\u2026</DropdownMenuItem>)}` with no handler.",
@@ -1568,8 +1568,8 @@
   "outcome_change": "The toolbar's Filter dropdown is gone: it listed a hardcoded Status/Owner/Updated with no handler and no route passes `filters`, so the datasets toolbar no longer offers a filter that does nothing (its records filtering lives in the tabs and search, and its Sort menu still works through onSort).",
   "outcome_proof": "list.tsx: the Filter menu renders only for `filters?.length && onFilter`; the `['Status','Owner','Updated']` fallback is deleted; test 'renders no Filter or Fields menu without a handler' passes.",
   "outcome_files": [
-   "src/components/v3/inventory/list.tsx",
-   "src/components/v3/inventory/list.test.tsx"
+   "src/components/inventory/list.tsx",
+   "src/components/inventory/list.test.tsx"
   ]
  },
  {
@@ -1600,7 +1600,7 @@
   "id": "QA-096",
   "outcome": "not-a-defect",
   "outcome_change": "No change: the summary read does not exclude archived datasets, so an archived dataset's URL resolves and renders its archived state.",
-  "outcome_proof": "drizzle/0422_dataset_list_summary_project.sql:20-25 defines dataset_list_summary(p_project_id DEFAULT NULL, p_include_archived DEFAULT true, p_limit DEFAULT NULL, p_offset DEFAULT 0); useDatasetSummaries (src/components/v3/datasets/datasets-data.ts:130) calls it with {}, and toDatasetListRow maps archived_at into `archived`, which the layout already uses (exportable = !dataset.archived). There is no lifecycle=eq.active filter anywhere on that path. Live: api.dataset_list_summary(null,true,null,0) returns 11 rows = the whole api.datasets table (0 archived, all lifecycle 'active'), and the default-argument call returns the same 11, so no page is omitted either.",
+  "outcome_proof": "drizzle/0422_dataset_list_summary_project.sql:20-25 defines dataset_list_summary(p_project_id DEFAULT NULL, p_include_archived DEFAULT true, p_limit DEFAULT NULL, p_offset DEFAULT 0); useDatasetSummaries (src/components/datasets/datasets-data.ts:130) calls it with {}, and toDatasetListRow maps archived_at into `archived`, which the layout already uses (exportable = !dataset.archived). There is no lifecycle=eq.active filter anywhere on that path. Live: api.dataset_list_summary(null,true,null,0) returns 11 rows = the whole api.datasets table (0 archived, all lifecycle 'active'), and the default-argument call returns the same 11, so no page is omitted either.",
   "outcome_files": [
    "src/routes/datasets/$datasetId.tsx"
   ]
@@ -1674,7 +1674,7 @@
  },
  {
   "area": "Scan",
-  "route": "src/components/v3/scan/scan-data.ts:37,46,81",
+  "route": "src/components/scan/scan-data.ts:37,46,81",
   "severity": "major",
   "issue": "Scanned instruments always read \"Disconnected\". The scanner resolves instrument status from the legacy `connection_status` column, but the registry's connection concept was replaced by `intake_method` (migration 0424) and no product code writes `connection_status` any more (only the legacy `api.update_instrument_connection` RPC, which nothing in src calls). New instruments default to 'disconnected'.",
   "evidence": "`?select=${INSTRUMENT_FIELDS}` where INSTRUMENT_FIELDS ends `...instrument_type,connection_status`; status: `row.connection_status === 'connected' ? {tone:'ok',label:'Connected'} : {tone:'stored',label:'Disconnected'}`. grep src for `connection_status` = only scan-data.ts + db/schema.ts.",
@@ -1685,8 +1685,8 @@
   "outcome_change": "Instrument resolution now selects and reads intake_method (the live concept) and reports intakeHealth(intake_method) instead of the dead connection_status column that always read Disconnected.",
   "outcome_proof": "grep src for connection_status now returns only src/db/schema.ts (legacy default); scan-data.test.ts > takes an instrument with intake_method 'none' and expects status.label 'Not connected'; test passes.",
   "outcome_files": [
-   "src/components/v3/scan/scan-data.ts",
-   "src/components/v3/scan/scan-data.test.ts"
+   "src/components/scan/scan-data.ts",
+   "src/components/scan/scan-data.test.ts"
   ]
  },
  {
@@ -1769,7 +1769,7 @@
  },
  {
   "area": "Materials",
-  "route": "src/components/v3/materials/materials-data.ts:180-200",
+  "route": "src/components/materials/materials-data.ts:180-200",
   "severity": "minor",
   "issue": "Tab count labels/counts are page-scoped while the header shows the server total: `counts` is computed from the fetched page (limit 200) but `ListHeader total={page.data?.total}`. With >200 lots the tab counts and footer understate.",
   "evidence": "`fetchReagentsPage(client, EMPTY_QUERY)` (pageSize 200) and `const counts = ...rows.filter(...)`, while `total: fetchReagentsCount`.",
@@ -1780,12 +1780,12 @@
   "outcome_change": "useReagentPage reads the registry to its end instead of one 200-row page, so the tab counts and the footer are computed from every lot and agree with the server total the header shows.",
   "outcome_proof": "materials-data.ts:196-223 \u2014 REAGENT_PAGE_SIZE 200 with an offset loop over fetchReagentsPage and fetchReagentsCount for the total; the page renders `counts` from those rows (src/routes/materials.tsx:142) and `total={page.data?.total}` (:255), which previously diverged past 200 rows. Live dev data holds 35 lots (`select count(*) from api.records where kind='material' \u2026`), so the divergence is not reproducible locally; the cap itself is the defect.",
   "outcome_files": [
-   "src/components/v3/materials/materials-data.ts"
+   "src/components/materials/materials-data.ts"
   ]
  },
  {
   "area": "Materials",
-  "route": "src/components/v3/materials/materials-data.ts:94",
+  "route": "src/components/materials/materials-data.ts:94",
   "severity": "minor",
   "issue": "The expiring tab is labelled \"Expiring in 30 days\", but per-lot `expiry_warning_days` overrides the 30-day default in `reagentAttention`, so a lot can appear/disappear from 'Expiring in 30 days' on a different window.",
   "evidence": "`expiring: 'Expiring in 30 days'` vs `const warningDays = reagent.expiryWarningDays ?? DEFAULT_EXPIRY_WARNING_DAYS` (30).",
@@ -1814,13 +1814,13 @@
   "outcome_proof": "instruments-data.test.ts 'never reads waiting-for-data for an automated method with no validated parser' passes; instruments.tsx healthFor (line 182) passes parserReady from the readiness map exactly as InstrumentInspector (line 603 pattern) passes parserReady from useInstrumentParsers, so both surfaces produce { tone: 'warn', label: 'Parser not validated' } when parsers exist and none is validated, and both fall back to the import evidence while the parsers are loading.",
   "outcome_files": [
    "src/routes/instruments.tsx",
-   "src/components/v3/instruments/instruments-data.ts",
-   "src/components/v3/instruments/instruments-data.test.ts"
+   "src/components/instruments/instruments-data.ts",
+   "src/components/instruments/instruments-data.test.ts"
   ]
  },
  {
   "area": "Instruments",
-  "route": "src/routes/instruments.tsx:104-134 vs src/components/v3/instruments/instruments-data.ts:462-470",
+  "route": "src/routes/instruments.tsx:104-134 vs src/components/instruments/instruments-data.ts:462-470",
   "severity": "major",
   "issue": "Calibration 'due' windows disagree: the registry calls a calibration 'due soon' at \u226414 days and the filter says 'Due in 14 days', while the record page's `calibrationStatus` says 'Due soon' at \u226430 days. The same instrument is 'due' on one surface and 'valid' on the other.",
   "evidence": "`if (days <= 14) return { state:'soon', ... }` (instruments.tsx:124) vs `if (due - now.getTime() <= 30 * 86_400_000) return { tone:'warn', label:'Due soon' }` (instruments-data.ts).",
@@ -1829,11 +1829,11 @@
   "id": "QA-110",
   "outcome": "fixed",
   "outcome_change": "One due-soon window for the whole registry: instruments-data exports CALIBRATION_DUE_SOON_DAYS = 30, calibrationStatus uses it, the list's calibrationState tests `days <= CALIBRATION_DUE_SOON_DAYS` instead of 14, and the Calibration filter option renders 'Due in 30 days' from the constant rather than a hard-coded 14.",
-  "outcome_proof": "calibrationState (src/routes/instruments.tsx:154) and calibrationStatus (src/components/v3/instruments/instruments-data.ts:495) both read CALIBRATION_DUE_SOON_DAYS; the filter option is `Due in {CALIBRATION_DUE_SOON_DAYS} days`; instruments-data.test.ts 'uses one due-soon window, the one the registry list and its filter share' pins the boundary (30 days = due soon, 31 = valid).",
+  "outcome_proof": "calibrationState (src/routes/instruments.tsx:154) and calibrationStatus (src/components/instruments/instruments-data.ts:495) both read CALIBRATION_DUE_SOON_DAYS; the filter option is `Due in {CALIBRATION_DUE_SOON_DAYS} days`; instruments-data.test.ts 'uses one due-soon window, the one the registry list and its filter share' pins the boundary (30 days = due soon, 31 = valid).",
   "outcome_files": [
-   "src/components/v3/instruments/instruments-data.ts",
+   "src/components/instruments/instruments-data.ts",
    "src/routes/instruments.tsx",
-   "src/components/v3/instruments/instruments-data.test.ts"
+   "src/components/instruments/instruments-data.test.ts"
   ]
  },
  {
@@ -1964,7 +1964,7 @@
   "id": "QA-118",
   "outcome": "fixed",
   "outcome_change": "The samples Inspector header now carries an \"Open sample\" button linking to /samples/$sampleId (mirroring the instruments \"Open record\" link), so the detail page is reachable on phones where the desktop table is hidden.",
-  "outcome_proof": "src/routes/samples.tsx Inspector branch: Button variant=primary nativeButton=false render={<Link to=\"/samples/$sampleId\" params={{ sampleId: sel.uuid }} />}; the Inspector's children render inside the mobile bottom sheet (src/components/v3/ui/layout.tsx:96-106).",
+  "outcome_proof": "src/routes/samples.tsx Inspector branch: Button variant=primary nativeButton=false render={<Link to=\"/samples/$sampleId\" params={{ sampleId: sel.uuid }} />}; the Inspector's children render inside the mobile bottom sheet (src/components/ui/layout.tsx:96-106).",
   "outcome_files": [
    "src/routes/samples.tsx"
   ]
@@ -1980,7 +1980,7 @@
   "id": "QA-119",
   "outcome": "fixed",
   "outcome_change": "The samples tab for reserved samples is relabelled 'Reserved' so it matches the row status badge (sampleStatus('reserved') -> 'Reserved') instead of reading 'Awaiting'.",
-  "outcome_proof": "src/routes/samples.tsx:67 tabLabel.awaiting = 'Reserved'; src/components/v3/samples/samples-data.ts:36 maps reserved -> { tone:'progress', label:'Reserved' }.",
+  "outcome_proof": "src/routes/samples.tsx:67 tabLabel.awaiting = 'Reserved'; src/components/samples/samples-data.ts:36 maps reserved -> { tone:'progress', label:'Reserved' }.",
   "outcome_files": [
    "src/routes/samples.tsx"
   ]
@@ -2022,7 +2022,7 @@
  },
  {
   "area": "Protocols",
-  "route": "src/components/v3/protocols/protocol-version-training.tsx:18",
+  "route": "src/components/protocols/protocol-version-training.tsx:18",
   "severity": "major",
   "issue": "Two contradictory training models, and the design's is dead code. `ProtocolVersionTraining` (per-frozen-version acknowledgement, 'A new version requires a new acknowledgement') is referenced only from stories/tests; the live Training tab uses `protocol_training` with record-level statuses Trained/Required/Expired via `record_protocol_training` (drizzle 0271), which has no version linkage at all.",
   "evidence": "grep `ProtocolVersionTraining` = component, its test, and protocols.stories.tsx only; protocols/$protocolId.tsx TrainingTab uses `client.list('protocol_training', ...)` + `rpc('record_protocol_training', ...)`.",
@@ -2088,7 +2088,7 @@
  },
  {
   "area": "Registries (shared)",
-  "route": "src/components/v3/inventory/list.tsx:83-212",
+  "route": "src/components/inventory/list.tsx:83-212",
   "severity": "major",
   "issue": "Sort / Filter / Fields / Group controls are non-functional on Samples, Materials and Protocols. `ListToolbar` passes `views` through to `ViewControls`, but the routes never pass `onSort`, and the Filter/Fields menu items have no handlers \u2014 selecting 'Sort: \u2026' only relabels the trigger and never re-queries.",
   "evidence": "`const pick = (s) => { setLocalSort(s); onSort?.(s) }` with no `onSort` from routes (samples.tsx:172-176, materials.tsx, protocols.tsx pass `views` only); `<DropdownMenuItem key={f} className='pl-[30px]'>{f}\u2026</DropdownMenuItem>` and `FieldsButton` items `icon='check'` with no onClick.",
@@ -2097,10 +2097,10 @@
   "id": "QA-126",
   "outcome": "fixed",
   "outcome_change": "ViewControls now renders the Sort menu only when the route supplies onSort, the Filter menu only with filters+onFilter, and ListToolbar renders FieldsButton only with fields+hiddenFields+onToggleField, so Samples/Materials/Protocols (which pass view options but no handler) no longer show a Sort/Filter/Fields/Group control that cannot change the query; FieldsButton became controlled so a route can actually hide a column.",
-  "outcome_proof": "New test file src/components/v3/inventory/list.test.tsx: no Sort button without onSort, onSort('ID') fires from the menu, no Filter/Fields button without a handler, and the field toggle reports the field. All 4 pass.",
+  "outcome_proof": "New test file src/components/inventory/list.test.tsx: no Sort button without onSort, onSort('ID') fires from the menu, no Filter/Fields button without a handler, and the field toggle reports the field. All 4 pass.",
   "outcome_files": [
-   "src/components/v3/inventory/list.tsx",
-   "src/components/v3/inventory/list.test.tsx"
+   "src/components/inventory/list.tsx",
+   "src/components/inventory/list.test.tsx"
   ]
  },
  {
@@ -2122,7 +2122,7 @@
  },
  {
   "area": "Scan",
-  "route": "src/components/v3/scan/scan-data.ts:66-73",
+  "route": "src/components/scan/scan-data.ts:66-73",
   "severity": "minor",
   "issue": "A scanned record's status is always rendered with the neutral 'stored' tone and the raw underscore-replaced status, regardless of the real status, so a consumed/quarantined sample looks the same as an available one.",
   "evidence": "`status: { tone: 'stored', label: row.status.replace(/_/g, ' ') }` in `toRecordTarget`.",
@@ -2133,8 +2133,8 @@
   "outcome_change": "A scanned record's status now goes through sampleStatus() so its real tone and label render (quarantined reads warn/Quarantine, consumed reads stored/Consumed, available reads ok/Available) instead of every record reading the neutral 'stored' tone with a raw status string.",
   "outcome_proof": "scan-data.test.ts > 'reports a scanned sample's real status, not a neutral one' (quarantined -> {tone:'warn', label:'Quarantine'}) and 'distinguishes an available sample from a consumed one' (ok vs stored); tests pass.",
   "outcome_files": [
-   "src/components/v3/scan/scan-data.ts",
-   "src/components/v3/scan/scan-data.test.ts"
+   "src/components/scan/scan-data.ts",
+   "src/components/scan/scan-data.test.ts"
   ]
  },
  {
@@ -2155,7 +2155,7 @@
  },
  {
   "area": "Instruments (list)",
-  "route": "src/components/v3/instruments/instruments-data.ts:600-614",
+  "route": "src/components/instruments/instruments-data.ts:600-614",
   "severity": "minor",
   "issue": "The registry 'Calibration due' column uses the calibration with the greatest `due_at` per instrument (ordered `due_at.desc`), not the most recently performed one. A recalibration with a nearer due date can be masked by an older row carrying a later due date, hiding an overdue instrument.",
   "evidence": "`?select=...&order=due_at.desc,id.desc&limit=500` then `if (!latest.has(row.instrumentId)) latest.set(...)`.",
@@ -2166,8 +2166,8 @@
   "outcome_change": "The registry's calibration column now states the calibration performed most recently: useLatestCalibrationsByInstrument orders by performed_at desc,id desc and the new latestCalibrationByInstrument picks the max performed_at per instrument (tie-broken by id) rather than the greatest due_at, so a recalibration with a nearer due date is no longer masked by an older certificate that expires later.",
   "outcome_proof": "instruments-data.test.ts 'reads the calibration performed most recently, not the one due last' feeds an older row with a later due_at plus a newer overdue one and asserts the newer row is chosen (calibrationStatus then reports Overdue); the detail page already used order=performed_at.desc (src/routes/instruments/$instrumentId.tsx), so both surfaces now agree.",
   "outcome_files": [
-   "src/components/v3/instruments/instruments-data.ts",
-   "src/components/v3/instruments/instruments-data.test.ts"
+   "src/components/instruments/instruments-data.ts",
+   "src/components/instruments/instruments-data.test.ts"
   ]
  },
  {
@@ -2189,7 +2189,7 @@
  },
  {
   "area": "Samples (withdraw)",
-  "route": "src/components/v3/samples/withdraw-dialog.tsx:315-318",
+  "route": "src/components/samples/withdraw-dialog.tsx:315-318",
   "severity": "minor",
   "issue": "When the sample has no stored unit, the unit select defaults to 'mL' and the free/available figures are shown with the balance's unit, so the form can submit a unit that doesn't match the balance; the mismatch is only caught server-side (surfaced via SB006 text parsing).",
   "evidence": "`const [unit, setUnit] = useState(sample.quantityUnit ?? 'mL')` vs `free = balances?.free ?? sample.quantity ?? 0` and `unitLabel = balances?.unit ?? sample.quantityUnit ?? null`.",
@@ -2198,10 +2198,10 @@
   "id": "QA-132",
   "outcome": "fixed",
   "outcome_change": "Both the withdraw and reserve dialogs now take the unit from the balance when the sample stores none: the unit select is seeded from balances.unit and locked to it (and to sample.quantityUnit when set), so the submitted unit can no longer disagree with the balance the server measures the amount against.",
-  "outcome_proof": "src/components/v3/samples/withdraw-dialog.tsx:316-345 (withdraw) and :547-575 (reserve) define balanceUnit/unitLocked, adopt the balance unit in an effect, and build unitOptions from it; both selects use disabled={unitLocked}. withdraw-dialog.test.tsx 'withdraws in the balance unit when the sample stores none' renders sample.quantityUnit null with balances unit 'g' and asserts the select value is 'g', is disabled, and the submitted input carries unit 'g'; ran vitest on that file \u2192 passed.",
+  "outcome_proof": "src/components/samples/withdraw-dialog.tsx:316-345 (withdraw) and :547-575 (reserve) define balanceUnit/unitLocked, adopt the balance unit in an effect, and build unitOptions from it; both selects use disabled={unitLocked}. withdraw-dialog.test.tsx 'withdraws in the balance unit when the sample stores none' renders sample.quantityUnit null with balances unit 'g' and asserts the select value is 'g', is disabled, and the submitted input carries unit 'g'; ran vitest on that file \u2192 passed.",
   "outcome_files": [
-   "src/components/v3/samples/withdraw-dialog.tsx",
-   "src/components/v3/samples/withdraw-dialog.test.tsx"
+   "src/components/samples/withdraw-dialog.tsx",
+   "src/components/samples/withdraw-dialog.test.tsx"
   ]
  },
  {
@@ -2265,7 +2265,7 @@
   "outcome_proof": "in-use.test.tsx: 'names the records it cannot show when the workspace count proves them' (count 3 vs 1 visible row, no flag), 'does not claim hidden records the row set cannot prove' (state=denied, count == rows), 'says access, not absence, when every record is in a project the viewer cannot open'. The count is safe evidence: drizzle/0100_core_065_template_instantiate.sql:35 makes notebook_template_instantiations readable to every workspace member (RLS on records is project-scoped, see tests/db/notebook-template-in-use.test.ts:260 'excludes records in projects the viewer cannot see'), the instantiate RPC inserts one row per record made from a version (0100:240) and an upgrade only moves a record inside the same template (0100:283). Live check is impossible in the dev database: `select count(*) from api.notebook_template_instantiations` and pinned records both return 0.",
   "outcome_files": [
    "src/routes/templates/$templateId/in-use.tsx",
-   "src/components/v3/templates/templates-data.ts",
+   "src/components/templates/templates-data.ts",
    "src/routes/templates/$templateId/in-use.test.tsx"
   ]
  },
@@ -2274,16 +2274,16 @@
   "route": "/models/$modelId/records/$recordId",
   "severity": "major",
   "issue": "The \"Integrations\" panel unconditionally states \"No integration has written to this record yet.\" \u2014 a hard-coded claim with no data source, so it is shown even when the History section above lists integration-sourced entries.",
-  "evidence": "src/components/v3/models/record-model-record.tsx:203-209 \u2014 the paragraph text is a literal; nothing queries integration writes.",
+  "evidence": "src/components/models/record-model-record.tsx:203-209 \u2014 the paragraph text is a literal; nothing queries integration writes.",
   "verified": "code alone is conclusive (no query feeds this section).",
   "reviewer": "QaSheetsModels",
   "id": "QA-137",
   "outcome": "fixed",
   "outcome_change": "The Integrations panel no longer asserts a hard-coded negative: it reads the record timeline, so it states the record has history (any integration write is one of those entries) when there is history and only says nothing has written when the timeline is empty.",
-  "outcome_proof": "record-model-record.tsx:53 `const timeline = timelineQuery.data ?? []` feeds the panel at :206-212; test 'follows the record history instead of asserting nothing has written' (record-model-record.test.tsx) renders the panel with and without a timeline event and asserts the note changes; `pnpm exec vitest run src/components/v3/models/record-model-record.test.tsx` passes.",
+  "outcome_proof": "record-model-record.tsx:53 `const timeline = timelineQuery.data ?? []` feeds the panel at :206-212; test 'follows the record history instead of asserting nothing has written' (record-model-record.test.tsx) renders the panel with and without a timeline event and asserts the note changes; `pnpm exec vitest run src/components/models/record-model-record.test.tsx` passes.",
   "outcome_files": [
-   "src/components/v3/models/record-model-record.tsx",
-   "src/components/v3/models/record-model-record.test.tsx"
+   "src/components/models/record-model-record.tsx",
+   "src/components/models/record-model-record.test.tsx"
   ]
  },
  {
@@ -2325,7 +2325,7 @@
   "route": "/models/$modelId/records/new",
   "severity": "major",
   "issue": "Rules with a `block` effect are displayed inline (\"Blocked: <message>\") but are excluded from `canSubmit`, which only checks field errors/title/project \u2014 so the Create button stays enabled for a form the UI just said is blocked.",
-  "evidence": "src/components/v3/models/record-model-new.tsx:72-76 `canSubmit` omits `validation.blocks`; :223-233 renders blocks in the list; :248 `disabled={!canSubmit}`.",
+  "evidence": "src/components/models/record-model-new.tsx:72-76 `canSubmit` omits `validation.blocks`; :223-233 renders blocks in the list; :248 `disabled={!canSubmit}`.",
   "verified": "needs-live-check \u2014 code shows the gate; a render confirms the button state.",
   "reviewer": "QaSheetsModels",
   "id": "QA-140",
@@ -2333,7 +2333,7 @@
   "outcome_change": "canSubmit now also requires `validation.blocks.length === 0`, so a form the UI has just marked blocked cannot be submitted with the Create button enabled.",
   "outcome_proof": "record-model-new.tsx:72-77 \u2014 canSubmit includes validation.blocks; :248 `disabled={!canSubmit}`; the block messages still render inline at the rules list.",
   "outcome_files": [
-   "src/components/v3/models/record-model-new.tsx"
+   "src/components/models/record-model-new.tsx"
   ]
  },
  {
@@ -2341,7 +2341,7 @@
   "route": "/models/$modelId/records/$recordId",
   "severity": "minor",
   "issue": "Status is shown two ways on one page: the header badge maps the status via `pickerStatus`, while the Details list prints the raw stored status code.",
-  "evidence": "src/components/v3/models/record-model-record.tsx:149 `['Status', record.status]` vs :99-101 `pickerStatus(record.status)` in the header.",
+  "evidence": "src/components/models/record-model-record.tsx:149 `['Status', record.status]` vs :99-101 `pickerStatus(record.status)` in the header.",
   "verified": "code alone is conclusive.",
   "reviewer": "QaSheetsModels",
   "id": "QA-141",
@@ -2349,8 +2349,8 @@
   "outcome_change": "The Details list renders the mapped status label (the same pickerStatus the header badge uses) instead of the raw stored code, so one page no longer shows `draft` next to 'Draft'.",
   "outcome_proof": "record-model-record.tsx:150 `['Status', status ? status.label : record.status]` against the header badge at :99-101; test 'reads the record status the same way in the header and the details' asserts 'Draft' appears twice and the raw 'draft' code never does.",
   "outcome_files": [
-   "src/components/v3/models/record-model-record.tsx",
-   "src/components/v3/models/record-model-record.test.tsx"
+   "src/components/models/record-model-record.tsx",
+   "src/components/models/record-model-record.test.tsx"
   ]
  },
  {
@@ -2439,16 +2439,16 @@
   "route": "/models",
   "severity": "minor",
   "issue": "The list's \"Fields\"/\"Datasets\" counts are computed from the newest version, which may be an unpublished draft, so the board can describe draft fields for a model whose datasets are on a published version.",
-  "evidence": "src/components/v3/models/models-data.ts:100-130 `buildModelRows` uses `list.at(0)` (sorted desc) for `fieldCount`/`datasetCount`; src/routes/models.tsx:178-196 renders them unlabelled as the model's numbers.",
+  "evidence": "src/components/models/models-data.ts:100-130 `buildModelRows` uses `list.at(0)` (sorted desc) for `fieldCount`/`datasetCount`; src/routes/models.tsx:178-196 renders them unlabelled as the model's numbers.",
   "verified": "code alone is conclusive.",
   "reviewer": "QaSheetsModels",
   "id": "QA-147",
   "outcome": "fixed",
   "outcome_change": "Fields/Datasets counts now describe the in-service version (highest published version, else the newest) instead of an unpublished draft: buildModelRows computes them from publishedVersion ?? latestVersion, useModels fetches fields/datasets for that same version, and the board labels the version with modelVersionLabel so the number and the version cannot disagree.",
-  "outcome_proof": "models-data.ts buildModelRows picks published ?? newest for counts and exposes publishedVersion; models.tsx modelVersionLabel shows 'v1'/'v2 draft'; tests 'reports counts for the published version, not a newer draft' (1 field / 0 datasets) and 'falls back to the newest version when nothing is published' pass (vitest run src/components/v3/models/models-data.test.ts, 43/43 with analysis-studio-data.test.ts).",
+  "outcome_proof": "models-data.ts buildModelRows picks published ?? newest for counts and exposes publishedVersion; models.tsx modelVersionLabel shows 'v1'/'v2 draft'; tests 'reports counts for the published version, not a newer draft' (1 field / 0 datasets) and 'falls back to the newest version when nothing is published' pass (vitest run src/components/models/models-data.test.ts, 43/43 with analysis-studio-data.test.ts).",
   "outcome_files": [
-   "src/components/v3/models/models-data.ts",
-   "src/components/v3/models/models-data.test.ts",
+   "src/components/models/models-data.ts",
+   "src/components/models/models-data.test.ts",
    "src/routes/models.tsx"
   ]
  },
@@ -2505,7 +2505,7 @@
   "route": "/templates/$templateId/in-use",
   "severity": "minor",
   "issue": "Per-version and overall record counts come from a single `records` query capped at `limit=200`, so the \"Total\" column and the staleness notice undercount in workspaces with more in-use records than the cap.",
-  "evidence": "src/components/v3/templates/templates-data.ts:206 `\u2026&limit=200` in `useTemplateUsers`; `countTemplateUse`/`inUseStaleness` aggregate that capped array (in-use.tsx:79-86, :99-104).",
+  "evidence": "src/components/templates/templates-data.ts:206 `\u2026&limit=200` in `useTemplateUsers`; `countTemplateUse`/`inUseStaleness` aggregate that capped array (in-use.tsx:79-86, :99-104).",
   "verified": "code alone is conclusive.",
   "reviewer": "QaSheetsModels",
   "id": "QA-151",
@@ -2513,7 +2513,7 @@
   "outcome_change": "useTemplateUsers now pages through every record pinned to the template's versions (limit+offset with order=updated_at.desc,id.asc) instead of reading a single limit=200 page, so the records-by-version matrix, the Inspector Total column and the staleness notice are computed over the whole in-use set rather than the first page.",
   "outcome_proof": "templates-data.ts:178-192 fetchTemplateUsers loop; in-use.test.tsx 'counts records past the first page of the query' returns one full page plus one row and asserts the v2 row reads 200/1/0/201 and the footer '201 records in total \u00b7 0 signed \u00b7 1 in review.' (fails on the old single-page query).",
   "outcome_files": [
-   "src/components/v3/templates/templates-data.ts",
+   "src/components/templates/templates-data.ts",
    "src/routes/templates/$templateId/in-use.test.tsx"
   ]
  },
@@ -2703,7 +2703,7 @@
   "route": "/models/$modelId/records/new",
   "severity": "minor",
   "issue": "When the workspace has no projects, the Project field is not rendered (only shown when `projects.length > 1`) and `selectedProject` is empty, so Create is permanently disabled with no explanation of the missing prerequisite.",
-  "evidence": "src/components/v3/models/record-model-new.tsx:61 `selectedProject = projectId || projects[0]?.id || ''`; :198-217 renders the Project select only `if (projects.length > 1)`; :248 disables on `!canSubmit`.",
+  "evidence": "src/components/models/record-model-new.tsx:61 `selectedProject = projectId || projects[0]?.id || ''`; :198-217 renders the Project select only `if (projects.length > 1)`; :248 disables on `!canSubmit`.",
   "verified": "needs-live-check",
   "reviewer": "QaSheetsModels",
   "id": "QA-163",
@@ -2711,7 +2711,7 @@
   "outcome_change": "The missing prerequisite is now stated: with no projects the form shows a warning Notice ('A project is required') with a link to Projects, with exactly one project the field shows that project's name instead of rendering nothing, and the select still appears only when there is a choice.",
   "outcome_proof": "record-model-new.tsx:194-220 \u2014 the three branches (select >1, project name at 1, Notice at 0) with the Notice imported at :6; the Create button remains gated on selectedProject (:77).",
   "outcome_files": [
-   "src/components/v3/models/record-model-new.tsx"
+   "src/components/models/record-model-new.tsx"
   ]
  },
  {
@@ -2914,7 +2914,7 @@
  },
  {
   "area": "Pipelines \u00b7 Agents",
-  "route": "src/components/v3/pipelines/agents/agent-surface.tsx:860-868",
+  "route": "src/components/pipelines/agents/agent-surface.tsx:860-868",
   "severity": "minor",
   "issue": "Disabling an execution policy (removing a delegation) happens immediately from the table with no confirmation dialog.",
   "evidence": "`<Button variant=\"danger\" size=\"sm\" onClick={() => onDisable(p)}>Disable</Button>` in AgentPoliciesPanel.",
@@ -2925,13 +2925,13 @@
   "outcome_change": "The table's Disable action now opens a ConfirmDialog naming the policy and its consequence, and only calls onDisable after the confirmation, instead of disabling the delegation on the first click.",
   "outcome_proof": "agent-surface.tsx:693-695 (pendingDisable state), 898-904 (button opens the dialog) and 921-952 (the dialog); the new test 'confirms before disabling a delegation' asserts onDisable is not called on the first click, an alertdialog appears, and onDisable receives the policy only after clicking 'Disable policy'.",
   "outcome_files": [
-   "src/components/v3/pipelines/agents/agent-surface.tsx",
-   "src/components/v3/pipelines/agents/agent-surface.dom.test.tsx"
+   "src/components/pipelines/agents/agent-surface.tsx",
+   "src/components/pipelines/agents/agent-surface.dom.test.tsx"
   ]
  },
  {
   "area": "Pipelines \u00b7 Agents",
-  "route": "src/components/v3/pipelines/agents/agent-surface.tsx:736-738,801",
+  "route": "src/components/pipelines/agents/agent-surface.tsx:736-738,801",
   "severity": "minor",
   "issue": "When the workspace has no service credentials, the policy form shows a \u201cNo credentials\u201d option and the Create policy button is disabled, but nothing explains why the action is unavailable.",
   "evidence": "`<option value=\"\">No credentials</option>` plus `disabled={!valid}` where `valid` requires `credentialId.length > 0`; no hint text.",
@@ -2942,13 +2942,13 @@
   "outcome_change": "When a manager has no service credentials, the panel now explains that a policy delegates writes to a workspace service credential, states that none exists yet, and links to Settings \u2192 API and SDK where one is created, so the disabled Create policy button has a reason.",
   "outcome_proof": "agent-surface.tsx:706-724 (Notice with the Link); the new test 'states why the policy form is unavailable without a credential' asserts the Create policy button carries disabled and the 'Open API and SDK' link points at /settings/api. The route already surfaces creation errors (src/routes/pipelines/agents.tsx:277).",
   "outcome_files": [
-   "src/components/v3/pipelines/agents/agent-surface.tsx",
-   "src/components/v3/pipelines/agents/agent-surface.dom.test.tsx"
+   "src/components/pipelines/agents/agent-surface.tsx",
+   "src/components/pipelines/agents/agent-surface.dom.test.tsx"
   ]
  },
  {
   "area": "Pipelines \u00b7 Agents",
-  "route": "src/components/v3/pipelines/agents/agent-surface.tsx:39-46,150-160",
+  "route": "src/components/pipelines/agents/agent-surface.tsx:39-46,150-160",
   "severity": "minor",
   "issue": "Pending proposals are grouped into \u201cWaiting on others\u201d purely from the viewer's capability flag, so a proposal nobody in the workspace can approve is labelled as if a colleague is handling it.",
   "evidence": "`if (p.status === 'pending') (canApprove ? needsYou : waiting).push(p)` \u2014 `waiting` means \u201cwaiting on others\u201d, including when there are no others.",
@@ -2959,8 +2959,8 @@
   "outcome_change": "The pending-but-not-approvable group is labelled 'Awaiting approval' instead of 'Waiting on others', which claimed a colleague had picked the proposal up \u2014 nothing in the surface knows who else can approve.",
   "outcome_proof": "agent-surface.tsx:121-141 proposalGroups; the new test 'does not label an undecidable proposal as someone else handling it' asserts that label.",
   "outcome_files": [
-   "src/components/v3/pipelines/agents/agent-surface.tsx",
-   "src/components/v3/pipelines/agents/agent-surface.test.ts"
+   "src/components/pipelines/agents/agent-surface.tsx",
+   "src/components/pipelines/agents/agent-surface.test.ts"
   ]
  },
  {
@@ -3164,7 +3164,7 @@
  },
  {
   "area": "Settings \u00b7 API and SDK",
-  "route": "src/components/v3/settings/settings-api-tokens.tsx:236-241",
+  "route": "src/components/settings/settings-api-tokens.tsx:236-241",
   "severity": "minor",
   "issue": "Revoke (immediate, permanent) and Rotate (invalidates the current secret) fire straight from the table row with no confirmation dialog.",
   "evidence": "`onClick={() => onRevoke(row.id)}` / `onClick={() => onRotate(row.id)}`; identical shape in settings-service-credentials.tsx.",
@@ -3173,11 +3173,11 @@
   "id": "QA-191",
   "outcome": "fixed",
   "outcome_change": "Revoke (permanent) and Rotate (invalidates the live secret) on a workspace service credential now pass through the shared ConfirmDialog that states the shared-secret consequence; the row buttons only select the action, exactly as the personal-token table now does. The failed-write surface was not missing: the route already aggregates every token mutation error, so no dead error prop was added to the component.",
-  "outcome_proof": "settings-service-credentials.tsx: confirming state at :58-63, row buttons set it at :241-259, the dialog renders at :279-317, and onRevoke/onRotate are called only from ConfirmDialogAction. The error surface is src/routes/settings/api.tsx:133-141 (failed = createToken/revokeToken/rotateToken/createService/revokeService/rotateService .error) rendered as role=\"alert\" at :148-155, which is what a refused revoke or rotate shows. `pnpm exec vitest run src/components/v3/settings/settings-service-credentials.test.tsx src/components/v3/settings/settings-api-tokens.test.tsx` passes (4 tests: revoke and rotate each prove the callback is untouched until the confirmation is accepted), and the same command's sibling coverage for QA-191 is in settings-api-tokens.test.tsx added here.",
+  "outcome_proof": "settings-service-credentials.tsx: confirming state at :58-63, row buttons set it at :241-259, the dialog renders at :279-317, and onRevoke/onRotate are called only from ConfirmDialogAction. The error surface is src/routes/settings/api.tsx:133-141 (failed = createToken/revokeToken/rotateToken/createService/revokeService/rotateService .error) rendered as role=\"alert\" at :148-155, which is what a refused revoke or rotate shows. `pnpm exec vitest run src/components/settings/settings-service-credentials.test.tsx src/components/settings/settings-api-tokens.test.tsx` passes (4 tests: revoke and rotate each prove the callback is untouched until the confirmation is accepted), and the same command's sibling coverage for QA-191 is in settings-api-tokens.test.tsx added here.",
   "outcome_files": [
-   "src/components/v3/settings/settings-service-credentials.tsx",
-   "src/components/v3/settings/settings-service-credentials.test.tsx",
-   "src/components/v3/settings/settings-api-tokens.test.tsx"
+   "src/components/settings/settings-service-credentials.tsx",
+   "src/components/settings/settings-service-credentials.test.tsx",
+   "src/components/settings/settings-api-tokens.test.tsx"
   ],
   "outcome_extra": "EXTRA-01"
  },
@@ -3215,7 +3215,7 @@
  },
  {
   "area": "Settings \u00b7 General",
-  "route": "src/components/v3/settings/settings-general.tsx:222",
+  "route": "src/components/settings/settings-general.tsx:222",
   "severity": "nit",
   "issue": "The record-ID example is hard-coded to a past year \u2014 `{prefix}-2025-0001` \u2014 while the page is otherwise data-driven; in 2026 the example demonstrates stale numbering.",
   "evidence": "`{prefix ? `${prefix}-2025-0001` : '\u2014'}`.",
@@ -3224,14 +3224,14 @@
   "id": "QA-194",
   "outcome": "fixed",
   "outcome_change": "The record-ID example uses the app clock's current year instead of the hard-coded 2025, so the sample no longer demonstrates stale numbering.",
-  "outcome_proof": "src/components/v3/settings/settings-general.tsx:99 (exampleYear = now().getFullYear()) and :266 (`${prefix}-${exampleYear}-0001`); now() is src/lib/clock.ts:51, the app's clock, already used by client components such as src/components/v3/samples/sample-hold-meter.tsx:2.",
+  "outcome_proof": "src/components/settings/settings-general.tsx:99 (exampleYear = now().getFullYear()) and :266 (`${prefix}-${exampleYear}-0001`); now() is src/lib/clock.ts:51, the app's clock, already used by client components such as src/components/samples/sample-hold-meter.tsx:2.",
   "outcome_files": [
-   "src/components/v3/settings/settings-general.tsx"
+   "src/components/settings/settings-general.tsx"
   ]
  },
  {
   "area": "Settings \u00b7 General",
-  "route": "src/components/v3/settings/settings-general.tsx:131-140",
+  "route": "src/components/settings/settings-general.tsx:131-140",
   "severity": "minor",
   "issue": "Time zone is a free-text input with no validation or IANA list, so an invalid zone can be saved (the RPC is the only guard) and Save is enabled regardless of whether anything changed.",
   "evidence": "<Input aria-label=\"Time zone\" value={form.timezone} onChange={\u2026} />; Save button only disabled on `save.isPending || query.isLoading || query.isError`.",
@@ -3240,10 +3240,10 @@
   "id": "QA-195",
   "outcome": "fixed",
   "outcome_change": "Time zone is validated with the app's IANA check (isIanaTimeZone, the same one the pipeline scheduler uses), the field renders the error and aria-invalid, and Save is disabled while the zone is invalid or while nothing differs from the loaded settings.",
-  "outcome_proof": "The guard was needed: api.update_workspace_general validates only number format (drizzle/0217_workspace_general.sql:22-25; the timezone column is plain text at drizzle/0216_lyrical_bishop.sql:2). New tests 'refuses a time zone that is not a real IANA zone' (error shown, Save disabled, no update call) and 'enables Save only once a field has changed' pass in `pnpm exec vitest run src/components/v3/settings/settings-general.test.tsx`.",
+  "outcome_proof": "The guard was needed: api.update_workspace_general validates only number format (drizzle/0217_workspace_general.sql:22-25; the timezone column is plain text at drizzle/0216_lyrical_bishop.sql:2). New tests 'refuses a time zone that is not a real IANA zone' (error shown, Save disabled, no update call) and 'enables Save only once a field has changed' pass in `pnpm exec vitest run src/components/settings/settings-general.test.tsx`.",
   "outcome_files": [
-   "src/components/v3/settings/settings-general.tsx",
-   "src/components/v3/settings/settings-general.test.tsx"
+   "src/components/settings/settings-general.tsx",
+   "src/components/settings/settings-general.test.tsx"
   ]
  },
  {
@@ -3282,7 +3282,7 @@
  },
  {
   "area": "Settings \u00b7 Notifications",
-  "route": "src/components/v3/settings/settings-notifications.tsx:139-176",
+  "route": "src/components/settings/settings-notifications.tsx:139-176",
   "severity": "minor",
   "issue": "Quiet-hours start/end and digest time accept any combination with no validation and no stated time zone, so an end before the start is silently savable; Save is enabled even when nothing changed.",
   "evidence": "Free `<Input type=\"time\">` fields bound straight to state; no comparison or zone label; Save disabled only for `save.isPending || preferencesQuery.isLoading`.",
@@ -3291,10 +3291,10 @@
   "id": "QA-198",
   "outcome": "fixed",
   "outcome_change": "Save is disabled until the form differs from the last server read, and quiet hours and the digest now state they are UTC with an end-before-start running overnight \u2014 the ordering claim in the finding is disproven by the server, which computes exactly that overnight window in UTC, so no ordering validation was added.",
-  "outcome_proof": "settings-notifications.tsx:81-97 compares the form against the fetched data, :116-125 disables Save, and :193-197/:211-215 state the UTC clock. Server evidence: drizzle/0207_email_quiet_hours.sql:57-63 returns v_now >= v_start OR v_now < v_end for start > end, comparing `now() AT TIME ZONE 'UTC'`; drizzle/0206_daily_digest.sql:21 matches digest_time against the same UTC clock; drizzle/0200_notification_preferences.sql:74-78 validates only HH:MM. New file src/components/v3/settings/settings-notifications.test.tsx asserts Save stays inert until a channel or a time changes and then writes both parts.",
+  "outcome_proof": "settings-notifications.tsx:81-97 compares the form against the fetched data, :116-125 disables Save, and :193-197/:211-215 state the UTC clock. Server evidence: drizzle/0207_email_quiet_hours.sql:57-63 returns v_now >= v_start OR v_now < v_end for start > end, comparing `now() AT TIME ZONE 'UTC'`; drizzle/0206_daily_digest.sql:21 matches digest_time against the same UTC clock; drizzle/0200_notification_preferences.sql:74-78 validates only HH:MM. New file src/components/settings/settings-notifications.test.tsx asserts Save stays inert until a channel or a time changes and then writes both parts.",
   "outcome_files": [
-   "src/components/v3/settings/settings-notifications.tsx",
-   "src/components/v3/settings/settings-notifications.test.tsx"
+   "src/components/settings/settings-notifications.tsx",
+   "src/components/settings/settings-notifications.test.tsx"
   ]
  },
  {
@@ -3349,7 +3349,7 @@
  },
  {
   "area": "UI primitives \u00b7 Secret",
-  "route": "src/components/v3/ui/secret.tsx:19-22",
+  "route": "src/components/ui/secret.tsx:19-22",
   "severity": "minor",
   "issue": "A copy that fails (insecure context, permission denied) still shows the \u201cCopied\u201d toast, so the user may paste nothing from a clipboard they think holds the token.",
   "evidence": "`void navigator.clipboard.writeText(value); toast(copiedMessage)` \u2014 promise result ignored.",
@@ -3360,13 +3360,13 @@
   "outcome_change": "Secret.copy() now awaits navigator.clipboard.writeText inside a try/catch: the copied message is shown only when the write resolves, and a refused or unavailable clipboard (permission denied, or no clipboard at all in an insecure context \u2014 which throws synchronously) reports toast.error with a new optional failedMessage instead of claiming a copy that never happened. No presence guard is needed, so there is no conditional the DOM types call dead code.",
   "outcome_proof": "secret.test.tsx 'reports a refused copy instead of confirming one' (writeText rejects) and 'reports a missing clipboard instead of confirming a copy' (navigator.clipboard undefined) both assert an error toast and no copied confirmation; both fail against the old `void navigator.clipboard.writeText(value); toast(copiedMessage)`.",
   "outcome_files": [
-   "src/components/v3/ui/secret.tsx",
-   "src/components/v3/ui/secret.test.tsx"
+   "src/components/ui/secret.tsx",
+   "src/components/ui/secret.test.tsx"
   ]
  },
  {
   "area": "UI primitives \u00b7 ConfirmDialog",
-  "route": "src/components/v3/ui/confirm-dialog.tsx:29-36",
+  "route": "src/components/ui/confirm-dialog.tsx:29-36",
   "severity": "nit",
   "issue": "`ConfirmDialogTrigger` declares an `asChild` prop that it ignores (it renders via base-ui `render={children}`), so call sites like ActionButtons pass a prop with no effect \u2014 a misuse trap for future callers.",
   "evidence": "`export function ConfirmDialogTrigger({ children }: { children: React.ReactElement; asChild?: boolean }) { return <DialogPrimitive.Trigger render={children} /> }`.",
@@ -3377,13 +3377,13 @@
   "outcome_change": "ConfirmDialogTrigger now honours asChild instead of accepting and ignoring it: asChild (default true) renders the child element as the trigger exactly as before, and asChild={false} renders the trigger's own button with the children as its label. Props are forwarded to the trigger either way.",
   "outcome_proof": "confirm-dialog.test.tsx 'renders its own trigger button when asChild is off' (a bare label child now yields the trigger's button; the old code passed that label to base-ui's render prop) and 'renders the child element as the trigger when asChild is set' for the unchanged default; the two existing call sites (review/$revisionId.tsx:2027, :2753) pass asChild and keep identical output.",
   "outcome_files": [
-   "src/components/v3/ui/confirm-dialog.tsx",
-   "src/components/v3/ui/confirm-dialog.test.tsx"
+   "src/components/ui/confirm-dialog.tsx",
+   "src/components/ui/confirm-dialog.test.tsx"
   ]
  },
  {
   "area": "UI primitives \u00b7 Table",
-  "route": "src/components/v3/ui/table.tsx:4-9",
+  "route": "src/components/ui/table.tsx:4-9",
   "severity": "nit",
   "issue": "The Table primitive provides no empty/loading affordance or caption slot, and call sites frequently render a bare header-only table mid-load (e.g. settings/audit.tsx, settings/members.tsx) \u2014 the shell invites an empty table with no state.",
   "evidence": "`<table data-slot=\"table\" className={cn('num w-full border-collapse text-body', className)}>` \u2014 no children handling; audit.tsx:206 only adds an EmptyState after `!isLoading`.",

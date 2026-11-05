@@ -1,5 +1,5 @@
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import { datasetOption } from '#/components/v3/record-picker/entity-options'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
+import { datasetOption } from '#/components/record-picker/entity-options'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -7,8 +7,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
-import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -18,7 +18,7 @@ import {
   ConfirmDialogFooter,
   ConfirmDialogHeader,
   ConfirmDialogTitle,
-} from '#/components/v3/ui/confirm-dialog'
+} from '#/components/ui/confirm-dialog'
 import {
   Dialog,
   DialogBody,
@@ -26,11 +26,11 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { Input } from '#/components/v3/ui/input'
-import { RecordPicker } from '#/components/v3/record-picker/record-picker'
-import type { PickerItem } from '#/components/v3/record-picker/record-picker-data'
-import { Select } from '#/components/v3/ui/select'
+} from '#/components/ui/dialog'
+import { Input } from '#/components/ui/input'
+import { RecordPicker } from '#/components/record-picker/record-picker'
+import type { PickerItem } from '#/components/record-picker/record-picker-data'
+import { Select } from '#/components/ui/select'
 import {
   Table,
   TableBody,
@@ -38,7 +38,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/v3/ui/table'
+} from '#/components/ui/table'
 import {
   ANALYSIS_KINDS,
   COLUMN_TRANSFORMS,
@@ -67,7 +67,7 @@ import { curvePoints } from '#/lib/curve-fit'
 import type { CurveParameters } from '#/lib/curve-fit'
 import { formatScientific } from '#/lib/chart-spec'
 import type { ChartSpec, MaterialisedChart } from '#/lib/chart-spec'
-import { toast } from '#/components/v3/ui/sonner'
+import { toast } from '#/components/ui/sonner'
 import {
   analysisDefinitionQueryKeys,
   captureDefinitionSourceRevisions,

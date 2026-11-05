@@ -5,15 +5,15 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import {
   DuplicateNotice,
   SequenceReader,
-} from '#/components/v3/registry/registry-form'
-import type { ReadSequence } from '#/components/v3/registry/registry-form'
+} from '#/components/registry/registry-form'
+import type { ReadSequence } from '#/components/registry/registry-form'
 import {
   RegistryLineage,
   RegistryRetireButton,
-} from '#/components/v3/registry/registry-lineage'
-import { RegistryList } from '#/components/v3/registry/registry-list'
-import { RegistrySettingsDialog } from '#/components/v3/registry/registry-settings'
-import { recordModelQueryKeys } from '#/components/v3/models/models-data'
+} from '#/components/registry/registry-lineage'
+import { RegistryList } from '#/components/registry/registry-list'
+import { RegistrySettingsDialog } from '#/components/registry/registry-settings'
+import { recordModelQueryKeys } from '#/components/models/models-data'
 import { registryKeys } from '#/lib/bio-registry'
 import type {
   DuplicateMatch,
@@ -25,7 +25,7 @@ import { screenQueryClient, screenRoutes } from './screen-stories'
 import { cellBankModel, modelField } from './model-fixtures'
 
 /**
- * The registry screens (`src/components/v3/registry/`): the list of entries
+ * The registry screens (`src/components/registry/`): the list of entries
  * across every registry model, an entry's lineage, the retire action, the
  * duplicate warning and sequence reader on the new-entry form, and the
  * dialog that makes a model a registry. A registry is a record model with a

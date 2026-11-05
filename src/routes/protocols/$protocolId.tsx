@@ -2,31 +2,31 @@ import { useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { ProtocolDocument } from '#/components/v3/protocols/protocol-document'
-import { ProtocolHazards } from '#/components/v3/protocols/protocol-hazards'
-import { ProtocolInspector } from '#/components/v3/protocols/protocol-inspector'
+import { ProtocolDocument } from '#/components/protocols/protocol-document'
+import { ProtocolHazards } from '#/components/protocols/protocol-hazards'
+import { ProtocolInspector } from '#/components/protocols/protocol-inspector'
 import {
   ProtocolVersionsPanel,
   protocolVersionsKey,
-} from '#/components/v3/protocols/protocol-versions-panel'
-import { ProtocolTrainingRoster } from '#/components/v3/protocols/protocol-training-roster'
-import { ProtocolVersionTraining } from '#/components/v3/protocols/protocol-version-training'
-import { ObjectLink } from '#/components/v3/ui/object-link'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { PageHeader, Muted, Section } from '#/components/v3/ui/layout'
-import { Status } from '#/components/v3/ui/status'
-import { EmptyState } from '#/components/v3/ui/empty-state'
+} from '#/components/protocols/protocol-versions-panel'
+import { ProtocolTrainingRoster } from '#/components/protocols/protocol-training-roster'
+import { ProtocolVersionTraining } from '#/components/protocols/protocol-version-training'
+import { ObjectLink } from '#/components/ui/object-link'
+import { Tabs } from '#/components/ui/tabs'
+import { PageHeader, Muted, Section } from '#/components/ui/layout'
+import { Status } from '#/components/ui/status'
+import { EmptyState } from '#/components/ui/empty-state'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { useRecentViewTracking } from '#/lib/recents'
-import { Select } from '#/components/v3/ui/select'
-import { toast } from '#/components/v3/ui/sonner'
-import { TableBox } from '#/components/v3/ui/table'
+import { Select } from '#/components/ui/select'
+import { toast } from '#/components/ui/sonner'
+import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
   rightAligned,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
   fetchBlocksForRecord,
   fetchRecord,
@@ -43,7 +43,7 @@ import {
   fetchProtocolVersions,
 } from '#/lib/controlled-protocols'
 import { useUserNames } from '#/lib/user-names'
-import { protocolStatus } from '#/components/v3/protocols/protocols-registry-grid'
+import { protocolStatus } from '#/components/protocols/protocols-registry-grid'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'

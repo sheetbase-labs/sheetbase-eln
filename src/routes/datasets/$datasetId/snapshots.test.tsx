@@ -15,7 +15,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './snapshots'
-import type { SnapshotVersion } from '#/components/v3/datasets/snapshot-data'
+import type { SnapshotVersion } from '#/components/datasets/snapshot-data'
 
 const SnapshotsRoute = Route.options.component as React.ComponentType
 
@@ -99,7 +99,7 @@ vi.mock('#/lib/dataset-explorer-data', async (importOriginal) => ({
   keepDatasetVersion: explorer.keepDatasetVersion,
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: sonner.toast,
   Toaster: () => null,
 }))

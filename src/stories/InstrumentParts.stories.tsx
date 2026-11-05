@@ -6,39 +6,39 @@ import {
   AgentDownload,
   AgentStatusLabel,
   AgentStatusLine,
-} from '#/components/v3/instruments/agent-download'
-import { IntakeDeliveryNotice } from '#/components/v3/instruments/intake-delivery-notice'
-import { IntakeSetupDialog } from '#/components/v3/instruments/intake-setup-dialog'
-import { instrumentQueryKeys } from '#/components/v3/instruments/instruments-data'
+} from '#/components/instruments/agent-download'
+import { IntakeDeliveryNotice } from '#/components/instruments/intake-delivery-notice'
+import { IntakeSetupDialog } from '#/components/instruments/intake-setup-dialog'
+import { instrumentQueryKeys } from '#/components/instruments/instruments-data'
 import type {
   InstrumentRow,
   ServiceLogRow,
-} from '#/components/v3/instruments/instruments-data'
-import { liveFeedQueryKeys } from '#/components/v3/instruments/live-feeds-data'
+} from '#/components/instruments/instruments-data'
+import { liveFeedQueryKeys } from '#/components/instruments/live-feeds-data'
 import type {
   FeedRow,
   SeriesPoint,
-} from '#/components/v3/instruments/live-feeds-data'
+} from '#/components/instruments/live-feeds-data'
 import {
   LiveReadingsSection,
   LiveSetupDialog,
-} from '#/components/v3/instruments/live-readings'
+} from '#/components/instruments/live-readings'
 import {
   BackInServiceDialog,
   MarkOutOfServiceDialog,
   OutOfServiceNotice,
   ServiceLogSection,
-} from '#/components/v3/instruments/out-of-service'
-import { ParserFollowUpNotice } from '#/components/v3/instruments/parser-follow-up'
-import { RequestQualificationButton } from '#/components/v3/instruments/request-qualification-button'
-import { Button } from '#/components/v3/ui/button'
+} from '#/components/instruments/out-of-service'
+import { ParserFollowUpNotice } from '#/components/instruments/parser-follow-up'
+import { RequestQualificationButton } from '#/components/instruments/request-qualification-button'
+import { Button } from '#/components/ui/button'
 import { agentQueryKeys } from '#/lib/connectors/agent-client'
 import { parserSettingsQueryKeys } from '#/lib/parser-settings'
 import { screenQueryClient, screenRoutes, withApiReads } from './screen-stories'
 import type { ReadSeed } from './screen-stories'
 
 /**
- * The instrument page's parts (`src/components/v3/instruments/`): the notices
+ * The instrument page's parts (`src/components/instruments/`): the notices
  * for an instrument that is not delivering data, the data-intake setup and the
  * folder agent, the live readings chart, and taking an instrument out of
  * service. They are one file because they are all pieces of one page; each

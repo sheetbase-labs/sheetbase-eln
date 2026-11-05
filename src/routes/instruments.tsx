@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'
+import { WorkspaceAdminsLine } from '#/components/settings/workspace-admins-line'
 import {
   Link,
   Outlet,
@@ -10,33 +10,30 @@ import {
 } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { Dot } from '#/components/v3/ui/status'
-import { EmptyState } from '#/components/v3/ui/empty-state'
-import { DescriptionList, Inspector, Muted } from '#/components/v3/ui/layout'
+import { Dot } from '#/components/ui/status'
+import { EmptyState } from '#/components/ui/empty-state'
+import { DescriptionList, Inspector, Muted } from '#/components/ui/layout'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { objectPath } from '#/lib/navigation'
-import {
-  RegistryGrid,
-  useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { Button } from '#/components/v3/ui/button'
-import { Field, Input } from '#/components/v3/ui/input'
-import { Choice } from '#/components/v3/ui/choice'
-import { RadioGroup } from '#/components/v3/ui/radio-group'
-import { Notice } from '#/components/v3/ui/alert'
-import { CalibrationOverdueNotice } from '#/components/v3/instruments/calibration-overdue'
+import { RegistryGrid, useRowFocus } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { Button } from '#/components/ui/button'
+import { Field, Input } from '#/components/ui/input'
+import { Choice } from '#/components/ui/choice'
+import { RadioGroup } from '#/components/ui/radio-group'
+import { Notice } from '#/components/ui/alert'
+import { CalibrationOverdueNotice } from '#/components/instruments/calibration-overdue'
 import {
   IntakeDeliveryNotice,
   intakeDeliveryProblem,
-} from '#/components/v3/instruments/intake-delivery-notice'
-import { ParserFollowUpNotice } from '#/components/v3/instruments/parser-follow-up'
+} from '#/components/instruments/intake-delivery-notice'
+import { ParserFollowUpNotice } from '#/components/instruments/parser-follow-up'
 import { hasCapability } from '#/lib/capability'
 import { canManageSettings } from '#/lib/settings-access'
 import { useInstrumentGateMode } from '#/lib/instrument-gate'
 import type { InstrumentGateMode } from '#/lib/workspace-admin'
-import { Select } from '#/components/v3/ui/select'
-import { toast } from '#/components/v3/ui/sonner'
+import { Select } from '#/components/ui/select'
+import { toast } from '#/components/ui/sonner'
 import {
   Dialog,
   DialogBody,
@@ -45,15 +42,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTrigger,
-} from '#/components/v3/ui/dialog'
+} from '#/components/ui/dialog'
 import {
   ListFooter,
   ListHeader,
   ListToolbar,
   MobileList,
-} from '#/components/v3/inventory/list'
-import { Tabs } from '#/components/v3/ui/tabs'
-import { isOutOfService } from '#/components/v3/instruments/out-of-service'
+} from '#/components/inventory/list'
+import { Tabs } from '#/components/ui/tabs'
+import { isOutOfService } from '#/components/instruments/out-of-service'
 import {
   CALIBRATION_DUE_SOON_DAYS,
   INTAKE_METHODS,
@@ -72,11 +69,11 @@ import {
   useLastImportsByInstrument,
   useLatestCalibrationsByInstrument,
   useParserReadinessByInstrument,
-} from '#/components/v3/instruments/instruments-data'
+} from '#/components/instruments/instruments-data'
 import type {
   InstrumentRow,
   IntakeMethod,
-} from '#/components/v3/instruments/instruments-data'
+} from '#/components/instruments/instruments-data'
 import { useUserNames } from '#/lib/user-names'
 import { cn } from '#/lib/utils'
 import { signInRedirect } from '#/lib/sign-in-redirect'
@@ -90,7 +87,7 @@ import {
   useAddedFieldDraft,
   useAddedFieldListColumns,
   withAddedColumns,
-} from '#/components/v3/models/added-fields'
+} from '#/components/models/added-fields'
 import { t } from '#/copy'
 import { instrumentTypeLabel } from '#/lib/instrument-type-label'
 

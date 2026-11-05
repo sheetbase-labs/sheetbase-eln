@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { Icon } from '#/components/icons'
-import { Badge } from '#/components/v3/ui/badge'
-import { Row, RowList } from '#/components/v3/ui/row'
+import { Badge } from '#/components/ui/badge'
+import { Row, RowList } from '#/components/ui/row'
 
 /**
  * The row chrome every list in the app composes (JH-1): one frame with a

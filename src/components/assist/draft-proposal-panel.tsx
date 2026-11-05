@@ -12,7 +12,7 @@ import { t } from '#/copy'
 import { ASSISTANCE_NOTE } from '#/lib/assist-explain'
 import type { AssistPhrasing } from '#/lib/assist-explain'
 import type { AssistDraftProposal } from '#/lib/assist-drafts'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 
 export function DraftProposalPanel({
   proposal,

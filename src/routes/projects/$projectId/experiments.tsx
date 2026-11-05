@@ -1,22 +1,22 @@
 import { useMemo } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 
-import { Button } from '#/components/v3/ui/button'
-import { Status } from '#/components/v3/ui/status'
-import { Pager } from '#/components/v3/ui/pager'
-import { ObjectLink } from '#/components/v3/ui/object-link'
+import { Button } from '#/components/ui/button'
+import { Status } from '#/components/ui/status'
+import { Pager } from '#/components/ui/pager'
+import { ObjectLink } from '#/components/ui/object-link'
 import {
   ProjectList,
   ProjectListFailure,
   ProjectListOutOfRange,
-} from '#/components/v3/projects/project-list'
+} from '#/components/projects/project-list'
 import {
   projectPageSummary,
   parseProjectPage,
   useProjectExperimentsPage,
   PROJECT_LIST_PAGE_SIZE,
-} from '#/components/v3/projects/project-lists'
-import { toExperimentListRow } from '#/components/v3/experiments/experiments-data'
+} from '#/components/projects/project-lists'
+import { toExperimentListRow } from '#/components/experiments/experiments-data'
 import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now } from '#/lib/clock'

@@ -113,10 +113,10 @@ gate a permission — RLS stays authoritative.
 and filters with the shared filter menu; the record picker offers recents.
 Priority P2, effort M, medium risk. Depends on the SRCH-02 follow-on.
 
-**Current state and scope:** `src/components/v3/search/search-palette.tsx` has
+**Current state and scope:** `src/components/search/search-palette.tsx` has
 no archived scope or "Did you mean {id}?" suggestion; there is no shared
 `FilterMenu` (lists use chips/checkboxes); the record picker's Recent group is
-unbuilt and says so (`src/components/v3/record-picker/record-picker.tsx:14-19`),
+unbuilt and says so (`src/components/record-picker/record-picker.tsx:14-19`),
 and its items carry no project subtitle. Scope: search scope and suggestion,
 the shared filter affordance, and picker recents.
 

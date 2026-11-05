@@ -75,7 +75,7 @@ vi.mock('#/lib/workspace-access', () => ({
   }),
 }))
 
-vi.mock('#/components/v3/projects/project-data', () => ({
+vi.mock('#/components/projects/project-data', () => ({
   PROJECTS_KEY: ['projects'],
   workspaceMemberQueryKeys: { identities: ['ui-port', 'workspace-members'] },
   fetchProjectSummaries: (...args: unknown[]) =>
@@ -84,7 +84,7 @@ vi.mock('#/components/v3/projects/project-data', () => ({
     mocks.fetchWorkspaceMemberIdentities(...args),
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({ toast: vi.fn() }))
+vi.mock('#/components/ui/sonner', () => ({ toast: vi.fn() }))
 
 vi.mock('#/lib/planner', () => ({
   createStudyTask: (...args: unknown[]) => mocks.createStudyTask(...args),

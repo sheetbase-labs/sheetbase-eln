@@ -4,10 +4,10 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { expect, screen, userEvent } from 'storybook/test'
 
 import { SavedTrails } from '#/components/audit/saved-trails'
-import { BookInstrumentButton } from '#/components/v3/experiments/book-instrument-button'
-import { ResultsWorkspace } from '#/components/v3/experiments/results-workspace'
-import { SaveAsTemplateDialog } from '#/components/v3/experiments/save-as-template-dialog'
-import { Button } from '#/components/v3/ui/button'
+import { BookInstrumentButton } from '#/components/experiments/book-instrument-button'
+import { ResultsWorkspace } from '#/components/experiments/results-workspace'
+import { SaveAsTemplateDialog } from '#/components/experiments/save-as-template-dialog'
+import { Button } from '#/components/ui/button'
 import { analysisStudioQueryKeys } from '#/lib/analysis-studio-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
@@ -17,7 +17,7 @@ import { screenQueryClient, screenRoutes, withApiReads } from './screen-stories'
 import type { ReadSeed } from './screen-stories'
 
 /**
- * Pieces of an experiment's page (`src/components/v3/experiments/`) and the
+ * Pieces of an experiment's page (`src/components/experiments/`) and the
  * saved-trails list that sits above a record's evidence
  * (`src/components/audit/saved-trails`): booking an instrument, saving the
  * experiment as a template, the results board, and the trails people saved.

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { Icon } from '#/components/icons'
-import { Tooltip } from '#/components/v3/ui/tooltip'
+import { Tooltip } from '#/components/ui/tooltip'
 import { createDataClient } from '#/lib/data-client'
 import { formatDate } from '#/lib/format-date'
 import {

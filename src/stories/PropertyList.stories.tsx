@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { PropertyList, Property } from '#/components/scientific/property-list'
-import { Badge } from '#/components/v3/ui/badge'
+import { Badge } from '#/components/ui/badge'
 
 const properties = [
   ['ID', 'EXP-2025-0014'],

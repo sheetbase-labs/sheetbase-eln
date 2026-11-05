@@ -3,9 +3,9 @@ import * as React from 'react'
 import { PresenceStack } from '#/components/collaboration/presence-avatars'
 
 import { cn } from '#/lib/utils'
-import { Avatar, AvatarStack } from '#/components/v3/ui/avatar'
-import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
+import { Avatar, AvatarStack } from '#/components/ui/avatar'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
 import { Icon } from '#/components/icons'
 
 /**

@@ -1,19 +1,19 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { GhsPictogram } from '#/components/v3/materials/ghs-pictogram'
-import { MakeSolutionDialog } from '#/components/v3/materials/make-solution-dialog'
+import { GhsPictogram } from '#/components/materials/ghs-pictogram'
+import { MakeSolutionDialog } from '#/components/materials/make-solution-dialog'
 import {
   HazardPictograms,
   MaterialSafetySection,
   SignalWordBadge,
-} from '#/components/v3/materials/material-safety'
+} from '#/components/materials/material-safety'
 import {
   ReagentOrdersPanel,
   RequestReorderDialog,
-} from '#/components/v3/materials/reagent-orders'
-import { workspaceMemberQueryKeys } from '#/components/v3/projects/project-data'
-import { sampleListQueryKeys } from '#/components/v3/samples/samples-data'
+} from '#/components/materials/reagent-orders'
+import { workspaceMemberQueryKeys } from '#/components/projects/project-data'
+import { sampleListQueryKeys } from '#/components/samples/samples-data'
 import { GHS_PICTOGRAMS, materialSafetyKeys } from '#/lib/material-safety'
 import type { MaterialSafety } from '#/lib/material-safety'
 import { reagentOrderQueryKeys } from '#/lib/reagent-orders'
@@ -23,7 +23,7 @@ import { screenQueryClient, screenRoutes } from './screen-stories'
 
 /**
  * Chemical safety, reagent orders and solution prep
- * (`src/components/v3/materials/`): the GHS pictograms, the safety section on
+ * (`src/components/materials/`): the GHS pictograms, the safety section on
  * a lot, the Orders list with its dialogs, and the make-a-solution dialog.
  * Every read is seeded into a query cache hoisted outside the decorator.
  */

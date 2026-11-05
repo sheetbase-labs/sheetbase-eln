@@ -39,8 +39,8 @@ vi.mock('@tanstack/react-router', () => ({
   }),
   Link: ({ children }: { children?: React.ReactNode }) => <a>{children}</a>,
 }))
-vi.mock('#/components/v3/ui/sonner', () => ({ toast: mocks.toast }))
-vi.mock('#/components/v3/settings/workspace-admins-line', () => ({
+vi.mock('#/components/ui/sonner', () => ({ toast: mocks.toast }))
+vi.mock('#/components/settings/workspace-admins-line', () => ({
   WorkspaceAdminsLine: () => null,
 }))
 vi.mock('#/lib/workspace-backups', () => ({

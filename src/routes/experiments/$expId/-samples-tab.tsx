@@ -2,25 +2,22 @@ import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
-import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Button } from '#/components/ui/button'
+import { EmptyState } from '#/components/ui/empty-state'
 import {
   DescriptionList,
   Inspector,
   InspectorSection,
   Section,
-} from '#/components/v3/ui/layout'
-import { ObjectLink } from '#/components/v3/ui/object-link'
-import { Select } from '#/components/v3/ui/select'
-import { Status } from '#/components/v3/ui/status'
-import { TableBox } from '#/components/v3/ui/table'
-import {
-  RegistryGrid,
-  useRowFocus,
-} from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { PrintLabelsDialog } from '#/components/v3/samples/sample-label-sheet'
-import { sampleStatus } from '#/components/v3/samples/samples-data'
+} from '#/components/ui/layout'
+import { ObjectLink } from '#/components/ui/object-link'
+import { Select } from '#/components/ui/select'
+import { Status } from '#/components/ui/status'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid, useRowFocus } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { PrintLabelsDialog } from '#/components/samples/sample-label-sheet'
+import { sampleStatus } from '#/components/samples/samples-data'
 import { LinkSamplesAction } from './-links-tab'
 import { formatDate, notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'

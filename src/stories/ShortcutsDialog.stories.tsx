@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
 import {
   RegistryShortcutsDialog,

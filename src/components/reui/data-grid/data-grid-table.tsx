@@ -59,8 +59,8 @@ import { flexRender, Subscribe } from '@tanstack/react-table'
 import type { Cell, Column, Header, Row } from '@tanstack/react-table'
 import { cn } from '#/lib/utils'
 
-import { Button } from '#/components/v3/ui/button'
-import { Checkbox } from '#/components/v3/ui/checkbox'
+import { Button } from '#/components/ui/button'
+import { Checkbox } from '#/components/ui/checkbox'
 import { Spinner } from '#/components/reui/spinner'
 import { Icon } from '#/components/icons'
 

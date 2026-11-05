@@ -15,7 +15,7 @@
  */
 import { InspectorSection } from '#/components/record'
 import { RecordLink } from '#/components/scientific/record-link'
-import { RowList } from '#/components/v3/ui/row'
+import { RowList } from '#/components/ui/row'
 import { relationshipLabel } from '#/lib/lineage-data'
 import { recordKindLabel } from '#/lib/notebook-data'
 import type { NotebookLink } from '#/lib/notebook-data'

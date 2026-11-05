@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { WithdrawReviewDialog } from '#/components/notebook/withdraw-review-dialog'
 
 import { screenQueryClient } from './screen-stories'

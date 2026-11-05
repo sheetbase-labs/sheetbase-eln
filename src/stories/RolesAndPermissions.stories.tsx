@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { RolesAndPermissions } from '#/components/v3/settings/roles-and-permissions'
+import { RolesAndPermissions } from '#/components/settings/roles-and-permissions'
 import { screenQueryClient } from './screen-stories'
 
 /**

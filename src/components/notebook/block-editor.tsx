@@ -14,8 +14,8 @@
  * `readOnly` disables editing (archived notebooks, etc.).
  */
 import { rich, t } from '#/copy'
-import { PickerSelect } from '#/components/v3/record-picker/entity-picker'
-import { datasetOption } from '#/components/v3/record-picker/entity-options'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
+import { datasetOption } from '#/components/record-picker/entity-options'
 import { returnToHere } from '#/lib/return-to'
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -35,21 +35,21 @@ import type {
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import { datasetPath, recordDestination } from '#/lib/navigation'
 import { OfficeEditButton } from './office-editor'
-import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
-import { IconButton } from '#/components/v3/ui/icon-button'
-import { Checkbox } from '#/components/v3/ui/checkbox'
-import { FileDrop } from '#/components/v3/ui/file-drop'
-import { Input } from '#/components/v3/ui/input'
-import { Notice } from '#/components/v3/ui/alert'
-import { Textarea } from '#/components/v3/inventory/list'
-import { Select } from '#/components/v3/ui/select'
+import { Badge } from '#/components/ui/badge'
+import { Button } from '#/components/ui/button'
+import { IconButton } from '#/components/ui/icon-button'
+import { Checkbox } from '#/components/ui/checkbox'
+import { FileDrop } from '#/components/ui/file-drop'
+import { Input } from '#/components/ui/input'
+import { Notice } from '#/components/ui/alert'
+import { Textarea } from '#/components/inventory/list'
+import { Select } from '#/components/ui/select'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
+} from '#/components/ui/dropdown-menu'
 import {
   CALLOUT_STYLES,
   CALLOUT_VARIANT_LABELS,

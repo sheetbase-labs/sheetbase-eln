@@ -2,8 +2,8 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { screen, userEvent } from 'storybook/test'
 
-import { Highlight } from '#/components/v3/search/highlight'
-import { SearchPalette } from '#/components/v3/search/search-palette'
+import { Highlight } from '#/components/search/highlight'
+import { SearchPalette } from '#/components/search/search-palette'
 import type { DidYouMeanSuggestion, SearchResultWire } from '#/lib/search'
 import {
   StubDataClient,
@@ -14,7 +14,7 @@ import type { DataClientStub } from './screen-stories'
 
 /**
  * The ⌘K search palette and its highlight helper
- * (`src/components/v3/search/`).
+ * (`src/components/search/`).
  *
  * The palette owns its search: it calls the canonical `api.search` boundary
  * imperatively rather than through React Query, so a cache seed cannot render

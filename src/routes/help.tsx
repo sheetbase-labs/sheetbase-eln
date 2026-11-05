@@ -1,8 +1,8 @@
 import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 
-import { Status } from '#/components/v3/ui/status'
-import { DescriptionList, Muted } from '#/components/v3/ui/layout'
-import { Skeleton } from '#/components/v3/ui/skeleton'
+import { Status } from '#/components/ui/status'
+import { DescriptionList, Muted } from '#/components/ui/layout'
+import { Skeleton } from '#/components/ui/skeleton'
 import { useHelp } from '#/lib/help'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'

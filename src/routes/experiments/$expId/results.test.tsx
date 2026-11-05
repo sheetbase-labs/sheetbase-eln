@@ -41,7 +41,7 @@ vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   notebookDataClient: dataClient,
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({
+vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(sonner.toast, { error: vi.fn() }),
   Toaster: () => null,
 }))

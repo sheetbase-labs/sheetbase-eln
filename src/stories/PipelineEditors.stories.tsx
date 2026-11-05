@@ -2,20 +2,20 @@ import { useState } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { InputsEditor } from '#/components/v3/pipelines/inputs-editor'
-import { OutputEditor } from '#/components/v3/pipelines/output-editor'
-import type { OutputDraft } from '#/components/v3/pipelines/output-editor'
-import { ParametersEditor } from '#/components/v3/pipelines/parameters-editor'
-import { PreviewTable } from '#/components/v3/pipelines/preview-table'
+import { InputsEditor } from '#/components/pipelines/inputs-editor'
+import { OutputEditor } from '#/components/pipelines/output-editor'
+import type { OutputDraft } from '#/components/pipelines/output-editor'
+import { ParametersEditor } from '#/components/pipelines/parameters-editor'
+import { PreviewTable } from '#/components/pipelines/preview-table'
 import {
   ColumnsEditor,
   PythonPackagesEditor,
   PythonStepEditor,
   PythonTestRun,
-} from '#/components/v3/pipelines/python-editor'
-import { SqlEditor } from '#/components/v3/pipelines/sql-editor'
-import { StepsEditor } from '#/components/v3/pipelines/steps-editor'
-import { TrialPanel } from '#/components/v3/pipelines/trial-panel'
+} from '#/components/pipelines/python-editor'
+import { SqlEditor } from '#/components/pipelines/sql-editor'
+import { StepsEditor } from '#/components/pipelines/steps-editor'
+import { TrialPanel } from '#/components/pipelines/trial-panel'
 import type {
   PipelineInput,
   PipelineParameter,
@@ -26,7 +26,7 @@ import type { ResultPreview } from '#/lib/pipelines/result-preview'
 import { screenQueryClient } from './screen-stories'
 
 /**
- * The pipeline authoring editors (`src/components/v3/pipelines/`).
+ * The pipeline authoring editors (`src/components/pipelines/`).
  *
  * Inputs, parameters, the output target, SQL and Python steps, and the later
  * steps list: each is a controlled editor, so each story holds the value in

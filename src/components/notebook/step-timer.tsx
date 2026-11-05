@@ -3,9 +3,9 @@ import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { t } from '#/copy'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { Icon } from '#/components/icons'
-import { toast } from '#/components/v3/ui/sonner'
+import { toast } from '#/components/ui/sonner'
 import { cn } from '#/lib/utils'
 import { recordPath } from '#/lib/navigation'
 import {

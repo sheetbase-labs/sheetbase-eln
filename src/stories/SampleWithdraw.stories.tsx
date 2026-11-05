@@ -6,14 +6,14 @@ import {
   QuantityKeypad,
   ReserveDialog,
   WithdrawDialog,
-} from '#/components/v3/samples/withdraw-dialog'
-import type { ExperimentOption } from '#/components/v3/samples/withdraw-dialog'
+} from '#/components/samples/withdraw-dialog'
+import type { ExperimentOption } from '#/components/samples/withdraw-dialog'
 import type { SampleQuantityBalances } from '#/lib/samples'
 import { screenQueryClient } from './screen-stories'
 
 /**
  * LAB-01 step 3 — the withdraw / reserve dialogs and their keypad
- * (`src/components/v3/samples/withdraw-dialog.tsx`).
+ * (`src/components/samples/withdraw-dialog.tsx`).
  *
  * The dialogs own their reads only when the caller does not pass the data, so
  * these stories pass the workspace's experiments and the authoritative balance

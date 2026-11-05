@@ -18,7 +18,7 @@ import { t } from '#/copy'
 import * as React from 'react'
 
 import { useLiveStatus } from '#/components/live/live-event-provider'
-import { Notice } from '#/components/v3/ui/alert'
+import { Notice } from '#/components/ui/alert'
 import {
   createCanonicalOfflineReplayWriter,
   replayOfflineEdits,
@@ -32,7 +32,7 @@ import type {
 import type { OfflineEditScope, OfflineEditStore } from '#/lib/offline/store'
 import type { LiveStatus } from '#/lib/live-events'
 import { OFFLINE_SYNC_EVENT } from '#/lib/offline/service-worker'
-import { Button } from '#/components/v3/ui/button'
+import { Button } from '#/components/ui/button'
 import { describeOfflineEdit, useOfflineEdits } from './offline-edits'
 
 export interface OfflineReplayRunnerProps {

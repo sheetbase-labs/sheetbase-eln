@@ -5,7 +5,7 @@ import { useRouter, useRouterState } from '@tanstack/react-router'
 import type { RouterHistory } from '@tanstack/react-router'
 
 import type { RouterContext } from '#/routes/__root'
-import { toast } from '#/components/v3/ui/sonner'
+import { toast } from '#/components/ui/sonner'
 import { useRegisterShortcuts } from '#/components/shortcuts/shortcut-provider'
 import { dragFraction, dropEdge, layoutGeometry } from '#/lib/pane-geometry'
 import type { DropEdge } from '#/lib/pane-geometry'

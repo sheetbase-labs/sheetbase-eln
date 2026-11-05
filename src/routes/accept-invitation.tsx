@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 
-import { BrandMark } from '#/components/v3/ui/brand-mark'
-import { Button } from '#/components/v3/ui/button'
-import { Notice } from '#/components/v3/ui/alert'
+import { BrandMark } from '#/components/ui/brand-mark'
+import { Button } from '#/components/ui/button'
+import { Notice } from '#/components/ui/alert'
 import { createDataClient } from '#/lib/data-client'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { setActiveWorkspace } from '#/lib/user-preferences'

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { CopyButton } from '#/components/v3/ui/copy-button'
-import { Muted } from '#/components/v3/ui/layout'
+import { CopyButton } from '#/components/ui/copy-button'
+import { Muted } from '#/components/ui/layout'
 
 /**
  * Copy one value, and report what actually happened — a refused or unavailable

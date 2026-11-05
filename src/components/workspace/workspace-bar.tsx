@@ -9,7 +9,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
+} from '#/components/ui/dropdown-menu'
 import { currentPlatform, formatShortcut } from '#/lib/shortcuts'
 import { detectPreset } from '#/lib/pane-tree'
 import type { LayoutPreset } from '#/lib/pane-tree'

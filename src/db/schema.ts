@@ -305,6 +305,13 @@ export const workspaces = api.table(
     slug: text('slug').notNull().unique(),
     name: text('name').notNull(),
     status: text('status').notNull().default('active'),
+    // The lab logo: bytes live in object storage; the key names the workspace.
+    logoStorageKey: text('logo_storage_key'),
+    logoMediaType: text('logo_media_type'),
+    logoUpdatedAt: timestamp('logo_updated_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     ...timestamps,
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
   },
@@ -6023,6 +6030,34 @@ export const workItemFollows = api.table(
       table.userId,
       table.createdAt,
     ),
+  ],
+)
+
+/**
+ * project_follows (migration 0086) — a per-user follow of a project, so it
+ * appears in the caller's Inbox Following tab like a followed record. Written
+ * through `follow_project` / `unfollow_project`; read under RLS by its owner.
+ */
+export const projectFollows = api.table(
+  'project_follows',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_project_follows_user_project').on(table.userId, table.projectId),
+    index('idx_project_follows_user_created').on(table.userId, table.createdAt),
   ],
 )
 

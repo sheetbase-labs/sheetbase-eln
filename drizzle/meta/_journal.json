@@ -601,6 +601,13 @@
       "when": 1801393837830,
       "tag": "0087_list_views",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1801393937830,
+      "tag": "0088_account_basics",
+      "breakpoints": true
     }
   ]
 }

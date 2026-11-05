@@ -58,6 +58,7 @@ import {
   AgentStatusLabel,
   AgentStatusLine,
 } from '#/components/instruments/agent-download'
+import { BookingRulesSection } from '#/components/instruments/booking-rules'
 import { LiveReadingsSection } from '#/components/instruments/live-readings'
 import { IntakeSetupDialog } from '#/components/instruments/intake-setup-dialog'
 import {
@@ -928,6 +929,14 @@ function InstrumentPage() {
               instrument={i}
               canLog={canCalibrate}
               names={names}
+            />
+
+            <BookingRulesSection
+              instrument={i}
+              canManage={hasCapability(
+                context.workspace?.role,
+                'instrument.manage',
+              )}
             />
 
             <Section

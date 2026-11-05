@@ -5,8 +5,8 @@ and edited in the browser. This is optional and off by default. It uses
 [Collabora Online](https://www.collaboraonline.com/code/), which you run
 yourself; nothing is sent to a third party.
 
-Without it, Office files still preview in the page, and "Open in Word" style
-download works as usual.
+Without it, Office files still preview in the page (a built-in preview that
+approximates the document), and "Open in Word" style download works as usual.
 
 ## What it gives people
 
@@ -18,7 +18,11 @@ download works as usual.
   experiment holding the file is signed or archived; change it through an
   amendment.
 - Legacy `.doc`, `.xls` and `.ppt` files open and save in their own format.
-- Collabora also draws exact-look previews of Office files.
+- **The block shows the document as Office draws it.** With the editor on, a
+  Word, Excel or PowerPoint block shows the real document in place, read-only,
+  with Collabora's own page, cell and slide rendering, and follows the app's
+  light or dark theme. Expand makes it full size. An older pinned version, or an
+  editor that is not answering, falls back to the built-in preview.
 
 ## Setting it up
 
@@ -70,6 +74,11 @@ Content-Security-Policy gets the editor's origin added to `frame-src` and
 
 ## Limits
 
+- Collabora shows its welcome screen to each person the first time they open a
+  document. Its "home mode" setting hides it, but caps the editor at 20
+  concurrent connections and 10 open documents, so it suits a small team only.
+- The in-place view always shows the file's latest version. A block pinned to an
+  older version uses the built-in preview instead.
 - Collabora saves after edits and when the last person leaves, and each save is
   a version, so a long session can leave several versions.
 - Locks live in one app process. With several app replicas, run one replica for

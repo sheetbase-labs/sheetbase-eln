@@ -5,6 +5,7 @@ import { t } from '#/copy'
 import { Button } from '#/components/v3/ui/button'
 import { Badge } from '#/components/v3/ui/badge'
 import { Dialog, DialogContent } from '#/components/v3/ui/dialog'
+import { Spinner } from '#/components/v3/ui/spinner'
 import { editableExtension } from '#/lib/office-editor'
 import { notebookQueryKeys } from '#/lib/notebook-data'
 import { fileVersionsKey } from './office-preview/use-file-versions'
@@ -35,14 +36,39 @@ export function useOfficeEditorEnabled(): boolean {
   return status.data?.enabled === true
 }
 
+/**
+ * Whether the editor is switched on and answering: 'pending' until the app has
+ * asked, then 'on' or 'off'. A block that can show the real Office view waits
+ * on this rather than drawing its own preview first.
+ */
+export function useOfficeEditorLive(): 'pending' | 'on' | 'off' {
+  const status = useQuery({
+    queryKey: [...statusKey, 'live'],
+    queryFn: async () => {
+      const res = await fetch('/api/office-editor/status?check=1')
+      if (!res.ok) return false
+      const body = (await res.json()) as {
+        enabled: boolean
+        reachable?: boolean
+      }
+      return body.enabled && body.reachable !== false
+    },
+    staleTime: 60_000,
+    retry: false,
+  })
+  if (status.isPending) return 'pending'
+  return status.data === true ? 'on' : 'off'
+}
+
 async function startSession(
   fileRecordId: string,
   recordId: string | undefined,
+  mode?: 'view',
 ): Promise<EditorSession> {
   const res = await fetch('/api/office-editor/session', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ fileRecordId, recordId }),
+    body: JSON.stringify({ fileRecordId, recordId, mode }),
   })
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as {
@@ -150,11 +176,6 @@ function EditorFrame({
   session: EditorSession
   onClose: () => void
 }) {
-  const formRef = React.useRef<HTMLFormElement>(null)
-  const frameName = React.useId()
-  React.useEffect(() => {
-    formRef.current?.submit()
-  }, [session.actionUrl])
   const reason =
     session.lockedReason === 'signed'
       ? t('notebook.officeEditor.signedViewOnly')
@@ -182,10 +203,43 @@ function EditorFrame({
           {t('notebook.officeEditor.done')}
         </Button>
       </div>
+      <WopiFrame
+        session={session}
+        className="min-h-0 w-full flex-1 border-0 bg-surface"
+      />
+    </div>
+  )
+}
+
+/** The editor's page in a frame, entered by a form post so the access token
+ * never appears in an address. */
+function WopiFrame({
+  session,
+  className,
+  onLoad,
+}: {
+  session: EditorSession
+  className?: string
+  onLoad?: () => void
+}) {
+  const formRef = React.useRef<HTMLFormElement>(null)
+  const frameName = React.useId()
+  React.useEffect(() => {
+    formRef.current?.submit()
+  }, [session.actionUrl])
+  // The editor follows the app's light or dark theme.
+  const dark =
+    typeof document !== 'undefined' &&
+    document.documentElement.dataset.theme === 'dark'
+  const action = dark
+    ? `${session.actionUrl}&darkTheme=true`
+    : session.actionUrl
+  return (
+    <>
       <form
         ref={formRef}
         method="post"
-        action={session.actionUrl}
+        action={action}
         target={frameName}
         className="hidden"
       >
@@ -199,9 +253,94 @@ function EditorFrame({
       <iframe
         name={frameName}
         title={session.fileName}
-        className="min-h-0 w-full flex-1 border-0 bg-surface"
+        className={className}
         allow="clipboard-read; clipboard-write"
+        onLoad={onLoad}
       />
+    </>
+  )
+}
+
+/**
+ * The real Office view of a file, in place in the block: Collabora draws the
+ * document, sheet or slides exactly as the application would. Read-only; Edit
+ * opens the full editor. The frame starts only when the block is near the
+ * screen, so a long notebook does not open every document at once.
+ */
+export function OfficeViewer({
+  fileRecordId,
+  version,
+  tall = false,
+  onUnavailable,
+}: {
+  fileRecordId: string
+  /** Changes when the file does, so the view reloads after a new version. */
+  version: number | null
+  tall?: boolean
+  /** Called when the editor cannot show this file, so the caller can fall back. */
+  onUnavailable?: () => void
+}) {
+  const box = React.useRef<HTMLDivElement>(null)
+  const [near, setNear] = React.useState(false)
+  const [loaded, setLoaded] = React.useState(false)
+  React.useEffect(() => {
+    const el = box.current
+    if (!el) return
+    if (typeof IntersectionObserver === 'undefined') {
+      setNear(true)
+      return
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setNear(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '600px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  const session = useQuery({
+    queryKey: ['office-editor', 'view', fileRecordId, version],
+    queryFn: () => startSession(fileRecordId, undefined, 'view'),
+    enabled: near,
+    staleTime: 30 * 60_000,
+    retry: false,
+  })
+  const failed = session.isError
+  React.useEffect(() => {
+    if (failed) onUnavailable?.()
+  }, [failed])
+  return (
+    // The frame takes focus without any React event; marking it keeps the
+    // notebook from swapping the block for its editor mid-click.
+    <div
+      ref={box}
+      data-keep-preview
+      data-testid="office-viewer"
+      className={`relative overflow-hidden rounded-lg border border-border bg-surface ${
+        tall ? 'h-[76vh]' : 'h-[620px]'
+      }`}
+    >
+      {session.data ? (
+        <WopiFrame
+          key={`${session.data.accessToken}`}
+          session={session.data}
+          className="h-full w-full border-0"
+          onLoad={() => setLoaded(true)}
+        />
+      ) : null}
+      {!loaded && !failed ? (
+        <div
+          role="status"
+          className="absolute inset-0 flex items-start gap-2 bg-surface p-4 text-sm text-fg-muted"
+        >
+          <Spinner />
+          {t('notebook.officeFiles.loading')}
+        </div>
+      ) : null}
     </div>
   )
 }

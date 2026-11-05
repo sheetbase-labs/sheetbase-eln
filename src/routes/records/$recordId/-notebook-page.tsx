@@ -72,6 +72,7 @@ import {
   OfflineEditsProvider,
   blockEditTargetKey,
   useIsOnline,
+  canEditBlockOffline,
   useOfflineEdits,
 } from '#/components/offline/offline-edits'
 import { requestBackgroundSync } from '#/lib/offline/service-worker'
@@ -2433,22 +2434,32 @@ function EditableNotebook({
     const cached =
       queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
     const current = cached.find((b) => b.id === block.id) ?? block
-    // Offline (or behind an edit still waiting to send): keep the text on the
-    // device and send it on reconnect, in order. Text that plain text cannot
-    // hold stays a draft on the page and says so.
+    // Offline (or behind an edit still waiting to send): keep the block's
+    // payload on the device and send it on reconnect, in order. Blocks that
+    // need the server (files, imports, signatures) fall through and say so.
     const keepOnDevice = async (): Promise<SaveResult<
       Record<string, unknown>
     > | null> => {
-      if (current.type !== 'rich_text' || !offlineEdits.canQueue) return null
-      if (await offlineEdits.queueBlockText(current, payload)) {
+      if (!offlineEdits.canQueue || !canEditBlockOffline(current.type)) {
+        return null
+      }
+      const checked = validateBlock({
+        type: current.type,
+        payload,
+        payloadSchemaVersion: current.payloadSchemaVersion,
+      })
+      if (!checked.ok) {
+        return {
+          ok: false,
+          kind: 'validation',
+          message: checked.errors.map((e) => e.message).join('; '),
+        }
+      }
+      if (await offlineEdits.queueBlockPayload(current, payload)) {
         void requestBackgroundSync()
         return { ok: true }
       }
-      return {
-        ok: false,
-        kind: 'transient',
-        message: t('notebook.offlineEdits.formattedNotKept'),
-      }
+      return null
     }
     if (
       offline ||

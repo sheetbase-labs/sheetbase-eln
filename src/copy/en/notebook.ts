@@ -1230,6 +1230,9 @@ export const notebook = {
   offlineEdits: {
     title: 'Edited text',
     detail: 'Text cleared',
+    editedBlockTitle: 'Edited a {blockType} block',
+    needsConnection:
+      'This block needs a connection to change. Reconnect to edit it.',
     editedASheetCellTitle: 'Edited a sheet cell',
     detail2: '{columnId} · row {rowId} · {previewValue}',
     addedASheetRowTitle: 'Added a sheet row',
@@ -1250,6 +1253,12 @@ export const notebook = {
       '; dependent calculations are held until it is resolved',
     anEditMadeOffline: 'An edit made offline',
     copyText: 'Copy text',
+    keepMine: 'Keep my version',
+    useTheirs: 'Use theirs',
+    mine: 'Yours (made offline)',
+    theirs: 'Saved by someone else',
+    compareHeading: 'Compare the two versions',
+    nothingToShow: 'Couldn’t read the saved version.',
     discardThisEditFor: 'Discard this edit for good',
     keepIt: 'Keep it',
     conflicts: {

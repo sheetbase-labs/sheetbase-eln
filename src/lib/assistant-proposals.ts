@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { toWireToolName } from './agent-tool-catalogue'
 import type { AgentOperation } from './agent-operations'
 import type { AssistantAction } from './assistant-booking'
+import type { BenchProposeToolName } from './assistant-bench'
 import {
   INPUT_NAME_RE,
   MAX_INPUTS,
@@ -251,7 +252,10 @@ export interface ProposalChange {
 /** What the card needs, and what Apply sends through the approval path. */
 export interface AssistantProposal {
   /** The proposing tool: a change tool here, or a booking tool. */
-  tool: ProposalToolName | `sheetbase.booking.${'create' | 'move' | 'cancel'}`
+  tool:
+    | ProposalToolName
+    | `sheetbase.booking.${'create' | 'move' | 'cancel'}`
+    | BenchProposeToolName
   title: string
   summary: string
   /** Where it goes, for the card: "EXP-12 · Notebook". */

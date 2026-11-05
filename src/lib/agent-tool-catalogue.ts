@@ -94,6 +94,18 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.booking.create',
   'sheetbase.booking.move',
   'sheetbase.booking.cancel',
+  // Bench jobs, each a card the person confirms (assistant-bench.ts). Signing,
+  // approving, deciding requests and releasing samples are not here.
+  'sheetbase.reagent.order',
+  'sheetbase.reagent.receive',
+  'sheetbase.sample.log',
+  'sheetbase.sample.use',
+  'sheetbase.sample.move',
+  'sheetbase.sample.split',
+  'sheetbase.incident.report',
+  'sheetbase.request.send',
+  'sheetbase.sample.advance',
+  'sheetbase.instrument.out_of_service',
 ] as const
 
 /** Model APIs only allow letters, digits, `_` and `-` in a function name. */

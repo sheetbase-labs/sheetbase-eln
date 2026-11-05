@@ -442,6 +442,17 @@ function lookupLabel(
     case 'sheetbase.booking.move':
     case 'sheetbase.booking.cancel':
       return t(`notebook.assistantPanel.lookup.booking.${phase}`)
+    case 'sheetbase.reagent.order':
+    case 'sheetbase.reagent.receive':
+    case 'sheetbase.sample.log':
+    case 'sheetbase.sample.use':
+    case 'sheetbase.sample.move':
+    case 'sheetbase.sample.split':
+    case 'sheetbase.incident.report':
+    case 'sheetbase.request.send':
+    case 'sheetbase.sample.advance':
+    case 'sheetbase.instrument.out_of_service':
+      return t(`notebook.assistantPanel.lookup.bench.${phase}`)
     default:
       return t(`notebook.assistantPanel.lookup.generic.${phase}`)
   }

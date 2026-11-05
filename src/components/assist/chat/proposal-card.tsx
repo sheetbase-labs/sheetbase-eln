@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
-import { createDataClient } from '#/lib/data-client'
+import { DataClientError, createDataClient } from '#/lib/data-client'
 import {
   decideAgentOperation,
   executeAgentOperation,
@@ -15,6 +15,7 @@ import type { AgentOperation } from '#/lib/agent-operations'
 import type { AssistantProposal } from '#/lib/assistant-proposals'
 import { runAssistantAction } from '#/lib/assistant-booking'
 import type { AssistantActionKind } from '#/lib/assistant-booking'
+import { describeActionError } from '#/lib/assistant-bench'
 import { describeCalendarError } from '#/lib/calendar'
 
 /**
@@ -36,16 +37,26 @@ type CardState =
 /** Kept outside the component so a re-render or reopened panel remembers it. */
 const decided = new Map<string, CardState>()
 
+/** Which copy keys an everyday action uses for its button and done words. */
+const ACTION_COPY = {
+  'booking.create': 'book',
+  'booking.move': 'move',
+  'booking.cancel': 'cancel',
+  'reagent.order': 'orderReagent',
+  'reagent.receive': 'receiveReagent',
+  'samples.log': 'logSamples',
+  'sample.use': 'useSample',
+  'sample.move': 'moveSamples',
+  'sample.split': 'splitSample',
+  'record.create': 'reportIncident',
+  'request.send': 'sendRequest',
+  'sample.advance': 'advanceSample',
+  'instrument.service': 'instrumentService',
+} as const satisfies Record<AssistantActionKind, string>
+
 /** Button and done words for an everyday action: "Book", "Booked". */
 function actionWords(kind: AssistantActionKind | undefined) {
-  const key =
-    kind === 'booking.create'
-      ? 'book'
-      : kind === 'booking.move'
-        ? 'move'
-        : kind === 'booking.cancel'
-          ? 'cancel'
-          : null
+  const key = kind ? ACTION_COPY[kind] : null
   if (key === null) {
     return {
       label: t('notebook.assistantPanel.proposal.label'),
@@ -55,7 +66,9 @@ function actionWords(kind: AssistantActionKind | undefined) {
     }
   }
   return {
-    label: t('notebook.assistantPanel.proposal.bookingLabel'),
+    label: kind?.startsWith('booking.')
+      ? t('notebook.assistantPanel.proposal.bookingLabel')
+      : t('notebook.assistantPanel.proposal.actionLabel'),
     apply: t(`notebook.assistantPanel.proposal.${key}.apply`),
     applying: t(`notebook.assistantPanel.proposal.${key}.applying`),
     applied: t(`notebook.assistantPanel.proposal.${key}.applied`),
@@ -107,7 +120,10 @@ export function ProposalCard({
         setState({
           phase: 'failed',
           reason: t('notebook.assistantPanel.proposal.failed', {
-            reason: describeCalendarError(error),
+            reason:
+              error instanceof DataClientError
+                ? describeCalendarError(error)
+                : describeActionError(error),
           }),
         })
       }

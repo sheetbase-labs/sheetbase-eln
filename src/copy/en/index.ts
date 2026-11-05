@@ -10,6 +10,7 @@ import { data } from './data'
 import { library } from './library'
 import { notebook } from './notebook'
 import { projects } from './projects'
+import { registry } from './registry'
 import { safety } from './safety'
 import { sequences } from './sequences'
 import { settings } from './settings'
@@ -22,6 +23,7 @@ export const en = {
   library,
   settings,
   projects,
+  registry,
   sequences,
   safety,
 } as const

@@ -405,6 +405,15 @@ const KINDS: { match: RegExp; kind: PaneKind }[] = [
     },
   },
   {
+    match: /^\/registry/,
+    kind: {
+      key: 'registry',
+      label: t('projects.paneKinds.registry'),
+      icon: 'tag',
+      record: false,
+    },
+  },
+  {
     match: /^\/readings/,
     kind: {
       key: 'readings',

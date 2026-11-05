@@ -29,11 +29,19 @@ import type {
   OfflineReplayPort,
   OfflineReplayReport,
 } from '#/lib/offline/replay'
-import type { OfflineEditScope, OfflineEditStore } from '#/lib/offline/store'
+import type {
+  OfflineEdit,
+  OfflineEditScope,
+  OfflineEditStore,
+} from '#/lib/offline/store'
 import type { LiveStatus } from '#/lib/live-events'
 import { OFFLINE_SYNC_EVENT } from '#/lib/offline/service-worker'
 import { Button } from '#/components/ui/button'
-import { describeOfflineEdit, useOfflineEdits } from './offline-edits'
+import {
+  blockPayloadSummary,
+  describeOfflineEdit,
+  useOfflineEdits,
+} from './offline-edits'
 
 export interface OfflineReplayRunnerProps {
   store: OfflineEditStore
@@ -87,8 +95,8 @@ export function OfflineReplayRunner({
   }, [])
 
   const writer = React.useMemo(
-    () => port ?? createCanonicalOfflineReplayWriter({ userId }),
-    [port, userId],
+    () => port ?? createCanonicalOfflineReplayWriter({ userId, recordId }),
+    [port, userId, recordId],
   )
 
   const runReplay = React.useCallback(async () => {
@@ -135,6 +143,44 @@ export function OfflineReplayRunner({
     window.addEventListener(OFFLINE_SYNC_EVENT, onSync)
     return () => window.removeEventListener(OFFLINE_SYNC_EVENT, onSync)
   }, [runReplay])
+
+  const [theirs, setTheirs] = React.useState<Record<string, string | null>>({})
+  const compare = React.useCallback(
+    async (edit: OfflineEdit) => {
+      if (edit.kind !== 'block_payload') return
+      const server = await writer.readServerBlockPayload?.(edit)
+      setTheirs((current) => ({
+        ...current,
+        [edit.id]: server ? blockPayloadSummary(server) : null,
+      }))
+    },
+    [writer],
+  )
+
+  const keepMine = React.useCallback(
+    async (edit: OfflineEdit) => {
+      if (edit.kind !== 'block_payload' || !writer.keepMyBlockEdit) return
+      try {
+        await writer.keepMyBlockEdit(edit)
+      } catch {
+        // Still queued; the next replay says why.
+        await runReplay()
+        return
+      }
+      await store.removeEdits({ userId, recordId }, [edit.id])
+      setReport((current) =>
+        current
+          ? {
+              ...current,
+              conflicts: current.conflicts.filter((o) => o.editId !== edit.id),
+              held: current.held.filter((o) => o.editId !== edit.id),
+            }
+          : current,
+      )
+      refresh()
+    },
+    [writer, store, userId, recordId, refresh, runReplay],
+  )
 
   const discard = React.useCallback(
     async (editId: string) => {
@@ -208,6 +254,31 @@ export function OfflineReplayRunner({
                   : t('notebook.offlineReplay.anEditMadeOffline')}
               </span>
               <span>{outcome.message}</span>
+              {edit?.kind === 'block_payload' &&
+              outcome.status === 'conflict' ? (
+                <span className="flex flex-col gap-1 rounded-md border p-2">
+                  <span className="font-medium">
+                    {t('notebook.offlineReplay.compareHeading')}
+                  </span>
+                  <span>
+                    <b>{t('notebook.offlineReplay.mine')}:</b>{' '}
+                    {blockPayloadSummary(edit.payload) || '—'}
+                  </span>
+                  {edit.id in theirs ? (
+                    <span>
+                      <b>{t('notebook.offlineReplay.theirs')}:</b>{' '}
+                      {theirs[edit.id] ??
+                        t('notebook.offlineReplay.nothingToShow')}
+                    </span>
+                  ) : (
+                    <span>
+                      <Button size="sm" onClick={() => void compare(edit)}>
+                        {t('notebook.offlineReplay.compareHeading')}
+                      </Button>
+                    </span>
+                  )}
+                </span>
+              ) : null}
               <span className="flex flex-wrap gap-1.5">
                 {edit?.kind === 'block_text' ? (
                   <Button
@@ -217,6 +288,12 @@ export function OfflineReplayRunner({
                     }
                   >
                     {t('notebook.offlineReplay.copyText')}
+                  </Button>
+                ) : null}
+                {edit?.kind === 'block_payload' &&
+                outcome.status === 'conflict' ? (
+                  <Button size="sm" onClick={() => void keepMine(edit)}>
+                    {t('notebook.offlineReplay.keepMine')}
                   </Button>
                 ) : null}
                 {confirming === outcome.editId ? (
@@ -237,7 +314,10 @@ export function OfflineReplayRunner({
                     size="sm"
                     onClick={() => setConfirming(outcome.editId)}
                   >
-                    {t('common.actions.discard')}
+                    {edit?.kind === 'block_payload' &&
+                    outcome.status === 'conflict'
+                      ? t('notebook.offlineReplay.useTheirs')
+                      : t('common.actions.discard')}
                   </Button>
                 )}
               </span>

@@ -94,6 +94,7 @@ import { isSequenceFileName } from '#/lib/sequence'
 import { stepDurationSeconds } from '#/lib/step-timers'
 import { isPinnedProtocolStep } from '#/lib/protocol-deviations'
 import {
+  canEditBlockOffline,
   useOfflineEdits,
   useUnsyncedBlock,
 } from '#/components/offline/offline-edits'
@@ -311,11 +312,12 @@ function useBlockAutosave<T>(
   )
 
   const [touched, setTouched] = React.useState(false)
-  // Plain text blocks keep saving while offline: the page's save keeps the
-  // text on the device and sends it on reconnect, so it survives a reload.
+  // Blocks edited in place keep saving while offline: the page's save keeps
+  // the payload on the device and sends it on reconnect, so it survives a
+  // reload. Blocks that need the server still hold.
   const { canQueue } = useOfflineEdits()
   const holdOffline =
-    (offline ?? false) && !(canQueue && block.type === 'rich_text')
+    (offline ?? false) && !(canQueue && canEditBlockOffline(block.type))
   const autosave = useAutosave<T>({
     initialValue: initialDraft,
     validate,

@@ -503,6 +503,13 @@
       "when": 1801354137830,
       "tag": "0071_web_push",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1801357737830,
+      "tag": "0072_feed_series_buckets",
+      "breakpoints": true
     }
   ]
 }

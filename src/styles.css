@@ -38,7 +38,6 @@
 @import './components/workspace/workspace.css';
 
 @custom-variant dark (&:is(.dark *));
-@custom-variant standalone (@media (display-mode: standalone));
 
 /*
  * UI system v3 tokens. Generated from
@@ -811,20 +810,5 @@
   select,
   [contenteditable='true'] {
     font-size: max(16px, 1em);
-  }
-}
-
-/* Installed app: the page runs under the iOS status bar (viewport-fit=cover),
-   and this fixed solid strip fills that area so iOS has no scroll-edge blur to
-   draw there. The top bar adds the matching padding. */
-@media (display-mode: standalone) {
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0 0 auto 0;
-    height: env(safe-area-inset-top);
-    background: var(--color-surface);
-    z-index: 60;
-    pointer-events: none;
   }
 }

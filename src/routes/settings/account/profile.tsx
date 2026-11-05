@@ -9,6 +9,7 @@ import { Field, Input } from '#/components/ui/input'
 import { Section } from '#/components/ui/layout'
 import { toast } from '#/components/ui/sonner'
 import { ProfilePhoto } from '#/components/settings/profile-photo'
+import { LeaveWorkspace } from '#/components/settings/leave-workspace'
 import { SettingsSessions } from '#/components/settings/settings-sessions'
 import { SettingsTwoFactor } from '#/components/settings/settings-two-factor'
 import {
@@ -381,6 +382,18 @@ function Profile() {
         <Section title={t('settings.profile.sessions')}>
           <SettingsSessions />
         </Section>
+
+        {context.workspace ? (
+          <LeaveWorkspace
+            workspaceId={context.workspace.id}
+            workspaceName={context.workspace.name}
+            otherWorkspaces={
+              (context.workspaces ?? []).filter(
+                (w) => w.id !== context.workspace?.id && !w.suspended,
+              ).length
+            }
+          />
+        ) : null}
       </SettingsBody>
     </>
   )

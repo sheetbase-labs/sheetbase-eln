@@ -510,6 +510,34 @@
       "when": 1801357737830,
       "tag": "0072_feed_series_buckets",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1801361337830,
+      "tag": "0080_spec_limits",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1801364937830,
+      "tag": "0081_incident_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1801368537830,
+      "tag": "0082_legal_holds",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1801372137830,
+      "tag": "0083_retention_rules",
+      "breakpoints": true
     }
   ]
 }

@@ -17,6 +17,7 @@ import { PageHeader, Muted, Section } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
 import { EmptyState } from '#/components/ui/empty-state'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
+import { FollowToggle } from '#/components/follow/follow-toggle'
 import { Button } from '#/components/ui/button'
 import { useRecentViewTracking } from '#/lib/recents'
 import { Select } from '#/components/ui/select'
@@ -227,6 +228,7 @@ function ProtocolPage() {
         actions={
           <>
             <FavouriteToggle kind="record" objectId={p.id} />
+            <FollowToggle kind="record" objectId={p.id} />
             <Button onClick={() => window.print()}>
               {t('library.protocols.detail.exportPdf')}
             </Button>

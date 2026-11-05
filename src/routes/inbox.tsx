@@ -177,6 +177,8 @@ function labelFor(kind: WorkItemKind): string {
       return t('projects.inbox.kinds.sample_awaiting_release')
     case 'sample_hold_exceeded':
       return t('projects.inbox.kinds.sample_hold_exceeded')
+    case 'project_following':
+      return t('account.follow.projectKind')
     default:
       return t('projects.inbox.kinds.following')
   }

@@ -4,6 +4,7 @@ import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
+import { FollowToggle } from '#/components/follow/follow-toggle'
 import { Button } from '#/components/ui/button'
 import {
   DropdownMenu,
@@ -697,6 +698,7 @@ function SampleLayout() {
           actions={
             <span className="flex flex-wrap gap-2 max-md:hidden">
               <FavouriteToggle kind="record" objectId={sample.id} />
+              <FollowToggle kind="record" objectId={sample.id} />
               {archived ? (
                 allowEdit ? (
                   <Button

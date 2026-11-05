@@ -96,6 +96,13 @@ export function itemLink(item: WorkItem): WorkItemLink {
           ...(item.sourceId ? { proposal: item.sourceId } : {}),
         },
       }
+    case 'project_following':
+      return item.projectId
+        ? {
+            to: '/projects/$projectId',
+            params: { projectId: item.projectId },
+          }
+        : { to: '/inbox' }
     case 'verification_requested':
     case 'verification_granted':
       return { to: '/settings/account/signature' }

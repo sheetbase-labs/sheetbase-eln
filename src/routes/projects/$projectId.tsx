@@ -17,6 +17,7 @@ import {
 } from '#/components/projects/project-lists'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
+import { FollowToggle } from '#/components/follow/follow-toggle'
 import { useRecentViewTracking } from '#/lib/recents'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
@@ -143,6 +144,10 @@ function ProjectLayout() {
           <>
             {/* An archived project never shows in the sidebar, so it is not offered. */}
             <FavouriteToggle
+              kind="project"
+              objectId={project.archivedAt ? null : project.id}
+            />
+            <FollowToggle
               kind="project"
               objectId={project.archivedAt ? null : project.id}
             />

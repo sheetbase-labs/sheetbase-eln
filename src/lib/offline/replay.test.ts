@@ -202,7 +202,7 @@ describe('offline replay engine', () => {
       cellDraft({ sheetInstanceId: 'sheet-2', expectedRevision: 2 }),
     ])
     const { port } = createFakePort((edit) =>
-      edit.kind !== 'block_text' && edit.sheetInstanceId === SHEET_ID
+      'sheetInstanceId' in edit && edit.sheetInstanceId === SHEET_ID
         ? 'refuse'
         : 'commit',
     )

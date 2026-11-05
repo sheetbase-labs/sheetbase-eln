@@ -3642,7 +3642,7 @@ export const library = {
     couldNotStart: 'The count couldn’t be started.',
     noPlacesTitle: 'No storage to count yet',
     noPlacesBody:
-      'Add a freezer, shelf, rack and box under Settings › Storage and labels, then come back to count it.',
+      'Add a freezer, shelf, rack and box under Settings › Lab setup › Storage locations, then come back to count it.',
     emptyTitle: 'No counts yet',
     emptyBody:
       'Walk a freezer or a box with the scanner to confirm what’s there and find what’s missing or in the wrong place.',

@@ -1549,7 +1549,7 @@ export const settings = {
     snippetLanguage: 'Snippet language',
     snippet: '{label} snippet',
     getTokenRead: 'Get a token or a read-only SQL login in',
-    settingsApi: 'Settings → API',
+    settingsApi: 'Settings → Account → API and SDK',
     dataAccessAria: 'Data access',
   },
   dataAccessRoles: {

@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
 } from '#/components/ui/dialog'
-import { toast } from '#/components/ui/sonner'
+import { undoToast } from '#/lib/undo-toast'
 import { archiveDataset, restoreDataset } from '#/lib/dataset-product'
 import { notebookDataClient } from '#/lib/notebook-data'
 
@@ -59,13 +59,28 @@ export function DatasetArchive({
         ? restoreDataset(client, { datasetId, expectedRevision })
         : archiveDataset(client, { datasetId, expectedRevision })
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       setOpen(false)
-      void queryClient.invalidateQueries({ queryKey: ['ui-port'] })
-      toast(
+      const refresh = () =>
+        void queryClient.invalidateQueries({ queryKey: ['ui-port'] })
+      refresh()
+      undoToast(
         archived
           ? t('data.datasetArchive.datasetRestored')
           : t('data.datasetArchive.datasetArchived'),
+        () => {
+          const input = {
+            datasetId,
+            expectedRevision: Number(result.revision),
+          }
+          return archived
+            ? archiveDataset(client, input)
+            : restoreDataset(client, input)
+        },
+        () => {
+          refresh()
+          onDone?.(archived)
+        },
       )
       onDone?.(!archived)
     },

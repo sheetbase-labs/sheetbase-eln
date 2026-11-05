@@ -23,6 +23,7 @@ import {
 } from '#/components/ui/dropdown-menu'
 import { Field, Input } from '#/components/ui/input'
 import { toast } from '#/components/ui/sonner'
+import { undoToast } from '#/lib/undo-toast'
 import { Icon } from '#/components/icons'
 import {
   RecordActionItems,
@@ -32,6 +33,7 @@ import {
 import { SaveAsTemplateDialog } from '#/components/experiments/save-as-template-dialog'
 import {
   archiveExperiment,
+  restoreExperiment,
   createNewRun,
   deleteExperimentDraft,
   moveExperimentToProject,
@@ -185,7 +187,11 @@ export function ExperimentLifecycleActions({
     onSuccess: async () => {
       close()
       await refresh()
-      toast(t('projects.lifecycle.archived'))
+      undoToast(
+        t('projects.lifecycle.archived'),
+        () => restoreExperiment(notebookDataClient, e.id),
+        () => void refresh(),
+      )
     },
     onError: (error) => toast.error(errorText(error)),
   })

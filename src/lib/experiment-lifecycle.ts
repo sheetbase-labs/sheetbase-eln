@@ -81,6 +81,17 @@ export async function archiveExperiment(
   })
 }
 
+/** Bring an archived experiment back (the Undo after archiving one). */
+export async function restoreExperiment(
+  client: DataClient,
+  recordId: string,
+): Promise<void> {
+  await client.rpc('restore_record', {
+    p_record_id: recordId,
+    p_expected_metadata_version: await currentMetadataVersion(client, recordId),
+  })
+}
+
 export async function deleteExperimentDraft(
   client: DataClient,
   recordId: string,

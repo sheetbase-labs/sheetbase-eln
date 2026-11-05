@@ -233,6 +233,11 @@ export interface RegistryGridProps<T extends RowData> {
    * on sortable headers and the columns-and-export menu.
    */
   view?: ListView
+  /**
+   * Whether a click on a column header sorts. A list whose own Sort and Group
+   * menus order the rows passes false, so the two do not fight over the order.
+   */
+  sortable?: boolean
   /** What the list is called in an export's file name; defaults to `label`. */
   exportName?: string
   isLoading?: boolean
@@ -291,6 +296,7 @@ export function RegistryGrid<T extends RowData>({
   sorting: sortingProp,
   onSortingChange: onSortingChangeProp,
   view,
+  sortable: sortableProp = true,
   exportName,
   bulk,
   rowLabel,
@@ -302,7 +308,7 @@ export function RegistryGrid<T extends RowData>({
   // A grouped list's bands are headings between records; ordering the rows
   // would scatter them, so a grouped table keeps the route's order.
   const grouped = rows.some((row) => isBand(row))
-  const sortable = sorting !== undefined && !grouped
+  const sortable = sortableProp && sorting !== undefined && !grouped
   const hidden = view?.hidden
   const columnVisibility = useMemo<ColumnVisibilityState>(
     () => Object.fromEntries((hidden ?? []).map((id) => [id, false])),

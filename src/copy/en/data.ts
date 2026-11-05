@@ -527,6 +527,8 @@ export const data = {
     all: 'All',
     mine: 'Mine',
     locked: 'Locked',
+    archived: 'Archived',
+    updated: 'Updated',
     name: 'Name',
     model: 'Model',
     experiment: 'Experiment',

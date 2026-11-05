@@ -92,11 +92,19 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { requireBuiltInModel } from '#/lib/built-in-models'
 import { saveNewObjectFields } from '#/lib/model-subtypes'
+import { useListView } from '#/lib/list-views'
 import { t } from '#/copy'
 
 const SAMPLE_MODEL = requireBuiltInModel('sample')
 
-const tabs = ['instock', 'mine', 'awaiting', 'quarantine', 'consumed'] as const
+const tabs = [
+  'instock',
+  'mine',
+  'awaiting',
+  'quarantine',
+  'consumed',
+  'archived',
+] as const
 type SampleTab = (typeof tabs)[number]
 const tabLabel: Record<SampleTab, string> = {
   instock: t('library.samples.list.inStock'),
@@ -104,6 +112,7 @@ const tabLabel: Record<SampleTab, string> = {
   awaiting: t('library.samples.list.reserved'),
   quarantine: t('library.samples.list.quarantine'),
   consumed: t('library.samples.list.consumed'),
+  archived: t('library.samples.list.archived'),
 }
 
 function pickSampleContext(search: Record<string, unknown>) {
@@ -141,6 +150,7 @@ export const Route = createFileRoute('/samples')({
       search.tab === 'awaiting' ||
       search.tab === 'quarantine' ||
       search.tab === 'consumed' ||
+      search.tab === 'archived' ||
       search.tab === 'instock'
         ? search.tab
         : undefined,
@@ -184,7 +194,15 @@ function SamplesList() {
   const q = (search.q ?? '').trim()
   // The database applies the open tab and the search, so the list and the tab
   // numbers cover every sample, not just the ones loaded.
-  const page = useSampleList(tab, context.user.id, q || undefined, limit)
+  const view = useListView('samples')
+  const page = useSampleList(
+    tab,
+    context.user.id,
+    q || undefined,
+    limit,
+    undefined,
+    view.sorting,
+  )
   const tabCounts = useSampleTabCounts(context.user.id, q || undefined)
   const counts = tabCounts.data
 
@@ -249,11 +267,14 @@ function SamplesList() {
       {
         id: 'identifier',
         header: t('library.samples.list.id'),
+        accessorFn: (s) => s.id,
+        enableHiding: false,
         cell: ({ row }) => <span className="mono">{row.original.id}</span>,
       },
       {
         id: 'name',
         header: t('library.samples.list.name'),
+        accessorFn: (s) => s.name,
         cell: ({ row }) => (
           <Link
             to="/samples/$sampleId"
@@ -276,6 +297,8 @@ function SamplesList() {
         id: 'quantity',
         header: t('library.samples.list.quantity'),
         accessorFn: (s) => s.quantity,
+        // "15 mL" and "12.5 mg" have no common order.
+        enableSorting: false,
         meta: rightAligned<SampleListRow>().meta,
       },
       {
@@ -291,6 +314,7 @@ function SamplesList() {
       {
         id: 'status',
         header: t('library.samples.list.status'),
+        accessorFn: (s) => s.status.label,
         cell: ({ row }) => (
           <Status tone={row.original.status.tone}>
             {row.original.status.label}
@@ -546,21 +570,6 @@ function SamplesList() {
           q={search.q}
           label={t('library.samples.list.searchSamples')}
           placeholder={t('library.samples.list.searchByIdNameLocation')}
-          views={{
-            sorts: [
-              t('library.samples.list.created'),
-              'ID',
-              t('library.samples.list.name'),
-            ],
-            fields: [
-              'ID',
-              t('library.samples.list.name'),
-              t('library.samples.list.type'),
-              t('library.samples.list.quantity'),
-              t('library.samples.list.location'),
-              t('library.samples.list.status'),
-            ],
-          }}
           onSearch={(next) =>
             void navigate({
               to: '/samples',
@@ -573,6 +582,7 @@ function SamplesList() {
           selection={bulk}
           kind="sample"
           move="location"
+          restore={tab === 'archived'}
           canWrite={canWrite}
           onChanged={() =>
             void queryClient.invalidateQueries({
@@ -587,6 +597,7 @@ function SamplesList() {
               bulk={bulk}
               rowLabel={(s) => s.id}
               label={t('library.samples.list.samples')}
+              view={view}
               rows={visible}
               columns={columns}
               getRowId={(s) => s.uuid}
@@ -625,16 +636,20 @@ function SamplesList() {
                       ? t('library.samples.list.noSamplesMatch', {
                           q: search.q ?? '',
                         })
-                      : t('library.samples.list.noSamplesIn', {
-                          toLowerCase: tabLabel[tab].toLowerCase(),
-                        })
+                      : tab === 'archived'
+                        ? t('library.samples.list.noArchivedSamples')
+                        : t('library.samples.list.noSamplesIn', {
+                            toLowerCase: tabLabel[tab].toLowerCase(),
+                          })
                 }
                 description={
                   hasProjectAccess === false
                     ? NO_PROJECT_ACCESS_BODY
                     : q
                       ? t('library.samples.list.searchLooksAtIdName')
-                      : t('library.samples.list.registerASampleOrImport')
+                      : tab === 'archived'
+                        ? t('library.samples.list.archivedStayHere')
+                        : t('library.samples.list.registerASampleOrImport')
                 }
                 action={
                   <Button

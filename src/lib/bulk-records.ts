@@ -186,6 +186,32 @@ export function bulkArchive(
   )
 }
 
+const notArchived = (target: BulkTarget) =>
+  target.archived ? null : t('library.bulk.errors.notArchived')
+
+/** Bring archived records back, each through the RPC its own page uses. */
+export function bulkRestore(
+  client: DataClient,
+  targets: readonly BulkTarget[],
+  notes?: string,
+): Promise<BulkOutcome> {
+  return runBulk(
+    targets,
+    (target) =>
+      target.kind === 'sample'
+        ? client.rpc('restore_sample', {
+            p_record_id: target.id,
+            p_expected_metadata_version: target.metadataVersion,
+            p_notes: notes ?? null,
+          })
+        : client.rpc('restore_record', {
+            p_record_id: target.id,
+            p_expected_metadata_version: target.metadataVersion,
+          }),
+    notArchived,
+  )
+}
+
 /** Move experiments to another project (the server allows drafts only). */
 export function bulkMoveToProject(
   client: DataClient,

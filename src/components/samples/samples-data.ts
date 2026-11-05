@@ -1,5 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
+import type { SortingState } from '@tanstack/react-table'
+
 import type { Tone } from '#/components/ui/status'
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -71,7 +73,11 @@ export function toSampleListRow(
       ? `${record.quantity.toLocaleString('en-GB', { maximumFractionDigits: 2 })}${record.quantityUnit ? ` ${record.quantityUnit}` : ''}`
       : '—'
   const tabs: string[] = []
-  if (record.status === 'consumed' || record.status === 'disposed') {
+  if (record.archivedAt) {
+    // An archived sample is out of every working list; it is found, and
+    // restored, from the Archived tab.
+    tabs.push('archived')
+  } else if (record.status === 'consumed' || record.status === 'disposed') {
     // Both are terminal states kept for lineage and audit. The registry's
     // terminal tab is "Consumed"; a dedicated Disposed tab would live in
     // src/routes/samples.tsx and is outside this slice, so a disposed row is
@@ -82,7 +88,8 @@ export function toSampleListRow(
     if (record.status === 'quarantined') tabs.push('quarantine')
     if (record.status === 'reserved') tabs.push('awaiting')
   }
-  if (meId && record.createdByUserId === meId) tabs.push('mine')
+  if (!record.archivedAt && meId && record.createdByUserId === meId)
+    tabs.push('mine')
   return {
     uuid: record.id,
     id: record.identifier,
@@ -112,6 +119,7 @@ export const SAMPLE_TABS = [
   'awaiting',
   'quarantine',
   'consumed',
+  'archived',
 ] as const
 export type SampleTabKey = (typeof SAMPLE_TABS)[number]
 
@@ -119,7 +127,7 @@ export type SampleTabKey = (typeof SAMPLE_TABS)[number]
  * the open tab holds and loads them on request. */
 export const SAMPLE_LIST_PAGE_SIZE = 200
 
-const SAMPLE_BASE = 'kind=eq.sample&deleted_at=is.null&archived_at=is.null'
+const SAMPLE_BASE = 'kind=eq.sample&deleted_at=is.null'
 
 const SAMPLE_SELECT =
   'select=id,workspace_id,project_id,kind,identifier,title,status,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id,properties,custom_fields'
@@ -133,12 +141,17 @@ export function sampleListFilters(
   userId: string | undefined,
   query: string | undefined,
 ): string[] {
-  const clauses = [SAMPLE_BASE]
+  const clauses = [
+    SAMPLE_BASE,
+    tab === 'archived' ? 'archived_at=not.is.null' : 'archived_at=is.null',
+  ]
+  // The Archived tab holds everything archived, whatever state it was in.
   if (tab === 'instock') clauses.push('status=not.in.(consumed,disposed)')
   else if (tab === 'quarantine') clauses.push('status=eq.quarantined')
   else if (tab === 'awaiting') clauses.push('status=eq.reserved')
   else if (tab === 'consumed') clauses.push('status=in.(consumed,disposed)')
-  else clauses.push(`created_by_user_id=eq.${encodeURIComponent(userId ?? '')}`)
+  else if (tab === 'mine')
+    clauses.push(`created_by_user_id=eq.${encodeURIComponent(userId ?? '')}`)
   const term = (query ?? '').trim()
   if (term) {
     const pattern = encodeURIComponent(containsPattern(term))
@@ -149,6 +162,25 @@ export function sampleListFilters(
   return clauses
 }
 
+/** The database's column for each column a person can sort the list by. The
+ * others (quantity, added fields) order the rows already loaded. */
+const SAMPLE_SORT_COLUMNS: Record<string, string> = {
+  identifier: 'identifier',
+  name: 'title',
+  type: 'properties->>sampleType',
+  location: 'properties->>storageLocation',
+  status: 'status',
+}
+
+/** The PostgREST `order` for a header sort: newest first unless a column was
+ * clicked. Sorting in the database keeps a click right past the first page. */
+export function sampleOrder(sorting: SortingState | undefined): string {
+  const first = sorting?.find((entry) => SAMPLE_SORT_COLUMNS[entry.id])
+  if (!first) return 'created_at.desc,identifier.desc'
+  const direction = first.desc ? 'desc' : 'asc'
+  return `${SAMPLE_SORT_COLUMNS[first.id]}.${direction}.nullslast,identifier.${direction}`
+}
+
 /** One page of the open tab, newest first (identifiers are issued in order, so
  * the registration time is the same order without sorting the text). */
 export function useSampleList(
@@ -157,15 +189,25 @@ export function useSampleList(
   query: string | undefined,
   limit: number = SAMPLE_LIST_PAGE_SIZE,
   client: DataClient = notebookDataClient,
+  sorting?: SortingState,
 ) {
+  const order = sampleOrder(sorting)
   return useQuery({
-    queryKey: [...sampleListQueryKeys.page, 'rows', tab, userId, query, limit],
+    queryKey: [
+      ...sampleListQueryKeys.page,
+      'rows',
+      tab,
+      userId,
+      query,
+      limit,
+      order,
+    ],
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<SampleRecord[]> =>
       (
         await client.list<RecordWire>(
           'records',
-          `?${sampleListFilters(tab, userId, query).join('&')}&order=created_at.desc,identifier.desc&limit=${limit}&${SAMPLE_SELECT}`,
+          `?${sampleListFilters(tab, userId, query).join('&')}&order=${order}&limit=${limit}&${SAMPLE_SELECT}`,
         )
       ).map(toSampleRecord),
     staleTime: 15_000,

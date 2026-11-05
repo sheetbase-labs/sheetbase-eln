@@ -268,10 +268,7 @@ export const projects = {
       experiments: 'Experiments',
       samples: 'Samples',
       datasets: 'Datasets',
-      sheets: 'Sheets',
-      folders: 'Folders',
       files: 'Files',
-      members: 'Members',
       settings: 'Settings',
     },
   },
@@ -311,6 +308,12 @@ export const projects = {
     },
   },
   projectFiles: {
+    views: {
+      label: 'What to show',
+      files: 'Files',
+      folders: 'Folders',
+      sheets: 'Sheets',
+    },
     what: 'this project’s files',
     noun: 'files',
     title: 'Files',
@@ -429,7 +432,7 @@ export const projects = {
       },
       create: 'Create an experiment',
     },
-    note: 'Milestones are the project’s study deliverables with a target date. Add and schedule them on the Milestones tab. Folders, members and settings are on their tabs.',
+    note: 'Milestones are the project’s study deliverables with a target date. Add and schedule them on the Milestones tab. Folders are on the Files tab, and members are in Settings.',
     inspector: 'Project details',
     detailsTitle: 'Details',
     review: {

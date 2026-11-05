@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { getRouteApi } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCanManageProject } from '#/lib/project-permissions'
 import { createDataClient } from '#/lib/data-client'
@@ -70,6 +70,7 @@ const accessLevels = [
   { value: 'viewer' },
 ] as const
 const accessClient = createDataClient()
+const projectRoute = getRouteApi('/projects/$projectId')
 const accessLabel = (level: string) =>
   level === 'owner' ||
   level === 'editor' ||
@@ -78,16 +79,11 @@ const accessLabel = (level: string) =>
     ? t(`projects.projectMembers.access.${level}`)
     : undefined
 
-/** UI port (roadmap-4/ui-app3): the project Members tab, backed by
- * `project_members` / `set_project_member` / `remove_project_member`. Training
- * and groups are not in the model yet; client users arrive with the portal. */
-export const Route = createFileRoute('/projects/$projectId/members')({
-  component: ProjectMembers,
-})
-
-function ProjectMembers() {
-  const { projectId } = Route.useParams()
-  const { context } = Route.useRouteContext()
+/** The project's people, backed by `project_members` / `set_project_member` /
+ * `remove_project_member`. It sits in the project's Settings. Training and
+ * groups are not in the model yet; client users arrive with the portal. */
+export function ProjectMembers({ projectId }: { projectId: string }) {
+  const { context } = projectRoute.useRouteContext()
   const { project } = useProjectSummary(projectId)
   const queryClient = useQueryClient()
   const membersQuery = useQuery({
@@ -248,7 +244,7 @@ function ProjectMembers() {
 
   return (
     <>
-      <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
+      <div className="flex min-w-0 flex-col gap-[26px]">
         {!isLead ? (
           <Notice
             icon="lock"

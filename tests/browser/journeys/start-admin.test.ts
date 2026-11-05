@@ -471,7 +471,7 @@ test('ADMIN-12 a viewer asking for edit access shows up for the lead on the proj
     ),
   )
   await signIn(page)
-  await open(page, `/projects/${DESIGN_PROJECT}/members`)
+  await open(page, `/projects/${DESIGN_PROJECT}/settings`)
   await expect(page.getByText(reason)).toBeVisible()
   await page.getByRole('button', { name: 'Deny' }).first().click()
   await expect(page.getByText(reason)).toHaveCount(0)

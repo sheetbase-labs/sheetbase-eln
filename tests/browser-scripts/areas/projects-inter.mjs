@@ -31,8 +31,8 @@ if (ids.project) {
     'project detail shows one h1',
   )
   for (const [tab, path] of [
-    ['folders', `/projects/${ids.project}/folders`],
-    ['members', `/projects/${ids.project}/members`],
+    ['folders', `/projects/${ids.project}/files?view=folders`],
+    ['members', `/projects/${ids.project}/settings`],
     ['settings', `/projects/${ids.project}/settings`],
   ]) {
     await go(page, path)

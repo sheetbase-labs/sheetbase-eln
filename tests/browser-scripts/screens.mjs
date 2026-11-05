@@ -163,8 +163,8 @@ function routes(ids) {
       `/projects/${ids.project}`,
       `/projects/${ids.project}/milestones`,
       `/projects/${ids.project}/milestones?state=denied`,
-      `/projects/${ids.project}/folders`,
-      `/projects/${ids.project}/members`,
+      `/projects/${ids.project}/files?view=folders`,
+      `/projects/${ids.project}/settings`,
       `/projects/${ids.project}/settings`,
     )
   if (ids.experiment)

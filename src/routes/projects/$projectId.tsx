@@ -1,6 +1,5 @@
 import { formatDate } from '#/lib/format-date'
 import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/ui/layout'
 import { Button } from '#/components/ui/button'
@@ -9,8 +8,6 @@ import { ProjectListFailure } from '#/components/projects/project-list'
 import { Tabs } from '#/components/ui/tabs'
 import { Status } from '#/components/ui/status'
 import {
-  fetchProjectFolders,
-  fetchProjectMembers,
   useProjectMilestones,
   useProjectSummary,
 } from '#/components/projects/project-data'
@@ -18,8 +15,6 @@ import {
   useProjectDatasetCount,
   useProjectRecordCount,
 } from '#/components/projects/project-lists'
-import { projectSheetsKey } from '#/components/projects/project-sheets'
-import { fetchProjectSheets } from '#/lib/sheet-instance-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { useRecentViewTracking } from '#/lib/recents'
@@ -52,31 +47,12 @@ function ProjectLayout() {
   const { projectId } = Route.useParams()
   const { project, query } = useProjectSummary(projectId)
   useRecentViewTracking('project', query.isSuccess ? project?.id : null)
-  const membersQuery = useQuery({
-    queryKey: ['project-members', projectId],
-    queryFn: () => fetchProjectMembers(projectId),
-    enabled: Boolean(project),
-  })
   // Header counts share the tabs' queries (same predicate builders), so a tab's
   // count and its list total always agree. The Experiments count is the
   // canonical `project_list_summary.experiment_count` for the same predicate.
   const samplesCount = useProjectRecordCount(project?.id ?? '', 'sample')
   const datasetsCount = useProjectDatasetCount(project?.id ?? '')
   const milestonesQuery = useProjectMilestones(project?.id ?? '')
-  // Same key the Folders tab uses, so the count and that tab's list share one read.
-  const foldersQuery = useQuery({
-    queryKey: ['project-folders', project?.id ?? ''],
-    queryFn: () => fetchProjectFolders(project?.id ?? ''),
-    enabled: Boolean(project),
-  })
-
-  // Same key the Sheets tab reads, so the count and the list share one fetch.
-  const sheetsQuery = useQuery({
-    queryKey: projectSheetsKey(project?.id ?? '', false),
-    queryFn: () => fetchProjectSheets(project?.id ?? ''),
-    enabled: Boolean(project),
-  })
-
   if (!project) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
@@ -222,24 +198,12 @@ function ProjectLayout() {
                 link: { to: '/projects/$projectId/datasets', params },
               },
               {
-                label: t('projects.projectShell.tabs.sheets'),
-                count: sheetsQuery.data?.length ?? '—',
-                link: { to: '/projects/$projectId/sheets', params },
-              },
-              {
-                label: t('projects.projectShell.tabs.folders'),
-                count: foldersQuery.data?.length ?? '—',
-                link: { to: '/projects/$projectId/folders', params },
-              },
-              {
                 label: t('projects.projectShell.tabs.files'),
-                count: '—',
-                link: { to: '/projects/$projectId/files', params },
-              },
-              {
-                label: t('projects.projectShell.tabs.members'),
-                count: membersQuery.data?.length ?? '—',
-                link: { to: '/projects/$projectId/members', params },
+                link: {
+                  to: '/projects/$projectId/files',
+                  params,
+                  search: {},
+                },
               },
               {
                 label: t('projects.projectShell.tabs.settings'),

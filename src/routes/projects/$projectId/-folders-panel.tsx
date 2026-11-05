@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { getRouteApi } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -49,16 +49,13 @@ import { t } from '#/copy'
 
 const UNFILED = '__unfiled__'
 
-/** UI port (roadmap-4/ui-app3): the project Folders tab. Folders only
- * organise; moving a record keeps its ID, links, history and access. */
-export const Route = createFileRoute('/projects/$projectId/folders')({
-  component: ProjectFolders,
-})
+const projectRoute = getRouteApi('/projects/$projectId')
 
-function ProjectFolders() {
-  const { projectId } = Route.useParams()
+/** The project's folders. Folders only organise; moving a record keeps its
+ * ID, links, history and access. */
+export function ProjectFolders({ projectId }: { projectId: string }) {
   const { project } = useProjectSummary(projectId)
-  const { context } = Route.useRouteContext()
+  const { context } = projectRoute.useRouteContext()
   const queryClient = useQueryClient()
   const foldersQuery = useQuery({
     queryKey: ['project-folders', projectId],

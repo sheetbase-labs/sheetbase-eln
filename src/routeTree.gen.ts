@@ -107,6 +107,7 @@ import { Route as ApiConnectorsAgentRouteImport } from './routes/api/connectors.
 import { Route as ApiConnectorsIntakeRouteImport } from './routes/api/connectors.intake'
 import { Route as ApiConnectorsPickupRouteImport } from './routes/api/connectors.pickup'
 import { Route as ApiConnectorsSourceRouteImport } from './routes/api/connectors.source'
+import { Route as ApiConnectorsStreamRouteImport } from './routes/api/connectors.stream'
 import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
 import { Route as ApiDemoWebhookSinkRouteImport } from './routes/api/demo/webhook-sink'
 import { Route as ApiExportWorkspaceRouteImport } from './routes/api/export/workspace'
@@ -697,6 +698,11 @@ const ApiConnectorsPickupRoute = ApiConnectorsPickupRouteImport.update({
 const ApiConnectorsSourceRoute = ApiConnectorsSourceRouteImport.update({
   id: '/api/connectors/source',
   path: '/api/connectors/source',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiConnectorsStreamRoute = ApiConnectorsStreamRouteImport.update({
+  id: '/api/connectors/stream',
+  path: '/api/connectors/stream',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDbSplatRoute = ApiDbSplatRouteImport.update({
@@ -1333,6 +1339,7 @@ export interface FileRoutesByFullPath {
   '/api/connectors/intake': typeof ApiConnectorsIntakeRoute
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
+  '/api/connectors/stream': typeof ApiConnectorsStreamRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/demo/webhook-sink': typeof ApiDemoWebhookSinkRoute
   '/api/export/workspace': typeof ApiExportWorkspaceRoute
@@ -1520,6 +1527,7 @@ export interface FileRoutesByTo {
   '/api/connectors/intake': typeof ApiConnectorsIntakeRoute
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
+  '/api/connectors/stream': typeof ApiConnectorsStreamRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/demo/webhook-sink': typeof ApiDemoWebhookSinkRoute
   '/api/export/workspace': typeof ApiExportWorkspaceRoute
@@ -1719,6 +1727,7 @@ export interface FileRoutesById {
   '/api/connectors/intake': typeof ApiConnectorsIntakeRoute
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
+  '/api/connectors/stream': typeof ApiConnectorsStreamRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/demo/webhook-sink': typeof ApiDemoWebhookSinkRoute
   '/api/export/workspace': typeof ApiExportWorkspaceRoute
@@ -1920,6 +1929,7 @@ export interface FileRouteTypes {
     | '/api/connectors/intake'
     | '/api/connectors/pickup'
     | '/api/connectors/source'
+    | '/api/connectors/stream'
     | '/api/db/$'
     | '/api/demo/webhook-sink'
     | '/api/export/workspace'
@@ -2107,6 +2117,7 @@ export interface FileRouteTypes {
     | '/api/connectors/intake'
     | '/api/connectors/pickup'
     | '/api/connectors/source'
+    | '/api/connectors/stream'
     | '/api/db/$'
     | '/api/demo/webhook-sink'
     | '/api/export/workspace'
@@ -2305,6 +2316,7 @@ export interface FileRouteTypes {
     | '/api/connectors/intake'
     | '/api/connectors/pickup'
     | '/api/connectors/source'
+    | '/api/connectors/stream'
     | '/api/db/$'
     | '/api/demo/webhook-sink'
     | '/api/export/workspace'
@@ -2465,6 +2477,7 @@ export interface RootRouteChildren {
   ApiConnectorsIntakeRoute: typeof ApiConnectorsIntakeRoute
   ApiConnectorsPickupRoute: typeof ApiConnectorsPickupRoute
   ApiConnectorsSourceRoute: typeof ApiConnectorsSourceRoute
+  ApiConnectorsStreamRoute: typeof ApiConnectorsStreamRoute
   ApiDbSplatRoute: typeof ApiDbSplatRoute
   ApiDemoWebhookSinkRoute: typeof ApiDemoWebhookSinkRoute
   ApiExportWorkspaceRoute: typeof ApiExportWorkspaceRoute
@@ -3192,6 +3205,13 @@ declare module '@tanstack/react-router' {
       path: '/api/connectors/source'
       fullPath: '/api/connectors/source'
       preLoaderRoute: typeof ApiConnectorsSourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/connectors/stream': {
+      id: '/api/connectors/stream'
+      path: '/api/connectors/stream'
+      fullPath: '/api/connectors/stream'
+      preLoaderRoute: typeof ApiConnectorsStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/db/$': {
@@ -4397,6 +4417,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiConnectorsIntakeRoute: ApiConnectorsIntakeRoute,
   ApiConnectorsPickupRoute: ApiConnectorsPickupRoute,
   ApiConnectorsSourceRoute: ApiConnectorsSourceRoute,
+  ApiConnectorsStreamRoute: ApiConnectorsStreamRoute,
   ApiDbSplatRoute: ApiDbSplatRoute,
   ApiDemoWebhookSinkRoute: ApiDemoWebhookSinkRoute,
   ApiExportWorkspaceRoute: ApiExportWorkspaceRoute,

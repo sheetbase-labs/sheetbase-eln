@@ -10,7 +10,11 @@ import {
   isIosSafari,
   snoozeInstall,
 } from './install'
-import { classifySwipe, startsAtLeftEdge } from './edge-swipe'
+import {
+  classifySwipe,
+  startsAtLeftEdge,
+  touchOwnsHorizontalDrag,
+} from './edge-swipe'
 import { canNativeShare, shareLink } from './share'
 import { SPLASH_SIZES, splashLinks } from './splash'
 import { wakeLockSupported } from './wake-lock'
@@ -63,6 +67,28 @@ describe('edge swipe', () => {
     expect(classifySwipe({ x: 8, y: 300 }, { x: 30, y: 300 })).toBeNull()
     // A scroll that drifts sideways is not a swipe.
     expect(classifySwipe({ x: 8, y: 300 }, { x: 80, y: 420 })).toBeNull()
+  })
+
+  it('leaves canvases, dialogs and scrolled sideways scrollers alone', () => {
+    const canvas = document.createElement('div')
+    canvas.setAttribute('data-no-edge-swipe', '')
+    const dialog = document.createElement('div')
+    dialog.setAttribute('role', 'dialog')
+    const plain = document.createElement('div')
+    const scroller = document.createElement('div')
+    scroller.style.overflowX = 'auto'
+    Object.defineProperty(scroller, 'scrollWidth', { value: 900 })
+    Object.defineProperty(scroller, 'clientWidth', { value: 300 })
+    const cell = document.createElement('span')
+    scroller.append(cell)
+    document.body.append(canvas, dialog, plain, scroller)
+    expect(touchOwnsHorizontalDrag(canvas)).toBe(true)
+    expect(touchOwnsHorizontalDrag(dialog)).toBe(true)
+    expect(touchOwnsHorizontalDrag(plain)).toBe(false)
+    // At its left end a scroller cannot move right, so the swipe is free.
+    expect(touchOwnsHorizontalDrag(cell)).toBe(false)
+    scroller.scrollLeft = 120
+    expect(touchOwnsHorizontalDrag(cell)).toBe(true)
   })
 })
 

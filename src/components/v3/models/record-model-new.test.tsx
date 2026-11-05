@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { RecordModelNew } from './record-model-new'
@@ -110,7 +111,11 @@ afterEach(() => {
 
 function renderForm() {
   mocks.fields = [categoryField, passageField]
-  render(<RecordModelNew modelKey="cell_bank" />)
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <RecordModelNew modelKey="cell_bank" />
+    </QueryClientProvider>,
+  )
 }
 
 describe('RecordModelNew — generated form', () => {

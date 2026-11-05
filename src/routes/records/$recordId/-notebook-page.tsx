@@ -70,8 +70,11 @@ import { useLiveStatus } from '#/components/live/live-event-provider'
 import { deviceOfflineEditStore } from '#/components/offline/device-store'
 import {
   OfflineEditsProvider,
+  blockEditTargetKey,
   useIsOnline,
+  useOfflineEdits,
 } from '#/components/offline/offline-edits'
+import { requestBackgroundSync } from '#/lib/offline/service-worker'
 import { UnsyncedChangesSection } from '#/components/offline/offline-status'
 import { NotebookOfflineSurfaces } from '#/components/offline/notebook-offline-surfaces'
 import {
@@ -847,6 +850,12 @@ export function RecordNotebookPage({
               className="-mx-4 md:-mx-6"
               capabilitiesClassName="my-3"
               replayClassName="my-3"
+              onReport={() =>
+                // Replayed text moved the blocks on the server.
+                void queryClient.invalidateQueries({
+                  queryKey: notebookQueryKeys.blocks(record.id),
+                })
+              }
             />
             <NotebookPrintStyles />
             <StickyRecordHeader
@@ -2159,6 +2168,7 @@ function EditableNotebook({
   const recordKey = notebookQueryKeys.record(record.id)
   const liveStatus = useLiveStatus()
   const offline = liveStatus.status === 'offline'
+  const offlineEdits = useOfflineEdits()
   const [hasUnsavedWork, setHasUnsavedWork] = useState(false)
   const [embedOpen, setEmbedOpen] = useState(false)
   const [embedAfterBlockId, setEmbedAfterBlockId] = useState<
@@ -2423,6 +2433,25 @@ function EditableNotebook({
     const cached =
       queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
     const current = cached.find((b) => b.id === block.id) ?? block
+    // Offline (or behind an edit still waiting to send): keep the text on the
+    // device and send it on reconnect, in order. Text that plain text cannot
+    // hold stays a draft on the page and says so.
+    if (
+      current.type === 'rich_text' &&
+      offlineEdits.canQueue &&
+      (offline || offlineEdits.isUnsynced(blockEditTargetKey(current.id)))
+    ) {
+      const kept = await offlineEdits.queueBlockText(current, payload)
+      if (kept) {
+        void requestBackgroundSync()
+        return { ok: true }
+      }
+      return {
+        ok: false,
+        kind: 'transient',
+        message: t('notebook.offlineEdits.formattedNotKept'),
+      }
+    }
     const result = validateBlock({
       type: current.type,
       payload,

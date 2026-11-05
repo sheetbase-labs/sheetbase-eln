@@ -93,7 +93,10 @@ import { OfficeFileBlock } from './office-preview/office-file-block'
 import { isSequenceFileName } from '#/lib/sequence'
 import { stepDurationSeconds } from '#/lib/step-timers'
 import { isPinnedProtocolStep } from '#/lib/protocol-deviations'
-import { useUnsyncedBlock } from '#/components/offline/offline-edits'
+import {
+  useOfflineEdits,
+  useUnsyncedBlock,
+} from '#/components/offline/offline-edits'
 import { UnsyncedMark } from '#/components/offline/unsynced-changes'
 import { ConflictBanner } from './conflict-banner'
 import { OpenLink } from './block-preview'
@@ -308,11 +311,16 @@ function useBlockAutosave<T>(
   )
 
   const [touched, setTouched] = React.useState(false)
+  // Plain text blocks keep saving while offline: the page's save keeps the
+  // text on the device and sends it on reconnect, so it survives a reload.
+  const { canQueue } = useOfflineEdits()
+  const holdOffline =
+    (offline ?? false) && !(canQueue && block.type === 'rich_text')
   const autosave = useAutosave<T>({
     initialValue: initialDraft,
     validate,
     save: saveAdapter,
-    offline: offline ?? false,
+    offline: holdOffline,
     touched,
   })
   // Structured errors for the Explain affordance: re-runs the same kernel

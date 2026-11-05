@@ -10,7 +10,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { Icon } from '#/components/icons'
-import { Button, buttonVariants } from '#/components/ui/button'
+import { Button } from '#/components/ui/button'
 import { IconButton } from '#/components/ui/icon-button'
 import { Avatar } from '#/components/ui/avatar'
 import { Dot } from '#/components/ui/status'
@@ -1303,6 +1303,42 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
   )
 }
 
+/** The fold key for the pinned projects, beside the page groups' keys. */
+const PINNED_GROUP = 'pinned'
+
+/** A sidebar group heading that folds and unfolds the group under it. */
+function FoldHeading({
+  label,
+  folded,
+  onToggle,
+}: {
+  label: string
+  folded: boolean
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-expanded={!folded}
+      aria-label={t(
+        folded
+          ? 'settings.shell.nav.unfoldGroup'
+          : 'settings.shell.nav.foldGroup',
+        { group: label },
+      )}
+      onClick={onToggle}
+      className="group/fold flex h-[26px] shrink-0 cursor-pointer items-center gap-1 rounded-md border-0 bg-transparent px-2 pt-2.5 pb-1 text-left text-label leading-[normal] font-medium text-fg-muted hover:text-fg"
+    >
+      {label}
+      <Icon
+        name={folded ? 'chevronRight' : 'chevronDown'}
+        size={12}
+        className="opacity-60 group-hover/fold:opacity-100"
+      />
+    </button>
+  )
+}
+
 function NavLink({ item }: { item: NavItem }) {
   const homeSelected = useRouterState({
     select: (state) => isHomePage(state.location.pathname),
@@ -1395,70 +1431,67 @@ function SideNav({
             aria-label={g.label}
             className="contents"
           >
-            <button
-              type="button"
-              aria-expanded={!isFolded}
-              aria-label={t(
-                isFolded
-                  ? 'settings.shell.nav.unfoldGroup'
-                  : 'settings.shell.nav.foldGroup',
-                { group: g.label },
-              )}
-              onClick={() => onToggleFold(g.key)}
-              className="group/fold flex h-[26px] shrink-0 cursor-pointer items-center gap-1 rounded-md border-0 bg-transparent px-2 pt-2.5 pb-1 text-left text-label leading-[normal] font-medium text-fg-muted hover:text-fg"
-            >
-              {g.label}
-              <Icon
-                name={isFolded ? 'chevronRight' : 'chevronDown'}
-                size={12}
-                className="opacity-60 group-hover/fold:opacity-100"
-              />
-            </button>
+            <FoldHeading
+              label={g.label}
+              folded={isFolded}
+              onToggle={() => onToggleFold(g.key)}
+            />
             {items.map((i) => (
               <NavLink key={i.label} item={withCount(i)} />
             ))}
           </div>
         )
       })}
-      {pinned.length ? (
-        <>
-          <div className="shrink-0 px-2 pb-1 pt-3.5 text-label leading-[normal] font-medium text-fg-muted">
-            {t('settings.shell.appShell.pinnedProjects')}
-          </div>
-          {pinned.map((p) => (
-            <Link
-              key={p.id}
-              to="/projects/$projectId"
-              params={{ projectId: p.id }}
-              className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
-            >
-              <Dot tone={p.tone} className="mx-1" />
-              {p.name}
-            </Link>
-          ))}
-        </>
-      ) : null}
-      <div className="flex-1" />
-      {onAsk ? (
-        <Button
-          variant="quiet"
-          icon="spark"
-          onClick={onAsk}
-          className="h-[30px] justify-start gap-2 px-2 font-normal [&_svg]:text-fg-muted"
-        >
-          {t('notebook.askAiButton.ariaLabel')}
-        </Button>
-      ) : null}
       <Link
         to={settingsTo}
-        className={cn(
-          buttonVariants({ variant: 'quiet' }),
-          'h-[30px] justify-start gap-2 px-2 font-normal [&_svg]:text-fg-muted',
-        )}
+        className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline [&_svg]:text-fg-muted"
+        activeProps={{
+          className: 'bg-selection font-medium hover:bg-selection',
+          'aria-current': 'page',
+        }}
       >
         <Icon name="settings" size={16} />
         {t('settings.shell.appShell.settingsAria')}
       </Link>
+      {pinned.length ? (
+        <div
+          role="group"
+          aria-label={t('settings.shell.appShell.pinnedProjects')}
+          className="contents"
+        >
+          <FoldHeading
+            label={t('settings.shell.appShell.pinnedProjects')}
+            folded={folded.has(PINNED_GROUP)}
+            onToggle={() => onToggleFold(PINNED_GROUP)}
+          />
+          {folded.has(PINNED_GROUP)
+            ? null
+            : pinned.map((p) => (
+                <Link
+                  key={p.id}
+                  to="/projects/$projectId"
+                  params={{ projectId: p.id }}
+                  className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
+                >
+                  <Dot tone={p.tone} className="mx-1" />
+                  {p.name}
+                </Link>
+              ))}
+        </div>
+      ) : null}
+      {onAsk ? (
+        <>
+          <div className="flex-1" />
+          <Button
+            variant="quiet"
+            icon="spark"
+            onClick={onAsk}
+            className="h-[30px] justify-start gap-2 px-2 font-normal [&_svg]:text-fg-muted"
+          >
+            {t('notebook.askAiButton.ariaLabel')}
+          </Button>
+        </>
+      ) : null}
     </nav>
   )
 }

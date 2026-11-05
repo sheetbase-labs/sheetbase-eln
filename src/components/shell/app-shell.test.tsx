@@ -243,6 +243,29 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
     )
   })
 
+  it('puts Settings above the pinned projects, which fold like the groups', async () => {
+    const { container } = renderShell({
+      pinned: [{ id: 'p-1', name: 'Assay development', tone: 'progress' }],
+    })
+    const sidebar = Array.from(container.querySelectorAll('nav')).find((n) =>
+      n.className.includes('w-nav'),
+    )!
+    const settings = within(sidebar).getByRole('link', { name: 'Settings' })
+    const pinned = within(sidebar).getByRole('link', {
+      name: 'Assay development',
+    })
+    expect(
+      settings.compareDocumentPosition(pinned) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    fireEvent.click(
+      within(sidebar).getByRole('button', { name: 'Hide Pinned projects' }),
+    )
+    await waitFor(() =>
+      expect(within(sidebar).queryByText('Assay development')).toBeNull(),
+    )
+  })
+
   it('leaves out the pages the lab hid, but never Projects or Experiments', () => {
     const { container } = renderShell({
       hiddenPages: ['shipments', 'incidents', 'projects'],

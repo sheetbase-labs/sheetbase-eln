@@ -224,8 +224,7 @@ export const STARTER_REQUESTS: readonly StarterRequest[] = [
     name: 'Analysis request',
     prefix: 'REQ',
     description: 'Ask for samples to be tested or data to be analysed.',
-    intro:
-      'Say what you need run and by when. The team replies in your Inbox.',
+    intro: 'Say what you need run and by when. The team replies in your Inbox.',
     fields: [
       {
         field_name: 'what_is_needed',

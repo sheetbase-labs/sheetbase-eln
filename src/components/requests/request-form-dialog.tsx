@@ -47,9 +47,11 @@ export function RequestFormDialog({
   initialKey?: string
 }) {
   const queryClient = useQueryClient()
-  const [modelKey, setModelKey] = useState(initialKey ?? forms[0]?.model_key ?? '')
+  const [modelKey, setModelKey] = useState(
+    initialKey ?? forms.at(0)?.model_key ?? '',
+  )
   useEffect(() => {
-    if (open) setModelKey(initialKey ?? forms[0]?.model_key ?? '')
+    if (open) setModelKey(initialKey ?? forms.at(0)?.model_key ?? '')
   }, [open, initialKey, forms])
   const form = forms.find((f) => f.model_key === modelKey)
 
@@ -98,9 +100,7 @@ export function RequestFormDialog({
     onSuccess: (created) => {
       void queryClient.invalidateQueries({ queryKey: requestKeys.all })
       void queryClient.invalidateQueries({ queryKey: ['work-items'] })
-      toast.success(
-        t('requests.form.sent', { identifier: created.identifier }),
-      )
+      toast.success(t('requests.form.sent', { identifier: created.identifier }))
       onOpenChange(false)
     },
     onError: (e: unknown) =>

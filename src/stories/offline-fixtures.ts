@@ -31,7 +31,7 @@ export const EDITS: OfflineEdit[] = [
     expectedRevision: 7,
     createdAt: '2026-11-05T09:44:00.000Z',
     sheetInstanceId: 'sheet-1',
-    rowId: 'row 6',
+    rowId: '6',
     columnId: 'Load (L/m²)',
     value: 4.1,
   },

@@ -1,9 +1,26 @@
+import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { ExperimentOverview } from '#/components/overview/overview-view'
 import type { OverviewExperimentRecord } from '#/components/overview/overview-view'
+import { auditVerificationKeys } from '#/lib/audit-verification-status'
 import type { SignatureWire } from '#/lib/signatures'
-import { screenRoutes } from './screen-stories'
+import { screenQueryClient, screenRoutes } from './screen-stories'
+
+const client = screenQueryClient({
+  data: [
+    {
+      key: auditVerificationKeys.status,
+      value: {
+        ok: true,
+        checkedAt: '2026-11-05T02:00:00.000Z',
+        entriesChecked: 412,
+        signaturesChecked: 9,
+        firstBadRevisionId: null,
+      },
+    },
+  ],
+})
 
 /**
  * The experiment Overview: the objective, protocol progress, what is still open
@@ -107,6 +124,13 @@ const meta = {
       },
     },
   },
+  decorators: [
+    (Story) => (
+      <QueryClientProvider client={client}>
+        <Story />
+      </QueryClientProvider>
+    ),
+  ],
   args: {
     record: RECORD,
     blocks: BLOCKS,

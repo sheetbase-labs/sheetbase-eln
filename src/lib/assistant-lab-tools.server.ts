@@ -141,7 +141,7 @@ export const labListSchema = z
   })
   .strict()
 
-function toolDef(
+export function toolDef(
   name: string,
   description: string,
   schema: z.ZodType,
@@ -212,7 +212,7 @@ export function isBookingProposalTool(
 // Shared lookups.
 // ---------------------------------------------------------------------------
 
-interface InstrumentRow {
+export interface InstrumentRow {
   id: string
   display_id: string | null
   name: string
@@ -226,12 +226,12 @@ const INSTRUMENT_COLUMNS =
   'id,display_id,name,location,instrument_type,retired_at,out_of_service_at'
 
 /** PostgREST `ilike` value: `*` wildcards; reserved characters stripped. */
-function likeValue(text: string): string {
+export function likeValue(text: string): string {
   const clean = text.replaceAll(/[*,()"\\]/g, ' ').trim()
   return encodeURIComponent(`*${clean.replaceAll(/\s+/g, '*')}*`)
 }
 
-function instrumentLabel(row: InstrumentRow): string {
+export function instrumentLabel(row: InstrumentRow): string {
   return row.display_id ? `${row.name} (${row.display_id})` : row.name
 }
 
@@ -356,7 +356,7 @@ export interface LabToolContext {
   now?: Date
 }
 
-function invalid(error: z.ZodError): string {
+export function invalid(error: z.ZodError): string {
   return `The arguments were not valid: ${error.issues
     .map((issue) => `${issue.path.join('.') || 'arguments'} ${issue.message}`)
     .join('; ')}`
@@ -785,7 +785,7 @@ async function listLabArea(
 export type BookingProposalOutcome =
   { ok: true; proposal: AssistantProposal } | { ok: false; message: string }
 
-async function findExperiment(
+export async function findExperiment(
   client: DataClient,
   text: string,
 ): Promise<{ id: string; identifier: string; title: string } | string> {

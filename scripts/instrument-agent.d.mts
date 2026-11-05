@@ -11,6 +11,23 @@ export interface AgentOptions {
   intervalSeconds: number
   once: boolean
   parser: string
+  instrumentId: string
+  live: LiveSource[]
+}
+export type LiveSource = {
+  kind: 'file' | 'network'
+  path?: string
+  host?: string
+  port?: number
+  feed?: string
+  unit?: string
+  fromStart?: boolean
+}
+export interface LiveReading {
+  feed: string
+  value: number
+  unit?: string
+  at?: string
 }
 export declare const CONFIG_FILE_NAME: string
 export declare function parseArgs(
@@ -39,4 +56,29 @@ export declare function createAgent(
     waiting: number
   }>
   ensureToken: (force?: boolean) => Promise<string>
+}
+export declare function splitFeedLabel(label: string): {
+  feed: string
+  unit: string
+}
+export declare function createLineParser(
+  source?: { feed?: string; unit?: string },
+  now?: () => number,
+): { parse: (line: string) => LiveReading[] }
+export declare function createTail(
+  path: string,
+  options?: { fromStart?: boolean },
+): { poll: () => Promise<{ lines: string[]; header: string | null }> }
+export declare const LIVE_BUFFER_LIMIT: number
+export declare function createLiveSender(
+  options: { url: string; instrumentId: string },
+  deps: {
+    ensureToken: (force?: boolean) => Promise<string>
+    fetchImpl?: typeof fetch
+    log: (line: string) => void
+  },
+): {
+  push: (readings: LiveReading[]) => void
+  flush: () => Promise<'idle' | 'sent' | 'retry' | 'dropped'>
+  readonly pending: number
 }

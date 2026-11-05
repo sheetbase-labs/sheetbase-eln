@@ -1,10 +1,11 @@
 /**
- * The Registry page: every construct, cell line and antibody with its number,
- * a search, and the dialog that registers a new one.
+ * The Registry page: every entry of every record model ticked as a registry,
+ * with its number, a search, and a way in to register a new one. There are no
+ * fixed registry types; a tab appears for each model that is a registry.
  */
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
   ListHeader,
@@ -14,57 +15,81 @@ import {
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Button } from '#/components/v3/ui/button'
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+} from '#/components/v3/ui/dialog'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Field } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { Select } from '#/components/v3/ui/select'
 import { Status } from '#/components/v3/ui/status'
 import { Tabs } from '#/components/v3/ui/tabs'
+import { toast } from '#/components/v3/ui/sonner'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
-  REGISTRY_KINDS,
-  fetchEntries,
-  fetchParents,
+  STARTER_REGISTRIES,
+  createStarterRegistry,
+  fetchLineageLinks,
+  fetchRegistryEntries,
+  fetchRegistryModels,
   messageOf,
   registryKeys,
 } from '#/lib/bio-registry'
-import type { RegistryEntry, RegistryKind } from '#/lib/bio-registry'
+import type { RegistryEntry, RegistryModel } from '#/lib/bio-registry'
 
-import { RegistryFormDialog } from './registry-form'
-import {
-  STATUS_TONE,
-  entryText,
-  kindLabel,
-  statusLabel,
-  summaryOf,
-} from './registry-shared'
+import { entryStatus, entrySummary, entryText } from './registry-shared'
 
 const client = notebookDataClient
 
-type KindFilter = 'all' | RegistryKind
 type StatusFilter = 'active' | 'retired' | 'all'
-const KIND_FILTERS: KindFilter[] = ['all', ...REGISTRY_KINDS]
 
-export function RegistryList({ canWrite }: { canWrite: boolean }) {
+export function RegistryList({
+  canWrite,
+  canEditModels,
+}: {
+  canWrite: boolean
+  canEditModels: boolean
+}) {
   const navigate = useNavigate()
-  const [kind, setKind] = useState<KindFilter>('all')
+  const queryClient = useQueryClient()
+  const [kind, setKind] = useState('all')
   const [status, setStatus] = useState<StatusFilter>('active')
   const [q, setQ] = useState('')
-  const [registering, setRegistering] = useState(false)
+  const [choosing, setChoosing] = useState(false)
+
+  const models = useQuery({
+    queryKey: registryKeys.models,
+    queryFn: () => fetchRegistryModels(client),
+    staleTime: 10_000,
+  })
+  const registries = useMemo(() => models.data ?? [], [models.data])
+  const keys = useMemo(() => registries.map((m) => m.key), [registries])
+  const modelByKey = useMemo(
+    () => new Map(registries.map((m) => [m.key, m] as const)),
+    [registries],
+  )
 
   const entries = useQuery({
-    queryKey: registryKeys.list,
-    queryFn: () => fetchEntries(client),
+    queryKey: registryKeys.entries(keys),
+    queryFn: () => fetchRegistryEntries(client, keys),
+    enabled: models.isSuccess && keys.length > 0,
     staleTime: 10_000,
   })
+  const all = useMemo(() => entries.data ?? [], [entries.data])
+  const ids = useMemo(() => all.map((e) => e.id), [all])
   const links = useQuery({
-    queryKey: [...registryKeys.list, 'parents'],
-    queryFn: () => fetchParents(client),
+    queryKey: [...registryKeys.lineage, ids.length],
+    queryFn: () => fetchLineageLinks(client, ids),
+    enabled: ids.length > 0,
     staleTime: 10_000,
   })
-
-  const all = entries.data ?? []
   const byId = useMemo(() => new Map(all.map((e) => [e.id, e] as const)), [all])
   const parentsOf = useMemo(() => {
     const map = new Map<string, string[]>()
@@ -73,19 +98,39 @@ export function RegistryList({ canWrite }: { canWrite: boolean }) {
       if (!parent) continue
       map.set(link.entry_id, [
         ...(map.get(link.entry_id) ?? []),
-        parent.registryId,
+        parent.identifier,
       ])
     }
     return map
   }, [links.data, byId])
 
   const needle = q.trim().toLowerCase()
-  const inStatus = all.filter((e) => status === 'all' || e.status === status)
+  const inStatus = all.filter(
+    (e) => status === 'all' || entryStatus(e) === status,
+  )
   const visible = inStatus.filter(
     (e) =>
       (kind === 'all' || e.kind === kind) &&
       (needle === '' || entryText(e).includes(needle)),
   )
+
+  const setUp = useMutation({
+    mutationFn: async (starterKeys: string[]) => {
+      for (const starter of STARTER_REGISTRIES) {
+        if (starterKeys.includes(starter.key)) {
+          await createStarterRegistry(client, starter)
+        }
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: registryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'record-models'],
+      })
+    },
+    onError: (e: unknown) =>
+      toast.error(messageOf(e, t('registry.empty.couldNotSetUp'))),
+  })
 
   const columns = useMemo<RegistryColumn<RegistryEntry>[]>(
     () => [
@@ -94,7 +139,7 @@ export function RegistryList({ canWrite }: { canWrite: boolean }) {
         header: t('registry.columns.number'),
         size: 110,
         cell: ({ row }) => (
-          <span className="mono text-fg-muted">{row.original.registryId}</span>
+          <span className="mono text-fg-muted">{row.original.identifier}</span>
         ),
       },
       {
@@ -103,21 +148,23 @@ export function RegistryList({ canWrite }: { canWrite: boolean }) {
         size: 280,
         cell: ({ row }) => (
           <Link
-            to="/registry/$entryId"
-            params={{ entryId: row.original.id }}
+            to="/models/$modelId/records/$recordId"
+            params={{ modelId: row.original.kind, recordId: row.original.id }}
             className="truncate font-medium text-fg hover:underline"
             onClick={(event) => event.stopPropagation()}
           >
-            {row.original.name}
+            {row.original.title}
           </Link>
         ),
       },
       {
         id: 'kind',
         header: t('registry.columns.kind'),
-        size: 120,
+        size: 130,
         cell: ({ row }) => (
-          <span className="truncate">{kindLabel(row.original.kind)}</span>
+          <span className="truncate">
+            {modelByKey.get(row.original.kind)?.name ?? row.original.kind}
+          </span>
         ),
       },
       {
@@ -125,7 +172,7 @@ export function RegistryList({ canWrite }: { canWrite: boolean }) {
         header: t('registry.columns.summary'),
         cell: ({ row }) => (
           <span className="truncate text-fg-muted">
-            {summaryOf(row.original)}
+            {entrySummary(row.original, modelByKey.get(row.original.kind))}
           </span>
         ),
       },
@@ -143,11 +190,14 @@ export function RegistryList({ canWrite }: { canWrite: boolean }) {
         id: 'status',
         header: t('registry.columns.status'),
         size: 110,
-        cell: ({ row }) => (
-          <Status tone={STATUS_TONE[row.original.status]}>
-            {statusLabel(row.original.status)}
-          </Status>
-        ),
+        cell: ({ row }) => {
+          const s = entryStatus(row.original)
+          return (
+            <Status tone={s === 'active' ? 'ok' : 'none'}>
+              {t(`registry.statuses.${s}`)}
+            </Status>
+          )
+        },
       },
       {
         id: 'added',
@@ -155,25 +205,41 @@ export function RegistryList({ canWrite }: { canWrite: boolean }) {
         size: 130,
         cell: ({ row }) => (
           <span className="text-fg-muted">
-            {formatDate(row.original.createdAt)}
+            {formatDate(row.original.created_at)}
           </span>
         ),
       },
     ],
-    [parentsOf],
+    [parentsOf, modelByKey],
   )
 
   const open = (entry: RegistryEntry) =>
     void navigate({
-      to: '/registry/$entryId',
-      params: { entryId: entry.id },
+      to: '/models/$modelId/records/$recordId',
+      params: { modelId: entry.kind, recordId: entry.id },
     })
 
-  const registerButton = canWrite ? (
-    <Button variant="primary" onClick={() => setRegistering(true)}>
-      {t('registry.register')}
-    </Button>
-  ) : null
+  function register() {
+    const only =
+      kind !== 'all' ? kind : registries.length === 1 ? registries[0].key : null
+    if (only) {
+      void navigate({
+        to: '/models/$modelId/records/new',
+        params: { modelId: only },
+      })
+    } else {
+      setChoosing(true)
+    }
+  }
+
+  const registerButton =
+    canWrite && registries.length > 0 ? (
+      <Button variant="primary" onClick={register}>
+        {t('registry.register')}
+      </Button>
+    ) : null
+
+  const noRegistries = models.isSuccess && registries.length === 0
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -183,51 +249,102 @@ export function RegistryList({ canWrite }: { canWrite: boolean }) {
         total={entries.data ? inStatus.length : undefined}
         actions={registerButton}
         tabs={
-          <Tabs
-            mode="state"
-            variant="strip"
-            label={t('registry.filterLabel')}
-            value={kind}
-            onValueChange={(value) => setKind(value as KindFilter)}
-            items={KIND_FILTERS.map((key) => ({
-              key,
-              label: t(`registry.kinds.${key}`),
-              count: entries.isPending
-                ? undefined
-                : inStatus.filter((e) => key === 'all' || e.kind === key)
-                    .length,
-            }))}
-          />
+          registries.length > 0 ? (
+            <Tabs
+              mode="state"
+              variant="strip"
+              label={t('registry.filterLabel')}
+              value={kind}
+              onValueChange={setKind}
+              items={[
+                {
+                  key: 'all',
+                  label: t('registry.all'),
+                  count: entries.isPending ? undefined : inStatus.length,
+                },
+                ...registries.map((m) => ({
+                  key: m.key,
+                  label: m.name,
+                  count: entries.isPending
+                    ? undefined
+                    : inStatus.filter((e) => e.kind === m.key).length,
+                })),
+              ]}
+            />
+          ) : undefined
         }
       />
-      <ListToolbar
-        q={q}
-        onSearch={setQ}
-        placeholder={t('registry.searchPlaceholder')}
-        label={t('registry.searchPlaceholder')}
-        right={
-          <Select
-            size="sm"
-            aria-label={t('registry.statusLabel')}
-            value={status}
-            onChange={(e) => setStatus(e.target.value as StatusFilter)}
-          >
-            {(['active', 'retired', 'all'] as const).map((key) => (
-              <option key={key} value={key}>
-                {t(`registry.statusFilters.${key}`)}
-              </option>
-            ))}
-          </Select>
-        }
-      />
+      {noRegistries ? null : (
+        <ListToolbar
+          q={q}
+          onSearch={setQ}
+          placeholder={t('registry.searchPlaceholder')}
+          label={t('registry.searchPlaceholder')}
+          right={
+            <Select
+              size="sm"
+              aria-label={t('registry.statusLabel')}
+              value={status}
+              onChange={(e) => setStatus(e.target.value as StatusFilter)}
+            >
+              {(['active', 'retired', 'all'] as const).map((key) => (
+                <option key={key} value={key}>
+                  {t(`registry.statusFilters.${key}`)}
+                </option>
+              ))}
+            </Select>
+          }
+        />
+      )}
       <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
-        {entries.isError ? (
+        {models.isError || entries.isError ? (
           <div className="p-6">
             <Notice tone="bad" title={t('registry.loadError')}>
-              {messageOf(entries.error, '')}
+              {messageOf(models.error ?? entries.error, '')}
             </Notice>
           </div>
-        ) : entries.isPending || visible.length > 0 ? (
+        ) : noRegistries ? (
+          <div role="status" className="flex justify-center px-6">
+            <EmptyState
+              className="items-center py-14 text-center"
+              icon="tag"
+              title={t('registry.empty.title')}
+              description={
+                canEditModels
+                  ? t('registry.empty.body')
+                  : t('registry.empty.notAllowed')
+              }
+              action={
+                canEditModels ? (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button
+                      variant="primary"
+                      disabled={setUp.isPending}
+                      onClick={() =>
+                        setUp.mutate(STARTER_REGISTRIES.map((s) => s.key))
+                      }
+                    >
+                      {setUp.isPending
+                        ? t('registry.empty.settingUp')
+                        : t('registry.empty.setUpAll')}
+                    </Button>
+                    {STARTER_REGISTRIES.map((starter) => (
+                      <Button
+                        key={starter.key}
+                        disabled={setUp.isPending}
+                        onClick={() => setUp.mutate([starter.key])}
+                      >
+                        {t('registry.empty.setUp', {
+                          name: starter.name,
+                        })}
+                      </Button>
+                    ))}
+                  </div>
+                ) : undefined
+              }
+            />
+          </div>
+        ) : models.isPending || entries.isPending || visible.length > 0 ? (
           <RegistryGrid
             label={t('registry.tableLabel')}
             rows={visible}
@@ -235,7 +352,7 @@ export function RegistryList({ canWrite }: { canWrite: boolean }) {
             getRowId={(entry) => entry.id}
             selectable
             onRowClick={open}
-            isLoading={entries.isPending}
+            isLoading={models.isPending || entries.isPending}
           />
         ) : (
           <div role="status" className="flex justify-center px-6">
@@ -244,11 +361,11 @@ export function RegistryList({ canWrite }: { canWrite: boolean }) {
               icon="tag"
               title={
                 all.length === 0
-                  ? t('registry.empty.title')
+                  ? t('registry.empty.noEntries')
                   : t('registry.empty.filtered')
               }
               description={
-                all.length === 0 ? t('registry.empty.body') : undefined
+                all.length === 0 ? t('registry.empty.noEntriesBody') : undefined
               }
               action={
                 all.length === 0 ? (registerButton ?? undefined) : undefined
@@ -256,19 +373,70 @@ export function RegistryList({ canWrite }: { canWrite: boolean }) {
             />
           </div>
         )}
-        {!canWrite && !entries.isPending ? (
+        {!canWrite && !models.isPending ? (
           <div className="px-6 pb-4">
             <ReadOnlyNote>{t('registry.readOnly')}</ReadOnlyNote>
           </div>
         ) : null}
       </div>
-      <RegistryFormDialog
-        open={registering}
-        onOpenChange={setRegistering}
-        initialKind={kind === 'all' ? 'construct' : kind}
-        entries={all.filter((e) => e.status === 'active')}
-        onSaved={open}
+      <ChooseRegistry
+        open={choosing}
+        onOpenChange={setChoosing}
+        registries={registries}
       />
     </div>
+  )
+}
+
+function ChooseRegistry({
+  open,
+  onOpenChange,
+  registries,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  registries: RegistryModel[]
+}) {
+  const navigate = useNavigate()
+  const [choice, setChoice] = useState('')
+  const selected = choice || registries[0]?.key || ''
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[min(420px,calc(100vw-32px))]">
+        <DialogHeader title={t('registry.registerChoose')} />
+        <DialogBody>
+          <Field label={t('registry.registerChooseLabel')}>
+            <Select
+              value={selected}
+              onChange={(e) => setChoice(e.target.value)}
+            >
+              {registries.map((m) => (
+                <option key={m.key} value={m.key}>
+                  {m.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose render={<Button variant="quiet" />}>
+            {t('registry.settings.cancel')}
+          </DialogClose>
+          <Button
+            variant="primary"
+            disabled={!selected}
+            onClick={() => {
+              onOpenChange(false)
+              void navigate({
+                to: '/models/$modelId/records/new',
+                params: { modelId: selected },
+              })
+            }}
+          >
+            {t('registry.register')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

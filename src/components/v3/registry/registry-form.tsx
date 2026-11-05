@@ -163,7 +163,11 @@ export function SequenceReader({
                 shape: t(`sequences.summary.${value.shape as 'circular'}`),
               })}
             </span>
-            <Button type="button" variant="quiet" onClick={() => onChange(null)}>
+            <Button
+              type="button"
+              variant="quiet"
+              onClick={() => onChange(null)}
+            >
               {t('registry.form.removeSequence')}
             </Button>
           </>

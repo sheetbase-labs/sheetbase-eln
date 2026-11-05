@@ -12,5 +12,12 @@ export const Route = createFileRoute('/models/$modelId/records/$recordId')({
 
 function ModelRecordDetail() {
   const { modelId, recordId } = Route.useParams()
-  return <RecordModelRecord modelKey={modelId} recordId={recordId} />
+  const { context } = Route.useRouteContext()
+  return (
+    <RecordModelRecord
+      modelKey={modelId}
+      recordId={recordId}
+      role={context.workspace?.role}
+    />
+  )
 }

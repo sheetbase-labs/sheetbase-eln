@@ -1,3 +1,4 @@
+import { RegistrySettingsDialog } from '#/components/v3/registry/registry-settings'
 import { useState } from 'react'
 import {
   Link,
@@ -290,6 +291,7 @@ function RecordModelLayout({
   const canEdit = hasCapability(role, 'schema.edit')
   const [subtypeOpen, setSubtypeOpen] = useState(false)
   const [basedOnOpen, setBasedOnOpen] = useState(false)
+  const [registryOpen, setRegistryOpen] = useState(false)
   const recordCount = useRecordModelRecordCount(modelKey)
   const typed = useTypedObjects(modelKey)
   const recordVersions = useRecordModelVersionList(model.data?.id)
@@ -352,6 +354,11 @@ function RecordModelLayout({
                   </Button>
                   <Button onClick={() => setSubtypeOpen(true)}>
                     {t('library.models.overview.newSubtype')}
+                  </Button>
+                  <Button onClick={() => setRegistryOpen(true)}>
+                    {m.is_registry
+                      ? t('registry.settings.buttonOn')
+                      : t('registry.settings.button')}
                   </Button>
                 </>
               ) : null}
@@ -437,6 +444,13 @@ function RecordModelLayout({
         />
         {basedOnOpen ? (
           <BasedOnDialog open onOpenChange={setBasedOnOpen} model={m} />
+        ) : null}
+        {registryOpen ? (
+          <RegistrySettingsDialog
+            open
+            onOpenChange={setRegistryOpen}
+            model={m}
+          />
         ) : null}
       </div>
     )

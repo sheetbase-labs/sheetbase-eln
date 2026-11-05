@@ -1,19 +1,24 @@
 /**
- * Biological registry: constructs, cell lines and antibodies with numbers that
- * never change, a duplicate check before anything is added, and the lineage of
- * what came from what (migration 0070).
+ * Biological registries (migration 0070). A registry is a record model with
+ * the Registry box ticked: its records get numbers that never change, a
+ * duplicate check before anything is added, and lineage between entries.
+ * Constructs, cell lines and antibodies are ready-made registries; any other
+ * model can be ticked the same way.
  *
- * Reads go straight to `api.registry_entries`, `registry_parents` and
- * `registry_uses` under row-level security; every change goes through an RPC.
+ * Entries are ordinary records (`api.records`), so they read under row-level
+ * security like any record; changes go through RPCs.
  */
 import type { DataClient } from '#/lib/data-client'
 import { reverseComplement } from '#/lib/sequence'
 import type { ParsedSequence } from '#/lib/sequence'
 
-export const REGISTRY_KINDS = ['construct', 'cell_line', 'antibody'] as const
-export type RegistryKind = (typeof REGISTRY_KINDS)[number]
-
-export type RegistryStatus = 'active' | 'retired'
+export const registryKeys = {
+  all: ['registry'] as const,
+  models: ['registry', 'models'] as const,
+  entries: (keys: readonly string[]) =>
+    ['registry', 'entries', ...keys] as const,
+  lineage: ['registry', 'lineage'] as const,
+}
 
 /** What an entry came from, and the part it played. */
 export const PARENT_ROLES = [
@@ -26,254 +31,158 @@ export const PARENT_ROLES = [
 ] as const
 export type ParentRole = (typeof PARENT_ROLES)[number]
 
-export const registryKeys = {
-  all: ['registry'] as const,
-  list: ['registry', 'list'] as const,
-  entry: (id: string) => ['registry', 'entry', id] as const,
+export function asRole(value: unknown): ParentRole {
+  return (PARENT_ROLES as readonly string[]).includes(String(value))
+    ? (value as ParentRole)
+    : 'parent'
 }
 
-/** The fields each kind asks for. The values live in the entry's details. */
-export interface DetailField {
-  key: string
-  type: 'text' | 'choice'
-  choices?: readonly string[]
-}
-
-export const DETAIL_FIELDS: Record<RegistryKind, readonly DetailField[]> = {
-  construct: [
-    { key: 'purpose', type: 'text' },
-    { key: 'selection', type: 'text' },
-    { key: 'host', type: 'text' },
-    { key: 'source', type: 'text' },
-  ],
-  cell_line: [
-    { key: 'species', type: 'text' },
-    { key: 'tissue', type: 'text' },
-    { key: 'cellType', type: 'text' },
-    { key: 'medium', type: 'text' },
-    { key: 'externalId', type: 'text' },
-    {
-      key: 'mycoplasma',
-      type: 'choice',
-      choices: ['untested', 'negative', 'positive'],
-    },
-  ],
-  antibody: [
-    { key: 'target', type: 'text' },
-    { key: 'hostSpecies', type: 'text' },
-    { key: 'clonality', type: 'choice', choices: ['monoclonal', 'polyclonal'] },
-    { key: 'clone', type: 'text' },
-    { key: 'isotype', type: 'text' },
-    { key: 'conjugate', type: 'text' },
-    { key: 'vendor', type: 'text' },
-    { key: 'catalogueNumber', type: 'text' },
-    { key: 'applications', type: 'text' },
-  ],
-}
-
-export interface RegistryEntryWire {
+export interface RegistryModel {
   id: string
-  kind: string
-  number: number
-  registry_id: string
+  key: string
   name: string
-  description: string | null
-  status: string
-  details: Record<string, unknown>
-  fingerprint: string | null
-  retired_reason: string | null
-  retired_at: string | null
-  created_by: string | null
-  created_at: string
-  updated_at: string
+  identifier_prefix: string
+  registry_key_fields: string[]
+  registry_sequence_field: string | null
 }
 
 export interface RegistryEntry {
   id: string
-  kind: RegistryKind
-  registryId: string
-  name: string
-  description: string | null
-  status: RegistryStatus
-  details: Record<string, string>
-  fingerprint: string | null
-  retiredReason: string | null
-  createdBy: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-export function isRegistryKind(value: string): value is RegistryKind {
-  return (REGISTRY_KINDS as readonly string[]).includes(value)
-}
-
-export function toEntry(row: RegistryEntryWire): RegistryEntry {
-  const details: Record<string, string> = {}
-  for (const [key, value] of Object.entries(row.details)) {
-    if (typeof value === 'string' || typeof value === 'number') {
-      details[key] = String(value)
-    }
-  }
-  return {
-    id: row.id,
-    kind: isRegistryKind(row.kind) ? row.kind : 'construct',
-    registryId: row.registry_id,
-    name: row.name,
-    description: row.description,
-    status: row.status === 'retired' ? 'retired' : 'active',
-    details,
-    fingerprint: row.fingerprint,
-    retiredReason: row.retired_reason,
-    createdBy: row.created_by,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  }
-}
-
-export interface RegistryParentWire {
-  entry_id: string
-  parent_id: string
-  role: string
-}
-
-export interface RegistryUseWire {
-  entry_id: string
-  record_id: string
+  identifier: string
+  title: string
+  kind: string
+  custom_fields: Record<string, unknown> | null
   created_at: string
-}
-
-export async function fetchEntries(
-  client: DataClient,
-): Promise<RegistryEntry[]> {
-  const rows = await client.list<RegistryEntryWire>(
-    'registry_entries',
-    '?select=*&order=kind.asc,number.desc&limit=5000',
-  )
-  return rows.map(toEntry)
-}
-
-export async function fetchParents(
-  client: DataClient,
-): Promise<RegistryParentWire[]> {
-  return client.list<RegistryParentWire>(
-    'registry_parents',
-    '?select=entry_id,parent_id,role&limit=20000',
-  )
-}
-
-export async function fetchUses(
-  client: DataClient,
-  entryId: string,
-): Promise<RegistryUseWire[]> {
-  return client.list<RegistryUseWire>(
-    'registry_uses',
-    `?entry_id=eq.${entryId}&select=entry_id,record_id,created_at&order=created_at.desc`,
-  )
+  archived_at: string | null
+  metadata_version: number
 }
 
 export interface DuplicateMatch {
   id: string
-  registryId: string
-  name: string
-  status: RegistryStatus
-  /** "exact": same sequence or catalogue number. "name": same name. */
+  identifier: string
+  title: string
+  archived: boolean
+  /** "exact": every key field matches. "name": the same name. */
   match: 'exact' | 'name'
+}
+
+export async function fetchRegistryModels(
+  client: DataClient,
+): Promise<RegistryModel[]> {
+  return client.list<RegistryModel>(
+    'record_models',
+    '?is_registry=eq.true&select=id,key,name,identifier_prefix,registry_key_fields,registry_sequence_field&order=name.asc',
+  )
+}
+
+export async function fetchRegistryEntries(
+  client: DataClient,
+  kinds: readonly string[],
+): Promise<RegistryEntry[]> {
+  if (kinds.length === 0) return []
+  const list = kinds.map((k) => encodeURIComponent(k)).join(',')
+  return client.list<RegistryEntry>(
+    'records',
+    `?kind=in.(${list})&deleted_at=is.null&order=created_at.desc&limit=5000&select=id,identifier,title,kind,custom_fields,created_at,archived_at,metadata_version`,
+  )
+}
+
+export interface LineageLink {
+  entry_id: string
+  parent_id: string
+  role: ParentRole
+}
+
+interface LineageWire {
+  source_record_id: string
+  target_record_id: string | null
+  link_metadata: { role?: string } | null
+}
+
+/** Every "came from" link between entries of the given registries. */
+export async function fetchLineageLinks(
+  client: DataClient,
+  entryIds: readonly string[],
+): Promise<LineageLink[]> {
+  if (entryIds.length === 0) return []
+  const rows = await client.list<LineageWire>(
+    'record_links',
+    `?link_type=eq.upstream&source_record_id=in.(${entryIds.join(',')})&select=source_record_id,target_record_id,link_metadata&limit=20000`,
+  )
+  return rows
+    .filter((r) => r.target_record_id)
+    .map((r) => ({
+      entry_id: r.source_record_id,
+      parent_id: r.target_record_id ?? '',
+      role: asRole(r.link_metadata?.role),
+    }))
 }
 
 interface DuplicateWire {
   id: string
-  registry_id: string
-  name: string
-  status: string
+  identifier: string
+  title: string
+  archived: boolean
   match: string
 }
 
 export async function findDuplicates(
   client: DataClient,
   input: {
-    kind: RegistryKind
-    name: string
-    fingerprint: string | null
+    kind: string
+    title: string
+    customFields: Record<string, unknown>
     excludeId?: string | null
   },
 ): Promise<DuplicateMatch[]> {
   const rows = await client.rpc<DuplicateWire[]>('registry_find_duplicates', {
     p_kind: input.kind,
-    p_name: input.name,
-    p_fingerprint: input.fingerprint,
+    p_title: input.title,
+    p_custom_fields: input.customFields,
     p_exclude_id: input.excludeId ?? null,
   })
   return rows.map((row) => ({
     id: row.id,
-    registryId: row.registry_id,
-    name: row.name,
-    status: row.status === 'retired' ? 'retired' : 'active',
+    identifier: row.identifier,
+    title: row.title,
+    archived: row.archived,
     match: row.match === 'exact' ? 'exact' : 'name',
   }))
 }
 
-export interface EntryInput {
-  kind: RegistryKind
-  name: string
-  description: string | null
-  details: Record<string, string>
-  fingerprint: string | null
-  parents: { id: string; role: ParentRole }[]
-}
-
-/** Drop empty values so an entry only stores what someone filled in. */
-export function cleanDetails(
-  details: Record<string, string>,
-): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(details)
-      .map(([key, value]) => [key, value.trim()] as const)
-      .filter(([, value]) => value !== ''),
-  )
-}
-
-export async function createEntry(
+export async function createRegistryEntry<T>(
   client: DataClient,
-  input: EntryInput,
-  allowDuplicate: boolean,
-): Promise<RegistryEntry> {
-  const row = await client.rpc<RegistryEntryWire>('create_registry_entry', {
+  input: {
+    projectId: string
+    kind: string
+    title: string
+    customFields: Record<string, unknown>
+    allowDuplicate: boolean
+  },
+): Promise<T> {
+  return client.rpc<T>('create_registry_entry', {
+    p_project_id: input.projectId,
     p_kind: input.kind,
-    p_name: input.name,
-    p_description: input.description,
-    p_details: cleanDetails(input.details),
-    p_fingerprint: input.fingerprint,
-    p_parents: input.parents,
-    p_allow_duplicate: allowDuplicate,
+    p_title: input.title,
+    p_custom_fields: input.customFields,
+    p_allow_duplicate: input.allowDuplicate,
   })
-  return toEntry(row)
 }
 
-export async function updateEntry(
+export async function setModelRegistry(
   client: DataClient,
-  id: string,
-  input: Omit<EntryInput, 'kind' | 'parents'>,
-): Promise<RegistryEntry> {
-  const row = await client.rpc<RegistryEntryWire>('update_registry_entry', {
-    p_id: id,
-    p_name: input.name,
-    p_description: input.description,
-    p_details: cleanDetails(input.details),
-    p_fingerprint: input.fingerprint,
-  })
-  return toEntry(row)
-}
-
-export async function setEntryStatus(
-  client: DataClient,
-  id: string,
-  status: RegistryStatus,
-  reason: string | null,
+  input: {
+    modelKey: string
+    isRegistry: boolean
+    keyFields: string[]
+    sequenceField: string | null
+  },
 ): Promise<void> {
-  await client.rpc('set_registry_entry_status', {
-    p_id: id,
-    p_status: status,
-    p_reason: reason,
+  await client.rpc('set_model_registry', {
+    p_model_key: input.modelKey,
+    p_is_registry: input.isRegistry,
+    p_key_fields: input.keyFields,
+    p_sequence_field: input.sequenceField,
   })
 }
 
@@ -301,73 +210,95 @@ export async function removeParent(
   })
 }
 
-export async function setUse(
+// Ready-made registries ------------------------------------------------------
+
+export interface StarterField {
+  field_name: string
+  label: string
+  show_in_list?: boolean
+}
+
+export interface StarterRegistry {
+  key: string
+  name: string
+  prefix: string
+  description: string
+  fields: StarterField[]
+  keyFields: string[]
+  sequenceField: string | null
+}
+
+export const STARTER_REGISTRIES: readonly StarterRegistry[] = [
+  {
+    key: 'construct',
+    name: 'Construct',
+    prefix: 'CON',
+    description: 'Plasmids and other DNA constructs.',
+    fields: [
+      { field_name: 'purpose', label: 'Purpose', show_in_list: true },
+      { field_name: 'selection', label: 'Selection', show_in_list: true },
+      { field_name: 'host', label: 'Host' },
+      { field_name: 'source', label: 'Source' },
+      { field_name: 'sequence_fingerprint', label: 'Sequence fingerprint' },
+      { field_name: 'sequence_length', label: 'Length', show_in_list: true },
+      { field_name: 'shape', label: 'Shape' },
+    ],
+    keyFields: ['sequence_fingerprint'],
+    sequenceField: 'sequence_fingerprint',
+  },
+  {
+    key: 'cell_line',
+    name: 'Cell line',
+    prefix: 'CL',
+    description: 'Cell lines and the banks they are kept in.',
+    fields: [
+      { field_name: 'species', label: 'Species', show_in_list: true },
+      { field_name: 'tissue', label: 'Tissue' },
+      { field_name: 'cell_type', label: 'Cell type', show_in_list: true },
+      { field_name: 'medium', label: 'Medium' },
+      { field_name: 'cell_bank_number', label: 'Cell bank number' },
+      { field_name: 'mycoplasma', label: 'Mycoplasma' },
+    ],
+    keyFields: ['cell_bank_number'],
+    sequenceField: null,
+  },
+  {
+    key: 'antibody',
+    name: 'Antibody',
+    prefix: 'AB',
+    description: 'Antibodies by target, clone and catalogue number.',
+    fields: [
+      { field_name: 'target', label: 'Target', show_in_list: true },
+      { field_name: 'host_species', label: 'Host species' },
+      { field_name: 'clonality', label: 'Clonality' },
+      { field_name: 'clone', label: 'Clone', show_in_list: true },
+      { field_name: 'isotype', label: 'Isotype' },
+      { field_name: 'conjugate', label: 'Conjugate' },
+      { field_name: 'vendor', label: 'Vendor' },
+      { field_name: 'catalogue_number', label: 'Catalogue number' },
+      { field_name: 'applications', label: 'Applications' },
+    ],
+    keyFields: ['vendor', 'catalogue_number'],
+    sequenceField: null,
+  },
+]
+
+export async function createStarterRegistry(
   client: DataClient,
-  entryId: string,
-  recordId: string,
-  linked: boolean,
+  starter: StarterRegistry,
 ): Promise<void> {
-  await client.rpc('set_registry_use', {
-    p_entry_id: entryId,
-    p_record_id: recordId,
-    p_linked: linked,
+  await client.rpc('create_registry_model', {
+    p_key: starter.key,
+    p_name: starter.name,
+    p_prefix: starter.prefix,
+    p_description: starter.description,
+    p_fields: starter.fields,
+    p_key_fields: starter.keyFields,
+    p_sequence_field: starter.sequenceField,
   })
 }
 
-// Lineage ------------------------------------------------------------------
-
-export interface LineageNode {
-  entry: RegistryEntry
-  role: ParentRole | null
-  depth: number
-}
-
-function asRole(value: string): ParentRole {
-  return (PARENT_ROLES as readonly string[]).includes(value)
-    ? (value as ParentRole)
-    : 'parent'
-}
-
-/**
- * Everything an entry came from (`up`) or went on to make (`down`), nearest
- * first, each entry once. The role is the part that entry played in the link
- * to the one before it.
- */
-export function walkLineage(
-  start: string,
-  direction: 'up' | 'down',
-  entries: readonly RegistryEntry[],
-  links: readonly RegistryParentWire[],
-  maxDepth = 12,
-): LineageNode[] {
-  const byId = new Map(entries.map((e) => [e.id, e] as const))
-  const seen = new Set<string>([start])
-  const out: LineageNode[] = []
-  let frontier = [start]
-  for (let depth = 1; depth <= maxDepth && frontier.length > 0; depth++) {
-    const next: string[] = []
-    for (const id of frontier) {
-      for (const link of links) {
-        const from = direction === 'up' ? link.entry_id : link.parent_id
-        const to = direction === 'up' ? link.parent_id : link.entry_id
-        if (from !== id || seen.has(to)) continue
-        const entry = byId.get(to)
-        if (!entry) continue
-        seen.add(to)
-        next.push(to)
-        out.push({ entry, role: asRole(link.role), depth })
-      }
-    }
-    frontier = next
-  }
-  return out
-}
-
 // Duplicate fingerprints ---------------------------------------------------
-
-function normalise(value: string | undefined): string {
-  return (value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '')
-}
 
 async function sha256(text: string): Promise<string> {
   const bytes = new TextEncoder().encode(text)
@@ -428,25 +359,6 @@ export async function sequenceFingerprint(
   )}`
 }
 
-/** What the duplicate check compares for kinds that have no sequence. */
-export function entryFingerprint(
-  kind: RegistryKind,
-  details: Record<string, string>,
-): string | null {
-  if (kind === 'antibody') {
-    const vendor = normalise(details.vendor)
-    const catalogue = normalise(details.catalogueNumber)
-    if (vendor && catalogue) return `cat:${vendor}:${catalogue}`
-    return null
-  }
-  if (kind === 'cell_line') {
-    const external = normalise(details.externalId)
-    return external ? `ext:${external}` : null
-  }
-  return null
-}
-
-/** The line shown beside a construct's sequence. */
 export interface SequenceInfo {
   molecule: ParsedSequence['molecule']
   topology: ParsedSequence['topology']
@@ -475,4 +387,41 @@ export function isDuplicateError(error: unknown): boolean {
     'code' in error &&
     (error as { code?: string }).code === 'SB012'
   )
+}
+
+/** Entries reached from `start`, nearest first, each once. */
+export interface LineageNode {
+  entry: RegistryEntry
+  role: ParentRole
+  depth: number
+}
+
+export function walkLineage(
+  start: string,
+  direction: 'up' | 'down',
+  entries: readonly RegistryEntry[],
+  links: readonly LineageLink[],
+  maxDepth = 12,
+): LineageNode[] {
+  const byId = new Map(entries.map((e) => [e.id, e] as const))
+  const seen = new Set<string>([start])
+  const out: LineageNode[] = []
+  let frontier = [start]
+  for (let depth = 1; depth <= maxDepth && frontier.length > 0; depth++) {
+    const next: string[] = []
+    for (const id of frontier) {
+      for (const link of links) {
+        const from = direction === 'up' ? link.entry_id : link.parent_id
+        const to = direction === 'up' ? link.parent_id : link.entry_id
+        if (from !== id || seen.has(to)) continue
+        const entry = byId.get(to)
+        if (!entry) continue
+        seen.add(to)
+        next.push(to)
+        out.push({ entry, role: link.role, depth })
+      }
+    }
+    frontier = next
+  }
+  return out
 }

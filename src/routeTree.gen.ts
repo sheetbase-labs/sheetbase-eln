@@ -36,6 +36,7 @@ import { Route as ScanRouteImport } from './routes/scan'
 import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ShareTargetRouteImport } from './routes/share-target'
 import { Route as SheetbaseComponentsRouteImport } from './routes/sheetbase-components'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as StocktakeRouteImport } from './routes/stocktake'
@@ -340,6 +341,11 @@ const SearchRoute = SearchRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShareTargetRoute = ShareTargetRouteImport.update({
+  id: '/share-target',
+  path: '/share-target',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SheetbaseComponentsRoute = SheetbaseComponentsRouteImport.update({
@@ -1262,6 +1268,7 @@ export interface FileRoutesByFullPath {
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/share-target': typeof ShareTargetRoute
   '/sheetbase-components': typeof SheetbaseComponentsRoute
   '/sign-in': typeof SignInRoute
   '/stocktake': typeof StocktakeRoute
@@ -1457,6 +1464,7 @@ export interface FileRoutesByTo {
   '/scan': typeof ScanRoute
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
+  '/share-target': typeof ShareTargetRoute
   '/sheetbase-components': typeof SheetbaseComponentsRoute
   '/sign-in': typeof SignInRoute
   '/stocktake': typeof StocktakeRoute
@@ -1648,6 +1656,7 @@ export interface FileRoutesById {
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/share-target': typeof ShareTargetRoute
   '/sheetbase-components': typeof SheetbaseComponentsRoute
   '/sign-in': typeof SignInRoute
   '/stocktake': typeof StocktakeRoute
@@ -1849,6 +1858,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/search'
     | '/settings'
+    | '/share-target'
     | '/sheetbase-components'
     | '/sign-in'
     | '/stocktake'
@@ -2044,6 +2054,7 @@ export interface FileRouteTypes {
     | '/scan'
     | '/schedule'
     | '/search'
+    | '/share-target'
     | '/sheetbase-components'
     | '/sign-in'
     | '/stocktake'
@@ -2234,6 +2245,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/search'
     | '/settings'
+    | '/share-target'
     | '/sheetbase-components'
     | '/sign-in'
     | '/stocktake'
@@ -2434,6 +2446,7 @@ export interface RootRouteChildren {
   ScheduleRoute: typeof ScheduleRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRouteWithChildren
+  ShareTargetRoute: typeof ShareTargetRoute
   SheetbaseComponentsRoute: typeof SheetbaseComponentsRoute
   SignInRoute: typeof SignInRoute
   StocktakeRoute: typeof StocktakeRoute
@@ -2695,6 +2708,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share-target': {
+      id: '/share-target'
+      path: '/share-target'
+      fullPath: '/share-target'
+      preLoaderRoute: typeof ShareTargetRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sheetbase-components': {
@@ -4366,6 +4386,7 @@ const rootRouteChildren: RootRouteChildren = {
   ScheduleRoute: ScheduleRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRouteWithChildren,
+  ShareTargetRoute: ShareTargetRoute,
   SheetbaseComponentsRoute: SheetbaseComponentsRoute,
   SignInRoute: SignInRoute,
   StocktakeRoute: StocktakeRoute,
@@ -4441,13 +4462,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -18,7 +18,7 @@ export async function readSharedFiles(): Promise<File[]> {
   if (typeof caches === 'undefined') return []
   try {
     const cache = await caches.open(SHARE_CACHE)
-    const keys = (await cache.keys()).sort((a, b) =>
+    const keys = [...(await cache.keys())].sort((a, b) =>
       a.url.localeCompare(b.url, undefined, { numeric: true }),
     )
     const files: File[] = []
@@ -75,10 +75,4 @@ export function onLaunchedWithFiles(
   return () => {
     live = false
   }
-}
-
-export function registerServiceWorker(): void {
-  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator))
-    return
-  void navigator.serviceWorker.register('/sw.js').catch(() => undefined)
 }

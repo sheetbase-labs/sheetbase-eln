@@ -97,7 +97,9 @@ export function RecordBulkBar({
           description: `${outcome.failed
             .slice(0, 3)
             .map((failure) => failure.identifier)
-            .join(', ')}${outcome.failed.length > 3 ? '…' : ''}: ${first.message}`,
+            .join(
+              ', ',
+            )}${outcome.failed.length > 3 ? '…' : ''}: ${first.message}`,
         },
       )
     }
@@ -272,16 +274,18 @@ function ActionDialog({
   )
 }
 
-function useBulkRun<A extends unknown[]>(
-  run: (...args: A) => Promise<BulkOutcome>,
+function useBulkRun<TArgs extends unknown[]>(
+  run: (...args: TArgs) => Promise<BulkOutcome>,
   onDone: (outcome: BulkOutcome) => void,
 ) {
   return useMutation({
-    mutationFn: (args: A) => run(...args),
+    mutationFn: (args: TArgs) => run(...args),
     onSuccess: onDone,
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : t('library.bulk.errors.generic'),
+        error instanceof Error
+          ? error.message
+          : t('library.bulk.errors.generic'),
       ),
   })
 }
@@ -430,7 +434,9 @@ function AssignDialog({
           <option value="" disabled>
             {t('library.bulk.assignDialog.choose')}
           </option>
-          <option value={NOBODY}>{t('library.bulk.assignDialog.nobody')}</option>
+          <option value={NOBODY}>
+            {t('library.bulk.assignDialog.nobody')}
+          </option>
           {[...(members.data ?? new Map<string, string>())]
             .sort((a, b) => a[1].localeCompare(b[1], 'en-GB'))
             .map(([userId, name]) => (
@@ -525,7 +531,10 @@ function SetFieldDialog({
                 onChange={setValue}
               />
               {problem && value !== '' ? (
-                <p role="alert" className="m-0 mt-1 text-label text-danger-text">
+                <p
+                  role="alert"
+                  className="m-0 mt-1 text-label text-danger-text"
+                >
                   {problem}
                 </p>
               ) : null}

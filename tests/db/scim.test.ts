@@ -409,6 +409,23 @@ describe('groups decide roles', () => {
     expect(await roleOf('grouped@lab.test')).toBe('admin')
   })
 
+  it('tells a members manager what the directory has done', async () => {
+    const owner = await asAuthenticated(OWNER)
+    const { rows } = await owner.query(
+      `SELECT api.directory_sync_status($1::uuid) AS doc`,
+      [WS],
+    )
+    const doc = rows[0].doc as {
+      people_managed: number
+      people_switched_off: number
+      groups: number
+      active_tokens: number
+    }
+    expect(doc.people_managed).toBeGreaterThan(0)
+    expect(doc.groups).toBeGreaterThan(0)
+    expect(doc.active_tokens).toBeGreaterThanOrEqual(0)
+  })
+
   it('reaches the change feed', async () => {
     const created = (await events('scim_group')).map((e) => e.operation)
     expect(created).toContain('create')

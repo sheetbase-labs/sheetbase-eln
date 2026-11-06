@@ -104,6 +104,36 @@ export const people = {
     fromGroup: 'from sign-in group',
     fromGroupTip: 'Their sign-in groups decide this role.',
   },
+  directorySync: {
+    title: 'Directory sync',
+    description:
+      'Let your organisation’s directory add new people, update their details and switch them off when they leave. Groups it sends can give roles, the same way sign-in groups do.',
+    summary: {
+      one: '{managed} person is kept up to date by your directory; {off} switched off',
+      other:
+        '{managed} people are kept up to date by your directory; {off} switched off',
+    },
+    none: 'No tokens yet. Make one and paste it into your directory.',
+    labelColumn: 'Name',
+    createdColumn: 'Made',
+    lastUsedColumn: 'Last used',
+    neverUsed: 'Not used yet',
+    nameLabel: 'Token name',
+    namePlaceholder: 'For example, Okta',
+    create: 'Make token',
+    revoke: 'Switch off',
+    revoked: 'Token switched off',
+    revokeTitle: 'Switch off “{label}”?',
+    revokeBody:
+      'Your directory will stop being able to add, update or switch off people until you give it a new token.',
+    secretTitle: 'Copy this token now',
+    secretBody:
+      'It is shown once. Paste it into your directory as the access token.',
+    secretDone: 'I have copied it',
+    urlLabel: 'Address for your directory',
+    couldNotSave: 'Could not save',
+    hint: 'People your directory switches off are suspended here, and their work stays. Owners are never changed by the directory.',
+  },
   passkeys: {
     title: 'Passkeys',
     description:

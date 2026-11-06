@@ -14,6 +14,8 @@ import { DataAccessRoles } from '#/components/settings/data-access-roles'
 import { InstrumentParserTable } from '#/components/settings/instrument-parser-table'
 import { HandoverDialog } from '#/components/settings/handover-dialog'
 import { JoinDomainsSection } from '#/components/settings/join-domains'
+import { DirectorySyncSection } from '#/components/settings/directory-sync'
+import { directorySyncKeys } from '#/lib/directory-sync'
 import { SignInGroupsSection } from '#/components/settings/sign-in-groups'
 import {
   SettingsPasskeys,
@@ -606,6 +608,43 @@ export const SignInGroups: Story = {
     ]),
   ],
   render: () => <SignInGroupsSection workspaceId={WS} canManage />,
+}
+
+/** "Directory sync": the tokens an identity provider uses to manage people. */
+export const DirectorySync: Story = {
+  decorators: [
+    provider([
+      {
+        key: directorySyncKeys.tokens(WS),
+        value: [
+          {
+            id: 't-1',
+            label: 'Okta',
+            createdAt: '2026-10-01T09:00:00Z',
+            lastUsedAt: '2026-11-05T08:30:00Z',
+          },
+          {
+            id: 't-2',
+            label: 'Entra test',
+            createdAt: '2026-10-20T14:00:00Z',
+            lastUsedAt: null,
+          },
+        ],
+      },
+      {
+        key: directorySyncKeys.status(WS),
+        value: {
+          activeTokens: 2,
+          lastCalledAt: '2026-11-05T08:30:00Z',
+          peopleManaged: 14,
+          peopleSwitchedOff: 2,
+          groups: 5,
+          groupsGivingARole: 3,
+        },
+      },
+    ]),
+  ],
+  render: () => <DirectorySyncSection workspaceId={WS} canManage />,
 }
 
 /** Passkeys on the profile page: one synced, one kept on a single device. */

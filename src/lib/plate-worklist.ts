@@ -106,36 +106,63 @@ export function buildWorklist(
   const transfers: Transfer[] = []
   const sourceInfo = new Map<
     string,
-    { label: string; sampleId: string | null; totalUl: number; transfers: number }
+    {
+      label: string
+      sampleId: string | null
+      totalUl: number
+      transfers: number
+    }
   >()
 
-  const destRows = FORMAT_DIMENSIONS[options.destFormat ?? options.sourceFormat].rows
+  const destRows =
+    FORMAT_DIMENSIONS[options.destFormat ?? options.sourceFormat].rows
   const ordered = [...destinations].sort(
     (a, b) =>
-      columnMajorIndex(a.wellCode, destRows) - columnMajorIndex(b.wellCode, destRows),
+      columnMajorIndex(a.wellCode, destRows) -
+      columnMajorIndex(b.wellCode, destRows),
   )
 
   for (const d of ordered) {
     if (!parseWellCode(d.wellCode)) {
-      issues.push({ code: 'bad_well', wellCode: d.wellCode, message: d.wellCode })
+      issues.push({
+        code: 'bad_well',
+        wellCode: d.wellCode,
+        message: d.wellCode,
+      })
       continue
     }
     const volume = d.volumeUl ?? options.defaultVolumeUl ?? null
     if (volume === null || !(volume > 0)) {
-      issues.push({ code: 'no_volume', wellCode: d.wellCode, message: d.wellCode })
+      issues.push({
+        code: 'no_volume',
+        wellCode: d.wellCode,
+        message: d.wellCode,
+      })
       continue
     }
     if (options.minVolumeUl !== undefined && volume < options.minVolumeUl)
-      issues.push({ code: 'volume_too_small', wellCode: d.wellCode, message: d.wellCode })
+      issues.push({
+        code: 'volume_too_small',
+        wellCode: d.wellCode,
+        message: d.wellCode,
+      })
     if (options.maxVolumeUl !== undefined && volume > options.maxVolumeUl)
-      issues.push({ code: 'volume_too_large', wellCode: d.wellCode, message: d.wellCode })
+      issues.push({
+        code: 'volume_too_large',
+        wellCode: d.wellCode,
+        message: d.wellCode,
+      })
 
     let source: string
     if (options.mode === 'stamp') {
       source = d.wellCode
       const p = parseWellCode(source)
       if (!p || p.row >= rows || p.col >= cols) {
-        issues.push({ code: 'bad_well', wellCode: d.wellCode, message: d.wellCode })
+        issues.push({
+          code: 'bad_well',
+          wellCode: d.wellCode,
+          message: d.wellCode,
+        })
         continue
       }
     } else {
@@ -182,19 +209,23 @@ export function buildWorklist(
   if (options.order === 'destination') {
     transfers.sort(
       (a, b) =>
-        columnMajorIndex(a.destWell, destRows) - columnMajorIndex(b.destWell, destRows),
+        columnMajorIndex(a.destWell, destRows) -
+        columnMajorIndex(b.destWell, destRows),
     )
   } else {
     transfers.sort(
       (a, b) =>
-        columnMajorIndex(a.sourceWell, rows) - columnMajorIndex(b.sourceWell, rows) ||
+        columnMajorIndex(a.sourceWell, rows) -
+          columnMajorIndex(b.sourceWell, rows) ||
         columnMajorIndex(a.destWell, rows) - columnMajorIndex(b.destWell, rows),
     )
   }
 
   const sources = [...sourceInfo.entries()]
     .map(([well, info]) => ({ well, ...info }))
-    .sort((a, b) => columnMajorIndex(a.well, rows) - columnMajorIndex(b.well, rows))
+    .sort(
+      (a, b) => columnMajorIndex(a.well, rows) - columnMajorIndex(b.well, rows),
+    )
   if (options.sourceWellVolumeUl !== undefined) {
     for (const s of sources)
       if (s.totalUl > options.sourceWellVolumeUl)
@@ -250,15 +281,32 @@ function csvLine(cells: Array<string | number>): string {
 
 export function toCsv(transfers: Transfer[]): string {
   return [
-    csvLine(['source_plate', 'source_well', 'dest_plate', 'dest_well', 'volume_ul', 'sample']),
+    csvLine([
+      'source_plate',
+      'source_well',
+      'dest_plate',
+      'dest_well',
+      'volume_ul',
+      'sample',
+    ]),
     ...transfers.map((t) =>
-      csvLine([t.sourcePlate, t.sourceWell, t.destPlate, t.destWell, round(t.volumeUl), t.label]),
+      csvLine([
+        t.sourcePlate,
+        t.sourceWell,
+        t.destPlate,
+        t.destWell,
+        round(t.volumeUl),
+        t.label,
+      ]),
     ),
   ].join('\n')
 }
 
 /** Echo cherry-pick list; volumes are in nL. */
-export function toEchoCsv(transfers: Transfer[], options: WriteOptions): string {
+export function toEchoCsv(
+  transfers: Transfer[],
+  options: WriteOptions,
+): string {
   const type = options.echoSourceType ?? '384PP_AQ_BP'
   return [
     csvLine([
@@ -290,7 +338,10 @@ export function toEchoCsv(transfers: Transfer[], options: WriteOptions): string 
  * Tecan Gemini worklist (.gwl): an aspirate (A) and dispense (D) per
  * transfer, with a tip wash (W) after each. Volumes in µL.
  */
-export function toTecanGwl(transfers: Transfer[], options: WriteOptions): string {
+export function toTecanGwl(
+  transfers: Transfer[],
+  options: WriteOptions,
+): string {
   const sRows = FORMAT_DIMENSIONS[options.sourceFormat].rows
   const dRows = FORMAT_DIMENSIONS[options.destFormat].rows
   const liquid = options.liquidClass ?? 'Water'
@@ -311,7 +362,10 @@ export function toTecanGwl(transfers: Transfer[], options: WriteOptions): string
 }
 
 /** Hamilton transfer list: one row per transfer, positions counted down columns. */
-export function toHamiltonCsv(transfers: Transfer[], options: WriteOptions): string {
+export function toHamiltonCsv(
+  transfers: Transfer[],
+  options: WriteOptions,
+): string {
   const sRows = FORMAT_DIMENSIONS[options.sourceFormat].rows
   const dRows = FORMAT_DIMENSIONS[options.destFormat].rows
   return [
@@ -469,14 +523,39 @@ export function parseRunLog(
   const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '')
   if (lines.length === 0) return { entries: [], warnings: ['empty'] }
   const delimiter = lines[0].includes('\t') ? '\t' : ','
-  const head = cells(lines[0], delimiter).map((h) => h.toLowerCase().replace(/[\s_-]+/g, ''))
+  const head = cells(lines[0], delimiter).map((h) =>
+    h.toLowerCase().replace(/[\s_-]+/g, ''),
+  )
   const find = (...names: string[]) => head.findIndex((h) => names.includes(h))
   const srcCol = find('sourcewell', 'source', 'srcwell', 'from')
-  const dstCol = find('destinationwell', 'destwell', 'dest', 'destination', 'dstwell', 'to')
-  const volCol = find('actualvolume', 'transferredvolume', 'volumetransferred', 'actualul', 'volume', 'transfervolume', 'volumeul')
-  const statCol = find('status', 'transferstatus', 'result', 'exception', 'outcome')
-  if (srcCol < 0 || dstCol < 0) return { entries: [], warnings: ['no_well_columns'] }
-  const factor = options.volumeUnit === 'nl' ? 0.001 : options.volumeUnit === 'ml' ? 1000 : 1
+  const dstCol = find(
+    'destinationwell',
+    'destwell',
+    'dest',
+    'destination',
+    'dstwell',
+    'to',
+  )
+  const volCol = find(
+    'actualvolume',
+    'transferredvolume',
+    'volumetransferred',
+    'actualul',
+    'volume',
+    'transfervolume',
+    'volumeul',
+  )
+  const statCol = find(
+    'status',
+    'transferstatus',
+    'result',
+    'exception',
+    'outcome',
+  )
+  if (srcCol < 0 || dstCol < 0)
+    return { entries: [], warnings: ['no_well_columns'] }
+  const factor =
+    options.volumeUnit === 'nl' ? 0.001 : options.volumeUnit === 'ml' ? 1000 : 1
   const entries: LogEntry[] = []
   for (const line of lines.slice(1)) {
     const c = cells(line, delimiter)
@@ -519,12 +598,15 @@ export function reconcileRunLog(
     const list = pool.get(`${t.sourceWell}>${t.destWell}`)
     const entry = list?.shift()
     if (!entry) return { ...t, status: 'missing' as const, movedUl: 0 }
-    if (entry.status === 'failed') return { ...t, status: 'failed' as const, movedUl: 0 }
-    if (entry.status === 'skipped') return { ...t, status: 'skipped' as const, movedUl: 0 }
+    if (entry.status === 'failed')
+      return { ...t, status: 'failed' as const, movedUl: 0 }
+    if (entry.status === 'skipped')
+      return { ...t, status: 'skipped' as const, movedUl: 0 }
     const moved = entry.actualUl ?? t.volumeUl
     return {
       ...t,
-      status: moved < t.volumeUl * 0.95 ? ('short' as const) : ('done' as const),
+      status:
+        moved < t.volumeUl * 0.95 ? ('short' as const) : ('done' as const),
       movedUl: moved,
     }
   })

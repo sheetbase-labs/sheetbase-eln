@@ -50,10 +50,13 @@ export interface LabRpc {
 
 export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_name: 'Name.',
-  p_format: 'Plate format, such as `96_well` or `384_well`; or a worklist file format.',
-  p_wells: 'JSON array of `{ wellCode, role, sampleId, sampleLabel, concentration, concentrationUnit, volumeUl }`.',
+  p_format:
+    'Plate format, such as `96_well` or `384_well`; or a worklist file format.',
+  p_wells:
+    'JSON array of `{ wellCode, role, sampleId, sampleLabel, concentration, concentrationUnit, volumeUl }`.',
   p_readout: 'JSON object of well to reading, such as `{ "A1": 1204.5 }`.',
-  p_config: 'JSON analysis settings: normalisation, hit rule, QC limits and curve model.',
+  p_config:
+    'JSON analysis settings: normalisation, hit rule, QC limits and curve model.',
   p_design_id: 'Plate design the layout came from.',
   p_analysis: 'JSON analysis, as computed from the stored layout and readout.',
   p_plate_run_id: 'Plate run id.',
@@ -63,12 +66,15 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_source_format: 'Source plate format.',
   p_dest_plate: 'Name or barcode of the destination plate.',
   p_dest_format: 'Destination plate format.',
-  p_transfers: 'JSON array of `{ sourceWell, destWell, volumeUl, label, sampleId }`.',
+  p_transfers:
+    'JSON array of `{ sourceWell, destWell, volumeUl, label, sampleId }`.',
   p_options: 'JSON options used to build the worklist.',
   p_worklist_id: 'Worklist id.',
-  p_reconciled: 'JSON array of the planned transfers each with `status` and `movedUl`.',
+  p_reconciled:
+    'JSON array of the planned transfers each with `status` and `movedUl`.',
   p_purpose_record_id: 'The experiment the samples were used for.',
-  p_record_withdrawals: 'Withdraw what moved from the source samples (default true).',
+  p_record_withdrawals:
+    'Withdraw what moved from the source samples (default true).',
   p_order_id: 'Reagent order id.',
   p_reason: 'Why, in a sentence.',
   p_note: 'A note.',
@@ -1606,7 +1612,8 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
   },
   archive_plate_run: {
     summary: 'Archive a plate run',
-    description: 'Archives a run so it no longer shows in lists. Returns the run. Sends `plate_run.archived`.',
+    description:
+      'Archives a run so it no longer shows in lists. Returns the run. Sends `plate_run.archived`.',
     scope: 'lab:write',
     params: [['p_plate_run_id', 'uuid', 1]],
     result: 'row:plate_runs',
@@ -1646,7 +1653,8 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
   },
   cancel_plate_worklist: {
     summary: 'Cancel a worklist',
-    description: 'Cancels a worklist that has not been completed. Returns the worklist.',
+    description:
+      'Cancels a worklist that has not been completed. Returns the worklist.',
     scope: 'lab:write',
     params: [['p_worklist_id', 'uuid', 1]],
     result: 'row:plate_worklists',

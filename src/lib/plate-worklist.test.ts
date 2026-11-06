@@ -15,7 +15,12 @@ const dest: DestinationWell[] = [
   { wellCode: 'A2', sampleId: 's1', label: 'S-1', volumeUl: 5 },
   { wellCode: 'B2', sampleId: null, label: 'DMSO', volumeUl: null },
 ]
-const base = { sourcePlate: 'SRC', sourceFormat: '384_well' as const, destPlate: 'DST', defaultVolumeUl: 2 }
+const base = {
+  sourcePlate: 'SRC',
+  sourceFormat: '384_well' as const,
+  destPlate: 'DST',
+  defaultVolumeUl: 2,
+}
 
 describe('buildWorklist', () => {
   it('cherry-picks distinct samples into consecutive source wells', () => {
@@ -34,7 +39,13 @@ describe('buildWorklist', () => {
   it('reports problems instead of hiding them', () => {
     const p = buildWorklist(
       [...dest, { wellCode: 'C3', label: 'x', volumeUl: null }],
-      { ...base, mode: 'cherry_pick', defaultVolumeUl: undefined, sourceWellVolumeUl: 12, maxVolumeUl: 8 },
+      {
+        ...base,
+        mode: 'cherry_pick',
+        defaultVolumeUl: undefined,
+        sourceWellVolumeUl: 12,
+        maxVolumeUl: 8,
+      },
     )
     const codes = p.issues.map((i) => i.code)
     expect(codes).toContain('no_volume')
@@ -42,23 +53,46 @@ describe('buildWorklist', () => {
     expect(codes).toContain('volume_too_large')
   })
   it('runs out of source wells', () => {
-    const p = buildWorklist(dest, { ...base, mode: 'cherry_pick', sourceFormat: '6_well' })
-    expect(p.issues.filter((i) => i.code === 'source_plate_full')).toHaveLength(0)
-    const many = Array.from({ length: 8 }, (_, i) => ({ wellCode: `A${i + 1}`, sampleId: `x${i}`, label: `x${i}`, volumeUl: 1 }))
-    expect(buildWorklist(many, { ...base, mode: 'cherry_pick', sourceFormat: '6_well', destFormat: '96_well' }).issues.some((i) => i.code === 'source_plate_full')).toBe(true)
+    const p = buildWorklist(dest, {
+      ...base,
+      mode: 'cherry_pick',
+      sourceFormat: '6_well',
+    })
+    expect(p.issues.filter((i) => i.code === 'source_plate_full')).toHaveLength(
+      0,
+    )
+    const many = Array.from({ length: 8 }, (_, i) => ({
+      wellCode: `A${i + 1}`,
+      sampleId: `x${i}`,
+      label: `x${i}`,
+      volumeUl: 1,
+    }))
+    expect(
+      buildWorklist(many, {
+        ...base,
+        mode: 'cherry_pick',
+        sourceFormat: '6_well',
+        destFormat: '96_well',
+      }).issues.some((i) => i.code === 'source_plate_full'),
+    ).toBe(true)
   })
 })
 
 describe('writers', () => {
   const plan = buildWorklist(dest, { ...base, mode: 'cherry_pick' })
-  const opts = { sourceFormat: '384_well' as const, destFormat: '96_well' as const }
+  const opts = {
+    sourceFormat: '384_well' as const,
+    destFormat: '96_well' as const,
+  }
   it('counts positions down columns', () => {
     expect(wellPosition('A1', 8)).toBe(1)
     expect(wellPosition('B1', 8)).toBe(2)
     expect(wellPosition('A2', 8)).toBe(9)
   })
   it('writes each format', () => {
-    expect(writeWorklist('csv', plan.transfers, opts).split('\n')).toHaveLength(5)
+    expect(writeWorklist('csv', plan.transfers, opts).split('\n')).toHaveLength(
+      5,
+    )
     const echo = writeWorklist('echo', plan.transfers, opts)
     expect(echo).toContain('Transfer Volume')
     expect(echo).toContain('10000')
@@ -66,8 +100,13 @@ describe('writers', () => {
     expect(gwl[0]).toMatch(/^A;SRC;;;1;;10;Water/)
     expect(gwl[1]).toMatch(/^D;DST;;;1;;10;Water/)
     expect(gwl[2]).toBe('W;')
-    expect(writeWorklist('hamilton', plan.transfers, opts)).toContain('SourcePosition')
-    const py = writeWorklist('opentrons', plan.transfers, { ...opts, title: 'My "run"' })
+    expect(writeWorklist('hamilton', plan.transfers, opts)).toContain(
+      'SourcePosition',
+    )
+    const py = writeWorklist('opentrons', plan.transfers, {
+      ...opts,
+      title: 'My "run"',
+    })
     expect(py).toContain('("A1", "A1", 10)')
     expect(py).toContain('apiLevel')
     expect(py).not.toContain('My "run"')
@@ -87,10 +126,15 @@ describe('run log', () => {
     expect(by('A2').status).toBe('short')
     expect(by('B1').status).toBe('failed')
     expect(by('B2').status).toBe('missing')
-    expect(withdrawalsFrom(r)).toEqual([{ sampleId: 's1', label: 'S-1', totalUl: 13 }])
+    expect(withdrawalsFrom(r)).toEqual([
+      { sampleId: 's1', label: 'S-1', totalUl: 13 },
+    ])
   })
   it('reads an Echo report in nL', () => {
-    const log = parseRunLog('Source Well,Destination Well,Actual Volume\nA1,A1,2500', { volumeUnit: 'nl' })
+    const log = parseRunLog(
+      'Source Well,Destination Well,Actual Volume\nA1,A1,2500',
+      { volumeUnit: 'nl' },
+    )
     expect(log.entries[0].actualUl).toBe(2.5)
   })
   it('says when it cannot find the wells', () => {

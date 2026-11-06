@@ -63,7 +63,9 @@ export function plateWellCount(format: PlateFormat): number {
 export function plateFormatFor(rows: number, cols: number): PlateFormat | null {
   return (
     PLATE_FORMATS.find(
-      (f) => FORMAT_DIMENSIONS[f].rows === rows && FORMAT_DIMENSIONS[f].cols === cols,
+      (f) =>
+        FORMAT_DIMENSIONS[f].rows === rows &&
+        FORMAT_DIMENSIONS[f].cols === cols,
     ) ?? null
   )
 }

@@ -172,7 +172,12 @@ export function adjustPValues(p: number[], method: PAdjustment): number[] {
 // t-tests
 // ---------------------------------------------------------------------------
 
-export const T_TEST_KINDS = ['welch', 'student', 'paired', 'one_sample'] as const
+export const T_TEST_KINDS = [
+  'welch',
+  'student',
+  'paired',
+  'one_sample',
+] as const
 export type TTestKind = (typeof T_TEST_KINDS)[number]
 
 export interface TTestResult {
@@ -360,7 +365,10 @@ function mannWhitneyCounts(n: number, m: number): number[] {
 }
 
 /** Two-sided Mann–Whitney U test (exact for small untied samples). */
-export function mannWhitneyU(a: number[], b: number[]): MannWhitneyResult | null {
+export function mannWhitneyU(
+  a: number[],
+  b: number[],
+): MannWhitneyResult | null {
   const x = finite(a)
   const y = finite(b)
   const n1 = x.length
@@ -373,7 +381,7 @@ export function mannWhitneyU(a: number[], b: number[]): MannWhitneyResult | null
   const ranks = new Array<number>(all.length)
   let tieTerm = 0
   let hasTies = false
-  for (let i = 0; i < all.length; ) {
+  for (let i = 0; i < all.length;) {
     let j = i
     while (j + 1 < all.length && all[j + 1].v === all[i].v) j++
     const rank = (i + j) / 2 + 1
@@ -405,8 +413,7 @@ export function mannWhitneyU(a: number[], b: number[]): MannWhitneyResult | null
   } else {
     const n = n1 + n2
     const mean = (n1 * n2) / 2
-    const variance =
-      ((n1 * n2) / 12) * (n + 1 - tieTerm / (n * (n - 1)))
+    const variance = ((n1 * n2) / 12) * (n + 1 - tieTerm / (n * (n - 1)))
     if (!(variance > 0)) return null
     const z = (Math.abs(u1 - mean) - 0.5) / Math.sqrt(variance)
     p = Math.min(1, normalTwoSidedP(Math.max(0, z)))
@@ -476,7 +483,10 @@ export function studentizedRangeCdf(q: number, k: number, df: number): number {
   if (!(k >= 2) || !(df > 0)) return Number.NaN
   return Math.min(
     1,
-    Math.max(0, overScaledChi((s) => rangeProbability(q * s, k), df)),
+    Math.max(
+      0,
+      overScaledChi((s) => rangeProbability(q * s, k), df),
+    ),
   )
 }
 
@@ -564,7 +574,12 @@ export function dunnettCritical(
 // Post-hoc comparisons after a one-way ANOVA
 // ---------------------------------------------------------------------------
 
-export const POST_HOC_METHODS = ['tukey', 'dunnett', 'bonferroni', 'holm'] as const
+export const POST_HOC_METHODS = [
+  'tukey',
+  'dunnett',
+  'bonferroni',
+  'holm',
+] as const
 export type PostHocMethod = (typeof POST_HOC_METHODS)[number]
 
 export interface PostHocComparison {
@@ -789,7 +804,14 @@ export function kaplanMeier(
     if (median === null && survival <= 0.5) median = time
     atRisk -= at.length
   }
-  return { group, n: data.length, events, censored, medianSurvival: median, steps }
+  return {
+    group,
+    n: data.length,
+    events,
+    censored,
+    medianSurvival: median,
+    steps,
+  }
 }
 
 export interface LogRankResult {
@@ -855,7 +877,10 @@ export function logRankTest(
       expected[i] += (d * risk[i]) / n
       for (let j = 0; j < k; j++) {
         const term =
-          (d * (risk[i] / n) * (i === j ? 1 - risk[i] / n : -risk[j] / n) * (n - d)) /
+          (d *
+            (risk[i] / n) *
+            (i === j ? 1 - risk[i] / n : -risk[j] / n) *
+            (n - d)) /
           (n - 1)
         cov[i][j] += term
       }

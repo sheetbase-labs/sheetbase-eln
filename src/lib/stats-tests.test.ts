@@ -15,8 +15,14 @@ import {
   tQuantile,
 } from './stats-tests'
 
-const a = [27.5, 21, 19, 23.6, 17, 17.9, 16.9, 20.1, 21.9, 22.6, 23.1, 19.6, 19, 21.7, 21.4]
-const b = [27.1, 22, 20.8, 23.4, 23.4, 23.5, 25.8, 22, 24.8, 20.2, 21.9, 22.1, 22.9, 20.5, 24.4]
+const a = [
+  27.5, 21, 19, 23.6, 17, 17.9, 16.9, 20.1, 21.9, 22.6, 23.1, 19.6, 19, 21.7,
+  21.4,
+]
+const b = [
+  27.1, 22, 20.8, 23.4, 23.4, 23.5, 25.8, 22, 24.8, 20.2, 21.9, 22.1, 22.9,
+  20.5, 24.4,
+]
 
 describe('distributions', () => {
   it('matches reference values', () => {
@@ -84,8 +90,12 @@ describe('post-hoc', () => {
   ]
   it('Tukey finds the high dose', () => {
     const r = postHocComparisons(groups, 'tukey')!
-    const hi = r.comparisons.find((c) => c.group1 === 'control' && c.group2 === 'high')!
-    const lo = r.comparisons.find((c) => c.group1 === 'control' && c.group2 === 'low')!
+    const hi = r.comparisons.find(
+      (c) => c.group1 === 'control' && c.group2 === 'high',
+    )!
+    const lo = r.comparisons.find(
+      (c) => c.group1 === 'control' && c.group2 === 'low',
+    )!
     expect(hi.significant).toBe(true)
     expect(lo.significant).toBe(false)
     expect(hi.ci95.hi).toBeLessThan(0)
@@ -94,25 +104,42 @@ describe('post-hoc', () => {
     const r = postHocComparisons(groups, 'dunnett', { control: 'control' })!
     expect(r.comparisons).toHaveLength(2)
     expect(r.comparisons.every((c) => c.group2 === 'control')).toBe(true)
-    expect(r.comparisons.find((c) => c.group1 === 'high')!.significant).toBe(true)
-    expect(postHocComparisons(groups, 'dunnett', { control: 'nope' })).toBeNull()
+    expect(r.comparisons.find((c) => c.group1 === 'high')!.significant).toBe(
+      true,
+    )
+    expect(
+      postHocComparisons(groups, 'dunnett', { control: 'nope' }),
+    ).toBeNull()
   })
   it('Bonferroni and Holm run', () => {
-    expect(postHocComparisons(groups, 'bonferroni')!.comparisons).toHaveLength(3)
+    expect(postHocComparisons(groups, 'bonferroni')!.comparisons).toHaveLength(
+      3,
+    )
     expect(postHocComparisons(groups, 'holm')!.comparisons).toHaveLength(3)
   })
 })
 
 describe('survival', () => {
   const mp6 = [
-    ...[6, 6, 6, 7, 10, 13, 16, 22, 23].map((time) => ({ time, event: true, group: '6-MP' })),
-    ...[6, 9, 10, 11, 17, 19, 20, 25, 32, 32, 34, 35].map((time) => ({ time, event: false, group: '6-MP' })),
+    ...[6, 6, 6, 7, 10, 13, 16, 22, 23].map((time) => ({
+      time,
+      event: true,
+      group: '6-MP',
+    })),
+    ...[6, 9, 10, 11, 17, 19, 20, 25, 32, 32, 34, 35].map((time) => ({
+      time,
+      event: false,
+      group: '6-MP',
+    })),
   ]
-  const control = [1, 1, 2, 2, 3, 4, 4, 5, 5, 8, 8, 8, 8, 11, 11, 12, 12, 15, 17, 22, 23].map(
-    (time) => ({ time, event: true, group: 'control' }),
-  )
+  const control = [
+    1, 1, 2, 2, 3, 4, 4, 5, 5, 8, 8, 8, 8, 11, 11, 12, 12, 15, 17, 22, 23,
+  ].map((time) => ({ time, event: true, group: 'control' }))
   it('matches the Kaplan–Meier estimate for 6-MP', () => {
-    const km = kaplanMeier(mp6.filter((o) => o.group === '6-MP'), '6-MP')!
+    const km = kaplanMeier(
+      mp6.filter((o) => o.group === '6-MP'),
+      '6-MP',
+    )!
     expect(km.n).toBe(21)
     expect(km.events).toBe(9)
     const at6 = km.steps.find((s) => s.time === 6)!

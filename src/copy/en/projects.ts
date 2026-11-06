@@ -906,6 +906,21 @@ export const projects = {
       title: 'Objective',
       empty: 'No objective or notes are recorded in this experiment’s notebook',
     },
+    parts: {
+      title: 'Parts',
+      done: '{done} of {total} parts done',
+      dayOn: 'Day {day} · {date}',
+      columns: {
+        part: 'Part',
+        day: 'Day',
+        status: 'Status',
+        by: 'By',
+        when: 'When',
+        steps: 'Steps',
+        results: 'Results',
+      },
+      stepsOf: '{done} of {total}',
+    },
     protocol: {
       title: 'Protocol progress',
       stepsDone: '{done} of {total} steps done',

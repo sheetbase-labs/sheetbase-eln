@@ -32,6 +32,8 @@ import {
 } from '#/components/ui/table'
 import { ObjectLink } from '#/components/ui/object-link'
 import { experimentStatus } from '#/components/experiments/experiments-data'
+import { formatPartDate, partDate } from '#/lib/experiment-parts'
+import type { PartSummary } from '#/lib/experiment-parts'
 import type { SignatureWire } from '#/lib/signatures'
 import { formatDate } from '#/lib/format-date'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
@@ -76,6 +78,8 @@ export interface OverviewLink {
 export interface ExperimentOverviewProps {
   record: OverviewExperimentRecord
   blocks: readonly ReadinessBlock[]
+  /** The parts of an experiment that runs over several days; empty for a single page. */
+  parts?: readonly PartSummary[]
   links: readonly OverviewLink[]
   readiness: ExperimentReadiness | null
   readinessIsLoading?: boolean
@@ -231,9 +235,118 @@ function LinkedExperimentRow({
   )
 }
 
+function PartsSection({
+  recordId,
+  startedAt,
+  parts,
+  userLabel,
+}: {
+  recordId: string
+  startedAt: string
+  parts: readonly PartSummary[]
+  userLabel: (userId: string) => string
+}) {
+  const done = parts.filter((part) => part.status === 'done').length
+  return (
+    <Section
+      title={t('projects.overview.parts.title')}
+      action={
+        <span className="text-label text-fg-muted">
+          {t('projects.overview.parts.done', {
+            done: String(done),
+            total: String(parts.length),
+          })}
+        </span>
+      }
+    >
+      <TableBox className="mt-2">
+        <Table aria-label={t('projects.overview.parts.title')}>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-8">#</TableHead>
+              <TableHead>{t('projects.overview.parts.columns.part')}</TableHead>
+              <TableHead>{t('projects.overview.parts.columns.day')}</TableHead>
+              <TableHead>
+                {t('projects.overview.parts.columns.status')}
+              </TableHead>
+              <TableHead>{t('projects.overview.parts.columns.by')}</TableHead>
+              <TableHead>{t('projects.overview.parts.columns.when')}</TableHead>
+              <TableHead>
+                {t('projects.overview.parts.columns.steps')}
+              </TableHead>
+              <TableHead>
+                {t('projects.overview.parts.columns.results')}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {parts.map((part) => (
+              <TableRow key={part.partId}>
+                <TableCell className="text-fg-muted">{part.number}</TableCell>
+                <TableCell>
+                  <Link
+                    to="/experiments/$expId/notebook/$part"
+                    params={{ expId: recordId, part: String(part.number) }}
+                    className="text-link"
+                  >
+                    {part.title}
+                  </Link>
+                </TableCell>
+                <TableCell className="text-fg-muted">
+                  {t('projects.overview.parts.dayOn', {
+                    day: String(part.dayOffset),
+                    date: formatPartDate(partDate(startedAt, part.dayOffset)),
+                  })}
+                </TableCell>
+                <TableCell>
+                  {part.status === 'done' ? (
+                    <Status tone="ok">{t('notebook.parts.stateDone')}</Status>
+                  ) : part.status === 'now' ? (
+                    <Status tone="progress">
+                      {t('notebook.parts.stateNow')}
+                    </Status>
+                  ) : (
+                    <Status tone="none">
+                      {t('notebook.parts.stateLater')}
+                    </Status>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {part.status === 'done' && part.completedByUserId
+                    ? userLabel(part.completedByUserId)
+                    : part.assigneeUserId
+                      ? userLabel(part.assigneeUserId)
+                      : '—'}
+                </TableCell>
+                <TableCell className="text-fg-muted">
+                  {part.completedAt
+                    ? formatNotebookDateTime(part.completedAt)
+                    : '—'}
+                </TableCell>
+                <TableCell className="text-fg-muted">
+                  {part.stepCount > 0
+                    ? t('projects.overview.parts.stepsOf', {
+                        done: String(part.stepsDone),
+                        total: String(part.stepCount),
+                      })
+                    : '—'}
+                </TableCell>
+                <TableCell className="text-fg-muted">
+                  {part.resultCount > 0 ? part.resultCount : '—'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableBox>
+    </Section>
+  )
+}
+
 export function ExperimentOverview({
   record,
   blocks,
+  parts = [],
   links,
   readiness,
   readinessIsLoading = false,
@@ -306,6 +419,15 @@ export function ExperimentOverview({
             <Muted>{t('projects.overview.objective.empty')}</Muted>
           )}
         </Section>
+
+        {parts.length > 0 ? (
+          <PartsSection
+            recordId={record.id}
+            startedAt={record.createdAt}
+            parts={parts}
+            userLabel={userLabel}
+          />
+        ) : null}
 
         <Section
           title={t('projects.overview.protocol.title')}

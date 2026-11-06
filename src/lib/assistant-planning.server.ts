@@ -583,7 +583,7 @@ export async function readParts(
       parts: rows.map((row) => ({
         number: row.part_number,
         title: row.title,
-        day: row.day_offset + 1,
+        day: row.day_offset,
         date: row.due_on,
         status: row.status,
         current: row.is_current,
@@ -598,7 +598,7 @@ export async function readParts(
       note:
         rows.length === 0
           ? 'This experiment is a single page with no parts.'
-          : 'Day 1 is the day the experiment started. A part with steps is done when its steps are.',
+          : 'Day 0 is the day the experiment started. A part with steps is done when its steps are.',
     }),
     isError: false,
   }
@@ -1160,7 +1160,7 @@ export async function buildPlanningProposal(
         changes.push({
           label: 'Day',
           before: null,
-          after: String(input.day + 1),
+          after: String(input.day),
         })
       }
       return {
@@ -1219,8 +1219,8 @@ export async function buildPlanningProposal(
       if (input.day !== undefined) {
         changes.push({
           label: 'Day',
-          before: String(part.value.day_offset + 1),
-          after: String(input.day + 1),
+          before: String(part.value.day_offset),
+          after: String(input.day),
         })
       }
       let assigneeUserId: string | null = null

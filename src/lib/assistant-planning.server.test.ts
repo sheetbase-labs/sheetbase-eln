@@ -532,7 +532,7 @@ describe('parts', () => {
     expect(read.isError).toBe(false)
     expect(body.partsDone).toBe(1)
     expect(body.parts[0].doneBy).toBe('Priya Shah')
-    expect(body.parts[1]).toMatchObject({ day: 2, current: true })
+    expect(body.parts[1]).toMatchObject({ day: 1, current: true })
   })
 
   it('adds a part on a day', async () => {

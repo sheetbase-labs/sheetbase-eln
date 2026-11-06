@@ -137,6 +137,16 @@ const auditVerificationMiddleware = createMiddleware().server(
   },
 )
 
+// Trusted timestamps: asks each workspace's chosen time-stamping authority to
+// timestamp new signatures. Does nothing until an admin turns it on. Guarded
+// like the other schedulers.
+const timestampMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startTimestampScheduler } =
+    await import('#/lib/timestamps/stamper.server')
+  startTimestampScheduler()
+  return next()
+})
+
 // Workspace backups: the same archive as the whole-workspace export, made on
 // each workspace's schedule and kept to the newest few. Guarded like the other
 // schedulers and never started under test runners unless explicitly enabled.
@@ -230,6 +240,7 @@ export const startInstance = createStart(() => ({
     absenceCoverMiddleware,
     stepTimerMiddleware,
     auditVerificationMiddleware,
+    timestampMiddleware,
     backupSchedulerMiddleware,
     webhookDeliveryMiddleware,
     csrfMiddleware,

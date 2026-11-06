@@ -26,6 +26,7 @@ interface PanePageProps {
   onNewer?: (revision: string | undefined) => void
   onSelect?: (rowId: string | undefined) => void
   onFrozen?: (frozen: boolean) => void
+  onInReview?: (inReview: boolean) => void
   onMissing?: (missing: boolean) => void
   /** Make this pane the one that edits. */
   onMakePrimary?: () => void
@@ -53,6 +54,7 @@ function PanePageInstance({
   onNewer,
   onSelect,
   onFrozen,
+  onInReview,
   onMissing,
   onMakePrimary,
   editingPane,
@@ -67,6 +69,7 @@ function PanePageInstance({
     onNewer,
     onSelect,
     onFrozen,
+    onInReview,
     onMissing,
     onMakePrimary,
   })
@@ -76,6 +79,7 @@ function PanePageInstance({
     onNewer,
     onSelect,
     onFrozen,
+    onInReview,
     onMissing,
     onMakePrimary,
   }
@@ -88,6 +92,8 @@ function PanePageInstance({
       reportSelection: (rowId: string | undefined) =>
         callbacks.current.onSelect?.(rowId),
       reportFrozen: (frozen: boolean) => callbacks.current.onFrozen?.(frozen),
+      reportInReview: (inReview: boolean) =>
+        callbacks.current.onInReview?.(inReview),
       reportMissing: (missing: boolean) =>
         callbacks.current.onMissing?.(missing),
       makePrimary: () => callbacks.current.onMakePrimary?.(),

@@ -150,7 +150,8 @@ export function toBoolean(value: unknown): boolean | undefined {
 function pickEmail(value: unknown): string | undefined {
   if (!Array.isArray(value)) return undefined
   const emails = value.filter(isObject)
-  const primary = emails.find((e) => toBoolean(e.primary) === true) ?? emails[0]
+  const primary =
+    emails.find((e) => toBoolean(e.primary) === true) ?? emails.at(0)
   return typeof primary?.value === 'string' ? primary.value : undefined
 }
 

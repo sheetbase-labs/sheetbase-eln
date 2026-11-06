@@ -1365,7 +1365,7 @@ describe('MCP directory sync status', () => {
       ),
     ).not.toContain('sheetbase.directory_sync.status')
 
-    const rpc = vi.fn(async () => ({ active_tokens: 1 }) as unknown)
+    const rpc = vi.fn(async () => ({ active_tokens: 1 }))
     const ctx = context(
       ['people:read'],
       fakeClient({ rpc: rpc as unknown as DataClient['rpc'] }),

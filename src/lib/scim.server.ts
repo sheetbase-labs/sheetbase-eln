@@ -97,7 +97,7 @@ async function withDatabase<T>(
 ): Promise<T> {
   const client = await connectDatabase()
   try {
-    return await run(client.query.bind(client) as PooledClient['query'])
+    return await run(client.query.bind(client))
   } catch (error) {
     return fromDatabase(error)
   } finally {

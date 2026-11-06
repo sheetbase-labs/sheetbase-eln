@@ -18,6 +18,9 @@ import { RegistryGrid, useRowFocus } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { PrintLabelsDialog } from '#/components/samples/sample-label-sheet'
 import { sampleStatus } from '#/components/samples/samples-data'
+import { PartFilter, showsForPart } from '#/components/notebook/parts-strip'
+import { useRecordParts } from '#/components/notebook/use-record-parts'
+import { partsProgress } from '#/lib/experiment-parts'
 import { LinkSamplesAction } from './-links-tab'
 import { formatDate, notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
@@ -279,6 +282,22 @@ type SortKey = 'id' | 'created'
 export function ExperimentSamples({ expId }: { expId: string }) {
   const samples = useExperimentSamples(expId)
   const all = samples.data ?? []
+  const links = useExperimentLinks(expId)
+  const partsQuery = useRecordParts(expId)
+  const partList = useMemo(
+    () => partsProgress(partsQuery.data ?? [], []),
+    [partsQuery.data],
+  )
+  const [partFilter, setPartFilter] = useState('all')
+  const partOfSample = useMemo(
+    () =>
+      new Map(
+        (links.data ?? [])
+          .filter((l) => l.target_kind === 'sample' && l.target_record_id)
+          .map((l) => [l.target_record_id as string, l.part_id ?? null]),
+      ),
+    [links.data],
+  )
   const [status, setStatus] = useState('all')
   const [sort, setSort] = useState<SortKey>('id')
   const [picked, setPicked] = useState<string | null>(null)
@@ -288,12 +307,13 @@ export function ExperimentSamples({ expId }: { expId: string }) {
     () =>
       all
         .filter((r) => status === 'all' || statusOf(r).label === status)
+        .filter((r) => showsForPart(partOfSample.get(r.id), partFilter))
         .sort((a, b) =>
           sort === 'created'
             ? a.created_at.localeCompare(b.created_at)
             : a.identifier.localeCompare(b.identifier),
         ),
-    [all, status, sort],
+    [all, status, sort, partFilter, partOfSample],
   )
   const selectedId = picked ?? rows.at(0)?.id ?? null
   const selected = rows.find((r) => r.id === selectedId)
@@ -348,6 +368,20 @@ export function ExperimentSamples({ expId }: { expId: string }) {
       header: t('projects.expSamples.location'),
       accessorFn: (s) => text(s, 'storageLocation') ?? '—',
     },
+    ...(partList.length > 0
+      ? [
+          {
+            id: 'part',
+            header: t('notebook.parts.partColumn'),
+            accessorFn: (s: SampleRow) => {
+              const part = partList.find(
+                (candidate) => candidate.id === partOfSample.get(s.id),
+              )
+              return part ? String(part.number) : '—'
+            },
+          } satisfies RegistryColumn<SampleRow>,
+        ]
+      : []),
     {
       id: 'status',
       header: t('projects.expSamples.status'),
@@ -414,6 +448,11 @@ export function ExperimentSamples({ expId }: { expId: string }) {
                 ))}
               </Select>
             </label>
+            <PartFilter
+              parts={partList}
+              value={partFilter}
+              onChange={setPartFilter}
+            />
             <label className="flex items-center gap-1.5">
               {t('projects.expSamples.sort')}
               <Select

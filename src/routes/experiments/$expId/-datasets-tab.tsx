@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
@@ -27,7 +27,10 @@ import { useUserNames } from '#/lib/user-names'
 import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
 import { useExperimentFiles } from './-files-tab'
 import type { ExperimentFile } from './-files-tab'
-import { useExperimentRecord } from '../$expId'
+import { PartFilter, showsForPart } from '#/components/notebook/parts-strip'
+import { useRecordParts } from '#/components/notebook/use-record-parts'
+import { partsProgress } from '#/lib/experiment-parts'
+import { useExperimentLinks, useExperimentRecord } from '../$expId'
 import { t } from '#/copy'
 
 const PREVIEW_ROWS = 11
@@ -416,10 +419,25 @@ export function ExperimentDatasets({ expId }: { expId: string }) {
   const identifier = record.data?.identifier
   const summaries = useDatasetSummaries()
   const files = useExperimentFiles(expId)
+  const links = useExperimentLinks(expId)
+  const partsQuery = useRecordParts(expId)
+  const partList = useMemo(
+    () => partsProgress(partsQuery.data ?? [], []),
+    [partsQuery.data],
+  )
+  const [partFilter, setPartFilter] = useState('all')
+  // A dataset is linked to the experiment by its record or by its identifier.
+  const partOfDataset = (d: DatasetListRow) =>
+    (links.data ?? []).find(
+      (l) =>
+        l.target_kind === 'dataset' &&
+        (l.target_record_id === d.uuid || l.target_identifier === d.id),
+    )?.part_id ?? null
   const datasets: Array<DatasetListRow & { source: string }> = (
     summaries.data ?? []
   )
     .filter((d) => identifier && d.experimentId === identifier && !d.archived)
+    .filter((d) => showsForPart(partOfDataset(d), partFilter))
     .map((d) => ({ ...d, source: sourceText(files.data ?? [], d.id) }))
   const [picked, setPicked] = useState<string | null>(null)
   const selectedId = picked ?? datasets.at(0)?.uuid ?? null
@@ -462,6 +480,20 @@ export function ExperimentDatasets({ expId }: { expId: string }) {
       header: t('projects.expDatasets.source'),
       accessorFn: (d) => d.source,
     },
+    ...(partList.length > 0
+      ? [
+          {
+            id: 'part',
+            header: t('notebook.parts.partColumn'),
+            accessorFn: (d: DatasetListRow & { source: string }) => {
+              const part = partList.find(
+                (candidate) => candidate.id === partOfDataset(d),
+              )
+              return part ? String(part.number) : '—'
+            },
+          } satisfies RegistryColumn<DatasetListRow & { source: string }>,
+        ]
+      : []),
   ]
   return (
     <>
@@ -497,6 +529,15 @@ export function ExperimentDatasets({ expId }: { expId: string }) {
             </span>
           }
         >
+          {partList.length > 0 ? (
+            <div className="mb-2 flex items-center gap-3 text-label text-fg-muted">
+              <PartFilter
+                parts={partList}
+                value={partFilter}
+                onChange={setPartFilter}
+              />
+            </div>
+          ) : null}
           {datasets.length ? (
             <TableBox>
               <RegistryGrid

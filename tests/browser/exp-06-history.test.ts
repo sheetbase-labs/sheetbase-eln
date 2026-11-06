@@ -65,7 +65,7 @@ test('real history selection, category/actor counts and server CSV agree', async
       `UPDATE api.records SET title='Corrected method' WHERE id=$1`,
       [record],
     )
-    await page.goto(`/experiments/${record}/history`)
+    await page.goto(`/experiments/${record}/review/history`)
     await expect(page.locator('[data-history-ready="true"]')).toBeVisible({
       timeout: 20_000,
     })

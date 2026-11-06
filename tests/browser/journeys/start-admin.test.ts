@@ -154,7 +154,7 @@ test.describe('as the seeded workspace admin', () => {
       from,
       uniqueName('Misfiled'),
     )
-    await open(page, `/experiments/${experimentId}/overview`)
+    await open(page, `/experiments/${experimentId}/summary`)
     await page.getByRole('button', { name: 'More experiment actions' }).click()
     await page
       .getByRole('menuitem', { name: 'Move to another project' })

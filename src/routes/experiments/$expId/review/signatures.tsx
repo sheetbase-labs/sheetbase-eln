@@ -11,10 +11,10 @@ import { Button } from '#/components/ui/button'
 import { Muted } from '#/components/ui/layout'
 import { withReopen } from '#/lib/return-to'
 import { fetchSignaturesForRecord, signatureQueryKeys } from '#/lib/signatures'
-import { useExperimentRecord } from '../$expId'
+import { useExperimentRecord } from '../../$expId'
 import { t } from '#/copy'
 
-export const Route = createFileRoute('/experiments/$expId/signatures')({
+export const Route = createFileRoute('/experiments/$expId/review/signatures')({
   component: Signatures,
 })
 

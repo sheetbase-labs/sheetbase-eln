@@ -1410,7 +1410,7 @@ function ImportMapCheckContent({
               <>
                 {' · '}
                 <Link
-                  to="/experiments/$expId/datasets"
+                  to="/experiments/$expId/data/datasets"
                   params={{ expId: search.experiment }}
                   className="underline"
                 >

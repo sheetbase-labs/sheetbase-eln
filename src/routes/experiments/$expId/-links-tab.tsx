@@ -75,7 +75,7 @@ export function ExperimentBookings({ expId }: { expId: string }) {
               to="/schedule"
               search={{
                 experiment: expId,
-                returnTo: `/experiments/${expId}/links`,
+                returnTo: `/experiments/${expId}/data/links`,
               }}
             />
           }
@@ -348,7 +348,7 @@ export function LinksPanel({
                       search={{
                         mode: 'chart',
                         experiment: expId,
-                        returnTo: `/experiments/${expId}/links`,
+                        returnTo: `/experiments/${expId}/data/links`,
                       }}
                     />
                   }

@@ -29,7 +29,7 @@ test('DATA-01 an experiment’s Results tab imports data with the experiment alr
 }) => {
   const path = await createProject(page, uniqueName('Import'))
   const id = await createExperiment(page, path, uniqueName('Plate run'))
-  await open(page, `/experiments/${id}/results`)
+  await open(page, `/experiments/${id}/data/results`)
   await action(page, 'Import data').click()
   await expect(page).toHaveURL(new RegExp(`/import\\?.*experiment=${id}`))
   await expect(page.getByText(/choose|upload|drop/i).first()).toBeVisible()

@@ -745,7 +745,7 @@ test.describe('SCI-009 Virus Stability browser acceptance', () => {
 
   test('overview composes from the notebook blocks', async ({ page }) => {
     await injectAuth(page)
-    await page.goto(`/experiments/${RECORD}/overview`)
+    await page.goto(`/experiments/${RECORD}/summary`)
     // The title is an editable field in the notebook header, so it has a value, not text.
     await expect(
       page.getByRole('textbox', { name: 'Notebook title' }),

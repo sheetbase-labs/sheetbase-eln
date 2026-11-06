@@ -37,7 +37,7 @@ test('EXP-01 a protocol offers a way to start an experiment on it', async ({
 test('EXP-03 a draft is started from its header', async ({ page }) => {
   const path = await createProject(page, uniqueName('Start'))
   const id = await createExperiment(page, path, uniqueName('Draft'))
-  await open(page, `/experiments/${id}/overview`)
+  await open(page, `/experiments/${id}/summary`)
   await page.getByRole('button', { name: 'Start experiment' }).click()
   const dialog = page.getByRole('dialog')
   if (await dialog.count()) {
@@ -54,7 +54,7 @@ test('EXP-04 an experiment can be saved as a template and the template is offere
 }) => {
   const path = await createProject(page, uniqueName('Template source'))
   const id = await createExperiment(page, path, uniqueName('Good run'))
-  await open(page, `/experiments/${id}/overview`)
+  await open(page, `/experiments/${id}/summary`)
   await page.getByRole('button', { name: 'More experiment actions' }).click()
   await page.getByRole('menuitem', { name: 'Save as template' }).click()
   const dialog = page.getByRole('dialog')
@@ -86,7 +86,7 @@ test('EXP-08 samples used are linked from the notebook and listed on Links', asy
   await waitForHydration(page)
   await page.getByRole('button', { name: 'Link record' }).click()
   await page.getByRole('option', { name: /SMP-1002/ }).click()
-  await open(page, `/experiments/${id}/links`)
+  await open(page, `/experiments/${id}/data/links`)
   await expect(page.getByText('SMP-1002').first()).toBeVisible()
 })
 
@@ -96,7 +96,7 @@ test('EXP-12 a new run starts from the header and links back', async ({
   const path = await createProject(page, uniqueName('Run again'))
   const title = uniqueName('First')
   const id = await createExperiment(page, path, title)
-  await open(page, `/experiments/${id}/overview`)
+  await open(page, `/experiments/${id}/summary`)
   await page.getByRole('button', { name: 'More experiment actions' }).click()
   await page
     .getByRole('menuitem', { name: 'New run of this experiment' })
@@ -115,7 +115,7 @@ test('EXP-13 an abandoned experiment is archived out of the list and kept under 
   const path = await createProject(page, uniqueName('Abandon'))
   const title = uniqueName('Abandoned')
   const id = await createExperiment(page, path, title)
-  await open(page, `/experiments/${id}/overview`)
+  await open(page, `/experiments/${id}/summary`)
   await page.getByRole('button', { name: 'More experiment actions' }).click()
   await page.getByRole('menuitem', { name: 'Archive' }).click()
   await page
@@ -152,14 +152,14 @@ test('EXP-16 a decision recorded on Results shows on the overview', async ({
 }) => {
   const path = await createProject(page, uniqueName('Decide'))
   const id = await createExperiment(page, path, uniqueName('Decided'))
-  await open(page, `/experiments/${id}/results`)
+  await open(page, `/experiments/${id}/data/results`)
   await page.getByRole('button', { name: 'Record decision' }).click()
   await page.getByRole('radio', { name: 'Supported' }).click()
   await page
     .getByRole('textbox', { name: 'Note' })
     .fill('Titre doubled at 72 h.')
   await page.getByRole('button', { name: 'Save', exact: true }).click()
-  await open(page, `/experiments/${id}/overview`)
+  await open(page, `/experiments/${id}/summary`)
   await expect(page.getByText(/supported/i).first()).toBeVisible()
 })
 
@@ -168,7 +168,7 @@ test('EXP-17 an instrument is booked for the experiment from its menu', async ({
 }) => {
   const path = await createProject(page, uniqueName('Book'))
   const id = await createExperiment(page, path, uniqueName('Needs a reader'))
-  await open(page, `/experiments/${id}/overview`)
+  await open(page, `/experiments/${id}/summary`)
   await page.getByRole('button', { name: 'More experiment actions' }).click()
   await page.getByRole('menuitem', { name: 'Book instrument' }).click()
   await expect(page).toHaveURL(/\/schedule\?.*experiment=/)

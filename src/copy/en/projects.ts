@@ -942,9 +942,10 @@ export const projects = {
     results: {
       title: 'Key results',
       preliminary: 'Preliminary',
+      basedOn: 'Based on {basis}',
       datasets: 'Datasets',
       analyses: 'Analyses',
-      none: 'No datasets or analyses are linked yet. Produced datasets appear on the Datasets tab.',
+      none: 'No datasets or analyses are linked yet. Produced datasets appear on the Data tab.',
     },
     properties: {
       title: 'Properties',
@@ -1978,14 +1979,34 @@ export const projects = {
     protocol: 'Protocol {link}',
     sections: 'Experiment sections',
     tabs: {
-      overview: 'Overview',
       notebook: 'Notebook',
+      summary: 'Summary',
       samples: 'Samples',
+      data: 'Data',
+      review: 'Review',
+    },
+    dataSections: 'Data sections',
+    reviewSections: 'Review sections',
+    section: {
       datasets: 'Datasets',
       results: 'Results',
       files: 'Files',
+      links: 'Links and bookings',
+      submissions: 'Submissions',
       signatures: 'Signatures',
       history: 'History',
+      revisions: 'Versions',
+    },
+    submissions: {
+      loading: 'Loading submissions…',
+      loadFailed: 'Couldn’t load the submissions. Try again in a moment.',
+      emptyTitle: 'Not submitted yet',
+      emptyBody:
+        'Each time this experiment is sent for review it appears here, with how the review went.',
+      submitted: 'Submitted',
+      by: 'By',
+      reviewers: 'Reviewers',
+      outcome: 'Outcome',
     },
   },
   experimentSignatures: {

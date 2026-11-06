@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { ExperimentHistory } from '#/components/audit/experiment-history'
-import { useExperimentRecord } from '../$expId'
+import { useExperimentRecord } from '../../$expId'
 
-export const Route = createFileRoute('/experiments/$expId/history')({
+export const Route = createFileRoute('/experiments/$expId/review/history')({
   component: History,
 })
 

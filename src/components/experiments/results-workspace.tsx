@@ -285,7 +285,7 @@ export function ResultsWorkspace({
               search={{
                 mode: 'chart',
                 experiment: expId,
-                returnTo: `/experiments/${expId}/results`,
+                returnTo: `/experiments/${expId}/data/results`,
               }}
             />
           }

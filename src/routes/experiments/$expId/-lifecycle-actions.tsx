@@ -431,28 +431,6 @@ export function ExperimentLifecycleActions({
                 ? t('projects.favouriteToggle.remove')
                 : t('projects.favouriteToggle.add')}
             </DropdownMenuItem>
-            <DropdownMenuItem
-              icon="link"
-              onClick={() =>
-                void navigate({
-                  to: '/experiments/$expId/links',
-                  params: { expId: e.id },
-                })
-              }
-            >
-              {t('projects.lifecycle.links')}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              icon="clock"
-              onClick={() =>
-                void navigate({
-                  to: '/experiments/$expId/revisions',
-                  params: { expId: e.id },
-                })
-              }
-            >
-              {t('projects.lifecycle.revisions')}
-            </DropdownMenuItem>
             <RecordActionItems actions={items('manage')} />
             {author ? (
               <>

@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as router from '@tanstack/react-router'
 
-import { ExperimentBookings, LinksPanel } from './-links-tab'
+import { ExperimentBookings, LinksPanel } from '../-links-tab'
 
 const dataClient = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
 
@@ -81,7 +81,7 @@ describe('ExperimentBookings', () => {
     const book = screen.getByRole('link', { name: 'Book an instrument' })
     expect(book.getAttribute('href')).toContain('experiment=exp-1')
     expect(decodeURIComponent(book.getAttribute('href') ?? '')).toContain(
-      'returnTo=/experiments/exp-1/links',
+      'returnTo=/experiments/exp-1/data/links',
     )
   })
 

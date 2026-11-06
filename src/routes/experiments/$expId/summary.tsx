@@ -17,7 +17,7 @@ import { useExperimentLinks, useExperimentRecord } from '../$expId'
 /** EXP-02.4: the experiment Overview. Readiness comes from the server
  * (`experiment_readiness`), the same function the submit RPC gates on, so the
  * list the author reads and the block that stops them cannot disagree. */
-export const Route = createFileRoute('/experiments/$expId/overview')({
+export const Route = createFileRoute('/experiments/$expId/summary')({
   component: Overview,
 })
 

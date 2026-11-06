@@ -32,8 +32,7 @@ import { ExperimentLifecycleActions } from './$expId/-lifecycle-actions'
 import { RecordActionsProvider } from '#/components/notebook/record-actions'
 
 /** The experiment page: one frame, one URL. Notebook is the default tab and the
- * working surface; Overview, Samples, Datasets, Results, Files and History sit
- * beside it. `/records/$recordId/notebook` redirects here for experiments. */
+ * working surface; Summary, Samples, Data and Review sit beside it. `/records/$recordId/notebook` redirects here for experiments. */
 export const Route = createFileRoute('/experiments/$expId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
@@ -318,12 +317,12 @@ function ExperimentLayout() {
               label={t('projects.experimentPage.sections')}
               items={[
                 {
-                  label: t('projects.experimentPage.tabs.overview'),
-                  link: { to: '/experiments/$expId/overview', params },
-                },
-                {
                   label: t('projects.experimentPage.tabs.notebook'),
                   link: { to: '/experiments/$expId/notebook', params },
+                },
+                {
+                  label: t('projects.experimentPage.tabs.summary'),
+                  link: { to: '/experiments/$expId/summary', params },
                 },
                 {
                   label: t('projects.experimentPage.tabs.samples'),
@@ -331,26 +330,13 @@ function ExperimentLayout() {
                   link: { to: '/experiments/$expId/samples', params },
                 },
                 {
-                  label: t('projects.experimentPage.tabs.datasets'),
-                  count: kindCount('dataset'),
-                  link: { to: '/experiments/$expId/datasets', params },
+                  label: t('projects.experimentPage.tabs.data'),
+                  count: kindCount('dataset') + kindCount('file'),
+                  link: { to: '/experiments/$expId/data', params },
                 },
                 {
-                  label: t('projects.experimentPage.tabs.results'),
-                  link: { to: '/experiments/$expId/results', params },
-                },
-                {
-                  label: t('projects.experimentPage.tabs.files'),
-                  count: kindCount('file'),
-                  link: { to: '/experiments/$expId/files', params },
-                },
-                {
-                  label: t('projects.experimentPage.tabs.signatures'),
-                  link: { to: '/experiments/$expId/signatures', params },
-                },
-                {
-                  label: t('projects.experimentPage.tabs.history'),
-                  link: { to: '/experiments/$expId/history', params },
+                  label: t('projects.experimentPage.tabs.review'),
+                  link: { to: '/experiments/$expId/review', params },
                 },
               ]}
             />

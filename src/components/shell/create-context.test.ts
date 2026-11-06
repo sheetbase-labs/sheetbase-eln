@@ -8,7 +8,7 @@ describe('createContextFromPath', () => {
     expect(createContextFromPath('/projects/p1/experiments')).toEqual({
       project: 'p1',
     })
-    expect(createContextFromPath('/experiments/e1/datasets')).toEqual({
+    expect(createContextFromPath('/experiments/e1/data/datasets')).toEqual({
       experiment: 'e1',
     })
     expect(createContextFromPath('/samples/s1')).toEqual({ sample: 's1' })
@@ -27,20 +27,20 @@ describe('createContextFromPath', () => {
 
 describe('createMenuSearch', () => {
   it('hands an open experiment to the sample, sheet and import screens, and the page as returnTo', () => {
-    const search = createMenuSearch('/experiments/e1/datasets')
+    const search = createMenuSearch('/experiments/e1/data/datasets')
     expect(search.sample).toEqual({
       new: true,
       project: undefined,
       experiment: 'e1',
-      returnTo: '/experiments/e1/datasets',
+      returnTo: '/experiments/e1/data/datasets',
     })
     expect(search.sheet).toMatchObject({
       experiment: 'e1',
-      returnTo: '/experiments/e1/datasets',
+      returnTo: '/experiments/e1/data/datasets',
     })
     expect(search.import).toMatchObject({
       experiment: 'e1',
-      returnTo: '/experiments/e1/datasets',
+      returnTo: '/experiments/e1/data/datasets',
     })
   })
 

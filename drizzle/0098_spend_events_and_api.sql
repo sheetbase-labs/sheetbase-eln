@@ -187,6 +187,6 @@ ALTER TABLE internal.api_credentials
       'reviews:read','reviews:write','files:read','files:write',
       'webhooks:read','webhooks:write','agent_operations:read',
       'agent_operations:write','pipelines:read','pipelines:write',
-      'admin:read','admin:write','people:read','people:write','facility:read','facility:write'
+      'lab:read','lab:write','admin:read','admin:write','people:read','people:write','facility:read','facility:write'
     ]::text[]
   );

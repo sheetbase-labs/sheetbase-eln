@@ -88,6 +88,7 @@ __all__ = [
     "CreateSheetInstanceFromDefinitionParams",
     "CreateSheetInstanceParams",
     "CreateShipmentParams",
+    "CreateSupplierModelParams",
     "CreateWebhookSubscriptionParams",
     "DatasetSchemaDefinitionsRow",
     "DatasetSchemaVersionFieldsRow",
@@ -97,6 +98,7 @@ __all__ = [
     "DatasetsRowInsert",
     "DeleteBlockParams",
     "DeleteSavedSearchParams",
+    "DeleteScheduledReportParams",
     "DeleteWebhookSubscriptionParams",
     "DuplicateSheetInstanceBlockParams",
     "DuplicateSheetInstanceParams",
@@ -124,6 +126,7 @@ __all__ = [
     "InstantiateTemplateParams",
     "InstrumentBookingRulesRow",
     "InstrumentFeedsRow",
+    "InstrumentRatesRow",
     "InstrumentReadingsRow",
     "InstrumentRequiredTrainingRow",
     "InstrumentServiceLogRow",
@@ -189,6 +192,7 @@ __all__ = [
     "QuerySheetInstanceRowsResult",
     "QueryStorageReadingsParams",
     "ReadSheetInstanceCalculationResultsParams",
+    "ReagentOrderPricesRow",
     "ReagentOrdersRow",
     "ReceiveReagentOrderParams",
     "ReceiveShipmentParams",
@@ -214,6 +218,9 @@ __all__ = [
     "ReplayWebhookDeliveriesParams",
     "ReplayWebhookDeliveryParams",
     "ReportAgentWorkflowUsageParams",
+    "ReportProjectStatusParams",
+    "ReportSpendLinesParams",
+    "ReportUsageLinesParams",
     "RequestDetailsRow",
     "RequestFormsRow",
     "RequestReagentOrderParams",
@@ -234,20 +241,27 @@ __all__ = [
     "SampleWorkflowTransitionsRow",
     "SampleWorkflowsRow",
     "SaveSampleWorkflowParams",
+    "SaveScheduledReportParams",
     "SaveSearchParams",
     "SavedSearchesRow",
+    "ScheduledReportsRow",
     "SearchParams",
     "SearchSheetRecordsParams",
+    "SendScheduledReportNowParams",
     "SetFieldSpecLimitsParams",
     "SetIdpGroupMappingParams",
     "SetInstrumentBookingRulesParams",
     "SetInstrumentFeedLimitsParams",
     "SetInstrumentOutOfServiceParams",
+    "SetInstrumentRateParams",
     "SetMaterialSafetyParams",
     "SetMemberAbsenceParams",
+    "SetModelSupplierListParams",
+    "SetReagentOrderPriceParams",
     "SetRecordFavouriteParams",
     "SetRecurringSchedulePausedParams",
     "SetSampleWorkflowStatusParams",
+    "SetScheduledReportActiveParams",
     "SheetCalculation",
     "SheetCalculationChange",
     "SheetCalculationChangeRetire",
@@ -300,6 +314,7 @@ __all__ = [
     "StocktakeItemsRow",
     "StocktakesRow",
     "SubmitRequestParams",
+    "SupplierModelsRow",
     "TemplateParameter",
     "TokenError",
     "TokenExchangeRequest",
@@ -1117,6 +1132,19 @@ class InstrumentFeedsRow(_InstrumentFeedsRowRequired, total=False):
     last_at: Optional[str]
 
 
+class _InstrumentRatesRowRequired(TypedDict):
+    instrument_id: str
+    workspace_id: str
+    rate_per_hour: float
+    currency: str
+    updated_at: str
+
+
+class InstrumentRatesRow(_InstrumentRatesRowRequired, total=False):
+    """`api.instrument_rates` row (snake_case). What each booked hour of an instrument is charged. An instrument with no row is not charged for."""
+    updated_by_user_id: Optional[str]
+
+
 class InstrumentReadingsRow(TypedDict):
     """`api.instrument_readings` row (snake_case). One reading in an instrument feed. Large; filter by `feed_id` and `taken_at`, or use `list_instrument_feed_series` for charts."""
     id: int
@@ -1568,6 +1596,19 @@ class QuerySheetInstanceRowsResult(_QuerySheetInstanceRowsResultRequired, total=
     localFieldIds: List[str]
 
 
+class _ReagentOrderPricesRowRequired(TypedDict):
+    order_id: str
+    workspace_id: str
+    total_price: float
+    currency: str
+    updated_at: str
+
+
+class ReagentOrderPricesRow(_ReagentOrderPricesRowRequired, total=False):
+    """`api.reagent_order_prices` row (snake_case). What a reagent order cost. Only people who place orders can read it."""
+    updated_by: Optional[str]
+
+
 class _ReagentOrdersRowRequired(TypedDict):
     id: str
     workspace_id: str
@@ -2011,6 +2052,34 @@ class _SavedSearchesRowRequired(TypedDict):
 class SavedSearchesRow(_SavedSearchesRowRequired, total=False):
     """`api.saved_searches` row (snake_case). A saved search. `visibility` is `private` (only its owner sees it) or `workspace` (shared with everyone in the workspace). `arguments` are the inputs `search` takes, so a script can run it."""
     arguments: Optional[Dict[str, "JsonValue"]]
+
+
+class _ScheduledReportsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    name: str
+    kind: Literal["instrument_usage", "spend", "project_status"]
+    period: Literal["last_7_days", "last_30_days", "previous_week", "previous_month"]
+    open_hours: float
+    frequency: Literal["daily", "weekly", "monthly"]
+    weekday: int
+    month_day: int
+    send_hour: int
+    time_zone: str
+    recipient_user_ids: List[str]
+    active: bool
+    next_run_at: str
+    created_by_user_id: str
+    created_at: str
+    updated_at: str
+
+
+class ScheduledReportsRow(_ScheduledReportsRowRequired, total=False):
+    """`api.scheduled_reports` row (snake_case). A report emailed on a rhythm. Visible to the people who may schedule reports."""
+    project_id: Optional[str]
+    last_run_at: Optional[str]
+    last_result: Optional[str]
+    last_recipient_count: Optional[int]
 
 
 class SheetCalculation(TypedDict):
@@ -2500,6 +2569,13 @@ class StocktakesRow(_StocktakesRowRequired, total=False):
     cancelled_at: Optional[str]
 
 
+class SupplierModelsRow(TypedDict):
+    """`api.supplier_models` row (snake_case). A record model the lab has ticked as its supplier list. Orders can name a record of such a model as their supplier."""
+    workspace_id: str
+    model_key: str
+    created_at: str
+
+
 class _TemplateParameterRequired(TypedDict):
     id: str
     key: str
@@ -2519,7 +2595,7 @@ class TokenError(TypedDict):
 
 class TokenExchangeRequest(TypedDict):
     credential: str
-    scopes: List[Literal["projects:read", "projects:write", "datasets:read", "datasets:write", "schema:read", "schema:write", "schema:publish", "sheets:read", "sheets:write", "models:read", "models:write", "templates:read", "templates:write", "reviews:read", "reviews:write", "files:read", "files:write", "webhooks:read", "webhooks:write", "agent_operations:read", "agent_operations:write", "pipelines:read", "pipelines:write", "lab:read", "lab:write", "admin:read", "admin:write", "people:read", "people:write"]]
+    scopes: List[Literal["projects:read", "projects:write", "datasets:read", "datasets:write", "schema:read", "schema:write", "schema:publish", "sheets:read", "sheets:write", "models:read", "models:write", "templates:read", "templates:write", "reviews:read", "reviews:write", "files:read", "files:write", "webhooks:read", "webhooks:write", "agent_operations:read", "agent_operations:write", "pipelines:read", "pipelines:write", "lab:read", "lab:write", "facility:read", "facility:write", "admin:read", "admin:write", "people:read", "people:write"]]
 
 
 class TokenExchangeResponse(TypedDict):
@@ -2865,6 +2941,14 @@ class CreateShipmentParams(_CreateShipmentParamsRequired, total=False):
     p_project_id: str
 
 
+class CreateSupplierModelParams(TypedDict):
+    p_key: str
+    p_name: str
+    p_prefix: str
+    p_description: str
+    p_fields: List[Dict[str, "JsonValue"]]
+
+
 class _CreateWebhookSubscriptionParamsRequired(TypedDict):
     p_workspace_id: str
     p_key: str
@@ -2888,6 +2972,10 @@ class DeleteBlockParams(TypedDict):
 
 
 class DeleteSavedSearchParams(TypedDict):
+    p_id: str
+
+
+class DeleteScheduledReportParams(TypedDict):
     p_id: str
 
 
@@ -3302,6 +3390,28 @@ class ReportAgentWorkflowUsageParams(TypedDict):
     p_cost_microusd: int
 
 
+class _ReportProjectStatusParamsRequired(TypedDict):
+    p_workspace_id: str
+    p_from: str
+    p_to: str
+
+
+class ReportProjectStatusParams(_ReportProjectStatusParamsRequired, total=False):
+    p_project_id: Optional[str]
+
+
+class ReportSpendLinesParams(TypedDict):
+    p_workspace_id: str
+    p_from: str
+    p_to: str
+
+
+class ReportUsageLinesParams(TypedDict):
+    p_workspace_id: str
+    p_from: str
+    p_to: str
+
+
 class _RequestReagentOrderParamsRequired(TypedDict):
     p_material_record_id: str
     p_quantity: float
@@ -3368,6 +3478,25 @@ class SaveSampleWorkflowParams(TypedDict):
     p_definition: Dict[str, "JsonValue"]
 
 
+class _SaveScheduledReportParamsRequired(TypedDict):
+    p_name: str
+    p_kind: Literal["instrument_usage", "spend", "project_status"]
+    p_period: Literal["previous_week", "previous_month", "last_7_days", "last_30_days"]
+    p_frequency: Literal["daily", "weekly", "monthly"]
+    p_recipient_user_ids: List[str]
+
+
+class SaveScheduledReportParams(_SaveScheduledReportParamsRequired, total=False):
+    p_id: Optional[str]
+    p_project_id: Optional[str]
+    p_open_hours: float
+    p_weekday: int
+    p_month_day: int
+    p_send_hour: int
+    p_time_zone: str
+    p_active: bool
+
+
 class _SaveSearchParamsRequired(TypedDict):
     p_name: str
     p_query: str
@@ -3399,6 +3528,10 @@ class SearchSheetRecordsParams(_SearchSheetRecordsParamsRequired, total=False):
     p_query: str
     p_limit: int
     p_include_archived: bool
+
+
+class SendScheduledReportNowParams(TypedDict):
+    p_id: str
 
 
 class _SetFieldSpecLimitsParamsRequired(TypedDict):
@@ -3451,6 +3584,15 @@ class SetInstrumentOutOfServiceParams(_SetInstrumentOutOfServiceParamsRequired, 
     p_work_done: str
 
 
+class _SetInstrumentRateParamsRequired(TypedDict):
+    p_instrument_id: str
+    p_rate_per_hour: Optional[float]
+
+
+class SetInstrumentRateParams(_SetInstrumentRateParamsRequired, total=False):
+    p_currency: Optional[str]
+
+
 class _SetMaterialSafetyParamsRequired(TypedDict):
     p_record_id: str
     p_pictograms: List[str]
@@ -3474,6 +3616,20 @@ class SetMemberAbsenceParams(_SetMemberAbsenceParamsRequired, total=False):
     p_user_id: Optional[str]
 
 
+class SetModelSupplierListParams(TypedDict):
+    p_model_key: str
+    p_enabled: bool
+
+
+class _SetReagentOrderPriceParamsRequired(TypedDict):
+    p_order_id: str
+    p_total_price: Optional[float]
+
+
+class SetReagentOrderPriceParams(_SetReagentOrderPriceParamsRequired, total=False):
+    p_currency: Optional[str]
+
+
 class SetRecordFavouriteParams(TypedDict):
     p_object_kind: str
     p_object_id: str
@@ -3488,6 +3644,11 @@ class SetRecurringSchedulePausedParams(TypedDict):
 class SetSampleWorkflowStatusParams(TypedDict):
     p_workflow_id: str
     p_status: str
+
+
+class SetScheduledReportActiveParams(TypedDict):
+    p_id: str
+    p_active: bool
 
 
 class SnapshotDatasetParams(TypedDict):

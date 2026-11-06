@@ -39,6 +39,7 @@ from sheetbase._generated.models import (
     InboxWorkItemsRow,
     InstrumentBookingRulesRow,
     InstrumentFeedsRow,
+    InstrumentRatesRow,
     InstrumentReadingsRow,
     InstrumentRequiredTrainingRow,
     InstrumentServiceLogRow,
@@ -60,6 +61,7 @@ from sheetbase._generated.models import (
     ProjectsRow,
     ProjectsRowInsert,
     ProjectsRowPatch,
+    ReagentOrderPricesRow,
     ReagentOrdersRow,
     RecordFieldDefinitionsRow,
     RecordLinksRow,
@@ -83,6 +85,7 @@ from sheetbase._generated.models import (
     SampleWorkflowTransitionsRow,
     SampleWorkflowsRow,
     SavedSearchesRow,
+    ScheduledReportsRow,
     SheetDefinitionVersionsRow,
     SheetDefinitionsRow,
     SheetInstancesRow,
@@ -91,6 +94,7 @@ from sheetbase._generated.models import (
     StepTimersRow,
     StocktakeItemsRow,
     StocktakesRow,
+    SupplierModelsRow,
     WebhookDeliveriesRow,
     WebhookSubscriptionsRow,
 )
@@ -414,6 +418,24 @@ class AsyncInstrumentFeedsTable(AsyncReadableTable[InstrumentFeedsRow]):
     Scopes: lab:read.
     """
     name = "instrument_feeds"
+
+
+class InstrumentRatesTable(ReadableTable[InstrumentRatesRow]):
+    """
+    ``/api/db/instrument_rates`` (GET, HEAD).
+
+    Scopes: facility:read.
+    """
+    name = "instrument_rates"
+
+
+class AsyncInstrumentRatesTable(AsyncReadableTable[InstrumentRatesRow]):
+    """
+    ``/api/db/instrument_rates`` (GET, HEAD).
+
+    Scopes: facility:read.
+    """
+    name = "instrument_rates"
 
 
 class InstrumentReadingsTable(ReadableTable[InstrumentReadingsRow]):
@@ -764,6 +786,24 @@ class AsyncProjectsTable(
     Scopes: projects:read, projects:write.
     """
     name = "projects"
+
+
+class ReagentOrderPricesTable(ReadableTable[ReagentOrderPricesRow]):
+    """
+    ``/api/db/reagent_order_prices`` (GET, HEAD).
+
+    Scopes: facility:read.
+    """
+    name = "reagent_order_prices"
+
+
+class AsyncReagentOrderPricesTable(AsyncReadableTable[ReagentOrderPricesRow]):
+    """
+    ``/api/db/reagent_order_prices`` (GET, HEAD).
+
+    Scopes: facility:read.
+    """
+    name = "reagent_order_prices"
 
 
 class ReagentOrdersTable(ReadableTable[ReagentOrdersRow]):
@@ -1124,6 +1164,24 @@ class AsyncSavedSearchesTable(AsyncReadableTable[SavedSearchesRow]):
     name = "saved_searches"
 
 
+class ScheduledReportsTable(ReadableTable[ScheduledReportsRow]):
+    """
+    ``/api/db/scheduled_reports`` (GET, HEAD).
+
+    Scopes: facility:read.
+    """
+    name = "scheduled_reports"
+
+
+class AsyncScheduledReportsTable(AsyncReadableTable[ScheduledReportsRow]):
+    """
+    ``/api/db/scheduled_reports`` (GET, HEAD).
+
+    Scopes: facility:read.
+    """
+    name = "scheduled_reports"
+
+
 class SheetDefinitionVersionsTable(ReadableTable[SheetDefinitionVersionsRow]):
     """
     ``/api/db/sheet_definition_versions`` (GET, HEAD).
@@ -1268,6 +1326,24 @@ class AsyncStocktakesTable(AsyncReadableTable[StocktakesRow]):
     name = "stocktakes"
 
 
+class SupplierModelsTable(ReadableTable[SupplierModelsRow]):
+    """
+    ``/api/db/supplier_models`` (GET, HEAD).
+
+    Scopes: facility:read.
+    """
+    name = "supplier_models"
+
+
+class AsyncSupplierModelsTable(AsyncReadableTable[SupplierModelsRow]):
+    """
+    ``/api/db/supplier_models`` (GET, HEAD).
+
+    Scopes: facility:read.
+    """
+    name = "supplier_models"
+
+
 class WebhookDeliveriesTable(ReadableTable[WebhookDeliveriesRow]):
     """
     ``/api/db/webhook_deliveries`` (GET, HEAD).
@@ -1325,6 +1401,7 @@ class Tables:
         "inbox_work_items",
         "instrument_booking_rules",
         "instrument_feeds",
+        "instrument_rates",
         "instrument_readings",
         "instrument_required_training",
         "instrument_service_log",
@@ -1344,6 +1421,7 @@ class Tables:
         "pipeline_runs",
         "project_follows",
         "projects",
+        "reagent_order_prices",
         "reagent_orders",
         "record_field_definitions",
         "record_links",
@@ -1363,6 +1441,7 @@ class Tables:
         "sample_workflow_transitions",
         "sample_workflows",
         "saved_searches",
+        "scheduled_reports",
         "sheet_definition_versions",
         "sheet_definitions",
         "sheet_instances",
@@ -1371,6 +1450,7 @@ class Tables:
         "step_timers",
         "stocktake_items",
         "stocktakes",
+        "supplier_models",
         "webhook_deliveries",
         "webhook_subscriptions",
     )
@@ -1393,6 +1473,7 @@ class Tables:
         self.inbox_work_items = InboxWorkItemsTable(transport)
         self.instrument_booking_rules = InstrumentBookingRulesTable(transport)
         self.instrument_feeds = InstrumentFeedsTable(transport)
+        self.instrument_rates = InstrumentRatesTable(transport)
         self.instrument_readings = InstrumentReadingsTable(transport)
         self.instrument_required_training = InstrumentRequiredTrainingTable(transport)
         self.instrument_service_log = InstrumentServiceLogTable(transport)
@@ -1412,6 +1493,7 @@ class Tables:
         self.pipeline_runs = PipelineRunsTable(transport)
         self.project_follows = ProjectFollowsTable(transport)
         self.projects = ProjectsTable(transport)
+        self.reagent_order_prices = ReagentOrderPricesTable(transport)
         self.reagent_orders = ReagentOrdersTable(transport)
         self.record_field_definitions = RecordFieldDefinitionsTable(transport)
         self.record_links = RecordLinksTable(transport)
@@ -1431,6 +1513,7 @@ class Tables:
         self.sample_workflow_transitions = SampleWorkflowTransitionsTable(transport)
         self.sample_workflows = SampleWorkflowsTable(transport)
         self.saved_searches = SavedSearchesTable(transport)
+        self.scheduled_reports = ScheduledReportsTable(transport)
         self.sheet_definition_versions = SheetDefinitionVersionsTable(transport)
         self.sheet_definitions = SheetDefinitionsTable(transport)
         self.sheet_instances = SheetInstancesTable(transport)
@@ -1439,6 +1522,7 @@ class Tables:
         self.step_timers = StepTimersTable(transport)
         self.stocktake_items = StocktakeItemsTable(transport)
         self.stocktakes = StocktakesTable(transport)
+        self.supplier_models = SupplierModelsTable(transport)
         self.webhook_deliveries = WebhookDeliveriesTable(transport)
         self.webhook_subscriptions = WebhookSubscriptionsTable(transport)
 
@@ -1472,6 +1556,7 @@ class AsyncTables:
         "inbox_work_items",
         "instrument_booking_rules",
         "instrument_feeds",
+        "instrument_rates",
         "instrument_readings",
         "instrument_required_training",
         "instrument_service_log",
@@ -1491,6 +1576,7 @@ class AsyncTables:
         "pipeline_runs",
         "project_follows",
         "projects",
+        "reagent_order_prices",
         "reagent_orders",
         "record_field_definitions",
         "record_links",
@@ -1510,6 +1596,7 @@ class AsyncTables:
         "sample_workflow_transitions",
         "sample_workflows",
         "saved_searches",
+        "scheduled_reports",
         "sheet_definition_versions",
         "sheet_definitions",
         "sheet_instances",
@@ -1518,6 +1605,7 @@ class AsyncTables:
         "step_timers",
         "stocktake_items",
         "stocktakes",
+        "supplier_models",
         "webhook_deliveries",
         "webhook_subscriptions",
     )
@@ -1540,6 +1628,7 @@ class AsyncTables:
         self.inbox_work_items = AsyncInboxWorkItemsTable(transport)
         self.instrument_booking_rules = AsyncInstrumentBookingRulesTable(transport)
         self.instrument_feeds = AsyncInstrumentFeedsTable(transport)
+        self.instrument_rates = AsyncInstrumentRatesTable(transport)
         self.instrument_readings = AsyncInstrumentReadingsTable(transport)
         self.instrument_required_training = AsyncInstrumentRequiredTrainingTable(transport)
         self.instrument_service_log = AsyncInstrumentServiceLogTable(transport)
@@ -1559,6 +1648,7 @@ class AsyncTables:
         self.pipeline_runs = AsyncPipelineRunsTable(transport)
         self.project_follows = AsyncProjectFollowsTable(transport)
         self.projects = AsyncProjectsTable(transport)
+        self.reagent_order_prices = AsyncReagentOrderPricesTable(transport)
         self.reagent_orders = AsyncReagentOrdersTable(transport)
         self.record_field_definitions = AsyncRecordFieldDefinitionsTable(transport)
         self.record_links = AsyncRecordLinksTable(transport)
@@ -1578,6 +1668,7 @@ class AsyncTables:
         self.sample_workflow_transitions = AsyncSampleWorkflowTransitionsTable(transport)
         self.sample_workflows = AsyncSampleWorkflowsTable(transport)
         self.saved_searches = AsyncSavedSearchesTable(transport)
+        self.scheduled_reports = AsyncScheduledReportsTable(transport)
         self.sheet_definition_versions = AsyncSheetDefinitionVersionsTable(transport)
         self.sheet_definitions = AsyncSheetDefinitionsTable(transport)
         self.sheet_instances = AsyncSheetInstancesTable(transport)
@@ -1586,6 +1677,7 @@ class AsyncTables:
         self.step_timers = AsyncStepTimersTable(transport)
         self.stocktake_items = AsyncStocktakeItemsTable(transport)
         self.stocktakes = AsyncStocktakesTable(transport)
+        self.supplier_models = AsyncSupplierModelsTable(transport)
         self.webhook_deliveries = AsyncWebhookDeliveriesTable(transport)
         self.webhook_subscriptions = AsyncWebhookSubscriptionsTable(transport)
 

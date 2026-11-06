@@ -4,7 +4,7 @@
 """One typed method per public RPC."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from sheetbase._http import AsyncHttpTransport, HttpTransport
 from sheetbase._unset import UNSET, Unset
@@ -115,9 +115,11 @@ class Rpc:
         "create_sheet_instance",
         "create_sheet_instance_from_definition",
         "create_shipment",
+        "create_supplier_model",
         "create_webhook_subscription",
         "delete_block",
         "delete_saved_search",
+        "delete_scheduled_report",
         "delete_webhook_subscription",
         "duplicate_sheet_instance",
         "duplicate_sheet_instance_block",
@@ -172,6 +174,9 @@ class Rpc:
         "replay_webhook_deliveries",
         "replay_webhook_delivery",
         "report_agent_workflow_usage",
+        "report_project_status",
+        "report_spend_lines",
+        "report_usage_lines",
         "request_reagent_order",
         "resolve_sheet_instance_row_identity",
         "resolve_stocktake_item",
@@ -182,19 +187,25 @@ class Rpc:
         "rotate_webhook_secret",
         "run_saved_search",
         "save_sample_workflow",
+        "save_scheduled_report",
         "save_search",
         "search",
         "search_sheet_records",
+        "send_scheduled_report_now",
         "set_field_spec_limits",
         "set_idp_group_mapping",
         "set_instrument_booking_rules",
         "set_instrument_feed_limits",
         "set_instrument_out_of_service",
+        "set_instrument_rate",
         "set_material_safety",
         "set_member_absence",
+        "set_model_supplier_list",
+        "set_reagent_order_price",
         "set_record_favourite",
         "set_recurring_schedule_paused",
         "set_sample_workflow_status",
+        "set_scheduled_report_active",
         "snapshot_dataset",
         "start_step_timer",
         "start_stocktake",
@@ -1040,6 +1051,32 @@ class Rpc:
             body["p_project_id"] = project_id
         return self._call("create_shipment", body)  # type: ignore[no-any-return]
 
+    def create_supplier_model(
+        self,
+        *,
+        key: str,
+        name: str,
+        prefix: str,
+        description: str,
+        fields: List[Dict[str, "JsonValue"]],
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Create the ready-made Supplier model
+
+        Creates a record model for suppliers with the fields given and ticks it as a supplier list. Needs permission to edit the schema and a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/create_supplier_model``
+        """
+        body: Dict[str, Any] = {}
+        body["p_key"] = key
+        body["p_name"] = name
+        body["p_prefix"] = prefix
+        body["p_description"] = description
+        body["p_fields"] = fields
+        return self._call("create_supplier_model", body)  # type: ignore[no-any-return]
+
     def create_webhook_subscription(
         self,
         *,
@@ -1120,6 +1157,20 @@ class Rpc:
         body: Dict[str, Any] = {}
         body["p_id"] = id
         return self._call("delete_saved_search", body)  # type: ignore[no-any-return]
+
+    def delete_scheduled_report(self, *, id: str) -> None:
+        """
+        Delete a scheduled report
+
+        Nothing already sent is taken back. Needs a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/delete_scheduled_report``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return self._call("delete_scheduled_report", body)  # type: ignore[no-any-return]
 
     def delete_webhook_subscription(
         self,
@@ -2379,6 +2430,75 @@ class Rpc:
         body["p_cost_microusd"] = cost_microusd
         return self._call("report_agent_workflow_usage", body)  # type: ignore[no-any-return]
 
+    def report_project_status(
+        self,
+        *,
+        workspace_id: str,
+        from_: str,
+        to: str,
+        project_id: Union[Optional[str], Unset] = UNSET,
+    ) -> List[Dict[str, "JsonValue"]]:
+        """
+        Experiments by state for a period
+
+        One row per project: experiments by state, what is late, what finished in the period, and orders still open. Needs a personal token.
+
+        Scopes: facility:read.
+
+        ``POST /api/db/rpc/report_project_status``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_from"] = from_
+        body["p_to"] = to
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        return self._call("report_project_status", body)  # type: ignore[no-any-return]
+
+    def report_spend_lines(
+        self,
+        *,
+        workspace_id: str,
+        from_: str,
+        to: str,
+    ) -> List[Dict[str, "JsonValue"]]:
+        """
+        Spend on orders for a period
+
+        One row per reagent order placed in the half-open period `[p_from, p_to)`: material, supplier, project, quantity, when it was ordered, and its price and currency. Runs with the caller’s rights, so a caller who may not see prices gets no price. Totals are per currency; there are no exchange rates. Needs a personal token.
+
+        Scopes: facility:read.
+
+        ``POST /api/db/rpc/report_spend_lines``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_from"] = from_
+        body["p_to"] = to
+        return self._call("report_spend_lines", body)  # type: ignore[no-any-return]
+
+    def report_usage_lines(
+        self,
+        *,
+        workspace_id: str,
+        from_: str,
+        to: str,
+    ) -> List[Dict[str, "JsonValue"]]:
+        """
+        Instrument bookings for a period
+
+        One row per booking in the half-open period, with hours clipped to the period (cancelled bookings are left out) and the instrument’s rate and currency. Utilisation is booked hours over open hours: the weekdays in the period times the hours an instrument is open on a weekday. Needs a personal token.
+
+        Scopes: facility:read.
+
+        ``POST /api/db/rpc/report_usage_lines``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_from"] = from_
+        body["p_to"] = to
+        return self._call("report_usage_lines", body)  # type: ignore[no-any-return]
+
     def request_reagent_order(
         self,
         *,
@@ -2590,6 +2710,56 @@ class Rpc:
         body["p_definition"] = definition
         return self._call("save_sample_workflow", body)  # type: ignore[no-any-return]
 
+    def save_scheduled_report(
+        self,
+        *,
+        name: str,
+        kind: Literal["instrument_usage", "spend", "project_status"],
+        period: Literal["previous_week", "previous_month", "last_7_days", "last_30_days"],
+        frequency: Literal["daily", "weekly", "monthly"],
+        recipient_user_ids: List[str],
+        id: Union[Optional[str], Unset] = UNSET,
+        project_id: Union[Optional[str], Unset] = UNSET,
+        open_hours: Union[float, Unset] = UNSET,
+        weekday: Union[int, Unset] = UNSET,
+        month_day: Union[int, Unset] = UNSET,
+        send_hour: Union[int, Unset] = UNSET,
+        time_zone: Union[str, Unset] = UNSET,
+        active: Union[bool, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Schedule a report, or change a schedule
+
+        Emails a report on a rhythm with the detail attached as CSV. Pass an existing `p_id` to change a schedule. Recipients must be members of the workspace and are checked again at send time. Needs permission to edit the schema, or to manage instruments for the usage report, and a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/save_scheduled_report``
+        """
+        body: Dict[str, Any] = {}
+        body["p_name"] = name
+        body["p_kind"] = kind
+        body["p_period"] = period
+        body["p_frequency"] = frequency
+        body["p_recipient_user_ids"] = recipient_user_ids
+        if not isinstance(id, Unset):
+            body["p_id"] = id
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        if not isinstance(open_hours, Unset):
+            body["p_open_hours"] = open_hours
+        if not isinstance(weekday, Unset):
+            body["p_weekday"] = weekday
+        if not isinstance(month_day, Unset):
+            body["p_month_day"] = month_day
+        if not isinstance(send_hour, Unset):
+            body["p_send_hour"] = send_hour
+        if not isinstance(time_zone, Unset):
+            body["p_time_zone"] = time_zone
+        if not isinstance(active, Unset):
+            body["p_active"] = active
+        return self._call("save_scheduled_report", body)  # type: ignore[no-any-return]
+
     def save_search(
         self,
         *,
@@ -2688,6 +2858,20 @@ class Rpc:
         if not isinstance(include_archived, Unset):
             body["p_include_archived"] = include_archived
         return self._call("search_sheet_records", body)  # type: ignore[no-any-return]
+
+    def send_scheduled_report_now(self, *, id: str) -> None:
+        """
+        Send a scheduled report now
+
+        Queues the report; it is sent within a minute. Needs a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/send_scheduled_report_now``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return self._call("send_scheduled_report_now", body)  # type: ignore[no-any-return]
 
     def set_field_spec_limits(
         self,
@@ -2827,6 +3011,29 @@ class Rpc:
             body["p_work_done"] = work_done
         return self._call("set_instrument_out_of_service", body)  # type: ignore[no-any-return]
 
+    def set_instrument_rate(
+        self,
+        *,
+        instrument_id: str,
+        rate_per_hour: Optional[float],
+        currency: Union[Optional[str], Unset] = UNSET,
+    ) -> None:
+        """
+        Set or remove an instrument’s recharge rate
+
+        What each booked hour is charged to the person or project that books it. A null rate stops charging. Needs permission to manage instruments and a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/set_instrument_rate``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        body["p_rate_per_hour"] = rate_per_hour
+        if not isinstance(currency, Unset):
+            body["p_currency"] = currency
+        return self._call("set_instrument_rate", body)  # type: ignore[no-any-return]
+
     def set_material_safety(
         self,
         *,
@@ -2884,6 +3091,44 @@ class Rpc:
             body["p_user_id"] = user_id
         return self._call("set_member_absence", body)  # type: ignore[no-any-return]
 
+    def set_model_supplier_list(self, *, model_key: str, enabled: bool) -> None:
+        """
+        Tick or untick a model as the supplier list
+
+        Marks the records of a model as the companies the lab buys from, so an order can name one as its supplier. Needs permission to edit the schema and a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/set_model_supplier_list``
+        """
+        body: Dict[str, Any] = {}
+        body["p_model_key"] = model_key
+        body["p_enabled"] = enabled
+        return self._call("set_model_supplier_list", body)  # type: ignore[no-any-return]
+
+    def set_reagent_order_price(
+        self,
+        *,
+        order_id: str,
+        total_price: Optional[float],
+        currency: Union[Optional[str], Unset] = UNSET,
+    ) -> None:
+        """
+        Set or remove the price of an order
+
+        Records what a reagent order cost. A null price removes it. Needs permission to place orders and a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/set_reagent_order_price``
+        """
+        body: Dict[str, Any] = {}
+        body["p_order_id"] = order_id
+        body["p_total_price"] = total_price
+        if not isinstance(currency, Unset):
+            body["p_currency"] = currency
+        return self._call("set_reagent_order_price", body)  # type: ignore[no-any-return]
+
     def set_record_favourite(
         self,
         *,
@@ -2940,6 +3185,21 @@ class Rpc:
         body["p_workflow_id"] = workflow_id
         body["p_status"] = status
         return self._call("set_sample_workflow_status", body)  # type: ignore[no-any-return]
+
+    def set_scheduled_report_active(self, *, id: str, active: bool) -> None:
+        """
+        Pause or resume a scheduled report
+
+        Needs the same permission as scheduling it, and a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/set_scheduled_report_active``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        body["p_active"] = active
+        return self._call("set_scheduled_report_active", body)  # type: ignore[no-any-return]
 
     def snapshot_dataset(
         self,
@@ -3347,9 +3607,11 @@ class AsyncRpc:
         "create_sheet_instance",
         "create_sheet_instance_from_definition",
         "create_shipment",
+        "create_supplier_model",
         "create_webhook_subscription",
         "delete_block",
         "delete_saved_search",
+        "delete_scheduled_report",
         "delete_webhook_subscription",
         "duplicate_sheet_instance",
         "duplicate_sheet_instance_block",
@@ -3404,6 +3666,9 @@ class AsyncRpc:
         "replay_webhook_deliveries",
         "replay_webhook_delivery",
         "report_agent_workflow_usage",
+        "report_project_status",
+        "report_spend_lines",
+        "report_usage_lines",
         "request_reagent_order",
         "resolve_sheet_instance_row_identity",
         "resolve_stocktake_item",
@@ -3414,19 +3679,25 @@ class AsyncRpc:
         "rotate_webhook_secret",
         "run_saved_search",
         "save_sample_workflow",
+        "save_scheduled_report",
         "save_search",
         "search",
         "search_sheet_records",
+        "send_scheduled_report_now",
         "set_field_spec_limits",
         "set_idp_group_mapping",
         "set_instrument_booking_rules",
         "set_instrument_feed_limits",
         "set_instrument_out_of_service",
+        "set_instrument_rate",
         "set_material_safety",
         "set_member_absence",
+        "set_model_supplier_list",
+        "set_reagent_order_price",
         "set_record_favourite",
         "set_recurring_schedule_paused",
         "set_sample_workflow_status",
+        "set_scheduled_report_active",
         "snapshot_dataset",
         "start_step_timer",
         "start_stocktake",
@@ -4272,6 +4543,32 @@ class AsyncRpc:
             body["p_project_id"] = project_id
         return await self._call("create_shipment", body)  # type: ignore[no-any-return]
 
+    async def create_supplier_model(
+        self,
+        *,
+        key: str,
+        name: str,
+        prefix: str,
+        description: str,
+        fields: List[Dict[str, "JsonValue"]],
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Create the ready-made Supplier model
+
+        Creates a record model for suppliers with the fields given and ticks it as a supplier list. Needs permission to edit the schema and a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/create_supplier_model``
+        """
+        body: Dict[str, Any] = {}
+        body["p_key"] = key
+        body["p_name"] = name
+        body["p_prefix"] = prefix
+        body["p_description"] = description
+        body["p_fields"] = fields
+        return await self._call("create_supplier_model", body)  # type: ignore[no-any-return]
+
     async def create_webhook_subscription(
         self,
         *,
@@ -4352,6 +4649,20 @@ class AsyncRpc:
         body: Dict[str, Any] = {}
         body["p_id"] = id
         return await self._call("delete_saved_search", body)  # type: ignore[no-any-return]
+
+    async def delete_scheduled_report(self, *, id: str) -> None:
+        """
+        Delete a scheduled report
+
+        Nothing already sent is taken back. Needs a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/delete_scheduled_report``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return await self._call("delete_scheduled_report", body)  # type: ignore[no-any-return]
 
     async def delete_webhook_subscription(
         self,
@@ -5611,6 +5922,75 @@ class AsyncRpc:
         body["p_cost_microusd"] = cost_microusd
         return await self._call("report_agent_workflow_usage", body)  # type: ignore[no-any-return]
 
+    async def report_project_status(
+        self,
+        *,
+        workspace_id: str,
+        from_: str,
+        to: str,
+        project_id: Union[Optional[str], Unset] = UNSET,
+    ) -> List[Dict[str, "JsonValue"]]:
+        """
+        Experiments by state for a period
+
+        One row per project: experiments by state, what is late, what finished in the period, and orders still open. Needs a personal token.
+
+        Scopes: facility:read.
+
+        ``POST /api/db/rpc/report_project_status``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_from"] = from_
+        body["p_to"] = to
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        return await self._call("report_project_status", body)  # type: ignore[no-any-return]
+
+    async def report_spend_lines(
+        self,
+        *,
+        workspace_id: str,
+        from_: str,
+        to: str,
+    ) -> List[Dict[str, "JsonValue"]]:
+        """
+        Spend on orders for a period
+
+        One row per reagent order placed in the half-open period `[p_from, p_to)`: material, supplier, project, quantity, when it was ordered, and its price and currency. Runs with the caller’s rights, so a caller who may not see prices gets no price. Totals are per currency; there are no exchange rates. Needs a personal token.
+
+        Scopes: facility:read.
+
+        ``POST /api/db/rpc/report_spend_lines``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_from"] = from_
+        body["p_to"] = to
+        return await self._call("report_spend_lines", body)  # type: ignore[no-any-return]
+
+    async def report_usage_lines(
+        self,
+        *,
+        workspace_id: str,
+        from_: str,
+        to: str,
+    ) -> List[Dict[str, "JsonValue"]]:
+        """
+        Instrument bookings for a period
+
+        One row per booking in the half-open period, with hours clipped to the period (cancelled bookings are left out) and the instrument’s rate and currency. Utilisation is booked hours over open hours: the weekdays in the period times the hours an instrument is open on a weekday. Needs a personal token.
+
+        Scopes: facility:read.
+
+        ``POST /api/db/rpc/report_usage_lines``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_from"] = from_
+        body["p_to"] = to
+        return await self._call("report_usage_lines", body)  # type: ignore[no-any-return]
+
     async def request_reagent_order(
         self,
         *,
@@ -5822,6 +6202,56 @@ class AsyncRpc:
         body["p_definition"] = definition
         return await self._call("save_sample_workflow", body)  # type: ignore[no-any-return]
 
+    async def save_scheduled_report(
+        self,
+        *,
+        name: str,
+        kind: Literal["instrument_usage", "spend", "project_status"],
+        period: Literal["previous_week", "previous_month", "last_7_days", "last_30_days"],
+        frequency: Literal["daily", "weekly", "monthly"],
+        recipient_user_ids: List[str],
+        id: Union[Optional[str], Unset] = UNSET,
+        project_id: Union[Optional[str], Unset] = UNSET,
+        open_hours: Union[float, Unset] = UNSET,
+        weekday: Union[int, Unset] = UNSET,
+        month_day: Union[int, Unset] = UNSET,
+        send_hour: Union[int, Unset] = UNSET,
+        time_zone: Union[str, Unset] = UNSET,
+        active: Union[bool, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Schedule a report, or change a schedule
+
+        Emails a report on a rhythm with the detail attached as CSV. Pass an existing `p_id` to change a schedule. Recipients must be members of the workspace and are checked again at send time. Needs permission to edit the schema, or to manage instruments for the usage report, and a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/save_scheduled_report``
+        """
+        body: Dict[str, Any] = {}
+        body["p_name"] = name
+        body["p_kind"] = kind
+        body["p_period"] = period
+        body["p_frequency"] = frequency
+        body["p_recipient_user_ids"] = recipient_user_ids
+        if not isinstance(id, Unset):
+            body["p_id"] = id
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        if not isinstance(open_hours, Unset):
+            body["p_open_hours"] = open_hours
+        if not isinstance(weekday, Unset):
+            body["p_weekday"] = weekday
+        if not isinstance(month_day, Unset):
+            body["p_month_day"] = month_day
+        if not isinstance(send_hour, Unset):
+            body["p_send_hour"] = send_hour
+        if not isinstance(time_zone, Unset):
+            body["p_time_zone"] = time_zone
+        if not isinstance(active, Unset):
+            body["p_active"] = active
+        return await self._call("save_scheduled_report", body)  # type: ignore[no-any-return]
+
     async def save_search(
         self,
         *,
@@ -5920,6 +6350,20 @@ class AsyncRpc:
         if not isinstance(include_archived, Unset):
             body["p_include_archived"] = include_archived
         return await self._call("search_sheet_records", body)  # type: ignore[no-any-return]
+
+    async def send_scheduled_report_now(self, *, id: str) -> None:
+        """
+        Send a scheduled report now
+
+        Queues the report; it is sent within a minute. Needs a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/send_scheduled_report_now``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return await self._call("send_scheduled_report_now", body)  # type: ignore[no-any-return]
 
     async def set_field_spec_limits(
         self,
@@ -6059,6 +6503,29 @@ class AsyncRpc:
             body["p_work_done"] = work_done
         return await self._call("set_instrument_out_of_service", body)  # type: ignore[no-any-return]
 
+    async def set_instrument_rate(
+        self,
+        *,
+        instrument_id: str,
+        rate_per_hour: Optional[float],
+        currency: Union[Optional[str], Unset] = UNSET,
+    ) -> None:
+        """
+        Set or remove an instrument’s recharge rate
+
+        What each booked hour is charged to the person or project that books it. A null rate stops charging. Needs permission to manage instruments and a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/set_instrument_rate``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        body["p_rate_per_hour"] = rate_per_hour
+        if not isinstance(currency, Unset):
+            body["p_currency"] = currency
+        return await self._call("set_instrument_rate", body)  # type: ignore[no-any-return]
+
     async def set_material_safety(
         self,
         *,
@@ -6116,6 +6583,44 @@ class AsyncRpc:
             body["p_user_id"] = user_id
         return await self._call("set_member_absence", body)  # type: ignore[no-any-return]
 
+    async def set_model_supplier_list(self, *, model_key: str, enabled: bool) -> None:
+        """
+        Tick or untick a model as the supplier list
+
+        Marks the records of a model as the companies the lab buys from, so an order can name one as its supplier. Needs permission to edit the schema and a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/set_model_supplier_list``
+        """
+        body: Dict[str, Any] = {}
+        body["p_model_key"] = model_key
+        body["p_enabled"] = enabled
+        return await self._call("set_model_supplier_list", body)  # type: ignore[no-any-return]
+
+    async def set_reagent_order_price(
+        self,
+        *,
+        order_id: str,
+        total_price: Optional[float],
+        currency: Union[Optional[str], Unset] = UNSET,
+    ) -> None:
+        """
+        Set or remove the price of an order
+
+        Records what a reagent order cost. A null price removes it. Needs permission to place orders and a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/set_reagent_order_price``
+        """
+        body: Dict[str, Any] = {}
+        body["p_order_id"] = order_id
+        body["p_total_price"] = total_price
+        if not isinstance(currency, Unset):
+            body["p_currency"] = currency
+        return await self._call("set_reagent_order_price", body)  # type: ignore[no-any-return]
+
     async def set_record_favourite(
         self,
         *,
@@ -6172,6 +6677,21 @@ class AsyncRpc:
         body["p_workflow_id"] = workflow_id
         body["p_status"] = status
         return await self._call("set_sample_workflow_status", body)  # type: ignore[no-any-return]
+
+    async def set_scheduled_report_active(self, *, id: str, active: bool) -> None:
+        """
+        Pause or resume a scheduled report
+
+        Needs the same permission as scheduling it, and a personal token.
+
+        Scopes: facility:write.
+
+        ``POST /api/db/rpc/set_scheduled_report_active``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        body["p_active"] = active
+        return await self._call("set_scheduled_report_active", body)  # type: ignore[no-any-return]
 
     async def snapshot_dataset(
         self,

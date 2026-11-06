@@ -21,6 +21,12 @@ import { Muted } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
 import { Tooltip } from '#/components/ui/tooltip'
 import { BoxOccupancy } from '#/components/settings/box-occupancy'
+import {
+  OutOfRangeNotice,
+  StorageReadingsSection,
+  readingKind,
+  useOutOfRangeCounts,
+} from '#/components/storage/storage-readings'
 import { SettingsBody } from '#/components/settings/settings-page'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
@@ -105,6 +111,7 @@ export function StorageLocationsPanel({
     )
   }, [expanded, data])
   const selected = (selectedId && data?.byId.get(selectedId)) || null
+  const out = useOutOfRangeCounts(data)
 
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: storageKeys.all(workspaceId) })
@@ -170,6 +177,7 @@ export function StorageLocationsPanel({
             </label>
           ) : null}
         </div>
+        <OutOfRangeNotice tree={data} onSelect={setSelectedId} />
         {sites.length === 0 ? (
           <EmptyState
             icon="box"
@@ -206,6 +214,7 @@ export function StorageLocationsPanel({
                 open={open}
                 showArchived={showArchived}
                 selectedId={selectedId}
+                outOfRange={out}
                 onSelect={setSelectedId}
                 onToggle={(id) => {
                   const next = new Set(open)
@@ -217,6 +226,14 @@ export function StorageLocationsPanel({
             ))}
           </div>
         )}
+        {selected && readingKind(selected) ? (
+          <StorageReadingsSection
+            key={selected.id}
+            node={selected}
+            canLog={canManage}
+            canSetLimits={canManage}
+          />
+        ) : null}
       </SettingsBody>
       <aside
         aria-label={t('settings.storageLocationsPanel.locationDetailsAria')}
@@ -273,6 +290,7 @@ function TreeBranch({
   open,
   showArchived,
   selectedId,
+  outOfRange,
   onSelect,
   onToggle,
 }: {
@@ -282,9 +300,12 @@ function TreeBranch({
   open: ReadonlySet<string>
   showArchived: boolean
   selectedId: string | null
+  outOfRange: ReturnType<typeof useOutOfRangeCounts>
   onSelect: (id: string) => void
   onToggle: (id: string) => void
 }) {
+  const outBelow = outOfRange.counts.get(node.id) ?? 0
+  const outHere = outOfRange.own.has(node.id)
   const children = tree
     .childrenOf(node)
     .filter((c) => showArchived || !c.archivedAt)
@@ -346,6 +367,13 @@ function TreeBranch({
           className="shrink-0 text-fg-muted"
         />
         <span className="min-w-0 flex-1 truncate">{node.name}</span>
+        {outBelow > 0 ? (
+          <Status tone="bad">
+            {outHere
+              ? t('settings.storageReadings.treeOut')
+              : t('settings.storageReadings.treeOutBelow', { count: outBelow })}
+          </Status>
+        ) : null}
         {node.archivedAt ? (
           <span className="text-label text-fg-muted">
             {t('settings.storageLocationsPanel.archived')}
@@ -371,6 +399,7 @@ function TreeBranch({
               open={open}
               showArchived={showArchived}
               selectedId={selectedId}
+              outOfRange={outOfRange}
               onSelect={onSelect}
               onToggle={onToggle}
             />

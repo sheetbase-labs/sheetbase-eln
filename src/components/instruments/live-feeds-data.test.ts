@@ -21,7 +21,11 @@ const point = (minutesAgo: number, avg: number, spread = 0): SeriesPoint => ({
 
 const feed: FeedRow = {
   id: 'f1',
+  ownerId: 'i1',
   instrumentId: 'i1',
+  storageUnitId: null,
+  storageRoomId: null,
+  outOfRangeSince: null,
   name: 'Chamber, rear',
   unit: '°C',
   lowLimit: null,

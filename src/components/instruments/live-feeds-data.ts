@@ -14,7 +14,11 @@ export type LimitState = 'ok' | 'low' | 'high'
 
 export interface FeedRow {
   id: string
-  instrumentId: string
+  /** The instrument, storage unit or room the feed belongs to. */
+  ownerId: string
+  instrumentId: string | null
+  storageUnitId: string | null
+  storageRoomId: string | null
   name: string
   unit: string | null
   lowLimit: number | null
@@ -23,11 +27,15 @@ export interface FeedRow {
   lastValue: number | null
   lastAt: string | null
   readingCount: number
+  outOfRangeSince: string | null
 }
 
 interface FeedWire {
   id: string
-  instrument_id: string
+  instrument_id: string | null
+  storage_unit_id: string | null
+  storage_room_id: string | null
+  out_of_range_since: string | null
   name: string
   unit: string | null
   low_limit: number | null
@@ -74,12 +82,16 @@ export const liveFeedQueryKeys = {
 }
 
 const FEED_FIELDS =
-  'id,instrument_id,name,unit,low_limit,high_limit,limit_state,last_value,last_at,reading_count'
+  'id,instrument_id,storage_unit_id,storage_room_id,name,unit,low_limit,high_limit,limit_state,last_value,last_at,reading_count,out_of_range_since'
 
 function toFeed(row: FeedWire): FeedRow {
   return {
     id: row.id,
+    ownerId: (row.instrument_id ?? row.storage_unit_id ?? row.storage_room_id)!,
     instrumentId: row.instrument_id,
+    storageUnitId: row.storage_unit_id,
+    storageRoomId: row.storage_room_id,
+    outOfRangeSince: row.out_of_range_since,
     name: row.name,
     unit: row.unit,
     lowLimit: row.low_limit,
@@ -108,6 +120,80 @@ export function useInstrumentFeeds(
     // Live: ask again every few seconds while the page is open and visible.
     refetchInterval: 3000,
     staleTime: 1000,
+  })
+}
+
+export type StoragePlaceKind = 'unit' | 'room'
+
+/** The measurements kept for a freezer, other storage unit or room (migration 0090). */
+export function useStorageFeeds(
+  kind: StoragePlaceKind,
+  placeId: string,
+  client: DataClient = notebookDataClient,
+) {
+  const column = kind === 'unit' ? 'storage_unit_id' : 'storage_room_id'
+  return useQuery({
+    queryKey: liveFeedQueryKeys.feeds(placeId),
+    enabled: placeId.length > 0,
+    queryFn: () =>
+      client
+        .list<FeedWire>(
+          'instrument_feeds',
+          `?select=${FEED_FIELDS}&${column}=eq.${encodeURIComponent(placeId)}&order=name.asc&limit=100`,
+        )
+        .then((rows) => rows.map(toFeed)),
+    refetchInterval: 10_000,
+    staleTime: 1000,
+  })
+}
+
+/** Every freezer and room measurement that is outside its limits right now. */
+export const outOfRangeQueryKey = [
+  'ui-port',
+  'storage',
+  'out-of-range-feeds',
+] as const
+
+export function useOutOfRangeStorageFeeds(
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: outOfRangeQueryKey,
+    queryFn: () =>
+      client
+        .list<FeedWire>(
+          'instrument_feeds',
+          `?select=${FEED_FIELDS}&limit_state=neq.ok&or=(storage_unit_id.not.is.null,storage_room_id.not.is.null)&order=out_of_range_since.asc&limit=200`,
+        )
+        .then((rows) => rows.map(toFeed)),
+    refetchInterval: 30_000,
+    staleTime: 5000,
+  })
+}
+
+/** Log a reading by hand, for example a daily temperature check. */
+export async function logStorageReading(
+  input: {
+    kind: StoragePlaceKind
+    placeId: string
+    feed: string
+    value: number
+    unit?: string | null
+    at?: string | null
+  },
+  client: DataClient = notebookDataClient,
+): Promise<{ stored: number; feeds: number }> {
+  return client.rpc('record_storage_readings', {
+    p_unit_id: input.kind === 'unit' ? input.placeId : null,
+    p_room_id: input.kind === 'room' ? input.placeId : null,
+    p_readings: [
+      {
+        feed: input.feed.trim(),
+        value: input.value,
+        ...(input.unit?.trim() ? { unit: input.unit.trim() } : {}),
+        ...(input.at ? { at: input.at } : {}),
+      },
+    ],
   })
 }
 

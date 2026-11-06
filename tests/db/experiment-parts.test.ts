@@ -666,3 +666,65 @@ describe('a reminder on the day of a part', () => {
     expect(one.id).toBeTruthy()
   })
 })
+
+describe('templates with parts', () => {
+  it('makes the parts and puts each block in its part when an experiment starts from the template', async () => {
+    const day1 = crypto.randomUUID()
+    const day2 = crypto.randomUUID()
+    const text = (id: string, partId: string, order: number, word: string) => ({
+      id,
+      kind: 'narrative',
+      partId,
+      order,
+      blockType: 'rich_text',
+      payload: {
+        doc: {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: word }] },
+          ],
+        },
+      },
+    })
+    const configuration = {
+      formatVersion: 1,
+      parameters: [],
+      parts: [
+        { id: day1, title: 'Seed', dayOffset: 0 },
+        { id: day2, title: 'Dose', dayOffset: 2 },
+      ],
+      placements: [
+        text(crypto.randomUUID(), day1, 1, 'seed'),
+        text(crypto.randomUUID(), day2, 2, 'dose'),
+        text(crypto.randomUUID(), day2, 3, 'wash'),
+      ],
+    }
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,$2,'Two day assay',null,$3::jsonb) result`,
+        [WS, `two_day_${Date.now()}`, JSON.stringify(configuration)],
+      )
+    ).rows[0].result
+    const published = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published')) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+    const made = (
+      await owner.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Assay','[]'::jsonb,$3) result`,
+        [published.id, PROJECT, crypto.randomUUID()],
+      )
+    ).rows[0].result
+    const recordId = made.record.id as string
+    const rows = await parts(recordId)
+    expect(
+      rows.map((row) => [row.title, row.day_offset, row.block_count]),
+    ).toEqual([
+      ['Seed', 0, 1],
+      ['Dose', 2, 2],
+    ])
+    expect(rows[0].status).toBe('now')
+  })
+})

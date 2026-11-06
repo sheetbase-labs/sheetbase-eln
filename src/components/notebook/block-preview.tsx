@@ -459,6 +459,10 @@ function LinkedRecordPreview({ payload }: { payload: unknown }) {
   const label = asString(obj.label) ?? ''
   const linkType = asString(obj.linkType) ?? 'general'
   const targetId = asString(obj.targetId) ?? ''
+  const partNumber =
+    typeof obj.partNumber === 'number' && obj.partNumber >= 1
+      ? obj.partNumber
+      : null
   const datasetVersionId = asString(obj.datasetVersionId)
   const linkedIcon = LINKED_RECORD_ICONS[targetKind] ?? 'link'
   const openTo = targetId
@@ -466,7 +470,9 @@ function LinkedRecordPreview({ payload }: { payload: unknown }) {
       ? datasetVersionId
         ? datasetVersionPath(targetId, datasetVersionId)
         : datasetPath(targetId)
-      : recordDestination(targetKind, targetId)
+      : partNumber
+        ? `/experiments/${targetId}/notebook/${partNumber}`
+        : recordDestination(targetKind, targetId)
     : null
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -482,6 +488,11 @@ function LinkedRecordPreview({ payload }: { payload: unknown }) {
           {targetIdentifier ? (
             <span className="ml-1 font-mono text-fg-muted">
               {targetIdentifier}
+            </span>
+          ) : null}
+          {partNumber ? (
+            <span className="ml-1 text-fg-muted">
+              › {t('notebook.parts.partNumber', { number: String(partNumber) })}
             </span>
           ) : null}
         </span>

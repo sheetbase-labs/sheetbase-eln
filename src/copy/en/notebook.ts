@@ -2962,6 +2962,7 @@ export const notebook = {
     couldNotChange: 'Could not change the part. Try again.',
     upNextTitle: 'Up next: Part {number}',
     upNextBody: 'Opens after Part {previous}. You can read it now.',
+    partNumber: 'Part {number}',
     filterLabel: 'Part',
     filterAll: 'All parts',
     partColumn: 'Part',

@@ -138,7 +138,6 @@ export function DirectorySyncSection({
         <Muted>
           {t('people.directorySync.summary', {
             count: summary.peopleManaged,
-            managed: summary.peopleManaged,
             off: summary.peopleSwitchedOff,
           })}
         </Muted>

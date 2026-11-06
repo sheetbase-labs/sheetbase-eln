@@ -13,6 +13,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { PIPELINE_ACTIONS } from '../../src/lib/pipelines/actions'
 import { grantProjectAccess, prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS = '00000000-0000-4000-8000-0000000090a0'
@@ -560,5 +561,308 @@ describe('facility credential scopes', () => {
     expect(def).toContain('facility:read')
     expect(def).toContain('facility:write')
     expect(def).not.toContain('facility:admin')
+  })
+})
+
+describe('money proposals from agents', () => {
+  async function propose(
+    client: Client,
+    operation: Record<string, unknown>,
+    key: string,
+  ) {
+    const { rows } = await client.query(
+      `SELECT * FROM api.propose_agent_operation($1::uuid,$2::text,$3::text,$4::jsonb,$5::jsonb,$6::text)`,
+      [
+        WS,
+        'Money change',
+        'A money change proposed for a person to approve.',
+        JSON.stringify(operation),
+        JSON.stringify({
+          agentId: 'money-helper',
+          tool: { name: 'sheetbase.money', version: '1' },
+          model: { provider: 'local', name: 'scripted' },
+          invocationId: `invocation-${key}`,
+        }),
+        key,
+      ],
+    )
+    return rows[0] as {
+      id: string
+      status: string
+      revision: string
+      approval_policy: string
+      preview: {
+        changes: Array<{ path: string; before: unknown; after: unknown }>
+      }
+    }
+  }
+
+  async function approveAndRun(
+    client: Client,
+    proposal: { id: string; revision: string },
+  ) {
+    const approved = await client.query(
+      `SELECT to_jsonb(api.decide_agent_operation($1,$2,'approve','Reviewed')) result`,
+      [proposal.id, proposal.revision],
+    )
+    const decided = approved.rows[0].result as { revision: string }
+    const executed = await client.query(
+      `SELECT to_jsonb(api.execute_agent_operation($1,$2)) result`,
+      [proposal.id, decided.revision],
+    )
+    return executed.rows[0].result as {
+      status: string
+      result: Record<string, unknown>
+      error_message?: string
+    }
+  }
+
+  async function requestedOrder(title: string): Promise<string> {
+    const steward = await actor(STEWARD)
+    const lot = await material(steward, title)
+    const { rows } = await steward.query(
+      `SELECT * FROM api.request_reagent_order($1, 1)`,
+      [lot],
+    )
+    return rows[0].id
+  }
+
+  it('marks an order placed only after a person approves, and keeps the price out of the result', async () => {
+    const orderId = await requestedOrder('Proposed buffer')
+    const steward = await actor(STEWARD)
+    const owner = await actor(OWNER)
+    const proposal = await propose(
+      steward,
+      {
+        kind: 'reagent_order.mark_ordered',
+        orderId,
+        orderReference: 'PO-AGENT',
+        supplier: 'Sigma',
+        totalPrice: 64.5,
+        currency: 'GBP',
+      },
+      'mark-ordered-1',
+    )
+    expect(proposal.status).toBe('pending')
+    expect(proposal.approval_policy).toBe('human_required')
+    // Nothing has happened yet.
+    const before = await migrator.query(
+      `SELECT status FROM api.reagent_orders WHERE id = $1`,
+      [orderId],
+    )
+    expect(before.rows[0].status).toBe('requested')
+
+    const run = await approveAndRun(owner, proposal)
+    expect(run.status).toBe('succeeded')
+    expect(JSON.stringify(run.result)).not.toMatch(/64\.5/)
+    const after = await migrator.query(
+      `SELECT o.status, p.total_price::text AS price, p.currency
+         FROM api.reagent_orders o JOIN api.reagent_order_prices p ON p.order_id = o.id
+        WHERE o.id = $1`,
+      [orderId],
+    )
+    expect(after.rows[0]).toMatchObject({
+      status: 'ordered',
+      price: '64.50',
+      currency: 'GBP',
+    })
+  })
+
+  it('refuses an order that is not waiting to be placed, and keys it does not know', async () => {
+    const orderId = await requestedOrder('Refused buffer')
+    const steward = await actor(STEWARD)
+    const owner = await actor(OWNER)
+    const first = await propose(
+      steward,
+      { kind: 'reagent_order.mark_ordered', orderId },
+      'mark-ordered-2',
+    )
+    expect((await approveAndRun(owner, first)).status).toBe('succeeded')
+    await expect(
+      propose(
+        steward,
+        { kind: 'reagent_order.mark_ordered', orderId },
+        'mark-ordered-3',
+      ),
+    ).rejects.toMatchObject({ code: '22023' })
+    const second = await requestedOrder('Another buffer')
+    await expect(
+      propose(
+        steward,
+        { kind: 'reagent_order.mark_ordered', orderId: second, secret: 1 },
+        'mark-ordered-4',
+      ),
+    ).rejects.toMatchObject({ code: '22023' })
+    await expect(
+      propose(
+        steward,
+        {
+          kind: 'reagent_order.mark_ordered',
+          orderId: second,
+          totalPrice: 10,
+        },
+        'mark-ordered-5',
+      ),
+    ).rejects.toMatchObject({ code: '22023' })
+  })
+
+  it('sets, shows the price on file to people who may see it, and clears a price', async () => {
+    const orderId = await requestedOrder('Priced buffer')
+    const steward = await actor(STEWARD)
+    const owner = await actor(OWNER)
+    await steward.query(`SELECT api.set_reagent_order_price($1, 20, 'GBP')`, [
+      orderId,
+    ])
+    const set = await propose(
+      steward,
+      {
+        kind: 'reagent_order.set_price',
+        orderId,
+        totalPrice: 25,
+        currency: 'GBP',
+      },
+      'set-price-1',
+    )
+    expect(set.preview.changes[0].before).toMatchObject({ totalPrice: 20 })
+    expect((await approveAndRun(owner, set)).status).toBe('succeeded')
+    const cleared = await propose(
+      steward,
+      { kind: 'reagent_order.set_price', orderId, totalPrice: null },
+      'set-price-2',
+    )
+    expect((await approveAndRun(owner, cleared)).status).toBe('succeeded')
+    const rows = await migrator.query(
+      `SELECT 1 FROM api.reagent_order_prices WHERE order_id = $1`,
+      [orderId],
+    )
+    expect(rows.rowCount).toBe(0)
+  })
+
+  it('needs the standing to place orders and to manage instruments', async () => {
+    const orderId = await requestedOrder('Guarded buffer')
+    const member = await actor(MEMBER)
+    await denied(
+      propose(
+        member,
+        { kind: 'reagent_order.set_price', orderId, totalPrice: null },
+        'guard-1',
+      ),
+    )
+    await denied(
+      propose(
+        member,
+        {
+          kind: 'instrument_rate.set',
+          instrumentId: INSTRUMENT,
+          ratePerHour: 5,
+          currency: 'GBP',
+        },
+        'guard-2',
+      ),
+    )
+  })
+
+  it('sets and clears an instrument rate once a person approves', async () => {
+    const owner = await actor(OWNER)
+    const set = await propose(
+      owner,
+      {
+        kind: 'instrument_rate.set',
+        instrumentId: INSTRUMENT,
+        ratePerHour: 33,
+        currency: 'EUR',
+      },
+      'rate-1',
+    )
+    expect(set.approval_policy).toBe('human_required')
+    expect((await approveAndRun(owner, set)).status).toBe('succeeded')
+    const row = await migrator.query(
+      `SELECT rate_per_hour::text AS rate, currency FROM api.instrument_rates WHERE instrument_id = $1`,
+      [INSTRUMENT],
+    )
+    expect(row.rows[0]).toEqual({ rate: '33.00', currency: 'EUR' })
+    const clear = await propose(
+      owner,
+      {
+        kind: 'instrument_rate.set',
+        instrumentId: INSTRUMENT,
+        ratePerHour: null,
+      },
+      'rate-2',
+    )
+    expect(clear.preview.changes[0].before).toMatchObject({ currency: 'EUR' })
+    expect((await approveAndRun(owner, clear)).status).toBe('succeeded')
+    const gone = await migrator.query(
+      `SELECT 1 FROM api.instrument_rates WHERE instrument_id = $1`,
+      [INSTRUMENT],
+    )
+    expect(gone.rowCount).toBe(0)
+  })
+})
+
+describe('the pipeline action check in the database', () => {
+  async function errors(actions: unknown): Promise<unknown[]> {
+    const { rows } = await migrator.query(
+      `SELECT internal.pipeline_action_errors($1::jsonb) AS errors`,
+      [JSON.stringify(actions)],
+    )
+    return rows[0].errors as unknown[]
+  }
+
+  it('knows the money actions and the row loop', async () => {
+    expect(
+      await errors([
+        {
+          name: 'place',
+          operation: 'mark_reagent_ordered',
+          mode: 'propose',
+          forEach: { $ref: 'previous' },
+          arguments: { p_order_id: { $ref: 'row.order_id' } },
+        },
+        {
+          name: 'rates',
+          operation: 'set_instrument_rate',
+          arguments: {
+            p_instrument_id: INSTRUMENT,
+            p_rate_per_hour: 12,
+            p_currency: 'GBP',
+          },
+        },
+        {
+          name: 'price',
+          operation: 'set_reagent_order_price',
+          arguments: { p_order_id: INSTRUMENT, p_total_price: null },
+        },
+      ]),
+    ).toEqual([])
+  })
+
+  it('knows every action the app offers, so the two catalogues cannot drift apart', async () => {
+    const actions = PIPELINE_ACTIONS.map((entry, index) => ({
+      name: `action_${index}`,
+      operation: entry.operation,
+      ...(entry.proposalKind ? { mode: 'propose' } : {}),
+      arguments: Object.fromEntries(
+        entry.arguments
+          .filter((argument) => argument.required && !argument.server)
+          .map((argument) => [argument.name, null]),
+      ),
+    }))
+    // The check takes at most twenty actions at a time.
+    for (let from = 0; from < actions.length; from += 20) {
+      expect(await errors(actions.slice(from, from + 20))).toEqual([])
+    }
+  })
+
+  it('refuses a row loop with no list to take rows from', async () => {
+    const found = await errors([
+      {
+        name: 'place',
+        operation: 'mark_reagent_ordered',
+        forEach: 'previous',
+        arguments: { p_order_id: INSTRUMENT },
+      },
+    ])
+    expect(found).toHaveLength(1)
   })
 })

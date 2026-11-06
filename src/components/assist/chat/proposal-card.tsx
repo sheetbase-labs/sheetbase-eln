@@ -59,6 +59,16 @@ const ACTION_COPY = {
   'timer.start': 'timer',
   'shipment.create': 'sendShipment',
   'shipment.receive': 'receiveShipment',
+  'project.create': 'createProject',
+  'follow.set': 'follow',
+  'notifications.read': 'markRead',
+  'reagent.ordered': 'markOrdered',
+  'reagent.cancel': 'cancelOrder',
+  'shipment.cancel': 'cancelShipment',
+  'sample.reserve': 'reserveSample',
+  'sample.quarantine': 'quarantineSample',
+  'sample.dispose': 'disposeSample',
+  'instrument.log': 'logVisit',
 } as const satisfies Record<AssistantActionKind, string>
 
 /** Button and done words for an everyday action: "Book", "Booked". */

@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-from typing import Any, Optional, TypedDict
+import json
+from collections.abc import Mapping
+from typing import Any, Optional, TypedDict, cast
 
 EVENT_NAMES: tuple[str, ...] = (
     "project.created",
@@ -179,3 +181,55 @@ def verify_webhook_signature(
     key = secret if isinstance(secret, bytes) else secret.encode("utf-8")
     expected = "sha256=" + hmac.new(key, body_bytes, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature)
+
+
+SIGNATURE_HEADER = "X-Sheetbase-Signature"
+EVENT_ID_HEADER = "X-Sheetbase-Event-Id"
+
+
+class WebhookSignatureError(Exception):
+    """A webhook delivery is unsigned, wrongly signed or not valid JSON."""
+
+
+def _header(headers: Mapping[str, str], name: str) -> Optional[str]:
+    wanted = name.lower()
+    for key, value in headers.items():
+        if key.lower() == wanted:
+            return value
+    return None
+
+
+def parse_webhook(
+    body: bytes | str,
+    headers: Mapping[str, str] | str,
+    secret: bytes | str,
+) -> WebhookEventPayload:
+    """Verify a webhook delivery and return its event.
+
+    Pass the raw request body, the request headers (any mapping; the lookup
+    ignores case) or the ``X-Sheetbase-Signature`` value itself, and the
+    subscription's signing secret. Raises :class:`WebhookSignatureError` when
+    the signature is missing or wrong, so an endpoint can answer 401::
+
+        @app.post("/sheetbase")
+        async def hook(request: Request):
+            try:
+                event = parse_webhook(await request.body(), request.headers, SECRET)
+            except WebhookSignatureError:
+                return Response(status_code=401)
+            if already_seen(event["eventId"]):   # retries reuse the id
+                return Response(status_code=200)
+            ...
+    """
+    signature = headers if isinstance(headers, str) else _header(headers, SIGNATURE_HEADER)
+    if not signature:
+        raise WebhookSignatureError("The request has no X-Sheetbase-Signature header.")
+    if not verify_webhook_signature(body, secret, signature):
+        raise WebhookSignatureError("The signature doesn't match this secret.")
+    try:
+        event = json.loads(body)
+    except ValueError:
+        raise WebhookSignatureError("The request body is not JSON.") from None
+    if not isinstance(event, dict):
+        raise WebhookSignatureError("The request body is not a webhook event.")
+    return cast(WebhookEventPayload, event)

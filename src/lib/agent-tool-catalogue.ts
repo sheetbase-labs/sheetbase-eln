@@ -162,6 +162,7 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   // signature whose timestamp gave up (assistant-upkeep.ts).
   'sheetbase.timestamps.set',
   'sheetbase.timestamps.retry',
+  'sheetbase.validation.run',
   // Running the lab from a card: stocktakes, legal holds, retention, registry
   // entries, sample workflows, result limits, booking rules, timers, repeating
   // work, pooling, solution prep, saved searches, pins and the lab logo

@@ -30,6 +30,7 @@ export const GROUP_ROLE_REMOVE_TOOL = 'sheetbase.group_role.remove'
 export const SCIM_TOKEN_REVOKE_TOOL = 'sheetbase.scim_token.revoke'
 export const TIMESTAMPS_SET_TOOL = 'sheetbase.timestamps.set'
 export const TIMESTAMPS_RETRY_TOOL = 'sheetbase.timestamps.retry'
+export const VALIDATION_RUN_TOOL = 'sheetbase.validation.run'
 
 export const UPKEEP_PROPOSE_TOOL_NAMES = [
   PROJECT_CREATE_TOOL,
@@ -49,6 +50,7 @@ export const UPKEEP_PROPOSE_TOOL_NAMES = [
   SCIM_TOKEN_REVOKE_TOOL,
   TIMESTAMPS_SET_TOOL,
   TIMESTAMPS_RETRY_TOOL,
+  VALIDATION_RUN_TOOL,
 ] as const
 
 export type UpkeepProposeToolName = (typeof UPKEEP_PROPOSE_TOOL_NAMES)[number]
@@ -260,6 +262,8 @@ export const proposeTimestampsRetrySchema = z
   })
   .strict()
 
+export const proposeValidationRunSchema = z.object({ title, summary }).strict()
+
 export const proposeGroupRoleSetSchema = z
   .object({
     title,
@@ -378,6 +382,7 @@ export type UpkeepAction =
       address: string | null
     }
   | { kind: 'timestamps.retry'; signatureId: string }
+  | { kind: 'validation.run' }
 
 export type UpkeepActionKind = UpkeepAction['kind']
 
@@ -400,6 +405,7 @@ const KINDS: readonly string[] = [
   'scim_token.revoke',
   'timestamps.set',
   'timestamps.retry',
+  'validation.run',
 ]
 
 export function isUpkeepAction(action: {

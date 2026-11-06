@@ -78,6 +78,7 @@ EVENT_NAMES: tuple[str, ...] = (
     "report.schedule.created",
     "report.schedule.updated",
     "report.schedule.deleted",
+    "validation.run_completed",
     "signature.timestamped",
     "signature.timestamp_failed",
     "workspace.timestamping.updated",

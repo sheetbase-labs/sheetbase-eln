@@ -12,6 +12,7 @@ import {
   quarantineSample,
 } from './samples'
 import { cancelShipment } from './shipments'
+import { startValidationRun } from './validation/client'
 import { logInstrumentService } from '../components/instruments/instruments-data'
 import {
   requestSignatureTimestamp,
@@ -88,6 +89,9 @@ export async function runUpkeepAction(
     case 'timestamps.retry':
       await requestSignatureTimestamp(client, action.signatureId)
       return { openHref: '/settings/workspace/audit' }
+    case 'validation.run':
+      await startValidationRun()
+      return { openHref: '/settings/workspace/validation' }
     case 'absence.cancel':
       await cancelAbsence(client, action.absenceId)
       return { openHref: '/settings/account/away' }

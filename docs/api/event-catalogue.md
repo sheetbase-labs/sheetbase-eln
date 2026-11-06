@@ -169,6 +169,15 @@ see it. A schedule's own bookkeeping (next run, last result) does not emit.
 The token itself is on the `signature_timestamps` resource; see
 [`trusted-timestamps-api.md`](trusted-timestamps-api.md).
 
+### Validation (`stable`, webhook and SSE)
+
+| Event                      | Produced by                 | Payload highlights                                             |
+| -------------------------- | --------------------------- | -------------------------------------------------------------- |
+| `validation.run_completed` | `validation_run` + `create` | `runId`, `status`, `passed`, `failed`, `skipped`, `appVersion` |
+
+The full results are on the `validation_runs` resource; see
+[`validation-api.md`](validation-api.md).
+
 ### Pipeline (`provisional`, SSE only)
 
 `pipeline.created` / `pipeline.updated` / `pipeline.deleted`

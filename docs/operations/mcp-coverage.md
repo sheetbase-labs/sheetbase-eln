@@ -23,6 +23,7 @@ approval ledger. A flag or scope can only reduce access.
 | Pipelines              | `pipeline_definitions`, `pipeline_definition_versions`, `pipeline_runs`, `pipeline_run_logs`, `pipeline_run_outputs`      | `pipelines:read`                |
 | Webhooks               | `webhook_subscriptions`, `webhook_deliveries`                                                                             | `webhooks:read`                 |
 | Trusted timestamps     | `signature_timestamps`                                                                                                    | `reviews:read`                  |
+| Validation runs        | `validation_runs`                                                                                                         | `admin:read`                    |
 
 The tool fixes the projected columns from the published row schema, allows
 equality filters only, caps rows per resource, and returns `nextOffset`. Pipeline
@@ -64,6 +65,7 @@ out of the response.
 | Administration     | Workspace AI settings only                                                                                                                                                                | Members/invites, connectors, schedules, credentials, flags, directory sync tokens (a person makes them) |
 | Signing and review | Nothing                                                                                                                                                                                   | Submit, sign, review decision, publication                                                              |
 | Trusted timestamps | Nothing. Choosing the time-stamping service changes where fingerprints are sent, so it stays with a person; asking again for a failed stamp is `request_signature_timestamp` over the API | Choosing the service                                                                                    |
+| Validation         | Nothing. Starting a run needs a person signed in to the app, in a regulated lab; the assistant can propose it as a card, and agents read finished runs from `validation_runs`             | Starting a run, downloading the pack                                                                    |
 
 `sheetbase.notebook_block.insert` inserts through the canonical `api.insert_block`
 RPC and records the record's `structureVersion` as the expected revision. The

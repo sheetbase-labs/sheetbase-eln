@@ -24965,6 +24965,336 @@
         }
       }
     },
+    "/api/db/validation_runs": {
+      "get": {
+        "tags": ["Projects"],
+        "summary": "Read validation_runs",
+        "operationId": "get_validation_runs",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["admin:read"],
+        "description": "GET `validation_runs` through PostgREST.\n\nPagination: `limit` and `offset` query parameters.\n\nSort: `order=column.asc` or `column.desc`; repeat `order` for multiple columns.\n\nFilters: `{column}={operator}.{value}` where operator is one of `eq, neq, gt, gte, lt, lte, like, ilike, in, is, cs, cd, ov, fts, plfts, phfts, wfts, not`. Examples: `id=eq.<uuid>`, `kind=eq.experiment`, `status=in.(draft,in-progress)`.\n\nLogic: `and=(status.eq.draft,kind.eq.experiment)` and `or=(...)`.\n\nCount: send header `Prefer: count=exact` (optionally with `Range: 0-0` or `limit=0`) and read the total from `Content-Range`.\n\nColumn selection: `select=id,title`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `validation_runs` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ValidationRunsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ValidationRunsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": ["Projects"],
+        "summary": "Headers for validation_runs",
+        "operationId": "head_validation_runs",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["admin:read"],
+        "description": "Same query string and `Prefer` / `Range` headers as GET. Use with `Prefer: count=exact` to obtain `Content-Range` without a body.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `validation_runs` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ValidationRunsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ValidationRunsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/webhook_deliveries": {
       "get": {
         "tags": ["Projects"],
@@ -55702,6 +56032,107 @@
             "format": "date-time"
           },
           "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ValidationRunsRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`api.validation_runs` row (snake_case). One run of the installation and operation checks of the validation pack (regulated labs). `results` lists every check with what it found. A run cannot be changed or deleted.",
+        "required": [
+          "id",
+          "workspace_id",
+          "app_version",
+          "status",
+          "passed",
+          "failed",
+          "skipped",
+          "results",
+          "started_at",
+          "finished_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "run_by_user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_version": {
+            "type": "string"
+          },
+          "migration": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": ["passed", "failed"]
+          },
+          "passed": {
+            "type": "integer"
+          },
+          "failed": {
+            "type": "integer"
+          },
+          "skipped": {
+            "type": "integer"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": ["iq", "oq"]
+                },
+                "title": {
+                  "type": "string"
+                },
+                "method": {
+                  "type": "string"
+                },
+                "expected": {
+                  "type": "string"
+                },
+                "requirements": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["passed", "failed", "skipped"]
+                },
+                "detail": {
+                  "type": "string"
+                },
+                "durationMs": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": true
+            },
+            "description": "Each check: id, kind (iq or oq), title, method, expected, requirements, status, detail, evidence."
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
             "type": "string",
             "format": "date-time"
           }

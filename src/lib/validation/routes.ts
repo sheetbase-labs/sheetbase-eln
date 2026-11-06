@@ -3,8 +3,12 @@
  * for someone who manages the audit settings in a workspace that has the
  * Regulated lab switch on (api.can_run_validation).
  */
-import { requestErrorResponse, resolveSessionAuth } from '../request-auth'
-import { postgrestRpc, postgrestSelect } from '../request-auth'
+import {
+  postgrestRpc,
+  postgrestSelect,
+  requestErrorResponse,
+  resolveSessionAuth,
+} from '../request-auth'
 import type { SessionAuthDeps } from '../request-auth'
 import type { ValidationRunRecord } from './types'
 
@@ -84,7 +88,7 @@ export async function handleValidationPack(
         : 'Workspace',
     generatedAt: new Date().toISOString(),
     appVersion: appVersion(),
-    migration: latest?.migration ?? null,
+    migration: (latest as ValidationRunRecord | undefined)?.migration ?? null,
     system: { node: process.version, regulatedLab: true },
     runs: runs.body,
     publicKeyPem: key.publicKeyPem,

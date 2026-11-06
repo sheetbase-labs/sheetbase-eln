@@ -576,6 +576,35 @@ describe('people and continuity cards', () => {
   })
 })
 
+describe('validation run card', () => {
+  const withAllowed = (allowed: boolean) => {
+    const made = context({})
+    ;(made.ctx.client as unknown as { rpc: unknown }).rpc = () =>
+      Promise.resolve(allowed)
+    return made
+  }
+
+  it('proposes a run only where validation is allowed', async () => {
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.validation.run',
+        { ...base },
+        withAllowed(true).ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: { action: { kind: 'validation.run' } },
+    })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.validation.run',
+        { ...base },
+        withAllowed(false).ctx,
+      ),
+    ).toMatchObject({ ok: false })
+  })
+})
+
 describe('trusted timestamp cards', () => {
   const withSettings = (rows: Rows, settings: unknown) => {
     const made = context(rows)

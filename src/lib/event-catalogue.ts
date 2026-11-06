@@ -42,6 +42,8 @@ export type EventFamily =
   | 'storage'
   | 'instrument'
   | 'pipeline'
+  | 'inventory'
+  | 'compliance'
   | 'administration'
   | 'people'
 
@@ -79,7 +81,7 @@ export type CatalogueStatus = 'stable' | 'provisional' | 'reserved'
 
 /** Which introduction introduced (shipped or pinned) the entry. */
 export type CatalogueIntroducedIn =
-  'api-06' | 'event-01' | 'notify-01' | 'people-01'
+  'api-06' | 'event-01' | 'notify-01' | 'people-01' | 'lab-01'
 
 /** Which consumers can observe the event today. */
 export interface EventConsumerMap {
@@ -1148,6 +1150,335 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     introducedIn: 'people-01',
     consumers: webhookSse,
   },
+  // -- lab features: stock, shipping, requests, holds, workflows --------------
+  {
+    name: 'reagent.order.requested',
+    family: 'inventory',
+    summary: 'A reorder of a reagent or material was requested.',
+    producer: {
+      entityType: 'material',
+      operation: 'update',
+      when: { key: 'action', equals: 'reorder-requested' },
+    },
+    wireName: 'reagent.order.requested',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes:
+      'Payload carries orderId, quantity and unit. record_id is the material record.',
+  },
+  {
+    name: 'reagent.order.placed',
+    family: 'inventory',
+    summary: 'A reagent order was placed with the supplier.',
+    producer: {
+      entityType: 'material',
+      operation: 'update',
+      when: { key: 'action', equals: 'reorder-ordered' },
+    },
+    wireName: 'reagent.order.placed',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes: 'Payload carries orderId and the supplier reference.',
+  },
+  {
+    name: 'reagent.order.received',
+    family: 'inventory',
+    summary: 'A reagent order arrived and was booked in.',
+    producer: {
+      entityType: 'material',
+      operation: 'update',
+      when: { key: 'action', equals: 'reorder-received' },
+    },
+    wireName: 'reagent.order.received',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes:
+      'Payload carries orderId, lot and newRecordId (the record made for the delivery).',
+  },
+  {
+    name: 'reagent.order.cancelled',
+    family: 'inventory',
+    summary: 'A reagent order was cancelled.',
+    producer: {
+      entityType: 'material',
+      operation: 'update',
+      when: { key: 'action', equals: 'reorder-cancelled' },
+    },
+    wireName: 'reagent.order.cancelled',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'stocktake.completed',
+    family: 'inventory',
+    summary:
+      'A stocktake (a count of a freezer, shelf, rack or box) was finished.',
+    producer: {
+      entityType: 'stocktake',
+      operation: 'update',
+      when: { key: 'status', equals: 'completed' },
+    },
+    wireName: 'stocktake.completed',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes:
+      'Payload carries the place counted and counts by state (found, missing, moved...).',
+  },
+  {
+    name: 'shipment.sent',
+    family: 'inventory',
+    summary: 'An outbound shipment left the lab.',
+    producer: {
+      entityType: 'shipment',
+      operation: 'update',
+      when: { key: 'event', equals: 'sent' },
+    },
+    wireName: 'shipment.sent',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes:
+      'Outbound shipments going into transit. Payload carries reference, counterparty, carrier and item count.',
+  },
+  {
+    name: 'shipment.in_transit',
+    family: 'inventory',
+    summary: 'An inbound shipment is on its way to the lab.',
+    producer: {
+      entityType: 'shipment',
+      operation: 'update',
+      when: { key: 'event', equals: 'in_transit' },
+    },
+    wireName: 'shipment.in_transit',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'shipment.received',
+    family: 'inventory',
+    summary: 'A shipment arrived (outbound: delivered; inbound: received).',
+    producer: {
+      entityType: 'shipment',
+      operation: 'update',
+      when: { key: 'event', equals: 'received' },
+    },
+    wireName: 'shipment.received',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'shipment.cancelled',
+    family: 'inventory',
+    summary: 'A shipment was cancelled.',
+    producer: {
+      entityType: 'shipment',
+      operation: 'update',
+      when: { key: 'event', equals: 'cancelled' },
+    },
+    wireName: 'shipment.cancelled',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'request.submitted',
+    family: 'record',
+    summary:
+      'A request was sent to the people who handle that kind of request.',
+    producer: {
+      entityType: 'request',
+      operation: 'create',
+    },
+    wireName: 'request.submitted',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'request.decided',
+    family: 'record',
+    summary: 'A request was accepted, declined or completed.',
+    producer: {
+      entityType: 'request',
+      operation: 'update',
+    },
+    wireName: 'request.decided',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes: 'Payload decision is accepted, declined or completed.',
+  },
+  {
+    name: 'legal_hold.created',
+    family: 'compliance',
+    summary:
+      'A legal hold was placed. Held records cannot be changed or deleted.',
+    producer: {
+      entityType: 'workspace_settings',
+      operation: 'create',
+      when: { key: 'effect', equals: 'legal_hold' },
+    },
+    wireName: 'legal_hold.created',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes:
+      'Shares the workspace_settings pair with workspace.settings.created, picked by the payload effect.',
+  },
+  {
+    name: 'legal_hold.released',
+    family: 'compliance',
+    summary: 'A legal hold was released.',
+    producer: {
+      entityType: 'workspace_settings',
+      operation: 'update',
+      when: { key: 'effect', equals: 'legal_hold_released' },
+    },
+    wireName: 'legal_hold.released',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'retention.applied',
+    family: 'compliance',
+    summary: 'Retention was applied and due records were archived.',
+    producer: {
+      entityType: 'workspace_settings',
+      operation: 'update',
+      when: { key: 'effect', equals: 'retention_applied' },
+    },
+    wireName: 'retention.applied',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes:
+      'Emitted once per run with the number archived; each archived record also emits record.archived.',
+  },
+  {
+    name: 'sample.workflow.advanced',
+    family: 'sample',
+    summary: 'A sample moved to the next step of its workflow.',
+    producer: {
+      entityType: 'sample_workflow_run',
+      operation: 'update',
+      when: { key: 'change', equals: 'advanced' },
+    },
+    wireName: 'sample.workflow.advanced',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'sample.workflow.enrolled',
+    family: 'sample',
+    summary: 'A sample entered a workflow.',
+    producer: {
+      entityType: 'sample_workflow_run',
+      operation: 'update',
+      when: { key: 'change', equals: 'enrolled' },
+    },
+    wireName: 'sample.workflow.enrolled',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'sample.workflow.left',
+    family: 'sample',
+    summary: 'A sample was taken out of a workflow without finishing it.',
+    producer: {
+      entityType: 'sample_workflow_run',
+      operation: 'update',
+      when: { key: 'change', equals: 'left' },
+    },
+    wireName: 'sample.workflow.left',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'incident.reported',
+    family: 'record',
+    summary: 'An incident, deviation or near miss was logged.',
+    producer: {
+      entityType: 'incident',
+      operation: 'create',
+    },
+    wireName: 'incident.reported',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes:
+      'A record of any model with the Incident log box ticked. The same record also emits record.created.',
+  },
+  {
+    name: 'registry.entry.created',
+    family: 'record',
+    summary: 'An entry was added to a biological registry.',
+    producer: {
+      entityType: 'registry_entry',
+      operation: 'create',
+    },
+    wireName: 'registry.entry.created',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes:
+      'A record of any model with the Registry box ticked. The same record also emits record.created.',
+  },
+  {
+    name: 'instrument.reading.out_of_limits',
+    family: 'instrument',
+    summary: 'A live instrument reading went outside its limits.',
+    producer: {
+      entityType: 'instrument_feed',
+      operation: 'update',
+      when: { key: 'limitState', notEquals: 'ok' },
+    },
+    wireName: 'instrument.reading.out_of_limits',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes:
+      'Emitted once when the feed crosses a limit, not on every reading. limitState is low or high.',
+  },
+  {
+    name: 'instrument.reading.back_in_range',
+    family: 'instrument',
+    summary: 'A live instrument reading came back inside its limits.',
+    producer: {
+      entityType: 'instrument_feed',
+      operation: 'update',
+      when: { key: 'limitState', equals: 'ok' },
+    },
+    wireName: 'instrument.reading.back_in_range',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'record.assigned',
+    family: 'record',
+    summary: 'A record was given to someone, or taken back.',
+    producer: {
+      entityType: 'record_assignment',
+      operation: 'update',
+    },
+    wireName: 'record.assigned',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes:
+      'Payload carries assigneeUserId (null when unassigned) and previousAssigneeUserId.',
+  },
 ])
 
 /**
@@ -1290,6 +1621,29 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
   'pipeline.run.completed': 'A pipeline run finishes',
   'pipeline.run.created': 'A pipeline run starts',
   'pipeline.run.updated': 'A pipeline run changes',
+  'reagent.order.requested': 'A reagent reorder is requested',
+  'reagent.order.placed': 'A reagent order is placed',
+  'reagent.order.received': 'A reagent order arrives',
+  'reagent.order.cancelled': 'A reagent order is cancelled',
+  'stocktake.completed': 'A stocktake is finished',
+  'shipment.sent': 'A shipment is sent',
+  'shipment.in_transit': 'A shipment is on its way',
+  'shipment.received': 'A shipment arrives',
+  'shipment.cancelled': 'A shipment is cancelled',
+  'request.submitted': 'A request is sent',
+  'request.decided': 'A request is decided',
+  'legal_hold.created': 'A legal hold is placed',
+  'legal_hold.released': 'A legal hold is released',
+  'retention.applied': 'Retention is applied',
+  'sample.workflow.advanced': 'A sample moves to the next workflow step',
+  'sample.workflow.enrolled': 'A sample enters a workflow',
+  'sample.workflow.left': 'A sample leaves a workflow',
+  'incident.reported': 'An incident is reported',
+  'registry.entry.created': 'A registry entry is added',
+  'instrument.reading.out_of_limits':
+    'An instrument reading goes out of limits',
+  'instrument.reading.back_in_range': 'An instrument reading is back in range',
+  'record.assigned': 'A record is assigned',
 })
 
 /**
@@ -1319,6 +1673,8 @@ const FAMILY_GROUPS: Readonly<Record<EventFamily, string>> = Object.freeze({
   instrument: 'Instruments',
   people: 'People and sign-in',
   pipeline: 'Pipelines',
+  inventory: 'Stock and shipping',
+  compliance: 'Holds and retention',
   administration: 'Projects',
 })
 

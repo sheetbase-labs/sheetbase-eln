@@ -39,6 +39,8 @@ const models: RegistryModel[] = [
     identifier_prefix: 'CON',
     registry_key_fields: ['name'],
     registry_sequence_field: 'sequence',
+    registry_structure_field: null,
+    registry_lot_kind: null,
   },
   {
     id: 'm-cell-line',
@@ -47,6 +49,8 @@ const models: RegistryModel[] = [
     identifier_prefix: 'CL',
     registry_key_fields: ['name', 'species'],
     registry_sequence_field: null,
+    registry_structure_field: null,
+    registry_lot_kind: null,
   },
 ]
 
@@ -302,6 +306,8 @@ export const SettingsDialog: Story = {
           is_registry: true,
           registry_key_fields: ['name'],
           registry_sequence_field: 'sequence',
+          registry_structure_field: null,
+          registry_lot_kind: null,
         }}
       />
     </QueryClientProvider>

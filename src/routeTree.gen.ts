@@ -199,6 +199,7 @@ import { Route as ApiFilesFileIdDownloadRouteImport } from './routes/api/files/$
 import { Route as ApiFilesFileIdUploadRouteImport } from './routes/api/files/$fileId/upload'
 import { Route as ApiFilesFileIdVersionRouteImport } from './routes/api/files/$fileId/version'
 import { Route as ApiPipelinesWebhookDefinitionIdRouteImport } from './routes/api/pipelines/webhook.$definitionId'
+import { Route as ApiScimV2SplatRouteImport } from './routes/api/scim/v2/$'
 import { Route as ExperimentsExpIdDataIndexRouteImport } from './routes/experiments/$expId/data/index'
 import { Route as ExperimentsExpIdDataDatasetsRouteImport } from './routes/experiments/$expId/data/datasets'
 import { Route as ExperimentsExpIdDataFilesRouteImport } from './routes/experiments/$expId/data/files'
@@ -1209,6 +1210,11 @@ const ApiPipelinesWebhookDefinitionIdRoute =
     path: '/api/pipelines/webhook/$definitionId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiScimV2SplatRoute = ApiScimV2SplatRouteImport.update({
+  id: '/api/scim/v2/$',
+  path: '/api/scim/v2/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ExperimentsExpIdDataIndexRoute =
   ExperimentsExpIdDataIndexRouteImport.update({
     id: '/',
@@ -1551,6 +1557,7 @@ export interface FileRoutesByFullPath {
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/api/files/$fileId/version': typeof ApiFilesFileIdVersionRoute
   '/api/pipelines/webhook/$definitionId': typeof ApiPipelinesWebhookDefinitionIdRoute
+  '/api/scim/v2/$': typeof ApiScimV2SplatRoute
   '/experiments/$expId/data/datasets': typeof ExperimentsExpIdDataDatasetsRoute
   '/experiments/$expId/data/files': typeof ExperimentsExpIdDataFilesRoute
   '/experiments/$expId/data/links': typeof ExperimentsExpIdDataLinksRoute
@@ -1754,6 +1761,7 @@ export interface FileRoutesByTo {
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/api/files/$fileId/version': typeof ApiFilesFileIdVersionRoute
   '/api/pipelines/webhook/$definitionId': typeof ApiPipelinesWebhookDefinitionIdRoute
+  '/api/scim/v2/$': typeof ApiScimV2SplatRoute
   '/experiments/$expId/data/datasets': typeof ExperimentsExpIdDataDatasetsRoute
   '/experiments/$expId/data/files': typeof ExperimentsExpIdDataFilesRoute
   '/experiments/$expId/data/links': typeof ExperimentsExpIdDataLinksRoute
@@ -1973,6 +1981,7 @@ export interface FileRoutesById {
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/api/files/$fileId/version': typeof ApiFilesFileIdVersionRoute
   '/api/pipelines/webhook/$definitionId': typeof ApiPipelinesWebhookDefinitionIdRoute
+  '/api/scim/v2/$': typeof ApiScimV2SplatRoute
   '/experiments/$expId/data/datasets': typeof ExperimentsExpIdDataDatasetsRoute
   '/experiments/$expId/data/files': typeof ExperimentsExpIdDataFilesRoute
   '/experiments/$expId/data/links': typeof ExperimentsExpIdDataLinksRoute
@@ -2193,6 +2202,7 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/upload'
     | '/api/files/$fileId/version'
     | '/api/pipelines/webhook/$definitionId'
+    | '/api/scim/v2/$'
     | '/experiments/$expId/data/datasets'
     | '/experiments/$expId/data/files'
     | '/experiments/$expId/data/links'
@@ -2396,6 +2406,7 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/upload'
     | '/api/files/$fileId/version'
     | '/api/pipelines/webhook/$definitionId'
+    | '/api/scim/v2/$'
     | '/experiments/$expId/data/datasets'
     | '/experiments/$expId/data/files'
     | '/experiments/$expId/data/links'
@@ -2614,6 +2625,7 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/upload'
     | '/api/files/$fileId/version'
     | '/api/pipelines/webhook/$definitionId'
+    | '/api/scim/v2/$'
     | '/experiments/$expId/data/datasets'
     | '/experiments/$expId/data/files'
     | '/experiments/$expId/data/links'
@@ -2743,6 +2755,7 @@ export interface RootRouteChildren {
   ApiFilesFileIdUploadRoute: typeof ApiFilesFileIdUploadRoute
   ApiFilesFileIdVersionRoute: typeof ApiFilesFileIdVersionRoute
   ApiPipelinesWebhookDefinitionIdRoute: typeof ApiPipelinesWebhookDefinitionIdRoute
+  ApiScimV2SplatRoute: typeof ApiScimV2SplatRoute
   ApiClientPortalRecordsRecordIdPdfRoute: typeof ApiClientPortalRecordsRecordIdPdfRoute
   ApiExportProjectIdElnRoute: typeof ApiExportProjectIdElnRoute
   ApiExportRevisionIdPackageRoute: typeof ApiExportRevisionIdPackageRoute
@@ -4083,6 +4096,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPipelinesWebhookDefinitionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/scim/v2/$': {
+      id: '/api/scim/v2/$'
+      path: '/api/scim/v2/$'
+      fullPath: '/api/scim/v2/$'
+      preLoaderRoute: typeof ApiScimV2SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/experiments/$expId/data/': {
       id: '/experiments/$expId/data/'
       path: '/'
@@ -4865,6 +4885,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFilesFileIdUploadRoute: ApiFilesFileIdUploadRoute,
   ApiFilesFileIdVersionRoute: ApiFilesFileIdVersionRoute,
   ApiPipelinesWebhookDefinitionIdRoute: ApiPipelinesWebhookDefinitionIdRoute,
+  ApiScimV2SplatRoute: ApiScimV2SplatRoute,
   ApiClientPortalRecordsRecordIdPdfRoute:
     ApiClientPortalRecordsRecordIdPdfRoute,
   ApiExportProjectIdElnRoute: ApiExportProjectIdElnRoute,

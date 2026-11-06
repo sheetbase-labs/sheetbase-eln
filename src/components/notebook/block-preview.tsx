@@ -48,6 +48,15 @@ import { isSequenceFileName } from '#/lib/sequence'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { Button } from '#/components/ui/button'
+import {
+  Table,
+  TableBody,
+  TableBox,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/ui/table'
 import { StepTimerControl } from './step-timer'
 import { OfficeFileBlock } from './office-preview/office-file-block'
 import { formatDuration, stepDurationSeconds } from '#/lib/step-timers'
@@ -802,52 +811,42 @@ function renderTable(payload: unknown): React.ReactNode {
         key: asString((c as Record<string, unknown>).key) ?? String(i),
       }))
 
+  // The shared table box scrolls sideways, so a table wider than a phone
+  // screen can be swiped across instead of being cut off at the edge.
   return (
-    <div className="overflow-hidden rounded-md border border-border">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border bg-surface-muted/40">
-            {columns.map((col, i) => (
-              <th
-                key={i}
-                scope="col"
-                className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-fg-muted"
-              >
-                {col.label}
-              </th>
+    <div>
+      <TableBox data-testid="notebook-table-block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {columns.map((col, i) => (
+                <TableHead key={i} scope="col" className="first:pl-3">
+                  {col.label}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row, i) => (
+              <TableRow key={i}>
+                {columns.map((col, j) => {
+                  const cell = Array.isArray(row)
+                    ? row[j]
+                    : (row as Record<string, unknown>)[col.key]
+                  return (
+                    <TableCell key={j} className="first:pl-3">
+                      {formatCellValue(cell)}
+                    </TableCell>
+                  )
+                })}
+              </TableRow>
             ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {rows.map((row, i) => (
-            <tr key={i} className="bg-surface">
-              {columns.map((col, j) => {
-                const cell = Array.isArray(row)
-                  ? row[j]
-                  : (row as Record<string, unknown>)[col.key]
-                return (
-                  <td
-                    key={j}
-                    className="px-3 py-2 font-mono tabular-nums text-fg"
-                  >
-                    {formatCellValue(cell)}
-                  </td>
-                )
-              })}
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t border-border">
-            <td
-              colSpan={columns.length}
-              className="px-3 py-1.5 text-xs text-fg-muted"
-            >
-              {rows.length} {rows.length === 1 ? 'row' : 'rows'}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
+          </TableBody>
+        </Table>
+      </TableBox>
+      <p className="mt-1.5 text-xs text-fg-muted">
+        {rows.length} {rows.length === 1 ? 'row' : 'rows'}
+      </p>
     </div>
   )
 }

@@ -287,7 +287,7 @@ export function RunDetail({
         </Button>
         <div className="flex min-w-0 flex-1 flex-col">
           <h1 className="truncate font-heading text-[17px] font-semibold">
-            <span className="mono mr-2 text-fg-muted">{reference}</span>
+            <span className="mono mr-2 text-fg-muted">{reference}</span>{' '}
             {data.name}
           </h1>
           <span className="text-label text-fg-muted">
@@ -328,7 +328,7 @@ export function RunDetail({
         ) : null}
       </div>
 
-      <div className="grid min-w-0 gap-6 px-6 py-4 max-md:px-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+      <div className="grid min-w-0 gap-6 px-6 py-4 max-md:px-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)]">
         <div className="flex min-w-0 flex-col gap-2">
           <div className="flex items-center gap-2">
             <span className="text-label text-fg-muted">
@@ -352,17 +352,19 @@ export function RunDetail({
               {t('plates.run.notAnalysed')}
             </p>
           ) : null}
-          <PlateMap
-            wells={map.wells}
-            rows={map.rows}
-            cols={map.cols}
-            bands={map.bands}
-            roleLegend={map.legend}
-            ariaLabel={t(`plates.formats.${data.format}`)}
-            readOnly
-            selectable
-            compact={map.cols > 24}
-          />
+          <div className="overflow-x-auto pb-1">
+            <PlateMap
+              wells={map.wells}
+              rows={map.rows}
+              cols={map.cols}
+              bands={map.bands}
+              roleLegend={map.legend}
+              ariaLabel={t(`plates.formats.${data.format}`)}
+              readOnly
+              selectable
+              compact={map.cols > 24}
+            />
+          </div>
         </div>
 
         <div className="flex min-w-0 flex-col gap-3">
@@ -532,7 +534,10 @@ function QcCard({ run }: { run: PlateRunRow }) {
           value={fmt(qc.zPrime, 3)}
           title={t('plates.qc.zPrimeHint')}
         />
-        <Metric label={t('plates.qc.ssmd')} value={fmt(qc.ssmd, 3)} />
+        <Metric
+          label={t('plates.qc.ssmd')}
+          value={fmt(qc.ssmd === null ? null : Math.abs(qc.ssmd), 3)}
+        />
         <Metric
           label={t('plates.qc.signalToBackground')}
           value={fmt(qc.signalToBackground, 3)}

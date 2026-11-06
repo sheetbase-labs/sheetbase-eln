@@ -398,10 +398,13 @@ function judgeQc(
     if (separation > 0) zPrime = 1 - (3 * (sp + sn_)) / separation
     const pooled = Math.sqrt(sp * sp + sn_ * sn_)
     if (pooled > 0) ssmd = (mp - mn) / pooled
-    // Signal-to-background compares the controls after any blank is removed.
+    // Signal-to-background is the higher control over the lower one, after any
+    // blank is removed, so it reads the same whichever way the assay runs.
     const b = config.subtractBlank && blank.mean !== null ? blank.mean : 0
-    if (mn - b !== 0) sb = (mp - b) / (mn - b)
-    if (sn_ > 0) sn = (mp - mn) / sn_
+    const high = Math.max(mp, mn) - b
+    const low = Math.min(mp, mn) - b
+    if (low > 0) sb = high / low
+    if (sn_ > 0) sn = separation / sn_
   }
 
   const zStatus: QcStatus =
@@ -958,7 +961,7 @@ export interface ParsedPlateTable {
   warnings: string[]
 }
 
-const ROLE_ALIASES: Record<string, AssignmentRole> = {
+const ROLE_ALIASES: Partial<Record<string, AssignmentRole>> = {
   sample: 'sample',
   s: 'sample',
   unknown: 'sample',

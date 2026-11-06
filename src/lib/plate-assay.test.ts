@@ -37,7 +37,11 @@ function screenPlate(seed = 1) {
         wells.push({ wellCode: code, role: 'positive_control' })
         readout[code] = 100 + noise() * 20
       } else {
-        wells.push({ wellCode: code, role: 'sample', sampleLabel: `S${r}-${c}` })
+        wells.push({
+          wellCode: code,
+          role: 'sample',
+          sampleLabel: `S${r}-${c}`,
+        })
         // Row 3 is strongly inhibiting, the rest are inactive.
         readout[code] = (r === 3 ? 150 : 1000) + noise() * 40
       }
@@ -55,18 +59,24 @@ describe('384-well screening plate', () => {
   it('passes QC with a good Z′', () => {
     expect(a.qc.zPrime!).toBeGreaterThan(0.7)
     expect(a.qc.status).toBe('pass')
-    expect(a.qc.signalToBackground!).toBeLessThan(1)
+    expect(a.qc.signalToBackground!).toBeGreaterThan(1)
     expect(Math.abs(a.qc.ssmd!)).toBeGreaterThan(10)
   })
   it('normalises controls to 0 and 100 percent effect', () => {
-    const negs = a.wells.filter((w) => w.role === 'negative_control').map((w) => w.normalised!)
-    const poss = a.wells.filter((w) => w.role === 'positive_control').map((w) => w.normalised!)
+    const negs = a.wells
+      .filter((w) => w.role === 'negative_control')
+      .map((w) => w.normalised!)
+    const poss = a.wells
+      .filter((w) => w.role === 'positive_control')
+      .map((w) => w.normalised!)
     expect(negs.reduce((s, v) => s + v, 0) / negs.length).toBeCloseTo(0, 6)
     expect(poss.reduce((s, v) => s + v, 0) / poss.length).toBeCloseTo(100, 6)
   })
   it('calls the strong row as hits and nothing else', () => {
     expect(a.summary.hitSamples).toBe(22)
-    expect(a.samples.filter((s) => s.hit).every((s) => s.label.startsWith('S3-'))).toBe(true)
+    expect(
+      a.samples.filter((s) => s.hit).every((s) => s.label.startsWith('S3-')),
+    ).toBe(true)
   })
   it('flags a plate with no separation as failed', () => {
     const flat: PlateReadout = {}
@@ -86,7 +96,12 @@ describe('384-well screening plate', () => {
   it('supports sd and mad hit rules and replicate requirements', () => {
     const sd = analysePlate(wells, readout, {
       ...defaultAssayConfig(),
-      hit: { kind: 'sd', threshold: 3, direction: 'above', minReplicates: 'all' },
+      hit: {
+        kind: 'sd',
+        threshold: 3,
+        direction: 'above',
+        minReplicates: 'all',
+      },
     })
     expect(sd.summary.hitSamples).toBe(22)
     const mad = analysePlate(wells, readout, {
@@ -100,10 +115,14 @@ describe('384-well screening plate', () => {
     const withBlank = wells.map((w, i) =>
       i === 5 ? { ...w, role: 'blank' as const } : w,
     )
-    const r = analysePlate(withBlank, { ...readout, [wells[5].wellCode]: 50 }, {
-      ...defaultAssayConfig(),
-      subtractBlank: true,
-    })
+    const r = analysePlate(
+      withBlank,
+      { ...readout, [wells[5].wellCode]: 50 },
+      {
+        ...defaultAssayConfig(),
+        subtractBlank: true,
+      },
+    )
     const w = r.wells[10]
     expect(w.corrected).toBeCloseTo(w.raw! - 50, 6)
   })
@@ -154,7 +173,12 @@ describe('dose–response and potency across plates', () => {
       dilutionPlate(0.11, 4, 'µM'),
     ].map((p, i) => {
       const a = analysePlate(p.wells, p.readout)
-      return { runId: `r${i}`, runName: `Plate ${i}`, qcStatus: a.qc.status, curves: a.curves }
+      return {
+        runId: `r${i}`,
+        runName: `Plate ${i}`,
+        qcStatus: a.qc.status,
+        curves: a.curves,
+      }
     })
     // The µM plate's doses are in µM, but its curve was generated from nM doses,
     // so only check the machinery: three plates, molar, plausible geometric mean.
@@ -169,7 +193,9 @@ describe('dose–response and potency across plates', () => {
   it('leaves failed plates out unless asked', () => {
     const p = dilutionPlate(100, 1)
     const a = analysePlate(p.wells, p.readout)
-    const input = [{ runId: 'r', runName: 'r', qcStatus: 'fail' as const, curves: a.curves }]
+    const input = [
+      { runId: 'r', runName: 'r', qcStatus: 'fail' as const, curves: a.curves },
+    ]
     expect(summarisePotency(input)).toHaveLength(0)
     expect(summarisePotency(input, { includeFailed: true })).toHaveLength(1)
   })
@@ -181,12 +207,26 @@ describe('dose–response and potency across plates', () => {
       concentration: c,
       concentrationUnit: 'nM',
     }))
-    const a = analysePlate(wells, { A2: 1, A3: 2, A4: 3 }, { ...defaultAssayConfig(), normalisation: 'none' })
+    const a = analysePlate(
+      wells,
+      { A2: 1, A3: 2, A4: 3 },
+      { ...defaultAssayConfig(), normalisation: 'none' },
+    )
     expect(a.curves).toHaveLength(0)
     expect(a.unfitted[0].reason).toBe('too_few_doses')
   })
   it('gives relative potency against a reference', () => {
-    const base = { sampleId: null, unit: 'M', n: 2, geoMeanCi95: null, geoSd: null, foldRange: null, pEc50: 7, molar: true, values: [] }
+    const base = {
+      sampleId: null,
+      unit: 'M',
+      n: 2,
+      geoMeanCi95: null,
+      geoSd: null,
+      foldRange: null,
+      pEc50: 7,
+      molar: true,
+      values: [],
+    }
     const r = relativePotency(
       [
         { ...base, key: 'a', label: 'ref', geoMean: 1e-7 },
@@ -201,7 +241,11 @@ describe('dose–response and potency across plates', () => {
 describe('helpers', () => {
   it('reads configs defensively', () => {
     expect(normaliseAssayConfig(null)).toEqual(defaultAssayConfig())
-    const c = normaliseAssayConfig({ normalisation: 'bogus', hit: { minReplicates: 2, kind: 'mad' }, qc: { controlCvMax: 10 } })
+    const c = normaliseAssayConfig({
+      normalisation: 'bogus',
+      hit: { minReplicates: 2, kind: 'mad' },
+      qc: { controlCvMax: 10 },
+    })
     expect(c.normalisation).toBe('percent_effect')
     expect(c.hit.minReplicates).toBe(2)
     expect(c.hit.kind).toBe('mad')
@@ -226,7 +270,11 @@ describe('parsePlateTable', () => {
     const t = parsePlateTable(
       'Well,Role,Sample,Concentration,Unit,Value\nA1,neg,,,,1000\nA2,pos,,,,100\nA3,sample,X-1,10,nM,500\nZZ,sample,X,1,nM,1\nA3,sample,X,1,nM,1',
     )
-    expect(t.wells.map((w) => w.role)).toEqual(['negative_control', 'positive_control', 'sample'])
+    expect(t.wells.map((w) => w.role)).toEqual([
+      'negative_control',
+      'positive_control',
+      'sample',
+    ])
     expect(t.wells[2].concentration).toBe(10)
     expect(t.readout.A3).toBe(500)
     expect(t.warnings.some((w) => w.startsWith('duplicate_well'))).toBe(true)

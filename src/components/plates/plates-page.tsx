@@ -32,7 +32,7 @@ import type { PlateRunRow, PlateWorklistRow } from '#/lib/plate-runs'
 
 import { NewRunDialog } from './new-run-dialog'
 import { PotencyPanel } from './potency-panel'
-import { fmt, qcTone, qualityLabel, runText } from './plates-shared'
+import { qcTone, qualityLabel, runText } from './plates-shared'
 import { RunDetail } from './run-detail'
 import { WorklistDialog } from './worklist-dialogs'
 
@@ -110,7 +110,7 @@ export function PlatesPage({
         size: 90,
         cell: ({ row }) => (
           <span className="num text-fg-muted">
-            {fmt(row.original.results?.qc.zPrime, 2)}
+            {row.original.results?.qc.zPrime?.toFixed(2) ?? ''}
           </span>
         ),
       },

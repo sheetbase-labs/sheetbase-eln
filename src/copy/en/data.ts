@@ -2713,6 +2713,8 @@ export const data = {
   analysisList: {
     chart: 'Chart',
     doseResponseCurve: 'dose-response curve',
+    groupComparison: 'group comparison',
+    survivalCurve: 'survival curve',
     analyse: 'Analyse',
     compare: 'Compare',
     analysesMatch: 'No analyses match',

@@ -1,5 +1,5 @@
 /**
- * Webhook events for the lab features (migration 0096).
+ * Webhook events for the lab features (migration 0099).
  *
  * Each state change lands on the change feed with the payload the catalogue
  * expects, and `mapEventType` turns it into the wire name a webhook receives.

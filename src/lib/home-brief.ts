@@ -83,3 +83,72 @@ export function parseBrief(text: string): BriefBlock[] {
         : { kind: 'paragraph' as const, text: line },
     )
 }
+
+export type BriefPart =
+  | { kind: 'text'; text: string }
+  | { kind: 'object'; objectKind: string; ref: string; text: string }
+  | { kind: 'route'; to: string; text: string }
+
+/**
+ * Turn the brief's text into parts, linking only what Home itself supplied:
+ * the experiment, material and dataset identifiers and the project names the
+ * person can see. An identifier the model invented stays plain text. Within a
+ * project's bullet, "N experiments" opens that project's experiments.
+ */
+export function linkBrief(text: string, input: HomeBriefInput): BriefPart[] {
+  const known = new Map<string, { objectKind: string; ref: string }>()
+  for (const review of input.reviews)
+    known.set(review.identifier, {
+      objectKind: 'experiment',
+      ref: review.identifier,
+    })
+  for (const material of input.materials)
+    if (material.identifier)
+      known.set(material.identifier, {
+        objectKind: 'material',
+        ref: material.identifier,
+      })
+  for (const issue of input.datasetIssues)
+    known.set(issue.identifier, {
+      objectKind: 'dataset',
+      ref: issue.identifier,
+    })
+  for (const project of input.projects)
+    if (project.title)
+      known.set(project.title, { objectKind: 'project', ref: project.id })
+
+  const names = [...known.keys()].sort((a, b) => b.length - a.length)
+  const escaped = names.map((name) =>
+    name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+  )
+  const owner = input.projects.find((project) =>
+    text.toLowerCase().startsWith(project.title.toLowerCase()),
+  )
+  const patterns = [...escaped.map((name) => `(?<![\\w-])${name}(?![\\w-])`)]
+  if (owner) patterns.push('\\b\\d+ experiments?\\b')
+  if (patterns.length === 0) return [{ kind: 'text', text }]
+  const pattern = new RegExp(patterns.join('|'), 'g')
+
+  const parts: BriefPart[] = []
+  let last = 0
+  for (const match of text.matchAll(pattern)) {
+    const found = match[0]
+    const start = match.index
+    const entity = known.get(found)
+    // A project's name at the start of its own bullet is the project link; a
+    // count anywhere else in that bullet opens the project's experiments.
+    if (!entity && !owner) continue
+    if (start > last)
+      parts.push({ kind: 'text', text: text.slice(last, start) })
+    if (entity) parts.push({ kind: 'object', ...entity, text: found })
+    else if (owner)
+      parts.push({
+        kind: 'route',
+        to: `/projects/${encodeURIComponent(owner.id)}/experiments`,
+        text: found,
+      })
+    last = start + found.length
+  }
+  if (last < text.length) parts.push({ kind: 'text', text: text.slice(last) })
+  return parts
+}

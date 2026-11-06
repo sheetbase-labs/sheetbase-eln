@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { Link } from '@tanstack/react-router'
+
 import { Icon } from '#/components/icons'
+import { ObjectLink } from '#/components/ui/object-link'
 import { Button } from '#/components/ui/button'
 import { Notice } from '#/components/ui/alert'
 import {
@@ -16,10 +19,38 @@ import {
   HOME_BRIEF_INSTRUCTION,
   homeBriefFacts,
   homeBriefHasFacts,
+  linkBrief,
   parseBrief,
 } from '#/lib/home-brief'
 import type { HomeBriefInput } from '#/lib/home-brief'
 import { usePageAi } from '#/lib/use-page-ai'
+
+/** The brief's text, with the records Home named as links that peek. */
+function BriefText({ text, input }: { text: string; input: HomeBriefInput }) {
+  return (
+    <>
+      {linkBrief(text, input).map((part, index) =>
+        part.kind === 'object' ? (
+          <ObjectLink
+            key={index}
+            kind={part.objectKind}
+            id={part.objectKind === 'project' ? part.ref : undefined}
+            identifier={part.ref}
+            mono={part.objectKind !== 'project'}
+          >
+            {part.text}
+          </ObjectLink>
+        ) : part.kind === 'route' ? (
+          <Link key={index} to={part.to} className="text-link">
+            {part.text}
+          </Link>
+        ) : (
+          part.text
+        ),
+      )}
+    </>
+  )
+}
 
 /**
  * "Brief me" on Home: what needs the person and the next step per project,
@@ -102,18 +133,30 @@ export function HomeBrief({
                 {t('projects.homeBrief.working')}
               </p>
             ) : (
-              <div className="flex flex-col gap-2">
+              <div
+                className="flex flex-col gap-2"
+                // Following a record closes the brief; the page opens behind it.
+                onClickCapture={(event) => {
+                  if (
+                    event.target instanceof Element &&
+                    event.target.closest('a[href]')
+                  )
+                    onOpenChange(false)
+                }}
+              >
                 {parseBrief(text).map((block, index) =>
                   block.kind === 'bullet' ? (
                     <p key={index} className="m-0 flex gap-2">
                       <span aria-hidden className="text-fg-muted">
                         •
                       </span>
-                      <span>{block.text}</span>
+                      <span>
+                        <BriefText text={block.text} input={input} />
+                      </span>
                     </p>
                   ) : (
                     <p key={index} className="m-0 font-medium">
-                      {block.text}
+                      <BriefText text={block.text} input={input} />
                     </p>
                   ),
                 )}

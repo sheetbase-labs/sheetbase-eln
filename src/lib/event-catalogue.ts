@@ -1805,6 +1805,63 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     consumers: webhookSsePipeline,
     notes:
       'Payload carries blockId (the step), resultBlockId, label, recordId, identifier, title, stepNumber and step.',
+  },  {
+    name: 'experiment.part_created',
+    family: 'record',
+    summary: 'A part was added to an experiment.',
+    producer: {
+      entityType: 'experiment_part',
+      operation: 'create',
+    },
+    wireName: 'experiment.part_created',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries partId, partNumber, part (the title), recordId, identifier, title, dayOffset, assigneeUserId and completedByUserId.',
+  },
+  {
+    name: 'experiment.part_opened',
+    family: 'record',
+    summary: 'A part of an experiment became the one to work on.',
+    producer: {
+      entityType: 'part_opened',
+      operation: 'create',
+    },
+    wireName: 'experiment.part_opened',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries partId, partNumber, part (the title), recordId, identifier, title, dayOffset, assigneeUserId and completedByUserId. It fires when the part before is done (or when the part is the first).',
+  },
+  {
+    name: 'experiment.part_completed',
+    family: 'record',
+    summary: 'A part of an experiment was finished.',
+    producer: {
+      entityType: 'part_completion',
+      operation: 'create',
+    },
+    wireName: 'experiment.part_completed',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries partId, partNumber, part (the title), recordId, identifier, title, dayOffset, assigneeUserId and completedByUserId. It fires when the last step of the part is finished, or when a part without steps is marked done.',
+  },
+  {
+    name: 'experiment.part_reopened',
+    family: 'record',
+    summary: 'A finished part of an experiment was reopened.',
+    producer: {
+      entityType: 'part_completion',
+      operation: 'delete',
+    },
+    wireName: 'experiment.part_reopened',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
   },
   {
     name: 'experiment.series_member_added',
@@ -2094,6 +2151,10 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
   'plate_run.archived': 'A plate run is archived',
   'plate_worklist.created': 'A liquid handler worklist is made',
   'plate_worklist.completed': 'A liquid handler worklist is completed',
+  'experiment.part_created': 'A part is added to an experiment',
+  'experiment.part_opened': 'A part of an experiment opens',
+  'experiment.part_completed': 'A part of an experiment is finished',
+  'experiment.part_reopened': 'A part of an experiment is reopened',
 })
 
 /**

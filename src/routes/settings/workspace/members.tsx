@@ -45,6 +45,12 @@ import { SettingsHeader } from '#/components/settings/settings-page'
 import { JoinDomainsSection } from '#/components/settings/join-domains'
 import { WorkspaceGroups } from '#/components/settings/workspace-groups'
 import { createDataClient } from '#/lib/data-client'
+import {
+  absenceKeys,
+  absenceOf,
+  absenceState,
+  fetchAbsences,
+} from '#/lib/absences'
 import { useUserNames } from '#/lib/user-names'
 import { ChangeEmailDialog } from '#/components/settings/change-email-dialog'
 import { MemberUsernameDialog } from '#/components/settings/member-username-dialog'
@@ -196,6 +202,11 @@ function Members() {
   const memberStatus = useQuery({
     queryKey: workspaceAccessKeys.members(workspaceId),
     queryFn: () => fetchWorkspaceMemberStatus(dataClient),
+    enabled: Boolean(workspaceId),
+  })
+  const absences = useQuery({
+    queryKey: absenceKeys.all(workspaceId),
+    queryFn: () => fetchAbsences(dataClient, workspaceId),
     enabled: Boolean(workspaceId),
   })
   const certifications = useQuery({
@@ -425,6 +436,10 @@ function Members() {
               {t('settings.members.suspended')}
             </span>
           ) : null}
+          <AwayBadge
+            absence={absenceOf(absences.data ?? [], row.original.userId)}
+            nameOf={names.userLabel}
+          />
         </>
       ),
     },
@@ -1060,6 +1075,29 @@ function Members() {
         </ConfirmDialog>
       ) : null}
     </>
+  )
+}
+
+/** "Away until 12 Nov · Priya covers", beside the name of someone who is away. */
+function AwayBadge({
+  absence,
+  nameOf,
+}: {
+  absence: ReturnType<typeof absenceOf>
+  nameOf: (userId: string) => string
+}) {
+  if (!absence || absenceState(absence) !== 'away') return null
+  const date = formatDate(absence.endsOn, { year: false })
+  return (
+    <span className="text-fg-muted">
+      {' · '}
+      {absence.delegateUserId
+        ? t('people.away.badgeCovered', {
+            date,
+            name: nameOf(absence.delegateUserId),
+          })
+        : t('people.away.badge', { date })}
+    </span>
   )
 }
 

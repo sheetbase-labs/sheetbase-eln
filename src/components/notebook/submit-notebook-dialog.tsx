@@ -1,3 +1,10 @@
+import {
+  absenceKeys,
+  absenceOf,
+  absenceState,
+  fetchAbsences,
+} from '#/lib/absences'
+import { formatDate } from '#/lib/format-date'
 import { rich, t } from '#/copy'
 import { returnToHere } from '#/lib/return-to'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -269,6 +276,12 @@ export function SubmitNotebookDialog({
     })
   }, [liveSignature])
 
+  // Who is away, so a reviewer who is can be chosen knowing their cover.
+  const absences = useQuery({
+    queryKey: absenceKeys.all(workspaceId ?? 'none'),
+    queryFn: () => fetchAbsences(notebookDataClient, workspaceId!),
+    enabled: open && Boolean(workspaceId),
+  })
   const members = useQuery({
     queryKey: adminQueryKeys.members(workspaceId ?? 'none'),
     queryFn: () => fetchWorkspaceMembers(notebookDataClient, workspaceId!),
@@ -320,9 +333,12 @@ export function SubmitNotebookDialog({
       setSelectedReviewerIds([others[0].userId])
     }
   }, [open, reviewersSettled, defaultReviewerId, reviewerUserId])
-  const { names: reviewerNames } = useUserNames(
-    shownReviewers.map((member) => member.userId),
-  )
+  const { names: reviewerNames } = useUserNames([
+    ...shownReviewers.map((member) => member.userId),
+    ...(absences.data ?? []).flatMap((a) =>
+      a.delegateUserId ? [a.delegateUserId] : [],
+    ),
+  ])
 
   // Latest observed canonical inputs and their signature, maintained
   // synchronously during render — not in an effect. A verification response
@@ -621,6 +637,24 @@ export function SubmitNotebookDialog({
                     reviewerUserId,
                   )}
                 />
+                {(() => {
+                  const away = absenceOf(absences.data ?? [], member.userId)
+                  if (!away || absenceState(away) !== 'away') return null
+                  const date = formatDate(away.endsOn, { year: false })
+                  return (
+                    <span className="text-fg-muted">
+                      {' · '}
+                      {away.delegateUserId
+                        ? t('people.away.badgeCovered', {
+                            date,
+                            name:
+                              reviewerNames[away.delegateUserId] ??
+                              away.delegateUserId.slice(0, 8),
+                          })
+                        : t('people.away.badge', { date })}
+                    </span>
+                  )
+                })()}
               </label>
             ))}
           </fieldset>

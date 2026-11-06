@@ -234,6 +234,12 @@ export const settingsAccountNav: SettingsNavItem[] = [
   },
   {
     place: 'account',
+    label: 'Out of office',
+    link: { to: '/settings/account/away' },
+    match: (p) => p.startsWith('/settings/account/away'),
+  },
+  {
+    place: 'account',
     label: 'Notifications',
     link: { to: '/settings/account/notifications' },
     match: (p) => p.startsWith('/settings/account/notifications'),

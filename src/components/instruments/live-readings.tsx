@@ -4,6 +4,7 @@
  * agent beside the instrument and the page asks again every few seconds.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { clockOption } from '#/lib/display-clock'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -42,6 +43,7 @@ import {
   formatReadingValue,
   layoutSeries,
   liveFeedQueryKeys,
+  outOfRangeQueryKey,
   removeFeed,
   seriesCsv,
   setFeedLimits,
@@ -69,7 +71,7 @@ import { t } from '#/copy'
 const NOW_TICK_MS = 1000
 
 /** The time, ticking each second, so "5 s ago" and "Live" stay honest between fetches. */
-function useNow(): number {
+export function useNow(): number {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), NOW_TICK_MS)
@@ -78,11 +80,11 @@ function useNow(): number {
   return now
 }
 
-function unitSuffix(feed: Pick<FeedRow, 'unit'>): string {
+export function unitSuffix(feed: Pick<FeedRow, 'unit'>): string {
   return feed.unit ? ` ${feed.unit}` : ''
 }
 
-function limitsLabel(feed: FeedRow): string {
+export function limitsLabel(feed: FeedRow): string {
   const { lowLimit: low, highLimit: high } = feed
   const unit = unitSuffix(feed)
   if (low !== null && high !== null) {
@@ -104,7 +106,7 @@ function limitsLabel(feed: FeedRow): string {
   return t('library.instruments.live.noLimits')
 }
 
-function FeedState({ feed, now }: { feed: FeedRow; now: number }) {
+export function FeedState({ feed, now }: { feed: FeedRow; now: number }) {
   if (feed.limitState === 'low') {
     return <Status tone="bad">{t('library.instruments.live.stateLow')}</Status>
   }
@@ -121,7 +123,7 @@ function FeedState({ feed, now }: { feed: FeedRow; now: number }) {
 const CHART = { width: 720, height: 200 }
 
 /** A line for the average, a band for the spread, dashed lines for limits. */
-function LiveChart({
+export function LiveChart({
   feed,
   windowId,
 }: {
@@ -291,7 +293,7 @@ function LiveChart({
   )
 }
 
-function LimitsDialog({
+export function LimitsDialog({
   feed,
   open,
   onOpenChange,
@@ -321,8 +323,9 @@ function LimitsDialog({
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: liveFeedQueryKeys.feeds(feed.instrumentId),
+        queryKey: liveFeedQueryKeys.feeds(feed.ownerId),
       })
+      void queryClient.invalidateQueries({ queryKey: outOfRangeQueryKey })
       onOpenChange(false)
       toast(t('library.instruments.live.limitsSaved'))
     },
@@ -616,23 +619,89 @@ export function LiveReadingsSection({
   /** Can set limits and stop keeping a measurement (runs the instrument). */
   canSetLimits: boolean
 }) {
-  const queryClient = useQueryClient()
   const feeds = useInstrumentFeeds(instrument.id)
+  const [setupOpen, setSetupOpen] = useState(false)
+  const rows = feeds.data ?? []
+  return (
+    <>
+      <ReadingsSection
+        ownerId={instrument.id}
+        fileLabel={instrument.displayId ?? 'instrument'}
+        feeds={rows}
+        loaded={feeds.isSuccess}
+        canSetLimits={canSetLimits}
+        // Nothing has come in and this person can't set it up: nothing to show.
+        hideWhenEmpty={!canSetUp}
+        title={t('library.instruments.live.title')}
+        empty={t('library.instruments.live.empty')}
+        action={
+          <>
+            <AgentLine instrumentId={instrument.id} />
+            {canSetUp && !instrument.retiredAt ? (
+              <Button size="sm" onClick={() => setSetupOpen(true)}>
+                {rows.length
+                  ? t('library.instruments.live.changeSetUp')
+                  : t('library.instruments.live.setUp')}
+              </Button>
+            ) : null}
+          </>
+        }
+      />
+      <LiveSetupDialog
+        instrument={instrument}
+        open={setupOpen}
+        onOpenChange={setSetupOpen}
+      />
+    </>
+  )
+}
+
+/**
+ * The measurements kept for one place or instrument: a table of them with a
+ * chart of the one picked, limits, a CSV and removal. Shared by instruments and
+ * by freezers and rooms.
+ */
+export function ReadingsSection({
+  ownerId,
+  fileLabel,
+  feeds: rows,
+  loaded,
+  canSetLimits,
+  hideWhenEmpty,
+  title,
+  empty,
+  action,
+  defaultWindow = '1h',
+  className = 'border-t border-border pt-4',
+}: {
+  ownerId: string
+  fileLabel: string
+  feeds: FeedRow[]
+  loaded: boolean
+  canSetLimits: boolean
+  hideWhenEmpty: boolean
+  title: string
+  empty: string
+  action?: ReactNode
+  /** How far back the chart starts out. */
+  defaultWindow?: LiveWindowId
+  className?: string
+}) {
+  const queryClient = useQueryClient()
   const now = useNow()
   const [selected, setSelected] = useState<string | null>(null)
-  const [windowId, setWindowId] = useState<LiveWindowId>('1h')
-  const [setupOpen, setSetupOpen] = useState(false)
+  const [windowId, setWindowId] = useState<LiveWindowId>(defaultWindow)
   const [limitsOpen, setLimitsOpen] = useState(false)
   const [removing, setRemoving] = useState(false)
-  const rows = feeds.data ?? []
   const feed = rows.find((row) => row.id === selected) ?? rows.at(0) ?? null
   const series = useFeedSeries(feed?.id ?? null, windowId)
   const remove = useMutation({
     mutationFn: (target: FeedRow) => removeFeed(target.id),
     onSuccess: (_data, target) => {
       void queryClient.invalidateQueries({
-        queryKey: liveFeedQueryKeys.feeds(instrument.id),
+        queryKey: liveFeedQueryKeys.feeds(ownerId),
       })
+      void queryClient.invalidateQueries({ queryKey: outOfRangeQueryKey })
       setSelected(null)
       setRemoving(false)
       toast(t('library.instruments.live.removed', { name: target.name }))
@@ -643,7 +712,6 @@ export function LiveReadingsSection({
       })
     },
   })
-
   const columns: RegistryColumn<FeedRow>[] = [
     {
       id: 'name',
@@ -694,30 +762,12 @@ export function LiveReadingsSection({
     },
   ]
 
-  const action = (
-    <>
-      <AgentLine instrumentId={instrument.id} />
-      {canSetUp && !instrument.retiredAt ? (
-        <Button size="sm" onClick={() => setSetupOpen(true)}>
-          {rows.length
-            ? t('library.instruments.live.changeSetUp')
-            : t('library.instruments.live.setUp')}
-        </Button>
-      ) : null}
-    </>
-  )
-
-  // Nothing has come in and this person can't set it up: nothing to show.
-  if (feeds.isSuccess && rows.length === 0 && !canSetUp) return null
+  if (loaded && rows.length === 0 && hideWhenEmpty) return null
 
   return (
-    <Section
-      className="border-t border-border pt-4"
-      title={t('library.instruments.live.title')}
-      action={action}
-    >
+    <Section className={className} title={title} action={action}>
       {rows.length === 0 ? (
-        <Muted>{t('library.instruments.live.empty')}</Muted>
+        <Muted>{empty}</Muted>
       ) : (
         <div className="grid grid-cols-1 gap-4 @5xl/record:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
           <TableBox className="self-start">
@@ -757,7 +807,7 @@ export function LiveReadingsSection({
                     disabled={!series.data?.points.length}
                     onClick={() =>
                       download(
-                        `${instrument.displayId ?? 'instrument'}-${feed.name}.csv`.replace(
+                        `${fileLabel}-${feed.name}.csv`.replace(
                           /[^\w.-]+/g,
                           '-',
                         ),
@@ -779,11 +829,6 @@ export function LiveReadingsSection({
           ) : null}
         </div>
       )}
-      <LiveSetupDialog
-        instrument={instrument}
-        open={setupOpen}
-        onOpenChange={setSetupOpen}
-      />
       {feed ? (
         <LimitsDialog
           key={`${feed.id}:${feed.lowLimit}:${feed.highLimit}:${feed.unit}`}

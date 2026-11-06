@@ -415,7 +415,11 @@ const feedAt = (seconds: number) =>
 const feeds: FeedRow[] = [
   {
     id: 'feed-1',
+    ownerId: INSTRUMENT_ID,
     instrumentId: INSTRUMENT_ID,
+    storageUnitId: null,
+    storageRoomId: null,
+    outOfRangeSince: null,
     name: 'Temperature',
     unit: '°C',
     lowLimit: 35,
@@ -427,7 +431,11 @@ const feeds: FeedRow[] = [
   },
   {
     id: 'feed-2',
+    ownerId: INSTRUMENT_ID,
     instrumentId: INSTRUMENT_ID,
+    storageUnitId: null,
+    storageRoomId: null,
+    outOfRangeSince: null,
     name: 'Dissolved oxygen',
     unit: '%',
     lowLimit: 30,

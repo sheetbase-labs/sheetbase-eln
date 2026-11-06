@@ -2590,6 +2590,31 @@ export const settings = {
     viewOnly:
       'You can see these checks. Only roles that can release samples can change them.',
   },
+  storageReadings: {
+    title: 'Readings for {name}',
+    empty:
+      'No readings yet. Log one by hand, or let a probe or logger send them, and the temperature appears here against its limits.',
+    logReading: 'Log a reading',
+    logTitle: 'Log a reading for {name}',
+    logDescription:
+      'For a check you made by eye, such as the daily temperature. It is kept with the readings from probes.',
+    measurement: 'Measurement',
+    value: 'Value',
+    unit: 'Unit',
+    log: 'Log reading',
+    logged: 'Logged for {name}',
+    couldNotLog: 'The reading couldn’t be logged',
+    outOfRange: {
+      one: '{count} place is outside its limits:',
+      other: '{count} places are outside their limits:',
+    },
+    since: 'since {when}',
+    treeOut: 'Out of range',
+    treeOutBelow: {
+      one: '{count} out of range',
+      other: '{count} out of range',
+    },
+  },
   storageLocationsPanel: {
     positions: 'Positions · {held} of {total} taken',
     matchSamples: 'Match samples to positions',

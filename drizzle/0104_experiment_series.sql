@@ -404,7 +404,7 @@ GRANT ALL ON FUNCTION api.series_members(p_series_record_id uuid) TO authenticat
 --> statement-breakpoint
 
 -- What the series adds up to: how many members there are and how many are
--- approved, the next one due, and the samples across all of them.
+-- approved, the next one due (not one already in review), and the samples across all of them.
 CREATE FUNCTION api.series_rollup(p_series_record_id uuid) RETURNS jsonb
     LANGUAGE sql STABLE
     SET search_path TO ''
@@ -414,7 +414,7 @@ CREATE FUNCTION api.series_rollup(p_series_record_id uuid) RETURNS jsonb
   ), nxt AS (
     SELECT member_record_id, identifier, title, coalesce(planned_on, planned_end) AS due_on
       FROM m
-     WHERE status NOT IN ('approved', 'rejected', 'archived', 'cancelled')
+     WHERE status NOT IN ('approved', 'in_review', 'rejected', 'archived', 'cancelled')
      ORDER BY member_number
      LIMIT 1
   )

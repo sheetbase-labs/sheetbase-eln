@@ -3046,6 +3046,28 @@ export const library = {
     },
   },
   templates: {
+    parts: {
+      title: 'Parts',
+      hint: 'A template can split the experiment over days. Each part becomes its own page, on a day counted from the start (day 0 is the first day).',
+      none: 'No parts. Experiments made from this template are one page.',
+      table: 'Template parts',
+      columns: {
+        part: 'Part',
+        day: 'Day',
+        sections: 'Sections',
+        actions: 'Actions',
+      },
+      titleLabel: 'Part title',
+      titlePlaceholder: 'e.g. Seed the cells',
+      dayLabel: 'Day',
+      add: 'Add part',
+      moveUp: 'Move {title} up',
+      moveDown: 'Move {title} down',
+      remove: 'Remove {title}',
+      sectionPart: 'Part',
+      noPart: 'First part',
+      sectionPartLabel: 'Part for {section}',
+    },
     bulkUpgradePanel: {
       ofNotebooksUpdatedToV:
         '{updated} of {out} notebooks updated to v{targetVersion}',

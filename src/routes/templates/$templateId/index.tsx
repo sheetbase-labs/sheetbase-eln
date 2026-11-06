@@ -19,6 +19,8 @@ import {
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Select } from '#/components/ui/select'
 import { TemplateSectionsBoard } from '#/components/templates/template-sections-board'
+import { TemplatePartsSection } from '#/components/templates/template-parts'
+import type { TemplatePart } from '#/components/templates/template-parts'
 import {
   templateDataQueryKeys,
   templateLifecycle,
@@ -93,6 +95,9 @@ function sectionColumns(
     disabled?: boolean
     onMove?: (index: number, delta: number) => void
     onRemove?: (id: string) => void
+    /** The template's parts: adds a Part column. */
+    parts?: readonly TemplatePart[]
+    onSetPart?: (id: string, partId: string | null) => void
   } = {},
 ): RegistryColumn<NotebookTemplatePlacement>[] {
   const columns: RegistryColumn<NotebookTemplatePlacement>[] = [
@@ -122,6 +127,44 @@ function sectionColumns(
       cell: ({ row }) => placementSource(row.original),
     },
   ]
+  if (options.parts && options.parts.length > 0) {
+    const parts = options.parts
+    columns.splice(3, 0, {
+      id: 'part',
+      header: t('library.templates.parts.sectionPart'),
+      cell: ({ row }) => {
+        const placement = row.original
+        if (placement.kind === 'section_placeholder') return '—'
+        const current = placement.partId ?? ''
+        if (!options.withActions) {
+          return (
+            parts.find((part) => part.id === current)?.title ??
+            t('library.templates.parts.noPart')
+          )
+        }
+        return (
+          <Select
+            size="sm"
+            value={current}
+            disabled={options.disabled}
+            aria-label={t('library.templates.parts.sectionPartLabel', {
+              section: placementName(placement),
+            })}
+            onChange={(event) =>
+              options.onSetPart?.(placement.id, event.target.value || null)
+            }
+          >
+            <option value="">{t('library.templates.parts.noPart')}</option>
+            {parts.map((part) => (
+              <option key={part.id} value={part.id}>
+                {part.title}
+              </option>
+            ))}
+          </Select>
+        )
+      },
+    })
+  }
   if (options.withActions) {
     columns.push({
       id: 'actions',
@@ -305,7 +348,11 @@ function TemplateSections() {
     )
   }
 
-  if (!draft && version.configuration.placements.length > 0) {
+  if (
+    !draft &&
+    version.configuration.placements.length > 0 &&
+    !version.configuration.parts?.length
+  ) {
     return (
       <TemplateSectionsBoard
         templateId={templateId}
@@ -351,6 +398,36 @@ function TemplateSections() {
     next[index] = next[target]
     next[target] = moved
     applyPlacements(next)
+  }
+
+  const templateParts = draft ? (draft.parts ?? []) : (config.parts ?? [])
+  const setParts = (next: TemplatePart[]) => {
+    if (!draft) return
+    const ids = new Set(next.map((part) => part.id))
+    const { parts: _old, ...rest } = draft
+    setDraft({
+      ...rest,
+      ...(next.length ? { parts: next } : {}),
+      // A section whose part was removed goes back to the first part.
+      placements: draft.placements.map((placement) =>
+        placement.kind !== 'section_placeholder' &&
+        placement.partId &&
+        !ids.has(placement.partId)
+          ? { ...placement, partId: undefined }
+          : placement,
+      ),
+    })
+  }
+  const setPlacementPart = (id: string, partId: string | null) => {
+    if (!draft) return
+    setDraft({
+      ...draft,
+      placements: draft.placements.map((placement) =>
+        placement.id === id && placement.kind !== 'section_placeholder'
+          ? { ...placement, partId: partId ?? undefined }
+          : placement,
+      ),
+    })
   }
 
   const addSection = (key: string, label: string) => {
@@ -492,6 +569,8 @@ function TemplateSections() {
                       withActions: true,
                       disabled: save.isPending,
                       onMove: movePlacement,
+                      parts: templateParts,
+                      onSetPart: setPlacementPart,
                       onRemove: (id) =>
                         applyPlacements(
                           editPlacements.filter((row) => row.id !== id),
@@ -513,7 +592,9 @@ function TemplateSections() {
               <RegistryGrid
                 label={t('library.templates.overview.templateSections')}
                 rows={placements}
-                columns={sectionColumns(placements.length)}
+                columns={sectionColumns(placements.length, {
+                  parts: templateParts,
+                })}
                 getRowId={(placement) => placement.id}
                 selectable={false}
               />
@@ -524,6 +605,14 @@ function TemplateSections() {
             </Muted>
           )}
         </Section>
+
+        <TemplatePartsSection
+          parts={templateParts}
+          placements={draft ? draft.placements : placements}
+          editable={Boolean(draft)}
+          disabled={save.isPending}
+          onChange={setParts}
+        />
 
         <Section
           title={t('library.templates.overview.parameters')}

@@ -52,6 +52,7 @@ import {
   MobileList,
 } from '#/components/inventory/list'
 import { Tabs } from '#/components/ui/tabs'
+import { InstrumentUsagePanel } from '#/components/facility/usage-report'
 import { isOutOfService } from '#/components/instruments/out-of-service'
 import {
   CALIBRATION_DUE_SOON_DAYS,
@@ -102,7 +103,7 @@ export const Route = createFileRoute('/instruments')({
   validateSearch: (
     search: Record<string, unknown>,
   ): {
-    tab?: 'all' | 'connected' | 'calibration' | 'retired'
+    tab?: 'all' | 'connected' | 'calibration' | 'retired' | 'usage'
     q?: string
     type?: string
     connection?: string
@@ -115,7 +116,8 @@ export const Route = createFileRoute('/instruments')({
     tab:
       search.tab === 'connected' ||
       search.tab === 'calibration' ||
-      search.tab === 'retired'
+      search.tab === 'retired' ||
+      search.tab === 'usage'
         ? search.tab
         : undefined,
     q: typeof search.q === 'string' ? search.q : undefined,
@@ -145,6 +147,7 @@ const tabLabels = {
   connected: t('library.instruments.list.automaticIntake'),
   calibration: t('library.instruments.list.calibrationDue'),
   retired: 'Retired',
+  usage: t('spend.usage.tab'),
 } as const
 
 /** What the footer's "x of y …" counts, one phrase per tab. */
@@ -153,6 +156,7 @@ const tabCountLabels: Record<keyof typeof tabLabels, string> = {
   connected: 'instruments taking automatic intake',
   calibration: 'instruments with a calibration due',
   retired: 'retired instruments',
+  usage: 'instruments',
 }
 
 function InstrumentsRoute() {
@@ -276,6 +280,7 @@ function InstrumentsList() {
       return c === 'overdue' || c === 'soon' || c === 'na'
     }).length,
     retired: rows.filter((i) => i.retiredAt).length,
+    usage: 0,
   }
 
   const q = (search.q ?? '').trim().toLowerCase()
@@ -549,11 +554,12 @@ function InstrumentsList() {
               label={t('library.instruments.list.instrumentLists')}
               value={tab}
               items={(
-                ['all', 'connected', 'calibration', 'retired'] as const
+                ['all', 'connected', 'calibration', 'retired', 'usage'] as const
               ).map((key) => ({
                 key,
                 label: tabLabels[key],
-                count: query.isPending ? undefined : counts[key],
+                count:
+                  query.isPending || key === 'usage' ? undefined : counts[key],
                 link: {
                   to: '/instruments',
                   search: {
@@ -566,221 +572,247 @@ function InstrumentsList() {
             />
           }
         />
-        <ListToolbar
-          q={search.q}
-          label={t('library.instruments.list.searchInstruments')}
-          placeholder={t('library.instruments.list.searchIdNameModelSerial')}
-          onSearch={(next) =>
-            void navigate({
-              to: '/instruments',
-              search: (s) => ({ ...s, q: next || undefined }),
-              replace: true,
-            })
-          }
-          right={
-            <div className="flex shrink-0 items-center gap-1 max-md:hidden">
-              <label className="flex items-center gap-1 text-label text-fg-muted">
-                {t('library.instruments.list.type')}
-                <Select
-                  aria-label={t('library.instruments.list.filterByType')}
-                  className="h-[26px] w-32 text-label"
-                  value={search.type ?? ''}
-                  onChange={(e) => setParam('type')(e.target.value)}
-                >
-                  <option value="">{t('library.instruments.list.any')}</option>
-                  {types.map((item) => (
-                    <option key={item} value={item}>
-                      {instrumentTypeLabel(item)}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-              <label className="flex items-center gap-1 text-label text-fg-muted">
-                {t('library.instruments.list.howDataGetsIn')}
-                <Select
-                  aria-label={t('library.instruments.list.filterByHowDataGets')}
-                  className="h-[26px] w-32 text-label"
-                  value={search.connection ?? ''}
-                  onChange={(e) => setParam('connection')(e.target.value)}
-                >
-                  <option value="">{t('library.instruments.list.any')}</option>
-                  {INTAKE_METHODS.map((method) => (
-                    <option key={method.value} value={method.value}>
-                      {method.title}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-              <label className="flex items-center gap-1 text-label text-fg-muted">
-                {t('library.instruments.list.calibration')}
-                <Select
-                  aria-label={t('library.instruments.list.filterByCalibration')}
-                  className="h-[26px] w-32 text-label"
-                  value={search.calibration ?? ''}
-                  onChange={(e) => setParam('calibration')(e.target.value)}
-                >
-                  <option value="">{t('library.instruments.list.any')}</option>
-                  <option value="ok">
-                    {t('library.instruments.list.current')}
-                  </option>
-                  <option value="soon">
-                    {t('library.instruments.list.dueInDays', {
-                      calibrationDueSoonDays: CALIBRATION_DUE_SOON_DAYS,
-                    })}
-                  </option>
-                  <option value="overdue">
-                    {t('library.instruments.list.overdue')}
-                  </option>
-                </Select>
-              </label>
-            </div>
-          }
-        />
-        <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
-          {query.isPending ? (
-            <RegistryGrid
-              label={t('library.instruments.list.instruments')}
-              rows={[]}
-              columns={columns}
-              getRowId={(i) => i.id}
-              selectable={false}
-              isLoading
+        {tab === 'usage' ? (
+          <InstrumentUsagePanel />
+        ) : (
+          <>
+            <ListToolbar
+              q={search.q}
+              label={t('library.instruments.list.searchInstruments')}
+              placeholder={t(
+                'library.instruments.list.searchIdNameModelSerial',
+              )}
+              onSearch={(next) =>
+                void navigate({
+                  to: '/instruments',
+                  search: (s) => ({ ...s, q: next || undefined }),
+                  replace: true,
+                })
+              }
+              right={
+                <div className="flex shrink-0 items-center gap-1 max-md:hidden">
+                  <label className="flex items-center gap-1 text-label text-fg-muted">
+                    {t('library.instruments.list.type')}
+                    <Select
+                      aria-label={t('library.instruments.list.filterByType')}
+                      className="h-[26px] w-32 text-label"
+                      value={search.type ?? ''}
+                      onChange={(e) => setParam('type')(e.target.value)}
+                    >
+                      <option value="">
+                        {t('library.instruments.list.any')}
+                      </option>
+                      {types.map((item) => (
+                        <option key={item} value={item}>
+                          {instrumentTypeLabel(item)}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                  <label className="flex items-center gap-1 text-label text-fg-muted">
+                    {t('library.instruments.list.howDataGetsIn')}
+                    <Select
+                      aria-label={t(
+                        'library.instruments.list.filterByHowDataGets',
+                      )}
+                      className="h-[26px] w-32 text-label"
+                      value={search.connection ?? ''}
+                      onChange={(e) => setParam('connection')(e.target.value)}
+                    >
+                      <option value="">
+                        {t('library.instruments.list.any')}
+                      </option>
+                      {INTAKE_METHODS.map((method) => (
+                        <option key={method.value} value={method.value}>
+                          {method.title}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                  <label className="flex items-center gap-1 text-label text-fg-muted">
+                    {t('library.instruments.list.calibration')}
+                    <Select
+                      aria-label={t(
+                        'library.instruments.list.filterByCalibration',
+                      )}
+                      className="h-[26px] w-32 text-label"
+                      value={search.calibration ?? ''}
+                      onChange={(e) => setParam('calibration')(e.target.value)}
+                    >
+                      <option value="">
+                        {t('library.instruments.list.any')}
+                      </option>
+                      <option value="ok">
+                        {t('library.instruments.list.current')}
+                      </option>
+                      <option value="soon">
+                        {t('library.instruments.list.dueInDays', {
+                          calibrationDueSoonDays: CALIBRATION_DUE_SOON_DAYS,
+                        })}
+                      </option>
+                      <option value="overdue">
+                        {t('library.instruments.list.overdue')}
+                      </option>
+                    </Select>
+                  </label>
+                </div>
+              }
             />
-          ) : visible.length ? (
-            <>
-              <MobileList
-                label={t('library.instruments.list.instruments')}
-                items={visible.map((i) => {
-                  const c = calFor(i.id)
-                  const health = healthFor(i)
-                  return {
-                    key: i.id,
-                    id: i.displayId ?? i.id.slice(0, 8),
-                    title: i.name,
-                    // A phone has no table column for the registry state, so the row says
-                    // whether the instrument can be booked rather than leaving that to the
-                    // inspector or the Schedule page.
-                    sub: [
-                      intakeMethodLabel(i.intakeMethod),
-                      i.location ?? t('library.instruments.list.noLocation'),
-                      i.retiredAt
-                        ? t('library.instruments.list.retiredCantBeBooked')
-                        : isOutOfService(i)
-                          ? t('library.instruments.outOfService.listBlocked')
-                          : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · '),
-                    selected: i.id === sel?.id,
-                    link: {
-                      to: '/instruments/$instrumentId',
-                      params: { instrumentId: i.id },
-                      onClick: (event: React.MouseEvent) =>
-                        openInstrument(i, event),
-                    },
-                    status:
-                      c.state === 'overdue' ? (
-                        <span className="text-danger-text">
-                          {t('library.instruments.list.calibrationOverdue')}
-                        </span>
-                      ) : health.tone === 'bad' ? (
-                        <span className="inline-flex items-center gap-1.5">
-                          <Dot tone="bad" />
-                          {health.label}
-                        </span>
-                      ) : health.tone === 'warn' ? (
-                        <span className="text-warning-text">
-                          {health.label}
-                        </span>
-                      ) : c.state === 'soon' ? (
-                        <span className="text-warning-text">
-                          {t('library.instruments.list.calibration2', {
-                            label: c.label,
-                          })}
-                        </span>
-                      ) : undefined,
-                  }
-                })}
-              />
-              <RegistryGrid
-                className="max-md:hidden"
-                label={t('library.instruments.list.instruments')}
-                view={view}
-                rows={visible}
-                columns={columns}
-                getRowId={(i) => i.id}
-                rowSelection={rowSelection}
-                onRowSelectionChange={onRowSelectionChange}
-                onRowClick={openInstrument}
-                isLoading={query.isPending}
-              />
-            </>
-          ) : search.state === 'empty' || rows.length === 0 ? (
-            <div className="px-4 md:px-6">
-              <EmptyState
-                icon="plug"
-                title={t('library.instruments.list.noInstrumentsRegisteredYet')}
-                description={t(
-                  'library.instruments.list.registerAnInstrumentToBook',
-                )}
-                action={
-                  canManageInstruments ? (
-                    <RegisterInstrument
-                      types={types}
-                      workspaceId={workspaceId}
-                      ownerId={context.user.id}
-                    />
-                  ) : undefined
-                }
-              />
-            </div>
-          ) : (
-            <div role="status" className="px-4 md:px-6">
-              <EmptyState
-                icon="search"
-                title={
-                  search.q
-                    ? t('library.instruments.list.noInstrumentsMatch', {
-                        q: search.q,
-                      })
-                    : t('library.instruments.list.noInstrumentsIn', {
-                        toLowerCase: tabLabels[tab].toLowerCase(),
-                      })
-                }
-                description={
-                  filtered
-                    ? t('library.instruments.list.searchLooksAtIdName')
-                    : tab === 'retired'
-                      ? t(
-                          'library.instruments.list.retiredInstrumentsStayHereWith',
-                        )
-                      : t('library.instruments.list.nothingIsInThisList')
-                }
-                action={
-                  <Button
-                    nativeButton={false}
-                    render={
-                      <Link to="/instruments" search={{ tab: search.tab }} />
+            <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
+              {query.isPending ? (
+                <RegistryGrid
+                  label={t('library.instruments.list.instruments')}
+                  rows={[]}
+                  columns={columns}
+                  getRowId={(i) => i.id}
+                  selectable={false}
+                  isLoading
+                />
+              ) : visible.length ? (
+                <>
+                  <MobileList
+                    label={t('library.instruments.list.instruments')}
+                    items={visible.map((i) => {
+                      const c = calFor(i.id)
+                      const health = healthFor(i)
+                      return {
+                        key: i.id,
+                        id: i.displayId ?? i.id.slice(0, 8),
+                        title: i.name,
+                        // A phone has no table column for the registry state, so the row says
+                        // whether the instrument can be booked rather than leaving that to the
+                        // inspector or the Schedule page.
+                        sub: [
+                          intakeMethodLabel(i.intakeMethod),
+                          i.location ??
+                            t('library.instruments.list.noLocation'),
+                          i.retiredAt
+                            ? t('library.instruments.list.retiredCantBeBooked')
+                            : isOutOfService(i)
+                              ? t(
+                                  'library.instruments.outOfService.listBlocked',
+                                )
+                              : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · '),
+                        selected: i.id === sel?.id,
+                        link: {
+                          to: '/instruments/$instrumentId',
+                          params: { instrumentId: i.id },
+                          onClick: (event: React.MouseEvent) =>
+                            openInstrument(i, event),
+                        },
+                        status:
+                          c.state === 'overdue' ? (
+                            <span className="text-danger-text">
+                              {t('library.instruments.list.calibrationOverdue')}
+                            </span>
+                          ) : health.tone === 'bad' ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              <Dot tone="bad" />
+                              {health.label}
+                            </span>
+                          ) : health.tone === 'warn' ? (
+                            <span className="text-warning-text">
+                              {health.label}
+                            </span>
+                          ) : c.state === 'soon' ? (
+                            <span className="text-warning-text">
+                              {t('library.instruments.list.calibration2', {
+                                label: c.label,
+                              })}
+                            </span>
+                          ) : undefined,
+                      }
+                    })}
+                  />
+                  <RegistryGrid
+                    className="max-md:hidden"
+                    label={t('library.instruments.list.instruments')}
+                    view={view}
+                    rows={visible}
+                    columns={columns}
+                    getRowId={(i) => i.id}
+                    rowSelection={rowSelection}
+                    onRowSelectionChange={onRowSelectionChange}
+                    onRowClick={openInstrument}
+                    isLoading={query.isPending}
+                  />
+                </>
+              ) : search.state === 'empty' || rows.length === 0 ? (
+                <div className="px-4 md:px-6">
+                  <EmptyState
+                    icon="plug"
+                    title={t(
+                      'library.instruments.list.noInstrumentsRegisteredYet',
+                    )}
+                    description={t(
+                      'library.instruments.list.registerAnInstrumentToBook',
+                    )}
+                    action={
+                      canManageInstruments ? (
+                        <RegisterInstrument
+                          types={types}
+                          workspaceId={workspaceId}
+                          ownerId={context.user.id}
+                        />
+                      ) : undefined
                     }
-                  >
-                    {filtered
-                      ? t('library.instruments.list.clearSearchAndFilters')
-                      : t('library.instruments.list.showAllInstruments')}
-                  </Button>
-                }
-              />
+                  />
+                </div>
+              ) : (
+                <div role="status" className="px-4 md:px-6">
+                  <EmptyState
+                    icon="search"
+                    title={
+                      search.q
+                        ? t('library.instruments.list.noInstrumentsMatch', {
+                            q: search.q,
+                          })
+                        : t('library.instruments.list.noInstrumentsIn', {
+                            toLowerCase: tabLabels[tab].toLowerCase(),
+                          })
+                    }
+                    description={
+                      filtered
+                        ? t('library.instruments.list.searchLooksAtIdName')
+                        : tab === 'retired'
+                          ? t(
+                              'library.instruments.list.retiredInstrumentsStayHereWith',
+                            )
+                          : t('library.instruments.list.nothingIsInThisList')
+                    }
+                    action={
+                      <Button
+                        nativeButton={false}
+                        render={
+                          <Link
+                            to="/instruments"
+                            search={{ tab: search.tab }}
+                          />
+                        }
+                      >
+                        {filtered
+                          ? t('library.instruments.list.clearSearchAndFilters')
+                          : t('library.instruments.list.showAllInstruments')}
+                      </Button>
+                    }
+                  />
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        <ListFooter
-          loading={query.isPending}
-          right={sel ? '1 selected' : undefined}
-        >
-          {visible.length} of {counts[tab]} {tabCountLabels[tab]}
-        </ListFooter>
+            <ListFooter
+              loading={query.isPending}
+              right={sel ? '1 selected' : undefined}
+            >
+              {visible.length} of {counts[tab]} {tabCountLabels[tab]}
+            </ListFooter>
+          </>
+        )}
       </div>
 
-      {sel ? (
+      {sel && tab !== 'usage' ? (
         <InstrumentInspector
           instrument={sel}
           calibration={calFor(sel.id)}

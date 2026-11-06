@@ -9,7 +9,6 @@ import { Tabs } from '#/components/ui/tabs'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
 import { CopyButton } from '#/components/ui/copy-button'
-import { BookInstrumentButton } from '#/components/experiments/book-instrument-button'
 import { experimentStatus } from '#/components/experiments/experiments-data'
 import {
   fetchProject,
@@ -251,9 +250,6 @@ function ExperimentLayout() {
               >
                 {t('projects.experimentPage.share')}
               </CopyButton>
-              {!canWrite || e.locked_at || e.archived_at ? null : (
-                <BookInstrumentButton experimentId={e.id} />
-              )}
               <ExperimentLifecycleActions experiment={e} canWrite={canWrite} />
               <FavouriteToggle kind="record" objectId={e.id} />
               <AskAiButton />

@@ -2,7 +2,7 @@ import { ShareWithClientDialog } from '#/components/client-sharing/share-with-cl
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { projectOption } from '#/components/record-picker/entity-options'
 import { useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -28,8 +28,11 @@ import { Icon } from '#/components/icons'
 import {
   RecordActionItems,
   RecordActionsMenu,
+  RecordMainActionsSlot,
   useOfferedRecordActions,
+  useRecordMainActionsHosted,
 } from '#/components/notebook/record-actions'
+import { bookInstrumentLink } from '#/components/experiments/book-instrument'
 import { SaveAsTemplateDialog } from '#/components/experiments/save-as-template-dialog'
 import {
   archiveExperiment,
@@ -70,6 +73,7 @@ export function ExperimentLifecycleActions({
   canWrite?: boolean
 }) {
   const offered = useOfferedRecordActions()
+  const hosted = useRecordMainActionsHosted()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [dialog, setDialog] = useState<DialogKind>(null)
@@ -213,8 +217,19 @@ export function ExperimentLifecycleActions({
   const isActive = e.status === 'in_progress'
   const isHold = e.status === 'on_hold'
   const isFinished = e.status === 'completed'
+  const locked = Boolean(e.locked_at)
+  // Submit is the main step of a running experiment. The notebook owns the
+  // dialog, so it puts the button here itself while it is open; on the other
+  // tabs this one takes you to the notebook with the dialog open.
+  const submitFromHere =
+    !hosted && !locked && (isActive || e.status === 'returned')
   if (archived || !canWrite) {
-    return <RecordActionsMenu actions={offered} />
+    return (
+      <>
+        <RecordMainActionsSlot />
+        <RecordActionsMenu actions={offered} />
+      </>
+    )
   }
 
   return (
@@ -267,6 +282,23 @@ export function ExperimentLifecycleActions({
           {t('projects.lifecycle.resume')}
         </Button>
       ) : null}
+      {submitFromHere ? (
+        <Button
+          variant="primary"
+          nativeButton={false}
+          render={
+            <Link
+              to="/experiments/$expId/notebook"
+              params={{ expId: e.id }}
+              search={{ reopen: 'submit' } as never}
+            />
+          }
+        >
+          {t('common.actions.submit')}
+        </Button>
+      ) : null}
+      {/* Submit and Sign, handed up by the notebook while it is open. */}
+      <RecordMainActionsSlot />
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -286,6 +318,14 @@ export function ExperimentLifecycleActions({
               <DropdownMenuSeparator />
             </>
           ) : null}
+          {locked ? null : (
+            <DropdownMenuItem
+              icon="calendar"
+              onClick={() => void navigate(bookInstrumentLink(e.id))}
+            >
+              {t('projects.bookInstrument.label')}
+            </DropdownMenuItem>
+          )}
           {isActive ? (
             <DropdownMenuItem
               icon="pause"

@@ -50,6 +50,21 @@ export async function runPlanningAction(
       await prepareTimerAlerts()
       await startStepTimer(action.blockId, action.seconds ?? undefined, client)
       return undefined
+    case 'step.done':
+      await client.rpc('set_step_done', {
+        p_block_id: action.blockId,
+        p_done: action.done,
+        ...(action.note !== null ? { p_note: action.note } : {}),
+      })
+      return undefined
+    case 'step.result':
+      await client.rpc('add_step_result', {
+        p_block_id: action.blockId,
+        p_label: action.label,
+        p_value: action.value,
+        ...(action.unit !== null ? { p_unit: action.unit } : {}),
+      })
+      return undefined
     case 'shipment.create': {
       const made = await createShipment(client, action.input)
       if (action.markSent) {

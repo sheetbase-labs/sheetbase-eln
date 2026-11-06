@@ -130,6 +130,9 @@ export const EVENT_NAMES = [
   "instrument.reading.out_of_limits",
   "instrument.reading.back_in_range",
   "record.assigned",
+  "step.completed",
+  "step.reopened",
+  "step.result_added",
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];

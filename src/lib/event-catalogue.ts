@@ -1574,6 +1574,49 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     notes:
       'Payload carries assigneeUserId (null when unassigned) and previousAssigneeUserId.',
   },
+  {
+    name: 'step.completed',
+    family: 'record',
+    summary: 'A protocol step in a notebook was finished.',
+    producer: {
+      entityType: 'step_completion',
+      operation: 'create',
+    },
+    wireName: 'step.completed',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries blockId, recordId, identifier, title, stepNumber, step and completedByUserId. It fires however the step was finished: on the page, by the assistant, over the API or from a pipeline.',
+  },
+  {
+    name: 'step.reopened',
+    family: 'record',
+    summary: 'A finished protocol step was reopened.',
+    producer: {
+      entityType: 'step_completion',
+      operation: 'delete',
+    },
+    wireName: 'step.reopened',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+  },
+  {
+    name: 'step.result_added',
+    family: 'record',
+    summary: 'A result was recorded against a protocol step.',
+    producer: {
+      entityType: 'step_result',
+      operation: 'create',
+    },
+    wireName: 'step.result_added',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries blockId (the step), resultBlockId, label, recordId, identifier, title, stepNumber and step.',
+  },
 ])
 
 /**
@@ -1746,6 +1789,9 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
     'An instrument reading goes out of limits',
   'instrument.reading.back_in_range': 'An instrument reading is back in range',
   'record.assigned': 'A record is assigned',
+  'step.completed': 'A protocol step is finished',
+  'step.reopened': 'A protocol step is reopened',
+  'step.result_added': 'A result is added to a protocol step',
 })
 
 /**

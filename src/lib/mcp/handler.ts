@@ -17,6 +17,7 @@ import type { Scope } from '../api-credential-scopes'
 import type { DataClient } from '../data-client'
 import { DataClientError } from '../data-client'
 import { logger, redact } from '../logger'
+import { LAB_ACT_TOOL_NAME, hasLabActScope, labActTool, runLabAct } from './lab'
 import type { AiFeatureFlagKey, AiFeatureFlags } from '../ai-feature-flags'
 import {
   ADMIN_READ_TOOL_NAME,
@@ -98,6 +99,7 @@ const READ_SCOPES: Scope[] = [
   'datasets:read',
   'sheets:read',
   'models:read',
+  'lab:read',
 ]
 
 /**
@@ -256,11 +258,18 @@ function listTools(context: McpContext): McpTool[] {
     context.flags.mcp_read && hasCanonicalReadScope(context.scopes)
       ? [canonicalReadTool()]
       : []
+  const lab =
+    context.actor.kind === 'user' &&
+    hasLabActScope(context.scopes) &&
+    context.flags.mcp_lab
+      ? [labActTool()]
+      : []
   return [
     ...(hasAnyReadScope(context.scopes) && context.flags.mcp_read
       ? [contextTool()]
       : []),
     ...canonical,
+    ...lab,
     ...admin,
     ...catalogue,
   ]
@@ -631,6 +640,46 @@ async function callTool(
       }
       return toolError(
         error instanceof Error ? error.message : 'The canonical read failed.',
+      )
+    }
+  }
+
+  if (name === LAB_ACT_TOOL_NAME) {
+    if (!context.flags.mcp_lab) {
+      return toolError('Lab actions are disabled by a workspace flag.')
+    }
+    if (context.actor.kind !== 'user') {
+      return toolError('Lab actions require a personal token.')
+    }
+    try {
+      const outcome = await runLabAct(args, context.scopes, context.client)
+      if (!outcome.ok) return toolError(outcome.message, outcome.code)
+      logger.info(
+        'ai.mcp.lab_act',
+        redact({
+          action: outcome.action,
+          workspaceId: context.workspaceId,
+          credentialId: context.credentialId,
+        }),
+      )
+      return textResult(outcome.result)
+    } catch (error) {
+      if (error instanceof DataClientError) {
+        logger.warn(
+          'ai.mcp.lab_act_failed',
+          redact({
+            code: error.code,
+            status: error.status,
+            workspaceId: context.workspaceId,
+          }),
+        )
+        return toolError(
+          error.message || 'The lab action was refused.',
+          error.code,
+        )
+      }
+      return toolError(
+        error instanceof Error ? error.message : 'The lab action failed.',
       )
     }
   }

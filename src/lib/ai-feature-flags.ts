@@ -23,6 +23,7 @@ export const AI_FEATURE_FLAG_KEYS = [
   'mcp_workflow',
   'mcp_admin_read',
   'mcp_admin_propose',
+  'mcp_lab',
 ] as const
 
 export type AiFeatureFlagKey = (typeof AI_FEATURE_FLAG_KEYS)[number]
@@ -85,6 +86,14 @@ export const AI_FEATURE_FLAGS: readonly AiFeatureFlagDefinition[] = [
     defaultValue: false,
     risk: 'privileged',
   },
+  {
+    key: 'mcp_lab',
+    label: 'Agents can act in the lab',
+    description:
+      'Connected agents can order reagents, receive deliveries, log samples and service visits, run stocktakes and the other lab actions, as the person who connected them and within what that person is allowed to do. Unlike proposals these happen straight away.',
+    defaultValue: false,
+    risk: 'privileged',
+  },
 ]
 
 export function defaultAiFeatureFlags(): AiFeatureFlags {
@@ -125,6 +134,7 @@ const featureFlagsSchema = z
     mcp_workflow: z.boolean(),
     mcp_admin_read: z.boolean(),
     mcp_admin_propose: z.boolean(),
+    mcp_lab: z.boolean(),
   })
   .strict()
 

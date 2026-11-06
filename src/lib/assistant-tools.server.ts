@@ -203,6 +203,7 @@ export async function createAssistantToolkit(deps: {
       mcp_workflow: false,
       mcp_admin_read: false,
       mcp_admin_propose: false,
+      mcp_lab: false,
     },
     client: deps.client,
     credentialId: 'assistant-session',

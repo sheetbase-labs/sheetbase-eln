@@ -5,17 +5,18 @@ record 0003); sessions are database-backed with signed, HTTP-only cookies. A ses
 out after 30 minutes in a regulated lab and after 12 hours otherwise; a person
 in any regulated workspace keeps the 30 minutes.
 
-Three sign-in methods exist, and each appears on the sign-in screen only when
+Four sign-in methods exist, and each appears on the sign-in screen only when
 the environment configures it:
 
-| Method                | Configure with                                                | Second factor                                |
-| --------------------- | ------------------------------------------------------------- | -------------------------------------------- |
-| Company OIDC SSO      | `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`     | The identity provider's own MFA              |
-| GitHub OAuth          | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`                    | GitHub's own two-factor                      |
-| Emailed one-time link | `EMAIL_LOGIN_ENABLED=true`, `SMTP_HOST`, optional domain list | Sheetbase TOTP, when the person turned it on |
+| Method                | Configure with                                                         | Second factor                                |
+| --------------------- | ---------------------------------------------------------------------- | -------------------------------------------- |
+| Company OIDC SSO      | `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`              | The identity provider's own MFA              |
+| Company SAML SSO      | `SAML_IDP_METADATA` (or URL, entity id and cert), `SAML_EMAIL_DOMAINS` | The identity provider's own MFA              |
+| GitHub OAuth          | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`                             | GitHub's own two-factor                      |
+| Emailed one-time link | `EMAIL_LOGIN_ENABLED=true`, `SMTP_HOST`, optional domain list          | Sheetbase TOTP, when the person turned it on |
 
 A released (staging or production) environment must configure at least one
-way to sign in: GitHub, OIDC, or emailed links. Emailed links count once
+way to sign in: GitHub, OIDC, SAML, or emailed links. Emailed links count once
 `EMAIL_LOGIN_ENABLED=true` and `SMTP_HOST` are both set. When they are the only
 method, `EMAIL_LOGIN_ALLOWED_DOMAINS` must name at least one domain too,
 because a new address can create an account only from an allowed domain and
@@ -67,22 +68,92 @@ their existing account only when the provider reports the email as verified.
 Multi-factor for SSO sign-ins is the identity provider's policy; Sheetbase does
 not add a second prompt.
 
+## Company single sign-on (SAML 2.0)
+
+For identity providers that speak SAML (Entra ID, Okta, ADFS, Shibboleth,
+Google Workspace and others). It sits alongside OIDC and the emailed link, and
+uses one provider per installation. The sign-in page shows a button named by
+`SAML_PROVIDER_NAME` (default "Company SSO") when it is configured. Providers
+cannot be added from the app.
+
+Register Sheetbase with the identity provider as a service provider:
+
+- **ACS (reply) URL:** `<BETTER_AUTH_URL>/api/auth/sso/saml2/sp/acs/saml`
+- **Entity ID (audience):** `<BETTER_AUTH_URL>/api/auth/sso/saml2/sp/metadata?providerId=saml`
+  (override with `SAML_SP_ENTITY_ID`)
+- **Metadata:** the same entity ID address returns Sheetbase's metadata, for
+  providers that can import it.
+- **Name ID format:** email address.
+
+Then set, in the environment:
+
+- `SAML_IDP_METADATA`: the provider's metadata XML. Or give `SAML_IDP_ENTITY_ID`,
+  `SAML_IDP_SSO_URL` (HTTP-Redirect binding) and `SAML_IDP_CERT` (the signing
+  certificate, PEM or bare base64).
+- `SAML_EMAIL_DOMAINS`: the email domains this provider speaks for, for example
+  `lab.org`. Required. A sign-in for an address outside them is refused, and a
+  sign-in for an address inside them takes over the existing account for that
+  address, so list only domains the provider controls.
+- Optional: `SAML_EMAIL_ATTRIBUTE` (default `email`), `SAML_NAME_ATTRIBUTE`
+  (default `displayName`), `SAML_GROUPS_ATTRIBUTE` (the attribute that lists a
+  person's groups, used for [roles from groups](#roles-from-groups)).
+
+What Sheetbase checks on every response: the XML signature against the
+configured certificate (assertions must be signed unless
+`SAML_ALLOW_UNSIGNED_ASSERTIONS=true`, which is only for providers that sign
+the whole response instead), the audience, the validity window (two minutes of
+clock skew), that the response answers a request Sheetbase made, and that it
+has not been seen before. Provider-started sign-in (unsolicited responses) and
+single logout are off. If the provider sends no groups attribute the person's
+role is left alone.
+
 ### Roles from groups
 
 An administrator can list identity-provider groups under Settings > Members and
-roles > Sign-in groups, each giving a role. At every OIDC sign-in the person's
-groups are read from the `groups` claim (name another claim with
-`OIDC_GROUPS_CLAIM`; some providers only release it when asked for the scope,
-so add it with `OIDC_EXTRA_SCOPES`, for example `groups`). The highest mapped
+roles > Sign-in groups, each giving a role. At every OIDC or SAML sign-in the
+person's groups are read (from the `groups` claim for OIDC, named with
+`OIDC_GROUPS_CLAIM`; from `SAML_GROUPS_ATTRIBUTE` for SAML). The highest mapped
 role wins, and someone in no listed group becomes a viewer. Owners and client
-accounts are never changed. If the provider sends no groups claim at all the
-role is left alone, so a misconfigured provider cannot demote anyone.
+accounts are never changed. If the provider sends no groups at all the role is
+left alone, so a misconfigured provider cannot demote anyone.
 
 A role an administrator sets by hand stays until they choose "Let groups
 decide". People who join by their email domain start under group control.
 
-SAML is not built. Providers that only speak SAML can usually front it with an
-OIDC broker (Keycloak, Entra ID app registrations and Okta all offer one).
+## Directory sync (SCIM 2.0)
+
+With sign-in alone, a person appears the first time they sign in and a leaver
+keeps their access until someone suspends them. Directory sync lets the
+identity provider do both by itself.
+
+1. Under Settings > Members and roles > Directory sync, make a token (up to
+   five at a time). The secret is shown once; only a hash is kept.
+2. In the provider's provisioning settings, set the SCIM base URL to
+   `<BETTER_AUTH_URL>/api/scim/v2` and give it the token as a bearer token.
+   Any provider that speaks SCIM 2.0 works (Okta, Entra ID, OneLogin, Keycloak
+   with a plugin, JumpCloud). `/ServiceProviderConfig`, `/ResourceTypes` and
+   `/Schemas` describe what is supported: users and groups, `PATCH`
+   (including Okta's and Entra's dialects), `userName eq "…"` and
+   `displayName eq "…"` filters, and paging. Bulk, sort and ETags are not.
+3. What it does:
+   - **Add a person**: creates the account and a viewer membership, or links an
+     existing account with the same email and leaves their role alone. Accounts
+     made this way count as having a verified email, so sign-in links and SAML
+     work straight away.
+   - **Update**: name and email changes carry over.
+   - **Switch off** (`active: false` or delete): suspends the person. Their work
+     stays, and the change records how much was open so it can be handed over
+     (Settings > Members and roles). Switching them back on restores access.
+   - **Groups**: a group the provider pushes gives a role when its name matches
+     a sign-in group (same list, same highest-role-wins rule). Removing a person
+     from a group takes the role away. Owners and client accounts are never
+     changed by the provider.
+4. Revoke a token from the same page at any time; the provider stops working at
+   once. A token is limited to 600 calls a minute.
+
+Every change reaches the change feed and the webhook events (see
+[`event-catalogue.md`](../api/event-catalogue.md)), and the assistant can list
+the tokens and switch one off.
 
 ## Passkeys
 
@@ -125,7 +196,7 @@ without one are not asked. Better Auth encrypts the secret and backup
 codes with `BETTER_AUTH_SECRET`, so rotating that value invalidates enrolled
 authenticators.
 
-Two-factor does not apply to GitHub or OIDC sign-ins (those providers own MFA).
+Two-factor does not apply to GitHub, OIDC or SAML sign-ins (those providers own MFA).
 It does not replace the signing password, which is still asked for when signing
 a record.
 
@@ -140,24 +211,27 @@ the disposable database, storage and manual tunnel setup.
 
 ## Environment variables
 
-| Variable                                                  | Notes                                                                                            |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `BETTER_AUTH_SECRET`                                      | Signs session cookies. 32+ characters, dev default in `.env.example`; rotate per environment.    |
-| `BETTER_AUTH_URL`                                         | Base URL Better Auth builds callbacks from. `http://localhost:3000` locally.                     |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`               | From the OAuth app above. Server-only.                                                           |
-| `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Company SSO. All three or none. Server-only. `OIDC_PROVIDER_NAME` sets the button label.         |
-| `OIDC_GROUPS_CLAIM`, `OIDC_EXTRA_SCOPES`                  | Optional. The claim that lists a person's groups (default `groups`) and extra scopes to ask for. |
-| `EMAIL_LOGIN_ENABLED`, `EMAIL_LOGIN_ALLOWED_DOMAINS`      | Emailed sign-in link (needs `SMTP_HOST`). Domains may create new accounts.                       |
-| `POSTGREST_URL`                                           | Server-only upstream for the same-origin data proxy. Never exposed to the browser.               |
-| `PGRST_JWT_SECRET`                                        | Signs short-lived PostgREST JWTs minted by the proxy. 32+ characters, server-only.               |
+| Variable                                                                                                                      | Notes                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET`                                                                                                          | Signs session cookies. 32+ characters, dev default in `.env.example`; rotate per environment.       |
+| `BETTER_AUTH_URL`                                                                                                             | Base URL Better Auth builds callbacks from. `http://localhost:3000` locally.                        |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`                                                                                   | From the OAuth app above. Server-only.                                                              |
+| `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`                                                                     | Company SSO. All three or none. Server-only. `OIDC_PROVIDER_NAME` sets the button label.            |
+| `OIDC_GROUPS_CLAIM`, `OIDC_EXTRA_SCOPES`                                                                                      | Optional. The claim that lists a person's groups (default `groups`) and extra scopes to ask for.    |
+| `SAML_IDP_METADATA` or `SAML_IDP_ENTITY_ID`, `SAML_IDP_SSO_URL`, `SAML_IDP_CERT`                                              | Company SAML SSO, plus `SAML_EMAIL_DOMAINS` (required). `SAML_PROVIDER_NAME` sets the button label. |
+| `SAML_SP_ENTITY_ID`, `SAML_EMAIL_ATTRIBUTE`, `SAML_NAME_ATTRIBUTE`, `SAML_GROUPS_ATTRIBUTE`, `SAML_ALLOW_UNSIGNED_ASSERTIONS` | Optional SAML tuning.                                                                               |
+| `EMAIL_LOGIN_ENABLED`, `EMAIL_LOGIN_ALLOWED_DOMAINS`                                                                          | Emailed sign-in link (needs `SMTP_HOST`). Domains may create new accounts.                          |
+| `POSTGREST_URL`                                                                                                               | Server-only upstream for the same-origin data proxy. Never exposed to the browser.                  |
+| `PGRST_JWT_SECRET`                                                                                                            | Signs short-lived PostgREST JWTs minted by the proxy. 32+ characters, server-only.                  |
 
 ## Routes
 
 - `/sign-in` — sign-in page and error recovery surface.
 - `/sign-in/two-factor` — the code prompt after an emailed link, for accounts with two-factor on.
 - `/api/auth/*` — Better Auth handler: `sign-in/social`, `callback/github`,
-  `callback/oidc`, `sign-in/magic-link`,
+  `callback/oidc`, `sign-in/sso`, `sso/saml2/sp/acs/saml`, `sso/saml2/sp/metadata`, `sign-in/magic-link`,
   `magic-link/verify`, `two-factor/*`, `get-session`, `sign-out`.
+- `/api/scim/v2/*` — SCIM 2.0 directory sync endpoint (bearer token, see above).
 - `/api/db/*` — same-origin PostgREST proxy (see [Data API boundary](#data-api-boundary)).
 
 ## Signing credential routes
@@ -247,7 +321,7 @@ port 465 and requires STARTTLS on other ports. It requires TLS 1.2 or later,
 validates certificates, and refuses plaintext fallback. The local handshake
 tests prove these controls, not production SMTP delivery or provider step-up.
 Missing SMTP configuration, a missing transport, or failed delivery must deny
-enrolment. GitHub OAuth, OIDC and emailed links are sign-in only, not fresh
+enrolment. GitHub OAuth, OIDC, SAML and emailed links are sign-in only, not fresh
 provider assurance. No IdP
 step-up is configured; unsupported provider requests fail closed. Live SMTP and
 IdP acceptance remain separate from the local password/transport proof.

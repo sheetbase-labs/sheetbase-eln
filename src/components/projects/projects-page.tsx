@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
+  isBrowserClick,
   openBesideOnAlt,
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
@@ -178,11 +179,7 @@ export function ProjectsPage({
   const navigate = useNavigate()
   const openProject = (project: ProjectRow, event?: React.MouseEvent) => {
     event?.stopPropagation()
-    if (
-      event &&
-      (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0)
-    )
-      return
+    if (event && isBrowserClick(event)) return
     const href = projectPath(project.uuid)
     if (openBesideOnAlt(workspace, href, event, project.name)) return
     if (!event) {

@@ -35,16 +35,27 @@ type ClickLike = Pick<
   'button' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey'
 >
 
-/** A click the browser keeps for itself: another tab, a window, a download. */
-export function isBrowserClick(event: Omit<ClickLike, 'altKey'>) {
-  return event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey
+/**
+ * A click the browser keeps for itself: another tab, a window, a download.
+ * Shift is the browser's, except together with Alt, which opens a pane below.
+ */
+export function isBrowserClick(
+  event: Omit<ClickLike, 'altKey'> & { altKey?: boolean },
+) {
+  return (
+    event.button !== 0 ||
+    event.ctrlKey ||
+    event.metaKey ||
+    (event.shiftKey && !event.altKey)
+  )
 }
 
 /**
  * The one rule for activating an object (a registry row, an identifier such as
  * EXP-0142, a block's source link): it opens in the pane you are in, like any
- * other link, and Alt-click (or ⌥↵) opens it beside instead. Returns true only
- * when it opened a pane beside; otherwise the caller lets the link run, or
+ * other link, and Alt-click (or ⌥↵) opens it beside instead; Alt+Shift-click
+ * opens it in a pane below. Returns true only when it opened a pane beside or
+ * below; otherwise the caller lets the link run, or
  * navigates itself for a row or keyboard activation that has no link.
  */
 export function openBesideOnAlt(
@@ -55,14 +66,18 @@ export function openBesideOnAlt(
 ) {
   if (!workspace || !event?.altKey || isBrowserClick(event)) return false
   event.preventDefault()
-  workspace.open(href, { beside: true, title })
+  workspace.open(href, {
+    beside: true,
+    ...(event.shiftKey ? { below: true } : {}),
+    title,
+  })
   return true
 }
 
 /**
  * The click rule for a registry row, once: the row opens in the pane it was
- * clicked in, Alt-click opens it beside, and the browser keeps Ctrl, Meta,
- * Shift and middle clicks. The returned handler serves both the name link
+ * clicked in, Alt-click opens it beside, Alt+Shift-click below, and the browser
+ * keeps Ctrl, Meta, Shift and middle clicks. The returned handler serves both the name link
  * (which passes its event, so the link runs) and `RegistryGrid`'s `onRowClick`
  * (no event, so it navigates itself).
  */

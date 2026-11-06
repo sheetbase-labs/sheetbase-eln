@@ -421,16 +421,21 @@ function Inbox() {
     [setSelectedKey],
   )
   const openItem = useCallback(
-    // Like any other link an item opens in this pane; Alt-click opens beside.
-    async (item: WorkItem, beside = false) => {
+    // Like any other link an item opens in this pane; Alt-click opens beside
+    // and Alt+Shift-click below.
+    async (item: WorkItem, where?: 'beside' | 'below') => {
       const runId =
         item.kind === 'run_failed' || item.kind === 'run_waiting'
           ? await resolveRunForWorkItem(item).catch(() => null)
           : null
       const destination = runId ? runLink(runId) : itemLink(item)
-      if (workspace && beside) {
+      if (workspace && where) {
         const { href } = router.buildLocation(destination)
-        workspace.open(href, { beside: true, title: item.title })
+        workspace.open(href, {
+          beside: true,
+          ...(where === 'below' ? { below: true } : {}),
+          title: item.title,
+        })
       } else void navigate(destination)
     },
     [navigate, router, workspace],
@@ -727,9 +732,16 @@ function Inbox() {
                               if (
                                 !event.ctrlKey &&
                                 !event.metaKey &&
-                                !event.shiftKey
+                                (!event.shiftKey || event.altKey)
                               ) {
-                                void openItem(i, event.altKey)
+                                void openItem(
+                                  i,
+                                  event.altKey
+                                    ? event.shiftKey
+                                      ? 'below'
+                                      : 'beside'
+                                    : undefined,
+                                )
                                 return
                               }
                               setSelection(

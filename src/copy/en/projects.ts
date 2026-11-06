@@ -1836,10 +1836,12 @@ export const projects = {
     resize: 'Resize panes',
     peek: 'peek',
     clickBeside: '-click open beside',
+    clickBelow: '-click open below',
     citeHere: 'Cite here',
     openBeside: 'Open beside',
     keySpace: 'Space',
     keyAlt: 'Alt',
+    keyShift: 'Shift',
   },
   paneKinds: {
     experiment: 'Experiment',

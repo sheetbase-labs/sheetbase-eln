@@ -86,4 +86,21 @@ describe('ElnActions', () => {
     )
     expect(screen.getByText('Yes, accepts or rejects')).toBeTruthy()
   })
+  it('says when an action repeats for each row of an import', () => {
+    wrap(
+      <ElnActions
+        config={{
+          actions: [
+            {
+              name: 'prices',
+              operation: 'set_reagent_order_price',
+              forEach: { $ref: 'previous' },
+              arguments: { p_order_id: { $ref: 'row.order_id' } },
+            },
+          ],
+        }}
+      />,
+    )
+    expect(screen.getByText('Each row it receives')).toBeTruthy()
+  })
 })

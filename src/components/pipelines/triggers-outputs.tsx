@@ -277,9 +277,11 @@ export function ElnActions({ config }: { config: Partial<PipelineConfig> }) {
                     {ACTION_LABEL.get(action.operation) ?? action.operation}
                   </td>
                   <td className="py-1.5 pr-3 text-fg-muted">
-                    {typeof target === 'string'
-                      ? t('data.triggersOutputs.aRecord')
-                      : t('data.triggersOutputs.theRun')}
+                    {action.forEach
+                      ? t('data.triggersOutputs.eachRow')
+                      : typeof target === 'string'
+                        ? t('data.triggersOutputs.aRecord')
+                        : t('data.triggersOutputs.theRun')}
                   </td>
                   <td className="py-1.5 text-fg-muted">
                     {propose

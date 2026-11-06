@@ -1820,6 +1820,7 @@ export const data = {
     where: 'Where',
     needsPerson: 'Needs a person',
     aRecord: 'A record',
+    eachRow: 'Each row it receives',
     theRun: 'The run',
     yesAcceptsRejects: 'Yes, accepts or rejects',
     no: 'No',
@@ -2944,6 +2945,8 @@ export const data = {
     actionNeedsUniqueName:
       'Action {value} needs a unique name using letters, numbers and underscores.',
     actionHasUnknownMode: 'Action {value} has an unknown mode',
+    actionRowLoopNeedsList:
+      'Action {value} repeats for each row, so it needs a list to take the rows from, such as the previous step',
     actionUsesUnsupportedOperation:
       'Action {value} uses an unsupported operation',
     actionNeedsArgumentsObject: 'Action {value} needs an arguments object',

@@ -273,4 +273,149 @@ describe('ELN pipeline actions', () => {
       ),
     ).rejects.toThrow('Invalid p_expected_on')
   })
+  describe('bulk import (one action for each row)', () => {
+    const order = (n: number) => `00000000-0000-4000-8000-0000000001${n}0`
+    const rows = [
+      { order_id: order(1), price: 10.5, ccy: 'GBP' },
+      { order_id: order(2), price: 20, ccy: 'GBP' },
+      { order_id: order(3), price: null, ccy: 'GBP' },
+    ]
+    const loop = {
+      name: 'prices',
+      operation: 'set_reagent_order_price',
+      forEach: { $ref: 'previous' },
+      arguments: {
+        p_order_id: { $ref: 'row.order_id' },
+        p_total_price: { $ref: 'row.price' },
+        p_currency: { $ref: 'row.ccy' },
+      },
+    }
+
+    it("runs the action for every row with that row's values, in order", async () => {
+      const { conn, query } = connection([{ a: 1 }, { a: 2 }, { a: 3 }])
+      const results = await executePipelineActions(
+        conn,
+        { workspaceId, runId },
+        [loop],
+        { ...context, previous: rows },
+      )
+      const calls = query.mock.calls.filter(([sql]) =>
+        sql.startsWith('SELECT to_jsonb'),
+      )
+      expect(calls.map(([, values]) => values)).toEqual([
+        [order(1), 10.5, 'GBP'],
+        [order(2), 20, 'GBP'],
+        [order(3), null, 'GBP'],
+      ])
+      expect(results.prices).toEqual([{ a: 1 }, { a: 2 }, { a: 3 }])
+    })
+
+    it('names the row that failed, and stops there', async () => {
+      const { conn, query } = connection([{ a: 1 }, null])
+      await expect(
+        executePipelineActions(conn, { workspaceId, runId }, [loop], {
+          ...context,
+          previous: rows,
+        }),
+      ).rejects.toThrow('Row 2 of 3')
+      expect(
+        query.mock.calls.filter(([sql]) => sql.startsWith('SELECT to_jsonb')),
+      ).toHaveLength(2)
+    })
+
+    it('refuses a list that is not rows, and an import that is too large', async () => {
+      await expect(
+        executePipelineActions(
+          connection().conn,
+          { workspaceId, runId },
+          [loop],
+          { ...context, previous: [1, 2] as unknown as [] },
+        ),
+      ).rejects.toThrow('not a list of rows')
+      await expect(
+        executePipelineActions(
+          connection().conn,
+          { workspaceId, runId },
+          [loop],
+          {
+            ...context,
+            previous: Array.from({ length: 501 }, () => ({})),
+          },
+        ),
+      ).rejects.toThrow('the most is 500')
+    })
+
+    it('gives each row its own idempotency key and proposal', async () => {
+      const proposed = [{ id: 'p1' }, { id: 'p2' }]
+      const query = vi.fn(async (sql: string, _values?: unknown[]) => {
+        if (sql.startsWith('SELECT api.current_workspace'))
+          return { rows: [{ workspace_id: workspaceId, user_id: 'actor' }] }
+        if (sql.includes('FROM api.pipeline_runs'))
+          return {
+            rows: [
+              {
+                definition_id: 'd1',
+                definition_name: 'Prices',
+                version_id: 'v1',
+              },
+            ],
+          }
+        if (sql.includes('propose_agent_operation'))
+          return { rows: [{ result: proposed.shift() }] }
+        return { rows: [] }
+      })
+      const conn = { query } as unknown as ExecConnection
+      await executePipelineActions(
+        conn,
+        { workspaceId, runId },
+        [
+          {
+            name: 'rates',
+            operation: 'set_instrument_rate',
+            mode: 'propose',
+            forEach: { $ref: 'parameters.instruments' },
+            arguments: {
+              p_instrument_id: { $ref: 'row.id' },
+              p_rate_per_hour: { $ref: 'row.rate' },
+              p_currency: 'GBP',
+            },
+          },
+        ],
+        {
+          ...context,
+          parameters: {
+            instruments: [
+              { id: order(1), rate: 5 },
+              { id: order(2), rate: 6 },
+            ],
+          },
+        },
+      )
+      const proposals = query.mock.calls.filter(([sql]) =>
+        sql.includes('propose_agent_operation'),
+      )
+      expect(proposals.map(([, values]) => (values as unknown[])[5])).toEqual([
+        `pipeline:${runId}:rates:0`,
+        `pipeline:${runId}:rates:1`,
+      ])
+      expect(
+        JSON.parse((proposals[0][1] as string[])[3]) as Record<string, unknown>,
+      ).toEqual({
+        kind: 'instrument_rate.set',
+        instrumentId: order(1),
+        ratePerHour: 5,
+        currency: 'GBP',
+      })
+    })
+
+    it('checks the loop when the pipeline is saved', () => {
+      expect(validatePipelineActions([loop])).toEqual([])
+      expect(
+        validatePipelineActions([{ ...loop, forEach: 'previous' }]),
+      ).not.toEqual([])
+      expect(
+        validatePipelineActions([{ ...loop, forEach: { $ref: 'secrets.x' } }]),
+      ).not.toEqual([])
+    })
+  })
 })

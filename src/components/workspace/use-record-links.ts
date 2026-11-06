@@ -67,8 +67,11 @@ export function useRecordLinks(
   }, [])
 
   useEffect(() => {
+    // Dialogs portal out of the workspace, but their record links peek too.
     const inside = (node: Element | null) =>
-      !!node && !!root.current && root.current.contains(node)
+      !!node &&
+      ((!!root.current && root.current.contains(node)) ||
+        !!node.closest('[data-slot="dialog-content"]'))
 
     const onOver = (event: MouseEvent) => {
       // Touch fires emulated mouseover after a tap; no hover, no hint.

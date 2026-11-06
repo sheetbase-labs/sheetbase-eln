@@ -197,6 +197,7 @@ export function planningProposalDefs(): ProviderToolDef[] {
       `Propose taking an experiment out of the series it is in. The experiment itself is not changed. ${note}`,
       proposeSeriesRemoveSchema,
     ),
+    toolDef(
       PART_ADD_TOOL,
       `Propose adding a part (a day or stage) to an experiment, after its last part. ${note}`,
       proposePartAddSchema,

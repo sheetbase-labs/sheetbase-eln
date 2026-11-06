@@ -67,6 +67,20 @@ their existing account only when the provider reports the email as verified.
 Multi-factor for SSO sign-ins is the identity provider's policy; Sheetbase does
 not add a second prompt.
 
+### Roles from groups
+
+An administrator can list identity-provider groups under Settings > Members and
+roles > Sign-in groups, each giving a role. At every OIDC sign-in the person's
+groups are read from the `groups` claim (name another claim with
+`OIDC_GROUPS_CLAIM`; some providers only release it when asked for the scope,
+so add it with `OIDC_EXTRA_SCOPES`, for example `groups`). The highest mapped
+role wins, and someone in no listed group becomes a viewer. Owners and client
+accounts are never changed. If the provider sends no groups claim at all the
+role is left alone, so a misconfigured provider cannot demote anyone.
+
+A role an administrator sets by hand stays until they choose "Let groups
+decide". People who join by their email domain start under group control.
+
 SAML is not built. Providers that only speak SAML can usually front it with an
 OIDC broker (Keycloak, Entra ID app registrations and Okta all offer one).
 
@@ -115,15 +129,16 @@ the disposable database, storage and manual tunnel setup.
 
 ## Environment variables
 
-| Variable                                                  | Notes                                                                                         |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `BETTER_AUTH_SECRET`                                      | Signs session cookies. 32+ characters, dev default in `.env.example`; rotate per environment. |
-| `BETTER_AUTH_URL`                                         | Base URL Better Auth builds callbacks from. `http://localhost:3000` locally.                  |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`               | From the OAuth app above. Server-only.                                                        |
-| `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Company SSO. All three or none. Server-only. `OIDC_PROVIDER_NAME` sets the button label.      |
-| `EMAIL_LOGIN_ENABLED`, `EMAIL_LOGIN_ALLOWED_DOMAINS`      | Emailed sign-in link (needs `SMTP_HOST`). Domains may create new accounts.                    |
-| `POSTGREST_URL`                                           | Server-only upstream for the same-origin data proxy. Never exposed to the browser.            |
-| `PGRST_JWT_SECRET`                                        | Signs short-lived PostgREST JWTs minted by the proxy. 32+ characters, server-only.            |
+| Variable                                                  | Notes                                                                                            |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `BETTER_AUTH_SECRET`                                      | Signs session cookies. 32+ characters, dev default in `.env.example`; rotate per environment.    |
+| `BETTER_AUTH_URL`                                         | Base URL Better Auth builds callbacks from. `http://localhost:3000` locally.                     |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`               | From the OAuth app above. Server-only.                                                           |
+| `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Company SSO. All three or none. Server-only. `OIDC_PROVIDER_NAME` sets the button label.         |
+| `OIDC_GROUPS_CLAIM`, `OIDC_EXTRA_SCOPES`                  | Optional. The claim that lists a person's groups (default `groups`) and extra scopes to ask for. |
+| `EMAIL_LOGIN_ENABLED`, `EMAIL_LOGIN_ALLOWED_DOMAINS`      | Emailed sign-in link (needs `SMTP_HOST`). Domains may create new accounts.                       |
+| `POSTGREST_URL`                                           | Server-only upstream for the same-origin data proxy. Never exposed to the browser.               |
+| `PGRST_JWT_SECRET`                                        | Signs short-lived PostgREST JWTs minted by the proxy. 32+ characters, server-only.               |
 
 ## Routes
 

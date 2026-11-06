@@ -7,6 +7,10 @@ export interface OidcConfig {
   clientId: string
   clientSecret: string
   name: string
+  /** The claim that lists the person's groups; `groups` when not named. */
+  groupsClaim?: string
+  /** Scopes to ask for besides openid, email and profile (some providers need `groups`). */
+  extraScopes?: string[]
 }
 
 export interface AuthMethods {
@@ -22,6 +26,8 @@ export interface AuthMethodEnv {
   OIDC_CLIENT_ID?: string
   OIDC_CLIENT_SECRET?: string
   OIDC_PROVIDER_NAME?: string
+  OIDC_GROUPS_CLAIM?: string
+  OIDC_EXTRA_SCOPES?: string
   EMAIL_LOGIN_ENABLED?: string
   SMTP_HOST?: string
 }
@@ -37,6 +43,8 @@ export function readOidcConfig(env: AuthMethodEnv): OidcConfig | null {
     clientId: env.OIDC_CLIENT_ID,
     clientSecret: env.OIDC_CLIENT_SECRET,
     name: env.OIDC_PROVIDER_NAME || 'Company SSO',
+    groupsClaim: env.OIDC_GROUPS_CLAIM || undefined,
+    extraScopes: (env.OIDC_EXTRA_SCOPES ?? '').split(/[\s,]+/).filter(Boolean),
   }
 }
 

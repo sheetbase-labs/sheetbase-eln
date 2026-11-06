@@ -36,6 +36,11 @@ export const env = createEnv({
     OIDC_CLIENT_ID: z.string().min(1).optional(),
     OIDC_CLIENT_SECRET: z.string().min(1).optional(),
     OIDC_PROVIDER_NAME: z.string().min(1).default('Company SSO'),
+    // Roles from sign-in groups: the claim that lists a person's groups
+    // (default `groups`) and any extra scopes the provider needs to send it
+    // (Okta and Keycloak ask for `groups`; Entra ID sends it as a claim).
+    OIDC_GROUPS_CLAIM: z.string().min(1).optional(),
+    OIDC_EXTRA_SCOPES: z.string().optional(),
     // Email sign-in by one-time link. Needs SMTP_HOST (email delivery). Only
     // people who already have an account can use it, plus anyone whose
     // address is in EMAIL_LOGIN_ALLOWED_DOMAINS (comma-separated).

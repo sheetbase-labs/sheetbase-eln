@@ -918,6 +918,7 @@ export const projects = {
         evidence: 'Evidence',
       },
       done: 'Done',
+      inProgress: 'In progress',
       notStarted: 'Not started',
       noProgress: 'Steps appear here as you work through the protocol.',
     },

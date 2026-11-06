@@ -57,6 +57,8 @@ import {
 } from '#/components/notebook/sign-notebook-dialog'
 import { ShareWithClientDialog } from '#/components/client-sharing/share-with-client-dialog'
 import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
+import { CurrentStepCard } from '#/components/notebook/current-step-card'
+import { stepProgress } from '#/lib/step-status'
 import { WithdrawReviewDialog } from '#/components/notebook/withdraw-review-dialog'
 import { ReturnedReviewBanner } from '#/components/notebook/returned-review-banner'
 import { reopenTaskFromSearch } from '#/lib/return-to'
@@ -1232,6 +1234,15 @@ export function StickyRecordHeader({
   // On the experiment page a draft has one main action, Start experiment, in
   // the page header. Submit joins it once the experiment is running.
   const showSubmit = canSubmit && !(embedded && record.status === 'draft')
+  // A running experiment with protocol steps leads with the current step. Its
+  // card carries Submit too, so the header's own Submit steps aside.
+  const stepCardOn =
+    embedded &&
+    record.kind === 'experiment' &&
+    (record.status === 'in_progress' || record.status === 'returned') &&
+    !historicalRevisionId &&
+    !record.archivedAt &&
+    stepProgress(blocks).length > 0
   const canOpenReview = Boolean(reviewRevisionId)
   const hasSignatureToGive = useHasSignatureToGive({
     revisionId: reviewRevisionId,
@@ -1412,6 +1423,26 @@ export function StickyRecordHeader({
       : []),
   ]
   const offered = useOfferRecordActions(recordActions, embedded)
+  const submitButton = (variant: 'primary' | 'secondary') => (
+    <ConnectionRequired
+      online={online}
+      reason={CONNECTION_REQUIRED_REASONS.submit}
+    >
+      {({ disabled, describedBy }) => (
+        <Button
+          type="button"
+          variant={variant}
+          disabled={disabled}
+          aria-describedby={describedBy}
+          onClick={() => setSubmitOpen(true)}
+        >
+          {record.status === 'returned' && variant === 'primary'
+            ? t('notebook.currentStep.resubmit')
+            : t('common.actions.submit')}
+        </Button>
+      )}
+    </ConnectionRequired>
+  )
 
   return (
     <div className="flex flex-col pb-1.5 pt-2 max-md:pt-1">
@@ -1491,24 +1522,7 @@ export function StickyRecordHeader({
             </span>
           )}
           {offered ? null : <RecordActionsMenu actions={recordActions} />}
-          {showSubmit ? (
-            <ConnectionRequired
-              online={online}
-              reason={CONNECTION_REQUIRED_REASONS.submit}
-            >
-              {({ disabled, describedBy }) => (
-                <Button
-                  type="button"
-                  variant="primary"
-                  disabled={disabled}
-                  aria-describedby={describedBy}
-                  onClick={() => setSubmitOpen(true)}
-                >
-                  {t('common.actions.submit')}
-                </Button>
-              )}
-            </ConnectionRequired>
-          ) : null}
+          {showSubmit && !stepCardOn ? submitButton('primary') : null}
           {canSign ? (
             <ConnectionRequired
               online={online}
@@ -1560,6 +1574,15 @@ export function StickyRecordHeader({
         <p role="alert" className="mt-2 text-xs text-destructive">
           {extensionError}
         </p>
+      ) : null}
+      {stepCardOn ? (
+        <CurrentStepCard
+          recordId={record.id}
+          blocks={blocks}
+          canEdit={canWrite && !lockedAt && !record.archivedAt}
+          returned={record.status === 'returned'}
+          renderSubmit={showSubmit ? submitButton : undefined}
+        />
       ) : null}
       {canSubmit && submitOpen && projectId && currentUserId ? (
         <SubmitNotebookDialog

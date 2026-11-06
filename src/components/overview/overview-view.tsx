@@ -38,6 +38,7 @@ import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { withReopen } from '#/lib/return-to'
 import { t } from '#/copy'
 import { protocolStepProgress, readinessItems } from './readiness'
+import { stepProgress } from '#/lib/step-status'
 import type {
   ExperimentReadiness,
   ReadinessBlock,
@@ -247,6 +248,10 @@ export function ExperimentOverview({
 }: ExperimentOverviewProps) {
   const navigate = useNavigate()
   const protocolSteps = protocolStepProgress(blocks)
+  // Status comes from the evidence: a step with a note or a result is in progress.
+  const stepStatus = new Map(
+    stepProgress(blocks).map((step) => [step.blockId, step.status]),
+  )
   const items = readinessItems(readiness, blocks, (userId) =>
     userId ? userLabel(userId) : t('projects.overview.someone'),
   )
@@ -363,6 +368,10 @@ export function ExperimentOverview({
                         {step.completed ? (
                           <Status tone="ok">
                             {t('projects.overview.protocol.done')}
+                          </Status>
+                        ) : stepStatus.get(step.blockId) === 'in_progress' ? (
+                          <Status tone="progress">
+                            {t('projects.overview.protocol.inProgress')}
                           </Status>
                         ) : (
                           <Status tone="none">

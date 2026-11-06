@@ -249,6 +249,9 @@ function card(
   }
 }
 
+const roleLabel = (role: string): string =>
+  (WORKSPACE_ROLE_LABELS as Record<string, string | undefined>)[role] ?? role
+
 const fail = (message: string): UpkeepOutcome => ({ ok: false, message })
 
 async function findOpenOrder(
@@ -477,11 +480,7 @@ export async function buildUpkeepProposal(
         changes: [
           {
             label: `Sign-in group ${input.group.trim()}`,
-            before: existing[0]
-              ? (WORKSPACE_ROLE_LABELS[
-                  existing[0].role as keyof typeof WORKSPACE_ROLE_LABELS
-                ] ?? existing[0].role)
-              : null,
+            before: existing[0] ? roleLabel(existing[0].role) : null,
             after: WORKSPACE_ROLE_LABELS[input.role],
           },
         ],
@@ -521,10 +520,7 @@ export async function buildUpkeepProposal(
         changes: [
           {
             label: `Sign-in group ${found.value.group_name}`,
-            before:
-              WORKSPACE_ROLE_LABELS[
-                found.value.role as keyof typeof WORKSPACE_ROLE_LABELS
-              ] ?? found.value.role,
+            before: roleLabel(found.value.role),
             after: 'No role from this group',
           },
         ],

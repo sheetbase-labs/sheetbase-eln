@@ -154,6 +154,82 @@ export const notebook = {
         applying: 'Saving…',
         applied: 'Added',
       },
+      startStocktake: {
+        apply: 'Start count',
+        applying: 'Starting…',
+        applied: 'Started',
+      },
+      finishStocktake: {
+        apply: 'Finish count',
+        applying: 'Finishing…',
+        applied: 'Finished',
+      },
+      createHold: {
+        apply: 'Place hold',
+        applying: 'Saving…',
+        applied: 'Hold placed',
+      },
+      releaseHold: {
+        apply: 'Release hold',
+        applying: 'Releasing…',
+        applied: 'Released',
+      },
+      setRetention: {
+        apply: 'Set rule',
+        applying: 'Saving…',
+        applied: 'Saved',
+      },
+      applyRetention: {
+        apply: 'Archive them',
+        applying: 'Archiving…',
+        applied: 'Archived',
+      },
+      addRegistryEntry: {
+        apply: 'Add entry',
+        applying: 'Adding…',
+        applied: 'Added',
+      },
+      enrolWorkflow: {
+        apply: 'Add to workflow',
+        applying: 'Adding…',
+        applied: 'Added',
+      },
+      leaveWorkflow: {
+        apply: 'Take out',
+        applying: 'Saving…',
+        applied: 'Taken out',
+      },
+      setLimits: { apply: 'Set limits', applying: 'Saving…', applied: 'Saved' },
+      setBookingRules: {
+        apply: 'Set rules',
+        applying: 'Saving…',
+        applied: 'Saved',
+      },
+      endTimer: {
+        apply: 'Stop timer',
+        applying: 'Stopping…',
+        applied: 'Stopped',
+      },
+      pauseRepeat: { apply: 'Save', applying: 'Saving…', applied: 'Saved' },
+      endRepeat: { apply: 'End repeat', applying: 'Ending…', applied: 'Ended' },
+      poolSamples: { apply: 'Pool', applying: 'Pooling…', applied: 'Pooled' },
+      prepareSolution: {
+        apply: 'Prepare',
+        applying: 'Preparing…',
+        applied: 'Prepared',
+      },
+      saveSearch: {
+        apply: 'Save search',
+        applying: 'Saving…',
+        applied: 'Saved',
+      },
+      pin: { apply: 'Save', applying: 'Saving…', applied: 'Saved' },
+      setLogo: { apply: 'Set logo', applying: 'Saving…', applied: 'Logo set' },
+      removeLogo: {
+        apply: 'Remove logo',
+        applying: 'Removing…',
+        applied: 'Removed',
+      },
       receiveShipment: {
         apply: 'Mark received',
         applying: 'Saving…',

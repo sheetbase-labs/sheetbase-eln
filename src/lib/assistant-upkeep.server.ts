@@ -107,9 +107,9 @@ export function upkeepProposalDefs(): ProviderToolDef[] {
 // Lookups by the words people use.
 // ---------------------------------------------------------------------------
 
-type Lookup<T> = { ok: true; value: T } | { ok: false; message: string }
+export type Lookup<T> = { ok: true; value: T } | { ok: false; message: string }
 
-function pick<T>(
+export function pick<T>(
   rows: readonly T[],
   wanted: string,
   what: string,
@@ -131,7 +131,7 @@ function pick<T>(
   }
 }
 
-interface SampleRow {
+export interface SampleRow {
   id: string
   identifier: string
   title: string
@@ -140,7 +140,7 @@ interface SampleRow {
   properties: Record<string, unknown> | null
 }
 
-async function findSample(
+export async function findSample(
   client: DataClient,
   text: string,
 ): Promise<Lookup<SampleRow>> {
@@ -161,9 +161,13 @@ async function findSample(
   )
 }
 
-const sampleLabel = (row: SampleRow) => `${row.identifier} · ${row.title}`
+export const sampleLabel = (row: SampleRow) =>
+  `${row.identifier} · ${row.title}`
 
-function amountOf(row: SampleRow): { quantity: number | null; unit: string } {
+export function amountOf(row: SampleRow): {
+  quantity: number | null
+  unit: string
+} {
   const props = row.properties ?? {}
   return {
     quantity: typeof props.quantity === 'number' ? props.quantity : null,
@@ -171,15 +175,16 @@ function amountOf(row: SampleRow): { quantity: number | null; unit: string } {
   }
 }
 
-const withUnit = (quantity: number, unit: string) =>
+export const withUnit = (quantity: number, unit: string) =>
   `${quantity}${unit ? ` ${unit}` : ''}`
 
-const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
+export const sentence = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1)
 
 const orderReference = (number: number) =>
   `RO-${String(number).padStart(4, '0')}`
 
-function parse<T extends z.ZodType>(
+export function parse<T extends z.ZodType>(
   schema: T,
   args: unknown,
 ): { ok: true; data: z.infer<T> } | { ok: false; message: string } {

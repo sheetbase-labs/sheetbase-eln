@@ -4,6 +4,8 @@ import { cancelBooking, createBooking, editBooking } from './calendar'
 import type { BenchAction } from './assistant-bench'
 import type { DataClient } from './data-client'
 import { isPlanningAction } from './assistant-planning'
+import { isLabworkAction } from './assistant-labwork'
+import type { LabworkAction } from './assistant-labwork'
 import { isUpkeepAction } from './assistant-upkeep'
 import type { UpkeepAction } from './assistant-upkeep'
 import type { PlanningAction, PlanningActionResult } from './assistant-planning'
@@ -131,6 +133,7 @@ export type AssistantAction =
     }
   | PlanningAction
   | UpkeepAction
+  | LabworkAction
 
 export type AssistantActionKind = AssistantAction['kind']
 
@@ -171,6 +174,11 @@ export async function runAssistantAction(
         // Planning jobs load only when a card's button is pressed.
         const { runPlanningAction } = await import('./assistant-planning-run')
         return runPlanningAction(client, action)
+      }
+      if (isLabworkAction(action)) {
+        // Lab-work jobs load only when a card's button is pressed.
+        const { runLabworkAction } = await import('./assistant-labwork-run')
+        return runLabworkAction(client, action)
       }
       if (isUpkeepAction(action)) {
         // Upkeep jobs load only when a card's button is pressed.

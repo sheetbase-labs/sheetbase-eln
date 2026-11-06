@@ -131,6 +131,29 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.sample.quarantine',
   'sheetbase.sample.dispose',
   'sheetbase.instrument.log_service',
+  // Running the lab from a card: stocktakes, legal holds, retention, registry
+  // entries, sample workflows, result limits, booking rules, timers, repeating
+  // work, pooling, solution prep, saved searches, pins and the lab logo
+  // (assistant-labwork.ts).
+  'sheetbase.stocktake.start',
+  'sheetbase.stocktake.complete',
+  'sheetbase.legal_hold.create',
+  'sheetbase.legal_hold.release',
+  'sheetbase.retention.set',
+  'sheetbase.retention.apply',
+  'sheetbase.registry.add',
+  'sheetbase.workflow.enrol',
+  'sheetbase.workflow.leave',
+  'sheetbase.spec_limits.set',
+  'sheetbase.booking_rules.set',
+  'sheetbase.timer.end',
+  'sheetbase.recurring.pause',
+  'sheetbase.recurring.end',
+  'sheetbase.sample.pool',
+  'sheetbase.solution.prepare',
+  'sheetbase.search.save',
+  'sheetbase.pin',
+  'sheetbase.lab.logo',
 ] as const
 
 /** Model APIs only allow letters, digits, `_` and `-` in a function name. */

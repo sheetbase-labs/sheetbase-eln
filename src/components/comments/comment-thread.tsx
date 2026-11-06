@@ -8,6 +8,7 @@ import { Button } from '#/components/ui/button'
 import type { CommentTargetKind, CommentWire } from '#/lib/comments-data'
 import type { MentionCandidate } from '#/lib/mentions'
 
+import { LinkedText } from '#/components/ui/linked-text'
 import { MentionTextarea } from './mention-textarea'
 import { now as appNow } from '#/lib/clock'
 
@@ -138,7 +139,7 @@ function CommentRow({
         </span>
       </div>
       <p className="mt-2 break-words text-sm leading-6 text-fg whitespace-pre-wrap">
-        {comment.body}
+        <LinkedText text={comment.body} />
       </p>
     </article>
   )

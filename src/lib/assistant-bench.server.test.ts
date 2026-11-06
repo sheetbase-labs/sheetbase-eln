@@ -546,4 +546,126 @@ describe('running a card', () => {
       p_reason: 'Lamp has gone',
     })
   })
+
+  it('proposes marking an order placed, matching the supplier list and the price', async () => {
+    const { ctx } = context({
+      reagent_orders: [{ id: 'o1', number: 7, material_title: 'Tris base' }],
+      supplier_models: [{ model_key: 'supplier' }],
+      records: [
+        {
+          id: 'sup1',
+          identifier: 'SUP-1',
+          title: 'Sigma-Aldrich',
+          kind: 'supplier',
+        },
+        { id: 'sup2', identifier: 'SUP-2', title: 'Fisher', kind: 'supplier' },
+      ],
+    })
+    const result = await buildBenchProposal(
+      'sheetbase.reagent.mark_ordered',
+      {
+        title: 'Mark RO-0007 ordered',
+        summary: 'Placed with Sigma',
+        order: 'RO-0007',
+        supplier: 'sigma',
+        price: 120.5,
+        currency: 'gbp',
+      },
+      ctx,
+    )
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.proposal.action).toMatchObject({
+      kind: 'reagent.place',
+      orderId: 'o1',
+      supplier: 'Sigma-Aldrich',
+      supplierRecordId: 'sup1',
+      price: 120.5,
+      currency: 'GBP',
+    })
+    const missing = await buildBenchProposal(
+      'sheetbase.reagent.mark_ordered',
+      { title: 't', summary: 's', order: 'RO-0007', price: 5 },
+      ctx,
+    )
+    expect(missing.ok).toBe(false)
+  })
+
+  it('proposes an instrument rate and needs a currency with it', async () => {
+    const { ctx } = context({
+      instruments: [
+        {
+          id: 'i1',
+          display_id: 'INS-0003',
+          name: 'Plate reader',
+          location: null,
+          instrument_type: 'plate_reader',
+          retired_at: null,
+          out_of_service_at: null,
+        },
+      ],
+      instrument_rates: [{ rate_per_hour: '18', currency: 'GBP' }],
+    })
+    const ok = await buildBenchProposal(
+      'sheetbase.instrument.set_rate',
+      {
+        title: 'Set rate',
+        summary: 'Charge for the plate reader',
+        instrument: 'Plate reader',
+        ratePerHour: 24,
+        currency: 'GBP',
+      },
+      ctx,
+    )
+    expect(ok.ok).toBe(true)
+    if (ok.ok) {
+      expect(ok.proposal.changes[0]).toMatchObject({ label: 'Rate' })
+      expect(ok.proposal.action).toMatchObject({
+        kind: 'instrument.rate',
+        instrumentId: 'i1',
+        ratePerHour: 24,
+      })
+    }
+    const none = await buildBenchProposal(
+      'sheetbase.instrument.set_rate',
+      { title: 't', summary: 's', instrument: 'Plate reader', ratePerHour: 24 },
+      ctx,
+    )
+    expect(none.ok).toBe(false)
+  })
+
+  it('runs the new cards through the same calls the pages make', async () => {
+    const calls: Array<[string, Record<string, unknown>]> = []
+    const client = {
+      rpc: (name: string, args: Record<string, unknown>) => {
+        calls.push([name, args])
+        return Promise.resolve({ id: 'x' })
+      },
+    } as unknown as DataClient
+    await runBenchAction(client, {
+      kind: 'reagent.place',
+      orderId: 'o1',
+      supplier: 'Sigma-Aldrich',
+      supplierRecordId: 'sup1',
+      reference: 'PO-9',
+      price: 10,
+      currency: 'GBP',
+      expectedOn: null,
+    })
+    await runBenchAction(client, {
+      kind: 'instrument.rate',
+      instrumentId: 'i1',
+      ratePerHour: null,
+      currency: 'GBP',
+    })
+    expect(calls.map(([name]) => name)).toEqual([
+      'mark_reagent_ordered',
+      'set_instrument_rate',
+    ])
+    expect(calls[0][1]).toMatchObject({ p_total_price: 10, p_currency: 'GBP' })
+    expect(calls[1][1]).toMatchObject({
+      p_rate_per_hour: null,
+      p_currency: null,
+    })
+  })
 })

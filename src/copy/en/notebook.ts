@@ -85,6 +85,16 @@ export const notebook = {
         applying: 'Requesting…',
         applied: 'Order requested',
       },
+      placeReagent: {
+        apply: 'Mark ordered',
+        applying: 'Saving…',
+        applied: 'Marked ordered',
+      },
+      instrumentRate: {
+        apply: 'Save rate',
+        applying: 'Saving…',
+        applied: 'Rate saved',
+      },
       receiveReagent: {
         apply: 'Mark received',
         applying: 'Saving…',
@@ -350,6 +360,10 @@ export const notebook = {
       booking: {
         running: 'Checking the booking…',
         done: 'Checked the booking',
+      },
+      facility: {
+        running: 'Reading the spend and usage…',
+        done: 'Read the spend and usage',
       },
       bench: {
         running: 'Getting that ready…',

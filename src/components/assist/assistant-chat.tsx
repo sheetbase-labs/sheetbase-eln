@@ -432,6 +432,8 @@ function lookupLabel(
       return t(`notebook.assistantPanel.lookup.schedule.${phase}`)
     case 'sheetbase.schedule.free_time':
       return t(`notebook.assistantPanel.lookup.freeTime.${phase}`)
+    case 'sheetbase.facility.report':
+      return t(`notebook.assistantPanel.lookup.facility.${phase}`)
     case 'sheetbase.lab.list': {
       const area =
         input !== null && typeof input === 'object' && 'area' in input
@@ -447,6 +449,8 @@ function lookupLabel(
       return t(`notebook.assistantPanel.lookup.booking.${phase}`)
     case 'sheetbase.reagent.order':
     case 'sheetbase.reagent.receive':
+    case 'sheetbase.reagent.mark_ordered':
+    case 'sheetbase.instrument.set_rate':
     case 'sheetbase.sample.log':
     case 'sheetbase.sample.use':
     case 'sheetbase.sample.move':

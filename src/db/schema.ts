@@ -1848,6 +1848,59 @@ export const signatures = api.table(
   ],
 )
 
+/**
+ * signature_timestamps hold the RFC 3161 timestamp token a time-stamping
+ * authority issued for a signature (migration 0104). Only the server writes
+ * them, through internal.record_signature_timestamp; request roles can read.
+ */
+export const signatureTimestamps = api.table(
+  'signature_timestamps',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    signatureId: uuid('signature_id')
+      .notNull()
+      .unique()
+      .references(() => signatures.id),
+    revisionId: uuid('revision_id').notNull(),
+    status: text('status').notNull().default('pending'),
+    signedData: text('signed_data'),
+    imprintSha256: text('imprint_sha256'),
+    authorityName: text('authority_name'),
+    authorityUrl: text('authority_url'),
+    responseB64: text('response_b64'),
+    genTime: timestamp('gen_time', { withTimezone: true, mode: 'date' }),
+    serial: text('serial'),
+    signer: text('signer'),
+    attempts: integer('attempts').notNull().default(0),
+    lastError: text('last_error'),
+    nextAttemptAt: timestamp('next_attempt_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_signature_timestamps_status',
+      sql`${table.status} IN ('pending', 'stamped', 'failed')`,
+    ),
+    index('idx_signature_timestamps_workspace').on(
+      table.workspaceId,
+      table.status,
+    ),
+  ],
+)
+
 /** Explicit human request, pinned to the same frozen revision as its signature. */
 export const signatureWitnessRequests = api.table(
   'signature_witness_requests',
@@ -5777,7 +5830,7 @@ export const changeEvents = api.table(
     ),
     check(
       'chk_change_events_entity_type',
-      sql`${table.entityType} IN ('project', 'analysis_view', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'model_field_option', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'dataset', 'dataset_version', 'sample_event', 'comment', 'review_submission', 'signature', 'review_decision', 'storage_site', 'storage_room', 'storage_unit', 'storage_shelf', 'storage_rack', 'storage_box', 'storage_position', 'storage_movement', 'plate_design', 'plate_well', 'plate_layout_template', 'calendar_resource', 'calendar_booking', 'calendar_booking_participant', 'calendar_booking_sample', 'study_workstream', 'study_task', 'study_task_dependency', 'study_task_assignment', 'study_task_resource', 'study_deliverable', 'study_project', 'study_experiment', 'study_plan_snapshot', 'instrument', 'instrument_run', 'instrument_run_stage', 'instrument_observation', 'instrument_plate_snapshot', 'instrument_qc_check', 'instrument_raw_file', 'instrument_run_link', 'report_definition', 'report_section', 'report_generation', 'sheet_instance', 'sheet_definition', 'sheet_definition_version', 'notebook_template', 'notebook_template_version', 'workspace_invitation', 'workspace_settings', 'project_access', 'api_credential', 'connector', 'connector_run', 'pipeline_definition', 'pipeline_definition_version', 'pipeline_run', 'pipeline_schedule', 'webhook_subscription', 'webhook_delivery', 'agent_operation_policy', 'agent_operation_proposal', 'extension', 'dataset_import_file', 'dataset_import', 'parser', 'parser_version', 'member_handover', 'member_absence', 'idp_group_mapping', 'member_passkey')`,
+      sql`${table.entityType} IN ('project', 'analysis_view', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'model_field_option', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'dataset', 'dataset_version', 'sample_event', 'comment', 'review_submission', 'signature', 'review_decision', 'storage_site', 'storage_room', 'storage_unit', 'storage_shelf', 'storage_rack', 'storage_box', 'storage_position', 'storage_movement', 'plate_design', 'plate_well', 'plate_layout_template', 'calendar_resource', 'calendar_booking', 'calendar_booking_participant', 'calendar_booking_sample', 'study_workstream', 'study_task', 'study_task_dependency', 'study_task_assignment', 'study_task_resource', 'study_deliverable', 'study_project', 'study_experiment', 'study_plan_snapshot', 'instrument', 'instrument_run', 'instrument_run_stage', 'instrument_observation', 'instrument_plate_snapshot', 'instrument_qc_check', 'instrument_raw_file', 'instrument_run_link', 'report_definition', 'report_section', 'report_generation', 'sheet_instance', 'sheet_definition', 'sheet_definition_version', 'notebook_template', 'notebook_template_version', 'workspace_invitation', 'workspace_settings', 'project_access', 'api_credential', 'connector', 'connector_run', 'pipeline_definition', 'pipeline_definition_version', 'pipeline_run', 'pipeline_schedule', 'webhook_subscription', 'webhook_delivery', 'agent_operation_policy', 'agent_operation_proposal', 'extension', 'dataset_import_file', 'dataset_import', 'parser', 'parser_version', 'member_handover', 'member_absence', 'idp_group_mapping', 'member_passkey', 'signature_timestamp')`,
     ),
     check(
       'chk_change_events_operation',

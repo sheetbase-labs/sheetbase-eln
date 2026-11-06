@@ -148,7 +148,9 @@ export function useLiveRichText({
     const { doc } = provider
 
     const finish = () => {
-      if (!cancelled) setLiveFor(provider)
+      // Seeding takes a round trip. If the person started typing meanwhile,
+      // switching now would replace their new text with the saved copy.
+      if (!cancelled && !latest.current.edited()) setLiveFor(provider)
     }
     const onTransaction = () => {
       if (isSeeded(doc, blockId)) {

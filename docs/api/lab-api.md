@@ -328,7 +328,7 @@ Scope: `lab:write`.
 
 | Argument       | Type |                                                           |
 | -------------- | ---- | --------------------------------------------------------- |
-| `p_block_id` * | uuid | The protocol step block the timer belongs to.             |
+| `p_block_id` * | uuid | The protocol step block (a `procedure_step` block).       |
 | `p_seconds`    | int  | Duration in seconds. Omit to use the step's own duration. |
 
 ### `end_step_timer`
@@ -340,6 +340,43 @@ Scope: `lab:write`.
 | Argument       | Type |                |
 | -------------- | ---- | -------------- |
 | `p_timer_id` * | uuid | Step timer id. |
+
+### `set_step_done`
+
+Finish or reopen a protocol step. Ticks a protocol step as done, or reopens it, with an optional note. The step records who finished it and when. Returns the step.
+
+Scope: `lab:write`.
+
+| Argument       | Type |                                                        |
+| -------------- | ---- | ------------------------------------------------------ |
+| `p_block_id` * | uuid | The protocol step block (a `procedure_step` block).    |
+| `p_done`       | bool | true to finish the step (default), false to reopen it. |
+| `p_note`       | text | A note.                                                |
+
+Finishing a step sends `step.completed`, reopening it `step.reopened` (see the [event catalogue](event-catalogue.md)). A submitted or signed notebook refuses the change, as it does on the page.
+
+### `add_step_result`
+
+Record a result on a protocol step. Adds a measurement to the notebook straight after the step, so it reads in order and goes to review with the record. Returns the new block. Sends `step.result_added`.
+
+Scope: `lab:write`.
+
+| Argument       | Type |                                                     |
+| -------------- | ---- | --------------------------------------------------- |
+| `p_block_id` * | uuid | The protocol step block (a `procedure_step` block). |
+| `p_label` *    | text | What was measured.                                  |
+| `p_value` *    | text | The measured value, as a number or text.            |
+| `p_unit`       | text | Unit of the quantity.                               |
+
+### `record_steps`
+
+List the steps of an experiment with their status. Every protocol step in order. `status` comes from the evidence on the notebook: `done` when ticked, `in_progress` when it has a note, a result or a running timer of yours, otherwise `not_started`. `is_current` marks the first step that is not done.
+
+Scope: `lab:read`.
+
+| Argument        | Type |            |
+| --------------- | ---- | ---------- |
+| `p_record_id` * | uuid | Record id. |
 
 ### `set_material_safety`
 

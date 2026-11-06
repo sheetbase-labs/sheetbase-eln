@@ -467,6 +467,12 @@
       "typescript": "generic"
     },
     {
+      "name": "add_step_result",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "adopt_group_roles",
       "resource": "people",
       "python": "resource",
@@ -947,6 +953,12 @@
       "typescript": "generic"
     },
     {
+      "name": "record_steps",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "record_stocktake_scan",
       "resource": "lab",
       "python": "generic",
@@ -1197,6 +1209,12 @@
       "resource": "facility",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "set_step_done",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "snapshot_dataset",

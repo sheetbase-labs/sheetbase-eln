@@ -5,20 +5,22 @@
  *
  * Matrix (docs/subsystems/collaboration.md is normative):
  *
- * | role                          | connect | read threads/presence | comment/reply/resolve |
- * |-------------------------------|---------|-----------------------|-----------------------|
- * | owner/admin/member/steward/   | yes     | yes                   | yes                   |
- * | scientist/analyst/reviewer    |         |                       |                       |
- * | viewer                        | yes     | yes                   | no (GOV-01 read-only) |
- * | suspended / non-member        | no      | no                    | no                    |
- * | workspace not active          | no      | no                    | no                    |
+ * | role                          | connect | see presence | edit together         |
+ * |-------------------------------|---------|--------------|-----------------------|
+ * | owner/admin/member/steward/   | yes     | yes          | yes                   |
+ * | scientist/analyst/reviewer    |         |              |                       |
+ * | viewer                        | yes     | yes          | no (GOV-01 read-only) |
+ * | suspended / non-member        | no      | no           | no                    |
+ * | workspace not active          | no      | no           | no                    |
  *
- * Scopes are least-privilege: presence + comments only. Storage and feeds are
- * explicitly denied because Sheetbase stores no scientific content in
- * Liveblocks and uses no feeds.
+ * A room grants one of two things: `room:read` (see who is here and what they
+ * are doing) or `room:write` (also send document changes). The bundled
+ * collaboration server enforces it per connection.
  */
 
-import type { RoomPermissions } from '@liveblocks/node'
+/** What a connection may do in a room. */
+export type RoomScope = 'room:read' | 'room:write'
+export type RoomPermissions = readonly RoomScope[]
 
 export type WorkspaceRole =
   | 'owner'
@@ -48,15 +50,10 @@ const WRITER_ROLES: ReadonlySet<string> = new Set([
  */
 export type ObjectAccessState = 'writable' | 'read_only'
 
-export const READ_ONLY_ROOM_SCOPES: RoomPermissions = [
-  'room:read',
-  'comments:read',
-  'storage:none',
-  'feeds:none',
-]
+export const READ_ONLY_ROOM_SCOPES: RoomPermissions = ['room:read']
 
 /**
- * Liveblocks scopes for a room grant: the intersection of workspace-role
+ * Scopes for a room grant: the intersection of workspace-role
  * capability and object lifecycle state. An archived or locked object grants
  * read-only collaboration scopes regardless of writer membership; viewers
  * never exceed read-only even on writable objects.
@@ -66,13 +63,13 @@ export function roomPermissionsForRole(
   objectState: ObjectAccessState = 'writable',
 ): RoomPermissions {
   if (objectState === 'read_only') {
-    return [...READ_ONLY_ROOM_SCOPES]
+    return READ_ONLY_ROOM_SCOPES
   }
   if (role === 'viewer') {
-    return [...READ_ONLY_ROOM_SCOPES]
+    return READ_ONLY_ROOM_SCOPES
   }
   if (!WRITER_ROLES.has(role)) return []
-  return ['room:write', 'comments:write', 'storage:none', 'feeds:none']
+  return ['room:write']
 }
 
 export interface CollaborationMembership {
@@ -100,4 +97,9 @@ export function accessForMembership(
 /** Client-facing capability hint mirroring the server scopes above. */
 export function canCommentInRoom(role: string): boolean {
   return WRITER_ROLES.has(role)
+}
+
+/** True when the grant lets a connection send document changes. */
+export function canWriteInRoom(permissions: RoomPermissions): boolean {
+  return permissions.includes('room:write')
 }

@@ -5,8 +5,8 @@ import { CollaborationRoom } from '#/components/collaboration/collaboration-room
 /**
  * COLLAB-02 room boundary.
  *
- * The populated case needs a connected Liveblocks room, which a storybook
- * build has no way to provide (no websocket, no token endpoint), so the
+ * The populated case needs a connected co-editing room, which a storybook
+ * build has no way to provide (no websocket, no session), so the
  * stories below cover the boundary's reachable static contract: with no room
  * id the subtree renders unchanged and room hooks stay unready — the state
  * every SSR shell and collaboration-free deployment runs in.
@@ -39,7 +39,7 @@ export const NoRoom: Story = {}
 /**
  * With a room id the boundary mounts its provider after hydration and
  * suspends the room subtree until the room is available. A storybook build
- * has no Liveblocks backend to connect to, so this story renders nothing —
+ * has no co-editing server to connect to, so this story renders nothing —
  * the same fallback a suspended room shows in the app, and the reason the
  * outage never takes the page down. The surrounding surface, outside the
  * boundary, is unaffected.

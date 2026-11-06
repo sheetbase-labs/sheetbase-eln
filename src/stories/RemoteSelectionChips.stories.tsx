@@ -6,7 +6,7 @@ import { RemoteSelectionChips } from '#/components/collaboration/presence-select
 /**
  * COLLAB-01 remote selection chips.
  *
- * Chips are built from other users' live presence, so a connected Liveblocks
+ * Chips are built from other users' live presence, so a connected co-editing
  * room is required for the populated state that a storybook build cannot
  * provide. Covered here is the reachable contract: with no room the chips
  * render nothing, whether or not a click affordance is supplied — which is

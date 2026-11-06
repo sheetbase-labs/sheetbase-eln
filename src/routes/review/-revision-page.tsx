@@ -33,9 +33,7 @@ import {
   safeBuildRoomId,
 } from '#/components/collaboration/collaboration-room'
 import { PresenceStack } from '#/components/collaboration/presence-avatars'
-import { ThreadPanel } from '#/components/collaboration/thread-panel'
-import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
-import { canCommentInRoom } from '#/lib/collaboration/permissions'
+import { useCollaborationEnabled } from '#/lib/collaboration/collaboration-enabled'
 import { ApprovalStepper, RecordHistoryTimeline } from '#/components/audit'
 import type { ApprovalStepDef, ApprovalStepStatus } from '#/components/audit'
 import { CommentPanel } from '#/components/comments'
@@ -770,10 +768,6 @@ export function ReviewWorkspaceRoute() {
       loading={loading}
       isLocked={isLocked}
       recordId={recordId}
-      collaborationWorkspaceId={
-        collaborationEnabled ? (context.workspace?.id ?? null) : null
-      }
-      collaborationRole={context.workspace?.role ?? 'viewer'}
       revisionOptions={revisionOptions}
       commentDrafts={commentDrafts}
       checksGate={checksGate}
@@ -1749,8 +1743,6 @@ function ReviewInspector({
   loading,
   isLocked,
   recordId,
-  collaborationWorkspaceId,
-  collaborationRole,
   onAfterAmendment,
   revisionOptions,
   commentDrafts,
@@ -1779,10 +1771,6 @@ function ReviewInspector({
   loading: boolean
   isLocked: boolean
   recordId: string | null
-  /** COLLAB-04: workspace identity for the shared record discussion room. */
-  collaborationWorkspaceId: string | null
-  /** COLLAB-04: workspace role hint for the discussion composer. */
-  collaborationRole: string
   onAfterAmendment: () => Promise<void>
   /** All revisions of this record, for the amendment chain view. */
   revisionOptions: RevisionOptionWire[]
@@ -1941,34 +1929,6 @@ function ReviewInspector({
             </p>
           )}
         </section>
-
-        {/* COLLAB-04: the same record-level discussion thread as the record
-            page, embedded compactly in the review inspector. It mounts its
-            own CollaborationRoom because the shell renders the inspector
-            outside this route's subtree; the panel gates on room readiness,
-            so SSR/pre-hydration output stays empty. */}
-        {collaborationWorkspaceId && recordId ? (
-          <section aria-label={t('projects.revisionPage.inspector.discussion')}>
-            <CollaborationRoom
-              roomId={safeBuildRoomId(
-                collaborationWorkspaceId,
-                'record',
-                recordId,
-              )}
-            >
-              <ThreadPanel
-                anchor={{
-                  anchorType: 'record',
-                  workspaceId: collaborationWorkspaceId,
-                  recordId,
-                }}
-                currentRole={collaborationRole}
-                canComment={canCommentInRoom(collaborationRole)}
-                compact
-              />
-            </CollaborationRoom>
-          </section>
-        ) : null}
 
         {submission ? (
           <SignaturePanel

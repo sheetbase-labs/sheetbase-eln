@@ -17,24 +17,15 @@ const WRITER_ROLE = [
 ] as const
 
 describe('collaboration permission mapping', () => {
-  it('grants writers presence + comment write but no storage or feeds', () => {
+  it('lets writers edit together', () => {
     for (const role of WRITER_ROLE) {
-      const scopes = roomPermissionsForRole(role)
-      expect(scopes).toContain('room:write')
-      expect(scopes).toContain('comments:write')
-      expect(scopes).toContain('storage:none')
-      expect(scopes).toContain('feeds:none')
+      expect(roomPermissionsForRole(role)).toEqual(['room:write'])
     }
   })
 
   it('keeps viewers read-only consistent with GOV-01', () => {
     const scopes = roomPermissionsForRole('viewer')
-    expect(scopes).toContain('room:read')
-    expect(scopes).toContain('comments:read')
-    expect(scopes).toContain('storage:none')
-    expect(scopes).toContain('feeds:none')
-    expect(scopes).not.toContain('room:write')
-    expect(scopes).not.toContain('comments:write')
+    expect(scopes).toEqual(['room:read'])
     expect(canCommentInRoom('viewer')).toBe(false)
   })
 
@@ -62,7 +53,7 @@ describe('collaboration permission mapping', () => {
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.role).toBe('viewer')
-      expect(result.permissions).toContain('comments:read')
+      expect(result.permissions).toEqual(['room:read'])
     }
   })
 })

@@ -3199,7 +3199,6 @@ export const projects = {
       unknownMember: 'Unknown member',
       you: 'you',
       noAssignees: 'No assignees',
-      discussion: 'Discussion',
       backToInbox: 'Back to inbox',
       actionsAfterLoad: 'Actions are available once the submission loads.',
       noFingerprint: 'Fingerprint unavailable — actions disabled.',

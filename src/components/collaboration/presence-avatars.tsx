@@ -1,5 +1,5 @@
 import { AvatarStack } from '#/components/ui/avatar'
-import { useOthers } from '#/lib/collaboration/liveblocks.config'
+import { useOthers } from '#/lib/collaboration/room-hooks'
 
 import { useCollaborationRoomReady } from './collaboration-room'
 
@@ -10,7 +10,7 @@ import { useCollaborationRoomReady } from './collaboration-room'
  * before the room provider mounts (SSR-stable) and when nobody else is in.
  */
 
-/** Minimal structural shape of a Liveblocks "other" the stack reads. */
+/** Minimal structural shape of a peer the stack reads. */
 export interface PresenceStackPeer {
   connectionId?: number
   /** The signed-in user the connection belongs to. */
@@ -27,9 +27,8 @@ export function PresenceStack({
   className?: string
 }) {
   const ready = useCollaborationRoomReady()
-  // Same gate as ThreadPanel: suspense room hooks throw outside a mounted
-  // RoomProvider, so the pre-ready render must stay hook-free (and stable
-  // across SSR and the first client paint).
+  // Stable across SSR and the first client paint: nothing renders until the
+  // room is joined.
   if (!ready) return null
   return <PresenceStackInner max={max} className={className} />
 }
@@ -42,10 +41,7 @@ function PresenceStackInner({
   className?: string
 }) {
   const others = useOthers()
-  // Liveblocks' `Other` type degrades when the global Presence override
-  // fails its JsonObject validation (it does for this interface-based
-  // contract), so read through a structural local type instead.
-  const peers = others as readonly PresenceStackPeer[]
+  const peers: readonly PresenceStackPeer[] = others
   if (peers.length === 0) return null
   const countLabel = `${peers.length} here`
   return (

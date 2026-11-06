@@ -6,8 +6,8 @@ import { PresenceStack } from '#/components/collaboration/presence-avatars'
 /**
  * COLLAB-01 presence avatars.
  *
- * The stack renders avatars only from a connected Liveblocks room, which a
- * storybook build cannot provide (no websocket, no token endpoint). What is
+ * The stack renders avatars only from a connected co-editing room, which a
+ * storybook build cannot provide (no websocket, no session). What is
  * covered here is the contract that makes the component safe to mount
  * anywhere: before the room is ready — and outside a room boundary
  * altogether — it renders nothing rather than throwing. `presenceStackEntries`

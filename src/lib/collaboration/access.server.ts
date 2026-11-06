@@ -1,8 +1,8 @@
 /**
  * Server-side collaboration access resolution (COLLAB). The single gate in
- * front of Liveblocks: every room-auth request is resolved against the
- * Better Auth session and current canonical object authority/lifecycle.
- * Client-supplied identity is never trusted.
+ * front of the bundled co-editing server: every connection is resolved
+ * against the Better Auth session and current canonical object
+ * authority/lifecycle. Client-supplied identity is never trusted.
  *
  * Deps are injectable so tests exercise the real decision logic against
  * stubbed stores (same pattern as request-auth.ts).
@@ -105,13 +105,16 @@ export async function collaborationObjectState(
   }
 }
 
-/** True when the Liveblocks substrate is configured at all. */
+/**
+ * Live co-editing ships with Sheetbase, so it is on unless an operator turns it
+ * off (a host that cannot hold WebSocket connections open, for instance).
+ */
 export function isCollaborationEnabled(): boolean {
-  return Boolean(env.LIVEBLOCKS_SECRET_KEY)
+  return env.SHEETBASE_COLLABORATION !== 'off'
 }
 
 /**
- * Full room-access pipeline for one POST /api/collaboration/auth request.
+ * Full room-access pipeline for one connection to the co-editing server.
  * Denials carry the same status/code envelope as the /api/db boundary.
  */
 export async function resolveRoomAccess(
@@ -124,7 +127,7 @@ export async function resolveRoomAccess(
       ok: false,
       status: 503,
       code: 'collaboration_disabled',
-      message: 'Collaboration is not configured on this deployment.',
+      message: 'Live collaboration is turned off on this deployment.',
     }
   }
   if (typeof room !== 'string') {

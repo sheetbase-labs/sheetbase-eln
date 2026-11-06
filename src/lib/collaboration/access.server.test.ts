@@ -11,8 +11,6 @@ vi.hoisted(() => {
   process.env.FORMULA_DATABASE_URL ||= 'postgres://localhost:5432/formula-test'
   process.env.BETTER_AUTH_SECRET ||= 'test-secret-with-32-characters-minimum!!'
   process.env.PGRST_JWT_SECRET ||= 'test-secret-with-32-characters-minimum!!'
-  process.env.LIVEBLOCKS_SECRET_KEY ||=
-    'test-secret-with-32-characters-minimum!!'
 })
 
 const WS = 'a0000000-0000-7000-8000-000000000001'
@@ -64,7 +62,7 @@ describe('collaboration room access resolution', () => {
     if (result.ok) {
       expect(result.userId).toBe('user-1')
       expect(result.userInfo.name).toBe('Ada')
-      expect(result.permissions.permissions).toContain('comments:write')
+      expect(result.permissions.permissions).toContain('room:write')
     }
   })
 
@@ -102,7 +100,7 @@ describe('collaboration room access resolution', () => {
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.permissions.permissions).toContain('room:read')
-      expect(result.permissions.permissions).not.toContain('comments:write')
+      expect(result.permissions.permissions).not.toContain('room:write')
     }
   })
 
@@ -142,8 +140,8 @@ describe('collaboration room access resolution', () => {
       expect(result.ok).toBe(true)
       if (result.ok) {
         expect(result.objectState).toBe('read_only')
-        expect(result.permissions.permissions).toContain('comments:read')
-        expect(result.permissions.permissions).not.toContain('comments:write')
+        expect(result.permissions.permissions).toContain('room:read')
+        expect(result.permissions.permissions).not.toContain('room:write')
         expect(result.permissions.permissions).not.toContain('room:write')
       }
     }
@@ -158,7 +156,7 @@ describe('collaboration room access resolution', () => {
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.objectState).toBe('writable')
-      expect(result.permissions.permissions).toContain('comments:write')
+      expect(result.permissions.permissions).toContain('room:write')
     }
   })
 
@@ -170,8 +168,8 @@ describe('collaboration room access resolution', () => {
     )
     expect(result.ok).toBe(true)
     if (result.ok) {
-      expect(result.permissions.permissions).toContain('comments:read')
-      expect(result.permissions.permissions).not.toContain('comments:write')
+      expect(result.permissions.permissions).toContain('room:read')
+      expect(result.permissions.permissions).not.toContain('room:write')
     }
   })
 

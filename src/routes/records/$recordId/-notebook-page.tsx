@@ -39,7 +39,7 @@ import {
   CollaborationRoom,
   safeBuildRoomId,
 } from '#/components/collaboration/collaboration-room'
-import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
+import { useCollaborationEnabled } from '#/lib/collaboration/collaboration-enabled'
 import { PresenceStack } from '#/components/collaboration/presence-avatars'
 import { AmendNotebookDialog } from '#/components/notebook/amend-notebook-dialog'
 import { DuplicateNotebookDialog } from '#/components/notebook/duplicate-notebook-dialog'

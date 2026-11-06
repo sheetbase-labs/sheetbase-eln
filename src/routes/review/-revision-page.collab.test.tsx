@@ -12,6 +12,7 @@
  * No review/workflow state is exercised here beyond rendering; reviewer
  * assignment, decisions and signatures remain Sheetbase RPC territory.
  */
+import type * as roomHooks from '#/lib/collaboration/room-hooks'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   act,
@@ -19,7 +20,6 @@ import {
   fireEvent,
   render,
   screen,
-  waitFor,
   within,
 } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -50,7 +50,6 @@ const RECORD_ID = '22222222-2222-4222-8222-222222222222'
 const REVISION_ID = '33333333-3333-4333-8333-333333333333'
 const SUBMISSION_ID = '55555555-5555-4555-8555-555555555555'
 const USER_ID = '44444444-4444-4444-8444-444444444444'
-const ROOM_ID = `workspace:${WS_ID}:record:${RECORD_ID}`
 
 // ---------------------------------------------------------------------------
 // Router seams.
@@ -240,26 +239,25 @@ vi.mock('#/lib/notebook-data', () => ({
 }))
 
 // ---------------------------------------------------------------------------
-// Collaboration seams. The real CollaborationRoom / PresenceStack /
-// ThreadPanel run against a mocked liveblocks.config so the hydration gate,
-// readiness context and anchor matching behave exactly as in production.
+// Collaboration seams. The real CollaborationRoom / PresenceStack run with the
+// connection stubbed out and the room's peers supplied by the test, so the
+// readiness context and presence rendering behave exactly as in production.
 // ---------------------------------------------------------------------------
 
-vi.mock('#/lib/collaboration/liveblocks.config', () => ({
-  RoomProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
-  useCollaborationEnabled: () => h.collaborationEnabled,
-  useOthers: () => h.others,
-  useRoom: () => ({ id: ROOM_ID }),
-  useThreads: () => ({ threads: [] }),
-  useCreateThread: () => vi.fn(),
-  useMarkThreadAsResolved: () => vi.fn(),
-  useMarkThreadAsUnresolved: () => vi.fn(),
+vi.mock('#/lib/collaboration/provider', () => ({
+  CollabProvider: class {
+    destroy() {}
+  },
+  collabUrl: () => 'ws://localhost/api/collaboration/ws',
 }))
 
-// Pre-built Liveblocks UI needs a full editor environment; render stubs.
-vi.mock('@liveblocks/react-ui', () => ({
-  Composer: () => <div data-testid="discussion-composer" />,
-  Thread: () => <div data-testid="discussion-thread" />,
+vi.mock('#/lib/collaboration/room-hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof roomHooks>()),
+  useOthers: () => h.others,
+}))
+
+vi.mock('#/lib/collaboration/collaboration-enabled', () => ({
+  useCollaborationEnabled: () => h.collaborationEnabled,
 }))
 
 // Heavy non-collaboration panels are not under test here.
@@ -355,9 +353,8 @@ describe('review workspace collaboration gating', () => {
       (await screen.findAllByText('Titration curve')).length,
     ).toBeGreaterThan(0)
 
-    // No presence area and no discussion section anywhere.
-    expect(screen.queryByRole('region', { name: 'Discussion' })).toBeNull()
-    expect(screen.queryByTestId('thread-panel')).toBeNull()
+    // No presence area anywhere.
+    expect(screen.queryByRole('group', { name: /here/ })).toBeNull()
   })
 
   it('shows peer presence in the header when enabled', async () => {
@@ -369,31 +366,5 @@ describe('review workspace collaboration gating', () => {
 
     const stack = await screen.findByRole('group', { name: '1 here' })
     expect(within(stack).getByTitle('Ada Analyst')).toBeTruthy()
-  })
-
-  it('exposes the record-anchored discussion section when enabled', async () => {
-    renderWorkspace()
-
-    const region = await screen.findByRole('region', { name: 'Discussion' })
-    const panel = within(region).getByTestId('thread-panel')
-    expect(panel.getAttribute('data-anchor-type')).toBe('record')
-    // The same composer affordance as the record page's thread panel.
-    expect(
-      await waitFor(() => within(panel).getByTestId('discussion-composer')),
-    ).toBeTruthy()
-  })
-
-  it('renders header presence and inspector discussion together', async () => {
-    h.others = [{ connectionId: 1, info: { name: 'Ada Analyst' } }]
-
-    renderWorkspace()
-
-    await screen.findAllByText('Titration curve')
-    // Both coordination surfaces are live at the same time once the room
-    // provider mounts: who is reviewing (header) and the shared record
-    // discussion (inspector).
-    await screen.findByRole('region', { name: 'Discussion' })
-    expect(screen.getByRole('group', { name: '1 here' })).toBeTruthy()
-    expect(screen.getByTestId('thread-panel')).toBeTruthy()
   })
 })

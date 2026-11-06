@@ -1,5 +1,5 @@
 import { cn } from '#/lib/utils'
-import { useOthers } from '#/lib/collaboration/liveblocks.config'
+import { useOthers } from '#/lib/collaboration/room-hooks'
 
 import { useCollaborationRoomReady } from './collaboration-room'
 import { remoteSelectionChips } from './selection-label'
@@ -33,9 +33,11 @@ function RemoteSelectionChipsInner({
   className?: string
 }) {
   const others = useOthers()
-  // Structural read-through: see the note in presence-avatars.tsx on the
-  // degraded Liveblocks `Other` type for this Presence contract.
-  const peers = others as unknown as readonly SelectionPeer[]
+  const peers: readonly SelectionPeer[] = others.map((peer) => ({
+    connectionId: peer.connectionId,
+    info: peer.info,
+    selection: peer.presence.selection,
+  }))
   const chips = remoteSelectionChips(peers)
   if (chips.length === 0) return null
   return (

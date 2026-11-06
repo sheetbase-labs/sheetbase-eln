@@ -1,7 +1,6 @@
 /**
- * COLLAB-01 presence component tests. Room hooks are mocked at the
- * project's single Liveblocks import surface
- * ('#/lib/collaboration/liveblocks.config') so the stack, chips, badge and
+ * COLLAB-01 presence component tests. The room hooks
+ * ('#/lib/collaboration/room-hooks') are mocked so the stack, chips, badge and
  * presence-sync hook logic can be exercised deterministically.
  */
 import { cleanup, render, screen } from '@testing-library/react'
@@ -18,7 +17,7 @@ const h = vi.hoisted(() => ({
   updateMyPresence: vi.fn(),
 }))
 
-vi.mock('#/lib/collaboration/liveblocks.config', () => ({
+vi.mock('#/lib/collaboration/room-hooks', () => ({
   useOthers: () => h.others,
   useUpdateMyPresence: () => h.updateMyPresence,
 }))

@@ -1,32 +1,31 @@
 import * as React from 'react'
 
+import { CollabProvider, collabUrl } from '#/lib/collaboration/provider'
+import { RoomProviderContext } from '#/lib/collaboration/room-hooks'
 import { buildRoomId } from '#/lib/collaboration/room-ids'
 import type { CollaborationObjectKind } from '#/lib/collaboration/types'
-import { RoomProvider } from '#/lib/collaboration/liveblocks.config'
 
 /**
- * COLLAB-02 room boundary. Wraps a subtree in a single Liveblocks room with
- * the safety scaffolding every collaboration surface needs:
+ * COLLAB room boundary. Joins one room on the bundled co-editing server for the
+ * subtree below it:
  *
- * 1. Hydration mount guard — the provider (and therefore the websocket
- *    client) only exists after hydration, so SSR markup is identical to the
- *    first client render and no room hooks can run on the server.
- * 2. An error boundary with a quiet fallback — a Liveblocks outage must
- *    never take the surrounding page down.
- * 3. A Suspense boundary — the suspense-flavoured room hooks suspend here.
+ * 1. Hydration mount guard: the connection only exists after hydration, so SSR
+ *    markup is identical to the first client render.
+ * 2. Quiet failure: a dropped or refused connection never takes the page down.
+ *    Presence and live editing simply go quiet while saving carries on as it
+ *    always did, through the database.
  *
- * When `roomId` is null (collaboration disabled or no canonical identity)
- * children render unchanged, so callers can wrap whole pages unconditionally.
+ * When `roomId` is null (collaboration off, or no canonical identity) children
+ * render unchanged, so callers can wrap whole pages unconditionally.
  *
- * Room-hook consumers (ThreadPanel etc.) must additionally gate themselves
- * with `useCollaborationRoomReady()`: it flips true only once the provider
- * is actually mounted, which keeps them rendering null — never crashing —
- * during SSR and the pre-hydration paint.
+ * Consumers of room state use `useCollaborationRoomReady()`: it flips true only
+ * once the connection object exists, and room hooks are safe to call anywhere
+ * (they report an empty room until then).
  */
 
 const RoomReadyContext = React.createContext(false)
 
-/** True when the enclosing CollaborationRoom has mounted its RoomProvider. */
+/** True when the enclosing CollaborationRoom has joined its room. */
 export function useCollaborationRoomReady(): boolean {
   return React.useContext(RoomReadyContext)
 }
@@ -48,25 +47,6 @@ export function safeBuildRoomId(
   }
 }
 
-class CollaborationErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { failed: boolean }
-> {
-  state = { failed: false }
-  static getDerivedStateFromError() {
-    return { failed: true }
-  }
-  componentDidCatch(error: unknown) {
-    // Quiet by design: collaboration failures are non-authoritative and
-    // must never break the scientific record surfaces around them.
-    console.error('Collaboration room error', error)
-  }
-  render() {
-    if (this.state.failed) return null
-    return this.props.children
-  }
-}
-
 export function CollaborationRoom({
   roomId,
   children,
@@ -74,38 +54,30 @@ export function CollaborationRoom({
   roomId: string | null
   children: React.ReactNode
 }) {
-  const [mounted, setMounted] = React.useState(false)
-  React.useEffect(() => setMounted(true), [])
+  const [provider, setProvider] = React.useState<CollabProvider | null>(null)
 
-  if (!mounted || !roomId) {
-    return (
-      <RoomReadyContext.Provider value={false}>
-        {children}
-      </RoomReadyContext.Provider>
-    )
-  }
+  React.useEffect(() => {
+    if (!roomId) return
+    let joined: CollabProvider | null = null
+    try {
+      joined = new CollabProvider(collabUrl(roomId, window.location))
+      setProvider(joined)
+    } catch (error) {
+      // Quiet by design: collaboration failures are non-authoritative and
+      // must never break the scientific record surfaces around them.
+      console.error('Collaboration room error', error)
+    }
+    return () => {
+      joined?.destroy()
+      setProvider(null)
+    }
+  }, [roomId])
 
   return (
-    <RoomReadyContext.Provider value={true}>
-      <CollaborationErrorBoundary>
-        <React.Suspense fallback={null}>
-          <RoomProvider
-            id={roomId}
-            // CollaborationPresence is an interface, so it does not
-            // structurally satisfy Liveblocks' JsonObject constraint even
-            // though every field is JSON-serialisable; cast past the brand.
-            initialPresence={
-              {
-                selection: null,
-                activeBlockId: null,
-                activeFieldId: null,
-              } as never
-            }
-          >
-            {children}
-          </RoomProvider>
-        </React.Suspense>
-      </CollaborationErrorBoundary>
+    <RoomReadyContext.Provider value={provider !== null}>
+      <RoomProviderContext.Provider value={provider}>
+        {children}
+      </RoomProviderContext.Provider>
     </RoomReadyContext.Provider>
   )
 }

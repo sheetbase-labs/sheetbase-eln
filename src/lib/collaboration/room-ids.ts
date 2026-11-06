@@ -1,7 +1,7 @@
 /**
  * Room id construction and parsing. Room ids are derived deterministically
  * from canonical Sheetbase identities (workspace + object UUIDs); they are
- * the only bridge between Liveblocks rooms and PostgreSQL rows.
+ * the only bridge between co-editing rooms and PostgreSQL rows.
  */
 
 import type {

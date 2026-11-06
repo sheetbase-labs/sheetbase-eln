@@ -2,7 +2,7 @@ import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 
 import { cn } from '#/lib/utils'
-import { useOthers } from '#/lib/collaboration/liveblocks.config'
+import { useOthers } from '#/lib/collaboration/room-hooks'
 
 import { useCollaborationRoomReady } from './collaboration-room'
 
@@ -14,7 +14,7 @@ import { useCollaborationRoomReady } from './collaboration-room'
  * authoritative.
  */
 
-/** Minimal structural shape of a Liveblocks "other" the badge reads. */
+/** Minimal structural shape of a peer the badge reads. */
 export interface CoEditingPeer {
   connectionId?: number
   info?: { name?: string }
@@ -69,7 +69,7 @@ function BlockCoEditBadgeInner({
   active: boolean
   className?: string
 }) {
-  const others = useOthers() as unknown as readonly CoEditingPeer[]
+  const others: readonly CoEditingPeer[] = useOthers()
   if (!active) return null
   const names = coEditingPeerNames(others, blockId)
   if (names.length === 0) return null

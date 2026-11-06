@@ -92,17 +92,14 @@ return `null` by contract.
 
 ## Collaboration
 
-| Component               | Reason                                                                                                                                                                                                            |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CollaborationProvider` | Provider. It renders `children` unchanged when collaboration is disabled and otherwise mounts the Liveblocks provider; the disabled branch is covered by its story, the enabled branch needs a Liveblocks secret. |
-
-Components whose populated states need a connected Liveblocks room
-(`PresenceStack`, `RemoteSelectionChips`, `BlockCoEditBadge`, `ThreadPanel`,
-`CollaborationRoom`) do have stories, but a storybook build has no websocket
-and no token endpoint, so those stories cover the reachable contract: nothing
-renders before the room is ready, and nothing throws outside a room boundary.
-The populated states are exercised by the component tests with the room hooks
-mocked at the module boundary.
+Components whose populated states need a connected co-editing room
+(`PresenceStack`, `RemoteSelectionChips`, `BlockCoEditBadge`,
+`CollaborationRoom`) do have stories, but a storybook build has no
+collaboration server and no signed-in session, so those stories cover the
+reachable contract: nothing renders before the room is ready, and nothing
+throws outside a room boundary. The populated states are exercised by the
+component tests with the room hooks mocked at the module boundary, and by the
+two-browser journey spec.
 
 ## Viz
 

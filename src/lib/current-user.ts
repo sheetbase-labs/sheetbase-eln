@@ -48,7 +48,7 @@ export interface CurrentContext {
   clock?: '12h' | '24h'
   /** Keep the layout bar and shortcut footer on a single pane (Profile). */
   alwaysShowLayout?: boolean
-  /** COLLAB: Liveblocks substrate configured on this deployment? */
+  /** COLLAB: live co-editing switched on for this deployment? */
   collaborationEnabled: boolean
   /** Demo deployment with no sign-in: a data 401 is not an ended session. */
   authFree?: boolean

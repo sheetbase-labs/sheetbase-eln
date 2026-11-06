@@ -11,7 +11,7 @@ import {
   CollaborationRoom,
   safeBuildRoomId,
 } from '#/components/collaboration/collaboration-room'
-import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
+import { useCollaborationEnabled } from '#/lib/collaboration/collaboration-enabled'
 import { ColumnPromotionsPanel } from '#/components/sheets/column-promotions-panel'
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'
 import {

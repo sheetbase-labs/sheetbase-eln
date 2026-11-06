@@ -10786,3 +10786,58 @@ export const idpGroupMappings = api.table(
     ),
   ],
 )
+
+/**
+ * Directory sync (SCIM, migration 0105): the tokens an identity provider
+ * calls with. The secret itself is kept only as a hash, in `internal`.
+ */
+export const scimTokens = api.table('scim_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  label: text('label').notNull(),
+  createdByUserId: text('created_by_user_id').references(() => user.id, {
+    onDelete: 'set null',
+  }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true, mode: 'date' }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+})
+
+/** Groups the identity provider has pushed; a name matching a sign-in group mapping gives that role. */
+export const scimGroups = api.table('scim_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  displayName: text('display_name').notNull(),
+  externalId: text('external_id'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+})
+
+export const scimGroupMembers = api.table(
+  'scim_group_members',
+  {
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => scimGroups.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.groupId, table.userId] })],
+)

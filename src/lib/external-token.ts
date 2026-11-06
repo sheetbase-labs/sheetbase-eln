@@ -144,6 +144,9 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   projects: { read: 'projects:read', write: 'projects:write' },
   member_absences: { read: 'people:read' },
   idp_group_mappings: { read: 'people:read' },
+  scim_tokens: { read: 'people:read' },
+  scim_groups: { read: 'people:read' },
+  scim_group_members: { read: 'people:read' },
   review_cover: { read: 'people:read' },
   folders: { read: 'projects:read' },
   records: { read: 'projects:read', write: 'projects:write' },
@@ -209,6 +212,10 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
   set_idp_group_mapping: ['people:write'],
   remove_idp_group_mapping: ['people:write'],
   adopt_group_roles: ['people:write'],
+  // Directory sync. Making a token is a person at the settings page (the
+  // secret must reach a human, once), so only revoking is on the API.
+  revoke_scim_token: ['people:write'],
+  directory_sync_status: ['people:read'],
 
   create_project: ['projects:write'],
   create_record: ['projects:write'],

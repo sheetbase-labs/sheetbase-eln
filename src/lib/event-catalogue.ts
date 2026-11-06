@@ -83,7 +83,13 @@ export type CatalogueStatus = 'stable' | 'provisional' | 'reserved'
 
 /** Which introduction introduced (shipped or pinned) the entry. */
 export type CatalogueIntroducedIn =
-  'api-06' | 'event-01' | 'notify-01' | 'people-01' | 'lab-01' | 'spend-01'
+  | 'api-06'
+  | 'event-01'
+  | 'notify-01'
+  | 'people-01'
+  | 'lab-01'
+  | 'spend-01'
+  | 'scim-01'
 
 /** Which consumers can observe the event today. */
 export interface EventConsumerMap {
@@ -1243,6 +1249,130 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'member.passkey_removed',
     status: 'stable',
     introducedIn: 'people-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'workspace.scim_token.created',
+    family: 'people',
+    summary: 'A directory sync token was made.',
+    producer: {
+      entityType: 'scim_token',
+      operation: 'create',
+    },
+    wireName: 'workspace.scim_token.created',
+    status: 'stable',
+    introducedIn: 'scim-01',
+    consumers: webhookSse,
+    notes: 'Carries the token’s name only, never the secret.',
+  },
+  {
+    name: 'workspace.scim_token.revoked',
+    family: 'people',
+    summary: 'A directory sync token was revoked.',
+    producer: {
+      entityType: 'scim_token',
+      operation: 'revoke',
+    },
+    wireName: 'workspace.scim_token.revoked',
+    status: 'stable',
+    introducedIn: 'scim-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'member.provisioned',
+    family: 'people',
+    summary: 'The identity provider added a person through directory sync.',
+    producer: {
+      entityType: 'scim_user',
+      operation: 'create',
+    },
+    wireName: 'member.provisioned',
+    status: 'stable',
+    introducedIn: 'scim-01',
+    consumers: webhookSse,
+    notes:
+      'The payload says whether the account was new and whether the person is active.',
+  },
+  {
+    name: 'member.directory_updated',
+    family: 'people',
+    summary: 'The identity provider changed a person’s name or identifiers.',
+    producer: {
+      entityType: 'scim_user',
+      operation: 'update',
+      when: { key: 'action', equals: 'scim-user-updated' },
+    },
+    wireName: 'member.directory_updated',
+    status: 'stable',
+    introducedIn: 'scim-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'member.reactivated',
+    family: 'people',
+    summary: 'The identity provider switched a person back on.',
+    producer: {
+      entityType: 'scim_user',
+      operation: 'update',
+      when: { key: 'action', equals: 'scim-user-reactivated' },
+    },
+    wireName: 'member.reactivated',
+    status: 'stable',
+    introducedIn: 'scim-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'member.deprovisioned',
+    family: 'people',
+    summary: 'The identity provider switched a person off; they are suspended.',
+    producer: {
+      entityType: 'scim_user',
+      operation: 'suspend',
+    },
+    wireName: 'member.deprovisioned',
+    status: 'stable',
+    introducedIn: 'scim-01',
+    consumers: webhookSse,
+    notes:
+      'The payload counts the open work still in their name (`openWork`), so a lead can hand it over.',
+  },
+  {
+    name: 'workspace.scim_group.created',
+    family: 'people',
+    summary: 'The identity provider added a group.',
+    producer: {
+      entityType: 'scim_group',
+      operation: 'create',
+    },
+    wireName: 'workspace.scim_group.created',
+    status: 'stable',
+    introducedIn: 'scim-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'workspace.scim_group.updated',
+    family: 'people',
+    summary: 'The identity provider changed a group or its members.',
+    producer: {
+      entityType: 'scim_group',
+      operation: 'update',
+    },
+    wireName: 'workspace.scim_group.updated',
+    status: 'stable',
+    introducedIn: 'scim-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'workspace.scim_group.deleted',
+    family: 'people',
+    summary: 'The identity provider removed a group.',
+    producer: {
+      entityType: 'scim_group',
+      operation: 'delete',
+    },
+    wireName: 'workspace.scim_group.deleted',
+    status: 'stable',
+    introducedIn: 'scim-01',
     consumers: webhookSse,
   },
   // -- lab features: stock, shipping, requests, holds, workflows --------------

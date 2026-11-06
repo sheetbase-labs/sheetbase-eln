@@ -532,3 +532,86 @@ describe('lab feature events', () => {
     ).toBeNull()
   })
 })
+
+const SCIM_EVENTS = [
+  {
+    name: 'workspace.scim_token.created',
+    entityType: 'scim_token',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'workspace.scim_token.revoked',
+    entityType: 'scim_token',
+    operation: 'revoke',
+    payload: {},
+  },
+  {
+    name: 'member.provisioned',
+    entityType: 'scim_user',
+    operation: 'create',
+    payload: { action: 'scim-user-provisioned' },
+  },
+  {
+    name: 'member.directory_updated',
+    entityType: 'scim_user',
+    operation: 'update',
+    payload: { action: 'scim-user-updated' },
+  },
+  {
+    name: 'member.reactivated',
+    entityType: 'scim_user',
+    operation: 'update',
+    payload: { action: 'scim-user-reactivated' },
+  },
+  {
+    name: 'member.deprovisioned',
+    entityType: 'scim_user',
+    operation: 'suspend',
+    payload: { action: 'scim-user-deprovisioned', openWork: 3 },
+  },
+  {
+    name: 'workspace.scim_group.created',
+    entityType: 'scim_group',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'workspace.scim_group.updated',
+    entityType: 'scim_group',
+    operation: 'update',
+    payload: {},
+  },
+  {
+    name: 'workspace.scim_group.deleted',
+    entityType: 'scim_group',
+    operation: 'delete',
+    payload: {},
+  },
+]
+
+describe('directory sync events', () => {
+  it.each(SCIM_EVENTS)(
+    '$name is delivered from $entityType/$operation',
+    ({ name, entityType, operation, payload }) => {
+      expect(mapEventType(entityType, operation, payload)).toBe(name)
+      const entry = eventByName(name)
+      expect(entry?.status).toBe('stable')
+      expect(entry?.consumers.webhook).toBe(true)
+    },
+  )
+
+  it('lists every scim-01 catalogue entry here, so none is added unpinned', () => {
+    const pinned = SCIM_EVENTS.map((event) => event.name).sort()
+    const catalogued = EVENT_CATALOGUE.filter(
+      (entry) => entry.introducedIn === 'scim-01',
+    )
+      .map((entry) => entry.name)
+      .sort()
+    expect(catalogued).toEqual(pinned)
+  })
+
+  it('does not claim a change it cannot name', () => {
+    expect(mapEventType('scim_user', 'update', { action: 'other' })).toBeNull()
+  })
+})

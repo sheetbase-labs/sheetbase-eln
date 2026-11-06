@@ -63,6 +63,15 @@ CREATE TABLE internal."ssoProvider" (
 ALTER TABLE internal."ssoProvider" OWNER TO migrator;
 --> statement-breakpoint
 
+-- Webhook event names for directory sync.
+INSERT INTO internal.webhook_event_names (name) VALUES
+  ('workspace.scim_token.created'), ('workspace.scim_token.revoked'),
+  ('member.provisioned'), ('member.directory_updated'), ('member.reactivated'),
+  ('member.deprovisioned'),
+  ('workspace.scim_group.created'), ('workspace.scim_group.updated'), ('workspace.scim_group.deleted')
+ON CONFLICT DO NOTHING;
+--> statement-breakpoint
+
 CREATE TABLE api.scim_tokens (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     workspace_id uuid NOT NULL,
@@ -240,6 +249,41 @@ ALTER FUNCTION api.revoke_scim_token(uuid) OWNER TO migrator;
 REVOKE ALL ON FUNCTION api.revoke_scim_token(uuid) FROM PUBLIC;
 --> statement-breakpoint
 GRANT ALL ON FUNCTION api.revoke_scim_token(uuid) TO authenticated;
+--> statement-breakpoint
+
+-- A summary for the settings page, the assistant, the API and agents.
+CREATE FUNCTION api.directory_sync_status(p_workspace_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF api.current_user_id() IS NULL OR api.current_workspace_id() IS DISTINCT FROM p_workspace_id
+     OR NOT api.has_settings_access(p_workspace_id, 'members', 'view') THEN
+    RAISE EXCEPTION 'members access required' USING ERRCODE = 'SB052';
+  END IF;
+  RETURN jsonb_build_object(
+    'active_tokens', (SELECT count(*) FROM api.scim_tokens WHERE workspace_id = p_workspace_id AND revoked_at IS NULL),
+    'last_called_at', (SELECT max(last_used_at) FROM api.scim_tokens WHERE workspace_id = p_workspace_id),
+    'people_managed', (SELECT count(*) FROM internal.scim_users WHERE workspace_id = p_workspace_id AND deleted_at IS NULL),
+    'people_switched_off', (
+      SELECT count(*) FROM internal.scim_users s
+        JOIN api.workspace_memberships m ON m.workspace_id = s.workspace_id AND m.user_id = s.user_id
+       WHERE s.workspace_id = p_workspace_id AND s.deleted_at IS NULL AND m.suspended_at IS NOT NULL),
+    'groups', (SELECT count(*) FROM api.scim_groups WHERE workspace_id = p_workspace_id),
+    'groups_giving_a_role', (
+      SELECT count(*) FROM api.scim_groups g
+       WHERE g.workspace_id = p_workspace_id
+         AND EXISTS (SELECT 1 FROM api.idp_group_mappings x
+                      WHERE x.workspace_id = p_workspace_id
+                        AND lower(btrim(x.group_name)) = lower(btrim(g.display_name))))
+  );
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION api.directory_sync_status(uuid) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.directory_sync_status(uuid) FROM PUBLIC;
+--> statement-breakpoint
+GRANT ALL ON FUNCTION api.directory_sync_status(uuid) TO authenticated;
 --> statement-breakpoint
 
 -- ---------------------------------------------------------------------------

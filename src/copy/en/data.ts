@@ -1960,6 +1960,60 @@ export const data = {
     nothingSave: 'Nothing to save',
   },
   analysisPanel: {
+    comparisonKind: 'Compare groups',
+    survivalKind: 'Survival',
+    comparedGroups: 'Groups to compare',
+    comparisonTest: 'Test',
+    comparisonTests: {
+      welch: 'Welch’s t-test (two groups)',
+      student: 'Student’s t-test (two groups)',
+      paired: 'Paired t-test (two groups)',
+      mann_whitney: 'Mann–Whitney U (two groups)',
+      anova: 'ANOVA with pairwise comparisons',
+    },
+    postHoc: 'Pairwise comparisons',
+    postHocs: {
+      tukey: 'Tukey (all pairs)',
+      dunnett: 'Dunnett (against a control)',
+      bonferroni: 'Bonferroni',
+      holm: 'Holm',
+      none: 'None',
+    },
+    controlGroup: 'Control group',
+    controlGroupFirst: 'The first group',
+    subjectColumn: 'Subject (measured in both groups)',
+    chooseColumn: 'Choose a column',
+    alpha: 'Significance level',
+    comparisonGroupsCaption: 'Summary of each group being compared',
+    comparisonPairsCaption: 'Comparison of each pair of groups',
+    comparison: 'Comparison',
+    yes: 'Yes',
+    no: 'No',
+    difference: 'Difference',
+    statistic: 'Statistic',
+    pAdjusted: 'p (adjusted)',
+    significantAt: 'Significant at {alpha}',
+    effects: {
+      cohens_d: 'Cohen’s d',
+      rank_biserial: 'Rank-biserial r',
+    },
+    omnibus: 'ANOVA: F({dfBetween}, {dfWithin}) = {f}, p = {p}.',
+    pairedSubjects: '{count} subjects were measured in both groups.',
+    survivalTime: 'Time to event or end of follow-up',
+    survivalEvent: 'Event (1 or yes when it happened, 0 or no when censored)',
+    survivalHint:
+      'Each row is one subject. A row whose time or event is missing is left out.',
+    survivalPlotLabel: 'Kaplan–Meier survival curves',
+    survivalCaption: 'Survival summary for each group',
+    events: 'Events',
+    censored: 'Censored',
+    medianSurvival: 'Median survival',
+    notReached: 'Not reached',
+    logRank: 'Log-rank test: χ² = {chi} on {df} df, p = {p}.',
+    hazardRatio: 'Hazard ratio {hr} (95% CI {lo} to {hi}).',
+    needsGroups: 'This test needs {needed} groups and the data has {found}.',
+    unknownControl: '“{control}” is not one of the groups.',
+    noPairs: 'No subject has a value in both groups.',
     definitionYet: 'No definition yet',
     couldDeleteSavedAnalysis: 'Couldn’t delete the saved analysis',
     databaseRefused: 'The request was refused',
@@ -3110,6 +3164,52 @@ export const data = {
       '“{module}” isn’t installed in this runtime. Packages can’t be installed while a pipeline runs; ask an administrator to add it to the Python image.',
   },
   analysisDefinition: {
+    kaplanMeier: 'Kaplan–Meier survival with log-rank test',
+    kaplanMeierStatement:
+      'Kaplan–Meier estimate of the chance of still being event-free over time, for each group, with Greenwood standard errors and 95% bands on the log–log scale. With two or more groups a log-rank test asks whether the curves differ. Assumes censoring is unrelated to the outcome and that subjects are independent.',
+    pairedTTest: 'Paired t-test',
+    pairedTTestStatement:
+      'Paired t-test on the differences between the two measurements of each subject, with a 95% confidence interval for the mean difference and Cohen’s d. Assumes the differences are roughly normal and the subjects are independent.',
+    mannWhitney: 'Mann–Whitney U test',
+    mannWhitneyStatement:
+      'Rank-sum test of whether values in one group tend to be larger than in the other, exact for small samples without ties and a normal approximation otherwise, with the rank-biserial correlation as effect size. Assumes independent observations; makes no claim about normality.',
+    anovaPostHoc: 'One-way ANOVA with pairwise comparisons',
+    anovaPostHocStatement:
+      'One-way analysis of variance followed by pairwise comparisons that keep the chance of any false positive at the chosen level (Tukey–Kramer for all pairs, Dunnett against a control, Bonferroni or Holm). Assumes independent observations, roughly normal residuals and equal variance in every group.',
+    studentTTest: 'Student’s t-test',
+    studentTTestStatement:
+      'Two-sample t-test that pools the variance of the two groups, with a 95% confidence interval for the difference of means and Cohen’s d. Assumes independent observations, roughly normal residuals and equal variance.',
+    welchTTest: 'Welch’s t-test',
+    welchTTestStatement:
+      'Two-sample t-test that does not assume equal variances (Welch–Satterthwaite degrees of freedom), with a 95% confidence interval for the difference of means and Cohen’s d. Assumes independent observations and roughly normal residuals.',
+    differencesNormal: 'The paired differences are roughly normal',
+    differencesNormalDetail:
+      'Jarque–Bera test on the {count} differences: p = {p}.',
+    differencesTooFew:
+      'Eight or more pairs are needed to test normality; there are {count}.',
+    tryRankTest:
+      'Consider the Mann–Whitney test, which does not assume normality.',
+    oneValuePerSubject: 'Each subject has one value per group',
+    repeatedSubjects:
+      '{count} repeated values for the same subject were ignored; only the first is used.',
+    rankPValue: 'How the p-value was found',
+    rankPValueExact: 'Exact, from every possible ordering of the ranks.',
+    rankPValueApproximate:
+      'Normal approximation with a tie correction, because the groups are large or have tied values.',
+    eventsObserved: 'The event happened in every group',
+    noEventsIn:
+      'No event was seen in {groups}, so its median survival can’t be estimated.',
+    eventsPerGroup: 'Events: {groups}.',
+    censoringUnrelated: 'Censoring is unrelated to the outcome',
+    censoringUnrelatedDetail:
+      'This can’t be tested from the data. Subjects who drop out should be no more or less likely to have the event than those who stay.',
+    comparisonGroups: 'Group means: {join}.',
+    comparisonPair:
+      '{group1} vs {group2}: {difference}{statistic}, p = {p}{adjusted}.',
+    survivalCurve:
+      '{group}: n = {n}, {events} events, {censored} censored, median survival {median}.',
+    medianNotReached: 'not reached',
+    logRank: 'Log-rank test: χ² = {chi} on {df} df, p = {p}.',
     oneWayAnova: 'One-way ANOVA',
     oneWayFixedEffects:
       'One-way fixed-effects analysis of variance on the grouping factor: per-group means with 95% confidence intervals and an F test of equal group means. Assumes independent observations, normally distributed residuals and equal variance in every group.',

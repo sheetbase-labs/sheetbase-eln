@@ -388,10 +388,11 @@ describe('analysis representation', () => {
     if (out.kind !== 'analysis' || !out.outcome.ok)
       throw new Error('unreachable')
     // Grouped snapshot yields one row per condition.
-    expect(out.outcome.result.rows.map((r) => r.group).sort()).toEqual([
-      'a',
-      'b',
-    ])
+    expect(
+      (out.outcome.result as { rows: Array<{ group: string }> }).rows
+        .map((r) => r.group)
+        .sort(),
+    ).toEqual(['a', 'b'])
   })
 
   it('reports empty_dataset honestly when pinned rows are absent', () => {

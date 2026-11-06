@@ -80,6 +80,12 @@ import {
 import type { AnalysisDefinitionWire } from '#/lib/analysis-definitions-data'
 import { resolveDatasetRef, sciDataClient } from '#/lib/chart-data'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
+import {
+  ComparisonControls,
+  ComparisonResultTables,
+  SurvivalControls,
+  SurvivalResultTables,
+} from './analysis-comparison'
 import { SnapshotSourceBanner } from './snapshot-source-banner'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
 import { insertBlock } from '#/lib/notebook-mutations'
@@ -276,13 +282,29 @@ export function AnalysisPanel({
               model: '4pl',
               label: bind(category[0]),
             }
-          : {
-              ...base,
-              kind: 'regression',
-              outcome: bind(numeric[1] ?? first)!,
-              predictor: bind(first)!,
-              degree: 1,
-            }
+          : kind === 'comparison'
+            ? {
+                ...base,
+                kind: 'comparison',
+                value: bind(first)!,
+                group: bind(category[0])!,
+                test: 'welch',
+              }
+            : kind === 'survival'
+              ? {
+                  ...base,
+                  kind: 'survival',
+                  time: bind(first)!,
+                  event: bind(numeric[1] ?? first)!,
+                  group: bind(category[0]),
+                }
+              : {
+                  ...base,
+                  kind: 'regression',
+                  outcome: bind(numeric[1] ?? first)!,
+                  predictor: bind(first)!,
+                  degree: 1,
+                }
     setDraft({ editingId: null, name: '', definition })
   }
 
@@ -492,7 +514,11 @@ export function AnalysisPanel({
                     ? t('data.analysisPanel.descriptiveAnova')
                     : kind === 'curve'
                       ? t('data.analysisPanel.doseResponseCurve')
-                      : t('data.analysisPanel.regressionFit')}
+                      : kind === 'comparison'
+                        ? t('data.analysisPanel.comparisonKind')
+                        : kind === 'survival'
+                          ? t('data.analysisPanel.survivalKind')
+                          : t('data.analysisPanel.regressionFit')}
                 </Button>
               ))}
             </div>
@@ -894,6 +920,18 @@ function AnalysisDefinitionControls({
             {t('data.analysisPanel.curveHint')}
           </p>
         </>
+      ) : definition.kind === 'comparison' ? (
+        <ComparisonControls
+          definition={definition}
+          table={table}
+          onChange={onChange}
+        />
+      ) : definition.kind === 'survival' ? (
+        <SurvivalControls
+          definition={definition}
+          table={table}
+          onChange={onChange}
+        />
       ) : (
         <>
           <div className="flex min-w-36 flex-1 flex-col gap-1">
@@ -1053,6 +1091,15 @@ export function describeExecutionError(error: AnalysisError): string {
       return t('data.analysisPanel.curveNotFitted', {
         group: error.group,
       })
+    case 'needs_groups':
+      return t('data.analysisPanel.needsGroups', {
+        needed: error.needed,
+        found: error.found,
+      })
+    case 'unknown_control':
+      return t('data.analysisPanel.unknownControl', { control: error.control })
+    case 'no_pairs':
+      return t('data.analysisPanel.noPairs')
     case 'nonpositive_transform':
       return t('data.analysisPanel.nonpositiveTransform', {
         count: error.count,
@@ -1655,6 +1702,10 @@ export function AnalysisResultTable({ result }: { result: AnalysisResult }) {
         <DescriptiveResultTables result={result} />
       ) : result.kind === 'curve' ? (
         <CurveResultTables result={result} />
+      ) : result.kind === 'comparison' ? (
+        <ComparisonResultTables result={result} />
+      ) : result.kind === 'survival' ? (
+        <SurvivalResultTables result={result} />
       ) : (
         <RegressionResultTables result={result} />
       )}

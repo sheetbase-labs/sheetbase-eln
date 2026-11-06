@@ -141,6 +141,10 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.sample.quarantine',
   'sheetbase.sample.dispose',
   'sheetbase.instrument.log_service',
+  // Plates: analyse a plate run again, make a liquid handler worklist
+  // (assistant-plates.ts).
+  'sheetbase.plate.analyse',
+  'sheetbase.worklist.create',
   // The person's own out of office, set or cancelled from a card.
   'sheetbase.absence.set',
   'sheetbase.absence.cancel',

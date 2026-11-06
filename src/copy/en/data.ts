@@ -2935,6 +2935,17 @@ export const data = {
       'Workspace-built integration using the generic run model.',
   },
   pipelineActions: {
+    addPlateRun: 'Add a plate run',
+    addPlateRunDescription:
+      'Add a plate read with its layout and readings, to be checked against its own controls on the Plates page.',
+    makeWorklist: 'Make a liquid handler worklist',
+    makeWorklistDescription:
+      'Make a worklist of transfers for a liquid handler from a plate run.',
+    completeWorklist: 'Complete a worklist',
+    completeWorklistDescription:
+      'Complete a worklist with what the robot really moved, optionally taking it out of the source samples.',
+    archivePlateRun: 'Archive a plate run',
+    archivePlateRunDescription: 'Take a plate run off the Plates list.',
     insertNotebookBlock: 'Insert a notebook block',
     insertBlockIntoNotebook:
       'Insert a block into a notebook record, after a named block. A step may propose this instead of doing it.',

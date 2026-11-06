@@ -134,6 +134,10 @@ export const LAB_AREAS = {
   timers: 'The person’s running step timers, with when each ends',
   readings:
     'Instrument live feeds (temperature, CO2 and so on): latest reading and whether it is inside its limits (openOnly: only those outside)',
+  plate_runs:
+    'Plate runs: readings checked against their own controls, with quality (Z-prime), hits and status',
+  worklists:
+    'Worklists for liquid handlers made from plate runs, and whether they are done',
   safety:
     'Chemical safety information on materials: hazard pictograms, signal word and hazard statements',
 } as const
@@ -693,6 +697,8 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   legal_holds: 'released_at=is.null',
   recurring_work: 'status=eq.active',
   readings: 'limit_state=neq.ok',
+  plate_runs: 'status=neq.archived',
+  worklists: 'status=eq.planned',
   sample_workflows: 'status=eq.active',
 }
 
@@ -719,6 +725,22 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'number.desc',
     search: ['counterparty', 'carrier', 'tracking_reference', 'notes'],
     page: '/shipments',
+  },
+  plate_runs: {
+    table: 'plate_runs',
+    select:
+      'id,number,name,format,status,qc_status,analysed_at,z_prime:results->qc->>zPrime,hit_samples:results->summary->>hitSamples,tested_samples:results->summary->>testedSamples',
+    order: 'number.desc',
+    search: ['name'],
+    page: '/plates',
+  },
+  worklists: {
+    table: 'plate_worklists',
+    select:
+      'id,number,name,format,mode,status,source_plate,dest_plate,created_at,completed_at',
+    order: 'number.desc',
+    search: ['name', 'source_plate', 'dest_plate'],
+    page: '/plates',
   },
   sample_workflows: {
     table: 'sample_workflows',

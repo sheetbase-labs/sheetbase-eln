@@ -99,6 +99,8 @@ const ACTION_COPY = {
   'pin.set': 'pin',
   'logo.set': 'setLogo',
   'logo.remove': 'removeLogo',
+  'plate.analyse': 'analysePlate',
+  'worklist.create': 'createWorklist',
 } as const satisfies Record<AssistantActionKind, string>
 
 /** Button and done words for an everyday action: "Book", "Booked". */

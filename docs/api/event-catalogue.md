@@ -138,7 +138,7 @@ accepts them.
 | `plate_worklist.created` / `plate_worklist.completed`                                | `plate_worklist` + `create` / `update`, by `change` (`completed`)                                                    | `worklistId`, `reference`, `name`, `transfers`; `format` on create; `samplesWithdrawn` on completed.                                                                                                                                       |
 
 `request.submitted`, `request.decided`, `incident.reported`, `registry.entry.created`, `record.assigned`,
-`step.completed`, `step.reopened`, `step.result_added`, `plate_run.created`, `plate_run.analysed`, `plate_run.archived`, `plate_worklist.created` and `plate_worklist.completed`
+`step.completed`, `step.reopened` and `step.result_added`
 are also pipeline trigger events (they sit in the `record` family, like `record.created`).
 
 Booking rules, calendar feeds, step timers, solution preparation and display

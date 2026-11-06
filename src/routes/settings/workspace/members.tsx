@@ -43,6 +43,7 @@ import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { toast } from '#/components/ui/sonner'
 import { SettingsHeader } from '#/components/settings/settings-page'
 import { JoinDomainsSection } from '#/components/settings/join-domains'
+import { SignInGroupsSection } from '#/components/settings/sign-in-groups'
 import { WorkspaceGroups } from '#/components/settings/workspace-groups'
 import { createDataClient } from '#/lib/data-client'
 import {
@@ -467,6 +468,14 @@ function Members() {
               · {clientName(row.original.clientId)}
             </span>
           ) : null}
+          {row.original.roleSource === 'idp' ? (
+            <span
+              className="ml-1 text-fg-muted"
+              title={t('people.groups.fromGroupTip')}
+            >
+              · {t('people.groups.fromGroup')}
+            </span>
+          ) : null}
         </>
       ),
     },
@@ -869,6 +878,12 @@ function Members() {
             workspaceId={workspaceId}
             canManage={canManage}
             ownEmail={context.user.email}
+          />
+        </div>
+        <div className="mb-6">
+          <SignInGroupsSection
+            workspaceId={workspaceId}
+            canManage={canManage}
           />
         </div>
         <Section

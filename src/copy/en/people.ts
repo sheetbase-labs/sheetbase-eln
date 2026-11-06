@@ -81,4 +81,27 @@ export const people = {
     datesHint:
       'Choose dates that end today or later and last no more than a year.',
   },
+  groups: {
+    title: 'Sign-in groups',
+    description:
+      'When people sign in through your organisation’s sign-in, the groups they belong to there can decide their role here.',
+    none: 'No groups listed yet. Everyone keeps the role you gave them.',
+    groupColumn: 'Group',
+    roleColumn: 'Gives the role',
+    groupLabel: 'Group name',
+    groupPlaceholder: 'As your sign-in spells it, for example lab-scientists',
+    givesRole: 'Gives the role',
+    add: 'Add group',
+    remove: 'Remove',
+    adopt: 'Let groups decide',
+    adopted: {
+      one: 'Groups now decide 1 person’s role',
+      other: 'Groups now decide {count} people’s roles',
+    },
+    saved: 'Group saved',
+    couldNotSave: 'Could not save',
+    hint: 'Someone with several listed groups gets the highest role. Someone in none of them becomes a viewer. Owners are never changed. A role you set by hand stays until you choose “Let groups decide”.',
+    fromGroup: 'from sign-in group',
+    fromGroupTip: 'Their sign-in groups decide this role.',
+  },
 } as const

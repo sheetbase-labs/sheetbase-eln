@@ -126,6 +126,14 @@ export const NOTIFICATION_EVENTS = [
     defaultPush: true,
   },
   {
+    key: 'part_reminder',
+    label: 'A part of an experiment is due today',
+    group: GROUP_DATA,
+    source: 'notification',
+    defaultEmail: false,
+    defaultPush: true,
+  },
+  {
     key: 'booking_reminder',
     label: 'An instrument booking of yours is about to start',
     group: GROUP_LAB,

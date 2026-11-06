@@ -1126,8 +1126,8 @@ CREATE TRIGGER apply_template_parts AFTER INSERT ON api.notebook_template_instan
 -- ---------------------------------------------------------------------------
 -- A reminder on the morning of a part's day
 -- ---------------------------------------------------------------------------
-INSERT INTO api.notification_events (event_type, source, inbox_kinds, default_email)
-VALUES ('part_reminder', 'notification', ARRAY[]::text[], false);
+INSERT INTO api.notification_events (event_type, source, inbox_kinds, default_email, default_push)
+VALUES ('part_reminder', 'notification', ARRAY[]::text[], false, true);
 --> statement-breakpoint
 
 -- Tell whoever does a part that its day has come: the person it is assigned to,
@@ -1193,9 +1193,10 @@ BEGIN
     UPDATE api.step_timers SET notified_at = now() WHERE id = v_timer.id;
     IF internal.notification_recipient_enabled(v_timer.user_id, 'step_timer') THEN
       INSERT INTO internal.notifications
-        (workspace_id, user_id, event_type, title, body, record_id)
+        (workspace_id, user_id, event_type, title, body, record_id, dedupe_tag)
       VALUES (v_timer.workspace_id, v_timer.user_id, 'step_timer',
-              'Timer finished', v_timer.label, v_timer.record_id);
+              'Timer finished', v_timer.label, v_timer.record_id,
+              'step-timer-' || v_timer.id::text);
     END IF;
     v_count := v_count + 1;
   END LOOP;

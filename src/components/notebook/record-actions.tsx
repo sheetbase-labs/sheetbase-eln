@@ -37,6 +37,10 @@ interface RecordActionsValue {
   /** True while the notebook is showing its own main buttons in the slot. */
   hosted: boolean
   setHosted: (hosted: boolean) => void
+  /** Whether Submit is the page's one primary button, or sits beside one. */
+  submitVariant: 'primary' | 'secondary'
+  /** The person reading is the reviewer, and the notebook is read-only. */
+  reviewing: boolean
 }
 
 const RecordActionsContext = createContext<RecordActionsValue | null>(null)
@@ -46,13 +50,30 @@ const RecordActionsContext = createContext<RecordActionsValue | null>(null)
  * owns the dialogs those actions open (print labels, link records, withdraw),
  * so it hands its actions up here and the header menu shows them.
  */
-export function RecordActionsProvider({ children }: { children: ReactNode }) {
+export function RecordActionsProvider({
+  children,
+  submitVariant = 'primary',
+  reviewing = false,
+}: {
+  children: ReactNode
+  submitVariant?: 'primary' | 'secondary'
+  reviewing?: boolean
+}) {
   const [actions, setActions] = useState<readonly RecordAction[]>([])
   const [slot, setSlot] = useState<HTMLElement | null>(null)
   const [hosted, setHosted] = useState(false)
   const value = useMemo(
-    () => ({ actions, setActions, slot, setSlot, hosted, setHosted }),
-    [actions, slot, hosted],
+    () => ({
+      actions,
+      setActions,
+      slot,
+      setSlot,
+      hosted,
+      setHosted,
+      submitVariant,
+      reviewing,
+    }),
+    [actions, slot, hosted, submitVariant, reviewing],
   )
   return (
     <RecordActionsContext.Provider value={value}>
@@ -95,6 +116,16 @@ export function useOfferRecordActions(
 export function RecordMainActionsSlot() {
   const setSlot = useContext(RecordActionsContext)?.setSlot
   return <span ref={setSlot} className="contents" data-record-main-actions />
+}
+
+/** Whether the notebook is being read by its reviewer, in review. */
+export function useRecordReviewing(): boolean {
+  return useContext(RecordActionsContext)?.reviewing ?? false
+}
+
+/** How the notebook's Submit button should look in the page header. */
+export function useRecordSubmitVariant(): 'primary' | 'secondary' {
+  return useContext(RecordActionsContext)?.submitVariant ?? 'primary'
 }
 
 /**

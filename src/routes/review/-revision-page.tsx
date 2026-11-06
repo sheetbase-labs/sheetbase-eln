@@ -1795,6 +1795,8 @@ function ReviewInspector({
   /** REV-01.3: refresh the comment list after drafts are published. */
   onCommentsChanged: () => Promise<void>
 }) {
+  const decideOnArrival = useSearch({ from: '/review/$revisionId' }).decide
+
   const queryClient = useQueryClient()
   // REV-03.4: Control+Shift+Enter approves and then opens the signing dialog.
   // The handler is stable so `ReviewInspector`'s shortcut definitions keep one
@@ -2021,6 +2023,7 @@ function ReviewInspector({
             draftCommentCount={commentDrafts.count}
             approveBlockedReason={checksGateReason(checksGate)}
             onApprovedForSigning={openSigningAfterApproval}
+            openDecision={decideOnArrival}
             onAfterDecision={async (kind, input) => {
               // REV-01.3: returning carries the reviewer's private drafts —
               // the decision is taken first (the drafts cannot leak if the
@@ -2117,6 +2120,7 @@ export function ActionButtons({
   approveBlockedReason = null,
   onAfterDecision,
   onApprovedForSigning,
+  openDecision,
 }: {
   submission: ReviewSubmissionWire
   permission: ReturnType<typeof deriveReviewActionPermission>
@@ -2130,11 +2134,32 @@ export function ActionButtons({
     input: ReviewDecisionInput,
   ) => Promise<void>
   onApprovedForSigning?: () => void
+  /** A decision to open the dialog for on arrival: the header's Approve and
+   * Request changes link here, so the dialog is already open. */
+  openDecision?: ReviewDecisionKind
 }) {
   const [note, setNote] = useState('')
   const [pendingKind, setPendingKind] = useState<ReviewDecisionKind | null>(
     null,
   )
+  const openedFor = useRef<ReviewDecisionKind | null>(null)
+  useEffect(() => {
+    if (
+      !openDecision ||
+      openedFor.current === openDecision ||
+      !permission.canReview ||
+      integrityDigest === null ||
+      (openDecision === 'approve' && approveBlockedReason)
+    )
+      return
+    openedFor.current = openDecision
+    setPendingKind(openDecision)
+  }, [
+    openDecision,
+    permission.canReview,
+    integrityDigest,
+    approveBlockedReason,
+  ])
   // QA-182: the decision RPC is awaited, so the dialog must not close under a
   // failed action and the button must not accept a second submission.
   const [submittingKind, setSubmittingKind] =

@@ -21,10 +21,14 @@ from sheetbase._generated.models import (
     CompositionAdoptionPreview,
     DatasetVersionsRow,
     DatasetsRow,
+    FieldSpecLimitsRow,
     IdpGroupMappingsRow,
     InsertSheetInstanceBlockResult,
     InstantiateNotebookTemplateResult,
+    InstrumentFeedsRow,
+    InstrumentServiceLogRow,
     JsonValue,
+    LegalHoldsRow,
     MaterializationPreview,
     MaterializationResult,
     MemberAbsencesRow,
@@ -34,8 +38,11 @@ from sheetbase._generated.models import (
     PipelineDefinitionVersionsRow,
     ProjectsRow,
     QuerySheetInstanceRowsResult,
+    ReagentOrdersRow,
     RecordLinksRow,
     RecordsRow,
+    RecurringSchedulesRow,
+    SampleWorkflowRunsRow,
     SavedSearchesRow,
     SheetCalculationChange,
     SheetCalculationResultsPage,
@@ -49,6 +56,10 @@ from sheetbase._generated.models import (
     SheetRecordBatchRow,
     SheetRecordBatchValidateResult,
     SheetRecordWriteTarget,
+    ShipmentsRow,
+    StepTimersRow,
+    StocktakeItemsRow,
+    StocktakesRow,
     WebhookBulkReplayResult,
     WebhookDeliveriesRow,
     WebhookDeliveryListResult,
@@ -71,44 +82,70 @@ class Rpc:
     """
 
     NAMES = (
+        "add_records_to_legal_hold",
+        "add_registry_parent",
         "adopt_group_roles",
         "advance_agent_workflow",
+        "advance_sample_workflow",
         "apply_notebook_template_upgrade",
         "apply_sheet_instance_composition_adoption",
         "apply_sheet_instance_definition_upgrade",
         "archive_dataset",
         "archive_record",
         "archive_sheet_instance",
+        "assign_record",
         "cancel_agent_workflow",
         "cancel_member_absence",
+        "cancel_reagent_order",
+        "cancel_shipment",
+        "cancel_stocktake",
         "commit_dataset_row_batch",
         "commit_sheet_record_batch",
+        "complete_stocktake",
         "create_agent_workflow",
         "create_and_link_sheet_record",
+        "create_legal_hold",
         "create_pipeline_definition_version",
         "create_project",
         "create_record",
         "create_record_link",
         "create_record_with_blocks",
+        "create_recurring_schedule",
+        "create_registry_entry",
         "create_sheet_instance",
         "create_sheet_instance_from_definition",
+        "create_shipment",
         "create_webhook_subscription",
         "delete_block",
         "delete_saved_search",
         "delete_webhook_subscription",
         "duplicate_sheet_instance",
         "duplicate_sheet_instance_block",
+        "end_recurring_schedule",
+        "end_step_timer",
+        "enrol_sample_in_workflow",
+        "follow_project",
         "get_webhook_endpoint_health",
         "hand_over_member_work",
         "insert_block",
         "insert_sheet_instance_block",
         "instantiate_notebook_template_version",
         "instantiate_template",
+        "is_record_on_hold",
+        "leave_sample_workflow",
+        "list_instrument_feed_series",
         "list_webhook_deliveries",
+        "log_instrument_service",
+        "mark_reagent_ordered",
+        "mark_shipment_in_transit",
+        "materialise_recurring_schedule",
         "materialize_sheet_instance",
         "move_block",
         "mutate_sheet_instance_calculations",
         "mutate_sheet_instance_local_state",
+        "my_instrument_training_gaps",
+        "pool_samples",
+        "prepare_solution",
         "preview_member_handover",
         "preview_notebook_template_upgrade",
         "preview_sheet_instance_composition_adoption",
@@ -121,28 +158,53 @@ class Rpc:
         "query_dataset_version_transfer",
         "query_sheet_instance_rows",
         "read_sheet_instance_calculation_results",
+        "receive_reagent_order",
+        "receive_shipment",
+        "record_instrument_readings",
+        "record_stocktake_scan",
+        "register_replacement_lot",
+        "registry_find_duplicates",
         "remove_idp_group_mapping",
+        "remove_instrument_feed",
+        "remove_registry_parent",
         "replay_webhook_deliveries",
         "replay_webhook_delivery",
         "report_agent_workflow_usage",
+        "request_reagent_order",
         "resolve_sheet_instance_row_identity",
+        "resolve_stocktake_item",
         "restore_dataset",
         "restore_record",
         "restore_sheet_instance",
+        "retention_due",
         "rotate_webhook_secret",
         "run_saved_search",
+        "save_sample_workflow",
         "save_search",
         "search",
         "search_sheet_records",
+        "set_field_spec_limits",
         "set_idp_group_mapping",
+        "set_instrument_booking_rules",
+        "set_instrument_feed_limits",
+        "set_instrument_out_of_service",
+        "set_material_safety",
         "set_member_absence",
+        "set_record_favourite",
+        "set_recurring_schedule_paused",
+        "set_sample_workflow_status",
         "snapshot_dataset",
+        "start_step_timer",
+        "start_stocktake",
+        "submit_request",
         "transition_record_status",
+        "unfollow_project",
         "update_block_payload",
         "update_pipeline_definition_version_draft",
         "update_record_custom_fields",
         "update_saved_search",
         "update_sheet_instance",
+        "update_shipment",
         "update_webhook_subscription",
         "validate_dataset_row_batch",
         "validate_sheet_record_batch",
@@ -156,6 +218,44 @@ class Rpc:
 
     def _call(self, name: str, body: Dict[str, Any]) -> Any:
         return self._transport.post(f"/api/db/rpc/{name}", json_body=body)
+
+    def add_records_to_legal_hold(self, *, hold_id: str, record_ids: List[str]) -> int:
+        """
+        Add records to a legal hold
+
+        Adds records to an open hold. Returns how many were added.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/add_records_to_legal_hold``
+        """
+        body: Dict[str, Any] = {}
+        body["p_hold_id"] = hold_id
+        body["p_record_ids"] = record_ids
+        return self._call("add_records_to_legal_hold", body)  # type: ignore[no-any-return]
+
+    def add_registry_parent(
+        self,
+        *,
+        entry_id: str,
+        parent_id: str,
+        role: Union[str, Unset] = UNSET,
+    ) -> None:
+        """
+        Link a registry entry to a parent
+
+        Records lineage, such as a cell line derived from another.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/add_registry_parent``
+        """
+        body: Dict[str, Any] = {}
+        body["p_entry_id"] = entry_id
+        body["p_parent_id"] = parent_id
+        if not isinstance(role, Unset):
+            body["p_role"] = role
+        return self._call("add_registry_parent", body)  # type: ignore[no-any-return]
 
     def adopt_group_roles(self, *, workspace_id: str) -> int:
         """
@@ -190,6 +290,29 @@ class Rpc:
         body["p_workflow_id"] = workflow_id
         body["p_expected_revision"] = expected_revision
         return self._call("advance_agent_workflow", body)  # type: ignore[no-any-return]
+
+    def advance_sample_workflow(
+        self,
+        *,
+        run_id: str,
+        to_stage_id: str,
+        notes: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Move a sample to another stage
+
+        Moves the sample along an allowed transition; checks required fields and runs the stage's actions.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/advance_sample_workflow``
+        """
+        body: Dict[str, Any] = {}
+        body["p_run_id"] = run_id
+        body["p_to_stage_id"] = to_stage_id
+        if not isinstance(notes, Unset):
+            body["p_notes"] = notes
+        return self._call("advance_sample_workflow", body)  # type: ignore[no-any-return]
 
     def apply_notebook_template_upgrade(
         self,
@@ -329,6 +452,28 @@ class Rpc:
         body["p_expected_revision"] = expected_revision
         return self._call("archive_sheet_instance", body)  # type: ignore[no-any-return]
 
+    def assign_record(
+        self,
+        *,
+        record_id: str,
+        expected_metadata_version: int,
+        assignee_user_id: str,
+    ) -> Union["RecordsRow", List["RecordsRow"]]:
+        """
+        Assign a record to a person
+
+        Hands the record to a person. The record must be at the `metadata_version` you read.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/assign_record``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        body["p_expected_metadata_version"] = expected_metadata_version
+        body["p_assignee_user_id"] = assignee_user_id
+        return self._call("assign_record", body)  # type: ignore[no-any-return]
+
     def cancel_agent_workflow(
         self,
         *,
@@ -368,6 +513,66 @@ class Rpc:
         body: Dict[str, Any] = {}
         body["p_absence_id"] = absence_id
         return self._call("cancel_member_absence", body)  # type: ignore[no-any-return]
+
+    def cancel_reagent_order(
+        self,
+        *,
+        order_id: str,
+        reason: Union[str, Unset] = UNSET,
+    ) -> Union["ReagentOrdersRow", List["ReagentOrdersRow"]]:
+        """
+        Cancel a reagent order
+
+        Cancels an order that has not been received.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/cancel_reagent_order``
+        """
+        body: Dict[str, Any] = {}
+        body["p_order_id"] = order_id
+        if not isinstance(reason, Unset):
+            body["p_reason"] = reason
+        return self._call("cancel_reagent_order", body)  # type: ignore[no-any-return]
+
+    def cancel_shipment(
+        self,
+        *,
+        shipment_id: str,
+        reason: Union[str, Unset] = UNSET,
+    ) -> Union["ShipmentsRow", List["ShipmentsRow"]]:
+        """
+        Cancel a shipment
+
+        Cancels a shipment that has not been received.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/cancel_shipment``
+        """
+        body: Dict[str, Any] = {}
+        body["p_shipment_id"] = shipment_id
+        if not isinstance(reason, Unset):
+            body["p_reason"] = reason
+        return self._call("cancel_shipment", body)  # type: ignore[no-any-return]
+
+    def cancel_stocktake(
+        self,
+        *,
+        stocktake_id: str,
+    ) -> Union["StocktakesRow", List["StocktakesRow"]]:
+        """
+        Cancel a stocktake
+
+        Cancels a stocktake that is in progress.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/cancel_stocktake``
+        """
+        body: Dict[str, Any] = {}
+        body["p_stocktake_id"] = stocktake_id
+        return self._call("cancel_stocktake", body)  # type: ignore[no-any-return]
 
     def commit_dataset_row_batch(
         self,
@@ -416,6 +621,24 @@ class Rpc:
         body["p_rows"] = rows
         body["p_idempotency_key"] = idempotency_key
         return self._call("commit_sheet_record_batch", body)  # type: ignore[no-any-return]
+
+    def complete_stocktake(
+        self,
+        *,
+        stocktake_id: str,
+    ) -> Union["StocktakesRow", List["StocktakesRow"]]:
+        """
+        Complete a stocktake
+
+        Finishes the stocktake; items not found stay flagged.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/complete_stocktake``
+        """
+        body: Dict[str, Any] = {}
+        body["p_stocktake_id"] = stocktake_id
+        return self._call("complete_stocktake", body)  # type: ignore[no-any-return]
 
     def create_agent_workflow(
         self,
@@ -472,6 +695,36 @@ class Rpc:
         body["p_custom_fields"] = custom_fields
         body["p_write_target"] = write_target
         return self._call("create_and_link_sheet_record", body)  # type: ignore[no-any-return]
+
+    def create_legal_hold(
+        self,
+        *,
+        name: str,
+        reason: Union[str, Unset] = UNSET,
+        project_id: Union[str, Unset] = UNSET,
+        kind: Union[str, Unset] = UNSET,
+        record_ids: Union[List[str], Unset] = UNSET,
+    ) -> Union["LegalHoldsRow", List["LegalHoldsRow"]]:
+        """
+        Place a legal hold
+
+        Creates a hold on a project, a record kind or listed records. Held records cannot be deleted or archived.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_legal_hold``
+        """
+        body: Dict[str, Any] = {}
+        body["p_name"] = name
+        if not isinstance(reason, Unset):
+            body["p_reason"] = reason
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        if not isinstance(kind, Unset):
+            body["p_kind"] = kind
+        if not isinstance(record_ids, Unset):
+            body["p_record_ids"] = record_ids
+        return self._call("create_legal_hold", body)  # type: ignore[no-any-return]
 
     def create_pipeline_definition_version(
         self,
@@ -595,6 +848,96 @@ class Rpc:
         body["p_properties"] = properties
         return self._call("create_record_with_blocks", body)  # type: ignore[no-any-return]
 
+    def create_recurring_schedule(
+        self,
+        *,
+        kind: str,
+        title: str,
+        frequency: str,
+        starts_on: str,
+        timezone: str,
+        interval_count: Union[int, Unset] = UNSET,
+        weekdays: Union[List[int], Unset] = UNSET,
+        offsets_days: Union[List[int], Unset] = UNSET,
+        ends_on: Union[str, Unset] = UNSET,
+        max_occurrences: Union[int, Unset] = UNSET,
+        resource_id: Union[str, Unset] = UNSET,
+        start_time: Union[str, Unset] = UNSET,
+        end_time: Union[str, Unset] = UNSET,
+        notebook_template_id: Union[str, Unset] = UNSET,
+        lead_days: Union[int, Unset] = UNSET,
+        project_id: Union[str, Unset] = UNSET,
+        notes: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Create a recurring booking or experiment
+
+        Plans repeating bookings or experiments. Returns the schedule and what was created.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_recurring_schedule``
+        """
+        body: Dict[str, Any] = {}
+        body["p_kind"] = kind
+        body["p_title"] = title
+        body["p_frequency"] = frequency
+        body["p_starts_on"] = starts_on
+        body["p_timezone"] = timezone
+        if not isinstance(interval_count, Unset):
+            body["p_interval_count"] = interval_count
+        if not isinstance(weekdays, Unset):
+            body["p_weekdays"] = weekdays
+        if not isinstance(offsets_days, Unset):
+            body["p_offsets_days"] = offsets_days
+        if not isinstance(ends_on, Unset):
+            body["p_ends_on"] = ends_on
+        if not isinstance(max_occurrences, Unset):
+            body["p_max_occurrences"] = max_occurrences
+        if not isinstance(resource_id, Unset):
+            body["p_resource_id"] = resource_id
+        if not isinstance(start_time, Unset):
+            body["p_start_time"] = start_time
+        if not isinstance(end_time, Unset):
+            body["p_end_time"] = end_time
+        if not isinstance(notebook_template_id, Unset):
+            body["p_notebook_template_id"] = notebook_template_id
+        if not isinstance(lead_days, Unset):
+            body["p_lead_days"] = lead_days
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        if not isinstance(notes, Unset):
+            body["p_notes"] = notes
+        return self._call("create_recurring_schedule", body)  # type: ignore[no-any-return]
+
+    def create_registry_entry(
+        self,
+        *,
+        project_id: str,
+        kind: str,
+        title: str,
+        custom_fields: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        allow_duplicate: Union[bool, Unset] = UNSET,
+    ) -> Union["RecordsRow", List["RecordsRow"]]:
+        """
+        Add a registry entry
+
+        Creates an entry of a registry model (such as a cell line or construct). Refuses a likely duplicate unless `p_allow_duplicate` is true.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_registry_entry``
+        """
+        body: Dict[str, Any] = {}
+        body["p_project_id"] = project_id
+        body["p_kind"] = kind
+        body["p_title"] = title
+        if not isinstance(custom_fields, Unset):
+            body["p_custom_fields"] = custom_fields
+        if not isinstance(allow_duplicate, Unset):
+            body["p_allow_duplicate"] = allow_duplicate
+        return self._call("create_registry_entry", body)  # type: ignore[no-any-return]
+
     def create_sheet_instance(
         self,
         *,
@@ -656,6 +999,44 @@ class Rpc:
         body["p_state"] = state
         body["p_parameter_inputs"] = parameter_inputs
         return self._call("create_sheet_instance_from_definition", body)  # type: ignore[no-any-return]
+
+    def create_shipment(
+        self,
+        *,
+        direction: str,
+        counterparty: str,
+        items: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        carrier: Union[str, Unset] = UNSET,
+        tracking_reference: Union[str, Unset] = UNSET,
+        expected_on: Union[str, Unset] = UNSET,
+        notes: Union[str, Unset] = UNSET,
+        project_id: Union[str, Unset] = UNSET,
+    ) -> Union["ShipmentsRow", List["ShipmentsRow"]]:
+        """
+        Create a shipment
+
+        Starts a draft inbound or outbound shipment with its items.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_shipment``
+        """
+        body: Dict[str, Any] = {}
+        body["p_direction"] = direction
+        body["p_counterparty"] = counterparty
+        if not isinstance(items, Unset):
+            body["p_items"] = items
+        if not isinstance(carrier, Unset):
+            body["p_carrier"] = carrier
+        if not isinstance(tracking_reference, Unset):
+            body["p_tracking_reference"] = tracking_reference
+        if not isinstance(expected_on, Unset):
+            body["p_expected_on"] = expected_on
+        if not isinstance(notes, Unset):
+            body["p_notes"] = notes
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        return self._call("create_shipment", body)  # type: ignore[no-any-return]
 
     def create_webhook_subscription(
         self,
@@ -799,6 +1180,79 @@ class Rpc:
         body["p_block_id"] = block_id
         body["p_expected_structure_version"] = expected_structure_version
         return self._call("duplicate_sheet_instance_block", body)  # type: ignore[no-any-return]
+
+    def end_recurring_schedule(
+        self,
+        *,
+        schedule_id: str,
+        cancel_upcoming: Union[bool, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        End a recurring schedule
+
+        Ends the schedule; optionally cancels bookings already made.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/end_recurring_schedule``
+        """
+        body: Dict[str, Any] = {}
+        body["p_schedule_id"] = schedule_id
+        if not isinstance(cancel_upcoming, Unset):
+            body["p_cancel_upcoming"] = cancel_upcoming
+        return self._call("end_recurring_schedule", body)  # type: ignore[no-any-return]
+
+    def end_step_timer(
+        self,
+        *,
+        timer_id: str,
+    ) -> Union["StepTimersRow", List["StepTimersRow"]]:
+        """
+        End a step timer
+
+        Stops a running timer.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/end_step_timer``
+        """
+        body: Dict[str, Any] = {}
+        body["p_timer_id"] = timer_id
+        return self._call("end_step_timer", body)  # type: ignore[no-any-return]
+
+    def enrol_sample_in_workflow(
+        self,
+        *,
+        record_id: str,
+        workflow_id: str,
+    ) -> Union["SampleWorkflowRunsRow", List["SampleWorkflowRunsRow"]]:
+        """
+        Put a sample into a workflow
+
+        Starts a run for the sample at the workflow's first stage.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/enrol_sample_in_workflow``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        body["p_workflow_id"] = workflow_id
+        return self._call("enrol_sample_in_workflow", body)  # type: ignore[no-any-return]
+
+    def follow_project(self, *, project_id: str) -> str:
+        """
+        Follow a project
+
+        Follows a project for the person the token belongs to (needs a personal token). Returns when.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/follow_project``
+        """
+        body: Dict[str, Any] = {}
+        body["p_project_id"] = project_id
+        return self._call("follow_project", body)  # type: ignore[no-any-return]
 
     def get_webhook_endpoint_health(
         self,
@@ -949,6 +1403,67 @@ class Rpc:
         body["p_title"] = title
         return self._call("instantiate_template", body)  # type: ignore[no-any-return]
 
+    def is_record_on_hold(self, *, record_id: str) -> bool:
+        """
+        Is a record on legal hold
+
+        Returns true when any open hold covers the record.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/is_record_on_hold``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        return self._call("is_record_on_hold", body)  # type: ignore[no-any-return]
+
+    def leave_sample_workflow(
+        self,
+        *,
+        run_id: str,
+        notes: Union[str, Unset] = UNSET,
+    ) -> Union["SampleWorkflowRunsRow", List["SampleWorkflowRunsRow"]]:
+        """
+        Take a sample out of its workflow
+
+        Ends the run without finishing the workflow.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/leave_sample_workflow``
+        """
+        body: Dict[str, Any] = {}
+        body["p_run_id"] = run_id
+        if not isinstance(notes, Unset):
+            body["p_notes"] = notes
+        return self._call("leave_sample_workflow", body)  # type: ignore[no-any-return]
+
+    def list_instrument_feed_series(
+        self,
+        *,
+        feed_id: str,
+        since: str,
+        until: Union[str, Unset] = UNSET,
+        buckets: Union[int, Unset] = UNSET,
+    ) -> List[Dict[str, Any]]:
+        """
+        Chart data for an instrument feed
+
+        Returns min, average and max per time bucket, ready to chart.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/list_instrument_feed_series``
+        """
+        body: Dict[str, Any] = {}
+        body["p_feed_id"] = feed_id
+        body["p_since"] = since
+        if not isinstance(until, Unset):
+            body["p_until"] = until
+        if not isinstance(buckets, Unset):
+            body["p_buckets"] = buckets
+        return self._call("list_instrument_feed_series", body)  # type: ignore[no-any-return]
+
     def list_webhook_deliveries(
         self,
         *,
@@ -987,6 +1502,107 @@ class Rpc:
         if not isinstance(until, Unset):
             body["p_until"] = until
         return self._call("list_webhook_deliveries", body)  # type: ignore[no-any-return]
+
+    def log_instrument_service(
+        self,
+        *,
+        instrument_id: str,
+        kind: str,
+        visited_on: str,
+        summary: str,
+        details: Union[str, Unset] = UNSET,
+        performed_by: Union[str, Unset] = UNSET,
+    ) -> Union["InstrumentServiceLogRow", List["InstrumentServiceLogRow"]]:
+        """
+        Log a service visit
+
+        Adds a service, repair or calibration visit to the instrument's log.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/log_instrument_service``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        body["p_kind"] = kind
+        body["p_visited_on"] = visited_on
+        body["p_summary"] = summary
+        if not isinstance(details, Unset):
+            body["p_details"] = details
+        if not isinstance(performed_by, Unset):
+            body["p_performed_by"] = performed_by
+        return self._call("log_instrument_service", body)  # type: ignore[no-any-return]
+
+    def mark_reagent_ordered(
+        self,
+        *,
+        order_id: str,
+        order_reference: Union[str, Unset] = UNSET,
+        expected_on: Union[str, Unset] = UNSET,
+        supplier: Union[str, Unset] = UNSET,
+    ) -> Union["ReagentOrdersRow", List["ReagentOrdersRow"]]:
+        """
+        Mark a reagent order as placed
+
+        Records that the order was placed with the supplier. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/mark_reagent_ordered``
+        """
+        body: Dict[str, Any] = {}
+        body["p_order_id"] = order_id
+        if not isinstance(order_reference, Unset):
+            body["p_order_reference"] = order_reference
+        if not isinstance(expected_on, Unset):
+            body["p_expected_on"] = expected_on
+        if not isinstance(supplier, Unset):
+            body["p_supplier"] = supplier
+        return self._call("mark_reagent_ordered", body)  # type: ignore[no-any-return]
+
+    def mark_shipment_in_transit(
+        self,
+        *,
+        shipment_id: str,
+        shipped_on: Union[str, Unset] = UNSET,
+        carrier: Union[str, Unset] = UNSET,
+        tracking_reference: Union[str, Unset] = UNSET,
+        expected_on: Union[str, Unset] = UNSET,
+    ) -> Union["ShipmentsRow", List["ShipmentsRow"]]:
+        """
+        Mark a shipment as sent
+
+        Records that it left, with carrier and tracking.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/mark_shipment_in_transit``
+        """
+        body: Dict[str, Any] = {}
+        body["p_shipment_id"] = shipment_id
+        if not isinstance(shipped_on, Unset):
+            body["p_shipped_on"] = shipped_on
+        if not isinstance(carrier, Unset):
+            body["p_carrier"] = carrier
+        if not isinstance(tracking_reference, Unset):
+            body["p_tracking_reference"] = tracking_reference
+        if not isinstance(expected_on, Unset):
+            body["p_expected_on"] = expected_on
+        return self._call("mark_shipment_in_transit", body)  # type: ignore[no-any-return]
+
+    def materialise_recurring_schedule(self, *, schedule_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Create the next runs of a schedule now
+
+        Makes the bookings or experiments that are due within the schedule's lead time.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/materialise_recurring_schedule``
+        """
+        body: Dict[str, Any] = {}
+        body["p_schedule_id"] = schedule_id
+        return self._call("materialise_recurring_schedule", body)  # type: ignore[no-any-return]
 
     def materialize_sheet_instance(
         self,
@@ -1091,6 +1707,86 @@ class Rpc:
         body["p_rows"] = rows
         body["p_cells"] = cells
         return self._call("mutate_sheet_instance_local_state", body)  # type: ignore[no-any-return]
+
+    def my_instrument_training_gaps(self, *, instrument_id: str) -> List[Dict[str, Any]]:
+        """
+        Training the caller still needs for an instrument
+
+        Lists required protocols the person has not yet been trained on.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/my_instrument_training_gaps``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        return self._call("my_instrument_training_gaps", body)  # type: ignore[no-any-return]
+
+    def pool_samples(
+        self,
+        *,
+        sources: Dict[str, "JsonValue"],
+        purpose_experiment_id: str,
+        unit: Union[str, Unset] = UNSET,
+        notes: Union[str, Unset] = UNSET,
+        new_container: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Pool samples
+
+        Combines samples into a new pooled sample for an experiment and records where each part came from.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/pool_samples``
+        """
+        body: Dict[str, Any] = {}
+        body["p_sources"] = sources
+        body["p_purpose_experiment_id"] = purpose_experiment_id
+        if not isinstance(unit, Unset):
+            body["p_unit"] = unit
+        if not isinstance(notes, Unset):
+            body["p_notes"] = notes
+        if not isinstance(new_container, Unset):
+            body["p_new_container"] = new_container
+        return self._call("pool_samples", body)  # type: ignore[no-any-return]
+
+    def prepare_solution(
+        self,
+        *,
+        project_id: str,
+        title: str,
+        lot: str,
+        quantity: float,
+        unit: str,
+        ingredients: Dict[str, "JsonValue"],
+        expiry: Union[str, Unset] = UNSET,
+        storage: Union[str, Unset] = UNSET,
+        note: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Prepare a solution from lots
+
+        Makes a new solution record from ingredient lots and takes the quantities from stock. Returns the new record and what was used.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/prepare_solution``
+        """
+        body: Dict[str, Any] = {}
+        body["p_project_id"] = project_id
+        body["p_title"] = title
+        body["p_lot"] = lot
+        body["p_quantity"] = quantity
+        body["p_unit"] = unit
+        body["p_ingredients"] = ingredients
+        if not isinstance(expiry, Unset):
+            body["p_expiry"] = expiry
+        if not isinstance(storage, Unset):
+            body["p_storage"] = storage
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        return self._call("prepare_solution", body)  # type: ignore[no-any-return]
 
     def preview_member_handover(
         self,
@@ -1361,6 +2057,154 @@ class Rpc:
         body["p_row_keys"] = row_keys
         return self._call("read_sheet_instance_calculation_results", body)  # type: ignore[no-any-return]
 
+    def receive_reagent_order(
+        self,
+        *,
+        order_id: str,
+        lot: str,
+        expiry: str,
+        quantity: Union[float, Unset] = UNSET,
+    ) -> Union["ReagentOrdersRow", List["ReagentOrdersRow"]]:
+        """
+        Receive a reagent order
+
+        Registers the delivery as a new lot of the material and closes the order. `p_quantity` defaults to the quantity ordered.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/receive_reagent_order``
+        """
+        body: Dict[str, Any] = {}
+        body["p_order_id"] = order_id
+        body["p_lot"] = lot
+        body["p_expiry"] = expiry
+        if not isinstance(quantity, Unset):
+            body["p_quantity"] = quantity
+        return self._call("receive_reagent_order", body)  # type: ignore[no-any-return]
+
+    def receive_shipment(
+        self,
+        *,
+        shipment_id: str,
+        results: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        condition_note: Union[str, Unset] = UNSET,
+    ) -> Union["ShipmentsRow", List["ShipmentsRow"]]:
+        """
+        Receive a shipment
+
+        Records what arrived and its condition.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/receive_shipment``
+        """
+        body: Dict[str, Any] = {}
+        body["p_shipment_id"] = shipment_id
+        if not isinstance(results, Unset):
+            body["p_results"] = results
+        if not isinstance(condition_note, Unset):
+            body["p_condition_note"] = condition_note
+        return self._call("receive_shipment", body)  # type: ignore[no-any-return]
+
+    def record_instrument_readings(
+        self,
+        *,
+        instrument_id: str,
+        readings: Dict[str, "JsonValue"],
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Record instrument readings
+
+        Adds readings to the instrument's feeds, creating a feed for a new name. Returns how many were stored and any alerts raised.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/record_instrument_readings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        body["p_readings"] = readings
+        return self._call("record_instrument_readings", body)  # type: ignore[no-any-return]
+
+    def record_stocktake_scan(
+        self,
+        *,
+        stocktake_id: str,
+        record_id: str,
+        box_id: Union[str, Unset] = UNSET,
+    ) -> Union["StocktakeItemsRow", List["StocktakeItemsRow"]]:
+        """
+        Record a scanned item
+
+        Marks an item as found, in the box given or where it was expected.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/record_stocktake_scan``
+        """
+        body: Dict[str, Any] = {}
+        body["p_stocktake_id"] = stocktake_id
+        body["p_record_id"] = record_id
+        if not isinstance(box_id, Unset):
+            body["p_box_id"] = box_id
+        return self._call("record_stocktake_scan", body)  # type: ignore[no-any-return]
+
+    def register_replacement_lot(
+        self,
+        *,
+        reagent_record_id: str,
+        lot: str,
+        expiry: str,
+        quantity: float,
+        unit: Union[str, Unset] = UNSET,
+        reason: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Register a replacement lot
+
+        Adds a new lot of a reagent that replaces the one in use. Returns the new lot.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/register_replacement_lot``
+        """
+        body: Dict[str, Any] = {}
+        body["p_reagent_record_id"] = reagent_record_id
+        body["p_lot"] = lot
+        body["p_expiry"] = expiry
+        body["p_quantity"] = quantity
+        if not isinstance(unit, Unset):
+            body["p_unit"] = unit
+        if not isinstance(reason, Unset):
+            body["p_reason"] = reason
+        return self._call("register_replacement_lot", body)  # type: ignore[no-any-return]
+
+    def registry_find_duplicates(
+        self,
+        *,
+        kind: str,
+        title: str,
+        custom_fields: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        exclude_id: Union[str, Unset] = UNSET,
+    ) -> List[Dict[str, Any]]:
+        """
+        Find similar registry entries
+
+        Lists entries that look like the one described.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/registry_find_duplicates``
+        """
+        body: Dict[str, Any] = {}
+        body["p_kind"] = kind
+        body["p_title"] = title
+        if not isinstance(custom_fields, Unset):
+            body["p_custom_fields"] = custom_fields
+        if not isinstance(exclude_id, Unset):
+            body["p_exclude_id"] = exclude_id
+        return self._call("registry_find_duplicates", body)  # type: ignore[no-any-return]
+
     def remove_idp_group_mapping(self, *, id: str) -> None:
         """
         Remove a sign-in group mapping
@@ -1374,6 +2218,35 @@ class Rpc:
         body: Dict[str, Any] = {}
         body["p_id"] = id
         return self._call("remove_idp_group_mapping", body)  # type: ignore[no-any-return]
+
+    def remove_instrument_feed(self, *, feed_id: str) -> None:
+        """
+        Remove an instrument feed
+
+        Deletes a feed and its readings.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/remove_instrument_feed``
+        """
+        body: Dict[str, Any] = {}
+        body["p_feed_id"] = feed_id
+        return self._call("remove_instrument_feed", body)  # type: ignore[no-any-return]
+
+    def remove_registry_parent(self, *, entry_id: str, parent_id: str) -> None:
+        """
+        Remove a registry parent link
+
+        Removes the lineage link.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/remove_registry_parent``
+        """
+        body: Dict[str, Any] = {}
+        body["p_entry_id"] = entry_id
+        body["p_parent_id"] = parent_id
+        return self._call("remove_registry_parent", body)  # type: ignore[no-any-return]
 
     def replay_webhook_deliveries(
         self,
@@ -1452,6 +2325,32 @@ class Rpc:
         body["p_cost_microusd"] = cost_microusd
         return self._call("report_agent_workflow_usage", body)  # type: ignore[no-any-return]
 
+    def request_reagent_order(
+        self,
+        *,
+        material_record_id: str,
+        quantity: float,
+        unit: Union[str, Unset] = UNSET,
+        note: Union[str, Unset] = UNSET,
+    ) -> Union["ReagentOrdersRow", List["ReagentOrdersRow"]]:
+        """
+        Request a reagent order
+
+        Asks for more of a material that is running low. A steward places the order.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/request_reagent_order``
+        """
+        body: Dict[str, Any] = {}
+        body["p_material_record_id"] = material_record_id
+        body["p_quantity"] = quantity
+        if not isinstance(unit, Unset):
+            body["p_unit"] = unit
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        return self._call("request_reagent_order", body)  # type: ignore[no-any-return]
+
     def resolve_sheet_instance_row_identity(
         self,
         *,
@@ -1471,6 +2370,29 @@ class Rpc:
         body["p_instance_id"] = instance_id
         body["p_expected_revision"] = expected_revision
         return self._call("resolve_sheet_instance_row_identity", body)  # type: ignore[no-any-return]
+
+    def resolve_stocktake_item(
+        self,
+        *,
+        item_id: str,
+        action: str,
+        notes: Union[str, Unset] = UNSET,
+    ) -> Union["StocktakeItemsRow", List["StocktakeItemsRow"]]:
+        """
+        Resolve a stocktake mismatch
+
+        Closes a missing or misplaced item with an action and a note.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/resolve_stocktake_item``
+        """
+        body: Dict[str, Any] = {}
+        body["p_item_id"] = item_id
+        body["p_action"] = action
+        if not isinstance(notes, Unset):
+            body["p_notes"] = notes
+        return self._call("resolve_stocktake_item", body)  # type: ignore[no-any-return]
 
     def restore_dataset(
         self,
@@ -1532,6 +2454,21 @@ class Rpc:
         body["p_expected_revision"] = expected_revision
         return self._call("restore_sheet_instance", body)  # type: ignore[no-any-return]
 
+    def retention_due(self, *, kind: Union[str, Unset] = UNSET) -> List[Dict[str, Any]]:
+        """
+        Records past their retention time
+
+        Lists records kept longer than their retention rule, optionally for one kind. It only lists; archiving stays with people in the app.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/retention_due``
+        """
+        body: Dict[str, Any] = {}
+        if not isinstance(kind, Unset):
+            body["p_kind"] = kind
+        return self._call("retention_due", body)  # type: ignore[no-any-return]
+
     def rotate_webhook_secret(
         self,
         *,
@@ -1578,6 +2515,26 @@ class Rpc:
         if not isinstance(offset, Unset):
             body["p_offset"] = offset
         return self._call("run_saved_search", body)  # type: ignore[no-any-return]
+
+    def save_sample_workflow(
+        self,
+        *,
+        workflow_id: str,
+        definition: Dict[str, "JsonValue"],
+    ) -> str:
+        """
+        Create or update a sample workflow
+
+        Saves a workflow definition (stages and transitions). Omit `p_workflow_id` to create. Returns the workflow id.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/save_sample_workflow``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workflow_id"] = workflow_id
+        body["p_definition"] = definition
+        return self._call("save_sample_workflow", body)  # type: ignore[no-any-return]
 
     def save_search(
         self,
@@ -1678,6 +2635,41 @@ class Rpc:
             body["p_include_archived"] = include_archived
         return self._call("search_sheet_records", body)  # type: ignore[no-any-return]
 
+    def set_field_spec_limits(
+        self,
+        *,
+        kind: str,
+        field_name: str,
+        lower: Union[float, Unset] = UNSET,
+        upper: Union[float, Unset] = UNSET,
+        alert_lower: Union[float, Unset] = UNSET,
+        alert_upper: Union[float, Unset] = UNSET,
+        note: Union[str, Unset] = UNSET,
+    ) -> Union["FieldSpecLimitsRow", List["FieldSpecLimitsRow"]]:
+        """
+        Set result limits on a field
+
+        Sets specification and alert limits for a numeric field on a record kind. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_field_spec_limits``
+        """
+        body: Dict[str, Any] = {}
+        body["p_kind"] = kind
+        body["p_field_name"] = field_name
+        if not isinstance(lower, Unset):
+            body["p_lower"] = lower
+        if not isinstance(upper, Unset):
+            body["p_upper"] = upper
+        if not isinstance(alert_lower, Unset):
+            body["p_alert_lower"] = alert_lower
+        if not isinstance(alert_upper, Unset):
+            body["p_alert_upper"] = alert_upper
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        return self._call("set_field_spec_limits", body)  # type: ignore[no-any-return]
+
     def set_idp_group_mapping(
         self,
         *,
@@ -1699,6 +2691,114 @@ class Rpc:
         body["p_group_name"] = group_name
         body["p_role"] = role
         return self._call("set_idp_group_mapping", body)  # type: ignore[no-any-return]
+
+    def set_instrument_booking_rules(
+        self,
+        *,
+        instrument_id: str,
+        required_protocol_ids: Union[List[str], Unset] = UNSET,
+        max_booking_minutes: Union[int, Unset] = UNSET,
+        max_advance_days: Union[int, Unset] = UNSET,
+    ) -> None:
+        """
+        Set booking rules and required training for an instrument
+
+        Replaces the instrument's booking limits and required training. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_instrument_booking_rules``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        if not isinstance(required_protocol_ids, Unset):
+            body["p_required_protocol_ids"] = required_protocol_ids
+        if not isinstance(max_booking_minutes, Unset):
+            body["p_max_booking_minutes"] = max_booking_minutes
+        if not isinstance(max_advance_days, Unset):
+            body["p_max_advance_days"] = max_advance_days
+        return self._call("set_instrument_booking_rules", body)  # type: ignore[no-any-return]
+
+    def set_instrument_feed_limits(
+        self,
+        *,
+        feed_id: str,
+        low: float,
+        high: float,
+        unit: Union[str, Unset] = UNSET,
+    ) -> Union["InstrumentFeedsRow", List["InstrumentFeedsRow"]]:
+        """
+        Set a feed's alert limits
+
+        Sets the low and high limits that raise alerts for a feed.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_instrument_feed_limits``
+        """
+        body: Dict[str, Any] = {}
+        body["p_feed_id"] = feed_id
+        body["p_low"] = low
+        body["p_high"] = high
+        if not isinstance(unit, Unset):
+            body["p_unit"] = unit
+        return self._call("set_instrument_feed_limits", body)  # type: ignore[no-any-return]
+
+    def set_instrument_out_of_service(
+        self,
+        *,
+        instrument_id: str,
+        out_of_service: bool,
+        reason: Union[str, Unset] = UNSET,
+        expected_back_on: Union[str, Unset] = UNSET,
+        work_done: Union[str, Unset] = UNSET,
+    ) -> Union[Dict[str, "JsonValue"], List[Dict[str, "JsonValue"]]]:
+        """
+        Take an instrument out of service, or return it
+
+        Takes it out of service with a reason, or returns it to service with the work done. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_instrument_out_of_service``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        body["p_out_of_service"] = out_of_service
+        if not isinstance(reason, Unset):
+            body["p_reason"] = reason
+        if not isinstance(expected_back_on, Unset):
+            body["p_expected_back_on"] = expected_back_on
+        if not isinstance(work_done, Unset):
+            body["p_work_done"] = work_done
+        return self._call("set_instrument_out_of_service", body)  # type: ignore[no-any-return]
+
+    def set_material_safety(
+        self,
+        *,
+        record_id: str,
+        pictograms: List[str],
+        signal_word: str,
+        hazard_statements: List[str],
+        all_lots: Union[bool, Unset] = UNSET,
+    ) -> int:
+        """
+        Set chemical safety information
+
+        Sets pictograms, signal word and hazard statements for a material, on every lot unless `p_all_lots` is false. Returns how many records changed.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_material_safety``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        body["p_pictograms"] = pictograms
+        body["p_signal_word"] = signal_word
+        body["p_hazard_statements"] = hazard_statements
+        if not isinstance(all_lots, Unset):
+            body["p_all_lots"] = all_lots
+        return self._call("set_material_safety", body)  # type: ignore[no-any-return]
 
     def set_member_absence(
         self,
@@ -1730,6 +2830,63 @@ class Rpc:
             body["p_user_id"] = user_id
         return self._call("set_member_absence", body)  # type: ignore[no-any-return]
 
+    def set_record_favourite(
+        self,
+        *,
+        object_kind: str,
+        object_id: str,
+        favourite: bool,
+    ) -> str:
+        """
+        Pin or unpin something
+
+        Pins an instrument, pipeline, analysis, material or record to the person's sidebar (needs a personal token). Returns when it was pinned.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_record_favourite``
+        """
+        body: Dict[str, Any] = {}
+        body["p_object_kind"] = object_kind
+        body["p_object_id"] = object_id
+        body["p_favourite"] = favourite
+        return self._call("set_record_favourite", body)  # type: ignore[no-any-return]
+
+    def set_recurring_schedule_paused(
+        self,
+        *,
+        schedule_id: str,
+        paused: bool,
+    ) -> Union["RecurringSchedulesRow", List["RecurringSchedulesRow"]]:
+        """
+        Pause or resume a recurring schedule
+
+        Stops or restarts new runs without losing the schedule.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_recurring_schedule_paused``
+        """
+        body: Dict[str, Any] = {}
+        body["p_schedule_id"] = schedule_id
+        body["p_paused"] = paused
+        return self._call("set_recurring_schedule_paused", body)  # type: ignore[no-any-return]
+
+    def set_sample_workflow_status(self, *, workflow_id: str, status: str) -> None:
+        """
+        Publish or archive a sample workflow
+
+        Sets a workflow to draft, active or archived.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_sample_workflow_status``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workflow_id"] = workflow_id
+        body["p_status"] = status
+        return self._call("set_sample_workflow_status", body)  # type: ignore[no-any-return]
+
     def snapshot_dataset(
         self,
         *,
@@ -1752,6 +2909,79 @@ class Rpc:
         body["p_label"] = label
         return self._call("snapshot_dataset", body)  # type: ignore[no-any-return]
 
+    def start_step_timer(
+        self,
+        *,
+        block_id: str,
+        seconds: Union[int, Unset] = UNSET,
+    ) -> Union["StepTimersRow", List["StepTimersRow"]]:
+        """
+        Start a step timer
+
+        Starts a countdown on a protocol step for the person the token belongs to (needs a personal token).
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/start_step_timer``
+        """
+        body: Dict[str, Any] = {}
+        body["p_block_id"] = block_id
+        if not isinstance(seconds, Unset):
+            body["p_seconds"] = seconds
+        return self._call("start_step_timer", body)  # type: ignore[no-any-return]
+
+    def start_stocktake(
+        self,
+        *,
+        scope_level: str,
+        scope_id: str,
+        note: Union[str, Unset] = UNSET,
+    ) -> Union["StocktakesRow", List["StocktakesRow"]]:
+        """
+        Start a stocktake
+
+        Starts a stocktake of a freezer, shelf, rack or box and lists what should be there.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/start_stocktake``
+        """
+        body: Dict[str, Any] = {}
+        body["p_scope_level"] = scope_level
+        body["p_scope_id"] = scope_id
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        return self._call("start_stocktake", body)  # type: ignore[no-any-return]
+
+    def submit_request(
+        self,
+        *,
+        model_key: str,
+        title: str,
+        custom_fields: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        project_id: Union[str, Unset] = UNSET,
+        note: Union[str, Unset] = UNSET,
+    ) -> Union["RecordsRow", List["RecordsRow"]]:
+        """
+        Send a request to the lab
+
+        Creates a request from a request form. Deciding it stays with the people who handle requests, in the app.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/submit_request``
+        """
+        body: Dict[str, Any] = {}
+        body["p_model_key"] = model_key
+        body["p_title"] = title
+        if not isinstance(custom_fields, Unset):
+            body["p_custom_fields"] = custom_fields
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        return self._call("submit_request", body)  # type: ignore[no-any-return]
+
     def transition_record_status(
         self,
         *,
@@ -1773,6 +3003,20 @@ class Rpc:
         body["p_target_status"] = target_status
         body["p_expected_metadata_version"] = expected_metadata_version
         return self._call("transition_record_status", body)  # type: ignore[no-any-return]
+
+    def unfollow_project(self, *, project_id: str) -> None:
+        """
+        Stop following a project
+
+        Needs a personal token.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/unfollow_project``
+        """
+        body: Dict[str, Any] = {}
+        body["p_project_id"] = project_id
+        return self._call("unfollow_project", body)  # type: ignore[no-any-return]
 
     def update_block_payload(
         self,
@@ -1890,6 +3134,42 @@ class Rpc:
         body["p_state"] = state
         return self._call("update_sheet_instance", body)  # type: ignore[no-any-return]
 
+    def update_shipment(
+        self,
+        *,
+        shipment_id: str,
+        counterparty: Union[str, Unset] = UNSET,
+        carrier: Union[str, Unset] = UNSET,
+        tracking_reference: Union[str, Unset] = UNSET,
+        expected_on: Union[str, Unset] = UNSET,
+        notes: Union[str, Unset] = UNSET,
+        items: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Union["ShipmentsRow", List["ShipmentsRow"]]:
+        """
+        Edit a shipment
+
+        Changes details or items while it is not yet delivered. Omit a field to keep it.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/update_shipment``
+        """
+        body: Dict[str, Any] = {}
+        body["p_shipment_id"] = shipment_id
+        if not isinstance(counterparty, Unset):
+            body["p_counterparty"] = counterparty
+        if not isinstance(carrier, Unset):
+            body["p_carrier"] = carrier
+        if not isinstance(tracking_reference, Unset):
+            body["p_tracking_reference"] = tracking_reference
+        if not isinstance(expected_on, Unset):
+            body["p_expected_on"] = expected_on
+        if not isinstance(notes, Unset):
+            body["p_notes"] = notes
+        if not isinstance(items, Unset):
+            body["p_items"] = items
+        return self._call("update_shipment", body)  # type: ignore[no-any-return]
+
     def update_webhook_subscription(
         self,
         *,
@@ -1980,44 +3260,70 @@ class AsyncRpc:
     """Async counterpart of :class:`Rpc`."""
 
     NAMES = (
+        "add_records_to_legal_hold",
+        "add_registry_parent",
         "adopt_group_roles",
         "advance_agent_workflow",
+        "advance_sample_workflow",
         "apply_notebook_template_upgrade",
         "apply_sheet_instance_composition_adoption",
         "apply_sheet_instance_definition_upgrade",
         "archive_dataset",
         "archive_record",
         "archive_sheet_instance",
+        "assign_record",
         "cancel_agent_workflow",
         "cancel_member_absence",
+        "cancel_reagent_order",
+        "cancel_shipment",
+        "cancel_stocktake",
         "commit_dataset_row_batch",
         "commit_sheet_record_batch",
+        "complete_stocktake",
         "create_agent_workflow",
         "create_and_link_sheet_record",
+        "create_legal_hold",
         "create_pipeline_definition_version",
         "create_project",
         "create_record",
         "create_record_link",
         "create_record_with_blocks",
+        "create_recurring_schedule",
+        "create_registry_entry",
         "create_sheet_instance",
         "create_sheet_instance_from_definition",
+        "create_shipment",
         "create_webhook_subscription",
         "delete_block",
         "delete_saved_search",
         "delete_webhook_subscription",
         "duplicate_sheet_instance",
         "duplicate_sheet_instance_block",
+        "end_recurring_schedule",
+        "end_step_timer",
+        "enrol_sample_in_workflow",
+        "follow_project",
         "get_webhook_endpoint_health",
         "hand_over_member_work",
         "insert_block",
         "insert_sheet_instance_block",
         "instantiate_notebook_template_version",
         "instantiate_template",
+        "is_record_on_hold",
+        "leave_sample_workflow",
+        "list_instrument_feed_series",
         "list_webhook_deliveries",
+        "log_instrument_service",
+        "mark_reagent_ordered",
+        "mark_shipment_in_transit",
+        "materialise_recurring_schedule",
         "materialize_sheet_instance",
         "move_block",
         "mutate_sheet_instance_calculations",
         "mutate_sheet_instance_local_state",
+        "my_instrument_training_gaps",
+        "pool_samples",
+        "prepare_solution",
         "preview_member_handover",
         "preview_notebook_template_upgrade",
         "preview_sheet_instance_composition_adoption",
@@ -2030,28 +3336,53 @@ class AsyncRpc:
         "query_dataset_version_transfer",
         "query_sheet_instance_rows",
         "read_sheet_instance_calculation_results",
+        "receive_reagent_order",
+        "receive_shipment",
+        "record_instrument_readings",
+        "record_stocktake_scan",
+        "register_replacement_lot",
+        "registry_find_duplicates",
         "remove_idp_group_mapping",
+        "remove_instrument_feed",
+        "remove_registry_parent",
         "replay_webhook_deliveries",
         "replay_webhook_delivery",
         "report_agent_workflow_usage",
+        "request_reagent_order",
         "resolve_sheet_instance_row_identity",
+        "resolve_stocktake_item",
         "restore_dataset",
         "restore_record",
         "restore_sheet_instance",
+        "retention_due",
         "rotate_webhook_secret",
         "run_saved_search",
+        "save_sample_workflow",
         "save_search",
         "search",
         "search_sheet_records",
+        "set_field_spec_limits",
         "set_idp_group_mapping",
+        "set_instrument_booking_rules",
+        "set_instrument_feed_limits",
+        "set_instrument_out_of_service",
+        "set_material_safety",
         "set_member_absence",
+        "set_record_favourite",
+        "set_recurring_schedule_paused",
+        "set_sample_workflow_status",
         "snapshot_dataset",
+        "start_step_timer",
+        "start_stocktake",
+        "submit_request",
         "transition_record_status",
+        "unfollow_project",
         "update_block_payload",
         "update_pipeline_definition_version_draft",
         "update_record_custom_fields",
         "update_saved_search",
         "update_sheet_instance",
+        "update_shipment",
         "update_webhook_subscription",
         "validate_dataset_row_batch",
         "validate_sheet_record_batch",
@@ -2065,6 +3396,44 @@ class AsyncRpc:
 
     async def _call(self, name: str, body: Dict[str, Any]) -> Any:
         return await self._transport.post(f"/api/db/rpc/{name}", json_body=body)
+
+    async def add_records_to_legal_hold(self, *, hold_id: str, record_ids: List[str]) -> int:
+        """
+        Add records to a legal hold
+
+        Adds records to an open hold. Returns how many were added.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/add_records_to_legal_hold``
+        """
+        body: Dict[str, Any] = {}
+        body["p_hold_id"] = hold_id
+        body["p_record_ids"] = record_ids
+        return await self._call("add_records_to_legal_hold", body)  # type: ignore[no-any-return]
+
+    async def add_registry_parent(
+        self,
+        *,
+        entry_id: str,
+        parent_id: str,
+        role: Union[str, Unset] = UNSET,
+    ) -> None:
+        """
+        Link a registry entry to a parent
+
+        Records lineage, such as a cell line derived from another.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/add_registry_parent``
+        """
+        body: Dict[str, Any] = {}
+        body["p_entry_id"] = entry_id
+        body["p_parent_id"] = parent_id
+        if not isinstance(role, Unset):
+            body["p_role"] = role
+        return await self._call("add_registry_parent", body)  # type: ignore[no-any-return]
 
     async def adopt_group_roles(self, *, workspace_id: str) -> int:
         """
@@ -2099,6 +3468,29 @@ class AsyncRpc:
         body["p_workflow_id"] = workflow_id
         body["p_expected_revision"] = expected_revision
         return await self._call("advance_agent_workflow", body)  # type: ignore[no-any-return]
+
+    async def advance_sample_workflow(
+        self,
+        *,
+        run_id: str,
+        to_stage_id: str,
+        notes: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Move a sample to another stage
+
+        Moves the sample along an allowed transition; checks required fields and runs the stage's actions.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/advance_sample_workflow``
+        """
+        body: Dict[str, Any] = {}
+        body["p_run_id"] = run_id
+        body["p_to_stage_id"] = to_stage_id
+        if not isinstance(notes, Unset):
+            body["p_notes"] = notes
+        return await self._call("advance_sample_workflow", body)  # type: ignore[no-any-return]
 
     async def apply_notebook_template_upgrade(
         self,
@@ -2238,6 +3630,28 @@ class AsyncRpc:
         body["p_expected_revision"] = expected_revision
         return await self._call("archive_sheet_instance", body)  # type: ignore[no-any-return]
 
+    async def assign_record(
+        self,
+        *,
+        record_id: str,
+        expected_metadata_version: int,
+        assignee_user_id: str,
+    ) -> Union["RecordsRow", List["RecordsRow"]]:
+        """
+        Assign a record to a person
+
+        Hands the record to a person. The record must be at the `metadata_version` you read.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/assign_record``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        body["p_expected_metadata_version"] = expected_metadata_version
+        body["p_assignee_user_id"] = assignee_user_id
+        return await self._call("assign_record", body)  # type: ignore[no-any-return]
+
     async def cancel_agent_workflow(
         self,
         *,
@@ -2277,6 +3691,66 @@ class AsyncRpc:
         body: Dict[str, Any] = {}
         body["p_absence_id"] = absence_id
         return await self._call("cancel_member_absence", body)  # type: ignore[no-any-return]
+
+    async def cancel_reagent_order(
+        self,
+        *,
+        order_id: str,
+        reason: Union[str, Unset] = UNSET,
+    ) -> Union["ReagentOrdersRow", List["ReagentOrdersRow"]]:
+        """
+        Cancel a reagent order
+
+        Cancels an order that has not been received.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/cancel_reagent_order``
+        """
+        body: Dict[str, Any] = {}
+        body["p_order_id"] = order_id
+        if not isinstance(reason, Unset):
+            body["p_reason"] = reason
+        return await self._call("cancel_reagent_order", body)  # type: ignore[no-any-return]
+
+    async def cancel_shipment(
+        self,
+        *,
+        shipment_id: str,
+        reason: Union[str, Unset] = UNSET,
+    ) -> Union["ShipmentsRow", List["ShipmentsRow"]]:
+        """
+        Cancel a shipment
+
+        Cancels a shipment that has not been received.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/cancel_shipment``
+        """
+        body: Dict[str, Any] = {}
+        body["p_shipment_id"] = shipment_id
+        if not isinstance(reason, Unset):
+            body["p_reason"] = reason
+        return await self._call("cancel_shipment", body)  # type: ignore[no-any-return]
+
+    async def cancel_stocktake(
+        self,
+        *,
+        stocktake_id: str,
+    ) -> Union["StocktakesRow", List["StocktakesRow"]]:
+        """
+        Cancel a stocktake
+
+        Cancels a stocktake that is in progress.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/cancel_stocktake``
+        """
+        body: Dict[str, Any] = {}
+        body["p_stocktake_id"] = stocktake_id
+        return await self._call("cancel_stocktake", body)  # type: ignore[no-any-return]
 
     async def commit_dataset_row_batch(
         self,
@@ -2325,6 +3799,24 @@ class AsyncRpc:
         body["p_rows"] = rows
         body["p_idempotency_key"] = idempotency_key
         return await self._call("commit_sheet_record_batch", body)  # type: ignore[no-any-return]
+
+    async def complete_stocktake(
+        self,
+        *,
+        stocktake_id: str,
+    ) -> Union["StocktakesRow", List["StocktakesRow"]]:
+        """
+        Complete a stocktake
+
+        Finishes the stocktake; items not found stay flagged.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/complete_stocktake``
+        """
+        body: Dict[str, Any] = {}
+        body["p_stocktake_id"] = stocktake_id
+        return await self._call("complete_stocktake", body)  # type: ignore[no-any-return]
 
     async def create_agent_workflow(
         self,
@@ -2381,6 +3873,36 @@ class AsyncRpc:
         body["p_custom_fields"] = custom_fields
         body["p_write_target"] = write_target
         return await self._call("create_and_link_sheet_record", body)  # type: ignore[no-any-return]
+
+    async def create_legal_hold(
+        self,
+        *,
+        name: str,
+        reason: Union[str, Unset] = UNSET,
+        project_id: Union[str, Unset] = UNSET,
+        kind: Union[str, Unset] = UNSET,
+        record_ids: Union[List[str], Unset] = UNSET,
+    ) -> Union["LegalHoldsRow", List["LegalHoldsRow"]]:
+        """
+        Place a legal hold
+
+        Creates a hold on a project, a record kind or listed records. Held records cannot be deleted or archived.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_legal_hold``
+        """
+        body: Dict[str, Any] = {}
+        body["p_name"] = name
+        if not isinstance(reason, Unset):
+            body["p_reason"] = reason
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        if not isinstance(kind, Unset):
+            body["p_kind"] = kind
+        if not isinstance(record_ids, Unset):
+            body["p_record_ids"] = record_ids
+        return await self._call("create_legal_hold", body)  # type: ignore[no-any-return]
 
     async def create_pipeline_definition_version(
         self,
@@ -2504,6 +4026,96 @@ class AsyncRpc:
         body["p_properties"] = properties
         return await self._call("create_record_with_blocks", body)  # type: ignore[no-any-return]
 
+    async def create_recurring_schedule(
+        self,
+        *,
+        kind: str,
+        title: str,
+        frequency: str,
+        starts_on: str,
+        timezone: str,
+        interval_count: Union[int, Unset] = UNSET,
+        weekdays: Union[List[int], Unset] = UNSET,
+        offsets_days: Union[List[int], Unset] = UNSET,
+        ends_on: Union[str, Unset] = UNSET,
+        max_occurrences: Union[int, Unset] = UNSET,
+        resource_id: Union[str, Unset] = UNSET,
+        start_time: Union[str, Unset] = UNSET,
+        end_time: Union[str, Unset] = UNSET,
+        notebook_template_id: Union[str, Unset] = UNSET,
+        lead_days: Union[int, Unset] = UNSET,
+        project_id: Union[str, Unset] = UNSET,
+        notes: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Create a recurring booking or experiment
+
+        Plans repeating bookings or experiments. Returns the schedule and what was created.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_recurring_schedule``
+        """
+        body: Dict[str, Any] = {}
+        body["p_kind"] = kind
+        body["p_title"] = title
+        body["p_frequency"] = frequency
+        body["p_starts_on"] = starts_on
+        body["p_timezone"] = timezone
+        if not isinstance(interval_count, Unset):
+            body["p_interval_count"] = interval_count
+        if not isinstance(weekdays, Unset):
+            body["p_weekdays"] = weekdays
+        if not isinstance(offsets_days, Unset):
+            body["p_offsets_days"] = offsets_days
+        if not isinstance(ends_on, Unset):
+            body["p_ends_on"] = ends_on
+        if not isinstance(max_occurrences, Unset):
+            body["p_max_occurrences"] = max_occurrences
+        if not isinstance(resource_id, Unset):
+            body["p_resource_id"] = resource_id
+        if not isinstance(start_time, Unset):
+            body["p_start_time"] = start_time
+        if not isinstance(end_time, Unset):
+            body["p_end_time"] = end_time
+        if not isinstance(notebook_template_id, Unset):
+            body["p_notebook_template_id"] = notebook_template_id
+        if not isinstance(lead_days, Unset):
+            body["p_lead_days"] = lead_days
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        if not isinstance(notes, Unset):
+            body["p_notes"] = notes
+        return await self._call("create_recurring_schedule", body)  # type: ignore[no-any-return]
+
+    async def create_registry_entry(
+        self,
+        *,
+        project_id: str,
+        kind: str,
+        title: str,
+        custom_fields: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        allow_duplicate: Union[bool, Unset] = UNSET,
+    ) -> Union["RecordsRow", List["RecordsRow"]]:
+        """
+        Add a registry entry
+
+        Creates an entry of a registry model (such as a cell line or construct). Refuses a likely duplicate unless `p_allow_duplicate` is true.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_registry_entry``
+        """
+        body: Dict[str, Any] = {}
+        body["p_project_id"] = project_id
+        body["p_kind"] = kind
+        body["p_title"] = title
+        if not isinstance(custom_fields, Unset):
+            body["p_custom_fields"] = custom_fields
+        if not isinstance(allow_duplicate, Unset):
+            body["p_allow_duplicate"] = allow_duplicate
+        return await self._call("create_registry_entry", body)  # type: ignore[no-any-return]
+
     async def create_sheet_instance(
         self,
         *,
@@ -2565,6 +4177,44 @@ class AsyncRpc:
         body["p_state"] = state
         body["p_parameter_inputs"] = parameter_inputs
         return await self._call("create_sheet_instance_from_definition", body)  # type: ignore[no-any-return]
+
+    async def create_shipment(
+        self,
+        *,
+        direction: str,
+        counterparty: str,
+        items: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        carrier: Union[str, Unset] = UNSET,
+        tracking_reference: Union[str, Unset] = UNSET,
+        expected_on: Union[str, Unset] = UNSET,
+        notes: Union[str, Unset] = UNSET,
+        project_id: Union[str, Unset] = UNSET,
+    ) -> Union["ShipmentsRow", List["ShipmentsRow"]]:
+        """
+        Create a shipment
+
+        Starts a draft inbound or outbound shipment with its items.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_shipment``
+        """
+        body: Dict[str, Any] = {}
+        body["p_direction"] = direction
+        body["p_counterparty"] = counterparty
+        if not isinstance(items, Unset):
+            body["p_items"] = items
+        if not isinstance(carrier, Unset):
+            body["p_carrier"] = carrier
+        if not isinstance(tracking_reference, Unset):
+            body["p_tracking_reference"] = tracking_reference
+        if not isinstance(expected_on, Unset):
+            body["p_expected_on"] = expected_on
+        if not isinstance(notes, Unset):
+            body["p_notes"] = notes
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        return await self._call("create_shipment", body)  # type: ignore[no-any-return]
 
     async def create_webhook_subscription(
         self,
@@ -2708,6 +4358,79 @@ class AsyncRpc:
         body["p_block_id"] = block_id
         body["p_expected_structure_version"] = expected_structure_version
         return await self._call("duplicate_sheet_instance_block", body)  # type: ignore[no-any-return]
+
+    async def end_recurring_schedule(
+        self,
+        *,
+        schedule_id: str,
+        cancel_upcoming: Union[bool, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        End a recurring schedule
+
+        Ends the schedule; optionally cancels bookings already made.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/end_recurring_schedule``
+        """
+        body: Dict[str, Any] = {}
+        body["p_schedule_id"] = schedule_id
+        if not isinstance(cancel_upcoming, Unset):
+            body["p_cancel_upcoming"] = cancel_upcoming
+        return await self._call("end_recurring_schedule", body)  # type: ignore[no-any-return]
+
+    async def end_step_timer(
+        self,
+        *,
+        timer_id: str,
+    ) -> Union["StepTimersRow", List["StepTimersRow"]]:
+        """
+        End a step timer
+
+        Stops a running timer.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/end_step_timer``
+        """
+        body: Dict[str, Any] = {}
+        body["p_timer_id"] = timer_id
+        return await self._call("end_step_timer", body)  # type: ignore[no-any-return]
+
+    async def enrol_sample_in_workflow(
+        self,
+        *,
+        record_id: str,
+        workflow_id: str,
+    ) -> Union["SampleWorkflowRunsRow", List["SampleWorkflowRunsRow"]]:
+        """
+        Put a sample into a workflow
+
+        Starts a run for the sample at the workflow's first stage.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/enrol_sample_in_workflow``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        body["p_workflow_id"] = workflow_id
+        return await self._call("enrol_sample_in_workflow", body)  # type: ignore[no-any-return]
+
+    async def follow_project(self, *, project_id: str) -> str:
+        """
+        Follow a project
+
+        Follows a project for the person the token belongs to (needs a personal token). Returns when.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/follow_project``
+        """
+        body: Dict[str, Any] = {}
+        body["p_project_id"] = project_id
+        return await self._call("follow_project", body)  # type: ignore[no-any-return]
 
     async def get_webhook_endpoint_health(
         self,
@@ -2858,6 +4581,67 @@ class AsyncRpc:
         body["p_title"] = title
         return await self._call("instantiate_template", body)  # type: ignore[no-any-return]
 
+    async def is_record_on_hold(self, *, record_id: str) -> bool:
+        """
+        Is a record on legal hold
+
+        Returns true when any open hold covers the record.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/is_record_on_hold``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        return await self._call("is_record_on_hold", body)  # type: ignore[no-any-return]
+
+    async def leave_sample_workflow(
+        self,
+        *,
+        run_id: str,
+        notes: Union[str, Unset] = UNSET,
+    ) -> Union["SampleWorkflowRunsRow", List["SampleWorkflowRunsRow"]]:
+        """
+        Take a sample out of its workflow
+
+        Ends the run without finishing the workflow.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/leave_sample_workflow``
+        """
+        body: Dict[str, Any] = {}
+        body["p_run_id"] = run_id
+        if not isinstance(notes, Unset):
+            body["p_notes"] = notes
+        return await self._call("leave_sample_workflow", body)  # type: ignore[no-any-return]
+
+    async def list_instrument_feed_series(
+        self,
+        *,
+        feed_id: str,
+        since: str,
+        until: Union[str, Unset] = UNSET,
+        buckets: Union[int, Unset] = UNSET,
+    ) -> List[Dict[str, Any]]:
+        """
+        Chart data for an instrument feed
+
+        Returns min, average and max per time bucket, ready to chart.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/list_instrument_feed_series``
+        """
+        body: Dict[str, Any] = {}
+        body["p_feed_id"] = feed_id
+        body["p_since"] = since
+        if not isinstance(until, Unset):
+            body["p_until"] = until
+        if not isinstance(buckets, Unset):
+            body["p_buckets"] = buckets
+        return await self._call("list_instrument_feed_series", body)  # type: ignore[no-any-return]
+
     async def list_webhook_deliveries(
         self,
         *,
@@ -2896,6 +4680,107 @@ class AsyncRpc:
         if not isinstance(until, Unset):
             body["p_until"] = until
         return await self._call("list_webhook_deliveries", body)  # type: ignore[no-any-return]
+
+    async def log_instrument_service(
+        self,
+        *,
+        instrument_id: str,
+        kind: str,
+        visited_on: str,
+        summary: str,
+        details: Union[str, Unset] = UNSET,
+        performed_by: Union[str, Unset] = UNSET,
+    ) -> Union["InstrumentServiceLogRow", List["InstrumentServiceLogRow"]]:
+        """
+        Log a service visit
+
+        Adds a service, repair or calibration visit to the instrument's log.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/log_instrument_service``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        body["p_kind"] = kind
+        body["p_visited_on"] = visited_on
+        body["p_summary"] = summary
+        if not isinstance(details, Unset):
+            body["p_details"] = details
+        if not isinstance(performed_by, Unset):
+            body["p_performed_by"] = performed_by
+        return await self._call("log_instrument_service", body)  # type: ignore[no-any-return]
+
+    async def mark_reagent_ordered(
+        self,
+        *,
+        order_id: str,
+        order_reference: Union[str, Unset] = UNSET,
+        expected_on: Union[str, Unset] = UNSET,
+        supplier: Union[str, Unset] = UNSET,
+    ) -> Union["ReagentOrdersRow", List["ReagentOrdersRow"]]:
+        """
+        Mark a reagent order as placed
+
+        Records that the order was placed with the supplier. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/mark_reagent_ordered``
+        """
+        body: Dict[str, Any] = {}
+        body["p_order_id"] = order_id
+        if not isinstance(order_reference, Unset):
+            body["p_order_reference"] = order_reference
+        if not isinstance(expected_on, Unset):
+            body["p_expected_on"] = expected_on
+        if not isinstance(supplier, Unset):
+            body["p_supplier"] = supplier
+        return await self._call("mark_reagent_ordered", body)  # type: ignore[no-any-return]
+
+    async def mark_shipment_in_transit(
+        self,
+        *,
+        shipment_id: str,
+        shipped_on: Union[str, Unset] = UNSET,
+        carrier: Union[str, Unset] = UNSET,
+        tracking_reference: Union[str, Unset] = UNSET,
+        expected_on: Union[str, Unset] = UNSET,
+    ) -> Union["ShipmentsRow", List["ShipmentsRow"]]:
+        """
+        Mark a shipment as sent
+
+        Records that it left, with carrier and tracking.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/mark_shipment_in_transit``
+        """
+        body: Dict[str, Any] = {}
+        body["p_shipment_id"] = shipment_id
+        if not isinstance(shipped_on, Unset):
+            body["p_shipped_on"] = shipped_on
+        if not isinstance(carrier, Unset):
+            body["p_carrier"] = carrier
+        if not isinstance(tracking_reference, Unset):
+            body["p_tracking_reference"] = tracking_reference
+        if not isinstance(expected_on, Unset):
+            body["p_expected_on"] = expected_on
+        return await self._call("mark_shipment_in_transit", body)  # type: ignore[no-any-return]
+
+    async def materialise_recurring_schedule(self, *, schedule_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Create the next runs of a schedule now
+
+        Makes the bookings or experiments that are due within the schedule's lead time.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/materialise_recurring_schedule``
+        """
+        body: Dict[str, Any] = {}
+        body["p_schedule_id"] = schedule_id
+        return await self._call("materialise_recurring_schedule", body)  # type: ignore[no-any-return]
 
     async def materialize_sheet_instance(
         self,
@@ -3000,6 +4885,86 @@ class AsyncRpc:
         body["p_rows"] = rows
         body["p_cells"] = cells
         return await self._call("mutate_sheet_instance_local_state", body)  # type: ignore[no-any-return]
+
+    async def my_instrument_training_gaps(self, *, instrument_id: str) -> List[Dict[str, Any]]:
+        """
+        Training the caller still needs for an instrument
+
+        Lists required protocols the person has not yet been trained on.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/my_instrument_training_gaps``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        return await self._call("my_instrument_training_gaps", body)  # type: ignore[no-any-return]
+
+    async def pool_samples(
+        self,
+        *,
+        sources: Dict[str, "JsonValue"],
+        purpose_experiment_id: str,
+        unit: Union[str, Unset] = UNSET,
+        notes: Union[str, Unset] = UNSET,
+        new_container: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Pool samples
+
+        Combines samples into a new pooled sample for an experiment and records where each part came from.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/pool_samples``
+        """
+        body: Dict[str, Any] = {}
+        body["p_sources"] = sources
+        body["p_purpose_experiment_id"] = purpose_experiment_id
+        if not isinstance(unit, Unset):
+            body["p_unit"] = unit
+        if not isinstance(notes, Unset):
+            body["p_notes"] = notes
+        if not isinstance(new_container, Unset):
+            body["p_new_container"] = new_container
+        return await self._call("pool_samples", body)  # type: ignore[no-any-return]
+
+    async def prepare_solution(
+        self,
+        *,
+        project_id: str,
+        title: str,
+        lot: str,
+        quantity: float,
+        unit: str,
+        ingredients: Dict[str, "JsonValue"],
+        expiry: Union[str, Unset] = UNSET,
+        storage: Union[str, Unset] = UNSET,
+        note: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Prepare a solution from lots
+
+        Makes a new solution record from ingredient lots and takes the quantities from stock. Returns the new record and what was used.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/prepare_solution``
+        """
+        body: Dict[str, Any] = {}
+        body["p_project_id"] = project_id
+        body["p_title"] = title
+        body["p_lot"] = lot
+        body["p_quantity"] = quantity
+        body["p_unit"] = unit
+        body["p_ingredients"] = ingredients
+        if not isinstance(expiry, Unset):
+            body["p_expiry"] = expiry
+        if not isinstance(storage, Unset):
+            body["p_storage"] = storage
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        return await self._call("prepare_solution", body)  # type: ignore[no-any-return]
 
     async def preview_member_handover(
         self,
@@ -3270,6 +5235,154 @@ class AsyncRpc:
         body["p_row_keys"] = row_keys
         return await self._call("read_sheet_instance_calculation_results", body)  # type: ignore[no-any-return]
 
+    async def receive_reagent_order(
+        self,
+        *,
+        order_id: str,
+        lot: str,
+        expiry: str,
+        quantity: Union[float, Unset] = UNSET,
+    ) -> Union["ReagentOrdersRow", List["ReagentOrdersRow"]]:
+        """
+        Receive a reagent order
+
+        Registers the delivery as a new lot of the material and closes the order. `p_quantity` defaults to the quantity ordered.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/receive_reagent_order``
+        """
+        body: Dict[str, Any] = {}
+        body["p_order_id"] = order_id
+        body["p_lot"] = lot
+        body["p_expiry"] = expiry
+        if not isinstance(quantity, Unset):
+            body["p_quantity"] = quantity
+        return await self._call("receive_reagent_order", body)  # type: ignore[no-any-return]
+
+    async def receive_shipment(
+        self,
+        *,
+        shipment_id: str,
+        results: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        condition_note: Union[str, Unset] = UNSET,
+    ) -> Union["ShipmentsRow", List["ShipmentsRow"]]:
+        """
+        Receive a shipment
+
+        Records what arrived and its condition.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/receive_shipment``
+        """
+        body: Dict[str, Any] = {}
+        body["p_shipment_id"] = shipment_id
+        if not isinstance(results, Unset):
+            body["p_results"] = results
+        if not isinstance(condition_note, Unset):
+            body["p_condition_note"] = condition_note
+        return await self._call("receive_shipment", body)  # type: ignore[no-any-return]
+
+    async def record_instrument_readings(
+        self,
+        *,
+        instrument_id: str,
+        readings: Dict[str, "JsonValue"],
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Record instrument readings
+
+        Adds readings to the instrument's feeds, creating a feed for a new name. Returns how many were stored and any alerts raised.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/record_instrument_readings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        body["p_readings"] = readings
+        return await self._call("record_instrument_readings", body)  # type: ignore[no-any-return]
+
+    async def record_stocktake_scan(
+        self,
+        *,
+        stocktake_id: str,
+        record_id: str,
+        box_id: Union[str, Unset] = UNSET,
+    ) -> Union["StocktakeItemsRow", List["StocktakeItemsRow"]]:
+        """
+        Record a scanned item
+
+        Marks an item as found, in the box given or where it was expected.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/record_stocktake_scan``
+        """
+        body: Dict[str, Any] = {}
+        body["p_stocktake_id"] = stocktake_id
+        body["p_record_id"] = record_id
+        if not isinstance(box_id, Unset):
+            body["p_box_id"] = box_id
+        return await self._call("record_stocktake_scan", body)  # type: ignore[no-any-return]
+
+    async def register_replacement_lot(
+        self,
+        *,
+        reagent_record_id: str,
+        lot: str,
+        expiry: str,
+        quantity: float,
+        unit: Union[str, Unset] = UNSET,
+        reason: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Register a replacement lot
+
+        Adds a new lot of a reagent that replaces the one in use. Returns the new lot.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/register_replacement_lot``
+        """
+        body: Dict[str, Any] = {}
+        body["p_reagent_record_id"] = reagent_record_id
+        body["p_lot"] = lot
+        body["p_expiry"] = expiry
+        body["p_quantity"] = quantity
+        if not isinstance(unit, Unset):
+            body["p_unit"] = unit
+        if not isinstance(reason, Unset):
+            body["p_reason"] = reason
+        return await self._call("register_replacement_lot", body)  # type: ignore[no-any-return]
+
+    async def registry_find_duplicates(
+        self,
+        *,
+        kind: str,
+        title: str,
+        custom_fields: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        exclude_id: Union[str, Unset] = UNSET,
+    ) -> List[Dict[str, Any]]:
+        """
+        Find similar registry entries
+
+        Lists entries that look like the one described.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/registry_find_duplicates``
+        """
+        body: Dict[str, Any] = {}
+        body["p_kind"] = kind
+        body["p_title"] = title
+        if not isinstance(custom_fields, Unset):
+            body["p_custom_fields"] = custom_fields
+        if not isinstance(exclude_id, Unset):
+            body["p_exclude_id"] = exclude_id
+        return await self._call("registry_find_duplicates", body)  # type: ignore[no-any-return]
+
     async def remove_idp_group_mapping(self, *, id: str) -> None:
         """
         Remove a sign-in group mapping
@@ -3283,6 +5396,35 @@ class AsyncRpc:
         body: Dict[str, Any] = {}
         body["p_id"] = id
         return await self._call("remove_idp_group_mapping", body)  # type: ignore[no-any-return]
+
+    async def remove_instrument_feed(self, *, feed_id: str) -> None:
+        """
+        Remove an instrument feed
+
+        Deletes a feed and its readings.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/remove_instrument_feed``
+        """
+        body: Dict[str, Any] = {}
+        body["p_feed_id"] = feed_id
+        return await self._call("remove_instrument_feed", body)  # type: ignore[no-any-return]
+
+    async def remove_registry_parent(self, *, entry_id: str, parent_id: str) -> None:
+        """
+        Remove a registry parent link
+
+        Removes the lineage link.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/remove_registry_parent``
+        """
+        body: Dict[str, Any] = {}
+        body["p_entry_id"] = entry_id
+        body["p_parent_id"] = parent_id
+        return await self._call("remove_registry_parent", body)  # type: ignore[no-any-return]
 
     async def replay_webhook_deliveries(
         self,
@@ -3361,6 +5503,32 @@ class AsyncRpc:
         body["p_cost_microusd"] = cost_microusd
         return await self._call("report_agent_workflow_usage", body)  # type: ignore[no-any-return]
 
+    async def request_reagent_order(
+        self,
+        *,
+        material_record_id: str,
+        quantity: float,
+        unit: Union[str, Unset] = UNSET,
+        note: Union[str, Unset] = UNSET,
+    ) -> Union["ReagentOrdersRow", List["ReagentOrdersRow"]]:
+        """
+        Request a reagent order
+
+        Asks for more of a material that is running low. A steward places the order.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/request_reagent_order``
+        """
+        body: Dict[str, Any] = {}
+        body["p_material_record_id"] = material_record_id
+        body["p_quantity"] = quantity
+        if not isinstance(unit, Unset):
+            body["p_unit"] = unit
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        return await self._call("request_reagent_order", body)  # type: ignore[no-any-return]
+
     async def resolve_sheet_instance_row_identity(
         self,
         *,
@@ -3380,6 +5548,29 @@ class AsyncRpc:
         body["p_instance_id"] = instance_id
         body["p_expected_revision"] = expected_revision
         return await self._call("resolve_sheet_instance_row_identity", body)  # type: ignore[no-any-return]
+
+    async def resolve_stocktake_item(
+        self,
+        *,
+        item_id: str,
+        action: str,
+        notes: Union[str, Unset] = UNSET,
+    ) -> Union["StocktakeItemsRow", List["StocktakeItemsRow"]]:
+        """
+        Resolve a stocktake mismatch
+
+        Closes a missing or misplaced item with an action and a note.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/resolve_stocktake_item``
+        """
+        body: Dict[str, Any] = {}
+        body["p_item_id"] = item_id
+        body["p_action"] = action
+        if not isinstance(notes, Unset):
+            body["p_notes"] = notes
+        return await self._call("resolve_stocktake_item", body)  # type: ignore[no-any-return]
 
     async def restore_dataset(
         self,
@@ -3441,6 +5632,21 @@ class AsyncRpc:
         body["p_expected_revision"] = expected_revision
         return await self._call("restore_sheet_instance", body)  # type: ignore[no-any-return]
 
+    async def retention_due(self, *, kind: Union[str, Unset] = UNSET) -> List[Dict[str, Any]]:
+        """
+        Records past their retention time
+
+        Lists records kept longer than their retention rule, optionally for one kind. It only lists; archiving stays with people in the app.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/retention_due``
+        """
+        body: Dict[str, Any] = {}
+        if not isinstance(kind, Unset):
+            body["p_kind"] = kind
+        return await self._call("retention_due", body)  # type: ignore[no-any-return]
+
     async def rotate_webhook_secret(
         self,
         *,
@@ -3487,6 +5693,26 @@ class AsyncRpc:
         if not isinstance(offset, Unset):
             body["p_offset"] = offset
         return await self._call("run_saved_search", body)  # type: ignore[no-any-return]
+
+    async def save_sample_workflow(
+        self,
+        *,
+        workflow_id: str,
+        definition: Dict[str, "JsonValue"],
+    ) -> str:
+        """
+        Create or update a sample workflow
+
+        Saves a workflow definition (stages and transitions). Omit `p_workflow_id` to create. Returns the workflow id.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/save_sample_workflow``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workflow_id"] = workflow_id
+        body["p_definition"] = definition
+        return await self._call("save_sample_workflow", body)  # type: ignore[no-any-return]
 
     async def save_search(
         self,
@@ -3587,6 +5813,41 @@ class AsyncRpc:
             body["p_include_archived"] = include_archived
         return await self._call("search_sheet_records", body)  # type: ignore[no-any-return]
 
+    async def set_field_spec_limits(
+        self,
+        *,
+        kind: str,
+        field_name: str,
+        lower: Union[float, Unset] = UNSET,
+        upper: Union[float, Unset] = UNSET,
+        alert_lower: Union[float, Unset] = UNSET,
+        alert_upper: Union[float, Unset] = UNSET,
+        note: Union[str, Unset] = UNSET,
+    ) -> Union["FieldSpecLimitsRow", List["FieldSpecLimitsRow"]]:
+        """
+        Set result limits on a field
+
+        Sets specification and alert limits for a numeric field on a record kind. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_field_spec_limits``
+        """
+        body: Dict[str, Any] = {}
+        body["p_kind"] = kind
+        body["p_field_name"] = field_name
+        if not isinstance(lower, Unset):
+            body["p_lower"] = lower
+        if not isinstance(upper, Unset):
+            body["p_upper"] = upper
+        if not isinstance(alert_lower, Unset):
+            body["p_alert_lower"] = alert_lower
+        if not isinstance(alert_upper, Unset):
+            body["p_alert_upper"] = alert_upper
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        return await self._call("set_field_spec_limits", body)  # type: ignore[no-any-return]
+
     async def set_idp_group_mapping(
         self,
         *,
@@ -3608,6 +5869,114 @@ class AsyncRpc:
         body["p_group_name"] = group_name
         body["p_role"] = role
         return await self._call("set_idp_group_mapping", body)  # type: ignore[no-any-return]
+
+    async def set_instrument_booking_rules(
+        self,
+        *,
+        instrument_id: str,
+        required_protocol_ids: Union[List[str], Unset] = UNSET,
+        max_booking_minutes: Union[int, Unset] = UNSET,
+        max_advance_days: Union[int, Unset] = UNSET,
+    ) -> None:
+        """
+        Set booking rules and required training for an instrument
+
+        Replaces the instrument's booking limits and required training. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_instrument_booking_rules``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        if not isinstance(required_protocol_ids, Unset):
+            body["p_required_protocol_ids"] = required_protocol_ids
+        if not isinstance(max_booking_minutes, Unset):
+            body["p_max_booking_minutes"] = max_booking_minutes
+        if not isinstance(max_advance_days, Unset):
+            body["p_max_advance_days"] = max_advance_days
+        return await self._call("set_instrument_booking_rules", body)  # type: ignore[no-any-return]
+
+    async def set_instrument_feed_limits(
+        self,
+        *,
+        feed_id: str,
+        low: float,
+        high: float,
+        unit: Union[str, Unset] = UNSET,
+    ) -> Union["InstrumentFeedsRow", List["InstrumentFeedsRow"]]:
+        """
+        Set a feed's alert limits
+
+        Sets the low and high limits that raise alerts for a feed.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_instrument_feed_limits``
+        """
+        body: Dict[str, Any] = {}
+        body["p_feed_id"] = feed_id
+        body["p_low"] = low
+        body["p_high"] = high
+        if not isinstance(unit, Unset):
+            body["p_unit"] = unit
+        return await self._call("set_instrument_feed_limits", body)  # type: ignore[no-any-return]
+
+    async def set_instrument_out_of_service(
+        self,
+        *,
+        instrument_id: str,
+        out_of_service: bool,
+        reason: Union[str, Unset] = UNSET,
+        expected_back_on: Union[str, Unset] = UNSET,
+        work_done: Union[str, Unset] = UNSET,
+    ) -> Union[Dict[str, "JsonValue"], List[Dict[str, "JsonValue"]]]:
+        """
+        Take an instrument out of service, or return it
+
+        Takes it out of service with a reason, or returns it to service with the work done. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_instrument_out_of_service``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        body["p_out_of_service"] = out_of_service
+        if not isinstance(reason, Unset):
+            body["p_reason"] = reason
+        if not isinstance(expected_back_on, Unset):
+            body["p_expected_back_on"] = expected_back_on
+        if not isinstance(work_done, Unset):
+            body["p_work_done"] = work_done
+        return await self._call("set_instrument_out_of_service", body)  # type: ignore[no-any-return]
+
+    async def set_material_safety(
+        self,
+        *,
+        record_id: str,
+        pictograms: List[str],
+        signal_word: str,
+        hazard_statements: List[str],
+        all_lots: Union[bool, Unset] = UNSET,
+    ) -> int:
+        """
+        Set chemical safety information
+
+        Sets pictograms, signal word and hazard statements for a material, on every lot unless `p_all_lots` is false. Returns how many records changed.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_material_safety``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        body["p_pictograms"] = pictograms
+        body["p_signal_word"] = signal_word
+        body["p_hazard_statements"] = hazard_statements
+        if not isinstance(all_lots, Unset):
+            body["p_all_lots"] = all_lots
+        return await self._call("set_material_safety", body)  # type: ignore[no-any-return]
 
     async def set_member_absence(
         self,
@@ -3639,6 +6008,63 @@ class AsyncRpc:
             body["p_user_id"] = user_id
         return await self._call("set_member_absence", body)  # type: ignore[no-any-return]
 
+    async def set_record_favourite(
+        self,
+        *,
+        object_kind: str,
+        object_id: str,
+        favourite: bool,
+    ) -> str:
+        """
+        Pin or unpin something
+
+        Pins an instrument, pipeline, analysis, material or record to the person's sidebar (needs a personal token). Returns when it was pinned.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_record_favourite``
+        """
+        body: Dict[str, Any] = {}
+        body["p_object_kind"] = object_kind
+        body["p_object_id"] = object_id
+        body["p_favourite"] = favourite
+        return await self._call("set_record_favourite", body)  # type: ignore[no-any-return]
+
+    async def set_recurring_schedule_paused(
+        self,
+        *,
+        schedule_id: str,
+        paused: bool,
+    ) -> Union["RecurringSchedulesRow", List["RecurringSchedulesRow"]]:
+        """
+        Pause or resume a recurring schedule
+
+        Stops or restarts new runs without losing the schedule.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_recurring_schedule_paused``
+        """
+        body: Dict[str, Any] = {}
+        body["p_schedule_id"] = schedule_id
+        body["p_paused"] = paused
+        return await self._call("set_recurring_schedule_paused", body)  # type: ignore[no-any-return]
+
+    async def set_sample_workflow_status(self, *, workflow_id: str, status: str) -> None:
+        """
+        Publish or archive a sample workflow
+
+        Sets a workflow to draft, active or archived.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_sample_workflow_status``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workflow_id"] = workflow_id
+        body["p_status"] = status
+        return await self._call("set_sample_workflow_status", body)  # type: ignore[no-any-return]
+
     async def snapshot_dataset(
         self,
         *,
@@ -3661,6 +6087,79 @@ class AsyncRpc:
         body["p_label"] = label
         return await self._call("snapshot_dataset", body)  # type: ignore[no-any-return]
 
+    async def start_step_timer(
+        self,
+        *,
+        block_id: str,
+        seconds: Union[int, Unset] = UNSET,
+    ) -> Union["StepTimersRow", List["StepTimersRow"]]:
+        """
+        Start a step timer
+
+        Starts a countdown on a protocol step for the person the token belongs to (needs a personal token).
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/start_step_timer``
+        """
+        body: Dict[str, Any] = {}
+        body["p_block_id"] = block_id
+        if not isinstance(seconds, Unset):
+            body["p_seconds"] = seconds
+        return await self._call("start_step_timer", body)  # type: ignore[no-any-return]
+
+    async def start_stocktake(
+        self,
+        *,
+        scope_level: str,
+        scope_id: str,
+        note: Union[str, Unset] = UNSET,
+    ) -> Union["StocktakesRow", List["StocktakesRow"]]:
+        """
+        Start a stocktake
+
+        Starts a stocktake of a freezer, shelf, rack or box and lists what should be there.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/start_stocktake``
+        """
+        body: Dict[str, Any] = {}
+        body["p_scope_level"] = scope_level
+        body["p_scope_id"] = scope_id
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        return await self._call("start_stocktake", body)  # type: ignore[no-any-return]
+
+    async def submit_request(
+        self,
+        *,
+        model_key: str,
+        title: str,
+        custom_fields: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        project_id: Union[str, Unset] = UNSET,
+        note: Union[str, Unset] = UNSET,
+    ) -> Union["RecordsRow", List["RecordsRow"]]:
+        """
+        Send a request to the lab
+
+        Creates a request from a request form. Deciding it stays with the people who handle requests, in the app.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/submit_request``
+        """
+        body: Dict[str, Any] = {}
+        body["p_model_key"] = model_key
+        body["p_title"] = title
+        if not isinstance(custom_fields, Unset):
+            body["p_custom_fields"] = custom_fields
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        return await self._call("submit_request", body)  # type: ignore[no-any-return]
+
     async def transition_record_status(
         self,
         *,
@@ -3682,6 +6181,20 @@ class AsyncRpc:
         body["p_target_status"] = target_status
         body["p_expected_metadata_version"] = expected_metadata_version
         return await self._call("transition_record_status", body)  # type: ignore[no-any-return]
+
+    async def unfollow_project(self, *, project_id: str) -> None:
+        """
+        Stop following a project
+
+        Needs a personal token.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/unfollow_project``
+        """
+        body: Dict[str, Any] = {}
+        body["p_project_id"] = project_id
+        return await self._call("unfollow_project", body)  # type: ignore[no-any-return]
 
     async def update_block_payload(
         self,
@@ -3798,6 +6311,42 @@ class AsyncRpc:
         body["p_expected_revision"] = expected_revision
         body["p_state"] = state
         return await self._call("update_sheet_instance", body)  # type: ignore[no-any-return]
+
+    async def update_shipment(
+        self,
+        *,
+        shipment_id: str,
+        counterparty: Union[str, Unset] = UNSET,
+        carrier: Union[str, Unset] = UNSET,
+        tracking_reference: Union[str, Unset] = UNSET,
+        expected_on: Union[str, Unset] = UNSET,
+        notes: Union[str, Unset] = UNSET,
+        items: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Union["ShipmentsRow", List["ShipmentsRow"]]:
+        """
+        Edit a shipment
+
+        Changes details or items while it is not yet delivered. Omit a field to keep it.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/update_shipment``
+        """
+        body: Dict[str, Any] = {}
+        body["p_shipment_id"] = shipment_id
+        if not isinstance(counterparty, Unset):
+            body["p_counterparty"] = counterparty
+        if not isinstance(carrier, Unset):
+            body["p_carrier"] = carrier
+        if not isinstance(tracking_reference, Unset):
+            body["p_tracking_reference"] = tracking_reference
+        if not isinstance(expected_on, Unset):
+            body["p_expected_on"] = expected_on
+        if not isinstance(notes, Unset):
+            body["p_notes"] = notes
+        if not isinstance(items, Unset):
+            body["p_items"] = items
+        return await self._call("update_shipment", body)  # type: ignore[no-any-return]
 
     async def update_webhook_subscription(
         self,

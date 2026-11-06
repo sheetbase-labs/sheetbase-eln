@@ -664,6 +664,13 @@
       "when": 1801408617830,
       "tag": "0096_lab_api_access",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1801405200000,
+      "tag": "0097_storage_readings",
+      "breakpoints": true
     }
   ]
 }

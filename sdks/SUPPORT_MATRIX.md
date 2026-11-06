@@ -1,11 +1,18 @@
 # SDK public-contract support matrix
 
 [`support-matrix.json`](support-matrix.json) is the machine-readable coverage
-decision for the Python and TypeScript SDKs. Its operation set must exactly
-match the generated external OpenAPI contract at
-[`docs/api/openapi/external-api-v0.json`](../docs/api/openapi/external-api-v0.json).
-The root contract test rejects an added, removed, or changed public operation
-until this matrix and both SDKs make an explicit matching decision.
+decision for the Python and TypeScript SDKs. Its operations must all exist in
+the generated external OpenAPI contract at
+[`docs/api/openapi/external-api-v0.json`](../docs/api/openapi/external-api-v0.json),
+and each listed operation needs the same decision in both SDKs.
+
+Operations that are not listed here are still covered: the Python SDK's
+typed layer (`client.tables`, `client.rpc`) is generated from the contract by
+`pnpm sdk:generate`, and both SDKs reach every operation through their generic
+table and RPC methods. A new public endpoint therefore needs no matrix row to
+ship. Add one only when it gets a hand-written resource method in both SDKs.
+The contract test fails if a listed operation leaves the contract or if any
+operation is missing from the generated Python layer.
 
 ## Support modes
 

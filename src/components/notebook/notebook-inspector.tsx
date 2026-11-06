@@ -83,8 +83,6 @@ export interface NotebookInspectorCellFacts {
   column?: NotebookInspectorColumn | null
 }
 
-const NOT_AVAILABLE = t('notebook.notebookInspector.notAvailable')
-
 const FIELD_TYPE_LABEL: Record<FieldDefinition['logicalType'], string> = {
   text: t('notebook.notebookInspector.text'),
   integer: t('notebook.notebookInspector.integer'),
@@ -273,12 +271,12 @@ export function canonicalCellFacts(input: {
 }
 
 function FactRow({ label, value }: { label: string; value?: React.ReactNode }) {
+  // A fact nobody recorded isn't worth a row of "Not available".
+  if (value == null) return null
   return (
     <div className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1 text-xs">
       <dt className="text-fg-muted">{label}</dt>
-      <dd className={cn(value == null && 'text-fg-muted')}>
-        {value ?? NOT_AVAILABLE}
-      </dd>
+      <dd>{value}</dd>
     </div>
   )
 }
@@ -288,7 +286,14 @@ function ProvenanceSection({
 }: {
   provenance: NotebookInspectorProvenance | null
 }) {
-  if (!provenance) {
+  const known =
+    provenance &&
+    (provenance.dataset ||
+      provenance.instrument ||
+      provenance.capturedAt ||
+      provenance.enteredBy ||
+      provenance.editedAt)
+  if (!provenance || !known) {
     return (
       <InspectorSection title={t('notebook.notebookInspector.title')}>
         <EmptyHint>
@@ -406,6 +411,8 @@ function ValidationSection({
       : validation?.state === 'warning'
         ? 'warn'
         : 'info'
+  // A cell with no rule and nothing to do has nothing to say here.
+  if (!validation && !actions) return null
   return (
     <InspectorSection title={t('notebook.notebookInspector.validationLabel')}>
       {validation ? (
@@ -426,18 +433,10 @@ function ValidationSection({
               ? validation.rule
               : null}
         </Notice>
-      ) : (
-        <EmptyHint>
-          {t('notebook.notebookInspector.noValidationRuleIs')}
-        </EmptyHint>
-      )}
-      <div className="mt-2 flex flex-wrap gap-2">
-        {actions ?? (
-          <EmptyHint>
-            {t('notebook.notebookInspector.noActionsAreAvailable')}
-          </EmptyHint>
-        )}
-      </div>
+      ) : null}
+      {actions ? (
+        <div className="mt-2 flex flex-wrap gap-2">{actions}</div>
+      ) : null}
     </InspectorSection>
   )
 }

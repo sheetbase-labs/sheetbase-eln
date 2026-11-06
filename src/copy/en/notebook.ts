@@ -1310,7 +1310,6 @@ export const notebook = {
     ariaLabel: 'Returned for changes',
     readTheComments: 'Read the comments',
     aColleague: 'a colleague',
-    noOpenComments: ' · no open comments',
     byName: 'by {name}',
     openComments: {
       one: '{count} open comment',

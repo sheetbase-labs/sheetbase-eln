@@ -274,7 +274,7 @@
 /* Pane */
 .mx-pane {
   /* The active pane's header bar gets a faint blue wash instead of a top border. */
-  --mx-focus-bg: color-mix(in srgb, var(--primary) 5%, var(--surface));
+  --mx-focus-bg: color-mix(in srgb, var(--primary) 10%, var(--surface));
   position: absolute;
   display: flex;
   flex-direction: column;
@@ -283,6 +283,9 @@
   background: var(--surface);
   overflow: hidden;
   container: workspace-page mx-pane / inline-size;
+}
+.dark .mx-pane {
+  --mx-focus-bg: color-mix(in srgb, var(--primary) 14%, var(--surface));
 }
 .mx-pane[hidden] {
   display: none;

@@ -767,7 +767,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'storage.alarm.raised',
     status: 'stable',
     introducedIn: 'notify-01',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'storage.alarm.cleared',
@@ -777,7 +777,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'storage.alarm.cleared',
     status: 'stable',
     introducedIn: 'notify-01',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'instrument.run.created',

@@ -28,6 +28,7 @@ import {
   eventByName,
   resolveEventAlias,
 } from './event-catalogue'
+import type { EventCatalogueEntry } from './event-catalogue'
 import { dateTimeFormat } from '#/lib/intl-cache'
 
 export type PipelineScheduleKind = 'interval' | 'daily' | 'cron' | 'event'
@@ -73,6 +74,17 @@ const TRIGGERABLE_FAMILY: Record<string, true | undefined> = {
   dataset: true,
   notebook: true,
   sheet: true,
+}
+
+/**
+ * A stable event can trigger a pipeline when its family is triggerable, or
+ * when the catalogue marks it a pipeline consumer (the storage alarms). The
+ * sweep reads the producer pair only, so an event that shares its pair with
+ * others and needs a payload test (`when`) can never be a trigger.
+ */
+function isTriggerable(entry: EventCatalogueEntry): boolean {
+  if (entry.producer?.when !== undefined) return false
+  return TRIGGERABLE_FAMILY[entry.family] === true || entry.consumers.pipeline
 }
 
 /** Fields every trigger kind shares. */
@@ -132,7 +144,7 @@ export function normalizeTriggerEventName(name: unknown): string | null {
   const entry = eventByName(canonical)
   if (!entry || entry.name !== canonical) return null
   if (entry.status !== 'stable' || entry.producer === null) return null
-  if (TRIGGERABLE_FAMILY[entry.family] !== true) return null
+  if (!isTriggerable(entry)) return null
   return entry.name
 }
 
@@ -142,7 +154,7 @@ export const PIPELINE_TRIGGER_EVENTS: readonly string[] = Object.freeze(
     (entry) =>
       entry.status === 'stable' &&
       entry.producer !== null &&
-      TRIGGERABLE_FAMILY[entry.family] === true,
+      isTriggerable(entry),
   ).map((entry) => entry.name),
 )
 

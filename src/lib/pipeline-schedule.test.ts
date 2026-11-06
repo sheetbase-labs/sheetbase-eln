@@ -116,10 +116,11 @@ describe('PIPELINE_TRIGGER_EVENTS', () => {
       (entry) =>
         entry.status === 'stable' &&
         entry.producer !== null &&
-        ['record', 'dataset', 'sheet', 'notebook'].includes(entry.family),
+        (['record', 'dataset', 'sheet', 'notebook'].includes(entry.family) ||
+          entry.name.startsWith('storage.alarm.')),
     ).map((entry) => entry.name)
     expect([...PIPELINE_TRIGGER_EVENTS].sort()).toEqual(expected.sort())
-    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(29)
+    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(31)
   })
 
   it('normalizes every triggerable name to itself', () => {

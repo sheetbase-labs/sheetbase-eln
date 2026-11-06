@@ -196,7 +196,9 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     cluster: HEALTH,
     label: 'Audit and retention',
     link: { to: '/settings/workspace/audit' },
-    match: (p) => p.startsWith('/settings/workspace/audit'),
+    match: (p) =>
+      p.startsWith('/settings/workspace/audit') ||
+      p.startsWith('/settings/workspace/validation'),
     area: 'audit',
   },
   {

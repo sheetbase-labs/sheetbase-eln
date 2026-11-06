@@ -136,5 +136,18 @@ export async function runBenchAction(
         p_work_done: action.workDone,
       })
       return
+    case 'storage.reading':
+      await client.rpc('record_storage_readings', {
+        p_unit_id: action.placeKind === 'unit' ? action.placeId : null,
+        p_room_id: action.placeKind === 'room' ? action.placeId : null,
+        p_readings: [
+          {
+            feed: action.feed.trim(),
+            value: action.value,
+            ...(action.unit ? { unit: action.unit } : {}),
+          },
+        ],
+      })
+      return
   }
 }

@@ -52,6 +52,7 @@ const ACTION_COPY = {
   'request.send': 'sendRequest',
   'sample.advance': 'advanceSample',
   'instrument.service': 'instrumentService',
+  'storage.reading': 'storageReading',
   'experiment.start': 'startExperiment',
   'record.assign': 'assign',
   'record.comment': 'ask',

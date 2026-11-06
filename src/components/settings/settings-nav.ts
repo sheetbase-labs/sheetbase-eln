@@ -118,6 +118,13 @@ export const settingsLabNav: SettingsNavItem[] = [
   },
   {
     place: 'lab',
+    label: 'Scheduled reports',
+    link: { to: '/settings/lab/reports' },
+    match: (p) => p.startsWith('/settings/lab/reports'),
+    area: 'general',
+  },
+  {
+    place: 'lab',
     label: 'Sidebar',
     link: { to: '/settings/lab/sidebar' },
     match: (p) => p.startsWith('/settings/lab/sidebar'),

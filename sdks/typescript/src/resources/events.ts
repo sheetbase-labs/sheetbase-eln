@@ -144,6 +144,15 @@ export const EVENT_NAMES = [
   "plate_run.archived",
   "plate_worklist.created",
   "plate_worklist.completed",
+  "member.provisioned",
+  "member.directory_updated",
+  "member.deprovisioned",
+  "member.reactivated",
+  "workspace.scim_group.created",
+  "workspace.scim_group.updated",
+  "workspace.scim_group.deleted",
+  "workspace.scim_token.created",
+  "workspace.scim_token.revoked",
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];

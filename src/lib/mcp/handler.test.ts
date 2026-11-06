@@ -1229,12 +1229,15 @@ describe('MCP spend and usage reports', () => {
   it('offers the reports only with the facility read scope, and calls the report RPCs', async () => {
     const without = await request('tools/list', {}, context(['datasets:read']))
     const names = (
-      (without?.result as { tools: Array<{ name: string }> }).tools ?? []
-    ).map((tool) => tool.name)
+      without?.result as { tools: Array<{ name: string }> }
+    ).tools.map((tool) => tool.name)
     expect(names).not.toContain('sheetbase.spend.report')
 
-    const rpc = vi.fn(async () => [{ order_id: 'o1' }])
-    const ctx = context(['facility:read'], fakeClient({ rpc }))
+    const rpc = vi.fn(async () => [{ order_id: 'o1' }] as unknown)
+    const ctx = context(
+      ['facility:read'],
+      fakeClient({ rpc: rpc as unknown as DataClient['rpc'] }),
+    )
     const listed = await request('tools/list', {}, ctx)
     const tools = (listed?.result as { tools: Array<{ name: string }> }).tools
     expect(tools.map((tool) => tool.name)).toEqual(

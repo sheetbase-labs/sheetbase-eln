@@ -67,6 +67,7 @@ export {
   WebhooksResource,
   PeopleResource,
   PipelinesResource,
+  FacilityResource,
   applyStepSource,
   notebookToPython,
 } from "./resources/index.js";

@@ -141,6 +141,12 @@
       "typescript": "generic"
     },
     {
+      "resource": "instrument_rates",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "instrument_readings",
       "methods": ["GET", "HEAD"],
       "python": "generic",
@@ -251,6 +257,12 @@
     {
       "resource": "projects",
       "methods": ["GET", "HEAD", "POST", "PATCH"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "reagent_order_prices",
+      "methods": ["GET", "HEAD"],
       "python": "generic",
       "typescript": "generic"
     },
@@ -369,6 +381,12 @@
       "typescript": "generic"
     },
     {
+      "resource": "scheduled_reports",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "sheet_definition_versions",
       "methods": ["GET", "HEAD"],
       "python": "generic",
@@ -417,6 +435,12 @@
       "typescript": "generic"
     },
     {
+      "resource": "supplier_models",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "webhook_deliveries",
       "methods": ["GET", "HEAD"],
       "python": "generic",
@@ -441,6 +465,12 @@
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"
+    },
+    {
+      "name": "adopt_group_roles",
+      "resource": "people",
+      "python": "resource",
+      "typescript": "resource"
     },
     {
       "name": "advance_agent_workflow",
@@ -499,6 +529,12 @@
     {
       "name": "cancel_agent_workflow",
       "resource": "agentOperations",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "cancel_member_absence",
+      "resource": "people",
       "python": "resource",
       "typescript": "resource"
     },
@@ -617,6 +653,12 @@
       "typescript": "generic"
     },
     {
+      "name": "create_supplier_model",
+      "resource": "facility",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
       "name": "create_webhook_subscription",
       "resource": "webhooks",
       "python": "resource",
@@ -631,6 +673,12 @@
     {
       "name": "delete_saved_search",
       "resource": "search",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "delete_scheduled_report",
+      "resource": "facility",
       "python": "resource",
       "typescript": "resource"
     },
@@ -679,6 +727,12 @@
     {
       "name": "get_webhook_endpoint_health",
       "resource": "webhooks",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "hand_over_member_work",
+      "resource": "people",
       "python": "resource",
       "typescript": "resource"
     },
@@ -797,6 +851,12 @@
       "typescript": "generic"
     },
     {
+      "name": "preview_member_handover",
+      "resource": "people",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
       "name": "preview_notebook_template_upgrade",
       "resource": "catalogues",
       "python": "resource",
@@ -911,6 +971,12 @@
       "typescript": "generic"
     },
     {
+      "name": "remove_idp_group_mapping",
+      "resource": "people",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
       "name": "remove_instrument_feed",
       "resource": "lab",
       "python": "generic",
@@ -937,6 +1003,24 @@
     {
       "name": "report_agent_workflow_usage",
       "resource": "agentOperations",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "report_project_status",
+      "resource": "facility",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "report_spend_lines",
+      "resource": "facility",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "report_usage_lines",
+      "resource": "facility",
       "python": "resource",
       "typescript": "resource"
     },
@@ -1001,6 +1085,12 @@
       "typescript": "generic"
     },
     {
+      "name": "save_scheduled_report",
+      "resource": "facility",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
       "name": "save_search",
       "resource": "search",
       "python": "resource",
@@ -1019,10 +1109,22 @@
       "typescript": "resource"
     },
     {
+      "name": "send_scheduled_report_now",
+      "resource": "facility",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
       "name": "set_field_spec_limits",
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"
+    },
+    {
+      "name": "set_idp_group_mapping",
+      "resource": "people",
+      "python": "resource",
+      "typescript": "resource"
     },
     {
       "name": "set_instrument_booking_rules",
@@ -1043,10 +1145,34 @@
       "typescript": "generic"
     },
     {
+      "name": "set_instrument_rate",
+      "resource": "facility",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
       "name": "set_material_safety",
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"
+    },
+    {
+      "name": "set_member_absence",
+      "resource": "people",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "set_model_supplier_list",
+      "resource": "facility",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "set_reagent_order_price",
+      "resource": "facility",
+      "python": "resource",
+      "typescript": "resource"
     },
     {
       "name": "set_record_favourite",
@@ -1065,6 +1191,12 @@
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"
+    },
+    {
+      "name": "set_scheduled_report_active",
+      "resource": "facility",
+      "python": "resource",
+      "typescript": "resource"
     },
     {
       "name": "snapshot_dataset",
@@ -1153,48 +1285,6 @@
     {
       "name": "validate_sheet_record_batch",
       "resource": "sheets",
-      "python": "resource",
-      "typescript": "resource"
-    },
-    {
-      "name": "preview_member_handover",
-      "resource": "people",
-      "python": "resource",
-      "typescript": "resource"
-    },
-    {
-      "name": "hand_over_member_work",
-      "resource": "people",
-      "python": "resource",
-      "typescript": "resource"
-    },
-    {
-      "name": "set_member_absence",
-      "resource": "people",
-      "python": "resource",
-      "typescript": "resource"
-    },
-    {
-      "name": "cancel_member_absence",
-      "resource": "people",
-      "python": "resource",
-      "typescript": "resource"
-    },
-    {
-      "name": "set_idp_group_mapping",
-      "resource": "people",
-      "python": "resource",
-      "typescript": "resource"
-    },
-    {
-      "name": "remove_idp_group_mapping",
-      "resource": "people",
-      "python": "resource",
-      "typescript": "resource"
-    },
-    {
-      "name": "adopt_group_roles",
-      "resource": "people",
       "python": "resource",
       "typescript": "resource"
     }

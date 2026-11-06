@@ -113,6 +113,7 @@ const pythonResources = [
   'catalogues',
   'datasets',
   'people',
+  'facility',
   'pipelines',
   'projects',
   'records',
@@ -126,6 +127,7 @@ const typescriptResources = [
   'catalogues',
   'datasets',
   'people',
+  'facility',
   'pipelines',
   'projects',
   'records',
@@ -152,6 +154,10 @@ const resourceFiles: Partial<
   people: {
     python: 'sdks/python/src/sheetbase/resources/people.py',
     typescript: 'sdks/typescript/src/resources/people.ts',
+  },
+  facility: {
+    python: 'sdks/python/src/sheetbase/resources/facility.py',
+    typescript: 'sdks/typescript/src/resources/facility.ts',
   },
   pipelines: {
     python: 'sdks/python/src/sheetbase/resources/pipelines.py',

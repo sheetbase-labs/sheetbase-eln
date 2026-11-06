@@ -76,9 +76,11 @@ describe('catalogue integrity', () => {
       'administration',
       'approval',
       'booking',
+      'compliance',
       'dataset',
       'import',
       'instrument',
+      'inventory',
       'notebook',
       'people',
       'pipeline',
@@ -296,4 +298,175 @@ describe('buildEventPayload validates for every produced catalogue entry', () =>
       expect(payload.createdAt).toBe(input.createdAt)
     })
   }
+})
+
+/** Lab features: the change event each one rides on and the name it gets. */
+const LAB_EVENTS: ReadonlyArray<{
+  name: string
+  entityType: string
+  operation: string
+  payload: Record<string, unknown>
+}> = [
+  {
+    name: 'reagent.order.requested',
+    entityType: 'material',
+    operation: 'update',
+    payload: { action: 'reorder-requested' },
+  },
+  {
+    name: 'reagent.order.placed',
+    entityType: 'material',
+    operation: 'update',
+    payload: { action: 'reorder-ordered' },
+  },
+  {
+    name: 'reagent.order.received',
+    entityType: 'material',
+    operation: 'update',
+    payload: { action: 'reorder-received' },
+  },
+  {
+    name: 'reagent.order.cancelled',
+    entityType: 'material',
+    operation: 'update',
+    payload: { action: 'reorder-cancelled' },
+  },
+  {
+    name: 'stocktake.completed',
+    entityType: 'stocktake',
+    operation: 'update',
+    payload: { status: 'completed' },
+  },
+  {
+    name: 'shipment.sent',
+    entityType: 'shipment',
+    operation: 'update',
+    payload: { event: 'sent' },
+  },
+  {
+    name: 'shipment.in_transit',
+    entityType: 'shipment',
+    operation: 'update',
+    payload: { event: 'in_transit' },
+  },
+  {
+    name: 'shipment.received',
+    entityType: 'shipment',
+    operation: 'update',
+    payload: { event: 'received' },
+  },
+  {
+    name: 'shipment.cancelled',
+    entityType: 'shipment',
+    operation: 'update',
+    payload: { event: 'cancelled' },
+  },
+  {
+    name: 'request.submitted',
+    entityType: 'request',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'request.decided',
+    entityType: 'request',
+    operation: 'update',
+    payload: {},
+  },
+  {
+    name: 'legal_hold.created',
+    entityType: 'workspace_settings',
+    operation: 'create',
+    payload: { effect: 'legal_hold' },
+  },
+  {
+    name: 'legal_hold.released',
+    entityType: 'workspace_settings',
+    operation: 'update',
+    payload: { effect: 'legal_hold_released' },
+  },
+  {
+    name: 'retention.applied',
+    entityType: 'workspace_settings',
+    operation: 'update',
+    payload: { effect: 'retention_applied' },
+  },
+  {
+    name: 'sample.workflow.advanced',
+    entityType: 'sample_workflow_run',
+    operation: 'update',
+    payload: { change: 'advanced' },
+  },
+  {
+    name: 'sample.workflow.enrolled',
+    entityType: 'sample_workflow_run',
+    operation: 'update',
+    payload: { change: 'enrolled' },
+  },
+  {
+    name: 'sample.workflow.left',
+    entityType: 'sample_workflow_run',
+    operation: 'update',
+    payload: { change: 'left' },
+  },
+  {
+    name: 'incident.reported',
+    entityType: 'incident',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'registry.entry.created',
+    entityType: 'registry_entry',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'instrument.reading.out_of_limits',
+    entityType: 'instrument_feed',
+    operation: 'update',
+    payload: { limitState: 'high' },
+  },
+  {
+    name: 'instrument.reading.back_in_range',
+    entityType: 'instrument_feed',
+    operation: 'update',
+    payload: { limitState: 'ok' },
+  },
+  {
+    name: 'record.assigned',
+    entityType: 'record_assignment',
+    operation: 'update',
+    payload: {},
+  },
+]
+
+describe('lab feature events', () => {
+  it.each(LAB_EVENTS)(
+    '$name is delivered from $entityType/$operation',
+    ({ name, entityType, operation, payload }) => {
+      expect(mapEventType(entityType, operation, payload)).toBe(name)
+      const entry = eventByName(name)
+      expect(entry?.status).toBe('stable')
+      expect(entry?.consumers.webhook).toBe(true)
+    },
+  )
+
+  it('lists every lab-01 catalogue entry here, so none is added unpinned', () => {
+    const pinned = LAB_EVENTS.map((event) => event.name).sort()
+    const catalogued = EVENT_CATALOGUE.filter(
+      (entry) => entry.introducedIn === 'lab-01',
+    )
+      .map((entry) => entry.name)
+      .sort()
+    expect(catalogued).toEqual(pinned)
+  })
+
+  it('keeps a changed payload from claiming another event', () => {
+    expect(mapEventType('material', 'update', { action: 'other' })).toBeNull()
+    expect(mapEventType('workspace_settings', 'update', {})).toBeNull()
+    expect(
+      mapEventType('stocktake', 'update', { status: 'cancelled' }),
+    ).toBeNull()
+  })
 })

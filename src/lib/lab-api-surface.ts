@@ -125,6 +125,10 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_until: 'End of the window (default now).',
   p_buckets: 'Number of time buckets (default 240).',
   p_block_id: 'The protocol step block (a `procedure_step` block).',
+  p_series_record_id: 'The experiment that heads the series.',
+  p_member_record_id: 'The experiment that is, or is to become, a member.',
+  p_position: 'Where it sits in the series. Omit for the end.',
+  p_planned_on: 'The day it is planned to run (YYYY-MM-DD). Omit for none.',
   p_done: 'true to finish the step (default), false to reopen it.',
   p_label: 'What was measured.',
   p_value: 'The measured value, as a number or text.',
@@ -278,6 +282,30 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['performed_by', 'text', 0],
       ['logged_by', 'text', 0],
       ['created_at', 'ts', 1],
+    ],
+  },
+  experiment_series: {
+    summary:
+      'An experiment that heads a series: it groups other experiments that run as separate pieces of one piece of work.',
+    columns: [
+      ['record_id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['created_at', 'ts', 1],
+      ['created_by_user_id', 'text', 1],
+    ],
+  },
+  experiment_series_members: {
+    summary:
+      'An experiment in a series, with where it sits and the day it is planned. An experiment is in one series at most.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['series_record_id', 'uuid', 1],
+      ['member_record_id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['position', 'num', 1],
+      ['planned_on', 'date', 0],
+      ['created_at', 'ts', 1],
+      ['created_by_user_id', 'text', 1],
     ],
   },
   step_timers: {
@@ -1059,6 +1087,91 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
     params: [['p_record_id', 'uuid', 1]],
     result:
       'rows:block_id=uuid,step_number=int,step_text=text,status=text,is_current=bool,completed_at=ts,completed_by_user_id=text,note=text,result_count=int,duration_seconds=int,timer_ends_at=ts,instrument_id=uuid',
+  },
+  start_experiment_series: {
+    summary: 'Make an experiment a series',
+    description:
+      'Marks an experiment as the head of a series so members can be added. Adding the first member does this by itself. Safe to repeat.',
+    scope: 'lab:write',
+    params: [['p_record_id', 'uuid', 1]],
+    result: 'json',
+  },
+  add_series_member: {
+    summary: 'Add an experiment to a series',
+    description:
+      'Puts an experiment in a series, at the end unless a position is given, and makes the series if it is not one yet. The experiment keeps its own owner, review and signature and is not changed, even when approved. An experiment is in one series at most and a series cannot sit inside another. Returns the membership.',
+    scope: 'lab:write',
+    params: [
+      ['p_series_record_id', 'uuid', 1],
+      ['p_member_record_id', 'uuid', 1],
+      ['p_position', 'num', 0],
+      ['p_planned_on', 'date', 0],
+    ],
+    result: 'json',
+  },
+  remove_series_member: {
+    summary: 'Take an experiment out of its series',
+    description:
+      'Removes an experiment from the series it is in. The experiment is not changed.',
+    scope: 'lab:write',
+    params: [['p_member_record_id', 'uuid', 1]],
+    result: 'json',
+  },
+  move_series_member: {
+    summary: 'Move an experiment within its series',
+    description:
+      'Changes where a member sits. Positions are numbers and members are ordered by them; use a number between two neighbours to go between them.',
+    scope: 'lab:write',
+    params: [
+      ['p_member_record_id', 'uuid', 1],
+      ['p_position', 'num', 1],
+    ],
+    result: 'json',
+  },
+  set_series_member_day: {
+    summary: 'Plan the day a series member runs',
+    description:
+      'Sets the day a member of a series is planned for, or clears it when `p_planned_on` is left out. The series counts its days from the earliest planned day.',
+    scope: 'lab:write',
+    params: [
+      ['p_member_record_id', 'uuid', 1],
+      ['p_planned_on', 'date', 0],
+    ],
+    result: 'json',
+  },
+  dissolve_experiment_series: {
+    summary: 'Stop treating an experiment as a series',
+    description:
+      'Removes the series, which frees its members. Neither the head nor the members are changed otherwise. Sends `experiment.series_member_removed` for each member.',
+    scope: 'lab:write',
+    params: [['p_record_id', 'uuid', 1]],
+    result: 'json',
+  },
+  series_members: {
+    summary: 'List the experiments in a series',
+    description:
+      'The members of a series in order, as you may see them: an experiment you cannot read is left out. Each row has the experiment, its status, owner, reviewer, planned day, steps done out of total and how many samples it links.',
+    scope: 'lab:read',
+    params: [['p_series_record_id', 'uuid', 1]],
+    result:
+      'rows:member_record_id=uuid,member_number=int,position=num,identifier=text,title=text,status=text,owner_user_id=text,reviewer_user_id=text,assignee_user_id=text,planned_on=date,planned_end=date,day_offset=int,locked_at=ts,steps_total=int,steps_done=int,sample_count=int',
+  },
+  series_rollup: {
+    summary: 'What a series adds up to',
+    description:
+      'How many experiments the series has and how many are approved, in review and in progress, the next one due, the samples across all of them and the first and last planned days.',
+    scope: 'lab:read',
+    params: [['p_series_record_id', 'uuid', 1]],
+    result: 'json',
+  },
+  record_series: {
+    summary: 'Which series an experiment is in',
+    description:
+      'The series an experiment belongs to, where it sits ("3 of 5") and the experiments either side of it. No row when it is in no series.',
+    scope: 'lab:read',
+    params: [['p_record_id', 'uuid', 1]],
+    result:
+      'rows:series_record_id=uuid,series_identifier=text,series_title=text,member_number=int,member_total=int,previous_record_id=uuid,previous_identifier=text,previous_title=text,next_record_id=uuid,next_identifier=text,next_title=text',
   },
   set_material_safety: {
     summary: 'Set chemical safety information',

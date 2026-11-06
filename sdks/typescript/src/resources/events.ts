@@ -133,6 +133,8 @@ export const EVENT_NAMES = [
   "step.completed",
   "step.reopened",
   "step.result_added",
+  "experiment.series_member_added",
+  "experiment.series_member_removed",
   "plate_run.created",
   "plate_run.analysed",
   "plate_run.archived",

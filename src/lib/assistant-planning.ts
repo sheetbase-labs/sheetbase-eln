@@ -17,6 +17,7 @@ import type { ManifestLine } from './shipments'
 
 export const INBOX_READ_TOOL = 'sheetbase.inbox.read'
 export const STEPS_READ_TOOL = 'sheetbase.steps.read'
+export const SERIES_READ_TOOL = 'sheetbase.series.read'
 
 export const EXPERIMENT_START_TOOL = 'sheetbase.experiment.start'
 export const RECORD_ASSIGN_TOOL = 'sheetbase.record.assign'
@@ -27,6 +28,8 @@ export const SHIPMENT_SEND_TOOL = 'sheetbase.shipment.send'
 export const SHIPMENT_RECEIVE_TOOL = 'sheetbase.shipment.receive'
 export const STEP_DONE_TOOL = 'sheetbase.step.complete'
 export const STEP_RESULT_TOOL = 'sheetbase.step.result'
+export const SERIES_ADD_TOOL = 'sheetbase.series.add_member'
+export const SERIES_REMOVE_TOOL = 'sheetbase.series.remove_member'
 
 export const PLANNING_PROPOSE_TOOL_NAMES = [
   EXPERIMENT_START_TOOL,
@@ -38,6 +41,8 @@ export const PLANNING_PROPOSE_TOOL_NAMES = [
   SHIPMENT_RECEIVE_TOOL,
   STEP_DONE_TOOL,
   STEP_RESULT_TOOL,
+  SERIES_ADD_TOOL,
+  SERIES_REMOVE_TOOL,
 ] as const
 
 export type PlanningProposeToolName =
@@ -58,6 +63,38 @@ export const inboxReadSchema = z
 export const stepsReadSchema = z
   .object({
     record: named('The experiment by identifier (EXP-12) or title.'),
+  })
+  .strict()
+
+export const seriesReadSchema = z
+  .object({
+    record: named(
+      'The series, or any experiment in it, by identifier (EXP-12) or title.',
+    ),
+  })
+  .strict()
+
+export const proposeSeriesAddSchema = z
+  .object({
+    title,
+    summary,
+    series: named(
+      'The experiment that heads the series, by identifier (EXP-12) or title. It becomes a series if it is not one yet.',
+    ),
+    experiment: named('The experiment to add, by identifier or title.'),
+    plannedOn: day
+      .optional()
+      .describe('The day it is planned to run, YYYY-MM-DD. Optional.'),
+  })
+  .strict()
+
+export const proposeSeriesRemoveSchema = z
+  .object({
+    title,
+    summary,
+    experiment: named(
+      'The experiment to take out of its series, by identifier or title.',
+    ),
   })
   .strict()
 
@@ -308,6 +345,13 @@ export type PlanningAction =
       unit: string | null
     }
   | {
+      kind: 'series.add'
+      seriesRecordId: string
+      memberRecordId: string
+      plannedOn: string | null
+    }
+  | { kind: 'series.remove'; memberRecordId: string }
+  | {
       kind: 'shipment.create'
       input: {
         direction: 'outbound' | 'inbound'
@@ -345,6 +389,8 @@ export function isPlanningAction(action: {
     'timer.start',
     'step.done',
     'step.result',
+    'series.add',
+    'series.remove',
     'shipment.create',
     'shipment.receive',
   ].includes(action.kind)

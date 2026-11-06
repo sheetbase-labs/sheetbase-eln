@@ -2966,6 +2966,12 @@ export const data = {
     addStepResult: 'Record a result on a step',
     addStepResultDescription:
       'Add a measurement to the notebook against a protocol step.',
+    addSeriesMember: 'Add an experiment to a series',
+    addSeriesMemberDescription:
+      'Put an experiment in a series, at the end unless a position is given. The experiment itself is not changed.',
+    removeSeriesMember: 'Take an experiment out of its series',
+    removeSeriesMemberDescription:
+      'Remove an experiment from the series it is in. The experiment itself is not changed.',
     createProject: 'Create project',
     createProjectRunWorkspace: 'Create a project in the run workspace.',
     createRecord: 'Create record',

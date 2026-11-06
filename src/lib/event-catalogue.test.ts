@@ -460,6 +460,18 @@ const LAB_EVENTS: ReadonlyArray<{
     payload: {},
   },
   {
+    name: 'experiment.series_member_added',
+    entityType: 'experiment_series_member',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'experiment.series_member_removed',
+    entityType: 'experiment_series_member',
+    operation: 'delete',
+    payload: {},
+  },
+  {
     name: 'plate_run.created',
     entityType: 'plate_run',
     operation: 'create',

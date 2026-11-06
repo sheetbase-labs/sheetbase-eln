@@ -105,6 +105,18 @@
       "typescript": "generic"
     },
     {
+      "resource": "experiment_series",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "experiment_series_members",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "field_spec_limits",
       "methods": ["GET", "HEAD"],
       "python": "generic",
@@ -479,6 +491,12 @@
       "typescript": "generic"
     },
     {
+      "name": "add_series_member",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "add_step_result",
       "resource": "lab",
       "python": "generic",
@@ -737,6 +755,12 @@
       "typescript": "resource"
     },
     {
+      "name": "dissolve_experiment_series",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "duplicate_sheet_instance",
       "resource": "sheets",
       "python": "resource",
@@ -869,6 +893,12 @@
       "typescript": "resource"
     },
     {
+      "name": "move_series_member",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "mutate_sheet_instance_calculations",
       "resource": "sheets",
       "python": "resource",
@@ -995,6 +1025,12 @@
       "typescript": "generic"
     },
     {
+      "name": "record_series",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "record_steps",
       "resource": "lab",
       "python": "generic",
@@ -1038,6 +1074,12 @@
     },
     {
       "name": "remove_registry_parent",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "remove_series_member",
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"
@@ -1175,6 +1217,18 @@
       "typescript": "resource"
     },
     {
+      "name": "series_members",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "series_rollup",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "set_field_spec_limits",
       "resource": "lab",
       "python": "generic",
@@ -1259,6 +1313,12 @@
       "typescript": "resource"
     },
     {
+      "name": "set_series_member_day",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "set_step_done",
       "resource": "lab",
       "python": "generic",
@@ -1269,6 +1329,12 @@
       "resource": "datasets",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "start_experiment_series",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "start_step_timer",

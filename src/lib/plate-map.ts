@@ -23,7 +23,7 @@ export const PLATE_MAP_SPEC_VERSION = 1 as const
 /**
  * Approved plate formats: the standard SBS microplates from 6 to 1536 wells.
  * Adding a format means adding its dimensions here and in the DB format
- * guards (migration 0104 holds the current list).
+ * guards (migration 0105 holds the current list).
  */
 export const PLATE_FORMATS = [
   '6_well',

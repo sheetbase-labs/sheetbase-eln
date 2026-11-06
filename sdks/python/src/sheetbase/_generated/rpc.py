@@ -86,6 +86,7 @@ class Rpc:
     NAMES = (
         "add_records_to_legal_hold",
         "add_registry_parent",
+        "add_series_member",
         "add_step_result",
         "adopt_group_roles",
         "advance_agent_workflow",
@@ -129,6 +130,7 @@ class Rpc:
         "delete_saved_search",
         "delete_scheduled_report",
         "delete_webhook_subscription",
+        "dissolve_experiment_series",
         "duplicate_sheet_instance",
         "duplicate_sheet_instance_block",
         "end_recurring_schedule",
@@ -151,6 +153,7 @@ class Rpc:
         "materialise_recurring_schedule",
         "materialize_sheet_instance",
         "move_block",
+        "move_series_member",
         "mutate_sheet_instance_calculations",
         "mutate_sheet_instance_local_state",
         "my_instrument_training_gaps",
@@ -172,6 +175,7 @@ class Rpc:
         "receive_reagent_order",
         "receive_shipment",
         "record_instrument_readings",
+        "record_series",
         "record_steps",
         "record_stocktake_scan",
         "record_storage_readings",
@@ -180,6 +184,7 @@ class Rpc:
         "remove_idp_group_mapping",
         "remove_instrument_feed",
         "remove_registry_parent",
+        "remove_series_member",
         "replay_webhook_deliveries",
         "replay_webhook_delivery",
         "report_agent_workflow_usage",
@@ -202,6 +207,8 @@ class Rpc:
         "search",
         "search_sheet_records",
         "send_scheduled_report_now",
+        "series_members",
+        "series_rollup",
         "set_field_spec_limits",
         "set_idp_group_mapping",
         "set_instrument_booking_rules",
@@ -216,8 +223,10 @@ class Rpc:
         "set_recurring_schedule_paused",
         "set_sample_workflow_status",
         "set_scheduled_report_active",
+        "set_series_member_day",
         "set_step_done",
         "snapshot_dataset",
+        "start_experiment_series",
         "start_step_timer",
         "start_stocktake",
         "submit_request",
@@ -281,6 +290,32 @@ class Rpc:
         if not isinstance(role, Unset):
             body["p_role"] = role
         return self._call("add_registry_parent", body)  # type: ignore[no-any-return]
+
+    def add_series_member(
+        self,
+        *,
+        series_record_id: str,
+        member_record_id: str,
+        position: Union[float, Unset] = UNSET,
+        planned_on: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Add an experiment to a series
+
+        Puts an experiment in a series, at the end unless a position is given, and makes the series if it is not one yet. The experiment keeps its own owner, review and signature and is not changed, even when approved. An experiment is in one series at most and a series cannot sit inside another. Returns the membership.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/add_series_member``
+        """
+        body: Dict[str, Any] = {}
+        body["p_series_record_id"] = series_record_id
+        body["p_member_record_id"] = member_record_id
+        if not isinstance(position, Unset):
+            body["p_position"] = position
+        if not isinstance(planned_on, Unset):
+            body["p_planned_on"] = planned_on
+        return self._call("add_series_member", body)  # type: ignore[no-any-return]
 
     def add_step_result(
         self,
@@ -1370,6 +1405,20 @@ class Rpc:
         body["p_subscription_id"] = subscription_id
         return self._call("delete_webhook_subscription", body)  # type: ignore[no-any-return]
 
+    def dissolve_experiment_series(self, *, record_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Stop treating an experiment as a series
+
+        Removes the series, which frees its members. Neither the head nor the members are changed otherwise. Sends `experiment.series_member_removed` for each member.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/dissolve_experiment_series``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        return self._call("dissolve_experiment_series", body)  # type: ignore[no-any-return]
+
     def duplicate_sheet_instance(
         self,
         *,
@@ -1887,6 +1936,26 @@ class Rpc:
         body["p_before_block_id"] = before_block_id
         return self._call("move_block", body)  # type: ignore[no-any-return]
 
+    def move_series_member(
+        self,
+        *,
+        member_record_id: str,
+        position: float,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Move an experiment within its series
+
+        Changes where a member sits. Positions are numbers and members are ordered by them; use a number between two neighbours to go between them.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/move_series_member``
+        """
+        body: Dict[str, Any] = {}
+        body["p_member_record_id"] = member_record_id
+        body["p_position"] = position
+        return self._call("move_series_member", body)  # type: ignore[no-any-return]
+
     def mutate_sheet_instance_calculations(
         self,
         *,
@@ -2385,6 +2454,20 @@ class Rpc:
         body["p_readings"] = readings
         return self._call("record_instrument_readings", body)  # type: ignore[no-any-return]
 
+    def record_series(self, *, record_id: str) -> List[Dict[str, Any]]:
+        """
+        Which series an experiment is in
+
+        The series an experiment belongs to, where it sits ("3 of 5") and the experiments either side of it. No row when it is in no series.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/record_series``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        return self._call("record_series", body)  # type: ignore[no-any-return]
+
     def record_steps(self, *, record_id: str) -> List[Dict[str, Any]]:
         """
         List the steps of an experiment with their status
@@ -2544,6 +2627,20 @@ class Rpc:
         body["p_entry_id"] = entry_id
         body["p_parent_id"] = parent_id
         return self._call("remove_registry_parent", body)  # type: ignore[no-any-return]
+
+    def remove_series_member(self, *, member_record_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Take an experiment out of its series
+
+        Removes an experiment from the series it is in. The experiment is not changed.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/remove_series_member``
+        """
+        body: Dict[str, Any] = {}
+        body["p_member_record_id"] = member_record_id
+        return self._call("remove_series_member", body)  # type: ignore[no-any-return]
 
     def replay_webhook_deliveries(
         self,
@@ -3090,6 +3187,34 @@ class Rpc:
         body["p_id"] = id
         return self._call("send_scheduled_report_now", body)  # type: ignore[no-any-return]
 
+    def series_members(self, *, series_record_id: str) -> List[Dict[str, Any]]:
+        """
+        List the experiments in a series
+
+        The members of a series in order, as you may see them: an experiment you cannot read is left out. Each row has the experiment, its status, owner, reviewer, planned day, steps done out of total and how many samples it links.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/series_members``
+        """
+        body: Dict[str, Any] = {}
+        body["p_series_record_id"] = series_record_id
+        return self._call("series_members", body)  # type: ignore[no-any-return]
+
+    def series_rollup(self, *, series_record_id: str) -> Dict[str, "JsonValue"]:
+        """
+        What a series adds up to
+
+        How many experiments the series has and how many are approved, in review and in progress, the next one due, the samples across all of them and the first and last planned days.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/series_rollup``
+        """
+        body: Dict[str, Any] = {}
+        body["p_series_record_id"] = series_record_id
+        return self._call("series_rollup", body)  # type: ignore[no-any-return]
+
     def set_field_spec_limits(
         self,
         *,
@@ -3418,6 +3543,27 @@ class Rpc:
         body["p_active"] = active
         return self._call("set_scheduled_report_active", body)  # type: ignore[no-any-return]
 
+    def set_series_member_day(
+        self,
+        *,
+        member_record_id: str,
+        planned_on: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Plan the day a series member runs
+
+        Sets the day a member of a series is planned for, or clears it when `p_planned_on` is left out. The series counts its days from the earliest planned day.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_series_member_day``
+        """
+        body: Dict[str, Any] = {}
+        body["p_member_record_id"] = member_record_id
+        if not isinstance(planned_on, Unset):
+            body["p_planned_on"] = planned_on
+        return self._call("set_series_member_day", body)  # type: ignore[no-any-return]
+
     def set_step_done(
         self,
         *,
@@ -3463,6 +3609,20 @@ class Rpc:
         body["p_expected_dataset_revision"] = expected_dataset_revision
         body["p_label"] = label
         return self._call("snapshot_dataset", body)  # type: ignore[no-any-return]
+
+    def start_experiment_series(self, *, record_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Make an experiment a series
+
+        Marks an experiment as the head of a series so members can be added. Adding the first member does this by itself. Safe to repeat.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/start_experiment_series``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        return self._call("start_experiment_series", body)  # type: ignore[no-any-return]
 
     def start_step_timer(
         self,
@@ -3850,6 +4010,7 @@ class AsyncRpc:
     NAMES = (
         "add_records_to_legal_hold",
         "add_registry_parent",
+        "add_series_member",
         "add_step_result",
         "adopt_group_roles",
         "advance_agent_workflow",
@@ -3893,6 +4054,7 @@ class AsyncRpc:
         "delete_saved_search",
         "delete_scheduled_report",
         "delete_webhook_subscription",
+        "dissolve_experiment_series",
         "duplicate_sheet_instance",
         "duplicate_sheet_instance_block",
         "end_recurring_schedule",
@@ -3915,6 +4077,7 @@ class AsyncRpc:
         "materialise_recurring_schedule",
         "materialize_sheet_instance",
         "move_block",
+        "move_series_member",
         "mutate_sheet_instance_calculations",
         "mutate_sheet_instance_local_state",
         "my_instrument_training_gaps",
@@ -3936,6 +4099,7 @@ class AsyncRpc:
         "receive_reagent_order",
         "receive_shipment",
         "record_instrument_readings",
+        "record_series",
         "record_steps",
         "record_stocktake_scan",
         "record_storage_readings",
@@ -3944,6 +4108,7 @@ class AsyncRpc:
         "remove_idp_group_mapping",
         "remove_instrument_feed",
         "remove_registry_parent",
+        "remove_series_member",
         "replay_webhook_deliveries",
         "replay_webhook_delivery",
         "report_agent_workflow_usage",
@@ -3966,6 +4131,8 @@ class AsyncRpc:
         "search",
         "search_sheet_records",
         "send_scheduled_report_now",
+        "series_members",
+        "series_rollup",
         "set_field_spec_limits",
         "set_idp_group_mapping",
         "set_instrument_booking_rules",
@@ -3980,8 +4147,10 @@ class AsyncRpc:
         "set_recurring_schedule_paused",
         "set_sample_workflow_status",
         "set_scheduled_report_active",
+        "set_series_member_day",
         "set_step_done",
         "snapshot_dataset",
+        "start_experiment_series",
         "start_step_timer",
         "start_stocktake",
         "submit_request",
@@ -4045,6 +4214,32 @@ class AsyncRpc:
         if not isinstance(role, Unset):
             body["p_role"] = role
         return await self._call("add_registry_parent", body)  # type: ignore[no-any-return]
+
+    async def add_series_member(
+        self,
+        *,
+        series_record_id: str,
+        member_record_id: str,
+        position: Union[float, Unset] = UNSET,
+        planned_on: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Add an experiment to a series
+
+        Puts an experiment in a series, at the end unless a position is given, and makes the series if it is not one yet. The experiment keeps its own owner, review and signature and is not changed, even when approved. An experiment is in one series at most and a series cannot sit inside another. Returns the membership.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/add_series_member``
+        """
+        body: Dict[str, Any] = {}
+        body["p_series_record_id"] = series_record_id
+        body["p_member_record_id"] = member_record_id
+        if not isinstance(position, Unset):
+            body["p_position"] = position
+        if not isinstance(planned_on, Unset):
+            body["p_planned_on"] = planned_on
+        return await self._call("add_series_member", body)  # type: ignore[no-any-return]
 
     async def add_step_result(
         self,
@@ -5134,6 +5329,20 @@ class AsyncRpc:
         body["p_subscription_id"] = subscription_id
         return await self._call("delete_webhook_subscription", body)  # type: ignore[no-any-return]
 
+    async def dissolve_experiment_series(self, *, record_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Stop treating an experiment as a series
+
+        Removes the series, which frees its members. Neither the head nor the members are changed otherwise. Sends `experiment.series_member_removed` for each member.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/dissolve_experiment_series``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        return await self._call("dissolve_experiment_series", body)  # type: ignore[no-any-return]
+
     async def duplicate_sheet_instance(
         self,
         *,
@@ -5651,6 +5860,26 @@ class AsyncRpc:
         body["p_before_block_id"] = before_block_id
         return await self._call("move_block", body)  # type: ignore[no-any-return]
 
+    async def move_series_member(
+        self,
+        *,
+        member_record_id: str,
+        position: float,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Move an experiment within its series
+
+        Changes where a member sits. Positions are numbers and members are ordered by them; use a number between two neighbours to go between them.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/move_series_member``
+        """
+        body: Dict[str, Any] = {}
+        body["p_member_record_id"] = member_record_id
+        body["p_position"] = position
+        return await self._call("move_series_member", body)  # type: ignore[no-any-return]
+
     async def mutate_sheet_instance_calculations(
         self,
         *,
@@ -6149,6 +6378,20 @@ class AsyncRpc:
         body["p_readings"] = readings
         return await self._call("record_instrument_readings", body)  # type: ignore[no-any-return]
 
+    async def record_series(self, *, record_id: str) -> List[Dict[str, Any]]:
+        """
+        Which series an experiment is in
+
+        The series an experiment belongs to, where it sits ("3 of 5") and the experiments either side of it. No row when it is in no series.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/record_series``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        return await self._call("record_series", body)  # type: ignore[no-any-return]
+
     async def record_steps(self, *, record_id: str) -> List[Dict[str, Any]]:
         """
         List the steps of an experiment with their status
@@ -6308,6 +6551,20 @@ class AsyncRpc:
         body["p_entry_id"] = entry_id
         body["p_parent_id"] = parent_id
         return await self._call("remove_registry_parent", body)  # type: ignore[no-any-return]
+
+    async def remove_series_member(self, *, member_record_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Take an experiment out of its series
+
+        Removes an experiment from the series it is in. The experiment is not changed.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/remove_series_member``
+        """
+        body: Dict[str, Any] = {}
+        body["p_member_record_id"] = member_record_id
+        return await self._call("remove_series_member", body)  # type: ignore[no-any-return]
 
     async def replay_webhook_deliveries(
         self,
@@ -6854,6 +7111,34 @@ class AsyncRpc:
         body["p_id"] = id
         return await self._call("send_scheduled_report_now", body)  # type: ignore[no-any-return]
 
+    async def series_members(self, *, series_record_id: str) -> List[Dict[str, Any]]:
+        """
+        List the experiments in a series
+
+        The members of a series in order, as you may see them: an experiment you cannot read is left out. Each row has the experiment, its status, owner, reviewer, planned day, steps done out of total and how many samples it links.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/series_members``
+        """
+        body: Dict[str, Any] = {}
+        body["p_series_record_id"] = series_record_id
+        return await self._call("series_members", body)  # type: ignore[no-any-return]
+
+    async def series_rollup(self, *, series_record_id: str) -> Dict[str, "JsonValue"]:
+        """
+        What a series adds up to
+
+        How many experiments the series has and how many are approved, in review and in progress, the next one due, the samples across all of them and the first and last planned days.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/series_rollup``
+        """
+        body: Dict[str, Any] = {}
+        body["p_series_record_id"] = series_record_id
+        return await self._call("series_rollup", body)  # type: ignore[no-any-return]
+
     async def set_field_spec_limits(
         self,
         *,
@@ -7182,6 +7467,27 @@ class AsyncRpc:
         body["p_active"] = active
         return await self._call("set_scheduled_report_active", body)  # type: ignore[no-any-return]
 
+    async def set_series_member_day(
+        self,
+        *,
+        member_record_id: str,
+        planned_on: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Plan the day a series member runs
+
+        Sets the day a member of a series is planned for, or clears it when `p_planned_on` is left out. The series counts its days from the earliest planned day.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_series_member_day``
+        """
+        body: Dict[str, Any] = {}
+        body["p_member_record_id"] = member_record_id
+        if not isinstance(planned_on, Unset):
+            body["p_planned_on"] = planned_on
+        return await self._call("set_series_member_day", body)  # type: ignore[no-any-return]
+
     async def set_step_done(
         self,
         *,
@@ -7227,6 +7533,20 @@ class AsyncRpc:
         body["p_expected_dataset_revision"] = expected_dataset_revision
         body["p_label"] = label
         return await self._call("snapshot_dataset", body)  # type: ignore[no-any-return]
+
+    async def start_experiment_series(self, *, record_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Make an experiment a series
+
+        Marks an experiment as the head of a series so members can be added. Adding the first member does this by itself. Safe to repeat.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/start_experiment_series``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        return await self._call("start_experiment_series", body)  # type: ignore[no-any-return]
 
     async def start_step_timer(
         self,

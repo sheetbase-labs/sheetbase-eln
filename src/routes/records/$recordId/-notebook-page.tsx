@@ -55,6 +55,7 @@ import {
 import { ShareWithClientDialog } from '#/components/client-sharing/share-with-client-dialog'
 import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
 import { CurrentStepCard } from '#/components/notebook/current-step-card'
+import { SeriesBar } from '#/components/experiments/series-bar'
 import { stepProgress } from '#/lib/step-status'
 import { WithdrawReviewDialog } from '#/components/notebook/withdraw-review-dialog'
 import { ReturnedReviewBanner } from '#/components/notebook/returned-review-banner'
@@ -1596,6 +1597,9 @@ export function StickyRecordHeader({
         <p role="alert" className="mt-2 text-xs text-destructive">
           {extensionError}
         </p>
+      ) : null}
+      {embedded ? (
+        <SeriesBar recordId={record.id} placement="notebook" />
       ) : null}
       {stepCardOn ? (
         <CurrentStepCard

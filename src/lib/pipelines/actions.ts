@@ -268,6 +268,23 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
     ],
   ),
   definition(
+    'add_series_member',
+    t('data.pipelineActions.addSeriesMember'),
+    t('data.pipelineActions.addSeriesMemberDescription'),
+    [
+      arg('p_series_record_id', 'uuid'),
+      arg('p_member_record_id', 'uuid'),
+      arg('p_position', 'numeric', false, true),
+      arg('p_planned_on', 'date', false, true),
+    ],
+  ),
+  definition(
+    'remove_series_member',
+    t('data.pipelineActions.removeSeriesMember'),
+    t('data.pipelineActions.removeSeriesMemberDescription'),
+    [arg('p_member_record_id', 'uuid')],
+  ),
+  definition(
     'commit_dataset_row_batch',
     t('data.pipelineActions.commitDatasetRows'),
     t('data.pipelineActions.commitValidatedRowBatch'),

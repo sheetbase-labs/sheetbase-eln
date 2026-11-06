@@ -1,5 +1,5 @@
 /**
- * Plate assays (migration 0104): bigger plate formats, plate runs that keep
+ * Plate assays (migration 0105): bigger plate formats, plate runs that keep
  * their layout, readout and analysis together, and liquid handler worklists
  * that withdraw from the source samples when they are completed.
  * Runs against a freshly migrated sheetbase_test database.

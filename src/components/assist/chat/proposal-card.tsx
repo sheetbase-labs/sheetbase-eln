@@ -62,6 +62,8 @@ const ACTION_COPY = {
   'timer.start': 'timer',
   'step.done': 'finishStep',
   'step.result': 'stepResult',
+  'series.add': 'addToSeries',
+  'series.remove': 'removeFromSeries',
   'shipment.create': 'sendShipment',
   'shipment.receive': 'receiveShipment',
   'project.create': 'createProject',

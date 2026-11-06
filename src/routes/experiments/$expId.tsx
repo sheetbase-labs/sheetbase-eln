@@ -10,6 +10,8 @@ import type { Tone } from '#/components/ui/status'
 import { experimentStatus } from '#/components/experiments/experiments-data'
 import { experimentNextStep } from '#/components/experiments/next-step'
 import { ReviewerBand } from '#/components/experiments/reviewer-band'
+import { SeriesBar } from '#/components/experiments/series-bar'
+import { useIsSeriesHead } from '#/lib/experiment-series'
 import { useRegulatedLab } from '#/lib/regulated-lab'
 import {
   fetchNotebookReviewContext,
@@ -119,6 +121,7 @@ function ExperimentLayout() {
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
   const record = useExperimentRecord(expId)
   const links = useExperimentLinks(expId)
+  const seriesHead = useIsSeriesHead(expId)
   const e = record.data
   const { userLabel } = useUserNames(
     [e?.created_by_user_id, e?.reviewer_user_id].filter((id): id is string =>
@@ -312,40 +315,65 @@ function ExperimentLayout() {
             </>
           }
           tabs={
-            <Tabs
-              mode="url"
-              label={t('projects.experimentPage.sections')}
-              items={[
-                {
-                  label: t('projects.experimentPage.tabs.notebook'),
-                  link: { to: '/experiments/$expId/notebook', params },
-                },
-                {
-                  label: t('projects.experimentPage.tabs.summary'),
-                  link: { to: '/experiments/$expId/summary', params },
-                },
-                {
-                  label: t('projects.experimentPage.tabs.samples'),
-                  count: (
-                    <span className="max-md:hidden">{kindCount('sample')}</span>
-                  ),
-                  link: { to: '/experiments/$expId/samples', params },
-                },
-                {
-                  label: t('projects.experimentPage.tabs.data'),
-                  count: (
-                    <span className="max-md:hidden">
-                      {kindCount('dataset') + kindCount('file')}
-                    </span>
-                  ),
-                  link: { to: '/experiments/$expId/data', params },
-                },
-                {
-                  label: t('projects.experimentPage.tabs.review'),
-                  link: { to: '/experiments/$expId/review', params },
-                },
-              ]}
-            />
+            <div className="flex flex-col gap-1.5">
+              <SeriesBar recordId={e.id} placement="header" />
+              <Tabs
+                mode="url"
+                label={t('projects.experimentPage.sections')}
+                items={[
+                  {
+                    label: t('projects.experimentPage.tabs.notebook'),
+                    link: { to: '/experiments/$expId/notebook', params },
+                  },
+                  ...(seriesHead.data
+                    ? [
+                        {
+                          label: t('projects.experimentPage.tabs.series'),
+                          link: {
+                            to: '/experiments/$expId/series' as const,
+                            params,
+                          },
+                        },
+                      ]
+                    : []),
+                  // A series parent shows its Series tab where Summary would
+                  // be, so the row keeps five tabs and fits a phone.
+                  ...(seriesHead.data
+                    ? []
+                    : [
+                        {
+                          label: t('projects.experimentPage.tabs.summary'),
+                          link: {
+                            to: '/experiments/$expId/summary' as const,
+                            params,
+                          },
+                        },
+                      ]),
+                  {
+                    label: t('projects.experimentPage.tabs.samples'),
+                    count: (
+                      <span className="max-md:hidden">
+                        {kindCount('sample')}
+                      </span>
+                    ),
+                    link: { to: '/experiments/$expId/samples', params },
+                  },
+                  {
+                    label: t('projects.experimentPage.tabs.data'),
+                    count: (
+                      <span className="max-md:hidden">
+                        {kindCount('dataset') + kindCount('file')}
+                      </span>
+                    ),
+                    link: { to: '/experiments/$expId/data', params },
+                  },
+                  {
+                    label: t('projects.experimentPage.tabs.review'),
+                    link: { to: '/experiments/$expId/review', params },
+                  },
+                ]}
+              />
+            </div>
           }
         />
         {nextStep.reviewing ? (

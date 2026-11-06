@@ -134,7 +134,7 @@ export function dropSharedReads(): void {
   readStores.forEach((store) => store.clear())
 }
 
-type RowsChangedListener = () => void
+type RowsChangedListener = (path: string) => void
 const rowsChangedListeners = new Set<RowsChangedListener>()
 
 /**
@@ -265,7 +265,7 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
       throw await parseError(response)
     }
     if (announcesChange(path, init.method))
-      rowsChangedListeners.forEach((listener) => listener())
+      rowsChangedListeners.forEach((listener) => listener(path))
     return response
   }
 

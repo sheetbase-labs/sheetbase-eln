@@ -174,6 +174,8 @@ function amountOf(row: SampleRow): { quantity: number | null; unit: string } {
 const withUnit = (quantity: number, unit: string) =>
   `${quantity}${unit ? ` ${unit}` : ''}`
 
+const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
+
 const orderReference = (number: number) =>
   `RO-${String(number).padStart(4, '0')}`
 
@@ -517,7 +519,7 @@ export async function buildUpkeepProposal(
         },
         {
           label: 'Status',
-          before: shipment.status.replaceAll('_', ' '),
+          before: sentence(shipment.status.replaceAll('_', ' ')),
           after: 'Cancelled',
         },
       ]
@@ -602,8 +604,8 @@ export async function buildUpkeepProposal(
       const changes: ProposalChange[] = [
         {
           label: 'Status',
-          before: row.status.replaceAll('_', ' '),
-          after: dispose ? 'disposed' : 'quarantined',
+          before: sentence(row.status.replaceAll('_', ' ')),
+          after: dispose ? 'Disposed' : 'Quarantined',
         },
         { label: 'Reason', before: null, after: input.reason.trim() },
       ]

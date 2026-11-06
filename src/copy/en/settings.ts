@@ -2207,6 +2207,9 @@ export const settings = {
     pipelines: 'Pipelines',
     readPipelineDefinitionsDescription:
       'Read pipelines, versions, runs, logs and outputs, and save a draft version (personal tokens only). Publishing a version and starting a run stay with people.',
+    lab: 'Lab operations',
+    labDescription:
+      'Read reagent orders, stocktakes, shipments, requests, sample workflows, legal holds, instrument feeds and the rest of the lab. Actions such as ordering, receiving and logging run as the person a personal token belongs to.',
     administrationMcp: 'Administration (MCP)',
     people: 'People and continuity',
     peopleDescription:

@@ -69,6 +69,7 @@ exchange and rotation.
 | `schema:read`                                      | Catalogue GET only                                                                                                                |
 | `webhooks:read` / `webhooks:write`                 | Subscriptions and delivery history (stable event names in [`event-catalogue.md`](event-catalogue.md))                             |
 | `pipelines:read` / `pipelines:write`               | Read pipelines, versions, runs, logs and outputs; save draft versions (personal tokens only). Does not publish, run or schedule   |
+| `lab:read` / `lab:write`                           | Reagent orders, stocktakes, shipments, requests, workflows, holds, instrument feeds and more: reads, and actions as a person ([`lab-api.md`](lab-api.md)) |
 | `agent_operations:read` / `agent_operations:write` | Inspect and submit typed proposals and workflows. Does not approve, execute, resume, or create policies                           |
 | `people:read` / `people:write`                     | Personal tokens only. Hand over work, out of office, sign-in group roles. Acts as the token's member, whose own permissions apply |
 

@@ -4,6 +4,7 @@
  * without reading SQL or application source.
  */
 import { EXTERNAL_RPC_SCOPES } from '#/lib/external-token'
+import { labRpcContracts } from '#/lib/lab-api-schemas'
 
 export type JsonSchema = Record<string, unknown>
 
@@ -1942,6 +1943,8 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
     result: pgrstRow(pipelineVersionRow, 'Updated draft version.'),
   },
 }
+
+Object.assign(RPC_CONTRACTS, labRpcContracts())
 
 const missing = Object.keys(EXTERNAL_RPC_SCOPES).filter(
   (name) => !Object.hasOwn(RPC_CONTRACTS, name),

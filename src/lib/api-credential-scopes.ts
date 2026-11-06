@@ -32,6 +32,8 @@ export const VALID_SCOPES = [
   'agent_operations:write',
   'pipelines:read',
   'pipelines:write',
+  'lab:read',
+  'lab:write',
   'admin:read',
   'admin:write',
   'people:read',
@@ -125,6 +127,12 @@ export const SCOPE_GROUPS: ReadonlyArray<{
     description: t('settings.apiScopes.readPipelineDefinitionsDescription'),
     effective: true,
     scopes: ['pipelines:read', 'pipelines:write'],
+  },
+  {
+    title: t('settings.apiScopes.lab'),
+    description: t('settings.apiScopes.labDescription'),
+    effective: true,
+    scopes: ['lab:read', 'lab:write'],
   },
   {
     title: t('settings.apiScopes.administrationMcp'),

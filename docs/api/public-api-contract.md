@@ -500,6 +500,7 @@ events shipped with API-02 completion (`#56`). Files remain DATA-02/PLAT-01.
 | `docs/api/external-api.md`                                       | Credential exchange, **current** allowlist, CLI examples                    |
 | `docs/api/notebook-api.md`                                       | Notebook/block/revision RPC reference                                       |
 | `docs/api/search-api.md`                                         | `search` RPC                                                                |
+| `docs/api/lab-api.md`                                            | Lab tables and actions (`lab:read` / `lab:write`), MCP lab tool             |
 | `docs/operations/authentication.md`                              | Browser session auth                                                        |
 | `docs/knowledge/decisions/0005-postgrest-claim-set-and-proxy.md` | Proxy architecture                                                          |
 | `docs/core/PRODUCT_CORE.md`                                      | Domain model principles                                                     |

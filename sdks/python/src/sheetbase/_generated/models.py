@@ -110,6 +110,7 @@ __all__ = [
     "DeleteSavedSearchParams",
     "DeleteScheduledReportParams",
     "DeleteWebhookSubscriptionParams",
+    "DirectorySyncStatusParams",
     "DissolveExperimentSeriesParams",
     "DuplicateSheetInstanceBlockParams",
     "DuplicateSheetInstanceParams",
@@ -253,6 +254,7 @@ __all__ = [
     "RetentionRulesRow",
     "ReviewCoverRow",
     "RevisionsRow",
+    "RevokeScimTokenParams",
     "RotateWebhookSecretParams",
     "RunSavedSearchParams",
     "SampleWorkflowEventsRow",
@@ -266,6 +268,9 @@ __all__ = [
     "SaveSearchParams",
     "SavedSearchesRow",
     "ScheduledReportsRow",
+    "ScimGroupMembersRow",
+    "ScimGroupsRow",
+    "ScimTokensRow",
     "SearchParams",
     "SearchSheetRecordsParams",
     "SendScheduledReportNowParams",
@@ -2229,6 +2234,41 @@ class ScheduledReportsRow(_ScheduledReportsRowRequired, total=False):
     last_recipient_count: Optional[int]
 
 
+class ScimGroupMembersRow(TypedDict):
+    """`api.scim_group_members` row (snake_case). Who is in each directory sync group."""
+    group_id: str
+    workspace_id: str
+    user_id: str
+    created_at: str
+
+
+class _ScimGroupsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    display_name: str
+    created_at: str
+    updated_at: str
+
+
+class ScimGroupsRow(_ScimGroupsRowRequired, total=False):
+    """`api.scim_groups` row (snake_case). Groups the identity provider has pushed through directory sync. A group whose name matches a sign-in group mapping gives that role."""
+    external_id: Optional[str]
+
+
+class _ScimTokensRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    label: str
+    created_at: str
+
+
+class ScimTokensRow(_ScimTokensRowRequired, total=False):
+    """`api.scim_tokens` row (snake_case). Directory sync tokens: which identity provider holds one, when it last called, and whether it was revoked. The secret is never returned."""
+    created_by_user_id: Optional[str]
+    last_used_at: Optional[str]
+    revoked_at: Optional[str]
+
+
 class SheetCalculation(TypedDict):
     id: str
     key: str
@@ -3244,6 +3284,10 @@ class DeleteWebhookSubscriptionParams(TypedDict):
     p_subscription_id: str
 
 
+class DirectorySyncStatusParams(TypedDict):
+    p_workspace_id: str
+
+
 class DissolveExperimentSeriesParams(TypedDict):
     p_record_id: str
 
@@ -3738,6 +3782,10 @@ class RestoreSheetInstanceParams(TypedDict):
 
 class RetentionDueParams(TypedDict, total=False):
     p_kind: str
+
+
+class RevokeScimTokenParams(TypedDict):
+    p_id: str
 
 
 class _RotateWebhookSecretParamsRequired(TypedDict):

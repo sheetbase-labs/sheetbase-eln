@@ -1,5 +1,5 @@
 /**
- * Trusted timestamps and the export signing key (migration 0104).
+ * Trusted timestamps and the export signing key (migration 0107).
  *
  * Proves, against a freshly migrated database:
  *  - an audit manager turns timestamps on, picks an authority and nobody else can;

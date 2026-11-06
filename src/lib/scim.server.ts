@@ -2,7 +2,7 @@
  * The SCIM 2.0 endpoint (`/api/scim/v2`): an identity provider creates,
  * changes and switches off people, and keeps groups, with a per-workspace
  * bearer token made in Settings. The rules live in the database
- * (`internal.scim_*`, migration 0105); this file speaks the protocol.
+ * (`internal.scim_*`, migration 0106); this file speaks the protocol.
  */
 import { createHash } from 'node:crypto'
 

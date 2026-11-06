@@ -46,6 +46,7 @@ from sheetbase._generated.models import (
     RecurringSchedulesRow,
     SampleWorkflowRunsRow,
     SavedSearchesRow,
+    ScimTokensRow,
     SheetCalculationChange,
     SheetCalculationResultsPage,
     SheetDefinitionUpgradeApplyResult,
@@ -131,6 +132,7 @@ class Rpc:
         "delete_saved_search",
         "delete_scheduled_report",
         "delete_webhook_subscription",
+        "directory_sync_status",
         "dissolve_experiment_series",
         "duplicate_sheet_instance",
         "duplicate_sheet_instance_block",
@@ -200,6 +202,7 @@ class Rpc:
         "restore_record",
         "restore_sheet_instance",
         "retention_due",
+        "revoke_scim_token",
         "rotate_webhook_secret",
         "run_saved_search",
         "save_plate_run_analysis",
@@ -1409,6 +1412,20 @@ class Rpc:
         body["p_workspace_id"] = workspace_id
         body["p_subscription_id"] = subscription_id
         return self._call("delete_webhook_subscription", body)  # type: ignore[no-any-return]
+
+    def directory_sync_status(self, *, workspace_id: str) -> Dict[str, Any]:
+        """
+        Directory sync status
+
+        Needs members access. Whether an identity provider keeps people and groups in step through SCIM: live tokens, when it last called, people and groups it manages, and how many of those groups give a role.
+
+        Scopes: people:read.
+
+        ``POST /api/db/rpc/directory_sync_status``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return self._call("directory_sync_status", body)  # type: ignore[no-any-return]
 
     def dissolve_experiment_series(self, *, record_id: str) -> Dict[str, "JsonValue"]:
         """
@@ -2955,6 +2972,20 @@ class Rpc:
             body["p_kind"] = kind
         return self._call("retention_due", body)  # type: ignore[no-any-return]
 
+    def revoke_scim_token(self, *, id: str) -> Union["ScimTokensRow", List["ScimTokensRow"]]:
+        """
+        Revoke a directory sync token
+
+        Needs members access. The identity provider that held the token can no longer call the SCIM endpoint. People it already created stay as they are. Making a token is done at the settings page, where the secret is shown once.
+
+        Scopes: people:write.
+
+        ``POST /api/db/rpc/revoke_scim_token``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return self._call("revoke_scim_token", body)  # type: ignore[no-any-return]
+
     def rotate_webhook_secret(
         self,
         *,
@@ -4131,6 +4162,7 @@ class AsyncRpc:
         "delete_saved_search",
         "delete_scheduled_report",
         "delete_webhook_subscription",
+        "directory_sync_status",
         "dissolve_experiment_series",
         "duplicate_sheet_instance",
         "duplicate_sheet_instance_block",
@@ -4200,6 +4232,7 @@ class AsyncRpc:
         "restore_record",
         "restore_sheet_instance",
         "retention_due",
+        "revoke_scim_token",
         "rotate_webhook_secret",
         "run_saved_search",
         "save_plate_run_analysis",
@@ -5409,6 +5442,20 @@ class AsyncRpc:
         body["p_workspace_id"] = workspace_id
         body["p_subscription_id"] = subscription_id
         return await self._call("delete_webhook_subscription", body)  # type: ignore[no-any-return]
+
+    async def directory_sync_status(self, *, workspace_id: str) -> Dict[str, Any]:
+        """
+        Directory sync status
+
+        Needs members access. Whether an identity provider keeps people and groups in step through SCIM: live tokens, when it last called, people and groups it manages, and how many of those groups give a role.
+
+        Scopes: people:read.
+
+        ``POST /api/db/rpc/directory_sync_status``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return await self._call("directory_sync_status", body)  # type: ignore[no-any-return]
 
     async def dissolve_experiment_series(self, *, record_id: str) -> Dict[str, "JsonValue"]:
         """
@@ -6954,6 +7001,20 @@ class AsyncRpc:
         if not isinstance(kind, Unset):
             body["p_kind"] = kind
         return await self._call("retention_due", body)  # type: ignore[no-any-return]
+
+    async def revoke_scim_token(self, *, id: str) -> Union["ScimTokensRow", List["ScimTokensRow"]]:
+        """
+        Revoke a directory sync token
+
+        Needs members access. The identity provider that held the token can no longer call the SCIM endpoint. People it already created stay as they are. Making a token is done at the settings page, where the secret is shown once.
+
+        Scopes: people:write.
+
+        ``POST /api/db/rpc/revoke_scim_token``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return await self._call("revoke_scim_token", body)  # type: ignore[no-any-return]
 
     async def rotate_webhook_secret(
         self,

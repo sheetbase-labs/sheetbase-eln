@@ -1850,7 +1850,7 @@ export const signatures = api.table(
 
 /**
  * signature_timestamps hold the RFC 3161 timestamp token a time-stamping
- * authority issued for a signature (migration 0104). Only the server writes
+ * authority issued for a signature (migration 0107). Only the server writes
  * them, through internal.record_signature_timestamp; request roles can read.
  */
 export const signatureTimestamps = api.table(
@@ -1903,7 +1903,7 @@ export const signatureTimestamps = api.table(
 
 /**
  * validation_runs are the evidence of each installation and operation check run
- * on a regulated-lab install (migration 0106). Written only through
+ * on a regulated-lab install (migration 0108). Written only through
  * internal.record_validation_run and never changed or deleted afterwards.
  */
 export const validationRuns = api.table(
@@ -10887,7 +10887,7 @@ export const idpGroupMappings = api.table(
 )
 
 /**
- * Directory sync (SCIM, migration 0105): the tokens an identity provider
+ * Directory sync (SCIM, migration 0106): the tokens an identity provider
  * calls with. The secret itself is kept only as a hash, in `internal`.
  */
 export const scimTokens = api.table('scim_tokens', {

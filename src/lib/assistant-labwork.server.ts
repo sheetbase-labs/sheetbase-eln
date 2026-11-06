@@ -1,5 +1,7 @@
 import {
   BOOKING_RULES_SET_TOOL,
+  COMPOUND_LOT_TOOL,
+  COMPOUND_REGISTER_TOOL,
   LAB_LOGO_TOOL,
   LABWORK_PROPOSE_TOOL_NAMES,
   LEGAL_HOLD_CREATE_TOOL,
@@ -22,6 +24,8 @@ import {
   WORKFLOW_ENROL_TOOL,
   WORKFLOW_LEAVE_TOOL,
   proposeBookingRulesSetSchema,
+  proposeCompoundLotSchema,
+  proposeCompoundRegisterSchema,
   proposeLabLogoSchema,
   proposeLegalHoldCreateSchema,
   proposeLegalHoldReleaseSchema,
@@ -70,6 +74,8 @@ import {
 } from './booking-rules'
 import { WATCHER_SCHEDULE_LABEL, watcherMeta } from './lab-watchers'
 import type { DataClient } from './data-client'
+import { loadOcl } from './chemistry-draw'
+import { describeStructure, findStructureDuplicates } from './compound-registry'
 import { fetchModelFields } from './model-fields'
 import { keepTimeLabel, limitsProblem } from './result-quality'
 import type { DueRecord } from './result-quality'
@@ -138,6 +144,16 @@ export function labworkProposalDefs(): ProviderToolDef[] {
       REGISTRY_ADD_TOOL,
       `Propose adding an entry to a registry (cell lines, constructs, antibodies and so on), filled in only from what the person said. Duplicates are refused. ${NOTE}`,
       proposeRegistryAddSchema,
+    ),
+    toolDef(
+      COMPOUND_REGISTER_TOOL,
+      `Propose registering a compound by its structure (a SMILES line) in a registry that takes structures. Salts and solvents are set aside when checking for repeats; a repeat is refused. ${NOTE}`,
+      proposeCompoundRegisterSchema,
+    ),
+    toolDef(
+      COMPOUND_LOT_TOOL,
+      `Propose adding a lot (a batch) to a compound that is already registered. ${NOTE}`,
+      proposeCompoundLotSchema,
     ),
     toolDef(
       WORKFLOW_ENROL_TOOL,
@@ -635,6 +651,18 @@ export async function buildLabworkProposal(
         'is_registry=eq.true&',
       )
       if (!registry.ok) return fail(registry.message)
+      const takesStructures = await client.list<{
+        key: string
+        registry_structure_field: string | null
+      }>(
+        'record_models',
+        `?key=eq.${encodeURIComponent(registry.value.key)}&select=key,registry_structure_field`,
+      )
+      if (takesStructures.some((row) => row.registry_structure_field)) {
+        return fail(
+          `${registry.value.name} registers compounds by structure. Use ${COMPOUND_REGISTER_TOOL} with a SMILES line instead.`,
+        )
+      }
       const project = await findProject(client, input.project)
       if (!project.ok) return fail(project.message)
       const defs = await fetchModelFields(client, registry.value.key)
@@ -687,6 +715,174 @@ export async function buildLabworkProposal(
           projectId: project.value.id,
           recordKind: registry.value.key,
           title: input.name.trim(),
+          customFields,
+        },
+      })
+    }
+
+    case COMPOUND_REGISTER_TOOL: {
+      const parsed = parse(proposeCompoundRegisterSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const registry = await findModel(
+        client,
+        input.registry,
+        'is_registry=eq.true&registry_structure_field=not.is.null&',
+      )
+      if (!registry.ok) return fail(registry.message)
+      const project = await findProject(client, input.project)
+      if (!project.ok) return fail(project.message)
+      const described = describeStructure(await loadOcl(), input.structure)
+      if (!described) {
+        return fail(
+          'That could not be read as a structure. Ask for a SMILES line, or tell the person to draw it in the registry.',
+        )
+      }
+      const defs = await fetchModelFields(client, registry.value.key)
+      const customFields: Record<string, unknown> = {}
+      const changes: ProposalChange[] = [
+        { label: 'Name', before: null, after: input.name.trim() },
+        { label: 'Project', before: null, after: project.value.title },
+        { label: 'Formula', before: null, after: described.formula },
+        { label: 'Mass', before: null, after: `${described.mass} g/mol` },
+      ]
+      if (described.salts.length > 0) {
+        changes.push({
+          label: 'Set aside',
+          before: null,
+          after: described.salts.join(', '),
+        })
+      }
+      for (const [wanted, value] of Object.entries(input.fields ?? {})) {
+        const lower = wanted.trim().toLowerCase()
+        const def = defs.find(
+          (field) =>
+            field.lifecycle === 'active' &&
+            (field.fieldName.toLowerCase() === lower ||
+              field.label.toLowerCase() === lower),
+        )
+        if (!def) {
+          return fail(
+            `${registry.value.name} has no field "${wanted}". Its fields are: ${defs
+              .filter((field) => field.lifecycle === 'active')
+              .map((field) => field.label)
+              .join(', ')}.`,
+          )
+        }
+        customFields[def.fieldName] = value
+        changes.push({ label: def.label, before: null, after: String(value) })
+      }
+      const twins = await findStructureDuplicates(client, {
+        kind: registry.value.key,
+        descriptor: described,
+      })
+      if (twins.length > 0) {
+        const list = twins
+          .slice(0, 4)
+          .map((row) => `${row.identifier} · ${row.title}`)
+          .join(', ')
+        return fail(
+          twins.some((row) => row.sameForm)
+            ? `${registry.value.name} already has this structure: ${list}. Ask whether they meant that entry.`
+            : `${registry.value.name} already has this compound as a different salt or form: ${list}. Ask whether to add it as a lot with ${COMPOUND_LOT_TOOL}.`,
+        )
+      }
+      return card(name, input, {
+        target: registry.value.name,
+        deepLink: '/registry',
+        changes,
+        action: {
+          kind: 'compound.register',
+          projectId: project.value.id,
+          recordKind: registry.value.key,
+          title: input.name.trim(),
+          customFields,
+          structure: described,
+        },
+      })
+    }
+
+    case COMPOUND_LOT_TOOL: {
+      const parsed = parse(proposeCompoundLotSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const models = await client.list<{
+        key: string
+        name: string
+        registry_lot_kind: string | null
+      }>(
+        'record_models',
+        '?is_registry=eq.true&registry_structure_field=not.is.null&select=key,name,registry_lot_kind',
+      )
+      if (models.length === 0) {
+        return fail(
+          'No registry takes structures yet, so there are no compounds.',
+        )
+      }
+      const like = likeValue(input.compound)
+      const kinds = models.map((m) => m.key).join(',')
+      const rows = await client.list<{
+        id: string
+        identifier: string
+        title: string
+        kind: string
+      }>(
+        'records',
+        `?kind=in.(${kinds})&deleted_at=is.null&archived_at=is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title,kind&order=identifier.asc&limit=6`,
+      )
+      const lower = input.compound.trim().toLowerCase()
+      const compound = pick(
+        rows,
+        input.compound,
+        'compound',
+        (row) => `${row.identifier} · ${row.title}`,
+        (row) =>
+          row.identifier.toLowerCase() === lower ||
+          row.title.toLowerCase() === lower,
+      )
+      if (!compound.ok) return fail(compound.message)
+      const model = models.find((m) => m.key === compound.value.kind)
+      if (!model?.registry_lot_kind) {
+        return fail(
+          `${model?.name ?? 'That registry'} does not take lots. Tell the person to choose a lot model in the registry’s settings.`,
+        )
+      }
+      const defs = await fetchModelFields(client, model.registry_lot_kind)
+      const customFields: Record<string, unknown> = {}
+      const label = `${compound.value.identifier} · ${compound.value.title}`
+      const lotName = input.name?.trim() || `${compound.value.identifier} lot`
+      const changes: ProposalChange[] = [
+        { label: 'Compound', before: null, after: label },
+        { label: 'Lot', before: null, after: lotName },
+      ]
+      for (const [wanted, value] of Object.entries(input.fields ?? {})) {
+        const lowerField = wanted.trim().toLowerCase()
+        const def = defs.find(
+          (field) =>
+            field.lifecycle === 'active' &&
+            (field.fieldName.toLowerCase() === lowerField ||
+              field.label.toLowerCase() === lowerField),
+        )
+        if (!def) {
+          return fail(
+            `A lot has no field "${wanted}". Its fields are: ${defs
+              .filter((field) => field.lifecycle === 'active')
+              .map((field) => field.label)
+              .join(', ')}.`,
+          )
+        }
+        customFields[def.fieldName] = value
+        changes.push({ label: def.label, before: null, after: String(value) })
+      }
+      return card(name, input, {
+        target: label,
+        deepLink: `/records/${compound.value.id}`,
+        changes,
+        action: {
+          kind: 'compound.lot',
+          compoundId: compound.value.id,
+          compound: compound.value.identifier,
+          title: lotName,
           customFields,
         },
       })

@@ -95,6 +95,9 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
   create_request_model: 'Authors a record model; people only.',
   create_starter_model: 'Authors a record model; people only.',
   set_model_registry: 'Changes what a record model is; people only.',
+  set_model_chemistry: 'Changes what a record model is; people only.',
+  index_record_structure:
+    'Internal re-index run by the app after it reads a drawing; token callers use set_record_structure.',
   set_model_incident_log: 'Changes what a record model is; people only.',
   set_request_form:
     'Decides which models accept requests and who handles them; admin setting.',

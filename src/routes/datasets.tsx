@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ObjectLink } from '#/components/ui/object-link'
 import {
   Link,
   Outlet,
@@ -164,7 +165,13 @@ function DatasetsList() {
         header: 'ID',
         accessorFn: (d) => d.id,
         enableHiding: false,
-        cell: ({ row }) => <span className="mono">{row.original.id}</span>,
+        cell: ({ row }) => (
+          <ObjectLink
+            kind="dataset"
+            id={row.original.uuid}
+            identifier={row.original.id}
+          />
+        ),
       },
       {
         id: 'name',
@@ -189,9 +196,15 @@ function DatasetsList() {
         id: 'experiment',
         header: t('data.datasetsList.experiment'),
         accessorFn: (d) => d.experimentId ?? undefined,
-        cell: ({ row }) => (
-          <span className="mono">{row.original.experimentId ?? '—'}</span>
-        ),
+        cell: ({ row }) =>
+          row.original.experimentId ? (
+            <ObjectLink
+              kind="experiment"
+              identifier={row.original.experimentId}
+            />
+          ) : (
+            <span className="mono">—</span>
+          ),
       },
       {
         id: 'rows',

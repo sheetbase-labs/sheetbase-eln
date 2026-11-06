@@ -1,4 +1,5 @@
 import { rich, t } from '#/copy'
+import { ObjectLink } from '#/components/ui/object-link'
 import { useReportFrozen } from '#/components/workspace/workspace-navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
@@ -3840,7 +3841,9 @@ export function NotebookInspector({
             </Property>
             {projectName ? (
               <Property label={t('notebook.notebookPage.projectLabel')}>
-                {projectName}
+                <ObjectLink kind="project" id={record.projectId} mono={false}>
+                  {projectName}
+                </ObjectLink>
               </Property>
             ) : null}
             <Property label={t('notebook.notebookPage.createdLabel')}>

@@ -12,6 +12,7 @@ import {
   DialogHeader,
 } from '#/components/ui/dialog'
 import { Input } from '#/components/ui/input'
+import { ObjectLink } from '#/components/ui/object-link'
 import { Status } from '#/components/ui/status'
 import { Textarea } from '#/components/inventory/list'
 import { toast } from '#/components/ui/sonner'
@@ -31,6 +32,9 @@ import { t } from '#/copy'
  * edited in place; an evidence section shows the block it froze and whether
  * its source still matches. A locked report shows both without controls.
  */
+/** Stands in for the record's identifier while the sentence is split around it. */
+const SOURCE_MARK = '\u0001'
+
 export function SectionCard({
   section,
   index,
@@ -166,9 +170,22 @@ export function SectionCard({
             {ref.recordIdentifier ? (
               <p className="text-label text-fg-muted">
                 {t('projects.reports.section.from', {
-                  record: ref.recordIdentifier,
+                  record: SOURCE_MARK,
                   version: ref.revisionVersion ?? 1,
-                })}
+                })
+                  .split(SOURCE_MARK)
+                  .flatMap((part, partIndex) =>
+                    partIndex === 0
+                      ? [part]
+                      : [
+                          <ObjectLink
+                            key="source"
+                            kind="experiment"
+                            identifier={ref.recordIdentifier}
+                          />,
+                          part,
+                        ],
+                  )}
               </p>
             ) : null}
             {frozen ? (

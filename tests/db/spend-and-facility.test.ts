@@ -13,11 +13,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import {
-  grantProjectAccess,
-  prepareTestDatabase,
-  setActorJwt,
-} from './helpers'
+import { grantProjectAccess, prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS = '00000000-0000-4000-8000-0000000090a0'
 const PROJ = '00000000-0000-4000-8000-0000000090a1'
@@ -29,7 +25,9 @@ const OUTSIDER = 'sf-outsider'
 
 /** The call is refused for lack of standing. */
 function denied(promise: Promise<unknown>): Promise<void> {
-  return expect(promise).rejects.toMatchObject({ code: '42501' }) as unknown as Promise<void>
+  return expect(promise).rejects.toMatchObject({
+    code: '42501',
+  }) as unknown as Promise<void>
 }
 
 let migrator: Client
@@ -117,7 +115,9 @@ describe('suppliers and prices', () => {
       `SELECT api.create_supplier_model('supplier','Supplier','SUP','Who we buy from',$1::jsonb)`,
       [SUPPLIER_FIELDS],
     )
-    const lists = await member.query(`SELECT model_key FROM api.supplier_models`)
+    const lists = await member.query(
+      `SELECT model_key FROM api.supplier_models`,
+    )
     expect(lists.rows.map((r) => r.model_key)).toEqual(['supplier'])
 
     const supplier = (
@@ -165,7 +165,10 @@ describe('suppliers and prices', () => {
       `SELECT total_price, currency FROM api.reagent_order_prices WHERE order_id = $1`,
       [order.id],
     )
-    expect(price.rows[0]).toMatchObject({ total_price: '120.50', currency: 'GBP' })
+    expect(price.rows[0]).toMatchObject({
+      total_price: '120.50',
+      currency: 'GBP',
+    })
     const seenByMember = await member.query(
       `SELECT 1 FROM api.reagent_order_prices WHERE order_id = $1`,
       [order.id],

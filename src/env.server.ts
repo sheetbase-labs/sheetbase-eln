@@ -123,10 +123,9 @@ export const env = createEnv({
         z.enum(['true', 'false']).transform((v) => v === 'true'),
       ])
       .default(false),
-    // COLLAB: Liveblocks collaboration substrate. Optional so local/CI runs
-    // without a Liveblocks account keep working; the collaboration layer
-    // reports `disabled` until this is set. Server-only secret.
-    LIVEBLOCKS_SECRET_KEY: z.string().min(1).optional(),
+    // COLLAB: live co-editing ships with Sheetbase and is on by default.
+    // Set to `off` on a host that cannot keep WebSocket connections open.
+    SHEETBASE_COLLABORATION: z.enum(['on', 'off']).default('on'),
     // PLAT-02 metrics endpoint bearer token. Optional in development/test;
     // the metrics endpoint fails closed in staging/production when absent.
     SHEETBASE_METRICS_TOKEN: z.string().min(32).optional(),

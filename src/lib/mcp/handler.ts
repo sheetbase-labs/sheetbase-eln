@@ -339,6 +339,13 @@ function readToolArgs(
         p_limit: data.limit ?? 50,
         p_offset: data.offset ?? 0,
       }
+    case 'sheetbase.spend.report':
+    case 'sheetbase.usage.report':
+      return {
+        p_workspace_id: data.workspaceId,
+        p_from: data.from,
+        p_to: data.to,
+      }
     case 'sheetbase.search':
       return {
         p_query: data.query,

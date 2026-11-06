@@ -139,6 +139,21 @@ are also pipeline trigger events (they sit in the `record` family, like `record.
 Booking rules, calendar feeds, step timers, solution preparation and display
 settings are personal or configuration changes and are not events.
 
+### Orders, prices, rates and scheduled reports (`stable`, webhook and SSE)
+
+| Event                                                 | Produced by                                                                    |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `order.requested`                                     | `reagent_order` + `create`                                                     |
+| `order.placed` / `order.received` / `order.cancelled` | `reagent_order` + `update`, by the new `status` (only when the status changes) |
+| `order.priced` / `order.price_removed`                | `reagent_order_price` + `update` / `delete`                                    |
+| `instrument.rate_set` / `instrument.rate_removed`     | `instrument_rate` + `update` / `delete`                                        |
+| `report.schedule.created` / `.updated` / `.deleted`   | `scheduled_report` + `create` / `update` / `delete`                            |
+
+Price and rate events carry the order or instrument id and the currency, never
+the amount: the amount is read with the calls in
+[`spend-and-usage-api.md`](spend-and-usage-api.md), which needs the right to
+see it. A schedule's own bookkeeping (next run, last result) does not emit.
+
 ### Pipeline (`provisional`, SSE only)
 
 `pipeline.created` / `pipeline.updated` / `pipeline.deleted`

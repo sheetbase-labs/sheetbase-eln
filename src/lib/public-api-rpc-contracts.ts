@@ -1922,6 +1922,225 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
     },
     result: pgrstRow(pipelineVersionRow, 'New draft version.'),
   },
+  report_spend_lines: {
+    summary: 'Spend on orders for a period',
+    description:
+      'One row per reagent order placed in the half-open period `[p_from, p_to)`: material, supplier, project, quantity, when it was ordered, and its price and currency. Runs with the caller’s rights, so a caller who may not see prices gets no price. Totals are per currency; there are no exchange rates. Needs a personal token.',
+    required: ['p_workspace_id', 'p_from', 'p_to'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID; must match the token.'),
+      p_from: { ...TIMESTAMPTZ, description: 'Start of the period, included.' },
+      p_to: { ...TIMESTAMPTZ, description: 'End of the period, not included.' },
+    },
+    result: {
+      type: 'array',
+      items: jsonMap('One order placed in the period.'),
+    },
+  },
+  report_usage_lines: {
+    summary: 'Instrument bookings for a period',
+    description:
+      'One row per booking in the half-open period, with hours clipped to the period (cancelled bookings are left out) and the instrument’s rate and currency. Utilisation is booked hours over open hours: the weekdays in the period times the hours an instrument is open on a weekday. Needs a personal token.',
+    required: ['p_workspace_id', 'p_from', 'p_to'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID; must match the token.'),
+      p_from: { ...TIMESTAMPTZ, description: 'Start of the period, included.' },
+      p_to: { ...TIMESTAMPTZ, description: 'End of the period, not included.' },
+    },
+    result: { type: 'array', items: jsonMap('One booking in the period.') },
+  },
+  report_project_status: {
+    summary: 'Experiments by state for a period',
+    description:
+      'One row per project: experiments by state, what is late, what finished in the period, and orders still open. Needs a personal token.',
+    required: ['p_workspace_id', 'p_from', 'p_to'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID; must match the token.'),
+      p_project_id: {
+        ...uuid('Limit to one project. Omit for all.'),
+        nullable: true,
+      },
+      p_from: { ...TIMESTAMPTZ, description: 'Start of the period, included.' },
+      p_to: { ...TIMESTAMPTZ, description: 'End of the period, not included.' },
+    },
+    result: { type: 'array', items: jsonMap('One project’s status.') },
+  },
+  set_model_supplier_list: {
+    summary: 'Tick or untick a model as the supplier list',
+    description:
+      'Marks the records of a model as the companies the lab buys from, so an order can name one as its supplier. Needs permission to edit the schema and a personal token.',
+    required: ['p_model_key', 'p_enabled'],
+    properties: {
+      p_model_key: text('Model key.'),
+      p_enabled: bool('True to use the model as a supplier list.'),
+    },
+    result: { type: 'null', nullable: true, description: 'No content.' },
+  },
+  create_supplier_model: {
+    summary: 'Create the ready-made Supplier model',
+    description:
+      'Creates a record model for suppliers with the fields given and ticks it as a supplier list. Needs permission to edit the schema and a personal token.',
+    required: ['p_key', 'p_name', 'p_prefix', 'p_description', 'p_fields'],
+    properties: {
+      p_key: text('Model key, lower case.'),
+      p_name: text('Model name.'),
+      p_prefix: text('Identifier prefix, such as SUP.'),
+      p_description: text('What the model is for.'),
+      p_fields: {
+        type: 'array',
+        items: jsonMap('A field: `field_name`, `label`, `show_in_list`.'),
+      },
+    },
+    result: jsonMap('The created record model.'),
+  },
+  mark_reagent_ordered: {
+    summary: 'Mark a reagent order as placed',
+    description:
+      'Moves a requested order to ordered, with the supplier, reference, expected date, price and currency. `p_supplier_record_id` must be a record of a model ticked as a supplier list; its title becomes the supplier. Needs permission to place orders and a personal token.',
+    required: ['p_order_id'],
+    properties: {
+      p_order_id: uuid('Order UUID.'),
+      p_order_reference: {
+        ...text('Purchase order or reference.'),
+        nullable: true,
+      },
+      p_expected_on: {
+        type: 'string',
+        format: 'date',
+        nullable: true,
+        description: 'Expected arrival, YYYY-MM-DD.',
+      },
+      p_supplier: {
+        ...text('Supplier name, when not from the list.'),
+        nullable: true,
+      },
+      p_supplier_record_id: {
+        ...uuid('A record from the supplier list.'),
+        nullable: true,
+      },
+      p_total_price: {
+        type: 'number',
+        nullable: true,
+        description: 'What the whole order cost.',
+      },
+      p_currency: {
+        ...text('Three-letter currency code, needed with a price.'),
+        nullable: true,
+      },
+    },
+    result: jsonMap('The updated order.'),
+  },
+  set_reagent_order_price: {
+    summary: 'Set or remove the price of an order',
+    description:
+      'Records what a reagent order cost. A null price removes it. Needs permission to place orders and a personal token.',
+    required: ['p_order_id', 'p_total_price'],
+    properties: {
+      p_order_id: uuid('Order UUID.'),
+      p_total_price: {
+        type: 'number',
+        nullable: true,
+        description: 'Price, zero or more; null removes it.',
+      },
+      p_currency: { ...text('Three-letter currency code.'), nullable: true },
+    },
+    result: { type: 'null', nullable: true, description: 'No content.' },
+  },
+  set_instrument_rate: {
+    summary: 'Set or remove an instrument’s recharge rate',
+    description:
+      'What each booked hour is charged to the person or project that books it. A null rate stops charging. Needs permission to manage instruments and a personal token.',
+    required: ['p_instrument_id', 'p_rate_per_hour'],
+    properties: {
+      p_instrument_id: uuid('Instrument UUID.'),
+      p_rate_per_hour: {
+        type: 'number',
+        nullable: true,
+        description: 'Rate, zero or more; null removes it.',
+      },
+      p_currency: { ...text('Three-letter currency code.'), nullable: true },
+    },
+    result: { type: 'null', nullable: true, description: 'No content.' },
+  },
+  save_scheduled_report: {
+    summary: 'Schedule a report, or change a schedule',
+    description:
+      'Emails a report on a rhythm with the detail attached as CSV. Pass an existing `p_id` to change a schedule. Recipients must be members of the workspace and are checked again at send time. Needs permission to edit the schema, or to manage instruments for the usage report, and a personal token.',
+    required: [
+      'p_name',
+      'p_kind',
+      'p_period',
+      'p_frequency',
+      'p_recipient_user_ids',
+    ],
+    properties: {
+      p_id: {
+        ...uuid('Existing schedule to change. Omit to create.'),
+        nullable: true,
+      },
+      p_name: text('Name, up to 120 characters.'),
+      p_kind: {
+        type: 'string',
+        enum: ['instrument_usage', 'spend', 'project_status'],
+      },
+      p_project_id: { ...uuid('Limit to one project.'), nullable: true },
+      p_period: {
+        type: 'string',
+        enum: [
+          'previous_week',
+          'previous_month',
+          'last_7_days',
+          'last_30_days',
+        ],
+      },
+      p_open_hours: {
+        type: 'number',
+        description: 'Open hours a weekday, for utilisation.',
+        default: 10,
+      },
+      p_frequency: { type: 'string', enum: ['daily', 'weekly', 'monthly'] },
+      p_weekday: int('0 is Sunday.', { minimum: 0, maximum: 6, default: 1 }),
+      p_month_day: int('1 to 28.', { minimum: 1, maximum: 28, default: 1 }),
+      p_send_hour: int('0 to 23, in `p_time_zone`.', {
+        minimum: 0,
+        maximum: 23,
+        default: 8,
+      }),
+      p_time_zone: text('IANA time zone.', { default: 'UTC' }),
+      p_recipient_user_ids: {
+        ...TEXT_ARRAY,
+        description: 'User ids of workspace members.',
+      },
+      p_active: bool('False to pause.'),
+    },
+    result: jsonMap('The saved schedule.'),
+  },
+  set_scheduled_report_active: {
+    summary: 'Pause or resume a scheduled report',
+    description:
+      'Needs the same permission as scheduling it, and a personal token.',
+    required: ['p_id', 'p_active'],
+    properties: {
+      p_id: uuid('Schedule UUID.'),
+      p_active: bool('False to pause.'),
+    },
+    result: { type: 'null', nullable: true, description: 'No content.' },
+  },
+  delete_scheduled_report: {
+    summary: 'Delete a scheduled report',
+    description: 'Nothing already sent is taken back. Needs a personal token.',
+    required: ['p_id'],
+    properties: { p_id: uuid('Schedule UUID.') },
+    result: { type: 'null', nullable: true, description: 'No content.' },
+  },
+  send_scheduled_report_now: {
+    summary: 'Send a scheduled report now',
+    description:
+      'Queues the report; it is sent within a minute. Needs a personal token.',
+    required: ['p_id'],
+    properties: { p_id: uuid('Schedule UUID.') },
+    result: { type: 'null', nullable: true, description: 'No content.' },
+  },
   update_pipeline_definition_version_draft: {
     summary: 'Replace the configuration of a draft pipeline version',
     description:

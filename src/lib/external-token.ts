@@ -184,6 +184,13 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   // The lab: reagent orders, stocktakes, shipments, requests, workflows,
   // holds, instrument feeds and the rest (lab-api-surface.ts).
   ...LAB_TABLE_ACCESS,
+  // Spend and instrument use. Prices and scheduled reports are only ever
+  // returned to a person who may see them (row security), so a service
+  // credential reads the supplier list and the rates and nothing else.
+  supplier_models: { read: 'facility:read' },
+  instrument_rates: { read: 'facility:read' },
+  reagent_order_prices: { read: 'facility:read' },
+  scheduled_reports: { read: 'facility:read' },
 }
 
 /**
@@ -278,6 +285,21 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
   advance_agent_workflow: ['agent_operations:write'],
   report_agent_workflow_usage: ['agent_operations:write'],
   cancel_agent_workflow: ['agent_operations:write'],
+
+  // Spend and instrument use. These act as a person (an order is placed, a
+  // rate set), so they need a personal token and the person's own permission.
+  report_spend_lines: ['facility:read'],
+  report_usage_lines: ['facility:read'],
+  report_project_status: ['facility:read'],
+  set_model_supplier_list: ['facility:write'],
+  create_supplier_model: ['facility:write'],
+  mark_reagent_ordered: ['facility:write'],
+  set_reagent_order_price: ['facility:write'],
+  set_instrument_rate: ['facility:write'],
+  save_scheduled_report: ['facility:write'],
+  set_scheduled_report_active: ['facility:write'],
+  delete_scheduled_report: ['facility:write'],
+  send_scheduled_report_now: ['facility:write'],
 
   // Draft authoring only. A draft is the author's working copy; publishing a
   // version and starting a run remain human actions in the product.

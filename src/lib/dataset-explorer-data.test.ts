@@ -216,6 +216,27 @@ describe('canonical Dataset Explorer reads', () => {
     })
   })
 
+  it('keeps every lookup query short enough for the proxy when there are many datasets', async () => {
+    const queries: string[] = []
+    const client = {
+      list: async (name: string, query = '') => {
+        queries.push(query)
+        if (name === 'datasets')
+          return Array.from({ length: 40 }, (_, i) => ({
+            id: `d${i}`,
+            name: `Dataset ${i}`,
+            schema_version_id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+          }))
+        return []
+      },
+    } as unknown as DataClient
+    await fetchDatasetSummaries(client)
+    expect(queries.length).toBeGreaterThan(4)
+    for (const q of queries)
+      for (const [, value] of new URLSearchParams(q.slice(1)))
+        expect(value.length).toBeLessThanOrEqual(500)
+  })
+
   it('pages, filters and sorts only through query_dataset_rows', async () => {
     let call: { name: string; args: Record<string, unknown> } | undefined
     const client = {

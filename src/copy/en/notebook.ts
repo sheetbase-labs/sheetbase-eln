@@ -180,6 +180,16 @@ export const notebook = {
         applying: 'Cancelling…',
         applied: 'Cancelled',
       },
+      analysePlate: {
+        apply: 'Analyse plate',
+        applying: 'Analysing…',
+        applied: 'Analysed',
+      },
+      createWorklist: {
+        apply: 'Make worklist',
+        applying: 'Making…',
+        applied: 'Made',
+      },
       cancelShipment: {
         apply: 'Cancel shipment',
         applying: 'Cancelling…',

@@ -49,6 +49,32 @@ export interface LabRpc {
 }
 
 export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
+  p_name: 'Name.',
+  p_format:
+    'Plate format, such as `96_well` or `384_well`; or a worklist file format.',
+  p_wells:
+    'JSON array of `{ wellCode, role, sampleId, sampleLabel, concentration, concentrationUnit, volumeUl }`.',
+  p_readout: 'JSON object of well to reading, such as `{ "A1": 1204.5 }`.',
+  p_config:
+    'JSON analysis settings: normalisation, hit rule, QC limits and curve model.',
+  p_design_id: 'Plate design the layout came from.',
+  p_analysis: 'JSON analysis, as computed from the stored layout and readout.',
+  p_plate_run_id: 'Plate run id.',
+  p_qc_status: '`pass`, `warn`, `fail` or `not_checked`.',
+  p_mode: '`stamp` (well to well) or `cherry_pick`.',
+  p_source_plate: 'Name or barcode of the source plate.',
+  p_source_format: 'Source plate format.',
+  p_dest_plate: 'Name or barcode of the destination plate.',
+  p_dest_format: 'Destination plate format.',
+  p_transfers:
+    'JSON array of `{ sourceWell, destWell, volumeUl, label, sampleId }`.',
+  p_options: 'JSON options used to build the worklist.',
+  p_worklist_id: 'Worklist id.',
+  p_reconciled:
+    'JSON array of the planned transfers each with `status` and `movedUl`.',
+  p_purpose_record_id: 'The experiment the samples were used for.',
+  p_record_withdrawals:
+    'Withdraw what moved from the source samples (default true).',
   p_order_id: 'Reagent order id.',
   p_reason: 'Why, in a sentence.',
   p_note: 'A note.',
@@ -162,7 +188,6 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_upper: 'Upper specification limit.',
   p_alert_lower: 'Lower alert limit.',
   p_alert_upper: 'Upper alert limit.',
-  p_name: 'Name.',
   p_record_ids: 'Record ids.',
   p_hold_id: 'Legal hold id.',
   p_object_kind:
@@ -734,6 +759,62 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['user_id', 'text', 1],
       ['project_id', 'uuid', 1],
       ['created_at', 'ts', 1],
+    ],
+  },
+  plate_runs: {
+    summary:
+      'Plate runs: one plate read on an instrument, with its layout, readout, analysis settings and the last analysis (normalised values, Z-prime, hits and curves).',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['number', 'int', 1],
+      ['name', 'text', 1],
+      ['project_id', 'uuid', 0],
+      ['record_id', 'uuid', 0],
+      ['design_id', 'uuid', 0],
+      ['format', 'text', 1],
+      ['rows', 'int', 1],
+      ['cols', 'int', 1],
+      ['wells', 'json', 1],
+      ['readout', 'json', 1],
+      ['config', 'json', 1],
+      ['results', 'json', 0],
+      ['qc_status', 'text', 0],
+      ['status', 'text', 1],
+      ['analysed_at', 'ts', 0],
+      ['analysed_by', 'text', 0],
+      ['metadata_version', 'int', 1],
+      ['created_by', 'text', 1],
+      ['created_at', 'ts', 1],
+      ['updated_at', 'ts', 1],
+    ],
+  },
+  plate_worklists: {
+    summary:
+      'Liquid handler worklists: the transfers from a source plate to a destination plate, and what the robot log said was moved.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['number', 'int', 1],
+      ['name', 'text', 1],
+      ['run_id', 'uuid', 0],
+      ['record_id', 'uuid', 0],
+      ['format', 'text', 1],
+      ['mode', 'text', 1],
+      ['source_plate', 'text', 1],
+      ['source_format', 'text', 1],
+      ['dest_plate', 'text', 1],
+      ['dest_format', 'text', 1],
+      ['transfers', 'json', 1],
+      ['options', 'json', 1],
+      ['status', 'text', 1],
+      ['reconciled', 'json', 0],
+      ['withdrawals', 'json', 0],
+      ['completed_at', 'ts', 0],
+      ['completed_by', 'text', 0],
+      ['created_by', 'text', 1],
+      ['created_at', 'ts', 1],
+      ['updated_at', 'ts', 1],
     ],
   },
 }
@@ -1483,5 +1564,99 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
       ['p_favourite', 'bool', 1],
     ],
     result: 'ts',
+  },
+  create_plate_run: {
+    summary: 'Create a plate run',
+    description:
+      'Stores a plate: its format (`6_well` to `1536_well`), layout, readout and analysis settings. Returns the run. Sends `plate_run.created`.',
+    scope: 'lab:write',
+    params: [
+      ['p_name', 'text', 1],
+      ['p_format', 'text', 1],
+      ['p_wells', 'json', 0],
+      ['p_readout', 'json', 0],
+      ['p_config', 'json', 0],
+      ['p_project_id', 'uuid', 0],
+      ['p_record_id', 'uuid', 0],
+      ['p_design_id', 'uuid', 0],
+    ],
+    result: 'row:plate_runs',
+  },
+  update_plate_run: {
+    summary: 'Change a plate run',
+    description:
+      'Renames a run or replaces its layout, readout or settings. Changing the layout, readout or settings clears the saved analysis. Returns the run.',
+    scope: 'lab:write',
+    params: [
+      ['p_plate_run_id', 'uuid', 1],
+      ['p_name', 'text', 0],
+      ['p_wells', 'json', 0],
+      ['p_readout', 'json', 0],
+      ['p_config', 'json', 0],
+      ['p_expected_metadata_version', 'int', 0],
+    ],
+    result: 'row:plate_runs',
+  },
+  save_plate_run_analysis: {
+    summary: 'Save the analysis of a plate run',
+    description:
+      'Keeps an analysis beside the run it was computed from, with the plate QC verdict (`pass`, `warn`, `fail` or `not_checked`). Returns the run. Sends `plate_run.analysed`.',
+    scope: 'lab:write',
+    params: [
+      ['p_plate_run_id', 'uuid', 1],
+      ['p_analysis', 'json', 1],
+      ['p_qc_status', 'text', 1],
+      ['p_expected_metadata_version', 'int', 0],
+    ],
+    result: 'row:plate_runs',
+  },
+  archive_plate_run: {
+    summary: 'Archive a plate run',
+    description:
+      'Archives a run so it no longer shows in lists. Returns the run. Sends `plate_run.archived`.',
+    scope: 'lab:write',
+    params: [['p_plate_run_id', 'uuid', 1]],
+    result: 'row:plate_runs',
+  },
+  create_plate_worklist: {
+    summary: 'Create a liquid handler worklist',
+    description:
+      'Stores the transfers for a robot: `p_format` is `csv`, `echo`, `tecan_gwl`, `hamilton` or `opentrons`; `p_mode` is `stamp` or `cherry_pick`. `p_transfers` is a JSON array of `{ sourceWell, destWell, volumeUl, label, sampleId }`. Returns the worklist. Sends `plate_worklist.created`.',
+    scope: 'lab:write',
+    params: [
+      ['p_name', 'text', 1],
+      ['p_format', 'text', 1],
+      ['p_mode', 'text', 1],
+      ['p_source_plate', 'text', 1],
+      ['p_source_format', 'text', 1],
+      ['p_dest_plate', 'text', 1],
+      ['p_dest_format', 'text', 1],
+      ['p_transfers', 'json', 1],
+      ['p_plate_run_id', 'uuid', 0],
+      ['p_record_id', 'uuid', 0],
+      ['p_options', 'json', 0],
+    ],
+    result: 'row:plate_worklists',
+  },
+  complete_plate_worklist: {
+    summary: 'Complete a worklist from the robot log',
+    description:
+      'Records what the robot did: `p_reconciled` is the planned transfers each with a `status` and `movedUl`. By default the volumes moved are withdrawn from the source samples for the experiment, which also links them to it; samples that cannot be withdrawn from are listed in `withdrawals`. Returns the worklist. Sends `plate_worklist.completed`.',
+    scope: 'lab:write',
+    params: [
+      ['p_worklist_id', 'uuid', 1],
+      ['p_reconciled', 'json', 1],
+      ['p_purpose_record_id', 'uuid', 0],
+      ['p_record_withdrawals', 'bool', 0],
+    ],
+    result: 'row:plate_worklists',
+  },
+  cancel_plate_worklist: {
+    summary: 'Cancel a worklist',
+    description:
+      'Cancels a worklist that has not been completed. Returns the worklist.',
+    scope: 'lab:write',
+    params: [['p_worklist_id', 'uuid', 1]],
+    result: 'row:plate_worklists',
   },
 }

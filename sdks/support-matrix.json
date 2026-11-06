@@ -261,6 +261,18 @@
       "typescript": "generic"
     },
     {
+      "resource": "plate_runs",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "plate_worklists",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "project_follows",
       "methods": ["GET", "HEAD"],
       "python": "generic",
@@ -533,6 +545,12 @@
       "typescript": "resource"
     },
     {
+      "name": "archive_plate_run",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "archive_record",
       "resource": "records",
       "python": "resource",
@@ -561,6 +579,12 @@
       "resource": "people",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "cancel_plate_worklist",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "cancel_reagent_order",
@@ -593,6 +617,12 @@
       "typescript": "resource"
     },
     {
+      "name": "complete_plate_worklist",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "complete_stocktake",
       "resource": "lab",
       "python": "generic",
@@ -621,6 +651,18 @@
       "resource": "pipelines",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "create_plate_run",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "create_plate_worklist",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "create_project",
@@ -1133,6 +1175,12 @@
       "typescript": "resource"
     },
     {
+      "name": "save_plate_run_analysis",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "save_sample_workflow",
       "resource": "lab",
       "python": "generic",
@@ -1329,6 +1377,12 @@
       "resource": "pipelines",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "update_plate_run",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "update_record_custom_fields",

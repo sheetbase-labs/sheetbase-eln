@@ -6,6 +6,8 @@ import type { DataClient } from './data-client'
 import { isPlanningAction } from './assistant-planning'
 import { isLabworkAction } from './assistant-labwork'
 import type { LabworkAction } from './assistant-labwork'
+import { isPlatesAction } from './assistant-plates'
+import type { PlatesAction } from './assistant-plates'
 import { isUpkeepAction } from './assistant-upkeep'
 import type { UpkeepAction } from './assistant-upkeep'
 import type { PlanningAction, PlanningActionResult } from './assistant-planning'
@@ -133,6 +135,7 @@ export type AssistantAction =
     }
   | PlanningAction
   | UpkeepAction
+  | PlatesAction
   | LabworkAction
 
 export type AssistantActionKind = AssistantAction['kind']
@@ -179,6 +182,11 @@ export async function runAssistantAction(
         // Lab-work jobs load only when a card's button is pressed.
         const { runLabworkAction } = await import('./assistant-labwork-run')
         return runLabworkAction(client, action)
+      }
+      if (isPlatesAction(action)) {
+        // Plate jobs load only when a card's button is pressed.
+        const { runPlatesAction } = await import('./assistant-plates-run')
+        return runPlatesAction(client, action)
       }
       if (isUpkeepAction(action)) {
         // Upkeep jobs load only when a card's button is pressed.

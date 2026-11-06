@@ -143,7 +143,11 @@ function definitionRow(saved: AnalysisDefinitionWire): AnalysisRow {
     detail:
       definition.kind === 'curve'
         ? t('data.analysisList.doseResponseCurve')
-        : (definition.kind ?? 'analysis'),
+        : definition.kind === 'comparison'
+          ? t('data.analysisList.groupComparison')
+          : definition.kind === 'survival'
+            ? t('data.analysisList.survivalCurve')
+            : (definition.kind ?? 'analysis'),
     ownerId: saved.owner_user_id,
     version: saved.version,
     updatedAt: saved.updated_at,

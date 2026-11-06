@@ -24,6 +24,22 @@
 import { CURVE_MODELS, curveEc50, curveInverse, fitCurve } from './curve-fit'
 import type { CurveFit, CurveModel, CurveParameterEstimate } from './curve-fit'
 import {
+  kaplanMeier,
+  logRankTest,
+  mannWhitneyU,
+  pairedTTest,
+  postHocComparisons,
+  studentTTest,
+  welchTTest,
+} from './stats-tests'
+import type {
+  KaplanMeierCurve,
+  LogRankResult,
+  PostHocMethod,
+  SurvivalObservation,
+  TTestResult,
+} from './stats-tests'
+import {
   breuschPaganTest,
   brownForsytheTest,
   jarqueBeraTest,
@@ -43,7 +59,13 @@ import type { ChartColumn, ChartSpec, DatasetRef } from './chart-spec'
 import { t } from '#/copy'
 
 export const ANALYSIS_DEFINITION_VERSION = 1 as const
-export const ANALYSIS_KINDS = ['descriptive', 'regression', 'curve'] as const
+export const ANALYSIS_KINDS = [
+  'descriptive',
+  'regression',
+  'curve',
+  'comparison',
+  'survival',
+] as const
 /**
  * What a notebook analysis block may hold: a statistic, a chart, or a
  * statistic with a chart beside it. `chart` is not a statistic, so the
@@ -77,6 +99,11 @@ export const ANALYSIS_METHOD_IDS = [
   'linear_model',
   'one_way_anova',
   'logistic_curve',
+  'two_group_t_test',
+  'paired_t_test',
+  'rank_sum_test',
+  'anova_post_hoc',
+  'kaplan_meier',
 ] as const
 export type AnalysisMethodId = (typeof ANALYSIS_METHOD_IDS)[number]
 
@@ -140,6 +167,49 @@ export function analysisMethodFor(
       id: 'descriptive',
       label: t('data.analysisDefinition.descriptiveStatistics'),
       statement: t('data.analysisDefinition.groupedSummaryStatisticsModel'),
+    }
+  }
+  if (definition.kind === 'survival')
+    return {
+      ...base,
+      id: 'kaplan_meier',
+      label: t('data.analysisDefinition.kaplanMeier'),
+      statement: t('data.analysisDefinition.kaplanMeierStatement'),
+    }
+  if (definition.kind === 'comparison') {
+    const test = definition.test ?? 'welch'
+    if (test === 'paired')
+      return {
+        ...base,
+        id: 'paired_t_test',
+        label: t('data.analysisDefinition.pairedTTest'),
+        statement: t('data.analysisDefinition.pairedTTestStatement'),
+      }
+    if (test === 'mann_whitney')
+      return {
+        ...base,
+        id: 'rank_sum_test',
+        label: t('data.analysisDefinition.mannWhitney'),
+        statement: t('data.analysisDefinition.mannWhitneyStatement'),
+      }
+    if (test === 'anova')
+      return {
+        ...base,
+        id: 'anova_post_hoc',
+        label: t('data.analysisDefinition.anovaPostHoc'),
+        statement: t('data.analysisDefinition.anovaPostHocStatement'),
+      }
+    return {
+      ...base,
+      id: 'two_group_t_test',
+      label:
+        test === 'student'
+          ? t('data.analysisDefinition.studentTTest')
+          : t('data.analysisDefinition.welchTTest'),
+      statement:
+        test === 'student'
+          ? t('data.analysisDefinition.studentTTestStatement')
+          : t('data.analysisDefinition.welchTTestStatement'),
     }
   }
   if (definition.kind === 'curve') {
@@ -226,8 +296,66 @@ export interface CurveDefinition extends AnalysisDefinitionBase {
   group?: AnalysisFieldBinding | null
 }
 
+export const COMPARISON_TESTS = [
+  'welch',
+  'student',
+  'paired',
+  'mann_whitney',
+  'anova',
+] as const
+export type ComparisonTest = (typeof COMPARISON_TESTS)[number]
+
+export const COMPARISON_POST_HOCS = [
+  'tukey',
+  'dunnett',
+  'bonferroni',
+  'holm',
+  'none',
+] as const
+export type ComparisonPostHoc = (typeof COMPARISON_POST_HOCS)[number]
+
+/**
+ * Compare the groups of a measured column: a t-test (Welch, Student or
+ * paired), the Mann–Whitney rank test, or one-way ANOVA followed by Tukey,
+ * Dunnett, Bonferroni or Holm pairwise comparisons.
+ */
+export interface ComparisonDefinition extends AnalysisDefinitionBase {
+  kind: 'comparison'
+  /** The measured column. */
+  value: AnalysisFieldBinding
+  /** The column that names the groups being compared. */
+  group: AnalysisFieldBinding
+  /** Welch's t-test when absent. */
+  test?: ComparisonTest
+  /** Pairwise comparisons after ANOVA; Tukey when absent. */
+  postHoc?: ComparisonPostHoc
+  /** The group every other is compared with (Dunnett). The first when absent. */
+  control?: string | null
+  /** Names the subject measured in both groups; needed by the paired test. */
+  pair?: AnalysisFieldBinding | null
+  /** Significance level, 0.05 when absent. */
+  alpha?: number
+}
+
+/**
+ * Time to an event, with censoring: a Kaplan–Meier curve for each group and,
+ * with two or more groups, the log-rank test between them.
+ */
+export interface SurvivalDefinition extends AnalysisDefinitionBase {
+  kind: 'survival'
+  /** The time to the event, or to the end of follow-up when censored. */
+  time: AnalysisFieldBinding
+  /** 1, yes, true, event or dead when the event happened; 0, no, false or censored when not. */
+  event: AnalysisFieldBinding
+  group?: AnalysisFieldBinding | null
+}
+
 export type AnalysisDefinition =
-  DescriptiveDefinition | RegressionDefinition | CurveDefinition
+  | DescriptiveDefinition
+  | RegressionDefinition
+  | CurveDefinition
+  | ComparisonDefinition
+  | SurvivalDefinition
 
 /** A saved analysis that is only a chart. */
 export interface ChartDefinition {
@@ -370,7 +498,64 @@ export interface CurveResult {
   rows: CurveFitRow[]
 }
 
-export type AnalysisResult = DescriptiveResult | RegressionResult | CurveResult
+/** One comparison of two groups. */
+export interface ComparisonPair {
+  group1: string
+  group2: string
+  /** Mean of group 1 minus mean of group 2; null for a rank test. */
+  difference: number | null
+  ci95: { lo: number; hi: number } | null
+  /** t, or U for the rank test, or q for Tukey. */
+  statistic: number
+  statisticLabel: 't' | 'U' | 'q'
+  df: number | null
+  /** After the multiple-comparison correction when the comparison has one. */
+  p: number
+  adjusted: boolean
+  effectSize: number | null
+  effectLabel: 'cohens_d' | 'rank_biserial' | null
+  significant: boolean
+}
+
+export interface ComparisonResult {
+  kind: 'comparison'
+  method: AnalysisMethod
+  checks: AssumptionCheck[]
+  test: ComparisonTest
+  alpha: number
+  groups: DescriptiveRow[]
+  /** The F test across all groups, for ANOVA. */
+  omnibus: OneWayAnovaResult | null
+  postHoc: PostHocMethod | null
+  control: string | null
+  pairs: ComparisonPair[]
+  /** Subjects measured in both groups (paired test). */
+  pairedSubjects: number | null
+  /** Rank test: how the p-value was found. */
+  pMethod: 'exact' | 'normal_approximation' | null
+}
+
+export interface SurvivalGroupCurve extends KaplanMeierCurve {
+  /** Rows dropped because the time or the event was missing. */
+  missing: number
+}
+
+export interface SurvivalResult {
+  kind: 'survival'
+  method: AnalysisMethod
+  checks: AssumptionCheck[]
+  curves: SurvivalGroupCurve[]
+  logRank: LogRankResult | null
+  /** The longest follow-up, for the time axis. */
+  maxTime: number
+}
+
+export type AnalysisResult =
+  | DescriptiveResult
+  | RegressionResult
+  | CurveResult
+  | ComparisonResult
+  | SurvivalResult
 
 /** Honest execution states instead of silent empty tables. */
 export type AnalysisError =
@@ -380,6 +565,12 @@ export type AnalysisError =
   | { code: 'no_statistic' }
   | { code: 'insufficient_data'; group: string; needed: number }
   | { code: 'singular_fit'; group: string }
+  /** The test compares groups and the data holds too few of them. */
+  | { code: 'needs_groups'; needed: number; found: number }
+  /** Dunnett's control is not one of the groups. */
+  | { code: 'unknown_control'; control: string }
+  /** The paired test found no subject measured in both groups. */
+  | { code: 'no_pairs' }
   /** The logistic curve could not be fitted to this group's standards. */
   | { code: 'curve_not_fitted'; group: string; needed: number }
   | {
@@ -552,6 +743,51 @@ export function validateAnalysisDefinition(
   } else if (kind === 'descriptive') {
     errors.push(...validateBinding(v.value, 'value', true))
     errors.push(...validateBinding(v.group ?? null, 'group', false))
+  } else if (kind === 'comparison') {
+    errors.push(...validateBinding(v.value, 'value', true))
+    errors.push(...validateBinding(v.group, 'group', true))
+    errors.push(...validateBinding(v.pair ?? null, 'pair', v.test === 'paired'))
+    if (
+      v.test !== undefined &&
+      !(COMPARISON_TESTS as readonly string[]).includes(v.test as string)
+    )
+      errors.push({
+        code: 'invalid_value',
+        field: 'test',
+        message: `test must be one of ${COMPARISON_TESTS.join(', ')}`,
+      })
+    if (
+      v.postHoc !== undefined &&
+      !(COMPARISON_POST_HOCS as readonly string[]).includes(v.postHoc as string)
+    )
+      errors.push({
+        code: 'invalid_value',
+        field: 'postHoc',
+        message: `postHoc must be one of ${COMPARISON_POST_HOCS.join(', ')}`,
+      })
+    if (
+      v.alpha !== undefined &&
+      (typeof v.alpha !== 'number' || !(v.alpha > 0 && v.alpha < 1))
+    )
+      errors.push({
+        code: 'invalid_value',
+        field: 'alpha',
+        message: 'alpha must be between 0 and 1',
+      })
+    if (
+      v.control !== undefined &&
+      v.control !== null &&
+      typeof v.control !== 'string'
+    )
+      errors.push({
+        code: 'invalid_value',
+        field: 'control',
+        message: 'control must be text',
+      })
+  } else if (kind === 'survival') {
+    errors.push(...validateBinding(v.time, 'time', true))
+    errors.push(...validateBinding(v.event, 'event', true))
+    errors.push(...validateBinding(v.group ?? null, 'group', false))
   } else if (kind === 'curve') {
     errors.push(...validateBinding(v.dose, 'dose', true))
     errors.push(...validateBinding(v.response, 'response', true))
@@ -662,14 +898,18 @@ export function runAnalysis(
     const usedFields = (
       definition.kind === 'descriptive'
         ? [definition.value, definition.group]
-        : definition.kind === 'curve'
-          ? [
-              definition.dose,
-              definition.response,
-              definition.label,
-              definition.group,
-            ]
-          : [definition.outcome, definition.predictor, definition.group]
+        : definition.kind === 'comparison'
+          ? [definition.value, definition.group, definition.pair]
+          : definition.kind === 'survival'
+            ? [definition.time, definition.event, definition.group]
+            : definition.kind === 'curve'
+              ? [
+                  definition.dose,
+                  definition.response,
+                  definition.label,
+                  definition.group,
+                ]
+              : [definition.outcome, definition.predictor, definition.group]
     )
       .map((binding) => binding?.fieldId)
       .filter((fieldId): fieldId is string => typeof fieldId === 'string')
@@ -740,6 +980,10 @@ export function runAnalysis(
 
   if (definition.kind === 'curve')
     return runCurve(definition, resolve, rows, excludedRows)
+  if (definition.kind === 'comparison')
+    return runComparison(definition, resolve, rows, excludedRows)
+  if (definition.kind === 'survival')
+    return runSurvival(definition, resolve, rows, excludedRows)
 
   // Regression.
   const outcomeCol = resolve(definition.outcome)
@@ -866,6 +1110,446 @@ export function runAnalysis(
       method: analysisMethodFor(definition),
       checks,
       rows: outRows,
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Group comparisons and survival
+// ---------------------------------------------------------------------------
+
+type Resolve = (
+  binding: AnalysisFieldBinding | null | undefined,
+) => ChartColumn | null
+
+type RunOutcome =
+  { ok: true; result: AnalysisResult } | { ok: false; error: AnalysisError }
+
+const TWO_GROUP_TESTS: readonly ComparisonTest[] = [
+  'welch',
+  'student',
+  'paired',
+  'mann_whitney',
+]
+
+function pairOfTTest(
+  group1: string,
+  group2: string,
+  r: TTestResult,
+  alpha: number,
+): ComparisonPair {
+  return {
+    group1,
+    group2,
+    difference: r.difference,
+    ci95: r.ci95,
+    statistic: r.t,
+    statisticLabel: 't',
+    df: r.df,
+    p: r.p,
+    adjusted: false,
+    effectSize: r.effectSize,
+    effectLabel: r.effectSize === null ? null : 'cohens_d',
+    significant: r.p < alpha,
+  }
+}
+
+function pairedChecks(
+  differences: number[],
+  duplicates: number,
+): AssumptionCheck[] {
+  const checks: AssumptionCheck[] = []
+  const normality = jarqueBeraTest(differences)
+  checks.push(
+    normality
+      ? {
+          id: 'difference_normality',
+          label: t('data.analysisDefinition.differencesNormal'),
+          status:
+            normality.p < 0.01 ? 'fail' : normality.p < 0.05 ? 'warn' : 'pass',
+          statistic: normality.statistic,
+          pValue: normality.p,
+          detail: t('data.analysisDefinition.differencesNormalDetail', {
+            count: differences.length,
+            p: formatPValue(normality.p),
+          }),
+          ...(normality.p < 0.05
+            ? { remedy: t('data.analysisDefinition.tryRankTest') }
+            : {}),
+        }
+      : {
+          id: 'difference_normality',
+          label: t('data.analysisDefinition.differencesNormal'),
+          status: 'not_checked',
+          detail: t('data.analysisDefinition.differencesTooFew', {
+            count: differences.length,
+          }),
+        },
+  )
+  if (duplicates > 0)
+    checks.push({
+      id: 'repeated_subjects',
+      label: t('data.analysisDefinition.oneValuePerSubject'),
+      status: 'warn',
+      detail: t('data.analysisDefinition.repeatedSubjects', {
+        count: duplicates,
+      }),
+    })
+  checks.push(independentObservationsCheck())
+  return checks
+}
+
+function runComparison(
+  definition: ComparisonDefinition,
+  resolve: Resolve,
+  rows: Record<string, unknown>[],
+  excludedRows: number,
+): RunOutcome {
+  const valueCol = resolve(definition.value)
+  const groupCol = resolve(definition.group)
+  const pairCol = resolve(definition.pair ?? null)
+  const test = definition.test ?? 'welch'
+  const alpha = definition.alpha ?? 0.05
+  const missingCols: string[] = []
+  if (!valueCol) missingCols.push('value')
+  if (!groupCol) missingCols.push('group')
+  if (test === 'paired' && !pairCol) missingCols.push('pair')
+  if (missingCols.length > 0 || !valueCol || !groupCol)
+    return { ok: false, error: { code: 'missing_field', fields: missingCols } }
+
+  const grouped = groupRows(rows, groupCol.id)
+  const outRows: DescriptiveRow[] = []
+  const data: Array<{ group: string; values: number[] }> = []
+  for (const [key, group] of grouped) {
+    const { values, missing } = toNumeric(group.map((r) => r[valueCol.id]))
+    const stats = summaryStats(values)
+    if (!stats) continue
+    outRows.push({ group: key, missing, stats })
+    data.push({ group: key, values })
+  }
+  if (outRows.length === 0)
+    return {
+      ok: false,
+      error: { code: 'no_numeric_values', field: valueCol.id },
+    }
+  if (TWO_GROUP_TESTS.includes(test) && data.length !== 2)
+    return {
+      ok: false,
+      error: { code: 'needs_groups', needed: 2, found: data.length },
+    }
+  if (test === 'anova' && data.length < 2)
+    return {
+      ok: false,
+      error: { code: 'needs_groups', needed: 2, found: data.length },
+    }
+
+  const method = analysisMethodFor(definition)
+  const checks: AssumptionCheck[] = []
+  const base = {
+    kind: 'comparison' as const,
+    method,
+    test,
+    alpha,
+    groups: outRows,
+  }
+
+  if (test === 'paired') {
+    const [g1, g2] = data
+    const bySubject = new Map<string, { a?: number; b?: number }>()
+    let duplicates = 0
+    for (const [key, group] of grouped) {
+      if (key !== g1.group && key !== g2.group) continue
+      for (const row of group) {
+        const num = toNumeric([row[valueCol.id]]).values
+        if (num.length !== 1) continue
+        const id = String(row[pairCol!.id] ?? '')
+        if (id === '') continue
+        const slot = bySubject.get(id) ?? {}
+        const field = key === g1.group ? 'a' : 'b'
+        if (slot[field] !== undefined) duplicates += 1
+        else slot[field] = num[0]
+        bySubject.set(id, slot)
+      }
+    }
+    const a: number[] = []
+    const b: number[] = []
+    for (const slot of bySubject.values())
+      if (slot.a !== undefined && slot.b !== undefined) {
+        a.push(slot.a)
+        b.push(slot.b)
+      }
+    if (a.length === 0) return { ok: false, error: { code: 'no_pairs' } }
+    const r = pairedTTest(a, b)
+    if (!r)
+      return {
+        ok: false,
+        error: { code: 'insufficient_data', group: g1.group, needed: 2 },
+      }
+    checks.push(
+      ...pairedChecks(
+        a.map((v, i) => v - b[i]),
+        duplicates,
+      ),
+    )
+    pushExcludedRowsCheck(checks, excludedRows)
+    return {
+      ok: true,
+      result: {
+        ...base,
+        checks,
+        omnibus: null,
+        postHoc: null,
+        control: null,
+        pairs: [pairOfTTest(g1.group, g2.group, r, alpha)],
+        pairedSubjects: a.length,
+        pMethod: null,
+      },
+    }
+  }
+
+  if (test === 'mann_whitney') {
+    const [g1, g2] = data
+    const r = mannWhitneyU(g1.values, g2.values)
+    if (!r)
+      return {
+        ok: false,
+        error: { code: 'insufficient_data', group: g1.group, needed: 1 },
+      }
+    const smallest = Math.min(r.n1, r.n2)
+    checks.push({
+      id: 'group_sizes',
+      label: t('data.analysisDefinition.everyGroupHasReplicate'),
+      status: smallest < 3 ? 'warn' : 'pass',
+      detail: t('data.analysisDefinition.everyGroupHasLeast', { smallest }),
+    })
+    checks.push({
+      id: 'p_value_method',
+      label: t('data.analysisDefinition.rankPValue'),
+      status: 'pass',
+      detail:
+        r.method === 'exact'
+          ? t('data.analysisDefinition.rankPValueExact')
+          : t('data.analysisDefinition.rankPValueApproximate'),
+    })
+    checks.push(independentObservationsCheck())
+    pushExcludedRowsCheck(checks, excludedRows)
+    return {
+      ok: true,
+      result: {
+        ...base,
+        checks,
+        omnibus: null,
+        postHoc: null,
+        control: null,
+        pairs: [
+          {
+            group1: g1.group,
+            group2: g2.group,
+            difference: null,
+            ci95: null,
+            statistic: r.u,
+            statisticLabel: 'U',
+            df: null,
+            p: r.p,
+            adjusted: false,
+            effectSize: r.effectSize,
+            effectLabel: 'rank_biserial',
+            significant: r.p < alpha,
+          },
+        ],
+        pairedSubjects: null,
+        pMethod: r.method,
+      },
+    }
+  }
+
+  // Welch, Student and ANOVA all look at the pooled residuals.
+  const omnibus = oneWayAnova(data)
+  checks.push(
+    ...(omnibus
+      ? anovaAssumptionChecks(omnibus, data)
+      : [anovaUndefinedCheck(data)]),
+  )
+  pushExcludedRowsCheck(checks, excludedRows)
+
+  if (test === 'welch' || test === 'student') {
+    const [g1, g2] = data
+    const r =
+      test === 'student'
+        ? studentTTest(g1.values, g2.values)
+        : welchTTest(g1.values, g2.values)
+    if (!r)
+      return {
+        ok: false,
+        error: { code: 'insufficient_data', group: g1.group, needed: 2 },
+      }
+    return {
+      ok: true,
+      result: {
+        ...base,
+        checks,
+        omnibus: null,
+        postHoc: null,
+        control: null,
+        pairs: [pairOfTTest(g1.group, g2.group, r, alpha)],
+        pairedSubjects: null,
+        pMethod: null,
+      },
+    }
+  }
+
+  // ANOVA with pairwise comparisons.
+  const choice = definition.postHoc ?? 'tukey'
+  let postHoc: PostHocMethod | null = choice === 'none' ? null : choice
+  let control: string | null = null
+  let pairs: ComparisonPair[] = []
+  if (omnibus && postHoc) {
+    if (postHoc === 'dunnett') {
+      control = definition.control ?? data[0].group
+      if (!data.some((g) => g.group === control))
+        return { ok: false, error: { code: 'unknown_control', control } }
+    }
+    const ph = postHocComparisons(data, postHoc, {
+      alpha,
+      ...(control ? { control } : {}),
+    })
+    if (ph)
+      pairs = ph.comparisons.map((c) => ({
+        group1: c.group1,
+        group2: c.group2,
+        difference: c.difference,
+        ci95: c.ci95,
+        statistic: c.q ?? c.t,
+        statisticLabel: c.q === null ? ('t' as const) : ('q' as const),
+        df: ph.dfWithin,
+        p: c.pAdjusted,
+        adjusted: true,
+        effectSize: null,
+        effectLabel: null,
+        significant: c.significant,
+      }))
+    else postHoc = null
+  }
+  return {
+    ok: true,
+    result: {
+      ...base,
+      checks,
+      omnibus,
+      postHoc,
+      control,
+      pairs,
+      pairedSubjects: null,
+      pMethod: null,
+    },
+  }
+}
+
+const EVENT_YES = new Set([
+  '1',
+  'true',
+  'yes',
+  'y',
+  'event',
+  'dead',
+  'death',
+  'died',
+  'relapse',
+])
+const EVENT_NO = new Set([
+  '0',
+  'false',
+  'no',
+  'n',
+  'censored',
+  'alive',
+  'none',
+  'lost',
+])
+
+/** Did the event happen? null when the cell says neither. */
+function parseEvent(value: unknown): boolean | null {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number')
+    return value === 1 ? true : value === 0 ? false : null
+  if (typeof value !== 'string') return null
+  const v = value.trim().toLowerCase()
+  if (EVENT_YES.has(v)) return true
+  if (EVENT_NO.has(v)) return false
+  return null
+}
+
+function runSurvival(
+  definition: SurvivalDefinition,
+  resolve: Resolve,
+  rows: Record<string, unknown>[],
+  excludedRows: number,
+): RunOutcome {
+  const timeCol = resolve(definition.time)
+  const eventCol = resolve(definition.event)
+  const groupCol = resolve(definition.group ?? null)
+  const missingCols: string[] = []
+  if (!timeCol) missingCols.push('time')
+  if (!eventCol) missingCols.push('event')
+  if (definition.group && !groupCol) missingCols.push('group')
+  if (missingCols.length > 0 || !timeCol || !eventCol)
+    return { ok: false, error: { code: 'missing_field', fields: missingCols } }
+
+  const curves: SurvivalGroupCurve[] = []
+  const all: SurvivalObservation[] = []
+  for (const [key, group] of groupRows(rows, groupCol?.id ?? null)) {
+    const obs: SurvivalObservation[] = []
+    let missing = 0
+    for (const row of group) {
+      const time = toNumeric([row[timeCol.id]]).values
+      const event = parseEvent(row[eventCol.id])
+      if (time.length !== 1 || time[0] < 0 || event === null) missing += 1
+      else obs.push({ time: time[0], event, group: key })
+    }
+    const curve = kaplanMeier(obs, key)
+    if (!curve) continue
+    curves.push({ ...curve, missing })
+    all.push(...obs)
+  }
+  if (curves.length === 0)
+    return {
+      ok: false,
+      error: { code: 'no_numeric_values', field: timeCol.id },
+    }
+
+  const checks: AssumptionCheck[] = []
+  const noEvents = curves.filter((c) => c.events === 0)
+  checks.push({
+    id: 'events_observed',
+    label: t('data.analysisDefinition.eventsObserved'),
+    status: noEvents.length > 0 ? 'warn' : 'pass',
+    detail:
+      noEvents.length > 0
+        ? t('data.analysisDefinition.noEventsIn', {
+            groups: noEvents.map((c) => c.group).join(', '),
+          })
+        : t('data.analysisDefinition.eventsPerGroup', {
+            groups: curves.map((c) => `${c.group} ${c.events}`).join('; '),
+          }),
+  })
+  checks.push({
+    id: 'non_informative_censoring',
+    label: t('data.analysisDefinition.censoringUnrelated'),
+    status: 'not_checked',
+    detail: t('data.analysisDefinition.censoringUnrelatedDetail'),
+  })
+  checks.push(independentObservationsCheck())
+  pushExcludedRowsCheck(checks, excludedRows)
+
+  return {
+    ok: true,
+    result: {
+      kind: 'survival',
+      method: analysisMethodFor(definition),
+      checks,
+      curves,
+      logRank: curves.length >= 2 ? logRankTest(all) : null,
+      maxTime: Math.max(...all.map((o) => o.time)),
     },
   }
 }
@@ -1576,6 +2260,63 @@ export function analysisMethodsText(result: AnalysisResult): string {
     } else {
       parts.push(t('data.analysisDefinition.modelFittedSoP'))
     }
+  } else if (result.kind === 'comparison') {
+    parts.push(
+      t('data.analysisDefinition.comparisonGroups', {
+        join: result.groups
+          .map(
+            (g) =>
+              `${g.group} ${formatQuantity(g.stats.mean)} (n = ${g.stats.n})`,
+          )
+          .join('; '),
+      }),
+    )
+    if (result.omnibus)
+      parts.push(
+        t('data.analysisDefinition.oneWayAnovaF', {
+          dfBetween: result.omnibus.dfBetween,
+          dfWithin: result.omnibus.dfWithin,
+          value: formatQuantity(result.omnibus.f),
+          value2: formatPValue(result.omnibus.p),
+          value3: formatQuantity(result.omnibus.etaSquared),
+        }),
+      )
+    for (const pair of result.pairs)
+      parts.push(
+        t('data.analysisDefinition.comparisonPair', {
+          group1: pair.group1,
+          group2: pair.group2,
+          difference:
+            pair.difference === null
+              ? ''
+              : `difference ${formatQuantity(pair.difference)}${pair.ci95 ? ` (95% CI ${formatQuantity(pair.ci95.lo)} to ${formatQuantity(pair.ci95.hi)})` : ''}, `,
+          statistic: `${pair.statisticLabel} = ${formatQuantity(pair.statistic)}`,
+          p: formatPValue(pair.p),
+          adjusted: pair.adjusted ? ' (adjusted)' : '',
+        }),
+      )
+  } else if (result.kind === 'survival') {
+    for (const c of result.curves)
+      parts.push(
+        t('data.analysisDefinition.survivalCurve', {
+          group: c.group,
+          n: c.n,
+          events: c.events,
+          censored: c.censored,
+          median:
+            c.medianSurvival === null
+              ? t('data.analysisDefinition.medianNotReached')
+              : formatQuantity(c.medianSurvival),
+        }),
+      )
+    if (result.logRank)
+      parts.push(
+        t('data.analysisDefinition.logRank', {
+          chi: formatQuantity(result.logRank.chiSquare),
+          df: result.logRank.df,
+          p: formatPValue(result.logRank.p),
+        }),
+      )
   } else if (result.kind === 'curve') {
     for (const row of result.rows) {
       const scope = row.group === 'all' ? '' : `group ${row.group}: `

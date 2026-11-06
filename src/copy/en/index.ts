@@ -12,6 +12,7 @@ import { data } from './data'
 import { library } from './library'
 import { notebook } from './notebook'
 import { people } from './people'
+import { plates } from './plates'
 import { projects } from './projects'
 import { pwa } from './pwa'
 import { quality } from './quality'
@@ -38,6 +39,7 @@ export const en = {
   quality,
   requests,
   shipments,
+  plates,
   sequences,
   safety,
   spend,

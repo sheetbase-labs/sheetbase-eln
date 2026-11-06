@@ -130,7 +130,7 @@ describe('OPS-003 create_plate_design', () => {
         WS_A,
         'Invalid plate',
         PROJ_A,
-        '384_well',
+        '12_well_plate',
       ]),
       'SB005',
     )

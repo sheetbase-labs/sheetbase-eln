@@ -1645,6 +1645,80 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     introducedIn: 'lab-01',
     consumers: webhookSsePipeline,
   },
+  {
+    name: 'plate_run.created',
+    family: 'inventory',
+    summary: 'A plate run was added.',
+    producer: {
+      entityType: 'plate_run',
+      operation: 'create',
+    },
+    wireName: 'plate_run.created',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes: 'Payload carries plateRunId, reference, name and format.',
+  },
+  {
+    name: 'plate_run.analysed',
+    family: 'inventory',
+    summary: 'A plate run was analysed and the result saved.',
+    producer: {
+      entityType: 'plate_run',
+      operation: 'update',
+      when: { key: 'change', equals: 'analysed' },
+    },
+    wireName: 'plate_run.analysed',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes:
+      'Payload carries plateRunId, reference, name, qcStatus, zPrime, hitSamples and testedSamples. It is the event to follow for a failed plate (qcStatus fail) or for new hits.',
+  },
+  {
+    name: 'plate_run.archived',
+    family: 'inventory',
+    summary: 'A plate run was archived.',
+    producer: {
+      entityType: 'plate_run',
+      operation: 'update',
+      when: { key: 'change', equals: 'archived' },
+    },
+    wireName: 'plate_run.archived',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'plate_worklist.created',
+    family: 'inventory',
+    summary: 'A liquid handler worklist was made.',
+    producer: {
+      entityType: 'plate_worklist',
+      operation: 'create',
+    },
+    wireName: 'plate_worklist.created',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes: 'Payload carries worklistId, reference, name, format and transfers.',
+  },
+  {
+    name: 'plate_worklist.completed',
+    family: 'inventory',
+    summary: 'A worklist was completed from the robot log.',
+    producer: {
+      entityType: 'plate_worklist',
+      operation: 'update',
+      when: { key: 'change', equals: 'completed' },
+    },
+    wireName: 'plate_worklist.completed',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSse,
+    notes:
+      'Payload carries worklistId, reference, name, transfers and samplesWithdrawn.',
+  },
 ])
 
 /**
@@ -1822,6 +1896,11 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
   'step.result_added': 'A result is added to a protocol step',
   'experiment.series_member_added': 'An experiment is added to a series',
   'experiment.series_member_removed': 'An experiment is taken out of a series',
+  'plate_run.created': 'A plate run is added',
+  'plate_run.analysed': 'A plate run is analysed',
+  'plate_run.archived': 'A plate run is archived',
+  'plate_worklist.created': 'A liquid handler worklist is made',
+  'plate_worklist.completed': 'A liquid handler worklist is completed',
 })
 
 /**

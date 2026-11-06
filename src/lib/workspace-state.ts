@@ -414,6 +414,15 @@ const KINDS: { match: RegExp; kind: PaneKind }[] = [
     },
   },
   {
+    match: /^\/plates/,
+    kind: {
+      key: 'plates',
+      label: t('projects.paneKinds.plates'),
+      icon: 'flask',
+      record: false,
+    },
+  },
+  {
     match: /^\/requests/,
     kind: {
       key: 'requests',

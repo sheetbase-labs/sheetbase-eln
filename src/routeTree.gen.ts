@@ -26,6 +26,7 @@ import { Route as InstrumentsRouteImport } from './routes/instruments'
 import { Route as MaterialsRouteImport } from './routes/materials'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as PipelinesRouteImport } from './routes/pipelines'
+import { Route as PlatesRouteImport } from './routes/plates'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as PromotionsRouteImport } from './routes/promotions'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
@@ -308,6 +309,11 @@ const ModelsRoute = ModelsRouteImport.update({
 const PipelinesRoute = PipelinesRouteImport.update({
   id: '/pipelines',
   path: '/pipelines',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlatesRoute = PlatesRouteImport.update({
+  id: '/plates',
+  path: '/plates',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsRoute = ProjectsRouteImport.update({
@@ -1372,6 +1378,7 @@ export interface FileRoutesByFullPath {
   '/materials': typeof MaterialsRouteWithChildren
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
+  '/plates': typeof PlatesRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
@@ -1586,6 +1593,7 @@ export interface FileRoutesByTo {
   '/materials': typeof MaterialsRouteWithChildren
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
+  '/plates': typeof PlatesRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
@@ -1792,6 +1800,7 @@ export interface FileRoutesById {
   '/materials': typeof MaterialsRouteWithChildren
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
+  '/plates': typeof PlatesRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
@@ -2011,6 +2020,7 @@ export interface FileRouteTypes {
     | '/materials'
     | '/models'
     | '/pipelines'
+    | '/plates'
     | '/projects'
     | '/promotions'
     | '/protocols'
@@ -2225,6 +2235,7 @@ export interface FileRouteTypes {
     | '/materials'
     | '/models'
     | '/pipelines'
+    | '/plates'
     | '/projects'
     | '/promotions'
     | '/protocols'
@@ -2430,6 +2441,7 @@ export interface FileRouteTypes {
     | '/materials'
     | '/models'
     | '/pipelines'
+    | '/plates'
     | '/projects'
     | '/promotions'
     | '/protocols'
@@ -2648,6 +2660,7 @@ export interface RootRouteChildren {
   MaterialsRoute: typeof MaterialsRouteWithChildren
   ModelsRoute: typeof ModelsRouteWithChildren
   PipelinesRoute: typeof PipelinesRouteWithChildren
+  PlatesRoute: typeof PlatesRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   PromotionsRoute: typeof PromotionsRoute
   ProtocolsRoute: typeof ProtocolsRouteWithChildren
@@ -2857,6 +2870,13 @@ declare module '@tanstack/react-router' {
       path: '/pipelines'
       fullPath: '/pipelines'
       preLoaderRoute: typeof PipelinesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plates': {
+      id: '/plates'
+      path: '/plates'
+      fullPath: '/plates'
+      preLoaderRoute: typeof PlatesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects': {
@@ -4762,6 +4782,7 @@ const rootRouteChildren: RootRouteChildren = {
   MaterialsRoute: MaterialsRouteWithChildren,
   ModelsRoute: ModelsRouteWithChildren,
   PipelinesRoute: PipelinesRouteWithChildren,
+  PlatesRoute: PlatesRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   PromotionsRoute: PromotionsRoute,
   ProtocolsRoute: ProtocolsRouteWithChildren,
@@ -4855,13 +4876,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

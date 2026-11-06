@@ -11,7 +11,7 @@
  * split into parts it is the first one that is not done in the current part
  * (the first part that is not done), and steps are numbered within their part.
  * The database computes the same thing for the API, the assistant and
- * pipelines (`api.record_steps`, migrations 0103 and 0105); keep the two in step.
+ * pipelines (`api.record_steps`, migrations 0103 and 0106); keep the two in step.
  */
 
 export type StepStatus = 'done' | 'in_progress' | 'not_started'

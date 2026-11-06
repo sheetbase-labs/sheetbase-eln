@@ -15,6 +15,14 @@
  */
 
 export const NOT_EXPOSED: Readonly<Record<string, string>> = {
+  // Plate formats (migration 0104): existing functions rewritten to accept the
+  // 6 to 1536-well formats. Nothing new is added to them.
+  validate_scientific_block:
+    'Database trigger that checks notebook blocks as they are saved.',
+  create_plate_design:
+    'Plate designs are authored in the app; rewritten in 0104 only to accept the larger plate formats.',
+  save_plate_layout_template:
+    'Plate layout templates are authored in the app; rewritten in 0104 only to accept the larger plate formats.',
   // Personal devices and display settings.
   my_push_devices:
     'Lists the phones and browsers that get this person’s push notifications.',

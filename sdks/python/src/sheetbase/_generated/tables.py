@@ -57,6 +57,8 @@ from sheetbase._generated.models import (
     PipelineRunLogsRow,
     PipelineRunOutputsRow,
     PipelineRunsRow,
+    PlateRunsRow,
+    PlateWorklistsRow,
     ProjectFollowsRow,
     ProjectsRow,
     ProjectsRowInsert,
@@ -744,6 +746,42 @@ class AsyncPipelineRunsTable(AsyncReadableTable[PipelineRunsRow]):
     name = "pipeline_runs"
 
 
+class PlateRunsTable(ReadableTable[PlateRunsRow]):
+    """
+    ``/api/db/plate_runs`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "plate_runs"
+
+
+class AsyncPlateRunsTable(AsyncReadableTable[PlateRunsRow]):
+    """
+    ``/api/db/plate_runs`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "plate_runs"
+
+
+class PlateWorklistsTable(ReadableTable[PlateWorklistsRow]):
+    """
+    ``/api/db/plate_worklists`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "plate_worklists"
+
+
+class AsyncPlateWorklistsTable(AsyncReadableTable[PlateWorklistsRow]):
+    """
+    ``/api/db/plate_worklists`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "plate_worklists"
+
+
 class ProjectFollowsTable(ReadableTable[ProjectFollowsRow]):
     """
     ``/api/db/project_follows`` (GET, HEAD).
@@ -1419,6 +1457,8 @@ class Tables:
         "pipeline_run_logs",
         "pipeline_run_outputs",
         "pipeline_runs",
+        "plate_runs",
+        "plate_worklists",
         "project_follows",
         "projects",
         "reagent_order_prices",
@@ -1491,6 +1531,8 @@ class Tables:
         self.pipeline_run_logs = PipelineRunLogsTable(transport)
         self.pipeline_run_outputs = PipelineRunOutputsTable(transport)
         self.pipeline_runs = PipelineRunsTable(transport)
+        self.plate_runs = PlateRunsTable(transport)
+        self.plate_worklists = PlateWorklistsTable(transport)
         self.project_follows = ProjectFollowsTable(transport)
         self.projects = ProjectsTable(transport)
         self.reagent_order_prices = ReagentOrderPricesTable(transport)
@@ -1574,6 +1616,8 @@ class AsyncTables:
         "pipeline_run_logs",
         "pipeline_run_outputs",
         "pipeline_runs",
+        "plate_runs",
+        "plate_worklists",
         "project_follows",
         "projects",
         "reagent_order_prices",
@@ -1646,6 +1690,8 @@ class AsyncTables:
         self.pipeline_run_logs = AsyncPipelineRunLogsTable(transport)
         self.pipeline_run_outputs = AsyncPipelineRunOutputsTable(transport)
         self.pipeline_runs = AsyncPipelineRunsTable(transport)
+        self.plate_runs = AsyncPlateRunsTable(transport)
+        self.plate_worklists = AsyncPlateWorklistsTable(transport)
         self.project_follows = AsyncProjectFollowsTable(transport)
         self.projects = AsyncProjectsTable(transport)
         self.reagent_order_prices = AsyncReagentOrderPricesTable(transport)

@@ -459,6 +459,36 @@ const LAB_EVENTS: ReadonlyArray<{
     operation: 'create',
     payload: {},
   },
+  {
+    name: 'plate_run.created',
+    entityType: 'plate_run',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'plate_run.analysed',
+    entityType: 'plate_run',
+    operation: 'update',
+    payload: { change: 'analysed' },
+  },
+  {
+    name: 'plate_run.archived',
+    entityType: 'plate_run',
+    operation: 'update',
+    payload: { change: 'archived' },
+  },
+  {
+    name: 'plate_worklist.created',
+    entityType: 'plate_worklist',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'plate_worklist.completed',
+    entityType: 'plate_worklist',
+    operation: 'update',
+    payload: { change: 'completed' },
+  },
 ]
 
 describe('lab feature events', () => {

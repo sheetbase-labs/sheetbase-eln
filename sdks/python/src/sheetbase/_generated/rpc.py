@@ -36,6 +36,8 @@ from sheetbase._generated.models import (
     NotebookUpgradeDecision,
     NotebookUpgradePreview,
     PipelineDefinitionVersionsRow,
+    PlateRunsRow,
+    PlateWorklistsRow,
     ProjectsRow,
     QuerySheetInstanceRowsResult,
     ReagentOrdersRow,
@@ -92,21 +94,26 @@ class Rpc:
         "apply_sheet_instance_composition_adoption",
         "apply_sheet_instance_definition_upgrade",
         "archive_dataset",
+        "archive_plate_run",
         "archive_record",
         "archive_sheet_instance",
         "assign_record",
         "cancel_agent_workflow",
         "cancel_member_absence",
+        "cancel_plate_worklist",
         "cancel_reagent_order",
         "cancel_shipment",
         "cancel_stocktake",
         "commit_dataset_row_batch",
         "commit_sheet_record_batch",
+        "complete_plate_worklist",
         "complete_stocktake",
         "create_agent_workflow",
         "create_and_link_sheet_record",
         "create_legal_hold",
         "create_pipeline_definition_version",
+        "create_plate_run",
+        "create_plate_worklist",
         "create_project",
         "create_record",
         "create_record_link",
@@ -188,6 +195,7 @@ class Rpc:
         "retention_due",
         "rotate_webhook_secret",
         "run_saved_search",
+        "save_plate_run_analysis",
         "save_sample_workflow",
         "save_scheduled_report",
         "save_search",
@@ -217,6 +225,7 @@ class Rpc:
         "unfollow_project",
         "update_block_payload",
         "update_pipeline_definition_version_draft",
+        "update_plate_run",
         "update_record_custom_fields",
         "update_saved_search",
         "update_sheet_instance",
@@ -453,6 +462,24 @@ class Rpc:
         body["p_expected_revision"] = expected_revision
         return self._call("archive_dataset", body)  # type: ignore[no-any-return]
 
+    def archive_plate_run(
+        self,
+        *,
+        plate_run_id: str,
+    ) -> Union["PlateRunsRow", List["PlateRunsRow"]]:
+        """
+        Archive a plate run
+
+        Archives a run so it no longer shows in lists. Returns the run. Sends `plate_run.archived`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/archive_plate_run``
+        """
+        body: Dict[str, Any] = {}
+        body["p_plate_run_id"] = plate_run_id
+        return self._call("archive_plate_run", body)  # type: ignore[no-any-return]
+
     def archive_record(
         self,
         *,
@@ -554,6 +581,24 @@ class Rpc:
         body: Dict[str, Any] = {}
         body["p_absence_id"] = absence_id
         return self._call("cancel_member_absence", body)  # type: ignore[no-any-return]
+
+    def cancel_plate_worklist(
+        self,
+        *,
+        worklist_id: str,
+    ) -> Union["PlateWorklistsRow", List["PlateWorklistsRow"]]:
+        """
+        Cancel a worklist
+
+        Cancels a worklist that has not been completed. Returns the worklist.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/cancel_plate_worklist``
+        """
+        body: Dict[str, Any] = {}
+        body["p_worklist_id"] = worklist_id
+        return self._call("cancel_plate_worklist", body)  # type: ignore[no-any-return]
 
     def cancel_reagent_order(
         self,
@@ -662,6 +707,32 @@ class Rpc:
         body["p_rows"] = rows
         body["p_idempotency_key"] = idempotency_key
         return self._call("commit_sheet_record_batch", body)  # type: ignore[no-any-return]
+
+    def complete_plate_worklist(
+        self,
+        *,
+        worklist_id: str,
+        reconciled: Dict[str, "JsonValue"],
+        purpose_record_id: Union[str, Unset] = UNSET,
+        record_withdrawals: Union[bool, Unset] = UNSET,
+    ) -> Union["PlateWorklistsRow", List["PlateWorklistsRow"]]:
+        """
+        Complete a worklist from the robot log
+
+        Records what the robot did: `p_reconciled` is the planned transfers each with a `status` and `movedUl`. By default the volumes moved are withdrawn from the source samples for the experiment, which also links them to it; samples that cannot be withdrawn from are listed in `withdrawals`. Returns the worklist. Sends `plate_worklist.completed`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/complete_plate_worklist``
+        """
+        body: Dict[str, Any] = {}
+        body["p_worklist_id"] = worklist_id
+        body["p_reconciled"] = reconciled
+        if not isinstance(purpose_record_id, Unset):
+            body["p_purpose_record_id"] = purpose_record_id
+        if not isinstance(record_withdrawals, Unset):
+            body["p_record_withdrawals"] = record_withdrawals
+        return self._call("complete_plate_worklist", body)  # type: ignore[no-any-return]
 
     def complete_stocktake(
         self,
@@ -788,6 +859,85 @@ class Rpc:
         body["p_definition_id"] = definition_id
         body["p_configuration"] = configuration
         return self._call("create_pipeline_definition_version", body)  # type: ignore[no-any-return]
+
+    def create_plate_run(
+        self,
+        *,
+        name: str,
+        format: str,
+        wells: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        readout: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        config: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        project_id: Union[str, Unset] = UNSET,
+        record_id: Union[str, Unset] = UNSET,
+        design_id: Union[str, Unset] = UNSET,
+    ) -> Union["PlateRunsRow", List["PlateRunsRow"]]:
+        """
+        Create a plate run
+
+        Stores a plate: its format (`6_well` to `1536_well`), layout, readout and analysis settings. Returns the run. Sends `plate_run.created`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_plate_run``
+        """
+        body: Dict[str, Any] = {}
+        body["p_name"] = name
+        body["p_format"] = format
+        if not isinstance(wells, Unset):
+            body["p_wells"] = wells
+        if not isinstance(readout, Unset):
+            body["p_readout"] = readout
+        if not isinstance(config, Unset):
+            body["p_config"] = config
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        if not isinstance(record_id, Unset):
+            body["p_record_id"] = record_id
+        if not isinstance(design_id, Unset):
+            body["p_design_id"] = design_id
+        return self._call("create_plate_run", body)  # type: ignore[no-any-return]
+
+    def create_plate_worklist(
+        self,
+        *,
+        name: str,
+        format: str,
+        mode: str,
+        source_plate: str,
+        source_format: str,
+        dest_plate: str,
+        dest_format: str,
+        transfers: Dict[str, "JsonValue"],
+        plate_run_id: Union[str, Unset] = UNSET,
+        record_id: Union[str, Unset] = UNSET,
+        options: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Union["PlateWorklistsRow", List["PlateWorklistsRow"]]:
+        """
+        Create a liquid handler worklist
+
+        Stores the transfers for a robot: `p_format` is `csv`, `echo`, `tecan_gwl`, `hamilton` or `opentrons`; `p_mode` is `stamp` or `cherry_pick`. `p_transfers` is a JSON array of `{ sourceWell, destWell, volumeUl, label, sampleId }`. Returns the worklist. Sends `plate_worklist.created`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_plate_worklist``
+        """
+        body: Dict[str, Any] = {}
+        body["p_name"] = name
+        body["p_format"] = format
+        body["p_mode"] = mode
+        body["p_source_plate"] = source_plate
+        body["p_source_format"] = source_format
+        body["p_dest_plate"] = dest_plate
+        body["p_dest_format"] = dest_format
+        body["p_transfers"] = transfers
+        if not isinstance(plate_run_id, Unset):
+            body["p_plate_run_id"] = plate_run_id
+        if not isinstance(record_id, Unset):
+            body["p_record_id"] = record_id
+        if not isinstance(options, Unset):
+            body["p_options"] = options
+        return self._call("create_plate_worklist", body)  # type: ignore[no-any-return]
 
     def create_project(self, *, title: str) -> Union["ProjectsRow", List["ProjectsRow"]]:
         """
@@ -2732,6 +2882,31 @@ class Rpc:
             body["p_offset"] = offset
         return self._call("run_saved_search", body)  # type: ignore[no-any-return]
 
+    def save_plate_run_analysis(
+        self,
+        *,
+        plate_run_id: str,
+        analysis: Dict[str, "JsonValue"],
+        qc_status: str,
+        expected_metadata_version: Union[int, Unset] = UNSET,
+    ) -> Union["PlateRunsRow", List["PlateRunsRow"]]:
+        """
+        Save the analysis of a plate run
+
+        Keeps an analysis beside the run it was computed from, with the plate QC verdict (`pass`, `warn`, `fail` or `not_checked`). Returns the run. Sends `plate_run.analysed`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/save_plate_run_analysis``
+        """
+        body: Dict[str, Any] = {}
+        body["p_plate_run_id"] = plate_run_id
+        body["p_analysis"] = analysis
+        body["p_qc_status"] = qc_status
+        if not isinstance(expected_metadata_version, Unset):
+            body["p_expected_metadata_version"] = expected_metadata_version
+        return self._call("save_plate_run_analysis", body)  # type: ignore[no-any-return]
+
     def save_sample_workflow(
         self,
         *,
@@ -3446,6 +3621,39 @@ class Rpc:
         body["p_configuration"] = configuration
         return self._call("update_pipeline_definition_version_draft", body)  # type: ignore[no-any-return]
 
+    def update_plate_run(
+        self,
+        *,
+        plate_run_id: str,
+        name: Union[str, Unset] = UNSET,
+        wells: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        readout: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        config: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        expected_metadata_version: Union[int, Unset] = UNSET,
+    ) -> Union["PlateRunsRow", List["PlateRunsRow"]]:
+        """
+        Change a plate run
+
+        Renames a run or replaces its layout, readout or settings. Changing the layout, readout or settings clears the saved analysis. Returns the run.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/update_plate_run``
+        """
+        body: Dict[str, Any] = {}
+        body["p_plate_run_id"] = plate_run_id
+        if not isinstance(name, Unset):
+            body["p_name"] = name
+        if not isinstance(wells, Unset):
+            body["p_wells"] = wells
+        if not isinstance(readout, Unset):
+            body["p_readout"] = readout
+        if not isinstance(config, Unset):
+            body["p_config"] = config
+        if not isinstance(expected_metadata_version, Unset):
+            body["p_expected_metadata_version"] = expected_metadata_version
+        return self._call("update_plate_run", body)  # type: ignore[no-any-return]
+
     def update_record_custom_fields(
         self,
         *,
@@ -3650,21 +3858,26 @@ class AsyncRpc:
         "apply_sheet_instance_composition_adoption",
         "apply_sheet_instance_definition_upgrade",
         "archive_dataset",
+        "archive_plate_run",
         "archive_record",
         "archive_sheet_instance",
         "assign_record",
         "cancel_agent_workflow",
         "cancel_member_absence",
+        "cancel_plate_worklist",
         "cancel_reagent_order",
         "cancel_shipment",
         "cancel_stocktake",
         "commit_dataset_row_batch",
         "commit_sheet_record_batch",
+        "complete_plate_worklist",
         "complete_stocktake",
         "create_agent_workflow",
         "create_and_link_sheet_record",
         "create_legal_hold",
         "create_pipeline_definition_version",
+        "create_plate_run",
+        "create_plate_worklist",
         "create_project",
         "create_record",
         "create_record_link",
@@ -3746,6 +3959,7 @@ class AsyncRpc:
         "retention_due",
         "rotate_webhook_secret",
         "run_saved_search",
+        "save_plate_run_analysis",
         "save_sample_workflow",
         "save_scheduled_report",
         "save_search",
@@ -3775,6 +3989,7 @@ class AsyncRpc:
         "unfollow_project",
         "update_block_payload",
         "update_pipeline_definition_version_draft",
+        "update_plate_run",
         "update_record_custom_fields",
         "update_saved_search",
         "update_sheet_instance",
@@ -4011,6 +4226,24 @@ class AsyncRpc:
         body["p_expected_revision"] = expected_revision
         return await self._call("archive_dataset", body)  # type: ignore[no-any-return]
 
+    async def archive_plate_run(
+        self,
+        *,
+        plate_run_id: str,
+    ) -> Union["PlateRunsRow", List["PlateRunsRow"]]:
+        """
+        Archive a plate run
+
+        Archives a run so it no longer shows in lists. Returns the run. Sends `plate_run.archived`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/archive_plate_run``
+        """
+        body: Dict[str, Any] = {}
+        body["p_plate_run_id"] = plate_run_id
+        return await self._call("archive_plate_run", body)  # type: ignore[no-any-return]
+
     async def archive_record(
         self,
         *,
@@ -4112,6 +4345,24 @@ class AsyncRpc:
         body: Dict[str, Any] = {}
         body["p_absence_id"] = absence_id
         return await self._call("cancel_member_absence", body)  # type: ignore[no-any-return]
+
+    async def cancel_plate_worklist(
+        self,
+        *,
+        worklist_id: str,
+    ) -> Union["PlateWorklistsRow", List["PlateWorklistsRow"]]:
+        """
+        Cancel a worklist
+
+        Cancels a worklist that has not been completed. Returns the worklist.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/cancel_plate_worklist``
+        """
+        body: Dict[str, Any] = {}
+        body["p_worklist_id"] = worklist_id
+        return await self._call("cancel_plate_worklist", body)  # type: ignore[no-any-return]
 
     async def cancel_reagent_order(
         self,
@@ -4220,6 +4471,32 @@ class AsyncRpc:
         body["p_rows"] = rows
         body["p_idempotency_key"] = idempotency_key
         return await self._call("commit_sheet_record_batch", body)  # type: ignore[no-any-return]
+
+    async def complete_plate_worklist(
+        self,
+        *,
+        worklist_id: str,
+        reconciled: Dict[str, "JsonValue"],
+        purpose_record_id: Union[str, Unset] = UNSET,
+        record_withdrawals: Union[bool, Unset] = UNSET,
+    ) -> Union["PlateWorklistsRow", List["PlateWorklistsRow"]]:
+        """
+        Complete a worklist from the robot log
+
+        Records what the robot did: `p_reconciled` is the planned transfers each with a `status` and `movedUl`. By default the volumes moved are withdrawn from the source samples for the experiment, which also links them to it; samples that cannot be withdrawn from are listed in `withdrawals`. Returns the worklist. Sends `plate_worklist.completed`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/complete_plate_worklist``
+        """
+        body: Dict[str, Any] = {}
+        body["p_worklist_id"] = worklist_id
+        body["p_reconciled"] = reconciled
+        if not isinstance(purpose_record_id, Unset):
+            body["p_purpose_record_id"] = purpose_record_id
+        if not isinstance(record_withdrawals, Unset):
+            body["p_record_withdrawals"] = record_withdrawals
+        return await self._call("complete_plate_worklist", body)  # type: ignore[no-any-return]
 
     async def complete_stocktake(
         self,
@@ -4346,6 +4623,85 @@ class AsyncRpc:
         body["p_definition_id"] = definition_id
         body["p_configuration"] = configuration
         return await self._call("create_pipeline_definition_version", body)  # type: ignore[no-any-return]
+
+    async def create_plate_run(
+        self,
+        *,
+        name: str,
+        format: str,
+        wells: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        readout: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        config: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        project_id: Union[str, Unset] = UNSET,
+        record_id: Union[str, Unset] = UNSET,
+        design_id: Union[str, Unset] = UNSET,
+    ) -> Union["PlateRunsRow", List["PlateRunsRow"]]:
+        """
+        Create a plate run
+
+        Stores a plate: its format (`6_well` to `1536_well`), layout, readout and analysis settings. Returns the run. Sends `plate_run.created`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_plate_run``
+        """
+        body: Dict[str, Any] = {}
+        body["p_name"] = name
+        body["p_format"] = format
+        if not isinstance(wells, Unset):
+            body["p_wells"] = wells
+        if not isinstance(readout, Unset):
+            body["p_readout"] = readout
+        if not isinstance(config, Unset):
+            body["p_config"] = config
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        if not isinstance(record_id, Unset):
+            body["p_record_id"] = record_id
+        if not isinstance(design_id, Unset):
+            body["p_design_id"] = design_id
+        return await self._call("create_plate_run", body)  # type: ignore[no-any-return]
+
+    async def create_plate_worklist(
+        self,
+        *,
+        name: str,
+        format: str,
+        mode: str,
+        source_plate: str,
+        source_format: str,
+        dest_plate: str,
+        dest_format: str,
+        transfers: Dict[str, "JsonValue"],
+        plate_run_id: Union[str, Unset] = UNSET,
+        record_id: Union[str, Unset] = UNSET,
+        options: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Union["PlateWorklistsRow", List["PlateWorklistsRow"]]:
+        """
+        Create a liquid handler worklist
+
+        Stores the transfers for a robot: `p_format` is `csv`, `echo`, `tecan_gwl`, `hamilton` or `opentrons`; `p_mode` is `stamp` or `cherry_pick`. `p_transfers` is a JSON array of `{ sourceWell, destWell, volumeUl, label, sampleId }`. Returns the worklist. Sends `plate_worklist.created`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_plate_worklist``
+        """
+        body: Dict[str, Any] = {}
+        body["p_name"] = name
+        body["p_format"] = format
+        body["p_mode"] = mode
+        body["p_source_plate"] = source_plate
+        body["p_source_format"] = source_format
+        body["p_dest_plate"] = dest_plate
+        body["p_dest_format"] = dest_format
+        body["p_transfers"] = transfers
+        if not isinstance(plate_run_id, Unset):
+            body["p_plate_run_id"] = plate_run_id
+        if not isinstance(record_id, Unset):
+            body["p_record_id"] = record_id
+        if not isinstance(options, Unset):
+            body["p_options"] = options
+        return await self._call("create_plate_worklist", body)  # type: ignore[no-any-return]
 
     async def create_project(self, *, title: str) -> Union["ProjectsRow", List["ProjectsRow"]]:
         """
@@ -6290,6 +6646,31 @@ class AsyncRpc:
             body["p_offset"] = offset
         return await self._call("run_saved_search", body)  # type: ignore[no-any-return]
 
+    async def save_plate_run_analysis(
+        self,
+        *,
+        plate_run_id: str,
+        analysis: Dict[str, "JsonValue"],
+        qc_status: str,
+        expected_metadata_version: Union[int, Unset] = UNSET,
+    ) -> Union["PlateRunsRow", List["PlateRunsRow"]]:
+        """
+        Save the analysis of a plate run
+
+        Keeps an analysis beside the run it was computed from, with the plate QC verdict (`pass`, `warn`, `fail` or `not_checked`). Returns the run. Sends `plate_run.analysed`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/save_plate_run_analysis``
+        """
+        body: Dict[str, Any] = {}
+        body["p_plate_run_id"] = plate_run_id
+        body["p_analysis"] = analysis
+        body["p_qc_status"] = qc_status
+        if not isinstance(expected_metadata_version, Unset):
+            body["p_expected_metadata_version"] = expected_metadata_version
+        return await self._call("save_plate_run_analysis", body)  # type: ignore[no-any-return]
+
     async def save_sample_workflow(
         self,
         *,
@@ -7003,6 +7384,39 @@ class AsyncRpc:
         body["p_expected_revision"] = expected_revision
         body["p_configuration"] = configuration
         return await self._call("update_pipeline_definition_version_draft", body)  # type: ignore[no-any-return]
+
+    async def update_plate_run(
+        self,
+        *,
+        plate_run_id: str,
+        name: Union[str, Unset] = UNSET,
+        wells: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        readout: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        config: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        expected_metadata_version: Union[int, Unset] = UNSET,
+    ) -> Union["PlateRunsRow", List["PlateRunsRow"]]:
+        """
+        Change a plate run
+
+        Renames a run or replaces its layout, readout or settings. Changing the layout, readout or settings clears the saved analysis. Returns the run.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/update_plate_run``
+        """
+        body: Dict[str, Any] = {}
+        body["p_plate_run_id"] = plate_run_id
+        if not isinstance(name, Unset):
+            body["p_name"] = name
+        if not isinstance(wells, Unset):
+            body["p_wells"] = wells
+        if not isinstance(readout, Unset):
+            body["p_readout"] = readout
+        if not isinstance(config, Unset):
+            body["p_config"] = config
+        if not isinstance(expected_metadata_version, Unset):
+            body["p_expected_metadata_version"] = expected_metadata_version
+        return await self._call("update_plate_run", body)  # type: ignore[no-any-return]
 
     async def update_record_custom_fields(
         self,

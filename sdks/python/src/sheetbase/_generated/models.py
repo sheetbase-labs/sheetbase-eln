@@ -61,6 +61,7 @@ __all__ = [
     "ApplySheetInstanceCompositionAdoptionParams",
     "ApplySheetInstanceDefinitionUpgradeParams",
     "ArchiveDatasetParams",
+    "ArchivePlateRunParams",
     "ArchiveRecordParams",
     "ArchiveSheetInstanceParams",
     "AssignRecordParams",
@@ -69,11 +70,13 @@ __all__ = [
     "BlocksRowPatch",
     "CancelAgentWorkflowParams",
     "CancelMemberAbsenceParams",
+    "CancelPlateWorklistParams",
     "CancelReagentOrderParams",
     "CancelShipmentParams",
     "CancelStocktakeParams",
     "CommitDatasetRowBatchParams",
     "CommitSheetRecordBatchParams",
+    "CompletePlateWorklistParams",
     "CompleteStocktakeParams",
     "CompositionAdoptionApplyResult",
     "CompositionAdoptionApplyResultApplied",
@@ -83,6 +86,8 @@ __all__ = [
     "CreateAndLinkSheetRecordParams",
     "CreateLegalHoldParams",
     "CreatePipelineDefinitionVersionParams",
+    "CreatePlateRunParams",
+    "CreatePlateWorklistParams",
     "CreateProjectParams",
     "CreateRecordLinkParams",
     "CreateRecordParams",
@@ -175,6 +180,8 @@ __all__ = [
     "PipelineRunLogsRow",
     "PipelineRunOutputsRow",
     "PipelineRunsRow",
+    "PlateRunsRow",
+    "PlateWorklistsRow",
     "PoolSamplesParams",
     "PrepareSolutionParams",
     "PreviewMemberHandoverParams",
@@ -245,6 +252,7 @@ __all__ = [
     "SampleWorkflowStagesRow",
     "SampleWorkflowTransitionsRow",
     "SampleWorkflowsRow",
+    "SavePlateRunAnalysisParams",
     "SaveSampleWorkflowParams",
     "SaveScheduledReportParams",
     "SaveSearchParams",
@@ -329,6 +337,7 @@ __all__ = [
     "UnfollowProjectParams",
     "UpdateBlockPayloadParams",
     "UpdatePipelineDefinitionVersionDraftParams",
+    "UpdatePlateRunParams",
     "UpdateRecordCustomFieldsParams",
     "UpdateSavedSearchParams",
     "UpdateSheetInstanceParams",
@@ -1566,6 +1575,64 @@ class PipelineRunsRow(_PipelineRunsRowRequired, total=False):
     actor_credential_id: Optional[str]
 
 
+class _PlateRunsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    number: int
+    name: str
+    format: str
+    rows: int
+    cols: int
+    wells: Dict[str, "JsonValue"]
+    readout: Dict[str, "JsonValue"]
+    config: Dict[str, "JsonValue"]
+    status: str
+    metadata_version: int
+    created_by: str
+    created_at: str
+    updated_at: str
+
+
+class PlateRunsRow(_PlateRunsRowRequired, total=False):
+    """`api.plate_runs` row (snake_case). Plate runs: one plate read on an instrument, with its layout, readout, analysis settings and the last analysis (normalised values, Z-prime, hits and curves)."""
+    project_id: Optional[str]
+    record_id: Optional[str]
+    design_id: Optional[str]
+    results: Optional[Dict[str, "JsonValue"]]
+    qc_status: Optional[str]
+    analysed_at: Optional[str]
+    analysed_by: Optional[str]
+
+
+class _PlateWorklistsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    number: int
+    name: str
+    format: str
+    mode: str
+    source_plate: str
+    source_format: str
+    dest_plate: str
+    dest_format: str
+    transfers: Dict[str, "JsonValue"]
+    options: Dict[str, "JsonValue"]
+    status: str
+    created_by: str
+    created_at: str
+    updated_at: str
+
+
+class PlateWorklistsRow(_PlateWorklistsRowRequired, total=False):
+    """`api.plate_worklists` row (snake_case). Liquid handler worklists: the transfers from a source plate to a destination plate, and what the robot log said was moved."""
+    run_id: Optional[str]
+    record_id: Optional[str]
+    reconciled: Optional[Dict[str, "JsonValue"]]
+    withdrawals: Optional[Dict[str, "JsonValue"]]
+    completed_at: Optional[str]
+    completed_by: Optional[str]
+
+
 class ProjectFollowsRow(TypedDict):
     """`api.project_follows` row (snake_case). Projects a person follows. Personal tokens only: you see your own follows."""
     id: str
@@ -2791,6 +2858,10 @@ class ArchiveDatasetParams(TypedDict):
     p_expected_revision: int
 
 
+class ArchivePlateRunParams(TypedDict):
+    p_plate_run_id: str
+
+
 class ArchiveRecordParams(TypedDict):
     p_record_id: str
     p_expected_metadata_version: int
@@ -2815,6 +2886,10 @@ class CancelAgentWorkflowParams(TypedDict):
 
 class CancelMemberAbsenceParams(TypedDict):
     p_absence_id: str
+
+
+class CancelPlateWorklistParams(TypedDict):
+    p_worklist_id: str
 
 
 class _CancelReagentOrderParamsRequired(TypedDict):
@@ -2849,6 +2924,16 @@ class CommitSheetRecordBatchParams(TypedDict):
     p_model_key: str
     p_rows: List["SheetRecordBatchRow"]
     p_idempotency_key: str
+
+
+class _CompletePlateWorklistParamsRequired(TypedDict):
+    p_worklist_id: str
+    p_reconciled: Dict[str, "JsonValue"]
+
+
+class CompletePlateWorklistParams(_CompletePlateWorklistParamsRequired, total=False):
+    p_purpose_record_id: str
+    p_record_withdrawals: bool
 
 
 class CompleteStocktakeParams(TypedDict):
@@ -2888,6 +2973,37 @@ class CreatePipelineDefinitionVersionParams(TypedDict):
     p_workspace_id: str
     p_definition_id: str
     p_configuration: Dict[str, "JsonValue"]
+
+
+class _CreatePlateRunParamsRequired(TypedDict):
+    p_name: str
+    p_format: str
+
+
+class CreatePlateRunParams(_CreatePlateRunParamsRequired, total=False):
+    p_wells: Dict[str, "JsonValue"]
+    p_readout: Dict[str, "JsonValue"]
+    p_config: Dict[str, "JsonValue"]
+    p_project_id: str
+    p_record_id: str
+    p_design_id: str
+
+
+class _CreatePlateWorklistParamsRequired(TypedDict):
+    p_name: str
+    p_format: str
+    p_mode: str
+    p_source_plate: str
+    p_source_format: str
+    p_dest_plate: str
+    p_dest_format: str
+    p_transfers: Dict[str, "JsonValue"]
+
+
+class CreatePlateWorklistParams(_CreatePlateWorklistParamsRequired, total=False):
+    p_plate_run_id: str
+    p_record_id: str
+    p_options: Dict[str, "JsonValue"]
 
 
 class CreateProjectParams(TypedDict):
@@ -3527,6 +3643,16 @@ class RunSavedSearchParams(_RunSavedSearchParamsRequired, total=False):
     p_offset: int
 
 
+class _SavePlateRunAnalysisParamsRequired(TypedDict):
+    p_plate_run_id: str
+    p_analysis: Dict[str, "JsonValue"]
+    p_qc_status: str
+
+
+class SavePlateRunAnalysisParams(_SavePlateRunAnalysisParamsRequired, total=False):
+    p_expected_metadata_version: int
+
+
 class SaveSampleWorkflowParams(TypedDict):
     p_workflow_id: str
     p_definition: Dict[str, "JsonValue"]
@@ -3770,6 +3896,18 @@ class UpdatePipelineDefinitionVersionDraftParams(TypedDict):
     p_version_id: str
     p_expected_revision: int
     p_configuration: Dict[str, "JsonValue"]
+
+
+class _UpdatePlateRunParamsRequired(TypedDict):
+    p_plate_run_id: str
+
+
+class UpdatePlateRunParams(_UpdatePlateRunParamsRequired, total=False):
+    p_name: str
+    p_wells: Dict[str, "JsonValue"]
+    p_readout: Dict[str, "JsonValue"]
+    p_config: Dict[str, "JsonValue"]
+    p_expected_metadata_version: int
 
 
 class UpdateRecordCustomFieldsParams(TypedDict):

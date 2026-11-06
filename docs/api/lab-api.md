@@ -83,6 +83,8 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `my_work_items`                | What is waiting on the person: reviews, tasks, assigned records and so on. Personal tokens only.                                                                             |
 | `inbox_work_items`             | The person's Inbox items with tab and type. Personal tokens only.                                                                                                            |
 | `project_follows`              | Projects a person follows. Personal tokens only: you see your own follows.                                                                                                   |
+| `plate_runs`                   | Plate runs: one plate read on an instrument, with its layout, readout, analysis settings and the last analysis (normalised values, Z-prime, hits and curves).                |
+| `plate_worklists`              | Liquid handler worklists: the transfers from a source plate to a destination plate, and what the robot log said was moved.                                                   |
 
 ## Actions
 
@@ -789,3 +791,101 @@ Scope: `lab:write`.
 | `p_object_kind` * | text | `instrument`, `pipeline`, `analysis`, `record` and the other pinnable kinds. |
 | `p_object_id` *   | uuid | Id of the object.                                                            |
 | `p_favourite` *   | bool | `true` to pin, `false` to unpin.                                             |
+
+### `create_plate_run`
+
+Create a plate run. Stores a plate: its format (`6_well` to `1536_well`), layout, readout and analysis settings. Returns the run. Sends `plate_run.created`.
+
+Scope: `lab:write`.
+
+| Argument       | Type |                                                                                                        |
+| -------------- | ---- | ------------------------------------------------------------------------------------------------------ |
+| `p_name` *     | text | Name.                                                                                                  |
+| `p_format` *   | text | Plate format, such as `96_well` or `384_well`; or a worklist file format.                              |
+| `p_wells`      | json | JSON array of `{ wellCode, role, sampleId, sampleLabel, concentration, concentrationUnit, volumeUl }`. |
+| `p_readout`    | json | JSON object of well to reading, such as `{ "A1": 1204.5 }`.                                            |
+| `p_config`     | json | JSON analysis settings: normalisation, hit rule, QC limits and curve model.                            |
+| `p_project_id` | uuid | Project id.                                                                                            |
+| `p_record_id`  | uuid | Record id.                                                                                             |
+| `p_design_id`  | uuid | Plate design the layout came from.                                                                     |
+
+### `update_plate_run`
+
+Change a plate run. Renames a run or replaces its layout, readout or settings. Changing the layout, readout or settings clears the saved analysis. Returns the run.
+
+Scope: `lab:write`.
+
+| Argument                      | Type |                                                                                                        |
+| ----------------------------- | ---- | ------------------------------------------------------------------------------------------------------ |
+| `p_plate_run_id` *            | uuid | Plate run id.                                                                                          |
+| `p_name`                      | text | Name.                                                                                                  |
+| `p_wells`                     | json | JSON array of `{ wellCode, role, sampleId, sampleLabel, concentration, concentrationUnit, volumeUl }`. |
+| `p_readout`                   | json | JSON object of well to reading, such as `{ "A1": 1204.5 }`.                                            |
+| `p_config`                    | json | JSON analysis settings: normalisation, hit rule, QC limits and curve model.                            |
+| `p_expected_metadata_version` | int  | The `metadata_version` last read; refused if it moved.                                                 |
+
+### `save_plate_run_analysis`
+
+Save the analysis of a plate run. Keeps an analysis beside the run it was computed from, with the plate QC verdict (`pass`, `warn`, `fail` or `not_checked`). Returns the run. Sends `plate_run.analysed`.
+
+Scope: `lab:write`.
+
+| Argument                      | Type |                                                                |
+| ----------------------------- | ---- | -------------------------------------------------------------- |
+| `p_plate_run_id` *            | uuid | Plate run id.                                                  |
+| `p_analysis` *                | json | JSON analysis, as computed from the stored layout and readout. |
+| `p_qc_status` *               | text | `pass`, `warn`, `fail` or `not_checked`.                       |
+| `p_expected_metadata_version` | int  | The `metadata_version` last read; refused if it moved.         |
+
+### `archive_plate_run`
+
+Archive a plate run. Archives a run so it no longer shows in lists. Returns the run. Sends `plate_run.archived`.
+
+Scope: `lab:write`.
+
+| Argument           | Type |               |
+| ------------------ | ---- | ------------- |
+| `p_plate_run_id` * | uuid | Plate run id. |
+
+### `create_plate_worklist`
+
+Create a liquid handler worklist. Stores the transfers for a robot: `p_format` is `csv`, `echo`, `tecan_gwl`, `hamilton` or `opentrons`; `p_mode` is `stamp` or `cherry_pick`. `p_transfers` is a JSON array of `{ sourceWell, destWell, volumeUl, label, sampleId }`. Returns the worklist. Sends `plate_worklist.created`.
+
+Scope: `lab:write`.
+
+| Argument            | Type |                                                                           |
+| ------------------- | ---- | ------------------------------------------------------------------------- |
+| `p_name` *          | text | Name.                                                                     |
+| `p_format` *        | text | Plate format, such as `96_well` or `384_well`; or a worklist file format. |
+| `p_mode` *          | text | `stamp` (well to well) or `cherry_pick`.                                  |
+| `p_source_plate` *  | text | Name or barcode of the source plate.                                      |
+| `p_source_format` * | text | Source plate format.                                                      |
+| `p_dest_plate` *    | text | Name or barcode of the destination plate.                                 |
+| `p_dest_format` *   | text | Destination plate format.                                                 |
+| `p_transfers` *     | json | JSON array of `{ sourceWell, destWell, volumeUl, label, sampleId }`.      |
+| `p_plate_run_id`    | uuid | Plate run id.                                                             |
+| `p_record_id`       | uuid | Record id.                                                                |
+| `p_options`         | json | JSON options used to build the worklist.                                  |
+
+### `complete_plate_worklist`
+
+Complete a worklist from the robot log. Records what the robot did: `p_reconciled` is the planned transfers each with a `status` and `movedUl`. By default the volumes moved are withdrawn from the source samples for the experiment, which also links them to it; samples that cannot be withdrawn from are listed in `withdrawals`. Returns the worklist. Sends `plate_worklist.completed`.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                                       |
+| ---------------------- | ---- | --------------------------------------------------------------------- |
+| `p_worklist_id` *      | uuid | Worklist id.                                                          |
+| `p_reconciled` *       | json | JSON array of the planned transfers each with `status` and `movedUl`. |
+| `p_purpose_record_id`  | uuid | The experiment the samples were used for.                             |
+| `p_record_withdrawals` | bool | Withdraw what moved from the source samples (default true).           |
+
+### `cancel_plate_worklist`
+
+Cancel a worklist. Cancels a worklist that has not been completed. Returns the worklist.
+
+Scope: `lab:write`.
+
+| Argument          | Type |              |
+| ----------------- | ---- | ------------ |
+| `p_worklist_id` * | uuid | Worklist id. |

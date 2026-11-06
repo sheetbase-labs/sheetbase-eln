@@ -37,6 +37,7 @@ from typing import Any, Optional, Sequence
 
 import httpx
 
+from sheetbase._generated import Rpc, Tables
 from sheetbase._http import HttpTransport, TableHead
 from sheetbase._version import API_VERSION, __version__
 from sheetbase.resources import (
@@ -92,17 +93,15 @@ class SheetbaseClient:
         self.pipelines = PipelinesResource(self._transport)
         self.people = PeopleResource(self._transport)
 
+        #: Every public table, typed from the OpenAPI contract:
+        #: ``client.tables.projects.list(where={"status": "active"})``.
+        self.tables = Tables(self._transport)
+        #: Every public RPC as a typed method:
+        #: ``client.rpc.create_project(title="Assay")``. Still callable for raw
+        #: access: ``client.rpc("create_project", title="Assay")``.
+        self.rpc = Rpc(self._transport)
+
     # ── raw access ──────────────────────────────────────────────────────
-
-    def rpc(self, name: str, **params: Any) -> Any:
-        """Call an allowlisted RPC directly with ``p_*`` parameters.
-
-        ``client.rpc("query_dataset_rows", p_dataset_id="...", p_limit=100)``
-        is equivalent to ``client.datasets.query_rows(dataset_id="...", limit=100)``
-        but provides an escape hatch for RPCs not yet wrapped by a resource.
-        """
-        body = {f"p_{k}" if not k.startswith("p_") else k: v for k, v in params.items()}
-        return self._transport.post(f"/api/db/rpc/{name}", json_body=body)
 
     def table_get(
         self,

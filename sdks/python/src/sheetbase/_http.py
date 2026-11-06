@@ -199,9 +199,10 @@ class HttpTransport:
         self,
         path: str,
         *,
+        params: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
     ) -> Any:
-        return self.request("DELETE", path, headers=headers)
+        return self.request("DELETE", path, params=params, headers=headers)
 
     # ── response handling ───────────────────────────────────────────────
 
@@ -413,9 +414,10 @@ class AsyncHttpTransport:
         self,
         path: str,
         *,
+        params: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
     ) -> Any:
-        return await self.request("DELETE", path, headers=headers)
+        return await self.request("DELETE", path, params=params, headers=headers)
 
     async def close(self) -> None:
         if not self._closed:

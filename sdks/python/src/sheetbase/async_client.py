@@ -30,6 +30,7 @@ from typing import Any, Optional, Sequence
 
 import httpx
 
+from sheetbase._generated import AsyncRpc, AsyncTables
 from sheetbase._http import AsyncHttpTransport, TableHead
 from sheetbase._version import API_VERSION, __version__
 from sheetbase._pipeline_source import apply_step_source, check_source
@@ -80,6 +81,11 @@ class AsyncSheetbaseClient:
         self.pipelines = AsyncPipelines(self._transport)
         self.people = AsyncPeople(self._transport)
 
+        #: Every public table, typed from the OpenAPI contract.
+        self.tables = AsyncTables(self._transport)
+        #: Every public RPC as a typed async method (also callable for raw access).
+        self.rpc = AsyncRpc(self._transport)
+
     @property
     def version(self) -> str:
         return __version__
@@ -87,10 +93,6 @@ class AsyncSheetbaseClient:
     @property
     def api_version(self) -> str:
         return API_VERSION
-
-    async def rpc(self, name: str, **params: Any) -> Any:
-        body = {f"p_{k}" if not k.startswith("p_") else k: v for k, v in params.items()}
-        return await self._transport.post(f"/api/db/rpc/{name}", json_body=body)
 
     async def table_get(self, resource: str, *, params: Optional[dict[str, Any]] = None) -> Any:
         return await self._transport.get(f"/api/db/{resource}", params=params)

@@ -14,6 +14,12 @@ Usage::
         scopes=["datasets:read", "datasets:write"],
     )
 
+    # Every public table and RPC, typed from the OpenAPI contract
+    active = client.tables.projects.list(where={"status": "active"})
+    for record in client.tables.records.iter(where={"project_id": "..."}):
+        ...
+    client.rpc.create_project(title="Assay development")
+
     rows = client.datasets.query_rows(dataset_id="...")
     df = rows.to_dataframe()
 
@@ -31,6 +37,15 @@ from sheetbase._pipeline_source import (
     apply_step_source,
     notebook_to_python,
     parse_requirements,
+)
+from sheetbase._generated import AsyncRpc, AsyncTables, Rpc, Tables
+from sheetbase._unset import UNSET, Unset
+from sheetbase.resources.events import (
+    EVENT_NAMES,
+    WebhookEventPayload,
+    WebhookSignatureError,
+    parse_webhook,
+    verify_webhook_signature,
 )
 from sheetbase.parsers import ParsedFile, ParseError, ParserApp, ParserRequest
 from sheetbase.errors import (
@@ -56,6 +71,17 @@ from sheetbase.errors import (
 
 __all__ = [
     "__version__",
+    "AsyncRpc",
+    "AsyncTables",
+    "EVENT_NAMES",
+    "Rpc",
+    "Tables",
+    "UNSET",
+    "Unset",
+    "WebhookEventPayload",
+    "WebhookSignatureError",
+    "parse_webhook",
+    "verify_webhook_signature",
     "ParsedFile",
     "ParseError",
     "ParserApp",

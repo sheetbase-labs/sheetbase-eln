@@ -1,3 +1,4 @@
+import { Avatar } from '#/components/ui/avatar'
 import {
   AUDIT_ENTITY_ICONS,
   AUDIT_OPERATION_ICONS,
@@ -77,6 +78,14 @@ function toEntry(group: {
     icon: iconFor(group.primary),
     title: (
       <>
+        {group.primary.actorUserId && !group.primary.actorCredentialId ? (
+          <Avatar
+            userId={group.primary.actorUserId}
+            name={actorLabel(group.primary)}
+            size="xs"
+            aria-hidden
+          />
+        ) : null}
         <span className="font-medium">{actorLabel(group.primary)}</span>
         <span className="text-fg-muted">{described.action}</span>
         <span className="truncate font-medium">

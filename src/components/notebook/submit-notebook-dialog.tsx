@@ -5,6 +5,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '#/components/ui/button'
+import { Person } from '#/components/ui/person'
 import { Checkbox } from '#/components/ui/checkbox'
 import { Field, Input } from '#/components/ui/input'
 import { Notice } from '#/components/ui/alert'
@@ -607,8 +608,9 @@ export function SubmitNotebookDialog({
                   checked={selectedReviewerIds.includes(member.userId)}
                   onCheckedChange={() => toggleReviewer(member.userId)}
                 />
-                <span>
-                  {reviewerOptionLabel(
+                <Person
+                  userId={member.userId}
+                  name={reviewerOptionLabel(
                     {
                       ...member,
                       role: WORKSPACE_ROLE_LABELS[
@@ -618,7 +620,7 @@ export function SubmitNotebookDialog({
                     },
                     reviewerUserId,
                   )}
-                </span>
+                />
               </label>
             ))}
           </fieldset>

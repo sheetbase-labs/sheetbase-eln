@@ -1,3 +1,4 @@
+import { Person } from '#/components/ui/person'
 import { Fragment, useState } from 'react'
 import { clockOption } from '#/lib/display-clock'
 import { useQuery } from '@tanstack/react-query'
@@ -254,7 +255,16 @@ export function ExperimentHistoryView({
                             {time.format(new Date(event.createdAt))}
                           </time>
                         </TableCell>
-                        <TableCell>{actor(event)}</TableCell>
+                        <TableCell>
+                          {event.actorUserId && !event.actorCredentialId ? (
+                            <Person
+                              userId={event.actorUserId}
+                              name={actor(event)}
+                            />
+                          ) : (
+                            actor(event)
+                          )}
+                        </TableCell>
                         <TableCell>
                           <button
                             type="button"

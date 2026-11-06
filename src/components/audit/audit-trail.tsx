@@ -21,6 +21,8 @@ export interface AuditActor {
   name: string
   /** When the actor is unknown/anonymised, e.g. a deleted user. */
   unknown?: boolean
+  /** Shows this person's profile photo beside their name. */
+  userId?: string | null
 }
 
 export interface AuditEvent {
@@ -77,6 +79,7 @@ function toEntry(event: AuditEvent): HistoryEntry {
     actor: event.actor?.unknown
       ? t('projects.auditTrail.unknownUser')
       : (event.actor?.name ?? t('projects.auditTrail.system')),
+    actorUserId: event.actor?.unknown ? null : event.actor?.userId,
     time: event.timestamp,
     detail: event.target,
     sentence: eventSentence(event),

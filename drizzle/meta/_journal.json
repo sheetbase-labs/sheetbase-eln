@@ -643,6 +643,13 @@
       "when": 1801404897830,
       "tag": "0093_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1801404957830,
+      "tag": "0094_people_events",
+      "breakpoints": true
     }
   ]
 }

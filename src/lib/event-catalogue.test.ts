@@ -80,6 +80,7 @@ describe('catalogue integrity', () => {
       'import',
       'instrument',
       'notebook',
+      'people',
       'pipeline',
       'record',
       'sample',

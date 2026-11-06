@@ -139,6 +139,16 @@ See [`pipelines.md`](../subsystems/pipelines.md) for the trigger model
 (rotation emits the pair so it is reconstructable; payloads carry display
 metadata only, never secrets).
 
+### People and sign-in (`stable`, webhook and SSE)
+
+`member.work_handed_over` (counts of what moved and what stayed, by kind of
+work), `member.absence_set` (dates and the delegate), `member.absence_cancelled`,
+`workspace.group_role.mapped` / `.removed` / `.adopted` (sign-in group to role
+mappings), `member.role_changed_by_groups` (a role changed at sign-in from the
+person's groups), and `member.passkey_added` / `member.passkey_removed` (every
+workspace the person belongs to hears about it; the payload carries the
+passkey's name and id, never key material).
+
 ## Webhook delivery notes
 
 - Subscribe via `api.create_webhook_subscription`; filter with `event_types`

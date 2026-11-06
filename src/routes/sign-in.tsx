@@ -315,6 +315,11 @@ export function SignInSurface({
                         : t('settings.signIn.continueGithub')}
                     </Button>
                   ) : null}
+                  {githubEnabled || oidcName !== null ? (
+                    <p className="m-0 text-center text-label text-fg-muted">
+                      {t('settings.signIn.useCompanyAccount')}
+                    </p>
+                  ) : null}
                   {passkeysSupported ? (
                     <Button
                       variant="secondary"
@@ -328,11 +333,6 @@ export function SignInSurface({
                         ? t('people.passkeys.signingIn')
                         : t('people.passkeys.signIn')}
                     </Button>
-                  ) : null}
-                  {githubEnabled || oidcName !== null ? (
-                    <p className="m-0 text-center text-label text-fg-muted">
-                      {t('settings.signIn.useCompanyAccount')}
-                    </p>
                   ) : null}
                 </div>
                 {emailLinkEnabled ? (

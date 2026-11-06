@@ -842,7 +842,7 @@ function Members() {
           </Button>
         ) : null}
       </div>
-      <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
+      <div className="min-h-[14rem] flex-1 overflow-auto max-md:pb-20">
         {rows.length || members.isLoading ? (
           <RegistryGrid
             label={t('settings.members.members')}
@@ -872,7 +872,7 @@ function Members() {
           </div>
         )}
       </div>
-      <div className="border-t border-border-subtle px-4 py-4 md:px-6">
+      <div className="max-h-[55%] shrink-0 overflow-auto border-t border-border-subtle px-4 py-4 md:px-6">
         <div className="mb-6">
           <JoinDomainsSection
             workspaceId={workspaceId}

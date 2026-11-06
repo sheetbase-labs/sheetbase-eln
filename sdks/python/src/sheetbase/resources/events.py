@@ -160,6 +160,10 @@ EVENT_NAMES: tuple[str, ...] = (
     "plate_run.archived",
     "plate_worklist.created",
     "plate_worklist.completed",
+    "experiment.part_created",
+    "experiment.part_opened",
+    "experiment.part_completed",
+    "experiment.part_reopened",
 )
 
 #: Shipped wire aliases (table-name leaks kept for compatibility) mapped to

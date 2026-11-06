@@ -501,6 +501,30 @@ const LAB_EVENTS: ReadonlyArray<{
     operation: 'update',
     payload: { change: 'completed' },
   },
+  {
+    name: 'experiment.part_created',
+    entityType: 'experiment_part',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'experiment.part_opened',
+    entityType: 'part_opened',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'experiment.part_completed',
+    entityType: 'part_completion',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'experiment.part_reopened',
+    entityType: 'part_completion',
+    operation: 'delete',
+    payload: {},
+  },
 ]
 
 describe('lab feature events', () => {

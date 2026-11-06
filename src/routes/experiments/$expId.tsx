@@ -326,12 +326,18 @@ function ExperimentLayout() {
                 },
                 {
                   label: t('projects.experimentPage.tabs.samples'),
-                  count: kindCount('sample'),
+                  count: (
+                    <span className="max-md:hidden">{kindCount('sample')}</span>
+                  ),
                   link: { to: '/experiments/$expId/samples', params },
                 },
                 {
                   label: t('projects.experimentPage.tabs.data'),
-                  count: kindCount('dataset') + kindCount('file'),
+                  count: (
+                    <span className="max-md:hidden">
+                      {kindCount('dataset') + kindCount('file')}
+                    </span>
+                  ),
                   link: { to: '/experiments/$expId/data', params },
                 },
                 {

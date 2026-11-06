@@ -15,7 +15,8 @@ import { passkey as passkeyPlugin } from '@better-auth/passkey'
 import { betterAuth } from 'better-auth'
 import type { BetterAuthPlugin } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { createAuthMiddleware } from 'better-auth/api'
+import { sso } from '@better-auth/sso'
+import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { genericOAuth } from 'better-auth/plugins/generic-oauth'
 import { magicLink } from 'better-auth/plugins/magic-link'
 import { twoFactor as twoFactorPlugin } from 'better-auth/plugins/two-factor'
@@ -27,19 +28,24 @@ import {
   account,
   passkey,
   session,
+  ssoProvider,
   twoFactor,
   user,
   verification,
 } from '#/db/schema'
 import { env } from '#/env.server'
-import type { OidcConfig } from '#/lib/auth-methods'
+import type { OidcConfig, SamlConfig } from '#/lib/auth-methods'
 import {
   OIDC_PROVIDER_ID,
+  SAML_PROVIDER_ID,
   mayCreateByEmailLink,
   parseAllowedDomains,
   readAuthMethods,
   readOidcConfig,
+  readSamlConfig,
 } from '#/lib/auth-methods'
+import { applyIdpGroups } from '#/lib/idp-groups.server'
+import { samlPluginOptions } from '#/lib/saml-config'
 import {
   createSmtpTransport,
   readSmtpConfig,
@@ -70,6 +76,7 @@ const authSchema = {
   verification,
   twoFactor,
   passkey,
+  ssoProvider,
 }
 
 // Only a spent independent authorization can establish this server-only scope.
@@ -84,6 +91,7 @@ const passwordRecovery = new AsyncLocalStorage<{
 /** Seams for tests and alternative deployments; production reads configuration. */
 export interface AuthDeps {
   oidc?: OidcConfig | null
+  saml?: SamlConfig | null
   emailLink?: boolean
   emailLinkAllowedDomains?: string[]
   sendEmail?: (message: {
@@ -208,6 +216,20 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
       }),
     )
   }
+  const saml = deps.saml === undefined ? readSamlConfig(env) : deps.saml
+  if (saml) {
+    plugins.push(
+      sso(
+        samlPluginOptions(saml, {
+          baseUrl: env.BETTER_AUTH_URL,
+          // Groups come with the assertion; apply them once the person exists.
+          // Never allowed to fail the sign-in itself.
+          applyGroups: (userId, groups) =>
+            applyIdpGroups(database, userId, groups),
+        }),
+      ),
+    )
+  }
   if (emailLink) {
     plugins.push(
       magicLink({
@@ -260,28 +282,13 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
         // Single sign-on groups decide roles in the workspaces that map them.
         // Never allowed to fail the sign-in itself.
         if (
-          ctx.path.startsWith('/oauth2/callback/') &&
+          ctx.path.startsWith('/callback/') &&
+          ctx.params?.id === OIDC_PROVIDER_ID &&
           ctx.context.newSession
         ) {
-          try {
-            const { id, email } = ctx.context.newSession.user
-            const groups = takeGroups(email)
-            if (groups) {
-              const result = await database.execute<{ n: number }>(
-                sql`select internal.apply_idp_groups(${id}, ${groups}::text[]) as n`,
-              )
-              annotateRequest({
-                sso_groups: {
-                  count: groups.length,
-                  roles_changed: Number(result.rows[0]?.n ?? 0),
-                },
-              })
-            }
-          } catch (error) {
-            logger.warn('sso groups could not be applied', {
-              error: error instanceof Error ? error.message : String(error),
-            })
-          }
+          const { id, email } = ctx.context.newSession.user
+          const groups = takeGroups(email)
+          if (groups) await applyIdpGroups(database, id, groups)
         }
         // Adding or removing a passkey is announced to the person's
         // workspaces (webhooks, activity). Never allowed to fail the call.
@@ -371,6 +378,15 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
     // sign-in is disabled; direct HTTP calls would bypass those gates.
     // Its trusted server APIs remain available to that boundary.
     disabledPaths: [
+      // Sign-in providers are set in configuration, never registered by a
+      // signed-in person: these would let anyone add an identity provider.
+      '/sso/register',
+      '/sso/providers',
+      '/sso/get-provider',
+      '/sso/update-provider',
+      '/sso/delete-provider',
+      '/sso/request-domain-verification',
+      '/sso/verify-domain',
       '/verify-password',
       '/change-password',
       '/request-password-reset',
@@ -415,6 +431,19 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
       },
       user: {
         create: {
+          // A SAML sign-in may only create an account for an address in the
+          // domains the provider speaks for. Runs in the same transaction as
+          // the sign-in, so a refusal leaves nothing behind.
+          before: async (created, context) => {
+            const path = (context as { path?: string } | null | undefined)?.path
+            if (!saml || !path?.startsWith('/sso/saml2/sp/acs/')) return
+            if (!mayCreateByEmailLink(created.email, saml.emailDomains)) {
+              throw new APIError('FORBIDDEN', {
+                code: 'saml_domain_not_allowed',
+                message: 'That address is not one this sign-in speaks for.',
+              })
+            }
+          },
           // First successful sign-up joins the lab whose email domain they
           // use, or else bootstraps a personal workspace. Failure must not
           // orphan the user: if this throws, Better Auth rolls the user
@@ -474,8 +503,44 @@ export async function recoverSigningPassword(
   if (!outcome.completed) throw new Error('Password recovery did not complete')
 }
 
+/**
+ * Single sign-on routes the plugin mounts that a configured identity provider
+ * needs: starting a sign-in with the configured provider, its response
+ * address and our metadata. Everything else under `/sso` stays closed, and
+ * every route answers only for the one provider in configuration.
+ */
+async function isAllowedSsoRequest(
+  request: Request,
+  pathname: string,
+): Promise<boolean> {
+  if (pathname === '/api/auth/sign-in/sso') {
+    if (request.method !== 'POST') return false
+    try {
+      const body: unknown = await request.clone().json()
+      return (
+        typeof body === 'object' &&
+        body !== null &&
+        (body as { providerId?: unknown }).providerId === SAML_PROVIDER_ID
+      )
+    } catch {
+      return false
+    }
+  }
+  if (!pathname.startsWith('/api/auth/sso/')) return true
+  if (pathname === '/api/auth/sso/saml2/sp/acs/' + SAML_PROVIDER_ID) {
+    return request.method === 'POST'
+  }
+  if (pathname === '/api/auth/sso/saml2/sp/metadata') {
+    return (
+      request.method === 'GET' &&
+      new URL(request.url).searchParams.get('providerId') === SAML_PROVIDER_ID
+    )
+  }
+  return false
+}
+
 /** HTTP-only guard: disabledPaths cannot match a dynamic reset-token path. */
-export function handleAuthRequest(
+export async function handleAuthRequest(
   request: Request,
   instance: Pick<typeof auth, 'handler'> = auth,
 ): Promise<Response> {
@@ -486,10 +551,13 @@ export function handleAuthRequest(
       '/',
     )
   } catch {
-    return Promise.resolve(new Response(null, { status: 404 }))
+    return new Response(null, { status: 404 })
   }
   if (pathname.startsWith('/api/auth/reset-password/')) {
-    return Promise.resolve(new Response(null, { status: 404 }))
+    return new Response(null, { status: 404 })
+  }
+  if (!(await isAllowedSsoRequest(request, pathname))) {
+    return new Response(null, { status: 404 })
   }
   return instance.handler(request)
 }

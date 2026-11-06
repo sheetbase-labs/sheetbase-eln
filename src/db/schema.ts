@@ -128,6 +128,22 @@ export const passkey = internal.table(
   (table) => [index('idx_passkey_user_id').on(table.userId)],
 )
 
+/**
+ * Identity providers for the single sign-on plugin. Ours come from
+ * configuration and nothing writes here; the plugin needs the table to exist.
+ */
+export const ssoProvider = internal.table('ssoProvider', {
+  id: text('id').primaryKey(),
+  issuer: text('issuer').notNull(),
+  oidcConfig: text('oidcConfig'),
+  samlConfig: text('samlConfig'),
+  userId: text('userId').references(() => user.id, { onDelete: 'set null' }),
+  providerId: text('providerId').notNull().unique(),
+  organizationId: text('organizationId'),
+  domain: text('domain').notNull(),
+  domainVerified: boolean('domainVerified'),
+})
+
 export const session = internal.table(
   'session',
   {

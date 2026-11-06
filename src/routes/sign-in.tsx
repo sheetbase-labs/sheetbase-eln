@@ -70,6 +70,7 @@ const getSignInState = createServerFn({ method: 'GET' }).handler(async () => {
     devAuthFree: isDevAuthFreeEnabled(),
     githubEnabled: methods.github,
     oidcName: methods.oidc?.name ?? null,
+    samlName: methods.saml?.name ?? null,
     emailLinkEnabled: methods.emailLink,
   }
 })
@@ -112,6 +113,8 @@ export interface SignInSurfaceProps {
   githubEnabled: boolean
   /** Display name of the company OIDC provider, or `null` when none is configured. */
   oidcName?: string | null
+  /** Display name of the company SAML provider, or `null` when none is configured. */
+  samlName?: string | null
   /** Whether people can ask for an emailed one-time sign-in link. */
   emailLinkEnabled?: boolean
   release: ReleaseInfo | undefined
@@ -126,11 +129,14 @@ export function SignInSurface({
   devAuthFree,
   githubEnabled,
   oidcName = null,
+  samlName = null,
   emailLinkEnabled = false,
   release,
   retainedDrafts,
 }: SignInSurfaceProps) {
-  const [redirecting, setRedirecting] = useState<'github' | 'oidc' | null>(null)
+  const [redirecting, setRedirecting] = useState<'github' | 'oidc' | 'saml' | null>(
+    null,
+  )
   const [ssoError, setSsoError] = useState<string | null>(null)
   const [passkeyBusy, setPasskeyBusy] = useState(false)
   const passkeysSupported = usePasskeysSupported()
@@ -147,23 +153,35 @@ export function SignInSurface({
         ? t('settings.signIn.signAgainFinish')
         : t('settings.signIn.signInTitle')
 
-  async function sso(method: 'github' | 'oidc') {
+  async function sso(method: 'github' | 'oidc' | 'saml') {
     const provider =
-      method === 'github' ? 'GitHub' : (oidcName ?? 'your company')
+      method === 'github'
+        ? 'GitHub'
+        : ((method === 'saml' ? samlName : oidcName) ?? 'your company')
     setRedirecting(method)
     setSsoError(null)
     try {
-      const res = await fetch('/api/auth/sign-in/social', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          provider: method,
-          // The router already validated `?next=`; the surface validates again
-          // so a callback URL can never reach the provider unvalidated.
-          callbackURL: safeNextPath(next) ?? '/',
-        }),
-      })
+      // The router already validated `?next=`; the surface validates again
+      // so a callback URL can never reach the provider unvalidated.
+      const callbackURL = safeNextPath(next) ?? '/'
+      const res =
+        method === 'saml'
+          ? await fetch('/api/auth/sign-in/sso', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({
+                providerId: 'saml',
+                callbackURL,
+                errorCallbackURL: '/sign-in',
+              }),
+            })
+          : await fetch('/api/auth/sign-in/social', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ provider: method, callbackURL }),
+            })
       const data = (await res.json()) as { url?: string }
       if (data.url) {
         window.location.href = data.url
@@ -211,7 +229,8 @@ export function SignInSurface({
     }
   }
 
-  const anyMethod = githubEnabled || oidcName !== null || emailLinkEnabled
+  const anyMethod =
+    githubEnabled || oidcName !== null || samlName !== null || emailLinkEnabled
 
   return (
     <div className="flex min-h-dvh flex-col bg-surface-muted">
@@ -297,9 +316,31 @@ export function SignInSurface({
                         : t('settings.signIn.continue', { oidcName })}
                     </Button>
                   ) : null}
-                  {githubEnabled ? (
+                  {samlName !== null ? (
                     <Button
                       variant={oidcName !== null ? 'secondary' : 'primary'}
+                      size="lg"
+                      className="w-full"
+                      disabled={redirecting !== null}
+                      onClick={() => void sso('saml')}
+                    >
+                      {redirecting === 'saml' ? (
+                        <Icon name="clock" size={16} />
+                      ) : null}
+                      {redirecting === 'saml'
+                        ? t('settings.signIn.redirecting', {
+                            oidcName: samlName,
+                          })
+                        : t('settings.signIn.continue', { oidcName: samlName })}
+                    </Button>
+                  ) : null}
+                  {githubEnabled ? (
+                    <Button
+                      variant={
+                        oidcName !== null || samlName !== null
+                          ? 'secondary'
+                          : 'primary'
+                      }
                       size="lg"
                       className="w-full"
                       disabled={redirecting !== null}
@@ -315,7 +356,7 @@ export function SignInSurface({
                         : t('settings.signIn.continueGithub')}
                     </Button>
                   ) : null}
-                  {githubEnabled || oidcName !== null ? (
+                  {githubEnabled || oidcName !== null || samlName !== null ? (
                     <p className="m-0 text-center text-label text-fg-muted">
                       {t('settings.signIn.useCompanyAccount')}
                     </p>
@@ -427,7 +468,7 @@ export function SignInSurface({
 }
 
 function SignIn() {
-  const { devAuthFree, githubEnabled, oidcName, emailLinkEnabled } =
+  const { devAuthFree, githubEnabled, oidcName, samlName, emailLinkEnabled } =
     Route.useLoaderData()
   const { state, next, error } = Route.useSearch()
   const help = useHelp()
@@ -442,6 +483,7 @@ function SignIn() {
       devAuthFree={devAuthFree}
       githubEnabled={githubEnabled}
       oidcName={oidcName}
+      samlName={samlName}
       emailLinkEnabled={emailLinkEnabled}
       release={help?.release}
       retainedDrafts={retainedDrafts}

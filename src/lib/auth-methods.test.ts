@@ -5,6 +5,8 @@ import {
   parseAllowedDomains,
   readAuthMethods,
   readOidcConfig,
+  readSamlConfig,
+  normalisePem,
 } from '#/lib/auth-methods'
 
 const oidcEnv = {
@@ -18,11 +20,12 @@ describe('readAuthMethods', () => {
     expect(readAuthMethods({})).toEqual({
       github: false,
       oidc: null,
+      saml: null,
       emailLink: false,
     })
     expect(
       readAuthMethods({ OIDC_CLIENT_ID: 'x', GITHUB_CLIENT_ID: 'y' }),
-    ).toEqual({ github: false, oidc: null, emailLink: false })
+    ).toEqual({ github: false, oidc: null, saml: null, emailLink: false })
   })
 
   it('names the company provider and trims the issuer', () => {
@@ -67,5 +70,57 @@ describe('email sign-up domains', () => {
     expect(mayCreateByEmailLink('a@example.com.evil.test', domains)).toBe(false)
     expect(mayCreateByEmailLink('no-at-sign', domains)).toBe(false)
     expect(mayCreateByEmailLink('a@example.com', [])).toBe(false)
+  })
+})
+
+describe('readSamlConfig', () => {
+  const manual = {
+    SAML_IDP_ENTITY_ID: 'https://idp.example.com/metadata',
+    SAML_IDP_SSO_URL: 'https://idp.example.com/sso',
+    SAML_IDP_CERT: 'MIIB',
+    SAML_EMAIL_DOMAINS: '@Lab.org, lab.test',
+  }
+
+  it('needs the provider, its certificate and the domains it speaks for', () => {
+    expect(readSamlConfig({})).toBeNull()
+    expect(readSamlConfig({ ...manual, SAML_IDP_CERT: undefined })).toBeNull()
+    expect(
+      readSamlConfig({ ...manual, SAML_EMAIL_DOMAINS: undefined }),
+    ).toBeNull()
+    expect(readSamlConfig(manual)).toMatchObject({
+      name: 'Company SSO',
+      emailDomains: ['lab.org', 'lab.test'],
+      allowUnsignedAssertions: false,
+    })
+  })
+
+  it('accepts the provider’s metadata instead', () => {
+    expect(
+      readSamlConfig({
+        SAML_IDP_METADATA: '<EntityDescriptor/>',
+        SAML_EMAIL_DOMAINS: 'lab.org',
+        SAML_PROVIDER_NAME: 'Acme',
+        SAML_GROUPS_ATTRIBUTE: 'memberOf',
+      }),
+    ).toMatchObject({
+      idpMetadata: '<EntityDescriptor/>',
+      name: 'Acme',
+      groupsAttribute: 'memberOf',
+    })
+  })
+
+  it('shows up as a sign-in method', () => {
+    expect(readAuthMethods({ ...manual, SAML_PROVIDER_NAME: 'Acme' }).saml).toEqual(
+      { name: 'Acme' },
+    )
+  })
+
+  it('wraps a bare certificate and repairs escaped line breaks', () => {
+    expect(normalisePem('MIIB')).toBe(
+      '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----',
+    )
+    expect(normalisePem('-----BEGIN CERTIFICATE-----\\nMIIB\\n-----END CERTIFICATE-----')).toContain(
+      '\nMIIB\n',
+    )
   })
 })

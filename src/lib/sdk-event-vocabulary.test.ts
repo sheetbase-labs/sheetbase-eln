@@ -51,6 +51,21 @@ describe('catalogue == SDK vocabulary', () => {
     }
   })
 
+  it('both SDKs carry every lab feature event', () => {
+    const lab = EVENT_CATALOGUE.filter(
+      (entry) => entry.introducedIn === 'lab-01',
+    ).map((entry) => entry.name)
+    expect(lab.length).toBeGreaterThan(0)
+    const python = readFileSync(
+      resolve(process.cwd(), 'sdks/python/src/sheetbase/resources/events.py'),
+      'utf8',
+    )
+    for (const name of lab) {
+      expect(SDK_EVENT_NAMES, `TypeScript SDK missing ${name}`).toContain(name)
+      expect(python, `python SDK missing ${name}`).toContain(`"${name}"`)
+    }
+  })
+
   it('SDK alias resolution agrees with the catalogue', () => {
     expect(sdkResolveEventAlias('sheet_instance.updated')).toBe('sheet.updated')
     expect(sdkResolveEventAlias('dataset.versioned')).toBe('dataset.versioned')

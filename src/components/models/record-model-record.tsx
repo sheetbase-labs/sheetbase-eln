@@ -30,6 +30,7 @@ import {
   RegistryLineage,
   RegistryRetireButton,
 } from '#/components/registry/registry-lineage'
+import { CompoundPanel } from '#/components/registry/compound-panel'
 
 /** The record's fields grouped by the section the model puts them in, in the
  * order the sections first appear; fields with no section follow, unnamed. */
@@ -147,6 +148,9 @@ export function RecordModelRecord({
   const alerting = results.filter((r) => r.verdict === 'alert')
   const status = record ? pickerStatus(record.status) : null
   const isRegistry = Boolean(model.data?.is_registry)
+  const structureField = isRegistry
+    ? (model.data?.registry_structure_field ?? null)
+    : null
   const canWrite = hasCapability(role, 'record.create')
 
   return (
@@ -309,7 +313,11 @@ export function RecordModelRecord({
                     : []),
                 ]}
               />
-              {fieldSections(fields).map((group) => (
+              {fieldSections(
+                structureField
+                  ? fields.filter((f) => f.fieldName !== structureField)
+                  : fields,
+              ).map((group) => (
                 <div key={group.name} className="min-w-0">
                   {group.name ? (
                     <h3 className="m-0 mb-1.5 font-sans text-label font-semibold">
@@ -366,8 +374,28 @@ export function RecordModelRecord({
             open
             onOpenChange={setEditing}
             recordId={record.id}
-            fields={fields.filter((field) => field.lifecycle === 'active')}
+            fields={fields.filter(
+              (field) =>
+                field.lifecycle === 'active' &&
+                field.fieldName !== structureField,
+            )}
             stored={record.custom_fields}
+          />
+        ) : null}
+
+        {structureField && record ? (
+          <CompoundPanel
+            recordId={record.id}
+            identifier={record.identifier}
+            kind={modelKey}
+            molfile={
+              typeof record.custom_fields?.[structureField] === 'string'
+                ? String(record.custom_fields[structureField])
+                : ''
+            }
+            metadataVersion={record.metadata_version ?? 1}
+            lotKind={model.data?.registry_lot_kind ?? null}
+            canWrite={canWrite && !record.archived_at}
           />
         ) : null}
 

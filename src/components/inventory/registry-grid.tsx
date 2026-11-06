@@ -241,6 +241,8 @@ export interface RegistryGridProps<T extends RowData> {
   /** What the list is called in an export's file name; defaults to `label`. */
   exportName?: string
   isLoading?: boolean
+  /** Row height in px for a table whose rows hold a picture; default 33. */
+  rowHeight?: number
   /** The extra classes a screen's row needs (e.g. a muted cell). */
   rowClassName?: string
   /**
@@ -301,6 +303,7 @@ export function RegistryGrid<T extends RowData>({
   view,
   sortable: sortableProp = true,
   exportName,
+  rowHeight = 33,
   bulk,
   rowLabel,
   isLoading = false,
@@ -614,6 +617,11 @@ export function RegistryGrid<T extends RowData>({
     // under the last row instead of at the list area's edge.
     <div
       ref={gridRef}
+      style={
+        rowHeight === 33
+          ? undefined
+          : ({ '--grid-row-h': `${rowHeight}px` } as React.CSSProperties)
+      }
       className={cn(
         'flex h-full min-h-0 flex-col [&>*]:min-h-0 [&>*]:flex-1',
         className,
@@ -651,11 +659,15 @@ export function RegistryGrid<T extends RowData>({
           // `text-fg-muted`, as the v3 table head renders.
           header:
             '[&_th]:h-[31px] [&_th]:px-2.5 [&_th:first-child]:pl-6 [&_th:last-child]:pr-6 [&_th]:text-label [&_th]:text-fg-muted',
-          body: '[&_td]:h-[33px] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6',
+          body: '[&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6',
         }}
       >
         <DataGridScrollArea orientation="both" className="h-full">
-          <DataGridTableVirtual height="100%" estimateSize={33} overscan={12} />
+          <DataGridTableVirtual
+            height="100%"
+            estimateSize={rowHeight}
+            overscan={12}
+          />
         </DataGridScrollArea>
       </DataGrid>
     </div>

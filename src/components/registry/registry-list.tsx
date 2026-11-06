@@ -47,11 +47,15 @@ import {
 } from '#/lib/bio-registry'
 import type { RegistryEntry, RegistryModel } from '#/lib/bio-registry'
 
+import { createCompoundStarter } from '#/lib/compound-registry'
+import { RegistrySar } from './registry-sar'
+import { RegistryStructureSearch } from './registry-structure-search'
 import { entryStatus, entrySummary, entryText } from './registry-shared'
 
 const client = notebookDataClient
 
 type StatusFilter = 'active' | 'retired' | 'all'
+type RegistryView = 'entries' | 'search' | 'sar'
 
 export function RegistryList({
   canWrite,
@@ -67,6 +71,7 @@ export function RegistryList({
   const [status, setStatus] = useState<StatusFilter>('active')
   const [q, setQ] = useState('')
   const [choosing, setChoosing] = useState(false)
+  const [viewMode, setViewMode] = useState<RegistryView>('entries')
 
   const models = useQuery({
     queryKey: registryKeys.models,
@@ -75,6 +80,11 @@ export function RegistryList({
   })
   const registries = useMemo(() => models.data ?? [], [models.data])
   const keys = useMemo(() => registries.map((m) => m.key), [registries])
+  const chemical = useMemo(
+    () => registries.filter((m) => m.registry_structure_field),
+    [registries],
+  )
+  const activeView: RegistryView = chemical.length > 0 ? viewMode : 'entries'
   const modelByKey = useMemo(
     () => new Map(registries.map((m) => [m.key, m] as const)),
     [registries],
@@ -134,6 +144,18 @@ export function RegistryList({
     },
     onError: (e: unknown) =>
       toast.error(messageOf(e, t('registry.empty.couldNotSetUp'))),
+  })
+
+  const setUpCompounds = useMutation({
+    mutationFn: () => createCompoundStarter(client),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: registryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'record-models'],
+      })
+    },
+    onError: (e: unknown) =>
+      toast.error(messageOf(e, t('registry.chemistry.starters.couldNotSetUp'))),
   })
 
   const columns = useMemo<RegistryColumn<RegistryEntry>[]>(
@@ -252,6 +274,17 @@ export function RegistryList({
         {t('registry.register')}
       </Button>
     ) : null
+  const compoundsButton =
+    canEditModels && registries.length > 0 && chemical.length === 0 ? (
+      <Button
+        disabled={setUpCompounds.isPending}
+        onClick={() => setUpCompounds.mutate()}
+      >
+        {setUpCompounds.isPending
+          ? t('registry.chemistry.starters.settingUp')
+          : t('registry.chemistry.starters.setUp')}
+      </Button>
+    ) : null
 
   const noRegistries = models.isSuccess && registries.length === 0
 
@@ -261,7 +294,14 @@ export function RegistryList({
         title={t('registry.title')}
         subtitle={t('registry.subtitle')}
         total={entries.data ? inStatus.length : undefined}
-        actions={registerButton}
+        actions={
+          compoundsButton || registerButton ? (
+            <span className="flex flex-wrap items-center gap-2">
+              {compoundsButton}
+              {registerButton}
+            </span>
+          ) : undefined
+        }
         tabs={
           registries.length > 0 ? (
             <Tabs
@@ -288,129 +328,163 @@ export function RegistryList({
           ) : undefined
         }
       />
-      {noRegistries ? null : (
-        <ListToolbar
-          q={q}
-          onSearch={setQ}
-          placeholder={t('registry.searchPlaceholder')}
-          label={t('registry.searchPlaceholder')}
-          right={
-            <Select
-              size="sm"
-              aria-label={t('registry.statusLabel')}
-              value={status}
-              onChange={(e) => setStatus(e.target.value as StatusFilter)}
-            >
-              {(['active', 'retired', 'all'] as const).map((key) => (
-                <option key={key} value={key}>
-                  {t(`registry.statusFilters.${key}`)}
-                </option>
-              ))}
-            </Select>
-          }
-        />
-      )}
-      <RecordBulkBar
-        selection={bulk}
-        // Setting a field needs one model: the ticked entries' kind, when
-        // they all share one.
-        kind={(() => {
-          const kinds = new Set(
-            visible.filter((e) => bulk.has(e.id)).map((e) => e.kind),
-          )
-          return kinds.size === 1 ? [...kinds][0] : undefined
-        })()}
-        canWrite={canWrite}
-        onChanged={() =>
-          void queryClient.invalidateQueries({ queryKey: registryKeys.all })
-        }
-      />
-      <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
-        {models.isError || entries.isError ? (
-          <div className="p-6">
-            <Notice tone="bad" title={t('registry.loadError')}>
-              {messageOf(models.error ?? entries.error, '')}
-            </Notice>
-          </div>
-        ) : noRegistries ? (
-          <div role="status" className="flex justify-center px-6">
-            <EmptyState
-              className="items-center py-14 text-center"
-              icon="tag"
-              title={t('registry.empty.title')}
-              description={
-                canEditModels
-                  ? t('registry.empty.body')
-                  : t('registry.empty.notAllowed')
-              }
-              action={
-                canEditModels ? (
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <Button
-                      variant="primary"
-                      disabled={setUp.isPending}
-                      onClick={() =>
-                        setUp.mutate(STARTER_REGISTRIES.map((s) => s.key))
-                      }
-                    >
-                      {setUp.isPending
-                        ? t('registry.empty.settingUp')
-                        : t('registry.empty.setUpAll')}
-                    </Button>
-                    {STARTER_REGISTRIES.map((starter) => (
-                      <Button
-                        key={starter.key}
-                        disabled={setUp.isPending}
-                        onClick={() => setUp.mutate([starter.key])}
-                      >
-                        {t('registry.empty.setUp', {
-                          name: starter.name,
-                        })}
-                      </Button>
-                    ))}
-                  </div>
-                ) : undefined
-              }
-            />
-          </div>
-        ) : models.isPending || entries.isPending || visible.length > 0 ? (
-          <RegistryGrid
-            label={t('registry.tableLabel')}
-            view={view}
-            rows={visible}
-            columns={columns}
-            getRowId={(entry) => entry.id}
-            bulk={bulk}
-            rowLabel={(entry) => entry.identifier}
-            selectable
-            onRowClick={open}
-            isLoading={models.isPending || entries.isPending}
+      {chemical.length > 0 ? (
+        <div className="px-6 pt-3">
+          <Tabs
+            mode="state"
+            variant="segment"
+            label={t('registry.chemistry.views.label')}
+            value={activeView}
+            onValueChange={(value) => setViewMode(value as RegistryView)}
+            items={[
+              { key: 'entries', label: t('registry.chemistry.views.entries') },
+              { key: 'search', label: t('registry.chemistry.views.search') },
+              { key: 'sar', label: t('registry.chemistry.views.sar') },
+            ]}
           />
-        ) : (
-          <div role="status" className="flex justify-center px-6">
-            <EmptyState
-              className="items-center py-14 text-center"
-              icon="tag"
-              title={
-                all.length === 0
-                  ? t('registry.empty.noEntries')
-                  : t('registry.empty.filtered')
-              }
-              description={
-                all.length === 0 ? t('registry.empty.noEntriesBody') : undefined
-              }
-              action={
-                all.length === 0 ? (registerButton ?? undefined) : undefined
+        </div>
+      ) : null}
+      {activeView === 'search' ? (
+        <RegistryStructureSearch registries={chemical} />
+      ) : activeView === 'sar' ? (
+        <RegistrySar registries={chemical} />
+      ) : (
+        <>
+          {noRegistries ? null : (
+            <ListToolbar
+              q={q}
+              onSearch={setQ}
+              placeholder={t('registry.searchPlaceholder')}
+              label={t('registry.searchPlaceholder')}
+              right={
+                <Select
+                  size="sm"
+                  aria-label={t('registry.statusLabel')}
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as StatusFilter)}
+                >
+                  {(['active', 'retired', 'all'] as const).map((key) => (
+                    <option key={key} value={key}>
+                      {t(`registry.statusFilters.${key}`)}
+                    </option>
+                  ))}
+                </Select>
               }
             />
+          )}
+          <RecordBulkBar
+            selection={bulk}
+            // Setting a field needs one model: the ticked entries' kind, when
+            // they all share one.
+            kind={(() => {
+              const kinds = new Set(
+                visible.filter((e) => bulk.has(e.id)).map((e) => e.kind),
+              )
+              return kinds.size === 1 ? [...kinds][0] : undefined
+            })()}
+            canWrite={canWrite}
+            onChanged={() =>
+              void queryClient.invalidateQueries({ queryKey: registryKeys.all })
+            }
+          />
+          <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
+            {models.isError || entries.isError ? (
+              <div className="p-6">
+                <Notice tone="bad" title={t('registry.loadError')}>
+                  {messageOf(models.error ?? entries.error, '')}
+                </Notice>
+              </div>
+            ) : noRegistries ? (
+              <div role="status" className="flex justify-center px-6">
+                <EmptyState
+                  className="items-center py-14 text-center"
+                  icon="tag"
+                  title={t('registry.empty.title')}
+                  description={
+                    canEditModels
+                      ? t('registry.empty.body')
+                      : t('registry.empty.notAllowed')
+                  }
+                  action={
+                    canEditModels ? (
+                      <div className="flex flex-wrap justify-center gap-2">
+                        <Button
+                          variant="primary"
+                          disabled={setUp.isPending}
+                          onClick={() =>
+                            setUp.mutate(STARTER_REGISTRIES.map((s) => s.key))
+                          }
+                        >
+                          {setUp.isPending
+                            ? t('registry.empty.settingUp')
+                            : t('registry.empty.setUpAll')}
+                        </Button>
+                        <Button
+                          disabled={setUp.isPending || setUpCompounds.isPending}
+                          onClick={() => setUpCompounds.mutate()}
+                        >
+                          {setUpCompounds.isPending
+                            ? t('registry.chemistry.starters.settingUp')
+                            : t('registry.chemistry.starters.setUp')}
+                        </Button>
+                        {STARTER_REGISTRIES.map((starter) => (
+                          <Button
+                            key={starter.key}
+                            disabled={setUp.isPending}
+                            onClick={() => setUp.mutate([starter.key])}
+                          >
+                            {t('registry.empty.setUp', {
+                              name: starter.name,
+                            })}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : undefined
+                  }
+                />
+              </div>
+            ) : models.isPending || entries.isPending || visible.length > 0 ? (
+              <RegistryGrid
+                label={t('registry.tableLabel')}
+                view={view}
+                rows={visible}
+                columns={columns}
+                getRowId={(entry) => entry.id}
+                bulk={bulk}
+                rowLabel={(entry) => entry.identifier}
+                selectable
+                onRowClick={open}
+                isLoading={models.isPending || entries.isPending}
+              />
+            ) : (
+              <div role="status" className="flex justify-center px-6">
+                <EmptyState
+                  className="items-center py-14 text-center"
+                  icon="tag"
+                  title={
+                    all.length === 0
+                      ? t('registry.empty.noEntries')
+                      : t('registry.empty.filtered')
+                  }
+                  description={
+                    all.length === 0
+                      ? t('registry.empty.noEntriesBody')
+                      : undefined
+                  }
+                  action={
+                    all.length === 0 ? (registerButton ?? undefined) : undefined
+                  }
+                />
+              </div>
+            )}
+            {!canWrite && !models.isPending ? (
+              <div className="px-6 pb-4">
+                <ReadOnlyNote>{t('registry.readOnly')}</ReadOnlyNote>
+              </div>
+            ) : null}
           </div>
-        )}
-        {!canWrite && !models.isPending ? (
-          <div className="px-6 pb-4">
-            <ReadOnlyNote>{t('registry.readOnly')}</ReadOnlyNote>
-          </div>
-        ) : null}
-      </div>
+        </>
+      )}
       <ChooseRegistry
         open={choosing}
         onOpenChange={setChoosing}

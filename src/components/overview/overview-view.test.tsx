@@ -375,3 +375,54 @@ describe('EXP-02.4 ExperimentOverview', () => {
     expect(screen.getByText('No signatures yet')).toBeDefined()
   })
 })
+
+describe('parts', () => {
+  const part = (number: number, extra: Record<string, unknown> = {}) => ({
+    partId: `part-${number}`,
+    number,
+    title: `Stage ${number}`,
+    dayOffset: number - 1,
+    dueOn: null,
+    assigneeUserId: null,
+    status: 'later' as const,
+    completedAt: null,
+    completedByUserId: null,
+    stepCount: 0,
+    stepsDone: 0,
+    blockCount: 0,
+    resultCount: 0,
+    ...extra,
+  })
+
+  it('shows nothing for an experiment that is one page', () => {
+    render(<ExperimentOverview {...baseProps()} />)
+    expect(screen.queryByRole('table', { name: 'Parts' })).toBeNull()
+  })
+
+  it('lists the parts with their day, who finished them and the steps done', () => {
+    render(
+      <ExperimentOverview
+        {...baseProps()}
+        parts={[
+          part(1, {
+            status: 'done',
+            completedByUserId: 'user-mei',
+            completedAt: '2026-09-21T15:00:00.000Z',
+            stepCount: 3,
+            stepsDone: 3,
+            resultCount: 2,
+          }),
+          part(2, { status: 'now' }),
+        ]}
+      />,
+    )
+    const table = screen.getByRole('table', { name: 'Parts' })
+    expect(table.textContent).toContain('Stage 1')
+    expect(table.textContent).toContain('Day 1 · Tue 22 Sep')
+    expect(table.textContent).toContain('3 of 3')
+    expect(screen.getByText('1 of 2 parts done')).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: 'Stage 2' }).getAttribute('href'),
+    ).toBe('/experiments/rec-1/notebook/2')
+  })
+})

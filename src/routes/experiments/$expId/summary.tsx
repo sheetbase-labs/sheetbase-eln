@@ -10,6 +10,7 @@ import {
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
+import { fetchPartSummary, partQueryKeys } from '#/lib/experiment-parts'
 import { fetchSignaturesForRecord, signatureQueryKeys } from '#/lib/signatures'
 import { useUserNames } from '#/lib/user-names'
 import { useExperimentLinks, useExperimentRecord } from '../$expId'
@@ -50,6 +51,11 @@ function Overview() {
           `?id=eq.${expId}&limit=1&select=properties`,
         )
         .then((rows) => rows[0]?.properties ?? {}),
+  })
+
+  const parts = useQuery({
+    queryKey: partQueryKeys.summary(expId),
+    queryFn: () => fetchPartSummary(notebookDataClient, expId),
   })
 
   const readiness = useQuery({
@@ -145,6 +151,10 @@ function Overview() {
       (thread) => thread.authorUserId ?? '',
     ) ?? []),
     ...signatureRows.map((signature) => signature.signer_user_id),
+    ...(parts.data ?? []).flatMap((part) => [
+      part.completedByUserId ?? '',
+      part.assigneeUserId ?? '',
+    ]),
     ...(Array.isArray(props.collaboratorIds)
       ? props.collaboratorIds.filter(
           (id): id is string => typeof id === 'string',
@@ -178,6 +188,7 @@ function Overview() {
         properties: props,
       }}
       blocks={blocks.data ?? []}
+      parts={parts.data ?? []}
       links={(links.data ?? []).map((link) => ({
         id: link.id,
         linkType: link.link_type,

@@ -59,6 +59,66 @@ export interface PartBlockLike {
 
 export const partQueryKeys = {
   forRecord: (recordId: string) => ['notebook', 'parts', recordId] as const,
+  summary: (recordId: string) =>
+    ['notebook', 'parts', recordId, 'summary'] as const,
+}
+
+/** One row of `api.record_parts`: a part with its date, who finished it and what it holds. */
+export interface PartSummary {
+  partId: string
+  number: number
+  title: string
+  dayOffset: number
+  dueOn: string | null
+  assigneeUserId: string | null
+  status: PartState
+  completedAt: string | null
+  completedByUserId: string | null
+  stepCount: number
+  stepsDone: number
+  blockCount: number
+  resultCount: number
+}
+
+interface PartSummaryWire {
+  part_id: string
+  part_number: number
+  title: string
+  day_offset: number
+  due_on: string | null
+  assignee_user_id: string | null
+  status: PartState
+  completed_at: string | null
+  completed_by_user_id: string | null
+  step_count: number
+  steps_done: number
+  block_count: number
+  result_count: number
+}
+
+export function fetchPartSummary(
+  client: DataClient,
+  recordId: string,
+): Promise<PartSummary[]> {
+  return client
+    .rpc<PartSummaryWire[]>('record_parts', { p_record_id: recordId })
+    .then((rows) =>
+      rows.map((row) => ({
+        partId: row.part_id,
+        number: row.part_number,
+        title: row.title,
+        dayOffset: row.day_offset,
+        dueOn: row.due_on,
+        assigneeUserId: row.assignee_user_id,
+        status: row.status,
+        completedAt: row.completed_at,
+        completedByUserId: row.completed_by_user_id,
+        stepCount: row.step_count,
+        stepsDone: row.steps_done,
+        blockCount: row.block_count,
+        resultCount: row.result_count,
+      })),
+    )
 }
 
 export function toExperimentPart(row: ExperimentPartWire): ExperimentPart {

@@ -187,6 +187,7 @@ __all__ = [
     "QueryDatasetVersionTransferParams",
     "QuerySheetInstanceRowsParams",
     "QuerySheetInstanceRowsResult",
+    "QueryStorageReadingsParams",
     "ReadSheetInstanceCalculationResultsParams",
     "ReagentOrdersRow",
     "ReceiveReagentOrderParams",
@@ -199,6 +200,7 @@ __all__ = [
     "RecordModelsRow",
     "RecordSpecResultsRow",
     "RecordStocktakeScanParams",
+    "RecordStorageReadingsParams",
     "RecordsRow",
     "RecordsRowInsert",
     "RecordsRowPatch",
@@ -1096,7 +1098,6 @@ class InstrumentBookingRulesRow(_InstrumentBookingRulesRowRequired, total=False)
 class _InstrumentFeedsRowRequired(TypedDict):
     id: str
     workspace_id: str
-    instrument_id: str
     name: str
     limit_state: str
     reading_count: int
@@ -1105,9 +1106,13 @@ class _InstrumentFeedsRowRequired(TypedDict):
 
 class InstrumentFeedsRow(_InstrumentFeedsRowRequired, total=False):
     """`api.instrument_feeds` row (snake_case). A live measurement series on an instrument (temperature, pressure and so on), with its alert limits and last value."""
+    instrument_id: Optional[str]
+    storage_unit_id: Optional[str]
+    storage_room_id: Optional[str]
     unit: Optional[str]
     low_limit: Optional[float]
     high_limit: Optional[float]
+    out_of_range_since: Optional[str]
     last_value: Optional[float]
     last_at: Optional[str]
 
@@ -3184,6 +3189,13 @@ class QuerySheetInstanceRowsParams(_QuerySheetInstanceRowsParamsRequired, total=
     p_offset: int
 
 
+class QueryStorageReadingsParams(TypedDict, total=False):
+    p_unit_id: str
+    p_room_id: str
+    p_out_of_range_only: bool
+    p_limit: int
+
+
 class ReadSheetInstanceCalculationResultsParams(TypedDict):
     p_instance_id: str
     p_row_keys: List[str]
@@ -3220,6 +3232,15 @@ class _RecordStocktakeScanParamsRequired(TypedDict):
 
 class RecordStocktakeScanParams(_RecordStocktakeScanParamsRequired, total=False):
     p_box_id: str
+
+
+class _RecordStorageReadingsParamsRequired(TypedDict):
+    p_readings: Dict[str, "JsonValue"]
+
+
+class RecordStorageReadingsParams(_RecordStorageReadingsParamsRequired, total=False):
+    p_unit_id: str
+    p_room_id: str
 
 
 class _RegisterReplacementLotParamsRequired(TypedDict):

@@ -544,16 +544,16 @@ function pickPart(
     wanted.every((word) => row.title.toLowerCase().includes(word)),
   )
   if (matches.length === 1) return { ok: true, value: matches[0] }
-  const list = (list: readonly PartRow[]) =>
-    list.slice(0, 8).map(partLabel).join('; ')
+  const labels = (found: readonly PartRow[]) =>
+    found.slice(0, 8).map(partLabel).join('; ')
   return matches.length === 0
     ? {
         ok: false,
-        message: `No part of ${recordName} matches "${words}". Its parts are: ${list(rows)}.`,
+        message: `No part of ${recordName} matches "${words}". Its parts are: ${labels(rows)}.`,
       }
     : {
         ok: false,
-        message: `More than one part fits: ${list(matches)}. Ask the person which one.`,
+        message: `More than one part fits: ${labels(matches)}. Ask the person which one.`,
       }
 }
 

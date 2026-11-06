@@ -416,9 +416,9 @@ const SURVIVAL_COLOURS = [
   'var(--fg-muted)',
 ]
 
-const W = 520
-const H = 260
-const PAD = { left: 44, right: 14, top: 12, bottom: 34 }
+const W = 960
+const H = 340
+const PAD = { left: 52, right: 14, top: 12, bottom: 58 }
 
 /** Kaplan–Meier curves as step lines with a faint band, and tick marks for censoring. */
 export function SurvivalPlot({ result }: { result: SurvivalResult }) {
@@ -430,7 +430,7 @@ export function SurvivalPlot({ result }: { result: SurvivalResult }) {
       role="img"
       aria-label={t('data.analysisPanel.survivalPlotLabel')}
       viewBox={`0 0 ${W} ${H}`}
-      className="h-auto w-full max-w-[560px] text-fg-muted"
+      className="h-auto w-full text-fg-muted"
     >
       <title>{t('data.analysisPanel.survivalPlotLabel')}</title>
       {[0, 0.25, 0.5, 0.75, 1].map((v) => (
@@ -447,20 +447,20 @@ export function SurvivalPlot({ result }: { result: SurvivalResult }) {
             x={PAD.left - 6}
             y={py(v) + 3}
             textAnchor="end"
-            fontSize={10}
+            fontSize={13}
             fill="currentColor"
           >
             {v}
           </text>
         </g>
       ))}
-      <text x={PAD.left} y={H - 10} fontSize={10} fill="currentColor">
+      <text x={PAD.left} y={H - 38} fontSize={13} fill="currentColor">
         0
       </text>
       <text
         x={W - PAD.right}
-        y={H - 10}
-        fontSize={10}
+        y={H - 38}
+        fontSize={13}
         textAnchor="end"
         fill="currentColor"
       >
@@ -471,19 +471,23 @@ export function SurvivalPlot({ result }: { result: SurvivalResult }) {
         let d = `M${px(0)},${py(1)}`
         let band = ''
         let prev = 1
+        let prevHi = 1
+        let prevLo = 1
         const upper: string[] = [`${px(0)},${py(1)}`]
         const lower: string[] = [`${px(0)},${py(1)}`]
         for (const step of curve.steps) {
           d += ` L${px(step.time)},${py(prev)} L${px(step.time)},${py(step.survival)}`
           upper.push(
-            `${px(step.time)},${py(prev)}`,
+            `${px(step.time)},${py(prevHi)}`,
             `${px(step.time)},${py(step.hi)}`,
           )
           lower.push(
-            `${px(step.time)},${py(prev)}`,
+            `${px(step.time)},${py(prevLo)}`,
             `${px(step.time)},${py(step.lo)}`,
           )
           prev = step.survival
+          prevHi = step.hi
+          prevLo = step.lo
         }
         d += ` L${px(max)},${py(prev)}`
         band = `M${upper.join(' L')} L${px(max)},${py(curve.steps.at(-1)?.hi ?? 1)} L${px(max)},${py(curve.steps.at(-1)?.lo ?? 1)} L${lower.reverse().join(' L')} Z`
@@ -507,11 +511,11 @@ export function SurvivalPlot({ result }: { result: SurvivalResult }) {
           </g>
         )
       })}
-      <g fontSize={11}>
+      <g fontSize={14}>
         {result.curves.map((curve, i) => (
           <g
             key={curve.group}
-            transform={`translate(${PAD.left + 8 + i * 110}, ${H - 26})`}
+            transform={`translate(${PAD.left + 8 + i * 150}, ${H - 10})`}
           >
             <rect
               width={10}

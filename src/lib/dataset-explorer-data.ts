@@ -204,6 +204,17 @@ export function resolveDatasetDeepLinkSelection({
   }
 }
 
+/**
+ * The proxy refuses query values over 500 characters, so a long `in.(...)`
+ * list has to go out in several requests.
+ */
+function inChunks(ids: string[], size = 10): string[][] {
+  const out: string[][] = []
+  for (let i = 0; i < ids.length; i += size)
+    out.push(ids.slice(i, i + size).map(encodeURIComponent))
+  return out
+}
+
 /** List canonical Datasets and the active fields pinned to each version. */
 export async function fetchDatasetSummaries(
   client: DataClient = datasetExplorerDataClient,
@@ -217,31 +228,41 @@ export async function fetchDatasetSummaries(
   const versionIds = [
     ...new Set(datasets.map((item) => item.schema_version_id)),
   ]
-  const [fields, versions] = await Promise.all([
-    versionIds.length
-      ? client.list<DatasetVersionFieldWire>(
+  const fields = (
+    await Promise.all(
+      inChunks(versionIds).map((ids) =>
+        client.list<DatasetVersionFieldWire>(
           'dataset_schema_version_fields',
-          `?schema_version_id=in.(${versionIds.map(encodeURIComponent).join(',')})&lifecycle=eq.active&order=display_order.asc`,
-        )
-      : Promise.resolve([]),
-    versionIds.length
-      ? client.list<{
+          `?schema_version_id=in.(${ids.join(',')})&lifecycle=eq.active&order=display_order.asc`,
+        ),
+      ),
+    )
+  ).flat()
+  const versions = (
+    await Promise.all(
+      inChunks(versionIds).map((ids) =>
+        client.list<{
           id: string
           schema_id: string
           version: number
         }>(
           'dataset_schema_versions',
-          `?id=in.(${versionIds.map(encodeURIComponent).join(',')})&select=id,schema_id,version`,
-        )
-      : Promise.resolve([]),
-  ])
+          `?id=in.(${ids.join(',')})&select=id,schema_id,version`,
+        ),
+      ),
+    )
+  ).flat()
   const definitionIds = [...new Set(versions.map((item) => item.schema_id))]
-  const definitions = definitionIds.length
-    ? await client.list<{ id: string; name: string; key: string }>(
-        'dataset_schema_definitions',
-        `?id=in.(${definitionIds.map(encodeURIComponent).join(',')})&select=id,name,key`,
-      )
-    : []
+  const definitions = (
+    await Promise.all(
+      inChunks(definitionIds).map((ids) =>
+        client.list<{ id: string; name: string; key: string }>(
+          'dataset_schema_definitions',
+          `?id=in.(${ids.join(',')})&select=id,name,key`,
+        ),
+      ),
+    )
+  ).flat()
   const versionById = new Map(versions.map((item) => [item.id, item]))
   const definitionById = new Map(definitions.map((item) => [item.id, item]))
   return datasets.map((dataset) => {

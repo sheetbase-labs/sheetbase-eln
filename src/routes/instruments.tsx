@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ObjectLink } from '#/components/ui/object-link'
 import { WorkspaceAdminsLine } from '#/components/settings/workspace-admins-line'
 import {
   Link,
@@ -340,9 +341,11 @@ function InstrumentsList() {
         accessorFn: (i) => i.displayId ?? i.id.slice(0, 8),
         enableHiding: false,
         cell: ({ row }) => (
-          <span className="mono">
-            {row.original.displayId ?? row.original.id.slice(0, 8)}
-          </span>
+          <ObjectLink
+            kind="instrument"
+            id={row.original.id}
+            identifier={row.original.displayId ?? row.original.id.slice(0, 8)}
+          />
         ),
       },
       {

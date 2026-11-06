@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
+import { ObjectLink } from '#/components/ui/object-link'
 import {
   FillFromText,
   addedFillFields,
@@ -269,7 +270,9 @@ function SamplesList() {
         header: t('library.samples.list.id'),
         accessorFn: (s) => s.id,
         enableHiding: false,
-        cell: ({ row }) => <span className="mono">{row.original.id}</span>,
+        cell: ({ row }) => (
+          <ObjectLink kind="sample" identifier={row.original.id} />
+        ),
       },
       {
         id: 'name',

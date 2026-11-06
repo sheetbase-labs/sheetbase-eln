@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
+import { ObjectLink } from '#/components/ui/object-link'
 import {
   FillFromText,
   addedFillFields,
@@ -331,7 +332,13 @@ function MaterialsList() {
         header: 'ID',
         accessorFn: (m) => m.id,
         enableHiding: false,
-        cell: ({ row }) => <span className="mono">{row.original.id}</span>,
+        cell: ({ row }) => (
+          <ObjectLink
+            kind="material"
+            id={row.original.uuid}
+            identifier={row.original.id}
+          />
+        ),
       },
       { id: 'material', header: 'Material', accessorFn: (m) => m.name },
       { id: 'supplier', header: 'Supplier', accessorFn: (m) => m.supplier },

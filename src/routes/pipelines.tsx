@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ObjectLink } from '#/components/ui/object-link'
 import {
   Link,
   Outlet,
@@ -219,9 +220,11 @@ function PipelinesList() {
         accessorFn: (p) => p.display_id ?? p.key,
         enableHiding: false,
         cell: ({ row }) => (
-          <span className="mono">
-            {row.original.display_id ?? row.original.key}
-          </span>
+          <ObjectLink
+            kind="pipeline"
+            id={row.original.id}
+            identifier={row.original.display_id ?? row.original.key}
+          />
         ),
       },
       {

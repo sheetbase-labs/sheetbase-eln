@@ -31,7 +31,8 @@ import {
   compoundKeys,
   describeStructure,
   listCompoundLots,
-  setRecordStructure, parentSvg 
+  setRecordStructure,
+  parentSvg,
 } from '#/lib/compound-registry'
 import type { CompoundLot, StructureRow } from '#/lib/compound-registry'
 

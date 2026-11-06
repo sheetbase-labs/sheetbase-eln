@@ -13,7 +13,9 @@ from sheetbase.resources.events import (
     EVENT_ALIASES,
     EVENT_NAMES,
     WebhookEventPayload,
+    WebhookSignatureError,
     is_event_name,
+    parse_webhook,
     resolve_event_alias,
     verify_webhook_signature,
 )
@@ -33,6 +35,8 @@ __all__ = [
     "EVENT_ALIASES",
     "EVENT_NAMES",
     "WebhookEventPayload",
+    "WebhookSignatureError",
+    "parse_webhook",
     "is_event_name",
     "resolve_event_alias",
     "verify_webhook_signature",

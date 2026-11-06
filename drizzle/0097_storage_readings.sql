@@ -59,6 +59,29 @@ ALTER FUNCTION internal.notify_storage_alarm(p_workspace_id uuid, p_title text, 
 REVOKE ALL ON FUNCTION internal.notify_storage_alarm(p_workspace_id uuid, p_title text, p_body text) FROM PUBLIC;
 --> statement-breakpoint
 
+-- A freezer or room going out of range, and coming back, is a change event so
+-- webhooks and the live stream can say so.
+DO $$
+DECLARE
+  v_def text;
+BEGIN
+  SELECT pg_get_constraintdef(oid) INTO v_def
+    FROM pg_constraint
+   WHERE conrelid = 'api.change_events'::regclass AND conname = 'chk_change_events_entity_type';
+  IF v_def IS NULL THEN
+    RAISE EXCEPTION 'chk_change_events_entity_type is missing';
+  END IF;
+  ALTER TABLE api.change_events DROP CONSTRAINT chk_change_events_entity_type;
+  EXECUTE 'ALTER TABLE api.change_events ADD CONSTRAINT chk_change_events_entity_type '
+    || replace(v_def, '''system''::text', '''system''::text, ''storage_alarm''::text');
+END $$;
+--> statement-breakpoint
+
+-- Webhook subscriptions may name the two new events.
+INSERT INTO internal.webhook_event_names (name) VALUES
+  ('storage.alarm.raised'), ('storage.alarm.cleared');
+--> statement-breakpoint
+
 -- Note a feed's limit state after its latest reading and tell the right people
 -- when it changes: the instrument's owner, or the people who manage storage.
 CREATE OR REPLACE FUNCTION internal.settle_feed_limit(p_feed_id uuid) RETURNS void
@@ -106,6 +129,25 @@ BEGIN
     PERFORM internal.notify_feed_limit(i, v_title, v_body);
   ELSE
     PERFORM internal.notify_storage_alarm(f.workspace_id, v_title, v_body);
+    -- The same moment reaches webhooks and the event stream as
+    -- storage.alarm.raised (or .cleared when it is back in range).
+    PERFORM internal.emit_change_event(
+      f.workspace_id, 'storage_alarm', f.id,
+      CASE WHEN v_state = 'ok' THEN 'resolve' ELSE 'create' END,
+      NULL, NULL,
+      jsonb_build_object(
+        'feedId', f.id,
+        'feed', f.name,
+        'unit', f.unit,
+        'storageUnitId', f.storage_unit_id,
+        'storageRoomId', f.storage_room_id,
+        'state', v_state,
+        'value', f.last_value,
+        'lowLimit', f.low_limit,
+        'highLimit', f.high_limit,
+        'at', f.last_at
+      )
+    );
   END IF;
 END $$;
 --> statement-breakpoint
@@ -341,3 +383,42 @@ BEGIN
   END IF;
   DELETE FROM api.instrument_feeds WHERE id = f.id;
 END $$;
+--> statement-breakpoint
+
+-- The readings kept for storage, for scripts and agents: each freezer or room
+-- feed with its latest value and whether it is inside its limits. Same rows a
+-- person sees, so the ordinary access rules apply.
+CREATE FUNCTION api.query_storage_readings(p_unit_id uuid DEFAULT NULL, p_room_id uuid DEFAULT NULL, p_out_of_range_only boolean DEFAULT false, p_limit integer DEFAULT 100) RETURNS jsonb
+    LANGUAGE sql STABLE SECURITY INVOKER
+    SET search_path TO ''
+    AS $$
+  SELECT coalesce(jsonb_agg(jsonb_build_object(
+    'feedId', f.id,
+    'feed', f.name,
+    'unit', f.unit,
+    'storageUnitId', f.storage_unit_id,
+    'storageRoomId', f.storage_room_id,
+    'lastValue', f.last_value,
+    'lastAt', f.last_at,
+    'lowLimit', f.low_limit,
+    'highLimit', f.high_limit,
+    'state', f.limit_state,
+    'outOfRangeSince', f.out_of_range_since,
+    'readingCount', f.reading_count
+  ) ORDER BY f.name), '[]'::jsonb)
+  FROM (
+    SELECT * FROM api.instrument_feeds
+     WHERE (storage_unit_id IS NOT NULL OR storage_room_id IS NOT NULL)
+       AND (p_unit_id IS NULL OR storage_unit_id = p_unit_id)
+       AND (p_room_id IS NULL OR storage_room_id = p_room_id)
+       AND (NOT p_out_of_range_only OR limit_state <> 'ok')
+     ORDER BY name
+     LIMIT greatest(1, least(coalesce(p_limit, 100), 500))
+  ) f
+$$;
+--> statement-breakpoint
+ALTER FUNCTION api.query_storage_readings(p_unit_id uuid, p_room_id uuid, p_out_of_range_only boolean, p_limit integer) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.query_storage_readings(p_unit_id uuid, p_room_id uuid, p_out_of_range_only boolean, p_limit integer) FROM PUBLIC;
+--> statement-breakpoint
+GRANT ALL ON FUNCTION api.query_storage_readings(p_unit_id uuid, p_room_id uuid, p_out_of_range_only boolean, p_limit integer) TO authenticated;

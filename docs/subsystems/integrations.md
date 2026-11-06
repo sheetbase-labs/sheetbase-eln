@@ -377,6 +377,15 @@ log file or network port → scripts/instrument-agent.mjs → POST /api/connecto
   database: anyone who can write in the workspace (`is_workspace_writer`), on an
   instrument that is not retired. 403 means give up, 422 means the batch was
   refused, 5xx or 429 means try again.
+- **Freezers and rooms.** A storage unit or room keeps feeds the same way
+  (migration 0090): send `storageUnitId` or `storageRoomId` in place of
+  `instrumentId` (`api.record_storage_readings`; the agent does not target them
+  yet), or log a reading by hand in Settings > Lab setup > Storage locations. A
+  new `Temperature` feed starts with the place's own temperature range as its
+  limits. When a feed leaves its limits the owners, admins and stewards get a
+  `storage_alarm` notification, and another when it is back; the feed's
+  `out_of_range_since` marks how long. Limits are set by whoever manages
+  Storage settings. A feed that goes silent does not alarm (no job runs).
 - **Agent.** `live` in `sheetbase-agent.json` (or `--instrument <id>`,
   `--live-file <path>`, `--live-tcp host:port`, `--feed`, `--unit`) names the
   sources. A file is followed as it grows (a new file or a truncated one is read

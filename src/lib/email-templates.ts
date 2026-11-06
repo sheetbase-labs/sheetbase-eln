@@ -30,6 +30,7 @@ const SUBJECTS: Partial<Record<NotificationEventType, string>> = {
   comment_or_mention: 'Comment or mention on your records',
   instrument_booking: 'Instrument booking confirmed or changed',
   instrument_service: 'Instrument out of service or back in service',
+  storage_alarm: 'A freezer or room is outside its limits',
   material_expiring: 'Material lot expiring in 7 days',
   reagent_order: 'Reagent reorder update',
   request: 'Request made to you, or decided',

@@ -8,7 +8,9 @@
  *                    "unit": "°C", "at": "2026-11-05T09:00:00Z" }] }
  *
  * with a personal API token as `Authorization: Bearer`, and hands it to
- * api.record_instrument_readings (migration 0068). The token carries the
+ * api.record_instrument_readings (migration 0068). A freezer or room takes the
+ * same batch under `storageUnitId` or `storageRoomId` in place of `instrumentId`
+ * (api.record_storage_readings, migration 0090). The token carries the
  * creating member's identity, so who may send readings is decided by the
  * database exactly as it is for a person working in the app. The folder agent
  * (scripts/instrument-agent.mjs) is the usual sender.
@@ -52,19 +54,37 @@ function errorResponse(status: number, code: string, message: string) {
 
 /** The body, checked down to what the database will accept. */
 export function parseStreamBody(raw: unknown): {
-  instrumentId: string
+  target:
+    | { kind: 'instrument'; id: string }
+    | { kind: 'unit'; id: string }
+    | { kind: 'room'; id: string }
   readings: StreamReading[]
 } {
   if (!raw || typeof raw !== 'object') {
     throw new PickupError(400, 'invalid_request', 'Send a JSON body.')
   }
   const body = raw as Record<string, unknown>
-  const instrumentId = body['instrumentId']
-  if (typeof instrumentId !== 'string' || !UUID.test(instrumentId)) {
+  const named = (
+    [
+      ['instrumentId', 'instrument'],
+      ['storageUnitId', 'unit'],
+      ['storageRoomId', 'room'],
+    ] as const
+  ).filter(([key]) => body[key] !== undefined)
+  if (named.length !== 1) {
     throw new PickupError(
       400,
       'invalid_request',
-      'instrumentId must be the instrument’s id.',
+      'Name one place for the readings: instrumentId, storageUnitId or storageRoomId.',
+    )
+  }
+  const [idKey, kind] = named[0]
+  const targetId = body[idKey]
+  if (typeof targetId !== 'string' || !UUID.test(targetId)) {
+    throw new PickupError(
+      400,
+      'invalid_request',
+      `${idKey} must be the id of the ${kind === 'instrument' ? 'instrument' : kind === 'unit' ? 'storage unit' : 'room'}.`,
     )
   }
   const list = body['readings']
@@ -113,7 +133,7 @@ export function parseStreamBody(raw: unknown): {
     }
     return reading
   })
-  return { instrumentId, readings }
+  return { target: { kind, id: targetId }, readings }
 }
 
 export async function runStream(
@@ -166,18 +186,26 @@ export async function runStream(
   } catch {
     throw new PickupError(400, 'invalid_request', 'The body is not JSON.')
   }
-  const { instrumentId, readings } = parseStreamBody(raw)
+  const { target, readings } = parseStreamBody(raw)
   annotateRequest({
     auth: 'api_credential',
     workspace: { id: claims.workspace_id },
-    instrument: { id: instrumentId },
+    ...(target.kind === 'instrument'
+      ? { instrument: { id: target.id } }
+      : { storage: { kind: target.kind, id: target.id } }),
   })
-  return deps
-    .createClient(token)
-    .rpc<StreamResult>('record_instrument_readings', {
-      p_instrument_id: instrumentId,
+  const client = deps.createClient(token)
+  if (target.kind === 'instrument') {
+    return client.rpc<StreamResult>('record_instrument_readings', {
+      p_instrument_id: target.id,
       p_readings: readings,
     })
+  }
+  return client.rpc<StreamResult>('record_storage_readings', {
+    p_unit_id: target.kind === 'unit' ? target.id : null,
+    p_room_id: target.kind === 'room' ? target.id : null,
+    p_readings: readings,
+  })
 }
 
 export async function handleStream(
@@ -204,7 +232,7 @@ export async function handleStream(
         return errorResponse(
           403,
           'forbidden',
-          `The token’s owner cannot send readings for this instrument: ${boundedErrorMessage(error)}`,
+          `The token’s owner cannot send readings here: ${boundedErrorMessage(error)}`,
         )
       }
       if (error.status === 400 || error.status === 422) {

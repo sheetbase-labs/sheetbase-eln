@@ -36,6 +36,11 @@ import {
   readInbox,
 } from './assistant-planning.server'
 import {
+  buildLabworkProposal,
+  isLabworkProposalTool,
+  labworkProposalDefs,
+} from './assistant-labwork.server'
+import {
   buildUpkeepProposal,
   isUpkeepProposalTool,
   upkeepProposalDefs,
@@ -133,7 +138,7 @@ function clip(text: string): string {
  */
 const CHAT_RULES = [
   'You are talking to a scientist in the app, not to a program. Name things the way the app shows them: a name, or an identifier such as EXP-12 or INS-0003. Never show an id like a UUID in your answer and never ask the person for one. When they name something, find it yourself with search or a list, and ask which one only if several really fit, naming the choices.',
-  'Sheetbase has a schedule with instrument booking and repeating bookings, sample logging, moving and splitting, starting experiments from templates, handing records to people and asking them about a record, requests to the lab, sample shipments, an incident log, a registry, sample workflows, result limits, reagent orders, recurring work, stocktakes, label printing and retention. Before saying you cannot do something, check your tools. If no tool does it but the app does, say where in the app it is done and offer to open that page; never say Sheetbase cannot do it.',
+  'Sheetbase has a schedule with instrument booking and repeating bookings, sample logging, moving and splitting, starting experiments from templates, handing records to people and asking them about a record, requests to the lab, sample shipments, an incident log, a registry, sample workflows, result limits, reagent orders, recurring work, stocktakes, label printing, retention, legal holds, step timers, live instrument readings and chemical safety information. Before saying you cannot do something, check your tools. If no tool does it but the app does, say where in the app it is done and offer to open that page; never say Sheetbase cannot do it.',
 ]
 
 function clockLine(timeZone: string, now: Date): string {
@@ -175,6 +180,9 @@ function instructionsFor(
     flags.mcp_draft
       ? 'Housekeeping works the same way: start a project, follow or unfollow a record or project, mark notifications read, mark a reagent order as placed or cancel it, cancel a shipment, reserve some of a sample for an experiment, quarantine a sample, record a disposal, and log a repair, service or inspection visit on an instrument. Disposal cannot be undone: only propose it when the person clearly asked, and ask for the reason if they did not give one.'
       : 'Housekeeping such as starting a project, following a record or logging an instrument visit is done on its page; say where.',
+    flags.mcp_draft
+      ? 'Running the lab works the same way: start or finish a stocktake, create or release a legal hold, set a retention rule or archive what is past it, add a registry entry, put a sample into or take it out of a workflow, set result limits on a number field, set an instrument’s booking rules, stop a step timer, pause, resume or end repeating work, pool samples, prepare a solution from ingredient lots, save a search, pin or unpin something, and set or remove the lab logo from an image already uploaded. Never invent field values, limits or lot numbers: ask. Archiving past retention and ending repeats are hard to undo, so only propose them when the person clearly asked.'
+      : 'Running the lab, such as stocktakes, legal holds, retention, booking rules or pooling samples, is done on its page; say where.',
     ...CHAT_RULES,
     clockLine(timeZone, now),
     always,
@@ -246,6 +254,7 @@ export async function createAssistantToolkit(deps: {
       ...benchProposalDefs(),
       ...planningProposalDefs(),
       ...upkeepProposalDefs(),
+      ...labworkProposalDefs(),
     )
   }
   const timeZone = deps.timeZone ?? 'UTC'
@@ -313,6 +322,17 @@ export async function createAssistantToolkit(deps: {
 
       if (isPlanningProposalTool(name)) {
         const built = await buildPlanningProposal(name, args, labContext)
+        return built.ok
+          ? {
+              text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
+              isError: false,
+              proposal: built.proposal,
+            }
+          : { text: built.message, isError: true }
+      }
+
+      if (isLabworkProposalTool(name)) {
+        const built = await buildLabworkProposal(name, args, labContext)
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',

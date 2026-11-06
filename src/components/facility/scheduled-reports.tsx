@@ -497,7 +497,6 @@ export function ScheduledReportsPanel({
                 <TableHead>{t('spend.schedule.columns.name')}</TableHead>
                 <TableHead>{t('spend.schedule.columns.sends')}</TableHead>
                 <TableHead>{t('spend.schedule.columns.recipients')}</TableHead>
-                <TableHead>{t('spend.schedule.columns.lastSent')}</TableHead>
                 <TableHead>{t('spend.schedule.columns.nextSend')}</TableHead>
                 <TableHead>
                   <span className="sr-only">
@@ -527,21 +526,23 @@ export function ScheduledReportsPanel({
                         count: report.recipientUserIds.length,
                       })}
                     </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {resultLabel(report)}
-                    </TableCell>
                     <TableCell>
-                      {report.active ? (
-                        formatDate(report.nextRunAt, { time: true })
-                      ) : (
-                        <Status tone="none">
-                          {t('spend.schedule.paused')}
-                        </Status>
-                      )}
+                      <span className="flex flex-col">
+                        {report.active ? (
+                          formatDate(report.nextRunAt, { time: true })
+                        ) : (
+                          <Status tone="none">
+                            {t('spend.schedule.paused')}
+                          </Status>
+                        )}
+                        <span className="text-label text-fg-muted">
+                          {resultLabel(report)}
+                        </span>
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
                       {manage ? (
-                        <span className="flex justify-end gap-1.5">
+                        <span className="flex justify-end gap-1.5 whitespace-nowrap">
                           <Button
                             size="sm"
                             disabled={act.isPending}

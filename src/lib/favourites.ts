@@ -513,7 +513,7 @@ export function useSetFavourite(
   client: DataClient = notebookDataClient,
 ): ReturnType<typeof useMutation<void, Error, SetFavouriteVariables>> {
   const queryClient = useQueryClient()
-  // The sidebar's pinned projects come from the shell loader, not a query.
+  // The sidebar's pins (every kind) come from the shell loader, not a query.
   // Outside a router (unit tests, isolated renders) there is none to refresh.
   const router = useRouter({ warn: false }) as
     ReturnType<typeof useRouter> | undefined
@@ -566,13 +566,11 @@ export function useSetFavourite(
         )
       }
     },
-    onSettled: (_data, _error, variables) => {
-      if (variables.kind === 'project') {
-        void router?.invalidate()
-        // A record page sits in a pane with its own router, so the shell's
-        // router (the sidebar's pinned projects) is asked separately.
-        requestShellRefresh()
-      }
+    onSettled: () => {
+      void router?.invalidate()
+      // A record page sits in a pane with its own router, so the shell's
+      // router (the sidebar's pins) is asked separately.
+      requestShellRefresh()
       void queryClient.invalidateQueries({
         queryKey: favouritesQueryKeys.list(),
       })

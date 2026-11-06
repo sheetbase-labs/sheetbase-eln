@@ -47158,6 +47158,130 @@
         }
       }
     },
+    "/api/db/rpc/set_link_part": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Move a sample, dataset or other link to another part",
+        "operationId": "rpc_set_link_part",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Links made from an experiment that has parts land in the part being worked on. This moves one to another part of the same experiment. Returns the link and its part.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_link_id", "p_part_id"],
+                "properties": {
+                  "p_link_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The link between two records."
+                  },
+                  "p_part_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The part of the experiment."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of set_link_part",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "description": "Move a sample, dataset or other link to another part A JSON object."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/set_material_safety": {
       "post": {
         "tags": ["Lab"],

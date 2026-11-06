@@ -504,6 +504,7 @@ BEGIN
   PERFORM internal.emit_part_event(v_part, 'experiment_part', 'create', 'created');
   IF v_first THEN
     UPDATE api.blocks SET part_id = v_part.id WHERE record_id = p_record_id AND part_id IS NULL;
+    UPDATE api.record_links SET part_id = v_part.id WHERE source_record_id = p_record_id AND part_id IS NULL;
     UPDATE api.records SET structure_version = structure_version + 1 WHERE id = p_record_id;
   END IF;
   PERFORM internal.refresh_record_parts(p_record_id);
@@ -703,6 +704,12 @@ BEGIN
      WHERE part_id = p_part_id;
     v_moved := v_blocks;
   END IF;
+  -- Its samples and data go to the part that took its blocks, else the first other part.
+  UPDATE api.record_links
+     SET part_id = coalesce(v_target.id, (SELECT id FROM api.experiment_parts
+                                           WHERE record_id = v_part.record_id AND id <> p_part_id
+                                           ORDER BY "position", id LIMIT 1))
+   WHERE part_id = p_part_id;
   DELETE FROM api.experiment_parts WHERE id = p_part_id;
   IF v_moved > 0 THEN
     PERFORM internal.restage_part_blocks(v_part.record_id);
@@ -809,6 +816,7 @@ BEGIN
     -- Everything from this boundary on joins this part; later parts claim their share after it.
     IF v_n = 1 THEN
       UPDATE api.blocks SET part_id = v_part.id WHERE record_id = p_record_id;
+      UPDATE api.record_links SET part_id = v_part.id WHERE source_record_id = p_record_id;
     ELSIF v_start IS NOT NULL THEN
       UPDATE api.blocks SET part_id = v_part.id WHERE record_id = p_record_id AND "order" >= v_start;
     END IF;
@@ -824,6 +832,70 @@ ALTER FUNCTION api.split_record_into_parts(p_record_id uuid, p_parts jsonb) OWNE
 REVOKE ALL ON FUNCTION api.split_record_into_parts(p_record_id uuid, p_parts jsonb) FROM PUBLIC;
 --> statement-breakpoint
 GRANT ALL ON FUNCTION api.split_record_into_parts(p_record_id uuid, p_parts jsonb) TO authenticated;
+--> statement-breakpoint
+
+-- ---------------------------------------------------------------------------
+-- Samples, data and other links belong to a part
+-- ---------------------------------------------------------------------------
+
+-- A link from an experiment can say which part it was made in, so the Samples
+-- and Data tabs can show one part at a time. No part means the whole experiment.
+ALTER TABLE api.record_links
+  ADD COLUMN part_id uuid REFERENCES api.experiment_parts(id) ON DELETE SET NULL;
+--> statement-breakpoint
+CREATE INDEX idx_record_links_part ON api.record_links (part_id) WHERE part_id IS NOT NULL;
+--> statement-breakpoint
+
+-- A new link lands in the part being worked on (the first not done, else the last).
+CREATE FUNCTION internal.assign_link_part() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+BEGIN
+  IF NEW.part_id IS NULL THEN
+    SELECT id INTO NEW.part_id FROM api.experiment_parts
+     WHERE record_id = NEW.source_record_id
+     ORDER BY (completed_at IS NOT NULL), CASE WHEN completed_at IS NULL THEN "position" ELSE -"position" END, id
+     LIMIT 1;
+  ELSIF NOT EXISTS (SELECT 1 FROM api.experiment_parts WHERE id = NEW.part_id AND record_id = NEW.source_record_id) THEN
+    RAISE EXCEPTION 'that part is not in this experiment' USING ERRCODE = '23503';
+  END IF;
+  RETURN NEW;
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION internal.assign_link_part() OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION internal.assign_link_part() FROM PUBLIC;
+--> statement-breakpoint
+CREATE TRIGGER assign_link_part BEFORE INSERT ON api.record_links
+  FOR EACH ROW EXECUTE FUNCTION internal.assign_link_part();
+--> statement-breakpoint
+
+-- Move a link to another part of its experiment.
+CREATE FUNCTION api.set_link_part(p_link_id uuid, p_part_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_link api.record_links;
+BEGIN
+  SELECT * INTO v_link FROM api.record_links WHERE id = p_link_id FOR UPDATE;
+  IF v_link.id IS NULL THEN
+    RAISE EXCEPTION 'link not found' USING ERRCODE = '42501';
+  END IF;
+  PERFORM internal.part_write_record(v_link.source_record_id);
+  IF NOT EXISTS (SELECT 1 FROM api.experiment_parts WHERE id = p_part_id AND record_id = v_link.source_record_id) THEN
+    RAISE EXCEPTION 'that part is not in this experiment' USING ERRCODE = '23503';
+  END IF;
+  UPDATE api.record_links SET part_id = p_part_id, updated_at = now() WHERE id = p_link_id;
+  RETURN jsonb_build_object('link_id', p_link_id, 'part_id', p_part_id);
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION api.set_link_part(p_link_id uuid, p_part_id uuid) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.set_link_part(p_link_id uuid, p_part_id uuid) FROM PUBLIC;
+--> statement-breakpoint
+GRANT ALL ON FUNCTION api.set_link_part(p_link_id uuid, p_part_id uuid) TO authenticated;
 --> statement-breakpoint
 
 -- ---------------------------------------------------------------------------

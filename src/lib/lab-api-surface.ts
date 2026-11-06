@@ -194,6 +194,7 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
     '`instrument`, `pipeline`, `analysis`, `record` and the other pinnable kinds.',
   p_object_id: 'Id of the object.',
   p_part_id: 'The part of the experiment.',
+  p_link_id: 'The link between two records.',
   p_day_offset:
     'The day the part falls on, counted from the start of the experiment (0 is the first day).',
   p_after_part_id: 'Put it after this part. Leave out to put it first or last.',
@@ -1188,6 +1189,17 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
     scope: 'lab:write',
     params: [
       ['p_block_id', 'uuid', 1],
+      ['p_part_id', 'uuid', 1],
+    ],
+    result: 'json',
+  },
+  set_link_part: {
+    summary: 'Move a sample, dataset or other link to another part',
+    description:
+      'Links made from an experiment that has parts land in the part being worked on. This moves one to another part of the same experiment. Returns the link and its part.',
+    scope: 'lab:write',
+    params: [
+      ['p_link_id', 'uuid', 1],
       ['p_part_id', 'uuid', 1],
     ],
     result: 'json',

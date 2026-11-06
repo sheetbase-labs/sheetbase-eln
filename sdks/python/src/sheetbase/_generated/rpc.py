@@ -226,6 +226,7 @@ class Rpc:
         "set_instrument_feed_limits",
         "set_instrument_out_of_service",
         "set_instrument_rate",
+        "set_link_part",
         "set_material_safety",
         "set_member_absence",
         "set_model_supplier_list",
@@ -3536,6 +3537,21 @@ class Rpc:
             body["p_currency"] = currency
         return self._call("set_instrument_rate", body)  # type: ignore[no-any-return]
 
+    def set_link_part(self, *, link_id: str, part_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Move a sample, dataset or other link to another part
+
+        Links made from an experiment that has parts land in the part being worked on. This moves one to another part of the same experiment. Returns the link and its part.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_link_part``
+        """
+        body: Dict[str, Any] = {}
+        body["p_link_id"] = link_id
+        body["p_part_id"] = part_id
+        return self._call("set_link_part", body)  # type: ignore[no-any-return]
+
     def set_material_safety(
         self,
         *,
@@ -4431,6 +4447,7 @@ class AsyncRpc:
         "set_instrument_feed_limits",
         "set_instrument_out_of_service",
         "set_instrument_rate",
+        "set_link_part",
         "set_material_safety",
         "set_member_absence",
         "set_model_supplier_list",
@@ -7740,6 +7757,21 @@ class AsyncRpc:
         if not isinstance(currency, Unset):
             body["p_currency"] = currency
         return await self._call("set_instrument_rate", body)  # type: ignore[no-any-return]
+
+    async def set_link_part(self, *, link_id: str, part_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Move a sample, dataset or other link to another part
+
+        Links made from an experiment that has parts land in the part being worked on. This moves one to another part of the same experiment. Returns the link and its part.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_link_part``
+        """
+        body: Dict[str, Any] = {}
+        body["p_link_id"] = link_id
+        body["p_part_id"] = part_id
+        return await self._call("set_link_part", body)  # type: ignore[no-any-return]
 
     async def set_material_safety(
         self,

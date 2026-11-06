@@ -135,7 +135,7 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_member_record_id: 'The experiment that is, or is to become, a member.',
   p_position: 'Where it sits in the series. Omit for the end.',
   p_planned_on: 'The day it is planned to run (YYYY-MM-DD). Omit for none.',
-  p_done: 'true to finish the step (default), false to reopen it.',
+  p_done: 'true to finish it (default), false to reopen it.',
   p_label: 'What was measured.',
   p_value: 'The measured value, as a number or text.',
   p_seconds: "Duration in seconds. Omit to use the step's own duration.",
@@ -193,10 +193,37 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_object_kind:
     '`instrument`, `pipeline`, `analysis`, `record` and the other pinnable kinds.',
   p_object_id: 'Id of the object.',
+  p_part_id: 'The part of the experiment.',
+  p_day_offset:
+    'The day the part falls on, counted from the start of the experiment (0 is the first day).',
+  p_after_part_id: 'Put it after this part. Leave out to put it first or last.',
+  p_clear_assignee: 'true to clear who does the part.',
+  p_move_blocks_to:
+    'The part that takes over the blocks of the part being deleted.',
+  p_parts:
+    'The parts to make, in order: each `{title, first_block_id, day_offset}`. A part runs from its first block to the next part’s.',
   p_favourite: '`true` to pin, `false` to unpin.',
 }
 
 export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
+  experiment_parts: {
+    summary:
+      'A part of an experiment that runs over several days: its own page of the notebook, on a day counted from the start of the experiment. Parts run in `position` order. A part is done when all its steps are, or when it was marked done by hand.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['record_id', 'uuid', 1],
+      ['position', 'num', 1],
+      ['title', 'text', 1],
+      ['day_offset', 'int', 1],
+      ['assignee_user_id', 'text', 0],
+      ['opened_at', 'ts', 0],
+      ['completed_at', 'ts', 0],
+      ['completed_by_user_id', 'text', 0],
+      ['created_at', 'ts', 1],
+      ['updated_at', 'ts', 1],
+    ],
+  },
   reagent_orders: {
     summary:
       'A reagent order: requested from a material that is running low, placed with the supplier, then received as a new lot. `status` is requested, ordered, received or cancelled.',
@@ -1085,6 +1112,97 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
     ],
     result: 'json',
   },
+  record_parts: {
+    summary: 'List the parts of an experiment with where each stands',
+    description:
+      'Every part in order, with `due_on` (the day it falls on) and its steps. `status` is `done`, `now` (the first part that is not done) or `later`. Empty for an experiment with no parts.',
+    scope: 'lab:read',
+    params: [['p_record_id', 'uuid', 1]],
+    result:
+      'rows:part_id=uuid,part_number=int,title=text,day_offset=int,due_on=date,assignee_user_id=text,status=text,is_current=bool,opened_at=ts,completed_at=ts,completed_by_user_id=text,step_count=int,steps_done=int,block_count=int,result_count=int',
+  },
+  create_experiment_part: {
+    summary: 'Add a part to an experiment',
+    description:
+      'Adds a part after `p_after_part_id`, or at the end. The first part takes the blocks already on the page. Returns the part.',
+    scope: 'lab:write',
+    params: [
+      ['p_record_id', 'uuid', 1],
+      ['p_title', 'text', 1],
+      ['p_day_offset', 'int', 0],
+      ['p_after_part_id', 'uuid', 0],
+    ],
+    result: 'row:experiment_parts',
+  },
+  update_experiment_part: {
+    summary: 'Change a part of an experiment',
+    description:
+      'Changes the title, the day or who does it. Pass `p_clear_assignee` to clear the person. Returns the part.',
+    scope: 'lab:write',
+    params: [
+      ['p_part_id', 'uuid', 1],
+      ['p_title', 'text', 0],
+      ['p_day_offset', 'int', 0],
+      ['p_assignee_user_id', 'text', 0],
+      ['p_clear_assignee', 'bool', 0],
+    ],
+    result: 'row:experiment_parts',
+  },
+  move_experiment_part: {
+    summary: 'Reorder the parts of an experiment',
+    description:
+      'Moves a part to sit after `p_after_part_id`, or first when that is left out. Its blocks move with it. Returns the part.',
+    scope: 'lab:write',
+    params: [
+      ['p_part_id', 'uuid', 1],
+      ['p_after_part_id', 'uuid', 0],
+    ],
+    result: 'row:experiment_parts',
+  },
+  delete_experiment_part: {
+    summary: 'Delete a part of an experiment',
+    description:
+      'Deletes the part. A part that still has blocks needs `p_move_blocks_to`, the part that takes them. Returns how many blocks moved.',
+    scope: 'lab:write',
+    params: [
+      ['p_part_id', 'uuid', 1],
+      ['p_move_blocks_to', 'uuid', 0],
+    ],
+    result: 'json',
+  },
+  set_part_done: {
+    summary: 'Mark a part of an experiment done or open',
+    description:
+      'For a part with no steps. A part with steps is done when its steps are. Finishing the current part opens the next. Returns the part.',
+    scope: 'lab:write',
+    params: [
+      ['p_part_id', 'uuid', 1],
+      ['p_done', 'bool', 1],
+    ],
+    result: 'row:experiment_parts',
+  },
+  set_block_part: {
+    summary: 'Move a block to another part',
+    description:
+      'Puts the block at the end of that part of the notebook. Returns the block, its part and its new order.',
+    scope: 'lab:write',
+    params: [
+      ['p_block_id', 'uuid', 1],
+      ['p_part_id', 'uuid', 1],
+    ],
+    result: 'json',
+  },
+  split_record_into_parts: {
+    summary: 'Split an experiment into parts',
+    description:
+      'Divides a notebook that has no parts at the blocks you name. Returns the parts.',
+    scope: 'lab:write',
+    params: [
+      ['p_record_id', 'uuid', 1],
+      ['p_parts', 'json', 1],
+    ],
+    result: 'rows:id=uuid,title=text,day_offset=int',
+  },
   record_steps: {
     summary: 'List the steps of an experiment with their status',
     description:
@@ -1092,7 +1210,7 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
     scope: 'lab:read',
     params: [['p_record_id', 'uuid', 1]],
     result:
-      'rows:block_id=uuid,step_number=int,step_text=text,status=text,is_current=bool,completed_at=ts,completed_by_user_id=text,note=text,result_count=int,duration_seconds=int,timer_ends_at=ts,instrument_id=uuid',
+      'rows:block_id=uuid,step_number=int,step_text=text,status=text,is_current=bool,completed_at=ts,completed_by_user_id=text,note=text,result_count=int,duration_seconds=int,timer_ends_at=ts,instrument_id=uuid,part_id=uuid,part_number=int,part_title=text,part_step_number=int,part_step_count=int',
   },
   start_experiment_series: {
     summary: 'Make an experiment a series',

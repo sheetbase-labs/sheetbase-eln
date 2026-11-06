@@ -85,6 +85,7 @@ __all__ = [
     "CompositionAdoptionPreview",
     "CreateAgentWorkflowParams",
     "CreateAndLinkSheetRecordParams",
+    "CreateExperimentPartParams",
     "CreateLegalHoldParams",
     "CreatePipelineDefinitionVersionParams",
     "CreatePlateRunParams",
@@ -107,6 +108,7 @@ __all__ = [
     "DatasetsRow",
     "DatasetsRowInsert",
     "DeleteBlockParams",
+    "DeleteExperimentPartParams",
     "DeleteSavedSearchParams",
     "DeleteScheduledReportParams",
     "DeleteWebhookSubscriptionParams",
@@ -117,6 +119,7 @@ __all__ = [
     "EndRecurringScheduleParams",
     "EndStepTimerParams",
     "EnrolSampleInWorkflowParams",
+    "ExperimentPartsRow",
     "ExperimentSeriesMembersRow",
     "ExperimentSeriesRow",
     "FieldCategory",
@@ -166,6 +169,7 @@ __all__ = [
     "MemberAbsencesRow",
     "ModelIncidentLogsRow",
     "MoveBlockParams",
+    "MoveExperimentPartParams",
     "MoveSeriesMemberParams",
     "MutateSheetInstanceCalculationsParams",
     "MutateSheetInstanceLocalStateParams",
@@ -219,6 +223,7 @@ __all__ = [
     "RecordLinksRowInsert",
     "RecordLinksRowPatch",
     "RecordModelsRow",
+    "RecordPartsParams",
     "RecordSeriesParams",
     "RecordSpecResultsRow",
     "RecordStepsParams",
@@ -276,6 +281,7 @@ __all__ = [
     "SendScheduledReportNowParams",
     "SeriesMembersParams",
     "SeriesRollupParams",
+    "SetBlockPartParams",
     "SetFieldSpecLimitsParams",
     "SetIdpGroupMappingParams",
     "SetInstrumentBookingRulesParams",
@@ -285,6 +291,7 @@ __all__ = [
     "SetMaterialSafetyParams",
     "SetMemberAbsenceParams",
     "SetModelSupplierListParams",
+    "SetPartDoneParams",
     "SetReagentOrderPriceParams",
     "SetRecordFavouriteParams",
     "SetRecurringSchedulePausedParams",
@@ -340,6 +347,7 @@ __all__ = [
     "ShipmentsRow",
     "SignatureTimestampsRow",
     "SnapshotDatasetParams",
+    "SplitRecordIntoPartsParams",
     "StartExperimentSeriesParams",
     "StartStepTimerParams",
     "StartStocktakeParams",
@@ -356,6 +364,7 @@ __all__ = [
     "TransitionRecordStatusParams",
     "UnfollowProjectParams",
     "UpdateBlockPayloadParams",
+    "UpdateExperimentPartParams",
     "UpdatePipelineDefinitionVersionDraftParams",
     "UpdatePlateRunParams",
     "UpdateRecordCustomFieldsParams",
@@ -1042,6 +1051,25 @@ class _DatasetsRowInsertRequired(TypedDict):
 class DatasetsRowInsert(_DatasetsRowInsertRequired, total=False):
     primary_project_id: Optional[str]
     description: Optional[str]
+
+
+class _ExperimentPartsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    record_id: str
+    position: float
+    title: str
+    day_offset: int
+    created_at: str
+    updated_at: str
+
+
+class ExperimentPartsRow(_ExperimentPartsRowRequired, total=False):
+    """`api.experiment_parts` row (snake_case). A part of an experiment that runs over several days: its own page of the notebook, on a day counted from the start of the experiment. Parts run in `position` order. A part is done when all its steps are, or when it was marked done by hand."""
+    assignee_user_id: Optional[str]
+    opened_at: Optional[str]
+    completed_at: Optional[str]
+    completed_by_user_id: Optional[str]
 
 
 class _ExperimentSeriesMembersRowRequired(TypedDict):
@@ -3092,6 +3120,16 @@ class CreateAndLinkSheetRecordParams(TypedDict):
     p_write_target: "SheetRecordWriteTarget"
 
 
+class _CreateExperimentPartParamsRequired(TypedDict):
+    p_record_id: str
+    p_title: str
+
+
+class CreateExperimentPartParams(_CreateExperimentPartParamsRequired, total=False):
+    p_day_offset: int
+    p_after_part_id: str
+
+
 class _CreateLegalHoldParamsRequired(TypedDict):
     p_name: str
 
@@ -3269,6 +3307,14 @@ class CreateWebhookSubscriptionParams(_CreateWebhookSubscriptionParamsRequired, 
 class DeleteBlockParams(TypedDict):
     p_block_id: str
     p_expected_structure_version: int
+
+
+class _DeleteExperimentPartParamsRequired(TypedDict):
+    p_part_id: str
+
+
+class DeleteExperimentPartParams(_DeleteExperimentPartParamsRequired, total=False):
+    p_move_blocks_to: str
 
 
 class DeleteSavedSearchParams(TypedDict):
@@ -3460,6 +3506,14 @@ class MoveBlockParams(TypedDict):
     p_before_block_id: Optional[str]
 
 
+class _MoveExperimentPartParamsRequired(TypedDict):
+    p_part_id: str
+
+
+class MoveExperimentPartParams(_MoveExperimentPartParamsRequired, total=False):
+    p_after_part_id: str
+
+
 class MoveSeriesMemberParams(TypedDict):
     p_member_record_id: str
     p_position: float
@@ -3624,6 +3678,10 @@ class ReceiveShipmentParams(_ReceiveShipmentParamsRequired, total=False):
 class RecordInstrumentReadingsParams(TypedDict):
     p_instrument_id: str
     p_readings: Dict[str, "JsonValue"]
+
+
+class RecordPartsParams(TypedDict):
+    p_record_id: str
 
 
 class RecordSeriesParams(TypedDict):
@@ -3885,6 +3943,11 @@ class SeriesRollupParams(TypedDict):
     p_series_record_id: str
 
 
+class SetBlockPartParams(TypedDict):
+    p_block_id: str
+    p_part_id: str
+
+
 class _SetFieldSpecLimitsParamsRequired(TypedDict):
     p_kind: str
     p_field_name: str
@@ -3972,6 +4035,11 @@ class SetModelSupplierListParams(TypedDict):
     p_enabled: bool
 
 
+class SetPartDoneParams(TypedDict):
+    p_part_id: str
+    p_done: bool
+
+
 class _SetReagentOrderPriceParamsRequired(TypedDict):
     p_order_id: str
     p_total_price: Optional[float]
@@ -4035,6 +4103,11 @@ class SnapshotDatasetParams(TypedDict):
     p_label: str
 
 
+class SplitRecordIntoPartsParams(TypedDict):
+    p_record_id: str
+    p_parts: Dict[str, "JsonValue"]
+
+
 class StartExperimentSeriesParams(TypedDict):
     p_record_id: str
 
@@ -4086,6 +4159,17 @@ class UpdateBlockPayloadParams(TypedDict):
     p_payload: Dict[str, "JsonValue"]
     p_expected_version: int
     p_payload_schema_version: int
+
+
+class _UpdateExperimentPartParamsRequired(TypedDict):
+    p_part_id: str
+
+
+class UpdateExperimentPartParams(_UpdateExperimentPartParamsRequired, total=False):
+    p_title: str
+    p_day_offset: int
+    p_assignee_user_id: str
+    p_clear_assignee: bool
 
 
 class UpdatePipelineDefinitionVersionDraftParams(TypedDict):

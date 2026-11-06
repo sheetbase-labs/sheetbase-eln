@@ -33,6 +33,7 @@ from sheetbase._generated.models import (
     DatasetVersionsRow,
     DatasetsRow,
     DatasetsRowInsert,
+    ExperimentPartsRow,
     ExperimentSeriesMembersRow,
     ExperimentSeriesRow,
     FieldSpecLimitsRow,
@@ -319,6 +320,24 @@ class AsyncDatasetsTable(
     Scopes: datasets:read, datasets:write.
     """
     name = "datasets"
+
+
+class ExperimentPartsTable(ReadableTable[ExperimentPartsRow]):
+    """
+    ``/api/db/experiment_parts`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "experiment_parts"
+
+
+class AsyncExperimentPartsTable(AsyncReadableTable[ExperimentPartsRow]):
+    """
+    ``/api/db/experiment_parts`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "experiment_parts"
 
 
 class ExperimentSeriesTable(ReadableTable[ExperimentSeriesRow]):
@@ -1566,6 +1585,7 @@ class Tables:
         "dataset_schema_versions",
         "dataset_versions",
         "datasets",
+        "experiment_parts",
         "experiment_series",
         "experiment_series_members",
         "field_spec_limits",
@@ -1647,6 +1667,7 @@ class Tables:
         self.dataset_schema_versions = DatasetSchemaVersionsTable(transport)
         self.dataset_versions = DatasetVersionsTable(transport)
         self.datasets = DatasetsTable(transport)
+        self.experiment_parts = ExperimentPartsTable(transport)
         self.experiment_series = ExperimentSeriesTable(transport)
         self.experiment_series_members = ExperimentSeriesMembersTable(transport)
         self.field_spec_limits = FieldSpecLimitsTable(transport)
@@ -1739,6 +1760,7 @@ class AsyncTables:
         "dataset_schema_versions",
         "dataset_versions",
         "datasets",
+        "experiment_parts",
         "experiment_series",
         "experiment_series_members",
         "field_spec_limits",
@@ -1820,6 +1842,7 @@ class AsyncTables:
         self.dataset_schema_versions = AsyncDatasetSchemaVersionsTable(transport)
         self.dataset_versions = AsyncDatasetVersionsTable(transport)
         self.datasets = AsyncDatasetsTable(transport)
+        self.experiment_parts = AsyncExperimentPartsTable(transport)
         self.experiment_series = AsyncExperimentSeriesTable(transport)
         self.experiment_series_members = AsyncExperimentSeriesMembersTable(transport)
         self.field_spec_limits = AsyncFieldSpecLimitsTable(transport)

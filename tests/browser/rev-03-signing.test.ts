@@ -821,7 +821,9 @@ test('controlled author submission certifies and signs atomically through the re
   await page.getByRole('button', { name: 'Certify signature' }).click()
   expect((await certified).status()).toBe(200)
   await open(page, `/experiments/${controlledRecord}/notebook`)
-  await page.getByRole('button', { name: 'Submit', exact: true }).click()
+  await page
+    .getByRole('button', { name: 'Submit for review', exact: true })
+    .click()
   const dialog = page.getByRole('dialog', { name: 'Submit for review' })
   await expect(
     dialog.getByRole('option', { name: /controlled-scientific-review/ }),

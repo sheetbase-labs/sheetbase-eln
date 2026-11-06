@@ -123,7 +123,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     if (await starting.count())
       await starting.getByRole('button', { name: /^start/i }).click()
     await expect(
-      page.getByRole('button', { name: 'Put on hold' }),
+      page.getByRole('button', { name: 'Submit for review', exact: true }),
     ).toBeVisible()
 
     await page
@@ -552,7 +552,9 @@ test('an imported plate analysis remains reconstructable after independent revie
       frozen.getByRole('cell', { name: '48.5', exact: true }).first(),
     ).toBeVisible()
 
-    await page.getByRole('button', { name: 'Submit', exact: true }).click()
+    await page
+      .getByRole('button', { name: 'Submit for review', exact: true })
+      .click()
     const submit = page.getByRole('dialog')
     await submit
       .getByRole('checkbox', { name: new RegExp(reviewer.name) })

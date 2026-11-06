@@ -17,7 +17,9 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
@@ -32,6 +34,9 @@ import {
   useOfferedRecordActions,
   useRecordMainActionsHosted,
 } from '#/components/notebook/record-actions'
+import type { RecordAction } from '#/components/notebook/record-actions'
+import type { NextStep } from '#/components/experiments/next-step'
+import { useFavouriteState } from '#/lib/favourites'
 import { bookInstrumentLink } from '#/components/experiments/book-instrument'
 import { SaveAsTemplateDialog } from '#/components/experiments/save-as-template-dialog'
 import {
@@ -46,10 +51,25 @@ import {
 import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
 import { experimentQueryKeys } from '../$expId'
 import type { useExperimentRecord } from '../$expId'
-import { useRegulatedLab } from '#/lib/regulated-lab'
+import { SubmitLabel } from '#/components/experiments/submit-label'
 import { t } from '#/copy'
 
 type ExperimentRow = NonNullable<ReturnType<typeof useExperimentRecord>['data']>
+
+/** What the notebook offers only to the person who wrote it. */
+const AUTHOR_ACTIONS: ReadonlySet<string> = new Set([
+  'link-records',
+  'withdraw',
+  'duplicate',
+])
+
+/** The ⋯ menu's three groups: things you do, ways to share, and upkeep. */
+function groupOfOffered(action: RecordAction): 'do' | 'share' | 'manage' {
+  if (['open-review', 'link-records', 'withdraw'].includes(action.id))
+    return 'do'
+  if (action.id === 'duplicate') return 'manage'
+  return 'share'
+}
 
 type DialogKind =
   'hold' | 'move' | 'run' | 'template' | 'archive' | 'delete' | 'share' | null
@@ -67,12 +87,24 @@ function errorText(error: unknown): string {
 export function ExperimentLifecycleActions({
   experiment: e,
   canWrite = true,
+  nextStep,
+  reviewRevisionId,
 }: {
   experiment: ExperimentRow
   /** A viewer still gets Print and the exports, but none of the changes. */
   canWrite?: boolean
+  /** The one primary button, and who it is for. */
+  nextStep: NextStep
+  /** The submitted version a reviewer decides on. */
+  reviewRevisionId?: string
 }) {
-  const offered = useOfferedRecordActions()
+  const allOffered = useOfferedRecordActions()
+  // A reviewer reads the submitted version: the author's own actions on the
+  // notebook (link records, withdraw, duplicate) are not theirs.
+  const offered = nextStep.authoring
+    ? allOffered
+    : allOffered.filter((action) => !AUTHOR_ACTIONS.has(action.id))
+  const favourite = useFavouriteState('record', e.id)
   const hosted = useRecordMainActionsHosted()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -82,7 +114,6 @@ export function ExperimentLifecycleActions({
     t('projects.lifecycle.runTitle', { title: e.title }),
   )
   const [moveTo, setMoveTo] = useState('')
-  const { regulated } = useRegulatedLab(e.workspace_id)
 
   const projects = useQuery({
     queryKey: ['ui-port', 'experiment-move-projects'],
@@ -215,14 +246,13 @@ export function ExperimentLifecycleActions({
   const archived = Boolean(e.archived_at)
   const isDraft = e.status === 'draft'
   const isActive = e.status === 'in_progress'
-  const isHold = e.status === 'on_hold'
-  const isFinished = e.status === 'completed'
   const locked = Boolean(e.locked_at)
+  const { primary, secondary } = nextStep
   // Submit is the main step of a running experiment. The notebook owns the
   // dialog, so it puts the button here itself while it is open; on the other
   // tabs this one takes you to the notebook with the dialog open.
   const submitFromHere =
-    !hosted && !locked && (isActive || e.status === 'returned')
+    !hosted && !locked && (primary === 'submit' || secondary.includes('submit'))
   if (archived || !canWrite) {
     return (
       <>
@@ -232,9 +262,65 @@ export function ExperimentLifecycleActions({
     )
   }
 
+  const submitLink = (variant: 'primary' | 'secondary') => (
+    <Button
+      variant={variant}
+      nativeButton={false}
+      render={
+        <Link
+          to="/experiments/$expId/notebook"
+          params={{ expId: e.id }}
+          search={{ reopen: 'submit' } as never}
+        />
+      }
+    >
+      <SubmitLabel status={e.status} />
+    </Button>
+  )
+  const decideLink = (decide: 'approve' | 'request_changes') => (
+    <Button
+      variant={decide === 'approve' ? 'primary' : 'secondary'}
+      className={decide === 'approve' ? undefined : 'max-md:hidden'}
+      nativeButton={false}
+      render={
+        <Link
+          to="/review/$revisionId"
+          params={{ revisionId: reviewRevisionId ?? '' }}
+          search={{ decide } as never}
+        />
+      }
+    >
+      {decide === 'approve'
+        ? t('projects.lifecycle.approve')
+        : t('projects.lifecycle.requestChanges')}
+    </Button>
+  )
+  const offeredIn = (group: 'do' | 'share' | 'manage') =>
+    offered.filter((action) => groupOfOffered(action) === group)
+  const items = (group: 'do' | 'share' | 'manage') => offeredIn(group)
+  const author = nextStep.authoring
+
   return (
     <>
-      {isDraft ? (
+      {nextStep.reviewing && reviewRevisionId ? (
+        <>
+          {decideLink('request_changes')}
+          {decideLink('approve')}
+        </>
+      ) : null}
+      {secondary.includes('reopen') ? (
+        <Button
+          icon="play"
+          disabled={hold.isPending}
+          onClick={() => hold.mutate('in_progress')}
+        >
+          {t('projects.lifecycle.reopen')}
+        </Button>
+      ) : null}
+      {secondary.includes('submit') && submitFromHere
+        ? submitLink('secondary')
+        : null}
+      {primary === 'start' ? (
         <Button
           variant="primary"
           icon="play"
@@ -244,19 +330,9 @@ export function ExperimentLifecycleActions({
           {t('projects.lifecycle.start')}
         </Button>
       ) : null}
-      {/* A phone has room for Book instrument, the next step and More, so
-          Put on hold moves into More there. */}
-      {isActive ? (
+      {primary === 'finish' ? (
         <Button
-          icon="pause"
-          className="max-md:hidden"
-          onClick={() => setDialog('hold')}
-        >
-          {t('projects.lifecycle.putOnHold')}
-        </Button>
-      ) : null}
-      {isActive && !regulated ? (
-        <Button
+          variant="primary"
           icon="check"
           disabled={hold.isPending}
           onClick={() => hold.mutate('completed')}
@@ -264,17 +340,9 @@ export function ExperimentLifecycleActions({
           {t('projects.lifecycle.finish')}
         </Button>
       ) : null}
-      {isFinished ? (
+      {primary === 'resume' ? (
         <Button
-          icon="play"
-          disabled={hold.isPending}
-          onClick={() => hold.mutate('in_progress')}
-        >
-          {t('projects.lifecycle.reopen')}
-        </Button>
-      ) : null}
-      {isHold ? (
-        <Button
+          variant="primary"
           icon="play"
           disabled={hold.isPending}
           onClick={() => hold.mutate('in_progress')}
@@ -282,21 +350,7 @@ export function ExperimentLifecycleActions({
           {t('projects.lifecycle.resume')}
         </Button>
       ) : null}
-      {submitFromHere ? (
-        <Button
-          variant="primary"
-          nativeButton={false}
-          render={
-            <Link
-              to="/experiments/$expId/notebook"
-              params={{ expId: e.id }}
-              search={{ reopen: 'submit' } as never}
-            />
-          }
-        >
-          {t('common.actions.submit')}
-        </Button>
-      ) : null}
+      {primary === 'submit' && submitFromHere ? submitLink('primary') : null}
       {/* Submit and Sign, handed up by the notebook while it is open. */}
       <RecordMainActionsSlot />
       <DropdownMenu>
@@ -312,82 +366,124 @@ export function ExperimentLifecycleActions({
           }
         />
         <DropdownMenuContent align="end">
-          {offered.length > 0 ? (
-            <>
-              <RecordActionItems actions={offered} />
-              <DropdownMenuSeparator />
-            </>
-          ) : null}
-          {locked ? null : (
-            <DropdownMenuItem
-              icon="calendar"
-              onClick={() => void navigate(bookInstrumentLink(e.id))}
-            >
-              {t('projects.bookInstrument.label')}
-            </DropdownMenuItem>
-          )}
-          {isActive ? (
-            <DropdownMenuItem
-              icon="pause"
-              className="md:hidden"
-              onClick={() => setDialog('hold')}
-            >
-              {t('projects.lifecycle.putOnHold')}
-            </DropdownMenuItem>
-          ) : null}
-          <DropdownMenuItem
-            icon="link"
-            onClick={() =>
-              void navigate({
-                to: '/experiments/$expId/links',
-                params: { expId: e.id },
-              })
-            }
-          >
-            {t('projects.lifecycle.links')}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            icon="clock"
-            onClick={() =>
-              void navigate({
-                to: '/experiments/$expId/revisions',
-                params: { expId: e.id },
-              })
-            }
-          >
-            {t('projects.lifecycle.revisions')}
-          </DropdownMenuItem>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>
+              {t('projects.lifecycle.menu.do')}
+            </DropdownMenuLabel>
+            {nextStep.reviewing && reviewRevisionId ? (
+              <DropdownMenuItem
+                icon="edit"
+                className="md:hidden"
+                onClick={() =>
+                  void navigate({
+                    to: '/review/$revisionId',
+                    params: { revisionId: reviewRevisionId },
+                    search: { decide: 'request_changes' } as never,
+                  })
+                }
+              >
+                {t('projects.lifecycle.requestChanges')}
+              </DropdownMenuItem>
+            ) : null}
+            <RecordActionItems actions={items('do')} />
+            {author && isActive ? (
+              <DropdownMenuItem icon="pause" onClick={() => setDialog('hold')}>
+                {t('projects.lifecycle.putOnHold')}
+              </DropdownMenuItem>
+            ) : null}
+            {author && !locked ? (
+              <DropdownMenuItem
+                icon="calendar"
+                onClick={() => void navigate(bookInstrumentLink(e.id))}
+              >
+                {t('projects.bookInstrument.label')}
+              </DropdownMenuItem>
+            ) : null}
+            {author && e.project_id ? (
+              <DropdownMenuItem icon="copy" onClick={() => setDialog('run')}>
+                {t('projects.lifecycle.newRun')}
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          {e.project_id ? (
-            <DropdownMenuItem icon="copy" onClick={() => setDialog('run')}>
-              {t('projects.lifecycle.newRun')}
-            </DropdownMenuItem>
-          ) : null}
-          <DropdownMenuItem
-            icon="template"
-            onClick={() => setDialog('template')}
-          >
-            {t('projects.saveAsTemplate.submit')}
-          </DropdownMenuItem>
-          {e.project_id ? (
-            <DropdownMenuItem icon="share" onClick={() => setDialog('share')}>
-              {t('projects.clientSharing.action')}
-            </DropdownMenuItem>
-          ) : null}
-          {isDraft ? (
-            <DropdownMenuItem icon="move" onClick={() => setDialog('move')}>
-              {t('projects.lifecycle.moveItem')}
-            </DropdownMenuItem>
-          ) : null}
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>
+              {t('projects.lifecycle.menu.share')}
+            </DropdownMenuLabel>
+            {e.project_id && author ? (
+              <DropdownMenuItem icon="share" onClick={() => setDialog('share')}>
+                {t('projects.clientSharing.action')}
+              </DropdownMenuItem>
+            ) : null}
+            <RecordActionItems actions={items('share')} />
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem icon="archive" onClick={() => setDialog('archive')}>
-            {t('projects.lifecycle.archive')}
-          </DropdownMenuItem>
-          {isDraft ? (
-            <DropdownMenuItem danger onClick={() => setDialog('delete')}>
-              {t('projects.lifecycle.deleteDraft')}
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>
+              {t('projects.lifecycle.menu.manage')}
+            </DropdownMenuLabel>
+            <DropdownMenuItem
+              icon="pin"
+              disabled={favourite.pending}
+              onClick={() => favourite.setFavourite(!favourite.isFavourite)}
+            >
+              {favourite.isFavourite
+                ? t('projects.favouriteToggle.remove')
+                : t('projects.favouriteToggle.add')}
             </DropdownMenuItem>
-          ) : null}
+            <DropdownMenuItem
+              icon="link"
+              onClick={() =>
+                void navigate({
+                  to: '/experiments/$expId/links',
+                  params: { expId: e.id },
+                })
+              }
+            >
+              {t('projects.lifecycle.links')}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              icon="clock"
+              onClick={() =>
+                void navigate({
+                  to: '/experiments/$expId/revisions',
+                  params: { expId: e.id },
+                })
+              }
+            >
+              {t('projects.lifecycle.revisions')}
+            </DropdownMenuItem>
+            <RecordActionItems actions={items('manage')} />
+            {author ? (
+              <>
+                <DropdownMenuItem
+                  icon="template"
+                  onClick={() => setDialog('template')}
+                >
+                  {t('projects.saveAsTemplate.submit')}
+                </DropdownMenuItem>
+                {isDraft ? (
+                  <DropdownMenuItem
+                    icon="move"
+                    onClick={() => setDialog('move')}
+                  >
+                    {t('projects.lifecycle.moveItem')}
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem
+                  icon="archive"
+                  onClick={() => setDialog('archive')}
+                >
+                  {t('projects.lifecycle.archive')}
+                </DropdownMenuItem>
+                {isDraft ? (
+                  <DropdownMenuItem danger onClick={() => setDialog('delete')}>
+                    {t('projects.lifecycle.deleteDraft')}
+                  </DropdownMenuItem>
+                ) : null}
+              </>
+            ) : null}
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
 

@@ -4,16 +4,22 @@ import { useQuery } from '@tanstack/react-query'
 
 import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { PageHeader } from '#/components/ui/layout'
-import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { Tabs } from '#/components/ui/tabs'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
-import { CopyButton } from '#/components/ui/copy-button'
 import { experimentStatus } from '#/components/experiments/experiments-data'
+import { experimentNextStep } from '#/components/experiments/next-step'
+import { ReviewerBand } from '#/components/experiments/reviewer-band'
+import { useRegulatedLab } from '#/lib/regulated-lab'
+import {
+  fetchNotebookReviewContext,
+  notebookReviewRevisionId,
+} from '#/lib/notebook-experience'
 import {
   fetchProject,
   formatDate,
   notebookDataClient,
+  notebookQueryKeys,
 } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
@@ -21,7 +27,6 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 import { rich, t } from '#/copy'
 import {
   useReportFrozen,
-  useReportInReview,
 } from '#/components/workspace/workspace-navigation'
 import { hasCapability } from '#/lib/capability'
 import { RecordTitleInput } from '../records/$recordId/-notebook-page'
@@ -117,12 +122,49 @@ function ExperimentLayout() {
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
   const record = useExperimentRecord(expId)
   const links = useExperimentLinks(expId)
-  const { userLabel } = useUserNames(
-    record.data?.created_by_user_id ? [record.data.created_by_user_id] : [],
-  )
   const e = record.data
-  useReportFrozen(Boolean(e?.locked_at))
-  useReportInReview(e?.status === 'in_review' && !e.locked_at)
+  const { userLabel } = useUserNames(
+    [e?.created_by_user_id, e?.reviewer_user_id].filter((id): id is string =>
+      Boolean(id),
+    ),
+  )
+  const { regulated } = useRegulatedLab(e?.workspace_id)
+  // The same read the notebook makes, so it is one request: the submitted
+  // version a reviewer decides on, and who it was sent to.
+  const review = useQuery({
+    queryKey: notebookQueryKeys.review(expId),
+    queryFn: () => fetchNotebookReviewContext(notebookDataClient, expId),
+    enabled: e?.status === 'in_review',
+  })
+  const userId = context.user.id
+  const assigned =
+    e?.reviewer_user_id === userId ||
+    Boolean(
+      review.data?.submission?.assigned_reviewer_user_ids.includes(userId),
+    )
+  const nextStep = experimentNextStep({
+    status: e?.status ?? '',
+    locked: Boolean(e?.locked_at),
+    archived: Boolean(e?.archived_at),
+    canWrite,
+    regulated,
+    isReviewer: assigned && e?.created_by_user_id !== userId,
+  })
+  const reviewRevisionId = notebookReviewRevisionId({
+    lockedByRevisionId: null,
+    review: review.data,
+  })
+  // The pane header says why the notebook is read-only: the reviewer reads
+  // the submitted version, and an approved record is locked.
+  useReportFrozen(
+    nextStep.reviewing
+      ? 'review'
+      : e?.locked_at
+        ? e.status === 'approved'
+          ? 'approved'
+          : true
+        : false,
+  )
   const project = useQuery({
     queryKey: ['ui-port', 'experiment-project', e?.project_id ?? ''],
     queryFn: () =>
@@ -169,9 +211,13 @@ function ExperimentLayout() {
     rows.filter((l) => l.target_kind === kind).length
   const status = experimentStatusFor(e.status)
   return (
-    <RecordActionsProvider>
+    <RecordActionsProvider
+      reviewing={nextStep.reviewing}
+      submitVariant={nextStep.primary === 'submit' ? 'primary' : 'secondary'}
+    >
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
+          compact
           trail={[
             ...(e.project_id
               ? [
@@ -200,7 +246,7 @@ function ExperimentLayout() {
                 recordId={e.id}
                 title={e.title}
                 tags={e.tags ?? []}
-                className="h-auto w-full min-w-0 border-transparent bg-transparent px-0 text-title shadow-none max-md:text-[18px] max-md:leading-6"
+                className="h-auto w-full min-w-0 border-transparent bg-transparent px-0 text-title shadow-none max-md:!h-6 max-md:overflow-hidden max-md:whitespace-nowrap max-md:text-[18px] max-md:leading-6 max-md:[mask-image:linear-gradient(to_right,#000_calc(100%-20px),transparent)]"
               />
             )
           }
@@ -209,11 +255,21 @@ function ExperimentLayout() {
               <span className="text-fg">
                 <Status tone={status.tone}>{status.label}</Status>
               </span>
-              <span>
+              <span className="max-md:hidden">
                 {t('projects.experimentPage.owner', {
                   name: userLabel(e.created_by_user_id),
                 })}
               </span>
+              {e.reviewer_user_id ? (
+                <span className="max-md:hidden">
+                  {t('projects.experimentPage.reviewer', {
+                    name:
+                      e.reviewer_user_id === userId
+                        ? t('projects.experimentPage.you')
+                        : userLabel(e.reviewer_user_id),
+                  })}
+                </span>
+              ) : null}
               <span className="max-lg:hidden">
                 {e.status === 'draft' || e.status === 'planned'
                   ? t('projects.experimentPage.notStarted')
@@ -238,20 +294,23 @@ function ExperimentLayout() {
                   })}
                 </span>
               ) : null}
+              {e.planned_end ? (
+                <span>
+                  {t('projects.experimentPage.due', {
+                    date: formatDate(e.planned_end),
+                  })}
+                </span>
+              ) : null}
             </>
           }
           actions={
             <>
-              <CopyButton
-                value={() => window.location.href}
-                className="max-lg:hidden"
-                copiedMessage={t('projects.experimentPage.copied')}
-                failedMessage={t('projects.experimentPage.copyFailed')}
-              >
-                {t('projects.experimentPage.share')}
-              </CopyButton>
-              <ExperimentLifecycleActions experiment={e} canWrite={canWrite} />
-              <FavouriteToggle kind="record" objectId={e.id} />
+              <ExperimentLifecycleActions
+                experiment={e}
+                canWrite={canWrite}
+                nextStep={nextStep}
+                reviewRevisionId={reviewRevisionId}
+              />
               <AskAiButton />
             </>
           }
@@ -299,6 +358,13 @@ function ExperimentLayout() {
             />
           }
         />
+        {nextStep.reviewing ? (
+          <ReviewerBand
+            ownerName={userLabel(e.created_by_user_id)}
+            submittedAt={review.data?.submission?.submitted_at}
+            revisionId={reviewRevisionId}
+          />
+        ) : null}
         <div className="flex min-h-0 flex-1">
           <Outlet />
         </div>

@@ -508,7 +508,7 @@ function RichTextEditor({
         liveBlockId={block.id}
         savedDoc={initialDraft.doc}
         conflict={a.status === 'conflict'}
-        conflictServerDoc={(a.serverValue)?.doc}
+        conflictServerDoc={a.serverValue?.doc}
         onResolveConflict={a.retry}
         onChange={(payload) => {
           a.setTouched(true)

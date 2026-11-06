@@ -13,6 +13,13 @@ import Link from '@tiptap/extension-link'
 import Subscript from '@tiptap/extension-subscript'
 import Superscript from '@tiptap/extension-superscript'
 import { Icon } from '#/components/icons'
+import { useRouter } from '@tanstack/react-router'
+import {
+  openBesideOnAlt,
+  useWorkspaceNavigation,
+} from '#/components/workspace/workspace-navigation'
+import { objectPath } from '#/lib/navigation'
+import { RECORD_REF, useRecordRefs } from '#/lib/record-refs'
 
 import { Button } from '#/components/ui/button'
 import { RichTextContent } from '#/lib/blocks/rich-text'
@@ -155,6 +162,58 @@ const SLASH_MENU_CLOSED: SlashMenuState = {
 const HEADING_ANCHOR_PLUGIN_KEY = new PluginKey('notebookHeadingAnchors')
 const HIDDEN_NODES_PLUGIN_KEY = new PluginKey('notebookHiddenNodes')
 const PLACEHOLDER_PLUGIN_KEY = new PluginKey('notebookPlaceholder')
+const RECORD_REF_PLUGIN_KEY = new PluginKey('notebookRecordRefs')
+
+/**
+ * Identifiers typed in the text ("EXP-0142") that name a real record read as
+ * links. Like the other decorations this lives in the view only: the saved
+ * text is untouched. A click is handled here so the caret and the link do not
+ * fight: in a page you can edit, Alt-click or Ctrl/Cmd-click follows it.
+ */
+function createRecordRefPlugin(
+  knownRef: React.RefObject<ReadonlyMap<string, string>>,
+  followRef: React.RefObject<
+    (href: string, event: MouseEvent, editable: boolean) => boolean
+  >,
+) {
+  return new Plugin({
+    key: RECORD_REF_PLUGIN_KEY,
+    props: {
+      decorations(state) {
+        const known = knownRef.current
+        if (known.size === 0) return DecorationSet.empty
+        const decorations: Decoration[] = []
+        state.doc.descendants((node, pos) => {
+          if (!node.isText || !node.text) return
+          if (node.marks.some((mark) => mark.type.name === 'link')) return
+          for (const match of node.text.matchAll(RECORD_REF)) {
+            const kind = known.get(match[0])
+            const href = kind ? objectPath(kind, match[0]) : null
+            if (!href) continue
+            const from = pos + (match.index ?? 0)
+            decorations.push(
+              Decoration.inline(from, from + match[0].length, {
+                class: 'text-link mono cursor-pointer',
+                'data-record-link': '',
+                'data-href': href,
+                'data-title': match[0],
+              }),
+            )
+          }
+        })
+        return DecorationSet.create(state.doc, decorations)
+      },
+      handleClick(view, _pos, event) {
+        const target = (
+          event.target as HTMLElement | null
+        )?.closest<HTMLElement>('[data-record-link][data-href]')
+        const href = target?.dataset.href
+        if (!href) return false
+        return followRef.current(href, event, view.editable)
+      },
+    },
+  })
+}
 
 /**
  * A2: an empty prose row would otherwise be an invisible caret with no target,
@@ -190,6 +249,10 @@ function createDecorationPlugins(
   anchorPrefixRef: React.RefObject<string | undefined>,
   hiddenIndexesRef: React.RefObject<ReadonlySet<number> | undefined>,
   placeholderRef: React.RefObject<string>,
+  knownRef: React.RefObject<ReadonlyMap<string, string>>,
+  followRef: React.RefObject<
+    (href: string, event: MouseEvent, editable: boolean) => boolean
+  >,
 ) {
   const headingAnchors = new Plugin({
     key: HEADING_ANCHOR_PLUGIN_KEY,
@@ -230,7 +293,12 @@ function createDecorationPlugins(
       },
     },
   })
-  return [headingAnchors, hiddenNodes, createPlaceholderPlugin(placeholderRef)]
+  return [
+    headingAnchors,
+    hiddenNodes,
+    createPlaceholderPlugin(placeholderRef),
+    createRecordRefPlugin(knownRef, followRef),
+  ]
 }
 
 export function RichTextEditor({
@@ -285,8 +353,37 @@ export function RichTextEditor({
   placeholderRef.current = placeholder
   // Created once — the plugin instances must stay stable for the editor's
   // lifetime or ProseMirror would tear down state on every render.
+  // Identifiers in the text that name real records, and how a click on one
+  // opens it. Both are read through refs so the plugins stay stable.
+  const refsInText = React.useMemo(
+    () => [...new Set(JSON.stringify(payload.doc).match(RECORD_REF) ?? [])],
+    [payload.doc],
+  )
+  const knownRefs = useRecordRefs(refsInText)
+  const knownRefsRef = React.useRef<ReadonlyMap<string, string>>(knownRefs)
+  knownRefsRef.current = knownRefs
+  const workspace = useWorkspaceNavigation()
+  const router = useRouter()
+  const followRef = React.useRef<
+    (href: string, event: MouseEvent, editable: boolean) => boolean
+  >(() => false)
+  followRef.current = (href, event, editable) => {
+    // Typing in a page you can edit: a bare click only places the caret.
+    if (editable && !event.altKey && !event.ctrlKey && !event.metaKey)
+      return false
+    if (openBesideOnAlt(workspace, href, event)) return true
+    event.preventDefault()
+    void router.navigate({ href })
+    return true
+  }
   const decorationPlugins = React.useRef(
-    createDecorationPlugins(anchorPrefixRef, hiddenIndexesRef, placeholderRef),
+    createDecorationPlugins(
+      anchorPrefixRef,
+      hiddenIndexesRef,
+      placeholderRef,
+      knownRefsRef,
+      followRef,
+    ),
   ).current
   const payloadRef = React.useRef(payload)
   payloadRef.current = payload
@@ -653,7 +750,7 @@ export function RichTextEditor({
   React.useEffect(() => {
     if (!editor || editor.isDestroyed) return
     editor.view.dispatch(editor.state.tr.setMeta('notebookDecorations', 1))
-  }, [editor, anchorPrefix, hiddenNodeIndexes])
+  }, [editor, anchorPrefix, hiddenNodeIndexes, knownRefs])
 
   // Both floating surfaces are placed from the live caret or selection on
   // every re-place, so they stay beside it inside the visible part of the

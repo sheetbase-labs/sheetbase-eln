@@ -1044,6 +1044,10 @@
     font-size: 18px;
     white-space: normal;
   }
+  /* A compact header keeps its title on one line beside the actions. */
+  .workspace-page [data-page-header][data-compact] h1 {
+    white-space: nowrap;
+  }
   .workspace-page [data-analysis-chart-config] {
     width: 100%;
     max-height: 240px;

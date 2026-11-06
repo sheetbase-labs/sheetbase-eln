@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Icon } from '#/components/icons'
 import { Breadcrumb } from './breadcrumb'
 import type { Crumb } from './breadcrumb'
@@ -14,6 +14,7 @@ export function PageHeader({
   actions,
   tabs,
   titleLevel = 1,
+  compact = false,
   className,
 }: {
   /**
@@ -32,29 +33,59 @@ export function PageHeader({
    * page heading.
    */
   titleLevel?: 1 | 2 | 3
+  /**
+   * A phone header that gives the screen back to the page: the title on one
+   * line with the actions beside it, one meta line, then the tabs. Scrolling
+   * down folds it to the title and the actions; scrolling up brings it back.
+   * Desktop is unchanged.
+   */
+  compact?: boolean
   className?: string
 }) {
   const Title = `h${titleLevel}` as 'h1'
+  const ref = useRef<HTMLElement>(null)
+  const collapsed = useCollapsedOnScroll(ref, compact)
   return (
     <header
+      ref={ref}
       data-page-header
+      data-compact={compact || undefined}
+      data-collapsed={collapsed || undefined}
       className={cn(
-        'flex flex-col gap-1.5 border-b border-border bg-surface px-4 pt-3 md:px-6 md:pt-3.5',
+        'group/header flex flex-col gap-1.5 border-b border-border bg-surface px-4 pt-3 md:px-6 md:pt-3.5',
         !tabs && 'pb-3',
+        compact && 'max-md:data-[collapsed]:py-2',
         className,
       )}
     >
-      {trail?.length ? <Breadcrumb trail={trail} /> : null}
+      {trail?.length ? (
+        <div
+          className={cn(
+            compact && 'max-md:group-data-[collapsed]/header:hidden',
+          )}
+        >
+          <Breadcrumb trail={trail} />
+        </div>
+      ) : null}
       {/* On a phone the actions follow the meta on the same line, instead of
           taking a line of their own, so the header is a row shorter above the
           content. They wrap to the next line only when the meta is long. */}
-      <div className="grid grid-cols-[minmax(10rem,1fr)_auto] items-center gap-x-2 gap-y-1.5 max-md:flex max-md:flex-wrap max-md:gap-x-3.5 max-md:gap-y-1">
+      <div
+        className={cn(
+          'grid grid-cols-[minmax(10rem,1fr)_auto] items-center gap-x-2 gap-y-1.5',
+          compact
+            ? 'max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-y-1'
+            : 'max-md:flex max-md:flex-wrap max-md:gap-x-3.5 max-md:gap-y-1',
+        )}
+      >
         <Title
           className={cn(
             'col-start-1 row-start-1 min-w-0 text-title max-md:text-[18px] max-md:leading-6 md:truncate',
-            meta
-              ? 'max-md:mb-0.5 max-md:w-full'
-              : 'max-md:flex-1 max-md:basis-40',
+            compact
+              ? 'max-md:truncate'
+              : meta
+                ? 'max-md:mb-0.5 max-md:w-full'
+                : 'max-md:flex-1 max-md:basis-40',
           )}
         >
           {title}
@@ -62,7 +93,12 @@ export function PageHeader({
         {actions ? (
           <div
             data-page-actions
-            className="col-start-2 row-start-1 flex max-w-full flex-wrap justify-end gap-2 max-md:order-last max-md:ml-auto"
+            className={cn(
+              'col-start-2 row-start-1 flex max-w-full flex-wrap justify-end gap-2',
+              compact
+                ? 'max-md:flex-nowrap max-md:items-center'
+                : 'max-md:order-last max-md:ml-auto',
+            )}
           >
             {actions}
           </div>
@@ -70,7 +106,12 @@ export function PageHeader({
         {meta ? (
           <div
             data-page-meta
-            className="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1 text-label text-fg-muted max-md:contents"
+            className={cn(
+              'col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1 text-label text-fg-muted',
+              compact
+                ? 'max-md:group-data-[collapsed]/header:hidden'
+                : 'max-md:contents',
+            )}
           >
             {meta}
           </div>
@@ -79,13 +120,48 @@ export function PageHeader({
       {tabs ? (
         <div
           data-page-tabs
-          className="-mx-4 mt-1 max-md:-mt-1 overflow-x-auto px-4 [scrollbar-width:none] md:-mx-6 md:px-6"
+          className={cn(
+            '-mx-4 mt-1 max-md:-mt-1 overflow-x-auto px-4 [scrollbar-width:none] md:-mx-6 md:px-6',
+            compact && 'max-md:group-data-[collapsed]/header:hidden',
+          )}
         >
           {tabs}
         </div>
       ) : null}
     </header>
   )
+}
+
+/**
+ * Whether a compact header has folded away. Scrolling down through the page
+ * below it folds it; scrolling back up, or reaching the top, unfolds it. The
+ * gaps between the two thresholds keep it from flickering as its own height
+ * moves the content.
+ */
+function useCollapsedOnScroll(
+  header: React.RefObject<HTMLElement | null>,
+  enabled: boolean,
+): boolean {
+  const [collapsed, setCollapsed] = useState(false)
+  useEffect(() => {
+    const root = header.current?.parentElement
+    if (!enabled || !root) return
+    const last = new WeakMap<EventTarget, number>()
+    const onScroll = (event: Event) => {
+      const target = event.target
+      if (!(target instanceof HTMLElement) || header.current?.contains(target))
+        return
+      const top = target.scrollTop
+      const previous = last.get(target) ?? 0
+      last.set(target, top)
+      if (top < 24) setCollapsed(false)
+      else if (top - previous > 6 && top > 96) setCollapsed(true)
+      else if (previous - top > 6) setCollapsed(false)
+    }
+    root.addEventListener('scroll', onScroll, { capture: true, passive: true })
+    return () => root.removeEventListener('scroll', onScroll, { capture: true })
+  }, [header, enabled])
+  return enabled && collapsed
 }
 
 /**

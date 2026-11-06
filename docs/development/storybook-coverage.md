@@ -452,7 +452,9 @@ few seconds, so its story holds the poll pending and leaves the seeded readings
 on screen; and the bulk-upgrade story runs the upgrade against a refused
 server, so every notebook comes back in the "not updated" list.
 
-| Module                                           | Why no story                                                                                                                                   |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/components/experiments/experiments-data.ts` | Query keys, list filters, row mapping and hooks for the experiments list. Nothing renders; the screens that use it have stories.               |
-| `src/components/projects/project-lists.ts`       | Page-size constants, filters, fetchers and hooks behind the project lists (which have stories in `ProjectLists.stories.tsx`). Nothing renders. |
+| Module                                           | Why no story                                                                                                                                                            |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/experiments/series-bar.tsx`      | Reads the experiment's series from the database and draws nothing without one; the series tab and notebook journeys cover it.                                           |
+| `src/components/experiments/series-offer.tsx`    | A checkbox that appears only when the experiment is in a series; it needs the series query, and the Repeat and New run dialogs that hold it are covered by their tests. |
+| `src/components/experiments/experiments-data.ts` | Query keys, list filters, row mapping and hooks for the experiments list. Nothing renders; the screens that use it have stories.                                        |
+| `src/components/projects/project-lists.ts`       | Page-size constants, filters, fetchers and hooks behind the project lists (which have stories in `ProjectLists.stories.tsx`). Nothing renders.                          |

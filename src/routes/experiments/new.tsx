@@ -37,6 +37,7 @@ import {
   insertPinnedProtocol,
 } from '#/lib/notebook-create'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { addSeriesMember } from '#/lib/experiment-series'
 import {
   fetchAllNotebookTemplateVersions,
   fetchNotebookTemplates,
@@ -122,13 +123,18 @@ const EXPERIMENT_MODEL = requireBuiltInModel('experiment')
 export const Route = createFileRoute('/experiments/new')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): CreateContextSearch & { protocol?: string; template?: string } => {
+  ): CreateContextSearch & {
+    protocol?: string
+    template?: string
+    series?: string
+  } => {
     const text = (value: unknown) =>
       typeof value === 'string' && value ? value : undefined
     return {
       ...parseCreateContext(search),
       protocol: text(search.protocol),
       template: text(search.template),
+      series: text(search.series),
     }
   },
   beforeLoad: async ({ context: rootContext, location }) => {
@@ -262,6 +268,24 @@ function NewExperiment() {
         )
       ).at(0) ?? null,
     enabled: Boolean(search.sample),
+    staleTime: 60_000,
+  })
+
+  // A series handed over by its page: the new experiment joins it once made.
+  const series = useQuery({
+    queryKey: ['ui-port', 'experiments', 'new', 'series', search.series],
+    queryFn: async () =>
+      (
+        await notebookDataClient.list<{
+          id: string
+          identifier: string
+          title: string
+        }>(
+          'records',
+          `?id=eq.${encodeURIComponent(search.series ?? '')}&select=id,identifier,title&limit=1`,
+        )
+      ).at(0) ?? null,
+    enabled: Boolean(search.series),
     staleTime: 60_000,
   })
 
@@ -423,6 +447,22 @@ function NewExperiment() {
               : t('projects.newExperiment.pinRefused')
         }
       }
+      // The new experiment joins the series it was made from. The experiment
+      // exists either way, so a refusal is said afterwards, not thrown.
+      let seriesRefusal: string | undefined
+      if (series.data) {
+        try {
+          await addSeriesMember(notebookDataClient, {
+            seriesId: series.data.id,
+            memberId: record.id,
+          })
+        } catch (error) {
+          seriesRefusal =
+            error instanceof Error
+              ? error.message
+              : t('projects.series.tab.failed')
+        }
+      }
       if (startNow) {
         // Starting is a server decision: PROJ-03 and LAB-07 authority (effective
         // version, exact-version acknowledgement) are enforced by the RPC.
@@ -443,9 +483,17 @@ function NewExperiment() {
         started: startNow,
         protocolInNotebook,
         protocolPinError,
+        seriesRefusal,
       }
     },
-    onSuccess: ({ record, started, protocolInNotebook, protocolPinError }) => {
+    onSuccess: ({
+      record,
+      started,
+      protocolInNotebook,
+      protocolPinError,
+      seriesRefusal,
+    }) => {
+      if (seriesRefusal) toast.error(seriesRefusal)
       toast(
         started
           ? t('projects.newExperiment.started', {
@@ -566,6 +614,14 @@ function NewExperiment() {
           <Muted>
             {t('projects.newExperiment.replaced', {
               title: effectiveProject.title,
+            })}
+          </Muted>
+        ) : null}
+        {series.data ? (
+          <Muted>
+            {t('projects.newExperiment.joinsSeries', {
+              identifier: series.data.identifier,
+              title: series.data.title,
             })}
           </Muted>
         ) : null}

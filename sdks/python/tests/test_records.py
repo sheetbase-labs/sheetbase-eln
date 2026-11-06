@@ -122,7 +122,7 @@ class TestRecordHistory:
         assert history[0].integrity_algorithm == "sha256"
         assert history[0].integrity_digest == "abc123"
         assert history[0].metadata_snapshot == {"title": "Purification run 1"}
-        assert route.calls[0].request.url.params["record_id"] == f"eq.{revision_row["record_id"]}"
+        assert route.calls[0].request.url.params["record_id"] == f"eq.{revision_row['record_id']}"
         assert route.calls[0].request.url.params["order"] == "created_at.desc"
 
     def test_iter_history(self, mock_transport, revision_row):

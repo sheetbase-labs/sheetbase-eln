@@ -327,7 +327,7 @@ class TestVersionAccess:
         assert isinstance(versions[0], DatasetVersion)
         assert versions[0].label == "Day 14 freeze"
         assert versions[0].source_dataset_revision == 3
-        assert route.calls[0].request.url.params["dataset_id"] == f"eq.{dataset_version_row["dataset_id"]}"
+        assert route.calls[0].request.url.params["dataset_id"] == f"eq.{dataset_version_row['dataset_id']}"
         assert route.calls[0].request.url.params["order"] == "created_at.desc"
 
     def test_iter_versions_pagination(self, mock_transport, dataset_version_row):
@@ -350,7 +350,7 @@ class TestSchemaFields:
         assert len(fields) == 2
         assert fields[0].label == "Titer (vp/mL)"
         assert fields[0].logical_type == "decimal"
-        assert route.calls[0].request.url.params["schema_version_id"] == f"eq.{schema_field_rows[0]["schema_version_id"]}"
+        assert route.calls[0].request.url.params["schema_version_id"] == f"eq.{schema_field_rows[0]['schema_version_id']}"
 
     def test_field_label_map(self, mock_transport, schema_field_rows):
         mock_transport.get("/api/db/dataset_schema_version_fields").respond(

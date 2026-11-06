@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 
 import { DataClientError, onRowsChanged } from '#/lib/data-client'
+import { requestShellRefresh } from '#/lib/shell-refresh'
 
 /**
  * A request the server refused (not found, not allowed, bad input) answers the
@@ -41,6 +42,10 @@ const EDITING_CACHES = new Set([
   'comments',
 ])
 
+/** Writes that come from typing or cell editing, which no sidebar count shows. */
+const EDITING_PATHS =
+  /^\/(blocks?|comments?|scientific_|rpc\/\w*(block|scientific|cell|comment|row|formula|draft)\w*)/
+
 /**
  * After this tab saves something, every other cached list, count, header and
  * sidebar row that could show it is marked stale (and refetched when on
@@ -53,19 +58,39 @@ export function refreshAfterWrites(
   delayMs = 250,
 ): () => void {
   let timer: ReturnType<typeof setTimeout> | null = null
-  const stop = onRowsChanged(() => {
+  let shellTimer: ReturnType<typeof setTimeout> | null = null
+  let shellWanted = false
+  const stop = onRowsChanged((path) => {
+    // The sidebar's counts, pinned items and bell come from the shell, which is
+    // loaded separately from the queries. Writes from a notebook or a grid
+    // arrive many times a minute and cannot change them, so they skip it.
+    if (!EDITING_PATHS.test(path)) shellWanted = true
     if (timer !== null) return
     timer = setTimeout(() => {
       timer = null
       void queryClient.invalidateQueries({
         predicate: (query) => !EDITING_CACHES.has(String(query.queryKey[0])),
       })
+      if (shellWanted && shellTimer === null) {
+        shellWanted = false
+        requestShellRefresh()
+        // At most one shell reload every few seconds.
+        shellTimer = setTimeout(() => {
+          shellTimer = null
+          if (shellWanted) {
+            shellWanted = false
+            requestShellRefresh()
+          }
+        }, 3000)
+      }
     }, delayMs)
   })
   return () => {
     stop()
     if (timer !== null) clearTimeout(timer)
+    if (shellTimer !== null) clearTimeout(shellTimer)
     timer = null
+    shellTimer = null
   }
 }
 

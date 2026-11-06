@@ -51,4 +51,24 @@ describe('refreshAfterWrites', () => {
     stop()
     vi.useRealTimers()
   })
+
+  it('asks the shell to reload counts after a write, but not after a notebook save', async () => {
+    vi.useFakeTimers()
+    const qc = new QueryClient()
+    const heard = vi.fn()
+    window.addEventListener('sheetbase:shell-refresh', heard)
+    const stop = refreshAfterWrites(qc, 50)
+    const rows = createDataClient(
+      async () => new Response('[]', { status: 200 }),
+    )
+    await rows.patch('blocks', 'id=eq.1', { content: 'x' })
+    await vi.advanceTimersByTimeAsync(60)
+    expect(heard).not.toHaveBeenCalled()
+    await rows.patch('records', 'id=eq.1', { title: 'x' })
+    await vi.advanceTimersByTimeAsync(60)
+    expect(heard).toHaveBeenCalledTimes(1)
+    stop()
+    window.removeEventListener('sheetbase:shell-refresh', heard)
+    vi.useRealTimers()
+  })
 })

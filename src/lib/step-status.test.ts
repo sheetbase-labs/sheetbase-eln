@@ -66,3 +66,46 @@ describe('instrumentNamedBy', () => {
     expect(instrumentNamedBy('Mix gently', list)).toBeNull()
   })
 })
+
+describe('stepProgress with parts', () => {
+  const inPart = (id: string, partId: string, completed = false) => ({
+    ...step(id, { completed }),
+    partId,
+  })
+
+  it('numbers steps within their part and keeps the current step in the current part', () => {
+    const steps = stepProgress(
+      [
+        inPart('a', 'p1', true),
+        inPart('b', 'p1', true),
+        inPart('c', 'p2'),
+        inPart('d', 'p2'),
+        inPart('e', 'p3'),
+      ],
+      new Set(),
+      [
+        { id: 'p1', number: 1, state: 'done' },
+        { id: 'p2', number: 2, state: 'now' },
+        { id: 'p3', number: 3, state: 'later' },
+      ],
+    )
+    expect(
+      steps.map((s) => [s.partNumber, s.partStepIndex, s.partStepCount]),
+    ).toEqual([
+      [1, 1, 2],
+      [1, 2, 2],
+      [2, 1, 2],
+      [2, 2, 2],
+      [3, 1, 1],
+    ])
+    expect(currentStep(steps)?.blockId).toBe('c')
+  })
+
+  it('does not make a step of a later part current while the current part has none', () => {
+    const steps = stepProgress([inPart('e', 'p3')], new Set(), [
+      { id: 'p2', number: 2, state: 'now' },
+      { id: 'p3', number: 3, state: 'later' },
+    ])
+    expect(currentStep(steps)).toBeNull()
+  })
+})

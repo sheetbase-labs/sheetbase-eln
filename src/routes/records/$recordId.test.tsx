@@ -195,7 +195,7 @@ describe('StickyRecordHeader', () => {
     )
     expect(screen.queryByLabelText('Notebook title')).toBeNull()
     expect(screen.queryByText('EXP-2025-0001')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^Submit/ })).toBeTruthy()
   })
 
   it('offers the rare record actions from the overflow', async () => {

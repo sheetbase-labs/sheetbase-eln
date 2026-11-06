@@ -14,6 +14,7 @@
  */
 
 import { t } from '#/copy'
+import { useRecordReviewing } from '#/components/notebook/record-actions'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import * as React from 'react'
 
@@ -194,6 +195,9 @@ export function NotebookViewerActions({
   editingPane,
   onEditHere,
 }: NotebookViewerActionsProps) {
+  // The reviewer reads the submitted version: nothing to ask for, and no
+  // other pane to edit in.
+  const reviewing = useRecordReviewing()
   const [requestOpen, setRequestOpen] = React.useState(false)
   const [requested, setRequested] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
@@ -245,9 +249,11 @@ export function NotebookViewerActions({
       className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border bg-surface-muted/40 px-3 py-2 text-xs"
     >
       <span className="text-fg-muted">
-        {referenceCopy
-          ? referenceCopyMessage(editingPane)
-          : t('notebook.notebookViewerActions.youHaveViewAccess')}
+        {reviewing
+          ? t('notebook.notebookViewerActions.readingForReview')
+          : referenceCopy
+            ? referenceCopyMessage(editingPane)
+            : t('notebook.notebookViewerActions.youHaveViewAccess')}
       </span>
       {requested ? (
         <span className="font-medium text-fg">
@@ -285,7 +291,7 @@ export function NotebookViewerActions({
             {t('notebook.notebookViewerActions.comment')}
           </Button>
         ) : null}
-        {referenceCopy ? (
+        {referenceCopy && !reviewing ? (
           <Button
             type="button"
             size="sm"
@@ -295,7 +301,7 @@ export function NotebookViewerActions({
             {t('notebook.notebookViewerActions.editHere')}
           </Button>
         ) : null}
-        {!referenceCopy && projectId && !requested ? (
+        {!referenceCopy && !reviewing && projectId && !requested ? (
           <Button
             type="button"
             size="sm"

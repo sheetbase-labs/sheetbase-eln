@@ -7,6 +7,8 @@ export const workspaceSearchSchema = z.object({
   signatureMeaning: z
     .enum(['reviewed', 'reviewed-and-approved', 'witnessed'])
     .optional(),
+  /** Opens the decision dialog on arrival, from the experiment's header. */
+  decide: z.enum(['approve', 'request_changes']).optional().catch(undefined),
 })
 
 export type WorkspaceSearch = z.infer<typeof workspaceSearchSchema>

@@ -207,7 +207,7 @@ afterEach(() => cleanup())
 
 describe('statusLabel', () => {
   it('maps known states to human-readable labels', () => {
-    expect(statusLabel('submitted')).toBe('Under review')
+    expect(statusLabel('submitted')).toBe('In review')
     expect(statusLabel('approved')).toBe('Approved')
     expect(statusLabel('returned')).toBe('Changes requested')
   })

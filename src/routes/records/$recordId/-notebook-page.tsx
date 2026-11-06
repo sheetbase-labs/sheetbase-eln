@@ -116,7 +116,9 @@ import {
   RecordActionsMenu,
   RecordMainActions,
   useOfferRecordActions,
+  useRecordSubmitVariant,
 } from '#/components/notebook/record-actions'
+import { SubmitLabel } from '#/components/experiments/submit-label'
 import type { RecordAction } from '#/components/notebook/record-actions'
 import {
   Dialog,
@@ -744,7 +746,18 @@ export function RecordNotebookPage({
     )
   }
 
-  const canWrite = hasCapability(workspaceRole, 'record.create')
+  // The reviewer reads the version that was submitted; the notebook is the
+  // author's to change while it is in review.
+  const readingForReview =
+    record.status === 'in_review' &&
+    record.createdByUserId !== context.user.id &&
+    Boolean(
+      reviewQuery.data?.submission?.assigned_reviewer_user_ids.includes(
+        context.user.id,
+      ),
+    )
+  const canWrite =
+    hasCapability(workspaceRole, 'record.create') && !readingForReview
   const displayRecord =
     historicalRevisionId && historicalRevisionQuery.data
       ? recordFromRevisionSnapshot(
@@ -1196,6 +1209,7 @@ export function StickyRecordHeader({
   // EXP-05.2: submit and sign need a connection; the header disables them
   // and states why while the live-event stream is offline.
   const online = useIsOnline()
+  const submitVariant = useRecordSubmitVariant()
   const [submitOpen, setSubmitOpen] = useState(false)
   const [duplicateOpen, setDuplicateOpen] = useState(false)
   const [labelOpen, setLabelOpen] = useState(false)
@@ -1204,7 +1218,8 @@ export function StickyRecordHeader({
   const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
   const lockedAt = liveLockedAt ?? record.lockedAt
-  useReportFrozen(Boolean(lockedAt))
+  // On the experiment page the page itself reports why the record is frozen.
+  useReportFrozen(Boolean(lockedAt), embedded)
   const lockedByRevisionId = liveLockedByRevisionId ?? record.lockedByRevisionId
   const reviewActivity = notebookReviewActivity(review)
   useReportInReview(reviewActivity === 'submitted' && !lockedAt)
@@ -1437,9 +1452,13 @@ export function StickyRecordHeader({
           aria-describedby={describedBy}
           onClick={() => setSubmitOpen(true)}
         >
-          {record.status === 'returned' && variant === 'primary'
-            ? t('notebook.currentStep.resubmit')
-            : t('common.actions.submit')}
+          {embedded ? (
+            <SubmitLabel status={record.status} />
+          ) : record.status === 'returned' && variant === 'primary' ? (
+            t('notebook.currentStep.resubmit')
+          ) : (
+            t('common.actions.submit')
+          )}
         </Button>
       )}
     </ConnectionRequired>
@@ -1524,7 +1543,7 @@ export function StickyRecordHeader({
           )}
           {offered ? null : <RecordActionsMenu actions={recordActions} />}
           <RecordMainActions enabled={embedded}>
-            {showSubmit ? submitButton('primary') : null}
+            {showSubmit ? submitButton(submitVariant) : null}
             {canSign ? (
               <ConnectionRequired
                 online={online}
@@ -1533,6 +1552,7 @@ export function StickyRecordHeader({
                 {({ disabled, describedBy }) => (
                   <Button
                     type="button"
+                    variant="primary"
                     disabled={disabled}
                     aria-describedby={describedBy}
                     onClick={() => setSignOpen(true)}

@@ -6034,6 +6034,85 @@ export const workItemFollows = api.table(
 )
 
 /**
+ * Out of office (migration 0091): who is away, from when to when, and which
+ * colleague covers the reviews waiting on them. Set through
+ * `set_member_absence` / `cancel_member_absence`; read under RLS by workspace
+ * members.
+ */
+export const memberAbsences = api.table(
+  'member_absences',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    startsOn: date('starts_on', { mode: 'string' }).notNull(),
+    endsOn: date('ends_on', { mode: 'string' }).notNull(),
+    delegateUserId: text('delegate_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    note: text('note'),
+    cancelledAt: timestamp('cancelled_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_member_absences_user').on(
+      table.workspaceId,
+      table.userId,
+      table.endsOn,
+    ),
+  ],
+)
+
+/**
+ * Each review an absence's cover reached (migration 0091), kept as history:
+ * `endedAt` is set when the colleague stops covering it.
+ */
+export const reviewCover = api.table(
+  'review_cover',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    submissionId: uuid('submission_id')
+      .notNull()
+      .references(() => reviewSubmissions.id, { onDelete: 'cascade' }),
+    absenceId: uuid('absence_id')
+      .notNull()
+      .references(() => memberAbsences.id, { onDelete: 'cascade' }),
+    absentUserId: text('absent_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    delegateUserId: text('delegate_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    endedAt: timestamp('ended_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    unique('uq_review_cover_submission_absence').on(
+      table.submissionId,
+      table.absenceId,
+    ),
+    index('idx_review_cover_submission').on(table.submissionId),
+  ],
+)
+
+/**
  * project_follows (migration 0088) — a per-user follow of a project, so it
  * appears in the caller's Inbox Following tab like a followed record. Written
  * through `follow_project` / `unfollow_project`; read under RLS by its owner.

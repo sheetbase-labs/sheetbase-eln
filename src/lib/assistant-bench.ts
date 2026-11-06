@@ -23,6 +23,7 @@ export const INCIDENT_REPORT_TOOL = 'sheetbase.incident.report'
 export const REQUEST_SEND_TOOL = 'sheetbase.request.send'
 export const SAMPLE_ADVANCE_TOOL = 'sheetbase.sample.advance'
 export const INSTRUMENT_SERVICE_TOOL = 'sheetbase.instrument.out_of_service'
+export const STORAGE_READING_TOOL = 'sheetbase.storage.log_reading'
 
 export const BENCH_PROPOSE_TOOL_NAMES = [
   REAGENT_ORDER_TOOL,
@@ -35,6 +36,7 @@ export const BENCH_PROPOSE_TOOL_NAMES = [
   REQUEST_SEND_TOOL,
   SAMPLE_ADVANCE_TOOL,
   INSTRUMENT_SERVICE_TOOL,
+  STORAGE_READING_TOOL,
 ] as const
 
 export type BenchProposeToolName = (typeof BENCH_PROPOSE_TOOL_NAMES)[number]
@@ -297,6 +299,33 @@ export const proposeInstrumentServiceSchema = z
   })
   .strict()
 
+export const proposeStorageReadingSchema = z
+  .object({
+    title,
+    summary,
+    place: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe(
+        'The freezer, fridge, incubator or room as the person names it: its name or code.',
+      ),
+    measurement: z
+      .string()
+      .max(80)
+      .default('Temperature')
+      .describe('What was measured, such as "Temperature" or "Humidity".'),
+    value: z.number().describe('The number read.'),
+    unit: z
+      .string()
+      .max(20)
+      .optional()
+      .describe(
+        'The unit, such as "°C". Leave out to use the one already kept.',
+      ),
+  })
+  .strict()
+
 /**
  * What a bench card does when its button is pressed. Plain data, built and
  * checked on the server, run in the browser as the person.
@@ -385,6 +414,14 @@ export type BenchAction =
       reason: string | null
       expectedBackOn: string | null
       workDone: string | null
+    }
+  | {
+      kind: 'storage.reading'
+      placeKind: 'unit' | 'room'
+      placeId: string
+      feed: string
+      value: number
+      unit: string | null
     }
 
 export type BenchActionKind = BenchAction['kind']

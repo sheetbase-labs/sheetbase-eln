@@ -288,6 +288,11 @@ export const notebook = {
         applying: 'Saving…',
         applied: 'Done',
       },
+      storageReading: {
+        apply: 'Log reading',
+        applying: 'Logging…',
+        applied: 'Logged',
+      },
       book: { apply: 'Book', applying: 'Booking…', applied: 'Booked' },
       move: { apply: 'Move booking', applying: 'Moving…', applied: 'Moved' },
       cancel: {

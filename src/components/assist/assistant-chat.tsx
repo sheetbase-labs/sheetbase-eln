@@ -453,6 +453,7 @@ function lookupLabel(
     case 'sheetbase.request.send':
     case 'sheetbase.sample.advance':
     case 'sheetbase.instrument.out_of_service':
+    case 'sheetbase.storage.log_reading':
       return t(`notebook.assistantPanel.lookup.bench.${phase}`)
     case 'sheetbase.inbox.read':
       return t(`notebook.assistantPanel.lookup.inbox.${phase}`)

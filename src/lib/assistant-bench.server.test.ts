@@ -450,6 +450,69 @@ describe('instrument out of service card', () => {
   })
 })
 
+describe('storage reading cards', () => {
+  const units = [{ id: 'u1', name: 'Freezer F-12', code: 'F-12' }]
+  const rooms = [{ id: 'r1', name: 'Cold room', code: 'CR-1' }]
+
+  it('finds the freezer and shows the reading', async () => {
+    const { ctx } = context({ storage_units: units, storage_rooms: rooms })
+    const out = await buildBenchProposal(
+      'sheetbase.storage.log_reading',
+      {
+        ...base,
+        place: 'F-12',
+        measurement: 'Temperature',
+        value: -78,
+        unit: '°C',
+      },
+      ctx,
+    )
+    expect(out).toMatchObject({
+      ok: true,
+      proposal: {
+        target: 'Freezer F-12 (F-12)',
+        changes: [{ label: 'Temperature', after: '-78 °C' }],
+        action: {
+          kind: 'storage.reading',
+          placeKind: 'unit',
+          placeId: 'u1',
+          value: -78,
+        },
+      },
+    })
+  })
+
+  it('says what exists when nothing matches', async () => {
+    const { ctx } = context({ storage_units: units, storage_rooms: rooms })
+    const out = await buildBenchProposal(
+      'sheetbase.storage.log_reading',
+      { ...base, place: 'Incubator 9', value: 37 },
+      ctx,
+    )
+    expect(out).toMatchObject({ ok: false })
+  })
+
+  it('logs it through the readings RPC', async () => {
+    const calls: Array<[string, Record<string, unknown>]> = []
+    const client = {
+      rpc: (name: string, args: Record<string, unknown>) => {
+        calls.push([name, args])
+        return Promise.resolve({ stored: 1 })
+      },
+    } as unknown as DataClient
+    await runBenchAction(client, {
+      kind: 'storage.reading',
+      placeKind: 'room',
+      placeId: 'r1',
+      feed: 'Temperature',
+      value: 4.2,
+      unit: '°C',
+    })
+    expect(calls[0][0]).toBe('record_storage_readings')
+    expect(calls[0][1]).toMatchObject({ p_unit_id: null, p_room_id: 'r1' })
+  })
+})
+
 describe('running a card', () => {
   it('calls the ordinary RPCs as the person', async () => {
     const calls: Array<[string, Record<string, unknown>]> = []

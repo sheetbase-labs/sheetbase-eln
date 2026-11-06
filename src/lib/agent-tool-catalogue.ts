@@ -108,6 +108,7 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.request.send',
   'sheetbase.sample.advance',
   'sheetbase.instrument.out_of_service',
+  'sheetbase.storage.log_reading',
   // Planning and follow-up from a card: start an experiment from a template,
   // hand a record to someone or ask them, repeat a booking, start a step
   // timer, send and receive shipments (assistant-planning.ts).

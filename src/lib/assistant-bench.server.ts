@@ -12,6 +12,7 @@ import {
   SAMPLE_MOVE_TOOL,
   SAMPLE_SPLIT_TOOL,
   SAMPLE_USE_TOOL,
+  STORAGE_READING_TOOL,
   proposeIncidentSchema,
   proposeInstrumentServiceSchema,
   proposeReagentOrderSchema,
@@ -22,6 +23,7 @@ import {
   proposeSampleSplitSchema,
   proposeSampleUseSchema,
   proposeSamplesLogSchema,
+  proposeStorageReadingSchema,
 } from './assistant-bench'
 import type { BenchAction, BenchProposeToolName } from './assistant-bench'
 import {
@@ -109,6 +111,11 @@ export function benchProposalDefs(): ProviderToolDef[] {
       INSTRUMENT_SERVICE_TOOL,
       `Propose marking an instrument out of service (or back in service). Everyone with a booking ahead is told as usual. ${NOTE}`,
       proposeInstrumentServiceSchema,
+    ),
+    toolDef(
+      STORAGE_READING_TOOL,
+      `Propose writing down a reading, such as a temperature, for a freezer, fridge, incubator or room. It is checked against the alarm limits as usual. ${NOTE}`,
+      proposeStorageReadingSchema,
     ),
   ]
 }
@@ -423,6 +430,67 @@ function card(
 }
 
 const fail = (message: string): BenchProposalOutcome => ({ ok: false, message })
+
+interface StoragePlace {
+  kind: 'unit' | 'room'
+  id: string
+  name: string
+  code: string
+}
+
+/** The freezer-like unit or room the person named. */
+async function resolveStoragePlace(
+  client: DataClient,
+  workspaceId: string,
+  wanted: string,
+): Promise<{ ok: true; place: StoragePlace } | { ok: false; message: string }> {
+  const ws = encodeURIComponent(workspaceId)
+  const columns = 'id,name,code'
+  const [units, rooms] = await Promise.all([
+    client.list<{ id: string; name: string; code: string }>(
+      'storage_units',
+      `?workspace_id=eq.${ws}&archived_at=is.null&select=${columns}&limit=500`,
+    ),
+    client.list<{ id: string; name: string; code: string }>(
+      'storage_rooms',
+      `?workspace_id=eq.${ws}&archived_at=is.null&select=${columns}&limit=500`,
+    ),
+  ])
+  const all: StoragePlace[] = [
+    ...units.map((u) => ({ ...u, kind: 'unit' as const })),
+    ...rooms.map((r) => ({ ...r, kind: 'room' as const })),
+  ]
+  const lower = wanted.trim().toLowerCase()
+  const exact = all.filter(
+    (p) =>
+      p.name.toLowerCase() === lower ||
+      p.code.toLowerCase() === lower ||
+      p.id === wanted.trim(),
+  )
+  if (exact.length === 1) return { ok: true, place: exact[0] }
+  const words = lower.split(/\s+/).filter(Boolean)
+  const partial = all.filter((p) =>
+    words.every((w) => `${p.name} ${p.code}`.toLowerCase().includes(w)),
+  )
+  if (partial.length === 1) return { ok: true, place: partial[0] }
+  const placeLabel = (p: StoragePlace) => `${p.name} (${p.code})`
+  if (partial.length > 1) {
+    return {
+      ok: false,
+      message: `More than one freezer or room matches "${wanted}": ${partial
+        .slice(0, 8)
+        .map(placeLabel)
+        .join(', ')}. Ask the person which one they mean.`,
+    }
+  }
+  return {
+    ok: false,
+    message: `No freezer or room matches "${wanted}". Ones that exist: ${all
+      .slice(0, 12)
+      .map(placeLabel)
+      .join(', ')}.`,
+  }
+}
 
 export async function buildBenchProposal(
   name: BenchProposeToolName,
@@ -939,6 +1007,36 @@ export async function buildBenchProposal(
           reason: input.reason?.trim() || null,
           expectedBackOn: input.expectedBackOn ?? null,
           workDone: input.workDone?.trim() || null,
+        },
+      })
+    }
+
+    case STORAGE_READING_TOOL: {
+      const parsed = parse(proposeStorageReadingSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const found = await resolveStoragePlace(client, workspaceId, input.place)
+      if (!found.ok) return fail(found.message)
+      const place = found.place
+      const unit = input.unit?.trim() || null
+      const changes: ProposalChange[] = [
+        {
+          label: input.measurement,
+          before: null,
+          after: `${input.value}${unit ? ` ${unit}` : ''}`,
+        },
+      ]
+      return card(name, input, {
+        target: `${place.name} (${place.code})`,
+        deepLink: '/settings/lab/storage',
+        changes,
+        action: {
+          kind: 'storage.reading',
+          placeKind: place.kind,
+          placeId: place.id,
+          feed: input.measurement,
+          value: input.value,
+          unit,
         },
       })
     }

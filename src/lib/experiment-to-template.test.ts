@@ -26,6 +26,54 @@ const INSTANCE = '00000000-0000-4000-8000-0000000000aa'
 const ADHOC = '00000000-0000-4000-8000-0000000000bb'
 const DEFINITION = '00000000-0000-4000-8000-0000000000cc'
 
+describe('templateConfigurationFromBlocks with parts', () => {
+  it('carries the parts and tags each placement with its part', () => {
+    counter = 0
+    const draft = templateConfigurationFromBlocks(
+      [
+        { type: 'rich_text', payload: {}, order: 1, partId: 'p1' },
+        { type: 'rich_text', payload: {}, order: 2, partId: 'p2' },
+      ],
+      new Map(),
+      newId,
+      [
+        { id: 'p1', title: 'Seed', dayOffset: 0 },
+        { id: 'p2', title: 'Dose', dayOffset: 2 },
+      ],
+    )
+    const config = draft.configuration
+    expect(config.parts?.map((part) => [part.title, part.dayOffset])).toEqual([
+      ['Seed', 0],
+      ['Dose', 2],
+    ])
+    expect(config.placements.map((p) => 'partId' in p && p.partId)).toEqual(
+      config.parts?.map((part) => part.id),
+    )
+    expect(notebookTemplateConfigurationSchema.safeParse(config).success).toBe(
+      true,
+    )
+  })
+
+  it('refuses a placement in a part the template does not have', () => {
+    const result = notebookTemplateConfigurationSchema.safeParse({
+      formatVersion: 1,
+      parameters: [],
+      parts: [],
+      placements: [
+        {
+          id: '00000000-0000-4000-8000-000000000001',
+          kind: 'narrative',
+          order: 1,
+          blockType: 'rich_text',
+          payload: {},
+          partId: '00000000-0000-4000-8000-000000000002',
+        },
+      ],
+    })
+    expect(result.success).toBe(false)
+  })
+})
+
 describe('templateConfigurationFromBlocks', () => {
   it('keeps the method, unchecks checklists and drops results', () => {
     counter = 0
@@ -140,12 +188,15 @@ describe('saveExperimentAsTemplate', () => {
       {} as Awaited<ReturnType<typeof createNotebookTemplate>>,
     )
 
-    const result = await saveExperimentAsTemplate({} as DataClient, {
-      workspaceId: 'ws',
-      experimentId: 'exp',
-      key: 'k',
-      name: 'Template',
-    })
+    const result = await saveExperimentAsTemplate(
+      { list: () => Promise.resolve([]) } as unknown as DataClient,
+      {
+        workspaceId: 'ws',
+        experimentId: 'exp',
+        key: 'k',
+        name: 'Template',
+      },
+    )
 
     expect(vi.mocked(fetchSheetInstance).mock.calls.map(([id]) => id)).toEqual([
       INSTANCE,

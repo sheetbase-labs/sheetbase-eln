@@ -10,6 +10,8 @@
 import type { DataClient } from '#/lib/data-client'
 import { createNotebookTemplate } from '#/lib/notebook-template-data'
 import type { NotebookTemplateConfiguration } from '#/lib/notebook-template'
+import { fetchPartsForRecord } from '#/lib/experiment-parts'
+import type { ExperimentPart } from '#/lib/experiment-parts'
 import { fetchBlocksForRecord } from '#/lib/notebook-data'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { sheetBlockInstanceId } from '#/lib/sheet-block'
@@ -63,11 +65,20 @@ function plural(count: number, noun: string): string {
  * counter).
  */
 export function templateConfigurationFromBlocks(
-  blocks: readonly Pick<NotebookBlock, 'type' | 'payload' | 'order'>[],
+  blocks: readonly Pick<
+    NotebookBlock,
+    'type' | 'payload' | 'order' | 'partId'
+  >[],
   sheetDefinitions: ReadonlyMap<string, string>,
   newId: () => string = () => crypto.randomUUID(),
+  parts: readonly Pick<ExperimentPart, 'id' | 'title' | 'dayOffset'>[] = [],
 ): TemplateDraft {
   const placements: NotebookTemplateConfiguration['placements'] = []
+  const templatePartIds = new Map(parts.map((part) => [part.id, newId()]))
+  const partOf = (block: { partId?: string | null }) => {
+    const id = block.partId ? templatePartIds.get(block.partId) : undefined
+    return id ? { partId: id } : {}
+  }
   const skipped = new Map<string, number>()
   let adHocSheets = 0
   const note = (label: string) =>
@@ -85,6 +96,7 @@ export function templateConfigurationFromBlocks(
       placements.push({
         id: newId(),
         kind: 'sheet',
+        ...partOf(block),
         order,
         definitionVersionId: definition,
         parameterMappings: [],
@@ -98,6 +110,7 @@ export function templateConfigurationFromBlocks(
     placements.push({
       id: newId(),
       kind: 'narrative',
+      ...partOf(block),
       order,
       blockType: block.type,
       payload:
@@ -119,7 +132,20 @@ export function templateConfigurationFromBlocks(
     )
   }
   return {
-    configuration: { formatVersion: 1, parameters: [], placements },
+    configuration: {
+      formatVersion: 1,
+      parameters: [],
+      ...(parts.length > 0
+        ? {
+            parts: parts.map((part) => ({
+              id: templatePartIds.get(part.id) as string,
+              title: part.title,
+              dayOffset: part.dayOffset,
+            })),
+          }
+        : {}),
+      placements,
+    },
     leftOut,
   }
 }
@@ -164,7 +190,13 @@ export async function saveExperimentAsTemplate(
     if (definitionVersionId)
       sheetDefinitions.set(instanceId, definitionVersionId)
   }
-  const draft = templateConfigurationFromBlocks(blocks, sheetDefinitions)
+  const parts = await fetchPartsForRecord(client, input.experimentId)
+  const draft = templateConfigurationFromBlocks(
+    blocks,
+    sheetDefinitions,
+    undefined,
+    parts,
+  )
   const created = await createNotebookTemplate(
     {
       workspaceId: input.workspaceId,

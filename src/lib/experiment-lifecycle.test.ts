@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   blocksForNewRun,
+  partsForNewRun,
   setExperimentStatus,
   startExperimentRecord,
 } from '#/lib/experiment-lifecycle'
@@ -12,6 +13,30 @@ const block = (
   order: number,
   payload: Record<string, unknown> = {},
 ) => ({ type, payload, payloadSchemaVersion: 1, order })
+
+describe('partsForNewRun', () => {
+  it('starts each part at its first kept block, with its day', () => {
+    const blocks = [
+      { ...block('rich_text', 1), partId: 'a' },
+      { ...block('chart', 2), partId: 'a' },
+      { ...block('rich_text', 3), partId: 'b' },
+      { ...block('chart', 4), partId: 'c' },
+    ]
+    const points = partsForNewRun(
+      blocks,
+      [
+        { id: 'a', title: 'Seed', dayOffset: 0 },
+        { id: 'b', title: 'Dose', dayOffset: 3 },
+        { id: 'c', title: 'Read', dayOffset: 5 },
+      ],
+      ['n1', 'n2'],
+    )
+    expect(points).toEqual([
+      { title: 'Seed', first_block_id: 'n1', day_offset: 0 },
+      { title: 'Dose', first_block_id: 'n2', day_offset: 3 },
+    ])
+  })
+})
 
 describe('blocksForNewRun', () => {
   it('keeps the writing and method in order and drops the results', () => {

@@ -52120,6 +52120,10 @@
                 "type": "string",
                 "const": "narrative"
               },
+              "partId": {
+                "type": "string",
+                "format": "uuid"
+              },
               "order": {
                 "type": "integer"
               },
@@ -52153,6 +52157,10 @@
               "kind": {
                 "type": "string",
                 "const": "sheet"
+              },
+              "partId": {
+                "type": "string",
+                "format": "uuid"
               },
               "order": {
                 "type": "integer"
@@ -52225,6 +52233,27 @@
             "maxItems": 64,
             "items": {
               "$ref": "#/components/schemas/TemplateParameter"
+            }
+          },
+          "parts": {
+            "type": "array",
+            "maxItems": 60,
+            "items": {
+              "type": "object",
+              "required": ["id", "title", "dayOffset"],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "dayOffset": {
+                  "type": "integer"
+                }
+              }
             }
           },
           "placements": {

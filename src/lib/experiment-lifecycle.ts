@@ -9,6 +9,8 @@
  */
 import type { DataClient } from '#/lib/data-client'
 import { EMPTY_RICH_TEXT_PAYLOAD, PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks'
+import { fetchPartsForRecord } from '#/lib/experiment-parts'
+import type { ExperimentPart } from '#/lib/experiment-parts'
 import { fetchBlocksForRecord, toRecord } from '#/lib/notebook-data'
 import type { BlockWire, NotebookRecord, RecordWire } from '#/lib/notebook-data'
 import {
@@ -117,6 +119,7 @@ export async function moveExperimentToProject(
 const STRUCTURE_BLOCK_TYPES = new Set(['rich_text', 'callout', 'checklist'])
 
 interface BlockForRun {
+  partId?: string | null
   type: string
   payload: Record<string, unknown>
   payloadSchemaVersion: number
@@ -152,6 +155,37 @@ export function blocksForNewRun(blocks: BlockForRun[]) {
           order: 1,
         },
       ]
+}
+
+/**
+ * The parts a new run starts with: each part of the source that kept a block,
+ * keeping its title and its day, starting at that block. Parts left with no
+ * block are dropped, since a part is made by the block it starts at.
+ */
+export function partsForNewRun(
+  blocks: BlockForRun[],
+  parts: readonly Pick<ExperimentPart, 'id' | 'title' | 'dayOffset'>[],
+  newBlockIds: readonly string[],
+) {
+  const kept = [...blocks]
+    .filter((block) => STRUCTURE_BLOCK_TYPES.has(block.type))
+    .sort((a, b) => a.order - b.order)
+  const points: {
+    title: string
+    first_block_id: string
+    day_offset: number
+  }[] = []
+  for (const part of parts) {
+    const index = kept.findIndex((block) => block.partId === part.id)
+    const firstBlockId = index >= 0 ? newBlockIds[index] : undefined
+    if (!firstBlockId) continue
+    points.push({
+      title: part.title,
+      first_block_id: firstBlockId,
+      day_offset: part.dayOffset,
+    })
+  }
+  return points
 }
 
 /**
@@ -194,6 +228,20 @@ export async function createNewRun(
     },
   )
   const record = toRecord(result.record)
+
+  const sourceParts = await fetchPartsForRecord(client, source.id)
+  if (sourceParts.length > 0) {
+    const newBlockIds = [...result.blocks]
+      .sort((a, b) => a.order - b.order)
+      .map((block) => block.id)
+    const points = partsForNewRun(blocks, sourceParts, newBlockIds)
+    if (points.length > 0) {
+      await client.rpc('split_record_into_parts', {
+        p_record_id: record.id,
+        p_parts: points,
+      })
+    }
+  }
 
   const sourceRow = (
     await client.list<{

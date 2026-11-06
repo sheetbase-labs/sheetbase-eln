@@ -9,9 +9,19 @@ const key = z.string().regex(/^[a-z][a-z0-9_]{0,59}$/)
 const label = z.string().trim().min(1).max(200)
 const order = z.number().int().positive()
 
+/** A part of the experiment a template makes: one day of a longer notebook. */
+export const notebookTemplatePartSchema = z
+  .object({
+    id: uuid,
+    title: label,
+    dayOffset: z.number().int().min(0).max(3650),
+  })
+  .strict()
+
 const narrativePlacementSchema = z
   .object({
     id: uuid,
+    partId: uuid.optional(),
     kind: z.literal('narrative'),
     order,
     blockType: z.enum([
@@ -36,6 +46,7 @@ const sheetPlacementSchema = z
   .object({
     id: uuid,
     kind: z.literal('sheet'),
+    partId: uuid.optional(),
     order,
     definitionVersionId: uuid,
     title: z.string().trim().max(200).optional(),
@@ -72,6 +83,7 @@ export const notebookTemplateConfigurationSchema = z
   .object({
     formatVersion: z.literal(NOTEBOOK_TEMPLATE_CONFIGURATION_FORMAT_VERSION),
     parameters: z.array(parameterSchema).max(64),
+    parts: z.array(notebookTemplatePartSchema).max(60).optional(),
     placements: z.array(notebookTemplatePlacementSchema).max(256),
   })
   .strict()
@@ -89,6 +101,17 @@ export const notebookTemplateConfigurationSchema = z
       parameterIds.add(parameter.id)
       parameterKeys.add(parameter.key)
     }
+    const partIds = new Set<string>()
+    for (const part of config.parts ?? []) {
+      if (partIds.has(part.id)) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Template part identities must be unique.',
+        })
+        return
+      }
+      partIds.add(part.id)
+    }
     const placementIds = new Set<string>()
     const orders = new Set<number>()
     for (const placement of config.placements) {
@@ -101,6 +124,14 @@ export const notebookTemplateConfigurationSchema = z
       }
       placementIds.add(placement.id)
       orders.add(placement.order)
+      if ('partId' in placement && placement.partId) {
+        if (!partIds.has(placement.partId)) {
+          context.addIssue({
+            code: 'custom',
+            message: 'A placement names a part the Template does not have.',
+          })
+        }
+      }
       if (placement.kind !== 'sheet') continue
       for (const mapping of placement.parameterMappings) {
         if (!parameterIds.has(mapping.templateParameterId)) {

@@ -8,6 +8,7 @@ import { getPaneRouter } from '#/router'
 import type { RouterContext } from '#/routes/__root'
 import type { ShortcutDefinition } from '#/lib/shortcuts'
 import { workspaceHref } from '#/lib/workspace-state'
+import type { FrozenState } from '#/lib/workspace-state'
 import { PaneContext } from './workspace-navigation'
 import { t } from '#/copy'
 
@@ -25,8 +26,7 @@ interface PanePageProps {
   readOnly?: boolean
   onNewer?: (revision: string | undefined) => void
   onSelect?: (rowId: string | undefined) => void
-  onFrozen?: (frozen: boolean) => void
-  onInReview?: (inReview: boolean) => void
+  onFrozen?: (frozen: FrozenState) => void
   onMissing?: (missing: boolean) => void
   /** Make this pane the one that edits. */
   onMakePrimary?: () => void
@@ -54,7 +54,6 @@ function PanePageInstance({
   onNewer,
   onSelect,
   onFrozen,
-  onInReview,
   onMissing,
   onMakePrimary,
   editingPane,
@@ -69,7 +68,6 @@ function PanePageInstance({
     onNewer,
     onSelect,
     onFrozen,
-    onInReview,
     onMissing,
     onMakePrimary,
   })
@@ -79,7 +77,6 @@ function PanePageInstance({
     onNewer,
     onSelect,
     onFrozen,
-    onInReview,
     onMissing,
     onMakePrimary,
   }
@@ -91,9 +88,8 @@ function PanePageInstance({
         callbacks.current.onNewer?.(revision),
       reportSelection: (rowId: string | undefined) =>
         callbacks.current.onSelect?.(rowId),
-      reportFrozen: (frozen: boolean) => callbacks.current.onFrozen?.(frozen),
-      reportInReview: (inReview: boolean) =>
-        callbacks.current.onInReview?.(inReview),
+      reportFrozen: (frozen: FrozenState) =>
+        callbacks.current.onFrozen?.(frozen),
       reportMissing: (missing: boolean) =>
         callbacks.current.onMissing?.(missing),
       makePrimary: () => callbacks.current.onMakePrimary?.(),

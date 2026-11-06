@@ -144,13 +144,14 @@ describe('pane kinds and modes', () => {
 
   it('names the mode and the revision a pane shows', () => {
     expect(modeLabel(paneMode('/experiments/EXP-0142', true))).toBe('Editing')
-    expect(modeLabel(paneMode('/review/abc', true))).toBe('Reviewing')
-    // a record out for review can't be edited by anyone until it comes back
+    expect(modeLabel(paneMode('/review/abc', true))).toBe('In review')
+    // a record read in review, and one approved and locked, say which
     expect(
-      modeLabel(
-        paneMode('/experiments/EXP-0142', true, true, false, false, true),
-      ),
+      modeLabel(paneMode('/experiments/EXP-0142', true, true, 'review')),
     ).toBe('Read-only · in review')
+    expect(
+      modeLabel(paneMode('/experiments/EXP-0142', true, true, 'approved')),
+    ).toBe('Approved · locked')
     // a record locked by an approved signature is frozen, not being edited
     expect(paneMode('/experiments/EXP-0142', true, true, true)).toEqual({
       kind: 'signed',

@@ -131,6 +131,14 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.sample.quarantine',
   'sheetbase.sample.dispose',
   'sheetbase.instrument.log_service',
+  // The person's own out of office, set or cancelled from a card.
+  'sheetbase.absence.set',
+  'sheetbase.absence.cancel',
+  // People and continuity: hand over open work, and which sign-in group gives
+  // which role (assistant-upkeep.ts).
+  'sheetbase.handover.start',
+  'sheetbase.group_role.set',
+  'sheetbase.group_role.remove',
 ] as const
 
 /** Model APIs only allow letters, digits, `_` and `-` in a function name. */

@@ -1,7 +1,12 @@
 import type { z } from 'zod'
 
 import {
+  ABSENCE_CANCEL_TOOL,
+  ABSENCE_SET_TOOL,
   FOLLOW_TOOL,
+  GROUP_ROLE_REMOVE_TOOL,
+  GROUP_ROLE_SET_TOOL,
+  HANDOVER_TOOL,
   INSTRUMENT_LOG_TOOL,
   NOTIFICATIONS_READ_TOOL,
   PROJECT_CREATE_TOOL,
@@ -11,7 +16,12 @@ import {
   SAMPLE_RESERVE_TOOL,
   SHIPMENT_CANCEL_TOOL,
   UPKEEP_PROPOSE_TOOL_NAMES,
+  proposeAbsenceCancelSchema,
+  proposeAbsenceSetSchema,
   proposeFollowSchema,
+  proposeGroupRoleRemoveSchema,
+  proposeGroupRoleSetSchema,
+  proposeHandoverSchema,
   proposeInstrumentLogSchema,
   proposeNotificationsReadSchema,
   proposeProjectCreateSchema,
@@ -26,6 +36,7 @@ import {
   instrumentLabel,
   invalid,
   likeValue,
+  memberNames,
   resolveInstrument,
   toolDef,
 } from './assistant-lab-tools.server'
@@ -33,6 +44,9 @@ import type { LabToolContext } from './assistant-lab-tools.server'
 import type { AssistantProposal, ProposalChange } from './assistant-proposals'
 import type { DataClient } from './data-client'
 import { shipmentReference } from './shipments'
+import { toHandoverItems } from './handover'
+import type { HandoverItemWire } from './handover'
+import { WORKSPACE_ROLE_LABELS } from './workspace-admin'
 import type { ProviderToolDef } from './ai-providers/types'
 
 /**
@@ -99,6 +113,31 @@ export function upkeepProposalDefs(): ProviderToolDef[] {
       INSTRUMENT_LOG_TOOL,
       `Propose adding a repair, service or inspection visit to an instrument’s history. ${NOTE}`,
       proposeInstrumentLogSchema,
+    ),
+    toolDef(
+      ABSENCE_SET_TOOL,
+      `Propose setting the person’s own out of office: the dates they are away and, if they name one, the colleague who covers the reviews waiting on them. ${NOTE}`,
+      proposeAbsenceSetSchema,
+    ),
+    toolDef(
+      ABSENCE_CANCEL_TOOL,
+      `Propose cancelling the person’s own out of office, such as when they are back early or their plans changed. ${NOTE}`,
+      proposeAbsenceCancelSchema,
+    ),
+    toolDef(
+      HANDOVER_TOOL,
+      `Propose handing a person's open work (assigned records, tasks, reviews waiting, instruments) to a colleague, for someone leaving or for the person's own work. ${NOTE}`,
+      proposeHandoverSchema,
+    ),
+    toolDef(
+      GROUP_ROLE_SET_TOOL,
+      `Propose that a sign-in group gives a role, so people in that group get it when they sign in. For people who manage members. ${NOTE}`,
+      proposeGroupRoleSetSchema,
+    ),
+    toolDef(
+      GROUP_ROLE_REMOVE_TOOL,
+      `Propose removing a sign-in group's role mapping. ${NOTE}`,
+      proposeGroupRoleRemoveSchema,
     ),
   ]
 }
@@ -293,6 +332,232 @@ export async function buildUpkeepProposal(
           title: input.projectName.trim(),
           startedOn: input.startedOn ?? null,
         },
+      })
+    }
+
+    case ABSENCE_SET_TOOL: {
+      const parsed = parse(proposeAbsenceSetSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const todayLocal = new Intl.DateTimeFormat('en-CA', {
+        timeZone: context.timeZone,
+      }).format(new Date())
+      const startsOn = input.from ?? todayLocal
+      if (input.until < startsOn) {
+        return fail(
+          'The last day away is before the first. Ask which dates they meant.',
+        )
+      }
+      if (input.until < todayLocal) {
+        return fail('Those dates are already past. Ask which dates they meant.')
+      }
+      let delegate: { id: string; name: string } | null = null
+      if (input.cover) {
+        const members = await memberNames(client)
+        const lower = input.cover.trim().toLowerCase()
+        const words = lower.split(/\s+/).filter(Boolean)
+        const matches = [...members.entries()]
+          .map(([id, personName]) => ({ id, name: personName }))
+          .filter(
+            (member) =>
+              member.id !== context.userId &&
+              words.every((word) => member.name.toLowerCase().includes(word)),
+          )
+        const found = pick(
+          matches,
+          input.cover,
+          'colleague',
+          (row) => row.name,
+          (row) => row.name.toLowerCase() === lower,
+        )
+        if (!found.ok) return fail(found.message)
+        delegate = found.value
+      }
+      const changes: ProposalChange[] = [
+        { label: 'First day away', before: null, after: startsOn },
+        { label: 'Back after', before: null, after: input.until },
+        {
+          label: 'Reviews covered by',
+          before: null,
+          after: delegate?.name ?? 'No one',
+        },
+      ]
+      if (input.note?.trim()) {
+        changes.push({ label: 'Note', before: null, after: input.note.trim() })
+      }
+      return card(name, input, {
+        target: 'Out of office',
+        deepLink: '/settings/account/away',
+        changes,
+        action: {
+          kind: 'absence.set',
+          workspaceId,
+          startsOn,
+          endsOn: input.until,
+          delegateUserId: delegate?.id ?? null,
+          note: input.note?.trim() || null,
+        },
+      })
+    }
+
+    case HANDOVER_TOOL: {
+      const parsed = parse(proposeHandoverSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const members = await memberNames(client)
+      const find = (text: string, skipSelf: boolean) => {
+        const lower = text.trim().toLowerCase()
+        const words = lower.split(/\s+/).filter(Boolean)
+        const matches = [...members.entries()]
+          .map(([id, personName]) => ({ id, name: personName }))
+          .filter(
+            (member) =>
+              !(skipSelf && member.id === context.userId) &&
+              words.every((word) => member.name.toLowerCase().includes(word)),
+          )
+        return pick(
+          matches,
+          text,
+          'colleague',
+          (row) => row.name,
+          (row) => row.name.toLowerCase() === lower,
+        )
+      }
+      const to = find(input.to, true)
+      if (!to.ok) return fail(to.message)
+      let from = {
+        id: context.userId,
+        name: members.get(context.userId) ?? 'You',
+      }
+      if (input.from) {
+        const found = find(input.from, false)
+        if (!found.ok) return fail(found.message)
+        from = found.value
+      }
+      if (from.id === to.value.id) {
+        return fail('Work cannot be handed to the same person.')
+      }
+      const rows = await client.rpc<HandoverItemWire[]>(
+        'preview_member_handover',
+        { p_workspace_id: workspaceId, p_user_id: from.id },
+      )
+      const items = toHandoverItems(rows).filter((item) => item.count > 0)
+      if (items.length === 0) {
+        return fail(`${from.name} has no open work to hand over.`)
+      }
+      return card(name, input, {
+        target: `${from.name} to ${to.value.name}`,
+        deepLink: '/settings/workspace/members',
+        changes: items.map((item) => ({
+          label: item.label,
+          before: `${item.count} with ${from.name}`,
+          after: `${item.count} with ${to.value.name}`,
+        })),
+        action: {
+          kind: 'handover.run',
+          workspaceId,
+          fromUserId: from.id,
+          toUserId: to.value.id,
+          selection: items.map((item) => item.key),
+        },
+      })
+    }
+
+    case GROUP_ROLE_SET_TOOL: {
+      const parsed = parse(proposeGroupRoleSetSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const existing = await client.list<{ role: string }>(
+        'idp_group_mappings',
+        `?workspace_id=eq.${encodeURIComponent(workspaceId)}&group_name=ilike.${likeValue(input.group)}&select=role&limit=1`,
+      )
+      return card(name, input, {
+        target: input.group.trim(),
+        deepLink: '/settings/workspace/members',
+        changes: [
+          {
+            label: `Sign-in group ${input.group.trim()}`,
+            before: existing[0]
+              ? (WORKSPACE_ROLE_LABELS[
+                  existing[0].role as keyof typeof WORKSPACE_ROLE_LABELS
+                ] ?? existing[0].role)
+              : null,
+            after: WORKSPACE_ROLE_LABELS[input.role],
+          },
+        ],
+        action: {
+          kind: 'group_role.set',
+          workspaceId,
+          groupName: input.group.trim(),
+          role: input.role,
+        },
+      })
+    }
+
+    case GROUP_ROLE_REMOVE_TOOL: {
+      const parsed = parse(proposeGroupRoleRemoveSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const rows = await client.list<{
+        id: string
+        group_name: string
+        role: string
+      }>(
+        'idp_group_mappings',
+        `?workspace_id=eq.${encodeURIComponent(workspaceId)}&group_name=ilike.${likeValue(input.group)}&select=id,group_name,role&limit=6`,
+      )
+      const lower = input.group.trim().toLowerCase()
+      const found = pick(
+        rows,
+        input.group,
+        'sign-in group',
+        (row) => row.group_name,
+        (row) => row.group_name.toLowerCase() === lower,
+      )
+      if (!found.ok) return fail(found.message)
+      return card(name, input, {
+        target: found.value.group_name,
+        deepLink: '/settings/workspace/members',
+        changes: [
+          {
+            label: `Sign-in group ${found.value.group_name}`,
+            before:
+              WORKSPACE_ROLE_LABELS[
+                found.value.role as keyof typeof WORKSPACE_ROLE_LABELS
+              ] ?? found.value.role,
+            after: 'No role from this group',
+          },
+        ],
+        action: { kind: 'group_role.remove', mappingId: found.value.id },
+      })
+    }
+
+    case ABSENCE_CANCEL_TOOL: {
+      const parsed = parse(proposeAbsenceCancelSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const todayLocal = new Intl.DateTimeFormat('en-CA', {
+        timeZone: context.timeZone,
+      }).format(new Date())
+      const rows = await client.list<{
+        id: string
+        starts_on: string
+        ends_on: string
+      }>(
+        'member_absences',
+        `?workspace_id=eq.${encodeURIComponent(workspaceId)}&user_id=eq.${encodeURIComponent(context.userId)}&cancelled_at=is.null&ends_on=gte.${todayLocal}&order=starts_on.asc&limit=1&select=id,starts_on,ends_on`,
+      )
+      if (rows.length === 0) return fail('They have no out of office set.')
+      return card(name, parsed.data, {
+        target: 'Out of office',
+        deepLink: '/settings/account/away',
+        changes: [
+          {
+            label: 'Out of office',
+            before: `${rows[0].starts_on} to ${rows[0].ends_on}`,
+            after: 'Cancelled',
+          },
+        ],
+        action: { kind: 'absence.cancel', absenceId: rows[0].id },
       })
     }
 

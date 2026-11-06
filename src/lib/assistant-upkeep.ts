@@ -22,6 +22,11 @@ export const SAMPLE_RESERVE_TOOL = 'sheetbase.sample.reserve'
 export const SAMPLE_QUARANTINE_TOOL = 'sheetbase.sample.quarantine'
 export const SAMPLE_DISPOSE_TOOL = 'sheetbase.sample.dispose'
 export const INSTRUMENT_LOG_TOOL = 'sheetbase.instrument.log_service'
+export const ABSENCE_SET_TOOL = 'sheetbase.absence.set'
+export const ABSENCE_CANCEL_TOOL = 'sheetbase.absence.cancel'
+export const HANDOVER_TOOL = 'sheetbase.handover.start'
+export const GROUP_ROLE_SET_TOOL = 'sheetbase.group_role.set'
+export const GROUP_ROLE_REMOVE_TOOL = 'sheetbase.group_role.remove'
 
 export const UPKEEP_PROPOSE_TOOL_NAMES = [
   PROJECT_CREATE_TOOL,
@@ -33,6 +38,11 @@ export const UPKEEP_PROPOSE_TOOL_NAMES = [
   SAMPLE_QUARANTINE_TOOL,
   SAMPLE_DISPOSE_TOOL,
   INSTRUMENT_LOG_TOOL,
+  ABSENCE_SET_TOOL,
+  ABSENCE_CANCEL_TOOL,
+  HANDOVER_TOOL,
+  GROUP_ROLE_SET_TOOL,
+  GROUP_ROLE_REMOVE_TOOL,
 ] as const
 
 export type UpkeepProposeToolName = (typeof UPKEEP_PROPOSE_TOOL_NAMES)[number]
@@ -174,6 +184,76 @@ export const proposeInstrumentLogSchema = z
   })
   .strict()
 
+export const proposeAbsenceSetSchema = z
+  .object({
+    title,
+    summary,
+    from: day
+      .optional()
+      .describe('First day away, YYYY-MM-DD. Defaults to today.'),
+    until: day.describe('The last day away, YYYY-MM-DD.'),
+    cover: z
+      .string()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe(
+        'The colleague who covers reviews while they are away, by name. Leave out if they did not name one.',
+      ),
+    note: z.string().max(500).optional(),
+  })
+  .strict()
+
+export const proposeAbsenceCancelSchema = z.object({ title, summary }).strict()
+
+export const proposeHandoverSchema = z
+  .object({
+    title,
+    summary,
+    to: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('The colleague who takes over, by name.'),
+    from: z
+      .string()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe(
+        'Whose work moves, by name. Leave out when the person is handing over their own work.',
+      ),
+  })
+  .strict()
+
+export const proposeGroupRoleSetSchema = z
+  .object({
+    title,
+    summary,
+    group: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('The sign-in group as the identity provider spells it.'),
+    role: z.enum([
+      'admin',
+      'steward',
+      'scientist',
+      'analyst',
+      'reviewer',
+      'viewer',
+    ]),
+  })
+  .strict()
+
+export const proposeGroupRoleRemoveSchema = z
+  .object({
+    title,
+    summary,
+    group: z.string().min(1).max(200),
+  })
+  .strict()
+
 /** What an upkeep card does when its button is pressed. */
 export type UpkeepAction =
   | { kind: 'project.create'; title: string; startedOn: string | null }
@@ -224,6 +304,29 @@ export type UpkeepAction =
       details: string | null
       performedBy: string | null
     }
+  | {
+      kind: 'absence.set'
+      workspaceId: string
+      startsOn: string
+      endsOn: string
+      delegateUserId: string | null
+      note: string | null
+    }
+  | { kind: 'absence.cancel'; absenceId: string }
+  | {
+      kind: 'handover.run'
+      workspaceId: string
+      fromUserId: string
+      toUserId: string
+      selection: string[]
+    }
+  | {
+      kind: 'group_role.set'
+      workspaceId: string
+      groupName: string
+      role: string
+    }
+  | { kind: 'group_role.remove'; mappingId: string }
 
 export type UpkeepActionKind = UpkeepAction['kind']
 
@@ -238,6 +341,11 @@ const KINDS: readonly string[] = [
   'sample.quarantine',
   'sample.dispose',
   'instrument.log',
+  'absence.set',
+  'absence.cancel',
+  'handover.run',
+  'group_role.set',
+  'group_role.remove',
 ]
 
 export function isUpkeepAction(action: {

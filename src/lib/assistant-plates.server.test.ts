@@ -41,7 +41,7 @@ function context(rows: Array<Record<string, unknown>>): LabToolContext {
     workspaceId: 'w',
     userId: 'u',
     timeZone: 'UTC',
-  } as LabToolContext
+  }
 }
 
 describe('plates assistant cards', () => {

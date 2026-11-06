@@ -142,6 +142,81 @@ except NotFoundError:
 
 Token-path errors use `TokenError` with a `.code` attribute (`invalid_credential`, `revoked`, `insufficient_scope`, etc.).
 
+## Every table and RPC, typed
+
+`client.tables` and `client.rpc` are generated from the public OpenAPI
+contract ([`docs/api/openapi/external-api-v0.json`](../../docs/api/openapi/external-api-v0.json)),
+so every public endpoint is in the SDK the day it is added, with typed rows,
+inserts, patches, parameters and results (`TypedDict`s in
+`sheetbase._generated.models`). Each table offers only the methods the
+contract allows; most are read-only.
+
+```python
+from sheetbase import SheetbaseClient
+from sheetbase._generated.models import RecordsRow
+
+with SheetbaseClient(base_url, credential, ["projects:read", "projects:write"]) as client:
+    # Tables: list / iter / get / first / count, plus insert / update where allowed
+    active = client.tables.projects.list(where={"status": "active"}, order="title.asc")
+    total = client.tables.records.count(where={"project_id": project_id})
+    rows: list[RecordsRow] = list(
+        client.tables.records.iter(
+            where={"kind": ["experiment", "sample"], "archived_at": None},
+            filters={"created_at": "gte.2026-01-01"},  # any PostgREST operator
+            page_size=200,
+        )
+    )
+    client.tables.projects.update({"title": "Lenti v2"}, where={"id": active[0]["id"]})
+
+    # RPCs: keyword arguments, `p_` prefix dropped, omitted arguments not sent
+    project = client.rpc.create_project(title="Assay development")
+    hits = client.rpc.search(query="lentivirus", limit=50)
+
+    # Raw access still works for anything
+    client.rpc("search", query="lentivirus")
+```
+
+`where` takes equality (`None` is `is.null`, a list is `in.(...)`); `filters`
+takes raw PostgREST expressions. `update` refuses to run without a row filter.
+`AsyncSheetbaseClient` has the same `tables` and `rpc`, with `async for` on
+`iter`.
+
+The hand-written resources below add conveniences on top (pandas, batching,
+idempotent commits, waiting for runs).
+
+### Keeping it in sync
+
+`pnpm openapi:generate` regenerates the contract and then the SDK; on its own,
+`pnpm sdk:generate` (or `python3 sdks/python/scripts/generate.py`) rewrites
+`src/sheetbase/_generated/`. Never edit those files by hand. CI's **Python
+SDK** check regenerates both and fails on any difference, then runs the tests
+on Python 3.10 and 3.13 and `mypy --strict` on the generated layer.
+
+## Verifying webhooks
+
+Sheetbase signs every outgoing webhook with the subscription's secret
+(`X-Sheetbase-Signature: sha256=<hex>`, an HMAC-SHA256 of the raw body).
+`parse_webhook` checks it and returns the event:
+
+```python
+from sheetbase import WebhookSignatureError, parse_webhook
+
+@app.post("/sheetbase")
+async def hook(request: Request):
+    try:
+        event = parse_webhook(await request.body(), request.headers, SIGNING_SECRET)
+    except WebhookSignatureError:
+        return Response(status_code=401)
+    if already_handled(event["eventId"]):  # retries and replays reuse the id
+        return Response(status_code=200)
+    handle(event["eventType"], event["payload"])
+    return Response(status_code=200)
+```
+
+Pass the raw body bytes, not re-serialised JSON. `verify_webhook_signature(body,
+secret, signature)` returns a plain `True` / `False` if you'd rather check it
+yourself, and `EVENT_NAMES` lists every event type.
+
 ## Resources
 
 | Resource                  | Operations                                                                                                                                                                                                                                                                      |
@@ -240,7 +315,8 @@ for row in client.datasets.iter_rows(dataset_id="..."):
 ```bash
 cd sdks/python
 pip install -e ".[dev]"
-pytest   # contract parity, smoke path, resources, async client
+pytest   # contract parity, generated layer, smoke path, resources, async client
+pnpm sdk:generate   # from the repo root, after the OpenAPI contract changes
 ```
 
 The package installs and builds standalone (`uv build` → wheel + sdist); it

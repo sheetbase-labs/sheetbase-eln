@@ -40,6 +40,8 @@ import { useWorkItems } from '#/lib/work-items/data'
 import { homeIsoDay } from '#/lib/home-quiet'
 import { cancelBooking, describeCalendarError } from '#/lib/calendar'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { fetchPartsInRange, partQueryKeys } from '#/lib/experiment-parts'
+import type { DuePart } from '#/lib/experiment-parts'
 import { describeRepeatResult } from '#/lib/recurring'
 import { RepeatingDialog } from '#/components/recurring/repeating-dialog'
 import { isUuid } from '#/lib/identifier-resolution'
@@ -213,6 +215,10 @@ export function Schedule() {
   const bookingSamples = useBookingSamples(
     bookings.filter((b) => b.date === today).map((b) => b.id),
   )
+  const partsDue = useQuery({
+    queryKey: partQueryKeys.inRange(rangeFrom, rangeTo),
+    queryFn: () => fetchPartsInRange(notebookDataClient, rangeFrom, rangeTo),
+  })
   const workItemsQuery = useWorkItems()
   const reviews = (workItemsQuery.data ?? []).filter(
     (i) => i.kind === 'review_requested',
@@ -401,6 +407,8 @@ export function Schedule() {
           )}
         </>
       )}
+
+      <PartsDue parts={partsDue.data ?? []} today={today} />
 
       {bookings.length === 0 ? (
         <p className="m-0 text-label text-fg-muted">
@@ -989,6 +997,67 @@ function PhoneDay({
           </div>
         </div>
       )}
+    </section>
+  )
+}
+
+/** The parts of running experiments that fall in the days shown, with a link to each. */
+function PartsDue({
+  parts,
+  today,
+}: {
+  parts: readonly DuePart[]
+  today: string
+}) {
+  if (parts.length === 0) return null
+  return (
+    <section data-testid="schedule-parts">
+      <div className="mb-1 flex items-baseline gap-2">
+        <h2 className="text-body">{t('projects.schedulePage.partsDue')}</h2>
+        <span className="num text-body text-fg-muted">{parts.length}</span>
+      </div>
+      {parts.map((part, i) => (
+        <div
+          key={part.partId}
+          className={cn(
+            'grid grid-cols-[88px_1fr_auto] items-center gap-2 py-2 text-body',
+            i < parts.length - 1 && 'border-b border-border-subtle',
+          )}
+        >
+          <span className="num text-fg-muted">
+            {fmt(part.dueOn, {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+            })}
+          </span>
+          <Link
+            to="/experiments/$expId/notebook/$part"
+            params={{ expId: part.recordId, part: String(part.number) }}
+          >
+            <span className="mono text-fg-muted">{part.identifier}</span>{' '}
+            {t('notebook.parts.partTitle', {
+              number: String(part.number),
+              title: part.title,
+            })}
+          </Link>
+          <span
+            className={
+              part.status !== 'done' && part.dueOn < today
+                ? 'text-danger-text'
+                : 'text-fg-muted'
+            }
+          >
+            {part.status === 'done'
+              ? t('notebook.parts.stateDone')
+              : part.dueOn < today
+                ? t('notebook.parts.late')
+                : part.status === 'now'
+                  ? t('notebook.parts.stateNow')
+                  : t('notebook.parts.stateLater')}
+          </span>
+        </div>
+      ))}
     </section>
   )
 }

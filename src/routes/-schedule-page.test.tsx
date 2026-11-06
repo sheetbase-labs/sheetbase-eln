@@ -62,7 +62,7 @@ const fake = vi.hoisted(() => {
   }
   return {
     list,
-    rpc: vi.fn(async () => []),
+    rpc: vi.fn(async (_name?: string, _args?: unknown) => [] as unknown[]),
     state,
     defaultInstruments: instruments,
   }
@@ -321,9 +321,16 @@ describe('Schedule booking cancellation', () => {
 
   it('says why when the server refuses to cancel', async () => {
     fake.state.bookings = [bookingRow({})]
-    fake.rpc.mockRejectedValueOnce(
-      new DataClientError('SB024', 'This booking is already cancelled.', 409),
-    )
+    fake.rpc.mockImplementation(async (name?: string) => {
+      if (name === 'cancel_booking') {
+        throw new DataClientError(
+          'SB024',
+          'This booking is already cancelled.',
+          409,
+        )
+      }
+      return []
+    })
     const user = userEvent.setup()
     renderSchedule()
     await user.click(await screen.findByRole('tab', { name: 'Day' }))

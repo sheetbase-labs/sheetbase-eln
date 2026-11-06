@@ -488,6 +488,17 @@ Scope: `lab:read`.
 | --------------- | ---- | ---------- |
 | `p_record_id` * | uuid | Record id. |
 
+### `parts_in_range`
+
+List the parts of running experiments that fall in a range of days. Parts of experiments that are in progress or returned, whose day falls from `p_from` up to (not including) `p_to`, in date order. `due_on` is the day. `status` is `done`, `now` or `later`. At most 500 rows.
+
+Scope: `lab:read`.
+
+| Argument   | Type | Notes                            |
+| ---------- | ---- | -------------------------------- |
+| `p_from` * | date | First day (YYYY-MM-DD).          |
+| `p_to` *   | date | Day to stop before (YYYY-MM-DD). |
+
 ### `create_experiment_part`
 
 Add a part to an experiment. Adds a part after `p_after_part_id`, or at the end. The first part takes the blocks already on the page. Returns the part. Sends `experiment.part_created`.

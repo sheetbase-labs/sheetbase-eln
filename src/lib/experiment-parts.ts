@@ -61,6 +61,8 @@ export const partQueryKeys = {
   forRecord: (recordId: string) => ['notebook', 'parts', recordId] as const,
   summary: (recordId: string) =>
     ['notebook', 'parts', recordId, 'summary'] as const,
+  inRange: (from: string, to: string) =>
+    ['notebook', 'parts', 'range', from, to] as const,
 }
 
 /** One row of `api.record_parts`: a part with its date, who finished it and what it holds. */
@@ -94,6 +96,54 @@ interface PartSummaryWire {
   steps_done: number
   block_count: number
   result_count: number
+}
+
+/** A part falling in a range of days, with the experiment it belongs to. */
+export interface DuePart {
+  partId: string
+  recordId: string
+  identifier: string
+  recordTitle: string
+  number: number
+  title: string
+  dueOn: string
+  assigneeUserId: string | null
+  status: PartState
+}
+
+interface DuePartWire {
+  part_id: string
+  record_id: string
+  identifier: string
+  record_title: string
+  part_number: number
+  title: string
+  due_on: string
+  assignee_user_id: string | null
+  status: PartState
+}
+
+/** The parts of running experiments whose day is from `from` up to, not including, `to` (YYYY-MM-DD). */
+export function fetchPartsInRange(
+  client: DataClient,
+  from: string,
+  to: string,
+): Promise<DuePart[]> {
+  return client
+    .rpc<DuePartWire[]>('parts_in_range', { p_from: from, p_to: to })
+    .then((rows) =>
+      rows.map((row) => ({
+        partId: row.part_id,
+        recordId: row.record_id,
+        identifier: row.identifier,
+        recordTitle: row.record_title,
+        number: row.part_number,
+        title: row.title,
+        dueOn: row.due_on,
+        assigneeUserId: row.assignee_user_id,
+        status: row.status,
+      })),
+    )
 }
 
 export function fetchPartSummary(

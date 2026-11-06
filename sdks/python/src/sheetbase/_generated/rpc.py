@@ -164,6 +164,7 @@ class Rpc:
         "mutate_sheet_instance_calculations",
         "mutate_sheet_instance_local_state",
         "my_instrument_training_gaps",
+        "parts_in_range",
         "pool_samples",
         "prepare_solution",
         "preview_member_handover",
@@ -2121,6 +2122,21 @@ class Rpc:
         body: Dict[str, Any] = {}
         body["p_instrument_id"] = instrument_id
         return self._call("my_instrument_training_gaps", body)  # type: ignore[no-any-return]
+
+    def parts_in_range(self, *, from_: str, to: str) -> List[Dict[str, Any]]:
+        """
+        List the parts of running experiments that fall in a range of days
+
+        Parts of experiments that are in progress or returned, whose day falls from `p_from` up to (not including) `p_to`, in date order. `due_on` is the day. `status` is `done`, `now` or `later`. At most 500 rows.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/parts_in_range``
+        """
+        body: Dict[str, Any] = {}
+        body["p_from"] = from_
+        body["p_to"] = to
+        return self._call("parts_in_range", body)  # type: ignore[no-any-return]
 
     def pool_samples(
         self,
@@ -4385,6 +4401,7 @@ class AsyncRpc:
         "mutate_sheet_instance_calculations",
         "mutate_sheet_instance_local_state",
         "my_instrument_training_gaps",
+        "parts_in_range",
         "pool_samples",
         "prepare_solution",
         "preview_member_handover",
@@ -6342,6 +6359,21 @@ class AsyncRpc:
         body: Dict[str, Any] = {}
         body["p_instrument_id"] = instrument_id
         return await self._call("my_instrument_training_gaps", body)  # type: ignore[no-any-return]
+
+    async def parts_in_range(self, *, from_: str, to: str) -> List[Dict[str, Any]]:
+        """
+        List the parts of running experiments that fall in a range of days
+
+        Parts of experiments that are in progress or returned, whose day falls from `p_from` up to (not including) `p_to`, in date order. `due_on` is the day. `status` is `done`, `now` or `later`. At most 500 rows.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/parts_in_range``
+        """
+        body: Dict[str, Any] = {}
+        body["p_from"] = from_
+        body["p_to"] = to
+        return await self._call("parts_in_range", body)  # type: ignore[no-any-return]
 
     async def pool_samples(
         self,

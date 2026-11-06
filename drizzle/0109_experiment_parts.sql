@@ -943,6 +943,43 @@ REVOKE ALL ON FUNCTION api.record_parts(p_record_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION api.record_parts(p_record_id uuid) TO authenticated;
 --> statement-breakpoint
 
+-- The parts of running experiments that fall in a range of days, for the
+-- Schedule. Read under the caller's own access, like record_parts.
+CREATE FUNCTION api.parts_in_range(p_from date, p_to date)
+  RETURNS TABLE (
+    part_id uuid, record_id uuid, identifier text, record_title text, part_number integer,
+    title text, day_offset integer, due_on date, assignee_user_id text, status text)
+    LANGUAGE sql STABLE
+    SET search_path TO ''
+    AS $$
+  WITH numbered AS (
+    SELECT p.*, row_number() OVER (PARTITION BY p.record_id ORDER BY p."position", p.id)::integer AS n,
+           min(CASE WHEN p.completed_at IS NULL THEN p."position" END) OVER (PARTITION BY p.record_id) AS current_position
+      FROM api.experiment_parts p
+  )
+  SELECT p.id, p.record_id, r.identifier, r.title, p.n, p.title, p.day_offset,
+         (r.created_at::date + p.day_offset),
+         p.assignee_user_id,
+         CASE WHEN p.completed_at IS NOT NULL THEN 'done'
+              WHEN p."position" = p.current_position THEN 'now'
+              ELSE 'later' END
+    FROM numbered p
+    JOIN api.records r ON r.id = p.record_id
+   WHERE r.deleted_at IS NULL AND r.archived_at IS NULL
+     AND r.status IN ('in_progress', 'returned')
+     AND (r.created_at::date + p.day_offset) >= p_from
+     AND (r.created_at::date + p.day_offset) < p_to
+   ORDER BY (r.created_at::date + p.day_offset), r.identifier, p.n
+   LIMIT 500;
+$$;
+--> statement-breakpoint
+ALTER FUNCTION api.parts_in_range(p_from date, p_to date) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.parts_in_range(p_from date, p_to date) FROM PUBLIC;
+--> statement-breakpoint
+GRANT ALL ON FUNCTION api.parts_in_range(p_from date, p_to date) TO authenticated;
+--> statement-breakpoint
+
 -- Steps now say which part they are in and are numbered within it (step_number
 -- is the place in the part), and the
 -- current step is the first open one of the current part.

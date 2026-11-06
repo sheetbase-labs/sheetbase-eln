@@ -782,3 +782,52 @@ describe('links belong to a part', () => {
     expect(await partOf(id)).toBe(one.id)
   })
 })
+
+describe('parts in a range of days', () => {
+  it('lists the parts of running experiments that fall in the range, in date order', async () => {
+    const { recordId } = await experiment('Schedule', ['x'])
+    await migrator.query(
+      `update api.records set status='in_progress', created_at='2026-03-02T09:00:00Z' where id=$1`,
+      [recordId],
+    )
+    const a = await addPart(recordId, 'Seed', 0)
+    await addPart(recordId, 'Dose', 3)
+    const { rows } = await owner.query(
+      `select * from api.parts_in_range('2026-03-02','2026-03-05') where record_id=$1`,
+      [recordId],
+    )
+    expect(
+      rows.map((r) => [
+        r.part_number,
+        r.due_on.toISOString().slice(0, 10),
+        r.status,
+      ]),
+    ).toEqual([[1, '2026-03-02', 'now']])
+    const wider = await owner.query(
+      `select part_number, status from api.parts_in_range('2026-03-02','2026-03-10') where record_id=$1`,
+      [recordId],
+    )
+    expect(wider.rows.map((r) => [r.part_number, r.status])).toEqual([
+      [1, 'now'],
+      [2, 'later'],
+    ])
+    await migrator.query(
+      `update api.experiment_parts set completed_at=now() where id=$1`,
+      [a.id],
+    )
+    const after = await owner.query(
+      `select part_number, status from api.parts_in_range('2026-03-02','2026-03-10') where record_id=$1`,
+      [recordId],
+    )
+    expect(after.rows.map((r) => r.status)).toEqual(['done', 'now'])
+    // A draft is not running, so its parts do not show.
+    await migrator.query(`update api.records set status='draft' where id=$1`, [
+      recordId,
+    ])
+    const draft = await owner.query(
+      `select 1 from api.parts_in_range('2026-03-02','2026-03-10') where record_id=$1`,
+      [recordId],
+    )
+    expect(draft.rows).toHaveLength(0)
+  })
+})

@@ -185,6 +185,7 @@ __all__ = [
     "NotebookUpgradeApplyResult",
     "NotebookUpgradeDecision",
     "NotebookUpgradePreview",
+    "PartsInRangeParams",
     "PipelineDefinitionVersionsRow",
     "PipelineDefinitionsRow",
     "PipelineRunLogsRow",
@@ -3547,6 +3548,11 @@ class MutateSheetInstanceLocalStateParams(TypedDict):
 
 class MyInstrumentTrainingGapsParams(TypedDict):
     p_instrument_id: str
+
+
+class PartsInRangeParams(TypedDict):
+    p_from: str
+    p_to: str
 
 
 class _PoolSamplesParamsRequired(TypedDict):

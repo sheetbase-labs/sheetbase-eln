@@ -273,6 +273,8 @@
 
 /* Pane */
 .mx-pane {
+  /* The active pane's header bar gets a faint blue wash instead of a top border. */
+  --mx-focus-bg: color-mix(in srgb, var(--primary) 5%, var(--surface));
   position: absolute;
   display: flex;
   flex-direction: column;
@@ -397,11 +399,9 @@
   background: var(--surface-muted);
   font-size: 12px;
   white-space: nowrap;
-  box-shadow: inset 0 1px 0 var(--mx-ft, transparent);
 }
 .mx-pane[data-workspace-focused] .mx-ph {
-  --mx-ft: color-mix(in srgb, var(--mx-accent) 35%, transparent);
-  background: var(--surface);
+  background: var(--mx-focus-bg);
 }
 .mx-num {
   width: 18px;

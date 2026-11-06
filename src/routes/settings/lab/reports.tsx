@@ -8,7 +8,7 @@ import { emailStatusQueryKeys, fetchEmailStatusFn } from '#/lib/email-status'
 
 /**
  * Settings → Scheduled reports: reports emailed to people on a rhythm
- * (migration 0097). Setting one up needs the standing to run the report; the
+ * (migration 0100). Setting one up needs the standing to run the report; the
  * database refuses it otherwise.
  */
 export const Route = createFileRoute('/settings/lab/reports')({

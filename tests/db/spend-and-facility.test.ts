@@ -1,5 +1,5 @@
 /**
- * Money and facility use (migration 0097).
+ * Money and facility use (migration 0100).
  *
  * Proves: any model can be the supplier list and an order can name a supplier
  * record from it (and only from it); a price is kept per order and read only by

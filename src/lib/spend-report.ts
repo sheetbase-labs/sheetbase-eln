@@ -1,5 +1,5 @@
 /**
- * Spend on reagent orders (migration 0097).
+ * Spend on reagent orders (migration 0100).
  *
  * Every order that has been placed carries, when someone has entered it, a
  * price and a currency. Spend adds those up by project, supplier or month,

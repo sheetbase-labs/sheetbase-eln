@@ -108,6 +108,52 @@ export const notebook = {
         applied: 'Timer running',
       },
       sendShipment: { apply: 'Send', applying: 'Sending…', applied: 'Sent' },
+      createProject: {
+        apply: 'Create project',
+        applying: 'Creating…',
+        applied: 'Created',
+      },
+      follow: { apply: 'Save', applying: 'Saving…', applied: 'Done' },
+      markRead: {
+        apply: 'Mark all read',
+        applying: 'Marking…',
+        applied: 'Marked read',
+      },
+      markOrdered: {
+        apply: 'Mark ordered',
+        applying: 'Saving…',
+        applied: 'Ordered',
+      },
+      cancelOrder: {
+        apply: 'Cancel order',
+        applying: 'Cancelling…',
+        applied: 'Cancelled',
+      },
+      cancelShipment: {
+        apply: 'Cancel shipment',
+        applying: 'Cancelling…',
+        applied: 'Cancelled',
+      },
+      reserveSample: {
+        apply: 'Reserve',
+        applying: 'Reserving…',
+        applied: 'Reserved',
+      },
+      quarantineSample: {
+        apply: 'Quarantine',
+        applying: 'Saving…',
+        applied: 'Quarantined',
+      },
+      disposeSample: {
+        apply: 'Record disposal',
+        applying: 'Saving…',
+        applied: 'Disposed',
+      },
+      logVisit: {
+        apply: 'Add to history',
+        applying: 'Saving…',
+        applied: 'Added',
+      },
       receiveShipment: {
         apply: 'Mark received',
         applying: 'Saving…',

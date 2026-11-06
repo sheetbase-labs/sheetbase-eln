@@ -22,6 +22,15 @@ const MEI = '00000000-0000-4000-8000-000000000312'
 test.setTimeout(180_000)
 test.use({ viewport: { width: 1280, height: 900 } })
 
+/** The review's actions live in its details panel, which folds behind a
+ * Details button when the pane is narrow. */
+async function openDetails(page: import('playwright/test').Page) {
+  const details = page.getByRole('button', { name: 'Details', exact: true })
+  // Wait for the page: a wide pane shows the panel inline and has no button.
+  await details.waitFor({ timeout: 20_000 }).catch(() => undefined)
+  if (await details.isVisible()) await details.click()
+}
+
 async function submitFor(
   page: import('playwright/test').Page,
   title: string,
@@ -61,9 +70,10 @@ test('REV-01 to REV-04 submit, review, return and see it come back', async ({
   // The reviewer finds it in the Inbox and opens the review.
   await signInAsDesignUser(page, MEI)
   await open(page, '/inbox')
+  // Picking the item in the Inbox opens its review.
   await page.getByText(title).first().click()
-  await action(page, /^Open$/).click()
   await expect(page).toHaveURL(/\/review\/[0-9a-f-]{36}/)
+  await openDetails(page)
   await page.getByRole('button', { name: 'Request changes' }).click()
   const confirm = page.getByRole('alertdialog')
   await confirm.getByRole('textbox').fill('Please add the dilution series.')
@@ -84,7 +94,9 @@ test('REV-13 an author withdraws a submission from its review page', async ({
 }) => {
   await signIn(page)
   await submitFor(page, uniqueName('Withdraw me'))
-  await page.getByRole('button', { name: 'Withdraw' }).click()
+  await openDetails(page)
+  // Exact, so the pane's own buttons named after the title don't match.
+  await page.getByRole('button', { name: 'Withdraw', exact: true }).click()
   const confirm = page.getByRole('alertdialog')
   await confirm.getByRole('textbox').fill('Spotted a mistake in the table.')
   await confirm.getByRole('button', { name: 'Withdraw' }).click()

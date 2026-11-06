@@ -115,7 +115,11 @@ export function normaliseAssayConfig(raw: unknown): PlateAssayConfig {
   const num = (v: unknown, fallback: number) =>
     typeof v === 'number' && Number.isFinite(v) ? v : fallback
   const numOrNull = (v: unknown, fallback: number | null) =>
-    v === null ? null : typeof v === 'number' && Number.isFinite(v) ? v : fallback
+    v === null
+      ? null
+      : typeof v === 'number' && Number.isFinite(v)
+        ? v
+        : fallback
   const minRep = hitRaw.minReplicates
   return {
     version: PLATE_ASSAY_METHOD_VERSION,
@@ -168,6 +172,8 @@ export interface AssayWell {
   sampleLabel?: string | null
   concentration?: number | null
   concentrationUnit?: string | null
+  /** Volume to move into this well, in µL (used by worklists). */
+  volumeUl?: number | null
 }
 
 /** Raw readout by well code. Blank or non-numeric readings are null. */
@@ -247,13 +253,17 @@ export interface SampleCurve {
   /** EC50 in mol/L when the unit is a molar one. */
   ec50Molar: number | null
   hill: number
+  /** 5PL asymmetry (1 for a 4PL). */
+  asymmetry?: number
   top: number
   bottom: number
   r2: number
   converged: boolean
   falling: boolean
   /** Reasons to read the number with care. */
-  flags: Array<'ec50_outside_range' | 'no_plateau' | 'not_converged' | 'wide_interval'>
+  flags: Array<
+    'ec50_outside_range' | 'no_plateau' | 'not_converged' | 'wide_interval'
+  >
 }
 
 export interface PlateAnalysis {
@@ -265,7 +275,11 @@ export interface PlateAnalysis {
   samples: SampleGroupResult[]
   curves: SampleCurve[]
   /** Samples that had doses but too few to fit, with the reason. */
-  unfitted: Array<{ key: string; label: string; reason: 'too_few_doses' | 'fit_failed' }>
+  unfitted: Array<{
+    key: string
+    label: string
+    reason: 'too_few_doses' | 'fit_failed'
+  }>
   summary: {
     wells: number
     readWells: number
@@ -310,8 +324,8 @@ const MOLAR_FACTORS: Record<string, number> = {
   pm: 1e-12,
   nm: 1e-9,
   um: 1e-6,
-  'µm': 1e-6,
-  'μm': 1e-6,
+  µm: 1e-6,
+  μm: 1e-6,
   mm: 1e-3,
   m: 1,
 }
@@ -342,7 +356,8 @@ export function inferPlateFormat(codes: string[]): PlateFormat | null {
   return (
     PLATE_FORMATS.find(
       (f) =>
-        FORMAT_DIMENSIONS[f].rows > maxRow && FORMAT_DIMENSIONS[f].cols > maxCol,
+        FORMAT_DIMENSIONS[f].rows > maxRow &&
+        FORMAT_DIMENSIONS[f].cols > maxCol,
     ) ?? null
   )
 }
@@ -482,8 +497,7 @@ export function analysePlate(
     const v = readout[code]
     return typeof v === 'number' && Number.isFinite(v) ? v : null
   }
-  const byRole = (role: AssignmentRole) =>
-    wells.filter((w) => w.role === role)
+  const byRole = (role: AssignmentRole) => wells.filter((w) => w.role === role)
 
   // Blank correction.
   const blankValues = byRole('blank')
@@ -621,7 +635,9 @@ export function analysePlate(
     g.mean = s?.mean ?? null
     g.sd = s?.sd ?? null
     g.cv =
-      s && s.sd !== null && s.mean !== 0 ? (s.sd / Math.abs(s.mean)) * 100 : null
+      s && s.sd !== null && s.mean !== 0
+        ? (s.sd / Math.abs(s.mean)) * 100
+        : null
     const need =
       config.hit.minReplicates === 'all'
         ? values.length
@@ -782,6 +798,7 @@ function curveFromFit(
     ec50Ci95: fit.ec50Ci95,
     ec50Molar: factor === null ? null : fit.ec50 * factor,
     hill: fit.params.B,
+    asymmetry: fit.params.G,
     top: fit.params.A > fit.params.D ? fit.params.A : fit.params.D,
     bottom: fit.params.A > fit.params.D ? fit.params.D : fit.params.A,
     r2: fit.r2,
@@ -901,7 +918,9 @@ export function summarisePotency(
       n,
       geoMean: 10 ** mean,
       geoMeanCi95:
-        half === null ? null : { lo: 10 ** (mean - half), hi: 10 ** (mean + half) },
+        half === null
+          ? null
+          : { lo: 10 ** (mean - half), hi: 10 ** (mean + half) },
       geoSd: sd === null ? null : 10 ** sd,
       foldRange: n > 1 ? Math.max(...linear) / Math.min(...linear) : null,
       pEc50: g.molar ? -mean : null,
@@ -921,7 +940,11 @@ export function relativePotency(
   if (!ref) return null
   return summaries
     .filter((s) => s.key !== referenceKey && s.unit === ref.unit)
-    .map((s) => ({ key: s.key, label: s.label, ratio: ref.geoMean / s.geoMean }))
+    .map((s) => ({
+      key: s.key,
+      label: s.label,
+      ratio: ref.geoMean / s.geoMean,
+    }))
 }
 
 // ---------------------------------------------------------------------------
@@ -1006,7 +1029,12 @@ export function parsePlateTable(text: string): ParsedPlateTable {
     .split(/\r?\n/)
     .map((l) => l.trimEnd())
     .filter((l) => l.trim() !== '')
-  const empty: ParsedPlateTable = { wells: [], readout: {}, format: null, warnings }
+  const empty: ParsedPlateTable = {
+    wells: [],
+    readout: {},
+    format: null,
+    warnings,
+  }
   if (lines.length === 0) return empty
   const delimiter = lines[0].includes('\t')
     ? '\t'
@@ -1044,16 +1072,31 @@ export function parsePlateTable(text: string): ParsedPlateTable {
 
   // List with a header.
   const head = rows[0].map((h) => h.toLowerCase().replace(/[\s_-]+/g, ''))
-  const col = (...names: string[]) =>
-    head.findIndex((h) => names.includes(h))
+  const col = (...names: string[]) => head.findIndex((h) => names.includes(h))
   const wellCol = col('well', 'wellcode', 'position', 'wellposition')
   if (wellCol < 0) {
     warnings.push('no_well_column')
     return empty
   }
-  const valueCol = col('value', 'readout', 'signal', 'rfu', 'od', 'reading', 'raw', 'result')
+  const valueCol = col(
+    'value',
+    'readout',
+    'signal',
+    'rfu',
+    'od',
+    'reading',
+    'raw',
+    'result',
+  )
   const roleCol = col('role', 'type', 'welltype', 'control')
-  const sampleCol = col('sample', 'compound', 'samplename', 'sampleid', 'name', 'id')
+  const sampleCol = col(
+    'sample',
+    'compound',
+    'samplename',
+    'sampleid',
+    'name',
+    'id',
+  )
   const concCol = col('concentration', 'conc', 'dose')
   const unitCol = col('unit', 'concentrationunit', 'concunit', 'units')
   const wells: AssayWell[] = []
@@ -1074,7 +1117,8 @@ export function parsePlateTable(text: string): ParsedPlateTable {
     if (roleCol >= 0) {
       const alias = ROLE_ALIASES[(r[roleCol] ?? '').trim().toLowerCase()]
       if (alias) role = alias
-      else if ((r[roleCol] ?? '').trim() !== '') warnings.push(`bad_role:${r[roleCol]}`)
+      else if ((r[roleCol] ?? '').trim() !== '')
+        warnings.push(`bad_role:${r[roleCol]}`)
     }
     const label = sampleCol >= 0 ? (r[sampleCol] ?? '').trim() : ''
     wells.push({
@@ -1083,7 +1127,9 @@ export function parsePlateTable(text: string): ParsedPlateTable {
       sampleLabel: role === 'sample' && label !== '' ? label : null,
       concentration: concCol >= 0 ? toNumber(r[concCol]) : null,
       concentrationUnit:
-        unitCol >= 0 && (r[unitCol] ?? '').trim() !== '' ? r[unitCol].trim() : null,
+        unitCol >= 0 && (r[unitCol] ?? '').trim() !== ''
+          ? r[unitCol].trim()
+          : null,
     })
     if (valueCol >= 0) readout[code] = toNumber(r[valueCol])
   }
@@ -1099,11 +1145,14 @@ export function parsePlateTable(text: string): ParsedPlateTable {
 export function allWellCodes(format: PlateFormat): string[] {
   const { rows, cols } = FORMAT_DIMENSIONS[format]
   const out: string[] = []
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) out.push(wellCode(r, c))
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++) out.push(wellCode(r, c))
   return out
 }
 
 /** Row labels of a format (A…P for 384, A…AF for 1536). */
 export function rowLabels(format: PlateFormat): string[] {
-  return Array.from({ length: FORMAT_DIMENSIONS[format].rows }, (_, i) => rowLabel(i))
+  return Array.from({ length: FORMAT_DIMENSIONS[format].rows }, (_, i) =>
+    rowLabel(i),
+  )
 }

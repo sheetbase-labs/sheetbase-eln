@@ -1877,6 +1877,7 @@ export const projects = {
     registry: 'Registry',
     requests: 'Requests',
     shipments: 'Shipments',
+    plates: 'Plates',
     readings: 'Readings',
     promotions: 'Column requests',
     page: 'Page',

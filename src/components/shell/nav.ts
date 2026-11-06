@@ -134,6 +134,14 @@ export const navGroups: NavGroup[] = [
         icon: 'move',
         link: { to: '/shipments' },
       },
+      // Plate reads checked against their own controls, potency, and the
+      // transfer files for liquid handlers.
+      {
+        key: 'plates',
+        label: 'Plates',
+        icon: 'flask',
+        link: { to: '/plates' },
+      },
       // Incidents, deviations and near misses: any models the lab ticks as a log.
       {
         key: 'incidents',

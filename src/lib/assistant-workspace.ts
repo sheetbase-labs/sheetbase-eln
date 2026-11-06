@@ -30,6 +30,7 @@ const LIST_ONLY_ROUTES = [
   'schedule',
   'requests',
   'shipments',
+  'plates',
   'incidents',
   'registry',
   'inbox',

@@ -249,6 +249,31 @@ Scope: `lab:write`.
 | `p_instrument_id` * | uuid | Instrument id.                                                           |
 | `p_readings` *      | json | JSON array of `{ feed, value, at }`; `at` is optional (defaults to now). |
 
+### `query_storage_readings`
+
+Read freezer and room readings. Returns the readings kept for freezers, fridges, incubators and rooms: each measurement with its latest value, alarm limits and whether it is inside them (`state` is `ok`, `low` or `high`). Name a unit or a room, or leave both out for all of them.
+
+Scope: `lab:read`.
+
+| Argument              | Type |                                                 |
+| --------------------- | ---- | ----------------------------------------------- |
+| `p_unit_id`           | uuid | Storage unit (freezer, fridge or incubator) id. |
+| `p_room_id`           | uuid | Storage room id.                                |
+| `p_out_of_range_only` | bool | Only measurements outside their limits.         |
+| `p_limit`             | int  | Page size, 1 to 500 (default 100).              |
+
+### `record_storage_readings`
+
+Record freezer or room readings. Adds readings to one storage unit or room (name exactly one), creating a measurement for a new name. A temperature starts with that place's own range as its limits. Going outside the limits, or coming back, tells the people who manage storage and sends `storage.alarm.raised` or `storage.alarm.cleared` to webhooks. Returns how many were stored.
+
+Scope: `lab:write`.
+
+| Argument       | Type |                                                                          |
+| -------------- | ---- | ------------------------------------------------------------------------ |
+| `p_unit_id`    | uuid | Storage unit id.                                                         |
+| `p_room_id`    | uuid | Storage room id.                                                         |
+| `p_readings` * | json | JSON array of `{ feed, value, at }`; `at` is optional (defaults to now). |
+
 ### `set_instrument_feed_limits`
 
 Set a feed's alert limits. Sets the low and high limits that raise alerts for a feed.

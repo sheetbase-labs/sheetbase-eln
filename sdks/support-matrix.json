@@ -857,6 +857,12 @@
       "typescript": "resource"
     },
     {
+      "name": "query_storage_readings",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "read_sheet_instance_calculation_results",
       "resource": "sheets",
       "python": "resource",
@@ -882,6 +888,12 @@
     },
     {
       "name": "record_stocktake_scan",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "record_storage_readings",
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"
@@ -973,18 +985,6 @@
     {
       "name": "rotate_webhook_secret",
       "resource": "webhooks",
-      "python": "resource",
-      "typescript": "resource"
-    },
-    {
-      "name": "query_storage_readings",
-      "resource": "records",
-      "python": "resource",
-      "typescript": "resource"
-    },
-    {
-      "name": "record_storage_readings",
-      "resource": "records",
       "python": "resource",
       "typescript": "resource"
     },

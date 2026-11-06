@@ -96,6 +96,9 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_readings:
     'JSON array of `{ feed, value, at }`; `at` is optional (defaults to now).',
   p_feed_id: 'Instrument feed id.',
+  p_unit_id: 'Storage unit (freezer, fridge or incubator) id.',
+  p_room_id: 'Storage room id.',
+  p_out_of_range_only: 'Only measurements outside their limits.',
   p_low: 'Low alert limit.',
   p_high: 'High alert limit.',
   p_since: 'Start of the window.',
@@ -360,12 +363,15 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
     columns: [
       ['id', 'uuid', 1],
       ['workspace_id', 'uuid', 1],
-      ['instrument_id', 'uuid', 1],
+      ['instrument_id', 'uuid', 0],
+      ['storage_unit_id', 'uuid', 0],
+      ['storage_room_id', 'uuid', 0],
       ['name', 'text', 1],
       ['unit', 'text', 0],
       ['low_limit', 'num', 0],
       ['high_limit', 'num', 0],
       ['limit_state', 'text', 1],
+      ['out_of_range_since', 'ts', 0],
       ['last_value', 'num', 0],
       ['last_at', 'ts', 0],
       ['reading_count', 'bigint', 1],
@@ -854,6 +860,31 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
     scope: 'lab:write',
     params: [
       ['p_instrument_id', 'uuid', 1],
+      ['p_readings', 'json', 1],
+    ],
+    result: 'json',
+  },
+  query_storage_readings: {
+    summary: 'Read freezer and room readings',
+    description:
+      'Returns the readings kept for freezers, fridges, incubators and rooms: each measurement with its latest value, alarm limits and whether it is inside them (`state` is `ok`, `low` or `high`). Name a unit or a room, or leave both out for all of them.',
+    scope: 'lab:read',
+    params: [
+      ['p_unit_id', 'uuid', 0],
+      ['p_room_id', 'uuid', 0],
+      ['p_out_of_range_only', 'bool', 0],
+      ['p_limit', 'int', 0],
+    ],
+    result: 'json',
+  },
+  record_storage_readings: {
+    summary: 'Record freezer or room readings',
+    description:
+      "Adds readings to one storage unit or room (name exactly one), creating a measurement for a new name. A temperature starts with that place's own range as its limits. Going outside the limits, or coming back, tells the people who manage storage and sends `storage.alarm.raised` or `storage.alarm.cleared` to webhooks. Returns how many were stored.",
+    scope: 'lab:write',
+    params: [
+      ['p_unit_id', 'uuid', 0],
+      ['p_room_id', 'uuid', 0],
       ['p_readings', 'json', 1],
     ],
     result: 'json',

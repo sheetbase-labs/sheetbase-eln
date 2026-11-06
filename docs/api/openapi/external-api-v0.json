@@ -33621,6 +33621,137 @@
         }
       }
     },
+    "/api/db/rpc/query_storage_readings": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Read freezer and room readings",
+        "operationId": "rpc_query_storage_readings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:read"],
+        "description": "Returns the readings kept for freezers, fridges, incubators and rooms: each measurement with its latest value, alarm limits and whether it is inside them (`state` is `ok`, `low` or `high`). Name a unit or a room, or leave both out for all of them.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {
+                  "p_unit_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Storage unit (freezer, fridge or incubator) id."
+                  },
+                  "p_room_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Storage room id."
+                  },
+                  "p_out_of_range_only": {
+                    "type": "boolean",
+                    "description": "Only measurements outside their limits."
+                  },
+                  "p_limit": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of query_storage_readings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "description": "Read freezer and room readings A JSON object."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/read_sheet_instance_calculation_results": {
       "post": {
         "tags": ["Sheets"],
@@ -34204,6 +34335,137 @@
                       }
                     }
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/record_storage_readings": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Record freezer or room readings",
+        "operationId": "rpc_record_storage_readings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Adds readings to one storage unit or room (name exactly one), creating a measurement for a new name. A temperature starts with that place's own range as its limits. Going outside the limits, or coming back, tells the people who manage storage and sends `storage.alarm.raised` or `storage.alarm.cleared` to webhooks. Returns how many were stored.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_readings"],
+                "properties": {
+                  "p_unit_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Storage unit (freezer, fridge or incubator) id."
+                  },
+                  "p_room_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Storage room id."
+                  },
+                  "p_readings": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "description": "JSON array of `{ feed, value, at }`; `at` is optional (defaults to now)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of record_storage_readings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "description": "Record freezer or room readings A JSON object."
                 }
               }
             }
@@ -48706,7 +48968,6 @@
         "required": [
           "id",
           "workspace_id",
-          "instrument_id",
           "name",
           "limit_state",
           "reading_count",
@@ -48723,7 +48984,18 @@
           },
           "instrument_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "nullable": true
+          },
+          "storage_unit_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "storage_room_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           },
           "name": {
             "type": "string"
@@ -48742,6 +49014,11 @@
           },
           "limit_state": {
             "type": "string"
+          },
+          "out_of_range_since": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           },
           "last_value": {
             "type": "number",

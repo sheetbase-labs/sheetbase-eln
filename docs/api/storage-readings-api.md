@@ -6,7 +6,7 @@ assistant and webhooks.
 
 ## Send readings
 
-`record_storage_readings` (scope `projects:write`). Name exactly one of
+`record_storage_readings` (scope `lab:write`). Name exactly one of
 `p_unit_id` and `p_room_id`.
 
 ```jsonc
@@ -32,7 +32,7 @@ workspace.
 
 ## Read them
 
-`query_storage_readings` (scope `projects:read`). Leave both ids out for every
+`query_storage_readings` (scope `lab:read`). Leave both ids out for every
 place, or pass `p_out_of_range_only: true` to see only what is outside its
 limits. Each entry has the latest `lastValue` and `lastAt`, `lowLimit`,
 `highLimit`, `state` (`ok`, `low` or `high`) and `outOfRangeSince`.
@@ -40,13 +40,14 @@ limits. Each entry has the latest `lastValue` and `lastAt`, `lowLimit`,
 ## MCP and assistant
 
 - `sheetbase.storage.readings` reads the same thing for agents (scope
-  `projects:read`, read only). The in-app assistant uses it to answer which
+  `lab:read`, read only). The in-app assistant uses it to answer which
   freezers are out of range.
 - The assistant can log a reading from a card the person confirms
   (`sheetbase.storage.log_reading`); it calls `record_storage_readings` as that
   person.
-- Agents cannot log readings over MCP: a reading is not a proposal, so use the
-  API call above from a logger or script.
+- Agents log readings with `sheetbase.lab.act` (`record_storage_readings`),
+  acting as the person their personal token belongs to. Needs `lab:write` and
+  the workspace's "Agents can act in the lab" setting.
 
 ## Webhooks and events
 

@@ -1,5 +1,5 @@
 /**
- * Freezer and room readings (migration 0090).
+ * Freezer and room readings (migration 0097).
  *
  * Proves: anyone who can write in the workspace can send or log readings for a
  * storage unit or a room (a viewer and a stranger cannot); a new Temperature feed

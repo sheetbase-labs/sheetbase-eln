@@ -134,9 +134,9 @@ export function SignInSurface({
   release,
   retainedDrafts,
 }: SignInSurfaceProps) {
-  const [redirecting, setRedirecting] = useState<'github' | 'oidc' | 'saml' | null>(
-    null,
-  )
+  const [redirecting, setRedirecting] = useState<
+    'github' | 'oidc' | 'saml' | null
+  >(null)
   const [ssoError, setSsoError] = useState<string | null>(null)
   const [passkeyBusy, setPasskeyBusy] = useState(false)
   const passkeysSupported = usePasskeysSupported()

@@ -42,9 +42,20 @@ function makeCertificate(): { key: string; cert: string } {
     execFileSync(
       'openssl',
       [
-        'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-sha256', '-days', '2',
-        '-subj', '/CN=idp.lab.test', '-keyout', join(dir, 'key.pem'),
-        '-out', join(dir, 'cert.pem'),
+        'req',
+        '-x509',
+        '-newkey',
+        'rsa:2048',
+        '-nodes',
+        '-sha256',
+        '-days',
+        '2',
+        '-subj',
+        '/CN=idp.lab.test',
+        '-keyout',
+        join(dir, 'key.pem'),
+        '-out',
+        join(dir, 'cert.pem'),
       ],
       { stdio: 'ignore' },
     )
@@ -90,15 +101,33 @@ beforeAll(async () => {
     privateKey: key,
     signingCert: cert,
     singleSignOnService: [
-      { Binding: 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect', Location: IDP_SSO },
+      {
+        Binding: 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect',
+        Location: IDP_SSO,
+      },
     ],
     isAssertionEncrypted: false,
     loginResponseTemplate: {
       context: saml.SamlLib.defaultLoginResponseTemplate.context,
       attributes: [
-        { name: 'email', valueTag: 'email', nameFormat: 'urn:oasis:names:tc:SAML:2.0:attrname-format:basic', valueXsiType: 'xs:string' },
-        { name: 'displayName', valueTag: 'name', nameFormat: 'urn:oasis:names:tc:SAML:2.0:attrname-format:basic', valueXsiType: 'xs:string' },
-        { name: 'groups', valueTag: 'groups', nameFormat: 'urn:oasis:names:tc:SAML:2.0:attrname-format:basic', valueXsiType: 'xs:string' },
+        {
+          name: 'email',
+          valueTag: 'email',
+          nameFormat: 'urn:oasis:names:tc:SAML:2.0:attrname-format:basic',
+          valueXsiType: 'xs:string',
+        },
+        {
+          name: 'displayName',
+          valueTag: 'name',
+          nameFormat: 'urn:oasis:names:tc:SAML:2.0:attrname-format:basic',
+          valueXsiType: 'xs:string',
+        },
+        {
+          name: 'groups',
+          valueTag: 'groups',
+          nameFormat: 'urn:oasis:names:tc:SAML:2.0:attrname-format:basic',
+          valueXsiType: 'xs:string',
+        },
       ],
     },
   })
@@ -159,7 +188,10 @@ async function start() {
 async function respond(
   requestId: string,
   person: { email: string; name?: string; groups?: string },
-  options: { signer?: saml.IdentityProviderInstance; notOnOrAfter?: number } = {},
+  options: {
+    signer?: saml.IdentityProviderInstance
+    notOnOrAfter?: number
+  } = {},
 ) {
   const provider = samlServiceProvider(process.env.BETTER_AUTH_URL!, config)
   const result = await (options.signer ?? idp).createLoginResponse(
@@ -179,7 +211,9 @@ async function respond(
         StatusCode: 'urn:oasis:names:tc:SAML:2.0:status:Success',
         ConditionsNotBefore: iso(-60_000),
         ConditionsNotOnOrAfter: iso(options.notOnOrAfter ?? 5 * 60_000),
-        SubjectConfirmationDataNotOnOrAfter: iso(options.notOnOrAfter ?? 5 * 60_000),
+        SubjectConfirmationDataNotOnOrAfter: iso(
+          options.notOnOrAfter ?? 5 * 60_000,
+        ),
         SubjectRecipient: provider.acsUrl,
         NameIDFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
         NameID: person.email,
@@ -204,7 +238,10 @@ async function acs(samlResponse: string, relayState: string, cookie: string) {
         origin: 'https://idp.lab.test',
         cookie,
       },
-      body: new URLSearchParams({ SAMLResponse: samlResponse, RelayState: relayState }),
+      body: new URLSearchParams({
+        SAMLResponse: samlResponse,
+        RelayState: relayState,
+      }),
     }),
     auth,
   )
@@ -343,15 +380,23 @@ describe('refusing a response that cannot be trusted', () => {
       privateKey: forged.key,
       signingCert: forged.cert,
       singleSignOnService: [
-        { Binding: 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect', Location: IDP_SSO },
+        {
+          Binding: 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect',
+          Location: IDP_SSO,
+        },
       ],
       isAssertionEncrypted: false,
-      loginResponseTemplate: (idp as unknown as { entitySetting: { loginResponseTemplate: never } })
-        .entitySetting.loginResponseTemplate,
+      loginResponseTemplate: (
+        idp as unknown as { entitySetting: { loginResponseTemplate: never } }
+      ).entitySetting.loginResponseTemplate,
     })
     const flow = await start()
     const res = await acs(
-      await respond(flow.requestId, { email: 'forger@lab.test' }, { signer: stranger }),
+      await respond(
+        flow.requestId,
+        { email: 'forger@lab.test' },
+        { signer: stranger },
+      ),
       flow.relayState,
       flow.cookie,
     )
@@ -382,7 +427,11 @@ describe('refusing a response that cannot be trusted', () => {
   it('refuses a response that has already expired', async () => {
     const flow = await start()
     const res = await acs(
-      await respond(flow.requestId, { email: 'late@lab.test' }, { notOnOrAfter: -10 * 60_000 }),
+      await respond(
+        flow.requestId,
+        { email: 'late@lab.test' },
+        { notOnOrAfter: -10 * 60_000 },
+      ),
       flow.relayState,
       flow.cookie,
     )

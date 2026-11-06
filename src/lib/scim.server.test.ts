@@ -71,7 +71,8 @@ function call(
     new Request(`https://eln.test/api/scim/v2/${path}${options.query ?? ''}`, {
       method,
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body:
+        options.body === undefined ? undefined : JSON.stringify(options.body),
     }),
     path,
     deps,
@@ -97,7 +98,9 @@ describe('the SCIM endpoint', () => {
 
   it('describes itself', async () => {
     const s = store()
-    const config = await (await call(deps(s), 'GET', 'ServiceProviderConfig')).json()
+    const config = await (
+      await call(deps(s), 'GET', 'ServiceProviderConfig')
+    ).json()
     expect(config.patch.supported).toBe(true)
     const types = await (await call(deps(s), 'GET', 'ResourceTypes')).json()
     expect(types.totalResults).toBe(2)
@@ -149,9 +152,7 @@ describe('the SCIM endpoint', () => {
 
   it('answers 404 for an unknown user and for an id that is not one', async () => {
     const s = store()
-    expect(
-      (await call(deps(s), 'GET', `Users/${GID}`)).status,
-    ).toBe(404)
+    expect((await call(deps(s), 'GET', `Users/${GID}`)).status).toBe(404)
     expect((await call(deps(s), 'GET', 'Users/not-an-id')).status).toBe(404)
   })
 
@@ -166,12 +167,21 @@ describe('the SCIM endpoint', () => {
     const { ScimError } = await import('./scim')
     const s = store({
       createUser: vi.fn(async () => {
-        throw new ScimError(409, 'uniqueness', 'a user with this userName already exists')
+        throw new ScimError(
+          409,
+          'uniqueness',
+          'a user with this userName already exists',
+        )
       }),
     })
-    const res = await call(deps(s), 'POST', 'Users', { body: { userName: 'a@b.co' } })
+    const res = await call(deps(s), 'POST', 'Users', {
+      body: { userName: 'a@b.co' },
+    })
     expect(res.status).toBe(409)
-    expect(await res.json()).toMatchObject({ status: '409', scimType: 'uniqueness' })
+    expect(await res.json()).toMatchObject({
+      status: '409',
+      scimType: 'uniqueness',
+    })
   })
 
   it('does not leak an unexpected failure', async () => {
@@ -216,10 +226,18 @@ describe('the SCIM endpoint', () => {
   it('creates, replaces and deletes groups', async () => {
     const s = store()
     expect(
-      (await call(deps(s), 'POST', 'Groups', { body: { displayName: 'Admins' } })).status,
+      (
+        await call(deps(s), 'POST', 'Groups', {
+          body: { displayName: 'Admins' },
+        })
+      ).status,
     ).toBe(201)
     expect(
-      (await call(deps(s), 'PUT', `Groups/${GID}`, { body: { displayName: 'Admins' } })).status,
+      (
+        await call(deps(s), 'PUT', `Groups/${GID}`, {
+          body: { displayName: 'Admins' },
+        })
+      ).status,
     ).toBe(200)
     expect(s.setGroup).toHaveBeenLastCalledWith(principal, GID, {
       displayName: 'Admins',
@@ -231,6 +249,8 @@ describe('the SCIM endpoint', () => {
   it('refuses a method the resource does not take', async () => {
     const s = store()
     expect((await call(deps(s), 'DELETE', 'Users')).status).toBe(405)
-    expect((await call(deps(s), 'POST', 'ServiceProviderConfig')).status).toBe(405)
+    expect((await call(deps(s), 'POST', 'ServiceProviderConfig')).status).toBe(
+      405,
+    )
   })
 })

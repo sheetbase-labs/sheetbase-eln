@@ -26,7 +26,9 @@ describe('filters', () => {
     expect(parseFilter('  ', ['userName'])).toBeNull()
   })
   it('says so about a filter it cannot answer', () => {
-    expect(() => parseFilter('userName co "a"', ['userName'])).toThrow(ScimError)
+    expect(() => parseFilter('userName co "a"', ['userName'])).toThrow(
+      ScimError,
+    )
     expect(() => parseFilter('title eq "a"', ['userName'])).toThrow(/one of/)
   })
 })
@@ -34,9 +36,9 @@ describe('filters', () => {
 describe('paging', () => {
   it('starts at 1 and caps a page', () => {
     expect(parsePaging(new URLSearchParams())).toEqual({ start: 1, count: 100 })
-    expect(
-      parsePaging(new URLSearchParams('startIndex=0&count=5000')),
-    ).toEqual({ start: 1, count: 100 })
+    expect(parsePaging(new URLSearchParams('startIndex=0&count=5000'))).toEqual(
+      { start: 1, count: 100 },
+    )
     expect(parsePaging(new URLSearchParams('count=0')).count).toBe(0)
     expect(() => parsePaging(new URLSearchParams('count=x'))).toThrow(ScimError)
   })
@@ -88,7 +90,11 @@ describe('patching a user', () => {
             path: 'emails[type eq "work"].value',
             value: 'ada@lab.org',
           },
-          { op: 'Add', path: 'urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department', value: 'x' },
+          {
+            op: 'Add',
+            path: 'urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department',
+            value: 'x',
+          },
         ],
       }),
     ).toEqual({
@@ -114,7 +120,9 @@ describe('patching a user', () => {
       userChangesFromPatch({ Operations: [{ op: 'remove' }] }),
     ).toThrow(/path/)
     expect(() =>
-      userChangesFromPatch({ Operations: [{ op: 'replace', path: 'active', value: 'maybe' }] }),
+      userChangesFromPatch({
+        Operations: [{ op: 'replace', path: 'active', value: 'maybe' }],
+      }),
     ).toThrow(/true or false/)
   })
 })
@@ -122,7 +130,10 @@ describe('patching a user', () => {
 describe('groups', () => {
   it('reads members by value', () => {
     expect(
-      readGroup({ displayName: 'Admins', members: [{ value: 'a' }, { value: 'b' }] }),
+      readGroup({
+        displayName: 'Admins',
+        members: [{ value: 'a' }, { value: 'b' }],
+      }),
     ).toEqual({ displayName: 'Admins', members: ['a', 'b'] })
   })
   it('adds, removes and replaces members', () => {
@@ -142,14 +153,20 @@ describe('groups', () => {
     )
     expect(removeAll.members).toEqual([])
     const replace = groupChangesFromPatch(
-      { Operations: [{ op: 'replace', path: 'members', value: [{ value: 'z' }] }] },
+      {
+        Operations: [
+          { op: 'replace', path: 'members', value: [{ value: 'z' }] },
+        ],
+      },
       ['a'],
     )
     expect(replace.members).toEqual(['z'])
   })
   it('renames without touching members', () => {
     const renamed = groupChangesFromPatch(
-      { Operations: [{ op: 'replace', path: 'displayName', value: 'Chemists' }] },
+      {
+        Operations: [{ op: 'replace', path: 'displayName', value: 'Chemists' }],
+      },
       ['a'],
     )
     expect(renamed).toEqual({ displayName: 'Chemists' })
@@ -174,7 +191,10 @@ describe('shaping a user', () => {
       'https://eln.test/api/scim/v2',
     )
     expect(shaped.meta.location).toBe('https://eln.test/api/scim/v2/Users/u1')
-    expect(shaped.name).toMatchObject({ givenName: 'Ada', familyName: 'Lovelace' })
+    expect(shaped.name).toMatchObject({
+      givenName: 'Ada',
+      familyName: 'Lovelace',
+    })
     expect(shaped.groups[0].$ref).toBe('https://eln.test/api/scim/v2/Groups/g1')
   })
 })

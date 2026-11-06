@@ -110,17 +110,19 @@ describe('readSamlConfig', () => {
   })
 
   it('shows up as a sign-in method', () => {
-    expect(readAuthMethods({ ...manual, SAML_PROVIDER_NAME: 'Acme' }).saml).toEqual(
-      { name: 'Acme' },
-    )
+    expect(
+      readAuthMethods({ ...manual, SAML_PROVIDER_NAME: 'Acme' }).saml,
+    ).toEqual({ name: 'Acme' })
   })
 
   it('wraps a bare certificate and repairs escaped line breaks', () => {
     expect(normalisePem('MIIB')).toBe(
       '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----',
     )
-    expect(normalisePem('-----BEGIN CERTIFICATE-----\\nMIIB\\n-----END CERTIFICATE-----')).toContain(
-      '\nMIIB\n',
-    )
+    expect(
+      normalisePem(
+        '-----BEGIN CERTIFICATE-----\\nMIIB\\n-----END CERTIFICATE-----',
+      ),
+    ).toContain('\nMIIB\n')
   })
 })

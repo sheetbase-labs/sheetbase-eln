@@ -109,7 +109,11 @@ export function parsePaging(query: URLSearchParams): {
     if (raw === null || raw === '') return fallback
     const parsed = Number(raw)
     if (!Number.isInteger(parsed)) {
-      throw new ScimError(400, 'invalidValue', `${name} must be a whole number.`)
+      throw new ScimError(
+        400,
+        'invalidValue',
+        `${name} must be a whole number.`,
+      )
     }
     return parsed
   }
@@ -241,7 +245,11 @@ export function userChangesFromPatch(body: unknown): UserChanges {
         changes.active =
           operation.op === 'remove' ? false : (toBoolean(value) ?? undefined)
         if (changes.active === undefined) {
-          throw new ScimError(400, 'invalidValue', 'active must be true or false.')
+          throw new ScimError(
+            400,
+            'invalidValue',
+            'active must be true or false.',
+          )
         }
         break
       }
@@ -268,8 +276,7 @@ export function userChangesFromPatch(body: unknown): UserChanges {
         break
       case key.startsWith('emails'):
         if (operation.op !== 'remove') {
-          const email =
-            typeof value === 'string' ? value : pickEmail(value)
+          const email = typeof value === 'string' ? value : pickEmail(value)
           if (email) changes.email = email
         }
         break
@@ -291,7 +298,11 @@ function memberIds(value: unknown): string[] {
   return list.map((entry) => {
     const id = isObject(entry) ? entry.value : entry
     if (typeof id !== 'string' || id === '') {
-      throw new ScimError(400, 'invalidValue', 'A member needs a value (its id).')
+      throw new ScimError(
+        400,
+        'invalidValue',
+        'A member needs a value (its id).',
+      )
     }
     return id
   })
@@ -303,7 +314,8 @@ export function readGroup(body: unknown): GroupChanges {
     throw new ScimError(400, 'invalidSyntax', 'Send a Group as a JSON object.')
   }
   const changes: GroupChanges = {}
-  if (typeof body.displayName === 'string') changes.displayName = body.displayName
+  if (typeof body.displayName === 'string')
+    changes.displayName = body.displayName
   if (body.externalId !== undefined) {
     changes.externalId =
       typeof body.externalId === 'string' ? body.externalId : null
@@ -330,7 +342,8 @@ export function groupChangesFromPatch(
         throw new ScimError(400, 'noTarget', 'A remove needs a path.')
       }
       const whole = readGroup(operation.value)
-      if (whole.displayName !== undefined) changes.displayName = whole.displayName
+      if (whole.displayName !== undefined)
+        changes.displayName = whole.displayName
       if (whole.externalId !== undefined) changes.externalId = whole.externalId
       if (whole.members) {
         members =
@@ -343,7 +356,8 @@ export function groupChangesFromPatch(
     }
     const lowered = path.toLowerCase()
     if (lowered === 'displayname') {
-      if (typeof operation.value === 'string') changes.displayName = operation.value
+      if (typeof operation.value === 'string')
+        changes.displayName = operation.value
       continue
     }
     if (lowered === 'externalid') {
@@ -482,7 +496,10 @@ export function resourceTypes(base: string) {
       name: 'User',
       endpoint: '/Users',
       schema: SCIM_SCHEMAS.user,
-      meta: { resourceType: 'ResourceType', location: `${base}/ResourceTypes/User` },
+      meta: {
+        resourceType: 'ResourceType',
+        location: `${base}/ResourceTypes/User`,
+      },
     },
     {
       schemas: [SCIM_SCHEMAS.resourceType],
@@ -490,7 +507,10 @@ export function resourceTypes(base: string) {
       name: 'Group',
       endpoint: '/Groups',
       schema: SCIM_SCHEMAS.group,
-      meta: { resourceType: 'ResourceType', location: `${base}/ResourceTypes/Group` },
+      meta: {
+        resourceType: 'ResourceType',
+        location: `${base}/ResourceTypes/Group`,
+      },
     },
   ]
 }
@@ -518,7 +538,10 @@ export function schemas(base: string) {
       name: 'User',
       description: 'A person who can sign in to the workspace.',
       attributes: [
-        attribute('userName', 'string', { required: true, uniqueness: 'server' }),
+        attribute('userName', 'string', {
+          required: true,
+          uniqueness: 'server',
+        }),
         attribute('externalId', 'string', { caseExact: true }),
         attribute('displayName', 'string'),
         attribute('active', 'boolean'),
@@ -535,7 +558,10 @@ export function schemas(base: string) {
           mutability: 'readOnly',
         }),
       ],
-      meta: { resourceType: 'Schema', location: `${base}/Schemas/${SCIM_SCHEMAS.user}` },
+      meta: {
+        resourceType: 'Schema',
+        location: `${base}/Schemas/${SCIM_SCHEMAS.user}`,
+      },
     },
     {
       id: SCIM_SCHEMAS.group,
@@ -543,11 +569,17 @@ export function schemas(base: string) {
       description:
         'A group in the identity provider. Its name is matched to the sign-in group mappings to decide roles.',
       attributes: [
-        attribute('displayName', 'string', { required: true, uniqueness: 'server' }),
+        attribute('displayName', 'string', {
+          required: true,
+          uniqueness: 'server',
+        }),
         attribute('externalId', 'string', { caseExact: true }),
         attribute('members', 'complex', { multiValued: true }),
       ],
-      meta: { resourceType: 'Schema', location: `${base}/Schemas/${SCIM_SCHEMAS.group}` },
+      meta: {
+        resourceType: 'Schema',
+        location: `${base}/Schemas/${SCIM_SCHEMAS.group}`,
+      },
     },
   ]
 }

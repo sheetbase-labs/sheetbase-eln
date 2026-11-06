@@ -20,6 +20,7 @@ import { safety } from './safety'
 import { sequences } from './sequences'
 import { shipments } from './shipments'
 import { settings } from './settings'
+import { spend } from './spend'
 
 export const en = {
   common,
@@ -37,5 +38,6 @@ export const en = {
   shipments,
   sequences,
   safety,
+  spend,
   pwa,
 } as const

@@ -829,6 +829,20 @@ export function extractBlockText(
       ])
     case 'metric':
       return extractStringField(payload, 'label')
+    case 'structure':
+      return ['title', 'caption', 'name', 'formula', 'smiles']
+        .map((field) => extractStringField(payload, field))
+        .filter(Boolean)
+        .join(' ')
+    case 'reaction':
+      return [
+        extractStringField(payload, 'title'),
+        extractStringField(payload, 'caption'),
+        extractStringField(payload, 'smiles'),
+        extractFromArrayField(payload, 'rows', ['name', 'formula', 'note']),
+      ]
+        .filter(Boolean)
+        .join(' ')
     case 'linked_record':
       return [
         extractStringField(payload, 'targetIdentifier'),

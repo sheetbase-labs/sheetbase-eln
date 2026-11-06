@@ -19,6 +19,7 @@ import { isBlockType } from './registry'
 import type { BlockType } from './registry'
 import { validateAnalysisBlockPayload } from '../analysis-block'
 import { validateChartPayload } from '../chart-spec'
+import { reactionIssues, structureIssues } from '../chemistry'
 import { CONCLUSION_VERDICTS } from '../conclusion-block'
 import { validatePlateMapPayload } from '../plate-map'
 import { PAYLOAD_SCHEMA_VERSION } from './schema-version'
@@ -886,7 +887,19 @@ function validateMaterials(payload: unknown): FieldErrors {
   return errors
 }
 
+function chemistryErrors(
+  issues: Array<{ field: string; message: string }>,
+): FieldErrors {
+  return issues.map((issue) => ({
+    code: issue.field === '' ? 'invalid_payload_shape' : 'invalid_field_value',
+    ...(issue.field ? { field: issue.field } : {}),
+    message: issue.message,
+  }))
+}
+
 const validators: Record<BlockType, (payload: unknown) => FieldErrors> = {
+  structure: (payload) => chemistryErrors(structureIssues(payload)),
+  reaction: (payload) => chemistryErrors(reactionIssues(payload)),
   dataset_import: validateDatasetImport,
   rich_text: validateRichText,
   checklist: validateChecklist,

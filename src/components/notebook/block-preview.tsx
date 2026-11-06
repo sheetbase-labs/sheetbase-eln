@@ -1,3 +1,4 @@
+import { ReactionPreview, StructurePreview } from './chemistry-block'
 import { t } from '#/copy'
 import * as React from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
@@ -282,6 +283,10 @@ function renderPayload(
       return <DatasetImportBlockPreview payload={payload} recordId={recordId} />
     case 'plate_map':
       return <PlateMapBlockPreview payload={payload} frozen={frozen} />
+    case 'structure':
+      return <StructurePreview payload={payload} />
+    case 'reaction':
+      return <ReactionPreview payload={payload} />
     case 'file':
       return <FileBlockPreview payload={payload} recordId={recordId} />
     case 'signature_request':

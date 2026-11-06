@@ -298,6 +298,13 @@ describe('block payload validation (ELN-002)', () => {
         },
       },
       checklist: { items: [{ text: 'x', checked: true }] },
+      structure: { molfile: '', title: 'Aspirin', formula: 'C9H8O4' },
+      reaction: {
+        drawing: '',
+        rows: [
+          { id: 'a', role: 'reactant', name: 'Salicylic acid', mw: 138.12 },
+        ],
+      },
       linked_record: {
         targetKind: 'sample',
         targetIdentifier: 'SMP-1',

@@ -113,6 +113,7 @@ import type { AnalysisBlockPayload } from '#/lib/analysis-block'
 import { validateAnalysisBlockPayload } from '#/lib/analysis-block'
 import { PipelineOutputBlockEditor } from './pipeline-output-block-editor'
 import { DatasetImportBlockEditor } from './dataset-import-block'
+import { ReactionEditor, StructureEditor } from './chemistry-block'
 import { AnalysisChartPicker } from './analysis-chart-picker'
 import {
   analysisDefinitionQueryKeys,
@@ -267,6 +268,10 @@ function BlockEditorBody(props: BlockEditorProps) {
       return <DatasetImportBlockEditor {...props} />
     case 'plate_map':
       return <PlateMapBlockEditor {...props} />
+    case 'structure':
+      return <StructureEditor {...props} />
+    case 'reaction':
+      return <ReactionEditor {...props} />
     case 'signature_request':
       return <SignatureRequestEditor {...props} />
     case 'corrective_actions':

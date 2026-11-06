@@ -42,6 +42,7 @@ import {
   richTextToPlainText,
 } from './rich-text'
 import { EMPTY_CONCLUSION_PAYLOAD } from '../conclusion-block'
+import { EMPTY_REACTION_PAYLOAD, EMPTY_STRUCTURE_PAYLOAD } from '../chemistry'
 import {
   EMPTY_CORRECTIVE_ACTIONS_PAYLOAD,
   EMPTY_SIGNATURE_REQUEST_PAYLOAD,
@@ -72,6 +73,8 @@ export type BlockType =
   | 'corrective_actions'
   | 'conclusion'
   | 'dataset_import'
+  | 'structure'
+  | 'reaction'
 
 /**
  * The allow-list, in the order `chk_blocks_type` names them. A type not in this
@@ -97,6 +100,8 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   'corrective_actions',
   'conclusion',
   'dataset_import',
+  'structure',
+  'reaction',
 ]
 
 /** Membership index for the allow-list; each key is a stored block type. */
@@ -294,6 +299,36 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     aliases: ['molarity', 'dilution', 'c1v1', 'convert', 'units', 'calculate'],
   },
   {
+    type: 'structure',
+    label: t('notebook.blockRegistry.structureLabel'),
+    description: t('notebook.blockRegistry.structureDescription'),
+    icon: 'flask',
+    group: 'evidence',
+    aliases: [
+      'molecule',
+      'chemical',
+      'compound',
+      'drawing',
+      'smiles',
+      'chemistry',
+    ],
+  },
+  {
+    type: 'reaction',
+    label: t('notebook.blockRegistry.reactionLabel'),
+    description: t('notebook.blockRegistry.reactionDescription'),
+    icon: 'flask',
+    group: 'evidence',
+    aliases: [
+      'synthesis',
+      'scheme',
+      'equivalents',
+      'yield',
+      'stoichiometry',
+      'chemistry',
+    ],
+  },
+  {
     type: 'pipeline_output',
     label: t('notebook.blockRegistry.pipelineOutputLabel'),
     description: t('notebook.blockRegistry.referenceAPipelineRunDescription'),
@@ -443,6 +478,33 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
     },
   },
   file: { editable: true, defaultPayload: () => ({}) },
+  structure: {
+    editable: true,
+    defaultPayload: () => ({ ...EMPTY_STRUCTURE_PAYLOAD }),
+    summary: (payload) =>
+      [
+        typeof payload.title === 'string' && payload.title
+          ? payload.title
+          : typeof payload.name === 'string'
+            ? payload.name
+            : '',
+        typeof payload.formula === 'string' ? payload.formula : '',
+      ]
+        .filter(Boolean)
+        .join(' · ') || t('notebook.blockRegistry.structureLabel'),
+  },
+  reaction: {
+    editable: true,
+    defaultPayload: () => ({ ...EMPTY_REACTION_PAYLOAD, rows: [] }),
+    summary: (payload) =>
+      t('notebook.blockRegistry.reactionSummary', {
+        title:
+          typeof payload.title === 'string' && payload.title
+            ? payload.title
+            : t('notebook.blockRegistry.reactionLabel'),
+        count: Array.isArray(payload.rows) ? payload.rows.length : 0,
+      }),
+  },
   metric: { editable: true, defaultPayload: () => ({}) },
   procedure_step: {
     editable: true,

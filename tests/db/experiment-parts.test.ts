@@ -152,7 +152,6 @@ afterAll(async () => {
   await migrator?.end()
 })
 
-
 /** An experiment whose protocol is pinned, so it has `texts.length` copied steps in page order. */
 async function experiment(title: string, texts: string[] = []) {
   const { rows } = await owner.query(
@@ -171,7 +170,12 @@ async function experiment(title: string, texts: string[] = []) {
     await migrator.query(
       `insert into api.blocks(record_id,type,payload,"order",created_by_user_id)
        values($1,'procedure_step',$2::jsonb,$3,$4)`,
-      [protocol, JSON.stringify({ text, stepNumber: index + 1 }), index + 1, OWNER],
+      [
+        protocol,
+        JSON.stringify({ text, stepNumber: index + 1 }),
+        index + 1,
+        OWNER,
+      ],
     )
   }
   const pin = (
@@ -181,15 +185,16 @@ async function experiment(title: string, texts: string[] = []) {
     )
   ).rows[0].result.block as { id: string; version: number }
   const structure = (
-    await migrator.query(`select structure_version from api.records where id=$1`, [recordId])
+    await migrator.query(
+      `select structure_version from api.records where id=$1`,
+      [recordId],
+    )
   ).rows[0].structure_version as number
   const pinned = (
-    await owner.query(`select api.pin_protocol_reference($1,$2,$3,$4) as result`, [
-      pin.id,
-      protocol,
-      pin.version,
-      structure,
-    ])
+    await owner.query(
+      `select api.pin_protocol_reference($1,$2,$3,$4) as result`,
+      [pin.id, protocol, pin.version, structure],
+    )
   ).rows[0].result.copied_steps as Array<{ id: string }>
   return { recordId, stepIds: pinned.map((step) => step.id) }
 }
@@ -203,10 +208,9 @@ async function addPart(recordId: string, title: string, day?: number) {
 }
 
 async function parts(recordId: string) {
-  const { rows } = await owner.query(
-    `select * from api.record_parts($1)`,
-    [recordId],
-  )
+  const { rows } = await owner.query(`select * from api.record_parts($1)`, [
+    recordId,
+  ])
   return rows as Array<{
     part_id: string
     part_number: number
@@ -234,7 +238,9 @@ describe('creating parts', () => {
   it('leaves an experiment without parts as one page', async () => {
     const { recordId } = await experiment('Plain', ['A', 'B'])
     expect(await parts(recordId)).toEqual([])
-    expect((await blockParts(recordId)).every((b) => b.part_id === null)).toBe(true)
+    expect((await blockParts(recordId)).every((b) => b.part_id === null)).toBe(
+      true,
+    )
     const steps = (
       await owner.query(`select * from api.record_steps($1)`, [recordId])
     ).rows
@@ -246,7 +252,10 @@ describe('creating parts', () => {
     const { recordId } = await experiment('Assay', ['Seed', 'Starve'])
     const one = await addPart(recordId, 'Seed cells', 0)
     const two = await addPart(recordId, 'Dose')
-    expect((await blockParts(recordId)).map((b) => b.part_id)).toEqual([one.id, one.id])
+    expect((await blockParts(recordId)).map((b) => b.part_id)).toEqual([
+      one.id,
+      one.id,
+    ])
     const rows = await parts(recordId)
     expect(rows.map((p) => [p.part_number, p.title, p.status])).toEqual([
       [1, 'Seed cells', 'now'],
@@ -267,7 +276,9 @@ describe('creating parts', () => {
         [recordId, stepIds[0]],
       )
     ).rows[0].result.block as { id: string }
-    expect((await blockParts(recordId)).find((b) => b.id === note.id)!.part_id).toBe(one.id)
+    expect(
+      (await blockParts(recordId)).find((b) => b.id === note.id)!.part_id,
+    ).toBe(one.id)
   })
 
   it('rejects the parts of another experiment, a stranger and a bad title', async () => {
@@ -279,26 +290,46 @@ describe('creating parts', () => {
       owner.query(`select api.set_block_part($1,$2)`, [a.stepIds[0], other.id]),
     ).rejects.toThrow(/not in this experiment/)
     await expect(
-      migrator.query(`update api.blocks set part_id = $2 where id = $1`, [a.stepIds[0], other.id]),
+      migrator.query(`update api.blocks set part_id = $2 where id = $1`, [
+        a.stepIds[0],
+        other.id,
+      ]),
     ).rejects.toThrow(/own experiment/)
     await expect(addPart(a.recordId, '   ')).rejects.toThrow(/title/)
-    const stranger = await actor(OUTSIDER, '00000000-0000-4000-8000-00000000fb02')
+    const stranger = await actor(
+      OUTSIDER,
+      '00000000-0000-4000-8000-00000000fb02',
+    )
     await expect(
-      stranger.query(`select api.create_experiment_part($1,'Sneaky')`, [a.recordId]),
+      stranger.query(`select api.create_experiment_part($1,'Sneaky')`, [
+        a.recordId,
+      ]),
     ).rejects.toThrow(/not found/)
     await expect(
-      owner.query(`insert into api.experiment_parts(workspace_id,record_id,"position",title) values ($1,$2,9,'Direct')`, [WS, a.recordId]),
+      owner.query(
+        `insert into api.experiment_parts(workspace_id,record_id,"position",title) values ($1,$2,9,'Direct')`,
+        [WS, a.recordId],
+      ),
     ).rejects.toThrow()
   })
 
   it('refuses changes once the notebook is locked', async () => {
     const { recordId } = await experiment('Locked', ['x'])
     const part = await addPart(recordId, 'Only')
-    await migrator.query(`update api.records set locked_at = now() where id = $1`, [recordId]).catch(() => undefined)
-    const { rows } = await migrator.query(`select locked_at from api.records where id=$1`, [recordId])
+    await migrator
+      .query(`update api.records set locked_at = now() where id = $1`, [
+        recordId,
+      ])
+      .catch(() => undefined)
+    const { rows } = await migrator.query(
+      `select locked_at from api.records where id=$1`,
+      [recordId],
+    )
     if (!rows[0].locked_at) return // the lock needs a revision on this build; covered by the sign-off flow
     await expect(addPart(recordId, 'More')).rejects.toThrow(/locked/)
-    await expect(owner.query(`select api.set_part_done($1)`, [part.id])).rejects.toThrow(/locked/)
+    await expect(
+      owner.query(`select api.set_part_done($1)`, [part.id]),
+    ).rejects.toThrow(/locked/)
   })
 })
 
@@ -310,10 +341,17 @@ describe('a part is done when its steps are', () => {
     const two = await addPart(recordId, 'Dose')
     // Move the last step into the second part.
     await owner.query(`select api.set_block_part($1,$2)`, [stepIds[2], two.id])
-    expect((await blockParts(recordId)).map((b) => b.part_id)).toEqual([one.id, one.id, two.id])
+    expect((await blockParts(recordId)).map((b) => b.part_id)).toEqual([
+      one.id,
+      one.id,
+      two.id,
+    ])
 
     let rows = await parts(recordId)
-    expect(rows.map((p) => [p.status, p.step_count])).toEqual([['now', 2], ['later', 1]])
+    expect(rows.map((p) => [p.status, p.step_count])).toEqual([
+      ['now', 2],
+      ['later', 1],
+    ])
     expect(rows[0]!.opened_at).not.toBeNull()
     expect(rows[1]!.opened_at).toBeNull()
 
@@ -329,8 +367,17 @@ describe('a part is done when its steps are', () => {
     expect(rows[1]!.opened_at).not.toBeNull()
 
     // Steps follow the current part: the first open step of Dose is current.
-    const steps = (await owner.query(`select * from api.record_steps($1)`, [recordId])).rows
-    expect(steps.map((s) => [s.part_number, s.part_step_number, s.part_step_count, s.is_current])).toEqual([
+    const steps = (
+      await owner.query(`select * from api.record_steps($1)`, [recordId])
+    ).rows
+    expect(
+      steps.map((s) => [
+        s.part_number,
+        s.part_step_number,
+        s.part_step_count,
+        s.is_current,
+      ]),
+    ).toEqual([
       [1, 1, 2, false],
       [1, 2, 2, false],
       [2, 1, 1, true],
@@ -350,8 +397,14 @@ describe('a part is done when its steps are', () => {
       'experiment.part_opened',
       'experiment.part_reopened',
     ])
-    const completed = (await feed(since)).find((e) => e.wire === 'experiment.part_completed')!
-    expect(completed.payload).toMatchObject({ partNumber: 1, part: 'Seed', recordId })
+    const completed = (await feed(since)).find(
+      (e) => e.wire === 'experiment.part_completed',
+    )!
+    expect(completed.payload).toMatchObject({
+      partNumber: 1,
+      part: 'Seed',
+      recordId,
+    })
   })
 
   it('lets a part with no steps be marked done by hand, but not one with steps', async () => {
@@ -359,16 +412,32 @@ describe('a part is done when its steps are', () => {
     const one = await addPart(recordId, 'Steps')
     const two = await addPart(recordId, 'Incubate')
     await owner.query(`select api.set_block_part($1,$2)`, [
-      (await owner.query(`select api.insert_block($1,'rich_text','{}'::jsonb) as r`, [recordId])).rows[0].r.block.id,
+      (
+        await owner.query(
+          `select api.insert_block($1,'rich_text','{}'::jsonb) as r`,
+          [recordId],
+        )
+      ).rows[0].r.block.id,
       two.id,
     ])
-    await expect(owner.query(`select api.set_part_done($1)`, [one.id])).rejects.toThrow(/steps/)
+    await expect(
+      owner.query(`select api.set_part_done($1)`, [one.id]),
+    ).rejects.toThrow(/steps/)
     await owner.query(`select api.set_step_done($1)`, [stepIds[0]])
-    expect((await parts(recordId)).map((p) => p.status)).toEqual(['done', 'now'])
+    expect((await parts(recordId)).map((p) => p.status)).toEqual([
+      'done',
+      'now',
+    ])
     await owner.query(`select api.set_part_done($1)`, [two.id])
-    expect((await parts(recordId)).map((p) => p.status)).toEqual(['done', 'done'])
+    expect((await parts(recordId)).map((p) => p.status)).toEqual([
+      'done',
+      'done',
+    ])
     await owner.query(`select api.set_part_done($1,false)`, [two.id])
-    expect((await parts(recordId)).map((p) => p.status)).toEqual(['done', 'now'])
+    expect((await parts(recordId)).map((p) => p.status)).toEqual([
+      'done',
+      'now',
+    ])
   })
 })
 
@@ -379,11 +448,25 @@ describe('arranging parts', () => {
     const two = await addPart(recordId, 'Two')
     const three = await addPart(recordId, 'Three')
     await owner.query(`select api.set_block_part($1,$2)`, [stepIds[1], two.id])
-    await owner.query(`select api.set_block_part($1,$2)`, [stepIds[2], three.id])
+    await owner.query(`select api.set_block_part($1,$2)`, [
+      stepIds[2],
+      three.id,
+    ])
     expect((await blockParts(recordId)).map((b) => b.id)).toEqual(stepIds)
-    await owner.query(`select api.move_experiment_part($1,$2)`, [three.id, null])
-    expect((await parts(recordId)).map((p) => p.title)).toEqual(['Three', 'One', 'Two'])
-    expect((await blockParts(recordId)).map((b) => b.id)).toEqual([stepIds[2], stepIds[0], stepIds[1]])
+    await owner.query(`select api.move_experiment_part($1,$2)`, [
+      three.id,
+      null,
+    ])
+    expect((await parts(recordId)).map((p) => p.title)).toEqual([
+      'Three',
+      'One',
+      'Two',
+    ])
+    expect((await blockParts(recordId)).map((b) => b.id)).toEqual([
+      stepIds[2],
+      stepIds[0],
+      stepIds[1],
+    ])
     expect(one.id).toBeTruthy()
   })
 
@@ -393,44 +476,91 @@ describe('arranging parts', () => {
     const two = await addPart(recordId, 'Two')
     const three = await addPart(recordId, 'Three')
     await owner.query(`select api.set_block_part($1,$2)`, [stepIds[1], two.id])
-    await expect(owner.query(`select api.delete_experiment_part($1)`, [two.id])).rejects.toThrow(/content/)
+    await expect(
+      owner.query(`select api.delete_experiment_part($1)`, [two.id]),
+    ).rejects.toThrow(/content/)
     await owner.query(`select api.delete_experiment_part($1)`, [three.id])
-    const moved = (await owner.query(`select api.delete_experiment_part($1,$2) as r`, [two.id, one.id])).rows[0].r
+    const moved = (
+      await owner.query(`select api.delete_experiment_part($1,$2) as r`, [
+        two.id,
+        one.id,
+      ])
+    ).rows[0].r
     expect(moved.moved_blocks).toBe(1)
-    expect((await parts(recordId)).map((p) => [p.title, p.block_count])).toEqual([['One', 3]])
-    expect((await blockParts(recordId)).map((b) => b.part_id)).toEqual([one.id, one.id])
+    expect(
+      (await parts(recordId)).map((p) => [p.title, p.block_count]),
+    ).toEqual([['One', 3]])
+    expect((await blockParts(recordId)).map((b) => b.part_id)).toEqual([
+      one.id,
+      one.id,
+    ])
   })
 
   it('renames a part, sets its day and assignee, and clears the assignee', async () => {
     const { recordId } = await experiment('Edit')
     const part = await addPart(recordId, 'Old', 0)
-    await owner.query(`select api.update_experiment_part($1,'New',4,$2)`, [part.id, OWNER])
-    let row = (await parts(recordId))[0] as unknown as { title: string; day_offset: number; assignee_user_id: string | null }
-    expect([row.title, row.day_offset, row.assignee_user_id]).toEqual(['New', 4, OWNER])
-    await expect(owner.query(`select api.update_experiment_part($1,null,null,$2)`, [part.id, OUTSIDER])).rejects.toThrow(/workspace/)
-    await owner.query(`select api.update_experiment_part($1,null,null,null,true)`, [part.id])
+    await owner.query(`select api.update_experiment_part($1,'New',4,$2)`, [
+      part.id,
+      OWNER,
+    ])
+    let row = (await parts(recordId))[0] as unknown as {
+      title: string
+      day_offset: number
+      assignee_user_id: string | null
+    }
+    expect([row.title, row.day_offset, row.assignee_user_id]).toEqual([
+      'New',
+      4,
+      OWNER,
+    ])
+    await expect(
+      owner.query(`select api.update_experiment_part($1,null,null,$2)`, [
+        part.id,
+        OUTSIDER,
+      ]),
+    ).rejects.toThrow(/workspace/)
+    await owner.query(
+      `select api.update_experiment_part($1,null,null,null,true)`,
+      [part.id],
+    )
     row = (await parts(recordId))[0] as unknown as typeof row
     expect(row.assignee_user_id).toBeNull()
-    await expect(owner.query(`select api.update_experiment_part($1,null,9999)`, [part.id])).rejects.toThrow(/day/)
+    await expect(
+      owner.query(`select api.update_experiment_part($1,null,9999)`, [part.id]),
+    ).rejects.toThrow(/day/)
   })
 
   it('splits a notebook into parts at chosen blocks', async () => {
-    const { recordId, stepIds } = await experiment('Split', ['a', 'b', 'c', 'd'])
+    const { recordId, stepIds } = await experiment('Split', [
+      'a',
+      'b',
+      'c',
+      'd',
+    ])
     const result = (
-      await owner.query(`select api.split_record_into_parts($1,$2::jsonb) as r`, [
-        recordId,
-        JSON.stringify([
-          { title: 'Day 0', first_block_id: stepIds[0] },
-          { title: 'Day 3', first_block_id: stepIds[2], day_offset: 3 },
-        ]),
-      ])
+      await owner.query(
+        `select api.split_record_into_parts($1,$2::jsonb) as r`,
+        [
+          recordId,
+          JSON.stringify([
+            { title: 'Day 0', first_block_id: stepIds[0] },
+            { title: 'Day 3', first_block_id: stepIds[2], day_offset: 3 },
+          ]),
+        ],
+      )
     ).rows[0].r as Array<{ id: string; title: string }>
     expect(result.map((p) => p.title)).toEqual(['Day 0', 'Day 3'])
     expect((await blockParts(recordId)).map((b) => b.part_id)).toEqual([
-      result[0]!.id, result[0]!.id, result[1]!.id, result[1]!.id,
+      result[0]!.id,
+      result[0]!.id,
+      result[1]!.id,
+      result[1]!.id,
     ])
     await expect(
-      owner.query(`select api.split_record_into_parts($1,'[{"title":"x"}]'::jsonb)`, [recordId]),
+      owner.query(
+        `select api.split_record_into_parts($1,'[{"title":"x"}]'::jsonb)`,
+        [recordId],
+      ),
     ).rejects.toThrow(/already has parts/)
   })
 })
@@ -448,7 +578,12 @@ describe('experiments made from a protocol with parts', () => {
       const { rows } = await migrator.query(
         `insert into api.blocks(record_id,type,payload,"order",created_by_user_id)
          values($1,'procedure_step',$2::jsonb,$3,$4) returning id`,
-        [protocol, JSON.stringify({ text, stepNumber: index + 1 }), index + 1, OWNER],
+        [
+          protocol,
+          JSON.stringify({ text, stepNumber: index + 1 }),
+          index + 1,
+          OWNER,
+        ],
       )
       stepBlocks.push(rows[0].id)
     }
@@ -457,17 +592,44 @@ describe('experiments made from a protocol with parts', () => {
        values ($1,$2,1,'Day 0',0),($1,$2,2,'Day 3',3) returning id`,
       [WS, protocol],
     )
-    await migrator.query(`update api.blocks set part_id=$1 where id in ($2,$3)`, [partRows[0].id, stepBlocks[0], stepBlocks[1]])
-    await migrator.query(`update api.blocks set part_id=$1 where id = $2`, [partRows[1].id, stepBlocks[2]])
+    await migrator.query(
+      `update api.blocks set part_id=$1 where id in ($2,$3)`,
+      [partRows[0].id, stepBlocks[0], stepBlocks[1]],
+    )
+    await migrator.query(`update api.blocks set part_id=$1 where id = $2`, [
+      partRows[1].id,
+      stepBlocks[2],
+    ])
 
-    const { rows } = await owner.query(`select id from api.create_record($1::uuid,'experiment','From protocol')`, [PROJECT])
+    const { rows } = await owner.query(
+      `select id from api.create_record($1::uuid,'experiment','From protocol')`,
+      [PROJECT],
+    )
     const recordId = rows[0].id as string
-    const pin = (await owner.query(`select api.insert_block($1,'protocol_reference','{}'::jsonb) as result`, [recordId])).rows[0].result.block
-    const structure = (await migrator.query(`select structure_version from api.records where id=$1`, [recordId])).rows[0].structure_version
-    await owner.query(`select api.pin_protocol_reference($1,$2,$3,$4)`, [pin.id, protocol, pin.version, structure])
+    const pin = (
+      await owner.query(
+        `select api.insert_block($1,'protocol_reference','{}'::jsonb) as result`,
+        [recordId],
+      )
+    ).rows[0].result.block
+    const structure = (
+      await migrator.query(
+        `select structure_version from api.records where id=$1`,
+        [recordId],
+      )
+    ).rows[0].structure_version
+    await owner.query(`select api.pin_protocol_reference($1,$2,$3,$4)`, [
+      pin.id,
+      protocol,
+      pin.version,
+      structure,
+    ])
 
     const made = await parts(recordId)
-    expect(made.map((p) => [p.title, p.day_offset, p.step_count])).toEqual([['Day 0', 0, 2], ['Day 3', 3, 1]])
+    expect(made.map((p) => [p.title, p.day_offset, p.step_count])).toEqual([
+      ['Day 0', 0, 2],
+      ['Day 3', 3, 1],
+    ])
     expect(made[0]!.status).toBe('now')
   })
 })
@@ -475,15 +637,29 @@ describe('experiments made from a protocol with parts', () => {
 describe('a reminder on the day of a part', () => {
   it('tells the assignee, or the owner, once', async () => {
     const { recordId } = await experiment('Remind', ['x'])
-    await migrator.query(`update api.records set status='in_progress' where id=$1`, [recordId])
+    await migrator.query(
+      `update api.records set status='in_progress' where id=$1`,
+      [recordId],
+    )
     const one = await addPart(recordId, 'Today', 0)
     await addPart(recordId, 'Later', 5)
-    await migrator.query(`insert into internal.notifications(workspace_id,user_id,event_type,title) values ($1,$2,'seed','seed')`, [WS, OWNER])
-    const before = (await migrator.query(`select count(*)::int n from internal.notifications where record_id=$1 and event_type='part_reminder'`, [recordId])).rows[0].n
+    await migrator.query(
+      `insert into internal.notifications(workspace_id,user_id,event_type,title) values ($1,$2,'seed','seed')`,
+      [WS, OWNER],
+    )
+    const before = (
+      await migrator.query(
+        `select count(*)::int n from internal.notifications where record_id=$1 and event_type='part_reminder'`,
+        [recordId],
+      )
+    ).rows[0].n
     expect(before).toBe(0)
     await migrator.query(`select internal.sweep_part_reminders()`)
     await migrator.query(`select internal.sweep_part_reminders()`)
-    const { rows } = await migrator.query(`select user_id, title from internal.notifications where record_id=$1 and event_type='part_reminder'`, [recordId])
+    const { rows } = await migrator.query(
+      `select user_id, title from internal.notifications where record_id=$1 and event_type='part_reminder'`,
+      [recordId],
+    )
     expect(rows).toHaveLength(1)
     expect(rows[0].user_id).toBe(OWNER)
     expect(rows[0].title).toMatch(/Part 1 is today: Today/)

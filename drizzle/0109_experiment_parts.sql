@@ -555,7 +555,8 @@ BEGIN
     RAISE EXCEPTION 'that part is not in this experiment' USING ERRCODE = '23503';
   END IF;
   IF v_block.part_id IS NOT DISTINCT FROM p_part_id THEN
-    RETURN jsonb_build_object('block_id', v_block.id, 'part_id', v_block.part_id, 'order', v_block."order", 'version', v_block.version);
+    RETURN jsonb_build_object('block_id', v_block.id, 'part_id', v_block.part_id, 'order', v_block."order", 'version', v_block.version,
+      'structure_version', (SELECT structure_version FROM api.records WHERE id = v_block.record_id));
   END IF;
   -- Slot it after everything in this part and the parts before it, and before
   -- everything in the parts after it.
@@ -581,7 +582,8 @@ BEGIN
     UPDATE api.records SET structure_version = structure_version + 1 WHERE id = v_block.record_id;
   END IF;
   SELECT * INTO v_block FROM api.blocks WHERE id = p_block_id;
-  RETURN jsonb_build_object('block_id', v_block.id, 'part_id', v_block.part_id, 'order', v_block."order", 'version', v_block.version);
+  RETURN jsonb_build_object('block_id', v_block.id, 'part_id', v_block.part_id, 'order', v_block."order", 'version', v_block.version,
+    'structure_version', (SELECT structure_version FROM api.records WHERE id = v_block.record_id));
 END $$;
 --> statement-breakpoint
 ALTER FUNCTION api.set_block_part(p_block_id uuid, p_part_id uuid) OWNER TO migrator;

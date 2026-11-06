@@ -157,11 +157,13 @@ class Rpc:
         "query_dataset_version_rows",
         "query_dataset_version_transfer",
         "query_sheet_instance_rows",
+        "query_storage_readings",
         "read_sheet_instance_calculation_results",
         "receive_reagent_order",
         "receive_shipment",
         "record_instrument_readings",
         "record_stocktake_scan",
+        "record_storage_readings",
         "register_replacement_lot",
         "registry_find_duplicates",
         "remove_idp_group_mapping",
@@ -2037,6 +2039,34 @@ class Rpc:
             body["p_offset"] = offset
         return self._call("query_sheet_instance_rows", body)  # type: ignore[no-any-return]
 
+    def query_storage_readings(
+        self,
+        *,
+        unit_id: Union[str, Unset] = UNSET,
+        room_id: Union[str, Unset] = UNSET,
+        out_of_range_only: Union[bool, Unset] = UNSET,
+        limit: Union[int, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Read freezer and room readings
+
+        Returns the readings kept for freezers, fridges, incubators and rooms: each measurement with its latest value, alarm limits and whether it is inside them (`state` is `ok`, `low` or `high`). Name a unit or a room, or leave both out for all of them.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/query_storage_readings``
+        """
+        body: Dict[str, Any] = {}
+        if not isinstance(unit_id, Unset):
+            body["p_unit_id"] = unit_id
+        if not isinstance(room_id, Unset):
+            body["p_room_id"] = room_id
+        if not isinstance(out_of_range_only, Unset):
+            body["p_out_of_range_only"] = out_of_range_only
+        if not isinstance(limit, Unset):
+            body["p_limit"] = limit
+        return self._call("query_storage_readings", body)  # type: ignore[no-any-return]
+
     def read_sheet_instance_calculation_results(
         self,
         *,
@@ -2148,6 +2178,30 @@ class Rpc:
         if not isinstance(box_id, Unset):
             body["p_box_id"] = box_id
         return self._call("record_stocktake_scan", body)  # type: ignore[no-any-return]
+
+    def record_storage_readings(
+        self,
+        *,
+        readings: Dict[str, "JsonValue"],
+        unit_id: Union[str, Unset] = UNSET,
+        room_id: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Record freezer or room readings
+
+        Adds readings to one storage unit or room (name exactly one), creating a measurement for a new name. A temperature starts with that place's own range as its limits. Going outside the limits, or coming back, tells the people who manage storage and sends `storage.alarm.raised` or `storage.alarm.cleared` to webhooks. Returns how many were stored.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/record_storage_readings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_readings"] = readings
+        if not isinstance(unit_id, Unset):
+            body["p_unit_id"] = unit_id
+        if not isinstance(room_id, Unset):
+            body["p_room_id"] = room_id
+        return self._call("record_storage_readings", body)  # type: ignore[no-any-return]
 
     def register_replacement_lot(
         self,
@@ -3335,11 +3389,13 @@ class AsyncRpc:
         "query_dataset_version_rows",
         "query_dataset_version_transfer",
         "query_sheet_instance_rows",
+        "query_storage_readings",
         "read_sheet_instance_calculation_results",
         "receive_reagent_order",
         "receive_shipment",
         "record_instrument_readings",
         "record_stocktake_scan",
+        "record_storage_readings",
         "register_replacement_lot",
         "registry_find_duplicates",
         "remove_idp_group_mapping",
@@ -5215,6 +5271,34 @@ class AsyncRpc:
             body["p_offset"] = offset
         return await self._call("query_sheet_instance_rows", body)  # type: ignore[no-any-return]
 
+    async def query_storage_readings(
+        self,
+        *,
+        unit_id: Union[str, Unset] = UNSET,
+        room_id: Union[str, Unset] = UNSET,
+        out_of_range_only: Union[bool, Unset] = UNSET,
+        limit: Union[int, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Read freezer and room readings
+
+        Returns the readings kept for freezers, fridges, incubators and rooms: each measurement with its latest value, alarm limits and whether it is inside them (`state` is `ok`, `low` or `high`). Name a unit or a room, or leave both out for all of them.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/query_storage_readings``
+        """
+        body: Dict[str, Any] = {}
+        if not isinstance(unit_id, Unset):
+            body["p_unit_id"] = unit_id
+        if not isinstance(room_id, Unset):
+            body["p_room_id"] = room_id
+        if not isinstance(out_of_range_only, Unset):
+            body["p_out_of_range_only"] = out_of_range_only
+        if not isinstance(limit, Unset):
+            body["p_limit"] = limit
+        return await self._call("query_storage_readings", body)  # type: ignore[no-any-return]
+
     async def read_sheet_instance_calculation_results(
         self,
         *,
@@ -5326,6 +5410,30 @@ class AsyncRpc:
         if not isinstance(box_id, Unset):
             body["p_box_id"] = box_id
         return await self._call("record_stocktake_scan", body)  # type: ignore[no-any-return]
+
+    async def record_storage_readings(
+        self,
+        *,
+        readings: Dict[str, "JsonValue"],
+        unit_id: Union[str, Unset] = UNSET,
+        room_id: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Record freezer or room readings
+
+        Adds readings to one storage unit or room (name exactly one), creating a measurement for a new name. A temperature starts with that place's own range as its limits. Going outside the limits, or coming back, tells the people who manage storage and sends `storage.alarm.raised` or `storage.alarm.cleared` to webhooks. Returns how many were stored.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/record_storage_readings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_readings"] = readings
+        if not isinstance(unit_id, Unset):
+            body["p_unit_id"] = unit_id
+        if not isinstance(room_id, Unset):
+            body["p_room_id"] = room_id
+        return await self._call("record_storage_readings", body)  # type: ignore[no-any-return]
 
     async def register_replacement_lot(
         self,

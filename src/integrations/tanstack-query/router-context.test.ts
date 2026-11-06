@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { QueryClient } from '@tanstack/react-query'
+import { describe, expect, it, vi } from 'vitest'
 
-import { DataClientError } from '#/lib/data-client'
+import { DataClientError, createDataClient } from '#/lib/data-client'
 
-import { shouldRetryQuery } from './router-context'
+import { refreshAfterWrites, shouldRetryQuery } from './router-context'
 
 describe('shouldRetryQuery', () => {
   it('does not retry a request the server refused', () => {
@@ -24,5 +25,30 @@ describe('shouldRetryQuery', () => {
 
   it('retries a network failure', () => {
     expect(shouldRetryQuery(1, new TypeError('Failed to fetch'))).toBe(true)
+  })
+})
+
+describe('refreshAfterWrites', () => {
+  it('marks other caches stale after a write, but leaves editing caches alone', async () => {
+    vi.useFakeTimers()
+    const qc = new QueryClient()
+    qc.setQueryData(['ui-port', 'experiments', 'w'], [1])
+    qc.setQueryData(['work-items'], [1])
+    qc.setQueryData(['notebook', 'blocks', 'r'], [1])
+    const stop = refreshAfterWrites(qc, 50)
+    const rows = createDataClient(
+      async () => new Response('[]', { status: 200 }),
+    )
+    await rows.patch('records', 'id=eq.1', { title: 'x' })
+    await vi.advanceTimersByTimeAsync(60)
+    expect(
+      qc.getQueryState(['ui-port', 'experiments', 'w'])?.isInvalidated,
+    ).toBe(true)
+    expect(qc.getQueryState(['work-items'])?.isInvalidated).toBe(true)
+    expect(qc.getQueryState(['notebook', 'blocks', 'r'])?.isInvalidated).toBe(
+      false,
+    )
+    stop()
+    vi.useRealTimers()
   })
 })

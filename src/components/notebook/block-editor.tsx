@@ -505,6 +505,11 @@ function RichTextEditor({
         placeholder={placeholder}
         anchorPrefix={headingAnchorPrefix ?? `section-${block.id}`}
         hiddenNodeIndexes={hiddenRichTextNodeIndexes}
+        liveBlockId={block.id}
+        savedDoc={initialDraft.doc}
+        conflict={a.status === 'conflict'}
+        conflictServerDoc={(a.serverValue)?.doc}
+        onResolveConflict={a.retry}
         onChange={(payload) => {
           a.setTouched(true)
           a.setDraft(payload)

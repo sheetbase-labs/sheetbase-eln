@@ -39,11 +39,6 @@ import {
 } from '#/components/ui/confirm-dialog'
 import { EmptyState } from '#/components/ui/empty-state'
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '#/components/ui/popover'
-import {
   NotebookBlockHandle,
   NotebookBlockList,
   NotebookBlockRow,
@@ -73,21 +68,10 @@ import {
   NotebookViewerActions,
 } from './notebook-viewer-actions'
 import { ScientificWorkbookProvider } from './scientific-workbook-provider'
-import {
-  useCollaborationEnabled,
-  useThreads,
-} from '#/lib/collaboration/liveblocks.config'
-import { CommentButton } from '#/components/collaboration/comment-button'
 import { LiveBlockComments } from '#/components/notebook/live-block-comments'
 import { hasCapability } from '#/lib/capability'
 import { PresenceSync } from '#/components/collaboration/use-set-presence'
 import { BlockCoEditBadge } from '#/components/collaboration/presence-co-editing'
-import {
-  ThreadPanel,
-  threadMatchesAnchor,
-} from '#/components/collaboration/thread-panel'
-import { useCollaborationRoomReady } from '#/components/collaboration/collaboration-room'
-import type { ThreadAnchor } from '#/lib/collaboration/types'
 import {
   useRegisterShortcuts,
   useShortcutScope,
@@ -604,10 +588,6 @@ function NotebookDocumentContent({
   // A signed section only reads where a query client exists — presentational
   // and pre-hydration renders must not open a connection.
   const hasQueryClient = React.useContext(QueryClientContext) !== undefined
-  // COLLAB-02: block comment affordances render only when the deployment
-  // has collaboration enabled; ThreadPanel further gates on room readiness.
-  const collabComments = useCollaborationEnabled()
-  const collabReady = useCollaborationRoomReady()
 
   // Cell operations belong to SheetKeyboardShortcuts, not block navigation.
   useShortcutScope('notebook')
@@ -1056,7 +1036,7 @@ function NotebookDocumentContent({
           editingPane={editingPane}
           onEditHere={makePrimary}
           projectId={record.projectId}
-          commentEnabled={collabComments && collabReady}
+          commentEnabled={hasQueryClient && Boolean(collaborationWorkspaceId)}
           selectedBlockId={selectedId}
           documentRef={documentRef}
         />
@@ -1226,16 +1206,9 @@ function NotebookDocumentContent({
                         blockId={block.id}
                         active={editable && isSelected}
                       />
-                      {collabComments ? (
-                        <BlockComments
-                          workspaceId={collaborationWorkspaceId}
-                          recordId={record.id}
-                          blockId={block.id}
-                          role={collaborationRole}
-                        />
-                      ) : hasQueryClient && collaborationWorkspaceId ? (
-                        // No collaboration room: the same per-block discussion
-                        // runs on ordinary comment rows.
+                      {hasQueryClient && collaborationWorkspaceId ? (
+                        // Per-block discussion runs on ordinary comment rows,
+                        // so it works with or without a live room.
                         <LiveBlockComments
                           workspaceId={collaborationWorkspaceId}
                           recordId={record.id}
@@ -1603,88 +1576,3 @@ function blockLabel(block: NotebookBlockData): string {
  */
 // NOTE: blockTitle removed — titles are now user-editable via the block
 // payload's optional `title` field. When empty, no heading space is rendered.
-
-// ---------------------------------------------------------------------------
-// COLLAB-02: per-block discussion affordance
-// ---------------------------------------------------------------------------
-
-/**
- * Hover-revealed comment button in the block header toolbar. Shows the
- * unresolved comment count for this block and opens a ThreadPanel anchored
- * to the block's stable UUID in the record room.
- *
- * Renders null until the enclosing CollaborationRoom is ready, so SSR and
- * the pre-hydration paint stay free of room hooks.
- */
-function BlockComments({
-  workspaceId,
-  recordId,
-  blockId,
-  role,
-}: {
-  workspaceId: string | undefined
-  recordId: string
-  blockId: string
-  role: string
-}) {
-  const ready = useCollaborationRoomReady()
-  // No canonical workspace identity means no anchor can be built.
-  if (!ready || !workspaceId) return null
-  return (
-    <BlockCommentsInner
-      workspaceId={workspaceId}
-      recordId={recordId}
-      blockId={blockId}
-      role={role}
-    />
-  )
-}
-
-function BlockCommentsInner({
-  workspaceId,
-  recordId,
-  blockId,
-  role,
-}: {
-  workspaceId: string
-  recordId: string
-  blockId: string
-  role: string
-}) {
-  const { threads } = useThreads()
-  const [open, setOpen] = React.useState(false)
-  const anchor: ThreadAnchor = {
-    anchorType: 'notebook-block',
-    workspaceId,
-    recordId,
-    blockId,
-  }
-  const unresolvedCount = threads.filter(
-    (thread) =>
-      !thread.resolved && threadMatchesAnchor(thread.metadata, anchor),
-  ).length
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      {/* The button is the trigger: wrapping it in a span that also acted as
-          a button nested one control inside another. */}
-      <PopoverTrigger
-        render={
-          <CommentButton
-            count={unresolvedCount}
-            label={t('notebook.notebookDocument.commentsOnBlockBlockidLabel', {
-              blockId,
-            })}
-            className={cn(
-              'size-6 transition-opacity',
-              unresolvedCount === 0 &&
-                'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 data-popup-open:opacity-100',
-            )}
-          />
-        }
-      />
-      <PopoverContent align="end" className="w-96 p-3">
-        <ThreadPanel anchor={anchor} currentRole={role} compact />
-      </PopoverContent>
-    </Popover>
-  )
-}

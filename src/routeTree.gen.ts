@@ -90,8 +90,7 @@ import { Route as ApiAssistantChatRouteImport } from './routes/api/assistant.cha
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAvatarsUserIdRouteImport } from './routes/api/avatars/$userId'
 import { Route as ApiAvatarsMeRouteImport } from './routes/api/avatars/me'
-import { Route as ApiCollaborationAuthRouteImport } from './routes/api/collaboration/auth'
-import { Route as ApiCollaborationMentionsRouteImport } from './routes/api/collaboration/mentions'
+import { Route as ApiCollaborationTicketRouteImport } from './routes/api/collaboration/ticket'
 import { Route as ApiConnectorsAgentRouteImport } from './routes/api/connectors.agent'
 import { Route as ApiConnectorsIntakeRouteImport } from './routes/api/connectors.intake'
 import { Route as ApiConnectorsPickupRouteImport } from './routes/api/connectors.pickup'
@@ -191,8 +190,6 @@ import { Route as TemplatesTemplateIdInUseRouteImport } from './routes/templates
 import { Route as TemplatesTemplateIdUpdateRouteImport } from './routes/templates/$templateId/update'
 import { Route as TemplatesTemplateIdVersionsRouteImport } from './routes/templates/$templateId/versions'
 import { Route as ApiCalendarFeedTokenRouteImport } from './routes/api/calendar/feed.$token'
-import { Route as ApiCollaborationResolveRoomsRouteImport } from './routes/api/collaboration/resolve.rooms'
-import { Route as ApiCollaborationResolveUsersRouteImport } from './routes/api/collaboration/resolve.users'
 import { Route as ApiExportDatasetVersionIdRouteImport } from './routes/api/export/dataset-version/$id'
 import { Route as ApiExportDatasetIdRouteImport } from './routes/api/export/dataset/$id'
 import { Route as ApiExportRecordIdRouteImport } from './routes/api/export/record/$id'
@@ -637,17 +634,11 @@ const ApiAvatarsMeRoute = ApiAvatarsMeRouteImport.update({
   path: '/api/avatars/me',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiCollaborationAuthRoute = ApiCollaborationAuthRouteImport.update({
-  id: '/api/collaboration/auth',
-  path: '/api/collaboration/auth',
+const ApiCollaborationTicketRoute = ApiCollaborationTicketRouteImport.update({
+  id: '/api/collaboration/ticket',
+  path: '/api/collaboration/ticket',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiCollaborationMentionsRoute =
-  ApiCollaborationMentionsRouteImport.update({
-    id: '/api/collaboration/mentions',
-    path: '/api/collaboration/mentions',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiConnectorsAgentRoute = ApiConnectorsAgentRouteImport.update({
   id: '/api/connectors/agent',
   path: '/api/connectors/agent',
@@ -1169,18 +1160,6 @@ const ApiCalendarFeedTokenRoute = ApiCalendarFeedTokenRouteImport.update({
   path: '/api/calendar/feed/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiCollaborationResolveRoomsRoute =
-  ApiCollaborationResolveRoomsRouteImport.update({
-    id: '/api/collaboration/resolve/rooms',
-    path: '/api/collaboration/resolve/rooms',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiCollaborationResolveUsersRoute =
-  ApiCollaborationResolveUsersRouteImport.update({
-    id: '/api/collaboration/resolve/users',
-    path: '/api/collaboration/resolve/users',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiExportDatasetVersionIdRoute =
   ApiExportDatasetVersionIdRouteImport.update({
     id: '/api/export/dataset-version/$id',
@@ -1474,8 +1453,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatars/$userId': typeof ApiAvatarsUserIdRoute
   '/api/avatars/me': typeof ApiAvatarsMeRoute
-  '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
-  '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/collaboration/ticket': typeof ApiCollaborationTicketRoute
   '/api/connectors/agent': typeof ApiConnectorsAgentRoute
   '/api/connectors/intake': typeof ApiConnectorsIntakeRoute
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
@@ -1575,8 +1553,6 @@ export interface FileRoutesByFullPath {
   '/settings/workspace/': typeof SettingsWorkspaceIndexRoute
   '/templates/$templateId/': typeof TemplatesTemplateIdIndexRoute
   '/api/calendar/feed/$token': typeof ApiCalendarFeedTokenRoute
-  '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
-  '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
   '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
   '/api/export/record/$id': typeof ApiExportRecordIdRouteWithChildren
@@ -1685,8 +1661,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatars/$userId': typeof ApiAvatarsUserIdRoute
   '/api/avatars/me': typeof ApiAvatarsMeRoute
-  '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
-  '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/collaboration/ticket': typeof ApiCollaborationTicketRoute
   '/api/connectors/agent': typeof ApiConnectorsAgentRoute
   '/api/connectors/intake': typeof ApiConnectorsIntakeRoute
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
@@ -1783,8 +1758,6 @@ export interface FileRoutesByTo {
   '/settings/workspace': typeof SettingsWorkspaceIndexRoute
   '/templates/$templateId': typeof TemplatesTemplateIdIndexRoute
   '/api/calendar/feed/$token': typeof ApiCalendarFeedTokenRoute
-  '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
-  '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
   '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
   '/api/export/record/$id': typeof ApiExportRecordIdRouteWithChildren
@@ -1906,8 +1879,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatars/$userId': typeof ApiAvatarsUserIdRoute
   '/api/avatars/me': typeof ApiAvatarsMeRoute
-  '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
-  '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/collaboration/ticket': typeof ApiCollaborationTicketRoute
   '/api/connectors/agent': typeof ApiConnectorsAgentRoute
   '/api/connectors/intake': typeof ApiConnectorsIntakeRoute
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
@@ -2007,8 +1979,6 @@ export interface FileRoutesById {
   '/settings/workspace/': typeof SettingsWorkspaceIndexRoute
   '/templates/$templateId/': typeof TemplatesTemplateIdIndexRoute
   '/api/calendar/feed/$token': typeof ApiCalendarFeedTokenRoute
-  '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
-  '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
   '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
   '/api/export/record/$id': typeof ApiExportRecordIdRouteWithChildren
@@ -2131,8 +2101,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/avatars/$userId'
     | '/api/avatars/me'
-    | '/api/collaboration/auth'
-    | '/api/collaboration/mentions'
+    | '/api/collaboration/ticket'
     | '/api/connectors/agent'
     | '/api/connectors/intake'
     | '/api/connectors/pickup'
@@ -2232,8 +2201,6 @@ export interface FileRouteTypes {
     | '/settings/workspace/'
     | '/templates/$templateId/'
     | '/api/calendar/feed/$token'
-    | '/api/collaboration/resolve/rooms'
-    | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
     | '/api/export/dataset/$id'
     | '/api/export/record/$id'
@@ -2342,8 +2309,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/avatars/$userId'
     | '/api/avatars/me'
-    | '/api/collaboration/auth'
-    | '/api/collaboration/mentions'
+    | '/api/collaboration/ticket'
     | '/api/connectors/agent'
     | '/api/connectors/intake'
     | '/api/connectors/pickup'
@@ -2440,8 +2406,6 @@ export interface FileRouteTypes {
     | '/settings/workspace'
     | '/templates/$templateId'
     | '/api/calendar/feed/$token'
-    | '/api/collaboration/resolve/rooms'
-    | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
     | '/api/export/dataset/$id'
     | '/api/export/record/$id'
@@ -2562,8 +2526,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/avatars/$userId'
     | '/api/avatars/me'
-    | '/api/collaboration/auth'
-    | '/api/collaboration/mentions'
+    | '/api/collaboration/ticket'
     | '/api/connectors/agent'
     | '/api/connectors/intake'
     | '/api/connectors/pickup'
@@ -2663,8 +2626,6 @@ export interface FileRouteTypes {
     | '/settings/workspace/'
     | '/templates/$templateId/'
     | '/api/calendar/feed/$token'
-    | '/api/collaboration/resolve/rooms'
-    | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
     | '/api/export/dataset/$id'
     | '/api/export/record/$id'
@@ -2764,8 +2725,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiAvatarsUserIdRoute: typeof ApiAvatarsUserIdRoute
   ApiAvatarsMeRoute: typeof ApiAvatarsMeRoute
-  ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
-  ApiCollaborationMentionsRoute: typeof ApiCollaborationMentionsRoute
+  ApiCollaborationTicketRoute: typeof ApiCollaborationTicketRoute
   ApiConnectorsAgentRoute: typeof ApiConnectorsAgentRoute
   ApiConnectorsIntakeRoute: typeof ApiConnectorsIntakeRoute
   ApiConnectorsPickupRoute: typeof ApiConnectorsPickupRoute
@@ -2796,8 +2756,6 @@ export interface RootRouteChildren {
   ApiValidationRunRoute: typeof ApiValidationRunRoute
   ApiTokenIndexRoute: typeof ApiTokenIndexRoute
   ApiCalendarFeedTokenRoute: typeof ApiCalendarFeedTokenRoute
-  ApiCollaborationResolveRoomsRoute: typeof ApiCollaborationResolveRoomsRoute
-  ApiCollaborationResolveUsersRoute: typeof ApiCollaborationResolveUsersRoute
   ApiExportDatasetVersionIdRoute: typeof ApiExportDatasetVersionIdRoute
   ApiExportDatasetIdRoute: typeof ApiExportDatasetIdRoute
   ApiExportRecordIdRoute: typeof ApiExportRecordIdRouteWithChildren
@@ -3386,18 +3344,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAvatarsMeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/collaboration/auth': {
-      id: '/api/collaboration/auth'
-      path: '/api/collaboration/auth'
-      fullPath: '/api/collaboration/auth'
-      preLoaderRoute: typeof ApiCollaborationAuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/collaboration/mentions': {
-      id: '/api/collaboration/mentions'
-      path: '/api/collaboration/mentions'
-      fullPath: '/api/collaboration/mentions'
-      preLoaderRoute: typeof ApiCollaborationMentionsRouteImport
+    '/api/collaboration/ticket': {
+      id: '/api/collaboration/ticket'
+      path: '/api/collaboration/ticket'
+      fullPath: '/api/collaboration/ticket'
+      preLoaderRoute: typeof ApiCollaborationTicketRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/connectors/agent': {
@@ -4091,20 +4042,6 @@ declare module '@tanstack/react-router' {
       path: '/api/calendar/feed/$token'
       fullPath: '/api/calendar/feed/$token'
       preLoaderRoute: typeof ApiCalendarFeedTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/collaboration/resolve/rooms': {
-      id: '/api/collaboration/resolve/rooms'
-      path: '/api/collaboration/resolve/rooms'
-      fullPath: '/api/collaboration/resolve/rooms'
-      preLoaderRoute: typeof ApiCollaborationResolveRoomsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/collaboration/resolve/users': {
-      id: '/api/collaboration/resolve/users'
-      path: '/api/collaboration/resolve/users'
-      fullPath: '/api/collaboration/resolve/users'
-      preLoaderRoute: typeof ApiCollaborationResolveUsersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/export/dataset-version/$id': {
@@ -4927,8 +4864,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiAvatarsUserIdRoute: ApiAvatarsUserIdRoute,
   ApiAvatarsMeRoute: ApiAvatarsMeRoute,
-  ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,
-  ApiCollaborationMentionsRoute: ApiCollaborationMentionsRoute,
+  ApiCollaborationTicketRoute: ApiCollaborationTicketRoute,
   ApiConnectorsAgentRoute: ApiConnectorsAgentRoute,
   ApiConnectorsIntakeRoute: ApiConnectorsIntakeRoute,
   ApiConnectorsPickupRoute: ApiConnectorsPickupRoute,
@@ -4959,8 +4895,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiValidationRunRoute: ApiValidationRunRoute,
   ApiTokenIndexRoute: ApiTokenIndexRoute,
   ApiCalendarFeedTokenRoute: ApiCalendarFeedTokenRoute,
-  ApiCollaborationResolveRoomsRoute: ApiCollaborationResolveRoomsRoute,
-  ApiCollaborationResolveUsersRoute: ApiCollaborationResolveUsersRoute,
   ApiExportDatasetVersionIdRoute: ApiExportDatasetVersionIdRoute,
   ApiExportDatasetIdRoute: ApiExportDatasetIdRoute,
   ApiExportRecordIdRoute: ApiExportRecordIdRouteWithChildren,

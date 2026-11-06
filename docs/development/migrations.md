@@ -18,6 +18,34 @@ result (excluding the `drizzle` schema), split it into statements separated by
 `--> statement-breakpoint`, then load the baseline into a second empty database
 and diff the two dumps.
 
+## Naming and ordering
+
+Migrations 0000 to 0108 are numbered and listed in `drizzle/meta/_journal.json`,
+which is now frozen. Every later migration is a file named
+`<YYYYMMDDHHMMSS>_<snake_case>.sql` (UTC) with **no journal entry**:
+
+```bash
+pnpm db:new add_widget_table   # creates drizzle/20261106230800_add_widget_table.sql
+```
+
+Two branches that each add a migration never touch the same file or line, so
+nothing is renumbered when another PR merges first. `scripts/lib/migrations.mjs`
+lists them (numbered, then timestamped in name order) and applies them.
+
+- The runner recognises an applied migration by the hash of its SQL, the same
+  value Drizzle recorded in `drizzle.__drizzle_migrations`. An existing
+  database, the live demo included, therefore carries on where it was and
+  nothing is re-run. A migration that merges after a newer one is still applied.
+- The recorded `created_at` of a timestamped migration is a number above every
+  numbered one that rises with its timestamp, so "newest applied" still means
+  "newest migration" for Diagnostics, the health check and the upgrade backup.
+- CI runs `pnpm db:check-order`: a PR fails if a migration it adds sorts before
+  the newest one on `main` (it was started before another migration merged), if
+  it adds a numbered migration, or if it edits the journal. The fix after a
+  rebase is to rename the file with a fresh timestamp (`pnpm db:new`, then move
+  your SQL across).
+- Never edit or rename a migration that is on `main`.
+
 ## Rules
 
 1. One migration per logical change. Do not batch unrelated changes.
@@ -25,8 +53,7 @@ and diff the two dumps.
    database, CI, staging). Make a new migration that moves the schema forward.
 3. Schema is declared in `src/db/schema.ts` (Drizzle). Raw SQL belongs in
    migrations only when Drizzle cannot express it (roles, RLS policies,
-   grants, functions). Add such SQL through `drizzle-kit generate --custom`
-   and keep it in the same migration sequence.
+   grants, functions). Add such SQL with `pnpm db:new`.
 4. Every migration must apply cleanly to an empty database. The fresh-database
    check below is part of done, not an optional extra.
 5. Migrations run as an explicit step (`pnpm db:migrate`, or the `migrate`
@@ -39,10 +66,10 @@ and diff the two dumps.
 ```bash
 # 1. Edit src/db/schema.ts
 
-# 2. Prepare the migration. Plain `pnpm db:generate` cannot diff here - there is no
-#    committed snapshot baseline - so it emits a full-schema migration. Use --custom
-#    and write the SQL, or let Drizzle write it and then delete the unrelated bulk.
-pnpm db:generate --custom --name <change>
+# 2. Create the migration and write the SQL. Plain `pnpm db:generate` cannot diff
+#    here - there is no committed snapshot baseline - so it emits a full-schema
+#    migration; do not use it.
+pnpm db:new <change>
 
 # 3. Review the generated SQL in drizzle/ — every line.
 #    Check: correct types, constraints, indexes, no unintended drops,
@@ -82,7 +109,7 @@ ticket complete.
 
 ## Snapshots
 
-`pnpm db:migrate` applies `_journal.json` plus `{tag}.sql`. It does not read
+`pnpm db:migrate` applies the migrations listed by `scripts/lib/migrations.mjs`. It does not read
 `drizzle/meta/*_snapshot.json`.
 
 `pnpm db:generate` diffs `src/db/schema.ts` against the **latest** snapshot.
@@ -93,7 +120,7 @@ here came to 203 MB and 6.8M lines.
 This repository:
 
 - commits SQL for every journal entry (required);
-- commits `_journal.json` (required);
+- commits the frozen `_journal.json` (required, numbered migrations only);
 - does **not** commit snapshots at all (`drizzle/meta/*_snapshot.json` is
   gitignored). Kit writes them locally on each generate; they are working
   state, not history.
@@ -112,8 +139,8 @@ migration even with all of them present.
 # 1. Edit src/db/schema.ts for anything Drizzle can express,
 #    or write the change as SQL directly.
 
-# 2. Prepare an empty migration and write the SQL by hand
-pnpm db:generate --custom --name <change>
+# 2. Create an empty migration and write the SQL by hand
+pnpm db:new <change>
 
 # 3. Review every line, then apply and verify as in the normal flow
 pnpm db:migrate
@@ -130,8 +157,10 @@ already created.
 
 ## Never apply a migration by hand
 
-Drizzle's migrator applies only the journal entries whose `when` is **newer than
-the newest `created_at` recorded in `drizzle.__drizzle_migrations`**. Applying a
+Drizzle's own migrator applied only the journal entries whose `when` was **newer than
+the newest `created_at` recorded in `drizzle.__drizzle_migrations`**; Sheetbase's
+runner now matches by hash instead, so this can no longer skip a migration, but
+the advice stands. Applying a
 later migration manually (correctly, even) advances that watermark, so the next
 `pnpm db:migrate` reports success while applying **nothing** and every earlier
 pending migration stays unapplied. The database then drifts silently and features
@@ -140,7 +169,7 @@ error — this cost an afternoon on 11 October 2026, when a hand-applied `0430` 
 `0424`'s `api.instruments.intake_method` missing and the instrument registry
 returning HTTP 400 with the ledger showing 386 of 429 entries.
 
-Use `pnpm db:migrate` (or `pnpm db:generate --custom` for a new migration) and
+Use `pnpm db:migrate` (and `pnpm db:new` for a new migration) and
 let the migrator own the ledger. If the ledger has already been advanced out of
 order, the repair is `pnpm db:fresh` — a reset that replays the whole history.
 

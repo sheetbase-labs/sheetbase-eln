@@ -43,6 +43,7 @@ import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { toast } from '#/components/ui/sonner'
 import { SettingsHeader } from '#/components/settings/settings-page'
 import { JoinDomainsSection } from '#/components/settings/join-domains'
+import { DirectorySyncSection } from '#/components/settings/directory-sync'
 import { SignInGroupsSection } from '#/components/settings/sign-in-groups'
 import { WorkspaceGroups } from '#/components/settings/workspace-groups'
 import { createDataClient } from '#/lib/data-client'
@@ -882,6 +883,12 @@ function Members() {
         </div>
         <div className="mb-6">
           <SignInGroupsSection
+            workspaceId={workspaceId}
+            canManage={canManage}
+          />
+        </div>
+        <div className="mb-6">
+          <DirectorySyncSection
             workspaceId={workspaceId}
             canManage={canManage}
           />

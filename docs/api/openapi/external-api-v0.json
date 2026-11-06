@@ -23315,6 +23315,336 @@
         }
       }
     },
+    "/api/db/signature_timestamps": {
+      "get": {
+        "tags": ["Projects"],
+        "summary": "Read signature_timestamps",
+        "operationId": "get_signature_timestamps",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["reviews:read"],
+        "description": "GET `signature_timestamps` through PostgREST.\n\nPagination: `limit` and `offset` query parameters.\n\nSort: `order=column.asc` or `column.desc`; repeat `order` for multiple columns.\n\nFilters: `{column}={operator}.{value}` where operator is one of `eq, neq, gt, gte, lt, lte, like, ilike, in, is, cs, cd, ov, fts, plfts, phfts, wfts, not`. Examples: `id=eq.<uuid>`, `kind=eq.experiment`, `status=in.(draft,in-progress)`.\n\nLogic: `and=(status.eq.draft,kind.eq.experiment)` and `or=(...)`.\n\nCount: send header `Prefer: count=exact` (optionally with `Range: 0-0` or `limit=0`) and read the total from `Content-Range`.\n\nColumn selection: `select=id,title`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `signature_timestamps` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SignatureTimestampsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SignatureTimestampsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": ["Projects"],
+        "summary": "Headers for signature_timestamps",
+        "operationId": "head_signature_timestamps",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["reviews:read"],
+        "description": "Same query string and `Prefer` / `Range` headers as GET. Use with `Prefer: count=exact` to obtain `Content-Range` without a body.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `signature_timestamps` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SignatureTimestampsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SignatureTimestampsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/step_timers": {
       "get": {
         "tags": ["Lab"],
@@ -40741,6 +41071,132 @@
         }
       }
     },
+    "/api/db/rpc/request_signature_timestamp": {
+      "post": {
+        "tags": ["Projects"],
+        "summary": "Ask for a signature to be timestamped again",
+        "operationId": "rpc_request_signature_timestamp",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["reviews:write"],
+        "description": "Needs audit access. Queues a signature whose timestamp is missing or gave up; the server asks the service within a minute. A signature already stamped is left as it is.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_signature_id"],
+                "properties": {
+                  "p_signature_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Signature UUID."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of request_signature_timestamp",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "The timestamp record. PostgREST returns a JSON array of composite rows by default.",
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/SignatureTimestampsRow"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SignatureTimestampsRow"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/resolve_sheet_instance_row_identity": {
       "post": {
         "tags": ["Sheets"],
@@ -45376,6 +45832,152 @@
         }
       }
     },
+    "/api/db/rpc/set_timestamp_settings": {
+      "post": {
+        "tags": ["Projects"],
+        "summary": "Choose the time-stamping service",
+        "operationId": "rpc_set_timestamp_settings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["admin:write"],
+        "description": "Needs audit access and a personal token. `dfn` and `digicert` use the services named; `custom` needs the address of an RFC 3161 service. Turning it on sends a fingerprint of each new signature to that service.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_workspace_id", "p_enabled"],
+                "properties": {
+                  "p_workspace_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Workspace UUID."
+                  },
+                  "p_enabled": {
+                    "type": "boolean",
+                    "description": "false stops sending signatures for timestamping."
+                  },
+                  "p_authority": {
+                    "type": "string",
+                    "description": "`dfn`, `digicert` or `custom`.",
+                    "nullable": true
+                  },
+                  "p_url": {
+                    "type": "string",
+                    "description": "The service address, for `custom`.",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of set_timestamp_settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Whether signatures are sent for timestamping."
+                    },
+                    "authority": {
+                      "type": ["string", "null"],
+                      "enum": ["dfn", "digicert", "custom", null]
+                    },
+                    "url": {
+                      "type": ["string", "null"],
+                      "description": "The service address."
+                    }
+                  },
+                  "required": ["enabled"],
+                  "description": "Which time-stamping service the workspace uses."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/snapshot_dataset": {
       "post": {
         "tags": ["Datasets"],
@@ -45966,6 +46568,138 @@
                       }
                     }
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/timestamp_settings": {
+      "post": {
+        "tags": ["Projects"],
+        "summary": "Read the time-stamping service",
+        "operationId": "rpc_timestamp_settings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["admin:read"],
+        "description": "Which independent time-stamping service signatures are sent to for a trusted timestamp, if any. Only a SHA-256 fingerprint of each signature record is sent.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_workspace_id"],
+                "properties": {
+                  "p_workspace_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Workspace UUID."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of timestamp_settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Whether signatures are sent for timestamping."
+                    },
+                    "authority": {
+                      "type": ["string", "null"],
+                      "enum": ["dfn", "digicert", "custom", null]
+                    },
+                    "url": {
+                      "type": ["string", "null"],
+                      "description": "The service address."
+                    }
+                  },
+                  "required": ["enabled"],
+                  "description": "Which time-stamping service the workspace uses."
                 }
               }
             }
@@ -47733,6 +48467,138 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SheetRecordBatchValidateResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/workspace_signing_key": {
+      "post": {
+        "tags": ["Projects"],
+        "summary": "Read the key that signs export bundles",
+        "operationId": "rpc_workspace_signing_key",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["reviews:read"],
+        "description": "The public half of the workspace’s Ed25519 export key and its fingerprint, or null before the first signed bundle is downloaded. Compare the fingerprint with the one inside a bundle.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_workspace_id"],
+                "properties": {
+                  "p_workspace_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Workspace UUID."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of workspace_signing_key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "The key, or null.",
+                  "type": ["object", "null"],
+                  "properties": {
+                    "algorithm": {
+                      "type": "string",
+                      "const": "ed25519"
+                    },
+                    "publicKeyPem": {
+                      "type": "string"
+                    },
+                    "fingerprint": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
                 }
               }
             }
@@ -54738,6 +55604,98 @@
           },
           "created_by_user_id": {
             "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SignatureTimestampsRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`api.signature_timestamps` row (snake_case). The RFC 3161 timestamp an independent time-stamping service issued for a signature. `response_b64` is the service’s answer, which can be checked with openssl without Sheetbase.",
+        "required": [
+          "id",
+          "workspace_id",
+          "signature_id",
+          "revision_id",
+          "status",
+          "attempts",
+          "next_attempt_at",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "signature_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "stamped", "failed"]
+          },
+          "signed_data": {
+            "type": "string",
+            "nullable": true,
+            "description": "The exact bytes the service was shown a digest of."
+          },
+          "imprint_sha256": {
+            "type": "string",
+            "nullable": true
+          },
+          "authority_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "authority_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "response_b64": {
+            "type": "string",
+            "nullable": true,
+            "description": "The service’s DER TimeStampResp, base64."
+          },
+          "gen_time": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "serial": {
+            "type": "string",
+            "nullable": true
+          },
+          "signer": {
+            "type": "string",
+            "nullable": true
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "last_error": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_attempt_at": {
+            "type": "string",
+            "format": "date-time"
           },
           "created_at": {
             "type": "string",

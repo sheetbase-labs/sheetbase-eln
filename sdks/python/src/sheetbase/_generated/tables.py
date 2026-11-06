@@ -98,6 +98,7 @@ from sheetbase._generated.models import (
     SheetInstancesRow,
     ShipmentItemsRow,
     ShipmentsRow,
+    SignatureTimestampsRow,
     StepTimersRow,
     StocktakeItemsRow,
     StocktakesRow,
@@ -1405,6 +1406,24 @@ class AsyncShipmentsTable(AsyncReadableTable[ShipmentsRow]):
     name = "shipments"
 
 
+class SignatureTimestampsTable(ReadableTable[SignatureTimestampsRow]):
+    """
+    ``/api/db/signature_timestamps`` (GET, HEAD).
+
+    Scopes: reviews:read.
+    """
+    name = "signature_timestamps"
+
+
+class AsyncSignatureTimestampsTable(AsyncReadableTable[SignatureTimestampsRow]):
+    """
+    ``/api/db/signature_timestamps`` (GET, HEAD).
+
+    Scopes: reviews:read.
+    """
+    name = "signature_timestamps"
+
+
 class StepTimersTable(ReadableTable[StepTimersRow]):
     """
     ``/api/db/step_timers`` (GET, HEAD).
@@ -1587,6 +1606,7 @@ class Tables:
         "sheet_instances",
         "shipment_items",
         "shipments",
+        "signature_timestamps",
         "step_timers",
         "stocktake_items",
         "stocktakes",
@@ -1666,6 +1686,7 @@ class Tables:
         self.sheet_instances = SheetInstancesTable(transport)
         self.shipment_items = ShipmentItemsTable(transport)
         self.shipments = ShipmentsTable(transport)
+        self.signature_timestamps = SignatureTimestampsTable(transport)
         self.step_timers = StepTimersTable(transport)
         self.stocktake_items = StocktakeItemsTable(transport)
         self.stocktakes = StocktakesTable(transport)
@@ -1756,6 +1777,7 @@ class AsyncTables:
         "sheet_instances",
         "shipment_items",
         "shipments",
+        "signature_timestamps",
         "step_timers",
         "stocktake_items",
         "stocktakes",
@@ -1835,6 +1857,7 @@ class AsyncTables:
         self.sheet_instances = AsyncSheetInstancesTable(transport)
         self.shipment_items = AsyncShipmentItemsTable(transport)
         self.shipments = AsyncShipmentsTable(transport)
+        self.signature_timestamps = AsyncSignatureTimestampsTable(transport)
         self.step_timers = AsyncStepTimersTable(transport)
         self.stocktake_items = AsyncStocktakeItemsTable(transport)
         self.stocktakes = AsyncStocktakesTable(transport)

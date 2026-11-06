@@ -90,6 +90,7 @@ export type CatalogueIntroducedIn =
   | 'lab-01'
   | 'spend-01'
   | 'scim-01'
+  | 'trust-01'
 
 /** Which consumers can observe the event today. */
 export interface EventConsumerMap {
@@ -1541,6 +1542,50 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     notes: 'Payload decision is accepted, declined or completed.',
   },
   {
+    name: 'signature.timestamped',
+    family: 'compliance',
+    summary:
+      'An independent time-stamping service confirmed when a signature was made. The event names the signature and revision; the token is on the signature_timestamps resource.',
+    producer: {
+      entityType: 'signature_timestamp',
+      operation: 'create',
+    },
+    wireName: 'signature.timestamped',
+    status: 'stable',
+    introducedIn: 'trust-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'signature.timestamp_failed',
+    family: 'compliance',
+    summary:
+      'A signature could not be timestamped after six tries. The signature stands; ask for the timestamp again once the service is back.',
+    producer: {
+      entityType: 'signature_timestamp',
+      operation: 'update',
+      when: { key: 'action', equals: 'timestamp-failed' },
+    },
+    wireName: 'signature.timestamp_failed',
+    status: 'stable',
+    introducedIn: 'trust-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'workspace.timestamping.updated',
+    family: 'compliance',
+    summary:
+      'The time-stamping service for signatures was chosen, changed or turned off.',
+    producer: {
+      entityType: 'signature_timestamp',
+      operation: 'update',
+      when: { key: 'action', equals: 'timestamping-set' },
+    },
+    wireName: 'workspace.timestamping.updated',
+    status: 'stable',
+    introducedIn: 'trust-01',
+    consumers: webhookSse,
+  },
+  {
     name: 'legal_hold.created',
     family: 'compliance',
     summary:
@@ -1934,6 +1979,9 @@ export const INTENTIONALLY_EXCLUDED: readonly ExcludedProducer[] =
  * and pipeline pickers. An event not listed is spelled out from its name.
  */
 const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  'signature.timestamped': 'A signature is timestamped',
+  'signature.timestamp_failed': 'A signature’s timestamp gives up',
+  'workspace.timestamping.updated': 'The time-stamping service changes',
   'order.priced': 'An order’s price is set',
   'order.price_removed': 'An order’s price is removed',
   'instrument.rate_set': 'An instrument’s rate is set',

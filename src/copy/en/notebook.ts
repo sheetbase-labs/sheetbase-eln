@@ -155,6 +155,16 @@ export const notebook = {
         applied: 'Handed over',
       },
       mapGroup: { apply: 'Save group', applying: 'Saving…', applied: 'Saved' },
+      setTimestamps: {
+        apply: 'Save timestamps',
+        applying: 'Saving…',
+        applied: 'Saved',
+      },
+      retryTimestamp: {
+        apply: 'Try again',
+        applying: 'Asking…',
+        applied: 'Asked for again',
+      },
       unmapGroup: {
         apply: 'Remove group',
         applying: 'Removing…',

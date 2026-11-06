@@ -158,6 +158,10 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.group_role.set',
   'sheetbase.group_role.remove',
   'sheetbase.scim_token.revoke',
+  // Trusted timestamps: choose the time-stamping service, or ask again for a
+  // signature whose timestamp gave up (assistant-upkeep.ts).
+  'sheetbase.timestamps.set',
+  'sheetbase.timestamps.retry',
   // Running the lab from a card: stocktakes, legal holds, retention, registry
   // entries, sample workflows, result limits, booking rules, timers, repeating
   // work, pooling, solution prep, saved searches, pins and the lab logo

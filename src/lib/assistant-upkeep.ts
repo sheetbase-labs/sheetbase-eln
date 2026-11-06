@@ -28,6 +28,8 @@ export const HANDOVER_TOOL = 'sheetbase.handover.start'
 export const GROUP_ROLE_SET_TOOL = 'sheetbase.group_role.set'
 export const GROUP_ROLE_REMOVE_TOOL = 'sheetbase.group_role.remove'
 export const SCIM_TOKEN_REVOKE_TOOL = 'sheetbase.scim_token.revoke'
+export const TIMESTAMPS_SET_TOOL = 'sheetbase.timestamps.set'
+export const TIMESTAMPS_RETRY_TOOL = 'sheetbase.timestamps.retry'
 
 export const UPKEEP_PROPOSE_TOOL_NAMES = [
   PROJECT_CREATE_TOOL,
@@ -45,6 +47,8 @@ export const UPKEEP_PROPOSE_TOOL_NAMES = [
   GROUP_ROLE_SET_TOOL,
   GROUP_ROLE_REMOVE_TOOL,
   SCIM_TOKEN_REVOKE_TOOL,
+  TIMESTAMPS_SET_TOOL,
+  TIMESTAMPS_RETRY_TOOL,
 ] as const
 
 export type UpkeepProposeToolName = (typeof UPKEEP_PROPOSE_TOOL_NAMES)[number]
@@ -228,6 +232,34 @@ export const proposeHandoverSchema = z
   })
   .strict()
 
+export const proposeTimestampsSetSchema = z
+  .object({
+    title,
+    summary,
+    service: z
+      .enum(['off', 'dfn', 'digicert', 'custom'])
+      .describe(
+        'Which independent time-stamping service confirms when signatures were made, or off to stop.',
+      ),
+    address: z
+      .string()
+      .max(500)
+      .optional()
+      .describe('The service address, only for custom (http:// or https://).'),
+  })
+  .strict()
+
+export const proposeTimestampsRetrySchema = z
+  .object({
+    title,
+    summary,
+    signatureId: z
+      .string()
+      .uuid()
+      .describe('A signature that gave up, from the timestamps list.'),
+  })
+  .strict()
+
 export const proposeGroupRoleSetSchema = z
   .object({
     title,
@@ -339,6 +371,13 @@ export type UpkeepAction =
     }
   | { kind: 'group_role.remove'; mappingId: string }
   | { kind: 'scim_token.revoke'; tokenId: string }
+  | {
+      kind: 'timestamps.set'
+      workspaceId: string
+      service: 'off' | 'dfn' | 'digicert' | 'custom'
+      address: string | null
+    }
+  | { kind: 'timestamps.retry'; signatureId: string }
 
 export type UpkeepActionKind = UpkeepAction['kind']
 
@@ -359,6 +398,8 @@ const KINDS: readonly string[] = [
   'group_role.set',
   'group_role.remove',
   'scim_token.revoke',
+  'timestamps.set',
+  'timestamps.retry',
 ]
 
 export function isUpkeepAction(action: {

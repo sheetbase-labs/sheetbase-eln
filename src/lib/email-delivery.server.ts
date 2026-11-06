@@ -14,7 +14,15 @@ export interface EmailDeliveryRow {
   event_type: string
   subject: string
   body: string
+  /** Files sent with the message (a report's CSV), or null for none. */
+  attachments?: EmailAttachmentFile[] | null
   attempt: number
+}
+
+export interface EmailAttachmentFile {
+  filename: string
+  content: string
+  contentType: string
 }
 
 export interface EmailQuery {
@@ -29,6 +37,7 @@ export interface EmailTransport {
     to: string
     subject: string
     body: string
+    attachments?: EmailAttachmentFile[]
   }) => Promise<void>
 }
 
@@ -61,6 +70,9 @@ export async function processEmailDeliveries(
         to: delivery.to_email,
         subject: delivery.subject,
         body: delivery.body,
+        ...(delivery.attachments?.length
+          ? { attachments: delivery.attachments }
+          : {}),
       })
       await query.query(
         'SELECT internal.finish_email_delivery($1, true, NULL)',
@@ -129,6 +141,11 @@ export async function createSmtpTransport(
         to: message.to,
         subject: message.subject,
         text: message.body,
+        attachments: message.attachments?.map((file) => ({
+          filename: file.filename,
+          content: file.content,
+          contentType: file.contentType,
+        })),
       })
     },
   }

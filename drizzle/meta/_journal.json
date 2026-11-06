@@ -629,6 +629,13 @@
       "when": 1801401237830,
       "tag": "0091_out_of_office",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1801404837830,
+      "tag": "0092_idp_group_roles",
+      "breakpoints": true
     }
   ]
 }

@@ -34,6 +34,8 @@ export const VALID_SCOPES = [
   'pipelines:write',
   'lab:read',
   'lab:write',
+  'facility:read',
+  'facility:write',
   'admin:read',
   'admin:write',
   'people:read',
@@ -133,6 +135,12 @@ export const SCOPE_GROUPS: ReadonlyArray<{
     description: t('settings.apiScopes.labDescription'),
     effective: true,
     scopes: ['lab:read', 'lab:write'],
+  },
+  {
+    title: t('settings.apiScopes.facility'),
+    description: t('settings.apiScopes.facilityDescription'),
+    effective: true,
+    scopes: ['facility:read', 'facility:write'],
   },
   {
     title: t('settings.apiScopes.administrationMcp'),

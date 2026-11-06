@@ -1310,6 +1310,50 @@ const READ_TOOLS: AgentToolEntry[] = [
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_STALE],
   },
   {
+    name: 'sheetbase.spend.report',
+    mode: 'read',
+    description:
+      'What the lab spent on reagent orders in a period: one row per order with supplier, project and price. Totals are per currency. Read-only.',
+    rpc: 'report_spend_lines',
+    via: 'report_spend_lines',
+    capability: {
+      scopes: ['facility:read'],
+      permission: 'project read',
+      actor: 'workspace_actor',
+      note: 'Ordinary canonical read; same RLS as normal clients, so prices only reach people who may see them.',
+    },
+    inputSchema: z
+      .object({
+        workspaceId,
+        from: z.string().datetime().describe('Start of the period, included.'),
+        to: z.string().datetime().describe('End of the period, not included.'),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
+  },
+  {
+    name: 'sheetbase.usage.report',
+    mode: 'read',
+    description:
+      'Instrument bookings in a period: one row per booking with hours clipped to the period and the instrument rate. Read-only.',
+    rpc: 'report_usage_lines',
+    via: 'report_usage_lines',
+    capability: {
+      scopes: ['facility:read'],
+      permission: 'project read',
+      actor: 'workspace_actor',
+      note: 'Ordinary canonical read; same RLS as normal clients, so prices only reach people who may see them.',
+    },
+    inputSchema: z
+      .object({
+        workspaceId,
+        from: z.string().datetime().describe('Start of the period, included.'),
+        to: z.string().datetime().describe('End of the period, not included.'),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
+  },
+  {
     name: 'sheetbase.search',
     mode: 'read',
     description:

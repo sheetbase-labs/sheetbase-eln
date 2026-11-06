@@ -15,10 +15,10 @@ import { GATEWAY_TOOLS } from './ai-gateway'
 const WS = '20000000-0000-4000-8000-000000000001'
 
 describe('agent tool catalogue', () => {
-  it('is bounded: 25 operation tools, 5 lifecycle RPCs, 6 canonical reads', () => {
-    expect(AGENT_TOOL_CATALOGUE).toHaveLength(36)
+  it('is bounded: 25 operation tools, 5 lifecycle RPCs, 8 canonical reads', () => {
+    expect(AGENT_TOOL_CATALOGUE).toHaveLength(38)
     expect(listAgentTools({ mode: 'draft' })).toHaveLength(27)
-    expect(listAgentTools({ mode: 'read' })).toHaveLength(6)
+    expect(listAgentTools({ mode: 'read' })).toHaveLength(8)
     expect(listAgentTools({ mode: 'mutate' })).toHaveLength(3)
   })
 

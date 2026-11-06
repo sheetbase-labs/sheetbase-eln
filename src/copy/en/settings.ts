@@ -2210,6 +2210,9 @@ export const settings = {
     lab: 'Lab operations',
     labDescription:
       'Read reagent orders, stocktakes, shipments, requests, sample workflows, legal holds, instrument feeds and the rest of the lab. Actions such as ordering, receiving and logging run as the person a personal token belongs to.',
+    facility: 'Spend and instrument use',
+    facilityDescription:
+      'Read the supplier list, instrument rates and the spend and usage reports, and (personal tokens only) set prices and rates, mark orders placed and schedule reports. The same permissions apply as for the person.',
     administrationMcp: 'Administration (MCP)',
     people: 'People and continuity',
     peopleDescription:

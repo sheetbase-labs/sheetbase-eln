@@ -1828,6 +1828,8 @@ const FAMILY_GROUPS: Readonly<Record<EventFamily, string>> = Object.freeze({
   notebook: 'Notebooks and reviews',
   sample: 'Samples',
   booking: 'Bookings',
+  order: 'Orders and spend',
+  report: 'Scheduled reports',
   import: 'Data imports',
   approval: 'Approvals',
   storage: 'Storage',

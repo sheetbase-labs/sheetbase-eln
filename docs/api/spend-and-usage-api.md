@@ -1,9 +1,23 @@
 # Spend, instrument usage and scheduled reports API
 
 Everything here goes through the same `/api/db` boundary as the rest of the
-data API, with the caller's credential. PostgreSQL and RLS stay authoritative:
-the same permissions apply as on the pages. These calls are outside the v0.1
-public contract, like the other specialist surfaces.
+data API. PostgreSQL and RLS stay authoritative: the same permissions apply as
+on the pages.
+
+## Credentials and scopes
+
+Two scopes cover this area:
+
+- `facility:read` reads the supplier list and instrument rates (service
+  credentials and personal tokens), and calls the spend, usage and project
+  status reports. Prices and scheduled reports are rows only a person who may
+  see them gets back, so they need a **personal token**.
+- `facility:write` calls the writes below. Each acts as a person (an order is
+  placed, a rate set), so it needs a **personal token** and the person's own
+  permission.
+
+The full request and response shapes are in
+[`openapi/external-api-v0.json`](openapi/external-api-v0.json).
 
 Money is kept per currency. There are no exchange rates, so a lab buying in
 two currencies sees two totals.
@@ -69,7 +83,22 @@ Pass an existing `p_id` to change a schedule. Recipients must be members of the
 workspace, and are checked again at send time. Scheduling needs `schema.edit`,
 or `instrument.manage` for the usage report.
 
-## From pipelines and the assistant
+## Events
+
+Webhooks, live updates and pipeline triggers carry `order.requested`,
+`order.placed`, `order.received`, `order.cancelled`, `order.priced`,
+`order.price_removed`, `instrument.rate_set`, `instrument.rate_removed`,
+`report.schedule.created`, `report.schedule.updated` and
+`report.schedule.deleted`. See the [event catalogue](event-catalogue.md). An
+event never carries a price or a rate amount: read it with the calls above.
+A supplier is an ordinary record, so adding or changing one is a
+`record.created` or `record.updated` event.
+
+## From MCP, pipelines and the assistant
+
+MCP: `sheetbase.spend.report` and `sheetbase.usage.report` (read, needs
+`facility:read`), and `sheetbase.canonical.read` over `supplier_models`,
+`instrument_rates`, `reagent_order_prices` and `scheduled_reports`.
 
 Pipeline actions: `mark_reagent_ordered`, `set_reagent_order_price` and
 `set_instrument_rate` (the same arguments as above).

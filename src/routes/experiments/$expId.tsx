@@ -25,9 +25,7 @@ import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { rich, t } from '#/copy'
-import {
-  useReportFrozen,
-} from '#/components/workspace/workspace-navigation'
+import { useReportFrozen } from '#/components/workspace/workspace-navigation'
 import { hasCapability } from '#/lib/capability'
 import { RecordTitleInput } from '../records/$recordId/-notebook-page'
 import { ExperimentLifecycleActions } from './$expId/-lifecycle-actions'

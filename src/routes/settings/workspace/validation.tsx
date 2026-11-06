@@ -202,7 +202,12 @@ function Validation() {
                       </Status>
                     </TableCell>
                     <TableCell>
-                      <span title={r.detail}>{r.detail}</span>
+                      <span
+                        title={r.detail}
+                        className="block max-w-[44ch] truncate"
+                      >
+                        {r.detail}
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))}

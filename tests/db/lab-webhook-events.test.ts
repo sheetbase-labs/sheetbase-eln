@@ -439,3 +439,21 @@ describe('record assignment', () => {
     })
   })
 })
+
+describe('pipeline triggers', () => {
+  it('accepts every record-family lab event as a trigger', async () => {
+    for (const name of [
+      'request.submitted',
+      'request.decided',
+      'incident.reported',
+      'registry.entry.created',
+      'record.assigned',
+    ]) {
+      const { rows } = await migrator.query(
+        `select api.normalize_pipeline_event_type($1) as name`,
+        [name],
+      )
+      expect(rows[0].name).toBe(name)
+    }
+  })
+})

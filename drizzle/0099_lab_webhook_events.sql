@@ -270,3 +270,53 @@ BEGIN
   END IF;
   RETURN coalesce(cardinality(v_ids), 0);
 END $$;
+
+--> statement-breakpoint
+
+-- Pipelines may be triggered by the lab events that sit in the record family
+-- (PIPELINE_TRIGGER_EVENTS in src/lib/pipeline-schedule.ts).
+CREATE OR REPLACE FUNCTION api.normalize_pipeline_event_type(p_event text) RETURNS text
+    LANGUAGE plpgsql IMMUTABLE
+    SET search_path TO ''
+    AS $$
+BEGIN
+  CASE p_event
+    -- Pre-catalogue name, kept working at the intake boundary.
+    WHEN 'dataset_version_created' THEN RETURN 'dataset.versioned';
+    -- Shipped wire aliases, kept working at the intake boundary.
+    WHEN 'sheet_instance.created' THEN RETURN 'sheet.created';
+    WHEN 'sheet_instance.updated' THEN RETURN 'sheet.updated';
+    WHEN 'sheet_instance.archived' THEN RETURN 'sheet.archived';
+    WHEN 'sheet_instance.restored' THEN RETURN 'sheet.restored';
+    WHEN 'sheet_definition.created' THEN RETURN 'sheet.definition.created';
+    WHEN 'sheet_definition.updated' THEN RETURN 'sheet.definition.updated';
+    WHEN 'sheet_definition.versioned' THEN RETURN 'sheet.definition.versioned';
+    WHEN 'notebook_template.created' THEN RETURN 'notebook.template.created';
+    WHEN 'notebook_template.updated' THEN RETURN 'notebook.template.updated';
+    WHEN 'notebook_template.versioned' THEN RETURN 'notebook.template.versioned';
+    ELSE
+      -- Canonical triggerable set: stable catalogue entries with a producer
+      -- in the record/dataset/sheet/notebook families. Mirrors
+      -- PIPELINE_TRIGGER_EVENTS in src/lib/pipeline-schedule.ts.
+      IF p_event IN (
+        'record.created', 'record.updated', 'record.moved',
+        'record.deleted', 'record.archived', 'record.restored',
+        'dataset.created', 'dataset.updated',
+        'dataset.archived', 'dataset.restored',
+        'dataset.versioned',
+        'sheet.created', 'sheet.updated',
+        'sheet.archived', 'sheet.restored',
+        'sheet.definition.created', 'sheet.definition.updated',
+        'sheet.definition.versioned',
+        'notebook.submitted', 'review.decided', 'notebook.signed',
+        'notebook.template.created', 'notebook.template.updated',
+        'notebook.template.versioned',
+        -- Lab features in the record family.
+        'request.submitted', 'request.decided', 'incident.reported',
+        'registry.entry.created', 'record.assigned'
+      ) THEN
+        RETURN p_event;
+      END IF;
+      RAISE EXCEPTION 'unsupported event trigger' USING ERRCODE = 'SB034';
+  END CASE;
+END $$;

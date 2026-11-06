@@ -117,6 +117,7 @@ import { formatDate } from '#/lib/format-date'
 import { useListView } from '#/lib/list-views'
 import { useBulkSelection } from '#/components/inventory/bulk-selection'
 import { RecordBulkBar } from '#/components/inventory/record-bulk-bar'
+import { SpendReportPanel } from '#/components/materials/spend-report'
 import { t } from '#/copy'
 
 const MATERIAL_MODEL = requireBuiltInModel('material')
@@ -128,6 +129,7 @@ const tabs = [
   'expired',
   'archived',
   'orders',
+  'spend',
 ] as const
 
 /** Today as a date input states it — the local calendar day, because that is
@@ -183,6 +185,7 @@ const tabLabel: Record<MaterialTab, string> = {
   expired: 'Expired',
   archived: t('library.materials.page.archived'),
   orders: t('library.materials.orders.tab'),
+  spend: t('spend.spendReport.tab'),
 }
 
 /** UI port (roadmap-4/ui-app3): the materials registry list, wired to real
@@ -209,7 +212,13 @@ function MaterialsList() {
     (row) => reagentPath(row.uuid),
     (row) => row.name,
   )
-  const tab: MaterialTab = search.tab ?? 'instock'
+  // Spend shows prices, which only the people who place orders can read.
+  const tab: MaterialTab =
+    search.tab === 'spend' && !canPlaceOrders
+      ? 'instock'
+      : (search.tab ?? 'instock')
+  // Orders and Spend are panels of their own, not lists of lots.
+  const panelTab = tab === 'orders' || tab === 'spend'
   const page = useReagentPage()
   const archivedPage = useReagentPage(undefined, true, tab === 'archived')
   const archivedCount = useArchivedReagentCount()
@@ -260,9 +269,11 @@ function MaterialsList() {
         ? (orders.data ?? []).filter(
             (o) => o.status === 'requested' || o.status === 'ordered',
           ).length
-        : item === 'archived'
-          ? (archivedCount.data ?? 0)
-          : rows.filter((r) => inTab(r, item)).length,
+        : item === 'spend'
+          ? 0
+          : item === 'archived'
+            ? (archivedCount.data ?? 0)
+            : rows.filter((r) => inTab(r, item)).length,
     ]),
   ) as Record<MaterialTab, number>
   const q = (search.q ?? '').trim().toLowerCase()
@@ -647,33 +658,39 @@ function MaterialsList() {
               mode="url"
               label={t('library.materials.page.materialLists')}
               value={tab}
-              items={tabs.map((item) => ({
-                key: item,
-                label: tabLabel[item],
-                count: (
-                  item === 'orders'
-                    ? orders.isPending
-                    : item === 'archived'
-                      ? archivedCount.isPending
-                      : page.isPending
-                )
-                  ? undefined
-                  : counts[item],
-                link: {
-                  to: '/materials',
-                  search: {
-                    tab: item === 'instock' ? undefined : item,
-                    q: search.q ?? '',
+              items={tabs
+                .filter((item) => item !== 'spend' || canPlaceOrders)
+                .map((item) => ({
+                  key: item,
+                  label: tabLabel[item],
+                  count:
+                    item === 'spend'
+                      ? undefined
+                      : (
+                            item === 'orders'
+                              ? orders.isPending
+                              : item === 'archived'
+                                ? archivedCount.isPending
+                                : page.isPending
+                          )
+                        ? undefined
+                        : counts[item],
+                  link: {
+                    to: '/materials',
+                    search: {
+                      tab: item === 'instock' ? undefined : item,
+                      q: search.q ?? '',
+                    },
                   },
-                },
-              }))}
+                }))}
             />
           }
         />
         {tab === 'orders' ? (
           <ReagentOrdersPanel canPlace={canPlaceOrders} canWrite={canWrite} />
         ) : null}
-        {tab !== 'orders' ? (
+        {tab === 'spend' ? <SpendReportPanel /> : null}
+        {!panelTab ? (
           <ListToolbar
             q={search.q}
             label={t('library.materials.page.searchMaterials')}
@@ -687,7 +704,7 @@ function MaterialsList() {
             }
           />
         ) : null}
-        {tab !== 'orders' ? (
+        {!panelTab ? (
           <RecordBulkBar
             selection={bulk}
             kind="material"
@@ -700,7 +717,7 @@ function MaterialsList() {
             }}
           />
         ) : null}
-        {tab !== 'orders' ? (
+        {!panelTab ? (
           <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
             {page.isPending || visible.length > 0 ? (
               <RegistryGrid
@@ -799,7 +816,7 @@ function MaterialsList() {
             ) : null}
           </div>
         ) : null}
-        {tab !== 'orders' ? (
+        {!panelTab ? (
           <ListFooter
             loading={page.isPending}
             right={sel ? '1 selected' : undefined}

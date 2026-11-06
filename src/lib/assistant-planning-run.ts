@@ -57,6 +57,34 @@ export async function runPlanningAction(
         ...(action.note !== null ? { p_note: action.note } : {}),
       })
       return undefined
+    case 'part.add':
+      await client.rpc('create_experiment_part', {
+        p_record_id: action.recordId,
+        p_title: action.title,
+        ...(action.dayOffset !== null
+          ? { p_day_offset: action.dayOffset }
+          : {}),
+      })
+      return undefined
+    case 'part.update':
+      await client.rpc('update_experiment_part', {
+        p_part_id: action.partId,
+        ...(action.title !== null ? { p_title: action.title } : {}),
+        ...(action.dayOffset !== null
+          ? { p_day_offset: action.dayOffset }
+          : {}),
+        ...(action.assigneeUserId !== null
+          ? { p_assignee_user_id: action.assigneeUserId }
+          : {}),
+        ...(action.clearAssignee ? { p_clear_assignee: true } : {}),
+      })
+      return undefined
+    case 'part.done':
+      await client.rpc('set_part_done', {
+        p_part_id: action.partId,
+        p_done: action.done,
+      })
+      return undefined
     case 'step.result':
       await client.rpc('add_step_result', {
         p_block_id: action.blockId,

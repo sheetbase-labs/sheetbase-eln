@@ -18,6 +18,7 @@ import type { ManifestLine } from './shipments'
 export const INBOX_READ_TOOL = 'sheetbase.inbox.read'
 export const STEPS_READ_TOOL = 'sheetbase.steps.read'
 export const SERIES_READ_TOOL = 'sheetbase.series.read'
+export const PARTS_READ_TOOL = 'sheetbase.parts.read'
 
 export const EXPERIMENT_START_TOOL = 'sheetbase.experiment.start'
 export const RECORD_ASSIGN_TOOL = 'sheetbase.record.assign'
@@ -30,6 +31,9 @@ export const STEP_DONE_TOOL = 'sheetbase.step.complete'
 export const STEP_RESULT_TOOL = 'sheetbase.step.result'
 export const SERIES_ADD_TOOL = 'sheetbase.series.add_member'
 export const SERIES_REMOVE_TOOL = 'sheetbase.series.remove_member'
+export const PART_ADD_TOOL = 'sheetbase.part.add'
+export const PART_UPDATE_TOOL = 'sheetbase.part.update'
+export const PART_DONE_TOOL = 'sheetbase.part.complete'
 
 export const PLANNING_PROPOSE_TOOL_NAMES = [
   EXPERIMENT_START_TOOL,
@@ -43,6 +47,9 @@ export const PLANNING_PROPOSE_TOOL_NAMES = [
   STEP_RESULT_TOOL,
   SERIES_ADD_TOOL,
   SERIES_REMOVE_TOOL,
+  PART_ADD_TOOL,
+  PART_UPDATE_TOOL,
+  PART_DONE_TOOL,
 ] as const
 
 export type PlanningProposeToolName =
@@ -95,6 +102,72 @@ export const proposeSeriesRemoveSchema = z
     experiment: named(
       'The experiment to take out of its series, by identifier or title.',
     ),
+  })
+  .strict()
+
+export const partsReadSchema = z
+  .object({
+    record: named('The experiment by identifier (EXP-12) or title.'),
+  })
+  .strict()
+
+const partWords = z
+  .string()
+  .min(1)
+  .max(200)
+  .describe(
+    'The part by its number ("3", "part 3") or words from its title ("dose"). Leave out for the current part.',
+  )
+  .optional()
+
+export const proposePartAddSchema = z
+  .object({
+    title,
+    summary,
+    record: named('The experiment by identifier (EXP-12) or title.'),
+    part: z.string().min(1).max(200).describe('The title of the new part.'),
+    day: z
+      .number()
+      .int()
+      .min(0)
+      .max(3650)
+      .optional()
+      .describe(
+        'The day it falls on, counted from the start of the experiment (day 0). Default: the day after the part before.',
+      ),
+  })
+  .strict()
+
+export const proposePartUpdateSchema = z
+  .object({
+    title,
+    summary,
+    record: named('The experiment by identifier (EXP-12) or title.'),
+    part: partWords,
+    newTitle: z.string().min(1).max(200).optional().describe('A new title.'),
+    day: z.number().int().min(0).max(3650).optional(),
+    assignee: named('The person who does it, by name.').optional(),
+    unassign: z
+      .boolean()
+      .optional()
+      .describe(
+        'true to clear who does it: the experiment owner is told instead.',
+      ),
+  })
+  .strict()
+
+export const proposePartDoneSchema = z
+  .object({
+    title,
+    summary,
+    record: named('The experiment by identifier (EXP-12) or title.'),
+    part: partWords,
+    done: z
+      .boolean()
+      .optional()
+      .describe(
+        'false to reopen. Default true. Only for a part with no steps: a part with steps is done when its steps are.',
+      ),
   })
   .strict()
 
@@ -338,6 +411,21 @@ export type PlanningAction =
   | { kind: 'timer.start'; blockId: string; seconds: number | null }
   | { kind: 'step.done'; blockId: string; done: boolean; note: string | null }
   | {
+      kind: 'part.add'
+      recordId: string
+      title: string
+      dayOffset: number | null
+    }
+  | {
+      kind: 'part.update'
+      partId: string
+      title: string | null
+      dayOffset: number | null
+      assigneeUserId: string | null
+      clearAssignee: boolean
+    }
+  | { kind: 'part.done'; partId: string; done: boolean }
+  | {
       kind: 'step.result'
       blockId: string
       label: string
@@ -391,6 +479,9 @@ export function isPlanningAction(action: {
     'step.result',
     'series.add',
     'series.remove',
+    'part.add',
+    'part.update',
+    'part.done',
     'shipment.create',
     'shipment.receive',
   ].includes(action.kind)

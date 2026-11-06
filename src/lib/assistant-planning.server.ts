@@ -4,6 +4,10 @@ import {
   BOOKING_REPEAT_TOOL,
   EXPERIMENT_START_TOOL,
   INBOX_READ_TOOL,
+  PARTS_READ_TOOL,
+  PART_ADD_TOOL,
+  PART_DONE_TOOL,
+  PART_UPDATE_TOOL,
   PLANNING_PROPOSE_TOOL_NAMES,
   RECORD_ASK_TOOL,
   RECORD_ASSIGN_TOOL,
@@ -17,7 +21,11 @@ import {
   STEP_RESULT_TOOL,
   TIMER_START_TOOL,
   inboxReadSchema,
+  partsReadSchema,
   proposeBookingRepeatSchema,
+  proposePartAddSchema,
+  proposePartDoneSchema,
+  proposePartUpdateSchema,
   proposeExperimentStartSchema,
   proposeRecordAskSchema,
   proposeRecordAssignSchema,
@@ -79,6 +87,10 @@ export function isSeriesReadTool(name: string): boolean {
   return name === SERIES_READ_TOOL
 }
 
+export function isPartsReadTool(name: string): boolean {
+  return name === PARTS_READ_TOOL
+}
+
 export function isPlanningProposalTool(
   name: string,
 ): name is PlanningProposeToolName {
@@ -122,6 +134,16 @@ export function seriesToolDefs(): ProviderToolDef[] {
       SERIES_READ_TOOL,
       'Read a series of experiments: its members in order with each one’s status, owner, planned day and steps done, how many are approved, which is next due and how many samples there are across them. Give the series or any experiment in it. Use it for "how is the cell assay series going" or "which series is EXP-0145 in".',
       seriesReadSchema,
+    ),
+  ]
+}
+
+export function partsToolDefs(): ProviderToolDef[] {
+  return [
+    toolDef(
+      PARTS_READ_TOOL,
+      'Read the parts of an experiment that runs over several days: each part’s day and date, who does it, whether it is done, current or later, and its steps. Use it for "which part are we on" or "when is part 4".',
+      partsReadSchema,
     ),
   ]
 }
@@ -174,6 +196,20 @@ export function planningProposalDefs(): ProviderToolDef[] {
       SERIES_REMOVE_TOOL,
       `Propose taking an experiment out of the series it is in. The experiment itself is not changed. ${note}`,
       proposeSeriesRemoveSchema,
+    ),
+      PART_ADD_TOOL,
+      `Propose adding a part (a day or stage) to an experiment, after its last part. ${note}`,
+      proposePartAddSchema,
+    ),
+    toolDef(
+      PART_UPDATE_TOOL,
+      `Propose changing a part of an experiment: its title, its day or who does it. With no part named it is the current part. ${note}`,
+      proposePartUpdateSchema,
+    ),
+    toolDef(
+      PART_DONE_TOOL,
+      `Propose marking a part that has no steps as done, or reopening it. With no part named it is the current part. ${note}`,
+      proposePartDoneSchema,
     ),
     toolDef(
       SHIPMENT_SEND_TOOL,
@@ -444,6 +480,127 @@ export async function readSeries(
     }
   } catch {
     return { text: 'The series could not be read just now.', isError: true }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The parts of an experiment.
+// ---------------------------------------------------------------------------
+
+interface PartRow {
+  part_id: string
+  part_number: number
+  title: string
+  day_offset: number
+  due_on: string | null
+  assignee_user_id: string | null
+  status: 'done' | 'now' | 'later'
+  is_current: boolean
+  opened_at: string | null
+  completed_at: string | null
+  completed_by_user_id: string | null
+  step_count: number
+  steps_done: number
+  block_count: number
+  result_count: number
+}
+
+const partLabel = (row: PartRow) =>
+  `Part ${row.part_number}: ${row.title.slice(0, 80)}`
+
+function partRows(client: DataClient, recordId: string): Promise<PartRow[]> {
+  return client.rpc<PartRow[]>('record_parts', { p_record_id: recordId })
+}
+
+/** The part the person means: a number, words from its title, or else the current one. */
+function pickPart(
+  rows: readonly PartRow[],
+  words: string | undefined,
+  recordName: string,
+): Lookup<PartRow> {
+  if (rows.length === 0) {
+    return {
+      ok: false,
+      message: `${recordName} has no parts. Tell the person.`,
+    }
+  }
+  const text = (words ?? '').trim().toLowerCase()
+  if (!text) {
+    const current = rows.find((row) => row.is_current)
+    return current
+      ? { ok: true, value: current }
+      : {
+          ok: false,
+          message: `Every part of ${recordName} is already done. Tell the person.`,
+        }
+  }
+  const number = /^(?:part\s*)?(\d{1,3})$/.exec(text)
+  if (number) {
+    const row = rows.find((part) => part.part_number === Number(number[1]))
+    if (row) return { ok: true, value: row }
+  }
+  const wanted = text.split(/\s+/).filter(Boolean)
+  const matches = rows.filter((row) =>
+    wanted.every((word) => row.title.toLowerCase().includes(word)),
+  )
+  if (matches.length === 1) return { ok: true, value: matches[0] }
+  const list = (list: readonly PartRow[]) =>
+    list.slice(0, 8).map(partLabel).join('; ')
+  return matches.length === 0
+    ? {
+        ok: false,
+        message: `No part of ${recordName} matches "${words}". Its parts are: ${list(rows)}.`,
+      }
+    : {
+        ok: false,
+        message: `More than one part fits: ${list(matches)}. Ask the person which one.`,
+      }
+}
+
+export async function readParts(
+  args: unknown,
+  context: LabToolContext,
+): Promise<{ text: string; isError: boolean }> {
+  const parsed = partsReadSchema.safeParse(args)
+  if (!parsed.success) return { text: invalid(parsed.error), isError: true }
+  const record = await findRecord(context.client, parsed.data.record)
+  if (!record.ok) return { text: record.message, isError: true }
+  let rows: PartRow[]
+  try {
+    rows = await partRows(context.client, record.value.id)
+  } catch {
+    return { text: 'The parts could not be read just now.', isError: true }
+  }
+  const names = await memberNames(context.client).catch(
+    () => new Map<string, string>(),
+  )
+  const who = (id: string | null) => (id ? (names.get(id) ?? null) : null)
+  return {
+    text: JSON.stringify({
+      experiment: recordTarget(record.value),
+      partsDone: rows.filter((row) => row.status === 'done').length,
+      partCount: rows.length,
+      parts: rows.map((row) => ({
+        number: row.part_number,
+        title: row.title,
+        day: row.day_offset + 1,
+        date: row.due_on,
+        status: row.status,
+        current: row.is_current,
+        doneBy: who(row.completed_by_user_id),
+        doneAt: row.completed_at,
+        assignee: who(row.assignee_user_id),
+        steps: row.step_count,
+        stepsDone: row.steps_done,
+        results: row.result_count,
+      })),
+      open: recordLink(record.value.id),
+      note:
+        rows.length === 0
+          ? 'This experiment is a single page with no parts.'
+          : 'Day 1 is the day the experiment started. A part with steps is done when its steps are.',
+    }),
+    isError: false,
   }
 }
 
@@ -987,6 +1144,165 @@ export async function buildPlanningProposal(
             blockId: step.value.block_id,
             done: !reopen,
             note: input.note ?? null,
+          },
+        },
+      }
+    }
+    case PART_ADD_TOOL: {
+      const parsed = proposePartAddSchema.safeParse(args)
+      if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
+      const input = parsed.data
+      const record = await findRecord(client, input.record)
+      if (!record.ok) return record
+      const changes: { label: string; before: string | null; after: string }[] =
+        [{ label: 'New part', before: null, after: input.part }]
+      if (input.day !== undefined) {
+        changes.push({
+          label: 'Day',
+          before: null,
+          after: String(input.day + 1),
+        })
+      }
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: recordTarget(record.value),
+          deepLink: recordLink(record.value.id),
+          changes,
+          action: {
+            kind: 'part.add',
+            recordId: record.value.id,
+            title: input.part,
+            dayOffset: input.day ?? null,
+          },
+        },
+      }
+    }
+    case PART_UPDATE_TOOL: {
+      const parsed = proposePartUpdateSchema.safeParse(args)
+      if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
+      const input = parsed.data
+      if (
+        input.newTitle === undefined &&
+        input.day === undefined &&
+        input.assignee === undefined &&
+        !input.unassign
+      ) {
+        return {
+          ok: false,
+          message: 'Nothing to change. Ask the person what to change.',
+        }
+      }
+      const record = await findRecord(client, input.record)
+      if (!record.ok) return record
+      const part = pickPart(
+        await partRows(client, record.value.id),
+        input.part,
+        recordTarget(record.value),
+      )
+      if (!part.ok) return part
+      const members = await memberNames(client).catch(
+        () => new Map<string, string>(),
+      )
+      const changes: { label: string; before: string | null; after: string }[] =
+        [{ label: 'Part', before: null, after: partLabel(part.value) }]
+      if (input.newTitle !== undefined) {
+        changes.push({
+          label: 'Title',
+          before: part.value.title,
+          after: input.newTitle,
+        })
+      }
+      if (input.day !== undefined) {
+        changes.push({
+          label: 'Day',
+          before: String(part.value.day_offset + 1),
+          after: String(input.day + 1),
+        })
+      }
+      let assigneeUserId: string | null = null
+      if (input.assignee !== undefined) {
+        const person = await findPerson(client, input.assignee)
+        if (!person.ok) return person
+        assigneeUserId = person.value.id
+        changes.push({
+          label: 'Done by',
+          before: part.value.assignee_user_id
+            ? (members.get(part.value.assignee_user_id) ?? 'Someone')
+            : 'No one',
+          after: person.value.name,
+        })
+      } else if (input.unassign) {
+        changes.push({
+          label: 'Done by',
+          before: part.value.assignee_user_id
+            ? (members.get(part.value.assignee_user_id) ?? 'Someone')
+            : 'No one',
+          after: 'No one',
+        })
+      }
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: recordTarget(record.value),
+          deepLink: recordLink(record.value.id),
+          changes,
+          action: {
+            kind: 'part.update',
+            partId: part.value.part_id,
+            title: input.newTitle ?? null,
+            dayOffset: input.day ?? null,
+            assigneeUserId,
+            clearAssignee: assigneeUserId === null && input.unassign === true,
+          },
+        },
+      }
+    }
+    case PART_DONE_TOOL: {
+      const parsed = proposePartDoneSchema.safeParse(args)
+      if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
+      const input = parsed.data
+      const record = await findRecord(client, input.record)
+      if (!record.ok) return record
+      const part = pickPart(
+        await partRows(client, record.value.id),
+        input.part,
+        recordTarget(record.value),
+      )
+      if (!part.ok) return part
+      if (part.value.step_count > 0) {
+        return {
+          ok: false,
+          message: `${partLabel(part.value)} has steps, so it is done when its steps are. Use the step tool instead.`,
+        }
+      }
+      const reopen = input.done === false
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: recordTarget(record.value),
+          deepLink: recordLink(record.value.id),
+          changes: [
+            { label: 'Part', before: null, after: partLabel(part.value) },
+            {
+              label: 'Status',
+              before: part.value.status === 'done' ? 'Done' : 'Not done',
+              after: reopen ? 'Reopened' : 'Done',
+            },
+          ],
+          action: {
+            kind: 'part.done',
+            partId: part.value.part_id,
+            done: !reopen,
           },
         },
       }

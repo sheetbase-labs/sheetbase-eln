@@ -335,6 +335,8 @@ export const workspaceMemberships = api.table(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     role: text('role').notNull(),
+    /** 'idp' when sign-in groups decide the role; 'manual' once set by hand. */
+    roleSource: text('role_source').notNull().default('manual'),
     /**
      * ADR-0049 (client users): when the role is `client_viewer`, the client
      * whose portal this person belongs to. Null for internal members.
@@ -10718,4 +10720,32 @@ export const pipelineRunOutputsRelations = relations(
       references: [pipelineRuns.id],
     }),
   }),
+)
+
+/**
+ * Migration 0092: which sign-in group gives which role. Roles follow a
+ * person's groups each time they sign in through the identity provider.
+ */
+export const idpGroupMappings = api.table(
+  'idp_group_mappings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    groupName: text('group_name').notNull(),
+    role: text('role').notNull(),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_idp_group_mappings_role',
+      sql`${table.role} IN ('admin', 'steward', 'scientist', 'analyst', 'reviewer', 'viewer')`,
+    ),
+  ],
 )

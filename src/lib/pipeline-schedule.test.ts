@@ -119,7 +119,7 @@ describe('PIPELINE_TRIGGER_EVENTS', () => {
         ['record', 'dataset', 'sheet', 'notebook'].includes(entry.family),
     ).map((entry) => entry.name)
     expect([...PIPELINE_TRIGGER_EVENTS].sort()).toEqual(expected.sort())
-    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(24)
+    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(29)
   })
 
   it('normalizes every triggerable name to itself', () => {

@@ -320,6 +320,36 @@ describe('EXP-02.4 ExperimentOverview', () => {
     ).toBeNull()
   })
 
+  it('leads key results with the notebook metrics and conclusion', () => {
+    render(
+      <ExperimentOverview
+        {...baseProps()}
+        blocks={[
+          ...BLOCKS,
+          {
+            id: 'metric-1',
+            type: 'metric',
+            payload: {
+              label: 'Peak cell density',
+              value: '43.3',
+              unit: 'x 10^6/mL',
+              provenance: 'mean of three replicates',
+            },
+          },
+          {
+            id: 'conclusion-1',
+            type: 'conclusion',
+            payload: { text: 'Doubling at 72 h.', verdict: 'supported' },
+          },
+        ]}
+      />,
+    )
+
+    expect(screen.getByText('Peak cell density')).toBeDefined()
+    expect(screen.getByText('43.3')).toBeDefined()
+    expect(screen.getByText('Doubling at 72 h.')).toBeDefined()
+  })
+
   it('names an absent fact rather than faking it', () => {
     render(
       <ExperimentOverview

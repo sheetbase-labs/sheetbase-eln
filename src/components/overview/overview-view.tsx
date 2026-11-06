@@ -37,6 +37,7 @@ import { formatDate } from '#/lib/format-date'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { withReopen } from '#/lib/return-to'
 import { t } from '#/copy'
+import { keyResultsFrom } from './key-results'
 import { protocolStepProgress, readinessItems } from './readiness'
 import { stepProgress } from '#/lib/step-status'
 import type {
@@ -263,6 +264,7 @@ export function ExperimentOverview({
     record.status,
   )
 
+  const { metrics, conclusions } = keyResultsFrom(blocks)
   const protocolLinks = links.filter((link) => link.linkType === 'protocol')
   // A produced dataset is linked by identifier, and the dataset row is not
   // always addressable (`target_record_id` is null for seeded links). The
@@ -472,6 +474,59 @@ export function ExperimentOverview({
           title={t('projects.overview.results.title')}
           action={<Muted>{t('projects.overview.results.preliminary')}</Muted>}
         >
+          {metrics.length || conclusions.length ? (
+            <div className="mb-4 flex flex-col gap-4" data-key-results>
+              {metrics.length ? (
+                <ul className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 p-0">
+                  {metrics.map((metric) => (
+                    <li
+                      key={metric.id}
+                      className="flex flex-col gap-0.5 rounded-md border border-border bg-surface px-3 py-2.5"
+                    >
+                      <span className="text-label text-fg-muted">
+                        {metric.label}
+                      </span>
+                      <span className="text-title tabular-nums">
+                        {metric.value}
+                        {metric.unit ? (
+                          <span className="ml-1 text-label font-normal text-fg-muted">
+                            {metric.unit}
+                          </span>
+                        ) : null}
+                      </span>
+                      {metric.provenance ? (
+                        <span className="text-label text-fg-muted">
+                          {metric.provenance}
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {conclusions.map((conclusion) => (
+                <div
+                  key={conclusion.id}
+                  className="flex max-w-[680px] flex-col gap-1"
+                >
+                  <p className="m-0 text-prose">
+                    {conclusion.verdict ? (
+                      <span className="mr-2 text-label font-medium capitalize text-fg-muted">
+                        {conclusion.verdict}
+                      </span>
+                    ) : null}
+                    {conclusion.text}
+                  </p>
+                  {conclusion.basis ? (
+                    <p className="m-0 text-label text-fg-muted">
+                      {t('projects.overview.results.basedOn', {
+                        basis: conclusion.basis,
+                      })}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
           {datasetLinks.length || analysisLinks.length ? (
             <DescriptionList
               labelWidth={90}
@@ -519,7 +574,7 @@ export function ExperimentOverview({
                   : []),
               ]}
             />
-          ) : (
+          ) : metrics.length || conclusions.length ? null : (
             <Muted>{t('projects.overview.results.none')}</Muted>
           )}
         </Section>

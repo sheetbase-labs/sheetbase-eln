@@ -100,6 +100,8 @@ export interface PaneContextValue {
   reportNewer: (revision: string | undefined) => void
   /** Report that the record on show is frozen by an approved signature. */
   reportFrozen: (frozen: boolean) => void
+  /** Report that the record on show is out for review, so nobody edits it. */
+  reportInReview?: (inReview: boolean) => void
   /** Report that the record this page addresses doesn't exist. */
   reportMissing?: (missing: boolean) => void
   /** Report the row this pane has selected, for panes linked to follow it. */
@@ -136,6 +138,16 @@ export function useReportFrozen(frozen: boolean) {
   useEffect(() => {
     reportFrozen(frozen)
   }, [reportFrozen, frozen])
+}
+
+/** Tell the pane header that the record is out for review, so it reads
+ * "Read-only · in review" rather than "Editing". */
+export function useReportInReview(inReview: boolean) {
+  const { reportInReview } = useContext(PaneContext)
+  useEffect(() => {
+    reportInReview?.(inReview)
+    return () => reportInReview?.(false)
+  }, [reportInReview, inReview])
 }
 
 /**

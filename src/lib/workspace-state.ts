@@ -478,7 +478,7 @@ export type PaneMode =
   | { kind: 'plain' }
   | { kind: 'reviewing' }
   | { kind: 'signed'; revision?: string }
-  | { kind: 'read-only'; revision?: string }
+  | { kind: 'read-only'; revision?: string; inReview?: boolean }
 
 /** The revision an address pins the page to, as the header names it. */
 export function revisionOf(href: string): string | undefined {
@@ -513,6 +513,8 @@ export function paneMode(
   frozen = false,
   /** The record this address names doesn't exist: there is nothing to edit. */
   missing = false,
+  /** The record is out for review: nobody edits until it comes back. */
+  inReview = false,
 ): PaneMode {
   const path = href.split(/[?#]/)[0] ?? ''
   if (missing) return { kind: 'plain' }
@@ -522,6 +524,7 @@ export function paneMode(
     // Only pages with something to edit say so; Home and lists stay quiet.
     if (!EDITABLE_PAGE.test(path)) return { kind: 'plain' }
     if (frozen) return { kind: 'signed' }
+    if (inReview) return { kind: 'read-only', inReview: true }
     return canWrite
       ? { kind: 'editing' }
       : { kind: 'read-only', revision: revisionOf(href) }
@@ -546,6 +549,7 @@ export function modeLabel(mode: PaneMode): string {
         ? t('projects.workspaceState.signedAt', { revision: mode.revision })
         : t('projects.workspaceState.signed')
     case 'read-only':
+      if (mode.inReview) return t('projects.workspaceState.readOnlyInReview')
       return mode.revision
         ? t('projects.workspaceState.readOnlyAt', {
             revision: mode.revision,

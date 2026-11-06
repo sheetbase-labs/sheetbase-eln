@@ -20,7 +20,10 @@ import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { rich, t } from '#/copy'
-import { useReportFrozen } from '#/components/workspace/workspace-navigation'
+import {
+  useReportFrozen,
+  useReportInReview,
+} from '#/components/workspace/workspace-navigation'
 import { hasCapability } from '#/lib/capability'
 import { RecordTitleInput } from '../records/$recordId/-notebook-page'
 import { ExperimentLifecycleActions } from './$expId/-lifecycle-actions'
@@ -120,6 +123,7 @@ function ExperimentLayout() {
   )
   const e = record.data
   useReportFrozen(Boolean(e?.locked_at))
+  useReportInReview(e?.status === 'in_review' && !e.locked_at)
   const project = useQuery({
     queryKey: ['ui-port', 'experiment-project', e?.project_id ?? ''],
     queryFn: () =>

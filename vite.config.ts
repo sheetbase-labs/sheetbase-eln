@@ -56,6 +56,12 @@ const config = defineConfig({
     viteReact(),
   ],
   server: {
+    // Browser journeys set this: a transient server error (a request aborted
+    // while the cold dev server compiles) otherwise draws a full-page overlay
+    // that intercepts every click for the rest of the test.
+    hmr: process.env.SHEETBASE_NO_ERROR_OVERLAY
+      ? { overlay: false }
+      : undefined,
     // The Amp orb exposes the dev server through portal hostnames
     // (*.onamp.dev and the e2b.app sandbox host). Allow them so the
     // portal URL can reach Vite without a "Blocked request" error.

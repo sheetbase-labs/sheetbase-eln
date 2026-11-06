@@ -57,6 +57,7 @@ export default defineConfig({
       // in a `SHEETBASE_DEV_AUTH_FREE=true` local `.env.local`.
       env: {
         SHEETBASE_DEV_AUTH_FREE: 'false',
+        SHEETBASE_NO_ERROR_OVERLAY: 'true',
         // Pin the application's notion of now to the design clock so
         // time-dependent surfaces (hold meters, expiry windows, relative dates)
         // render deterministically instead of drifting as real time passes.
@@ -71,6 +72,7 @@ export default defineConfig({
       timeout: 60_000,
       env: {
         SHEETBASE_DEV_AUTH_FREE: 'false',
+        SHEETBASE_NO_ERROR_OVERLAY: 'true',
         VITE_PARITY: 'true',
         BETTER_AUTH_URL: 'http://127.0.0.1:3200',
       },

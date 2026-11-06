@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 
@@ -30,6 +31,12 @@ export interface RecordAction {
 interface RecordActionsValue {
   actions: readonly RecordAction[]
   setActions: (actions: readonly RecordAction[]) => void
+  /** Where the page header shows the notebook's main buttons. */
+  slot: HTMLElement | null
+  setSlot: (slot: HTMLElement | null) => void
+  /** True while the notebook is showing its own main buttons in the slot. */
+  hosted: boolean
+  setHosted: (hosted: boolean) => void
 }
 
 const RecordActionsContext = createContext<RecordActionsValue | null>(null)
@@ -41,7 +48,12 @@ const RecordActionsContext = createContext<RecordActionsValue | null>(null)
  */
 export function RecordActionsProvider({ children }: { children: ReactNode }) {
   const [actions, setActions] = useState<readonly RecordAction[]>([])
-  const value = useMemo(() => ({ actions, setActions }), [actions])
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
+  const [hosted, setHosted] = useState(false)
+  const value = useMemo(
+    () => ({ actions, setActions, slot, setSlot, hosted, setHosted }),
+    [actions, slot, hosted],
+  )
   return (
     <RecordActionsContext.Provider value={value}>
       {children}
@@ -73,6 +85,48 @@ export function useOfferRecordActions(
     return () => setActions([])
   }, [setActions, enabled, key])
   return Boolean(context) && enabled
+}
+
+/**
+ * The place in the page header where the notebook's main buttons (Submit,
+ * Sign) appear, beside the experiment's own next step. On its own above the
+ * notebook a primary button read as if it belonged to the first block.
+ */
+export function RecordMainActionsSlot() {
+  const setSlot = useContext(RecordActionsContext)?.setSlot
+  return <span ref={setSlot} className="contents" data-record-main-actions />
+}
+
+/**
+ * Whether the notebook is open and decides the main buttons itself. When it
+ * is not (another tab is open), the page shows its own way to Submit.
+ */
+export function useRecordMainActionsHosted(): boolean {
+  return useContext(RecordActionsContext)?.hosted ?? false
+}
+
+/**
+ * Shows the notebook's main buttons in the page header when the page has a
+ * slot for them, and in place otherwise. While the header's slot is still
+ * mounting nothing shows, so the buttons never flash above the notebook.
+ */
+export function RecordMainActions({
+  children,
+  enabled,
+}: {
+  children: ReactNode
+  enabled: boolean
+}) {
+  const context = useContext(RecordActionsContext)
+  const setHosted = context?.setHosted
+  const hosting = Boolean(setHosted) && enabled
+  useEffect(() => {
+    if (!setHosted || !hosting) return
+    setHosted(true)
+    return () => setHosted(false)
+  }, [setHosted, hosting])
+  if (!context || !enabled) return <>{children}</>
+  return context.slot ? createPortal(children, context.slot) : null
 }
 
 /** The items for a menu, as links or buttons. */

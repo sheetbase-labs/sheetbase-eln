@@ -118,19 +118,19 @@ export const NOTIFICATION_EVENTS = [
     defaultPush: false,
   },
   {
-    key: 'instrument_booking',
-    label: 'Instrument booking confirmed or changed',
-    group: GROUP_LAB,
-    source: 'notification',
-    defaultEmail: true,
-    defaultPush: true,
-  },
-  {
     key: 'part_reminder',
     label: 'A part of an experiment is due today',
     group: GROUP_DATA,
     source: 'notification',
     defaultEmail: false,
+    defaultPush: true,
+  },
+  {
+    key: 'instrument_booking',
+    label: 'Instrument booking confirmed or changed',
+    group: GROUP_LAB,
+    source: 'notification',
+    defaultEmail: true,
     defaultPush: true,
   },
   {

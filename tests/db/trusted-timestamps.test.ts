@@ -12,6 +12,13 @@ import { createHash } from 'node:crypto'
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { sweepTimestamps } from '../../src/lib/timestamps/stamper.server'
+import { sha256Hex } from '../../src/lib/timestamps/signed-data'
+import {
+  createTestAuthority,
+  opensslAvailable,
+} from '../../src/lib/timestamps/test-authority'
+import { verifyTimestampResponse } from '../../src/lib/timestamps/tsp'
 import { expectDenied, prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS = '00000000-0000-4000-8000-00000000e100'
@@ -256,5 +263,68 @@ describe('export signing key', () => {
       owner.query(`select * from internal.workspace_signing_keys`),
       '42501',
     )
+  })
+})
+
+describe.skipIf(!opensslAvailable)('the sweep', () => {
+  const connect = async () => ({
+    query: migrator.query.bind(migrator) as never,
+    end: async () => {},
+  })
+
+  async function addSignature(meaning: string): Promise<string> {
+    const { rows } = await migrator.query<{ id: string }>(
+      `insert into api.signatures(workspace_id,submission_id,revision_id,record_id,signature_meaning,
+                                  assurance_level,revision_integrity_digest,signer_user_id,
+                                  signer_session_id,signer_role,auth_method,confirmation_phrase,signed_at)
+       select workspace_id,submission_id,revision_id,record_id,$2,'standard',revision_integrity_digest,
+              signer_user_id,'sess-ts','reviewer','password','I confirm',now()
+         from api.signatures where id = $1
+       returning id`,
+      [signatureId, meaning],
+    )
+    return rows[0]!.id
+  }
+
+  it('stamps due signatures through the authority and keeps a verifiable token', async () => {
+    const authority = createTestAuthority()
+    const id = await addSignature('reviewed')
+    const result = await sweepTimestamps({ connect, fetch: authority.fetch })
+    expect(result).toEqual({ stamped: 1, failed: 0 })
+    const { rows } = await migrator.query(
+      `select * from api.signature_timestamps where signature_id = $1`,
+      [id],
+    )
+    const row = rows[0]
+    expect(row.status).toBe('stamped')
+    expect(row.imprint_sha256).toBe(sha256Hex(row.signed_data))
+    expect(JSON.parse(row.signed_data)).toMatchObject({
+      signatureId: id,
+      format: 'sheetbase-signature/1',
+    })
+    const info = verifyTimestampResponse(
+      new Uint8Array(Buffer.from(row.response_b64, 'base64')),
+      { expectedImprintHex: row.imprint_sha256, trustedRoots: [authority.rootPem] },
+    )
+    expect(info.trusted).toBe(true)
+    expect(row.authority_name).toBe('tsa.lab.test')
+    // Nothing left to do.
+    expect(await sweepTimestamps({ connect, fetch: authority.fetch })).toEqual({
+      stamped: 0,
+      failed: 0,
+    })
+  })
+
+  it('records a failure and retries later when the authority is down', async () => {
+    const id = await addSignature('witnessed')
+    const down = (async () => new Response('no', { status: 503 })) as unknown as typeof fetch
+    expect(await sweepTimestamps({ connect, fetch: down })).toEqual({ stamped: 0, failed: 1 })
+    const { rows } = await migrator.query(
+      `select status, attempts, last_error, next_attempt_at > now() as later
+         from api.signature_timestamps where signature_id = $1`,
+      [id],
+    )
+    expect(rows[0]).toMatchObject({ status: 'pending', attempts: 1, later: true })
+    expect(rows[0].last_error).toMatch(/503/)
   })
 })

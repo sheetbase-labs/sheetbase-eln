@@ -706,6 +706,13 @@
       "when": 1801416057830,
       "tag": "0102_spend_writes",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1801416117830,
+      "tag": "0103_current_step",
+      "breakpoints": true
     }
   ]
 }

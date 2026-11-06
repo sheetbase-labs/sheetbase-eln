@@ -441,6 +441,24 @@ const LAB_EVENTS: ReadonlyArray<{
     operation: 'update',
     payload: {},
   },
+  {
+    name: 'step.completed',
+    entityType: 'step_completion',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'step.reopened',
+    entityType: 'step_completion',
+    operation: 'delete',
+    payload: {},
+  },
+  {
+    name: 'step.result_added',
+    entityType: 'step_result',
+    operation: 'create',
+    payload: {},
+  },
 ]
 
 describe('lab feature events', () => {

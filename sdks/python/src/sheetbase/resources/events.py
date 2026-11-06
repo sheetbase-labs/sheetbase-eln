@@ -137,6 +137,9 @@ EVENT_NAMES: tuple[str, ...] = (
     "instrument.reading.out_of_limits",
     "instrument.reading.back_in_range",
     "record.assigned",
+    "step.completed",
+    "step.reopened",
+    "step.result_added",
 )
 
 #: Shipped wire aliases (table-name leaks kept for compatibility) mapped to

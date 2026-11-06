@@ -125,6 +125,7 @@ export function mapTimelineEvents(
     title: event.title,
     actor: {
       name: actorLabel(event.actorUserId, currentUserId, currentUserName),
+      userId: event.actorUserId,
     },
     timestamp: formatRelativeTime(event.ts),
     icon: pickIcon(event),

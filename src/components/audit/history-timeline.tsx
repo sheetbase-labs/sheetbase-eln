@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
+import { Avatar } from '#/components/ui/avatar'
 import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
 import {
@@ -119,6 +120,8 @@ export interface HistoryEntry {
   readonly dateTime?: string
   /** Who did it; shown before the time. */
   readonly actor?: string
+  /** The actor's user id, so their profile photo shows beside the name. */
+  readonly actorUserId?: string | null
   /** What it acted on; shown after the time. */
   readonly detail?: string
   /** Before → after facts, rendered as `ChangeChip`s. */
@@ -256,7 +259,20 @@ function HistoryRow({ entry, step }: { entry: HistoryEntry; step: number }) {
           {entry.badge}
         </TimelineTitle>
         <p className="truncate text-xs text-fg-muted">
-          {entry.actor ? `${entry.actor} · ` : null}
+          {entry.actor ? (
+            <>
+              {entry.actorUserId ? (
+                <Avatar
+                  userId={entry.actorUserId}
+                  name={entry.actor}
+                  size="xs"
+                  aria-hidden
+                  className="mr-1 align-middle"
+                />
+              ) : null}
+              {`${entry.actor} · `}
+            </>
+          ) : null}
           {entry.dateTime ? (
             <time dateTime={entry.dateTime}>{entry.time}</time>
           ) : (

@@ -3,6 +3,7 @@ import * as React from 'react'
 
 import { activeMention, insertMention, matchMentions } from '#/lib/mentions'
 import type { MentionCandidate } from '#/lib/mentions'
+import { Person } from '#/components/ui/person'
 import { cn } from '#/lib/utils'
 
 /**
@@ -124,7 +125,7 @@ export function MentionTextarea({
                 choose(candidate)
               }}
             >
-              {candidate.name}
+              <Person userId={candidate.userId} name={candidate.name} />
             </li>
           ))}
         </ul>

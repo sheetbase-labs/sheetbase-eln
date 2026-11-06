@@ -1,3 +1,4 @@
+import { Person } from '#/components/ui/person'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { useId, useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
@@ -406,7 +407,11 @@ function Members() {
       header: 'Name',
       cell: ({ row }) => (
         <>
-          {names.userLabel(row.original.userId)}
+          <Person
+            userId={row.original.userId}
+            name={names.userLabel(row.original.userId)}
+            className="mr-1.5 align-middle"
+          />
           {row.original.userId === context.user.id ? (
             <span className="text-fg-muted">{t('settings.members.you')}</span>
           ) : null}

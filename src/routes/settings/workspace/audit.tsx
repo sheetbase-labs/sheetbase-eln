@@ -1,3 +1,4 @@
+import { Person } from '#/components/ui/person'
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
@@ -297,7 +298,13 @@ function Audit() {
       >
         {formatDate(r.createdAt, { time: true })}
       </TableCell>
-      <TableCell>{actorLabel(r)}</TableCell>
+      <TableCell>
+        {r.actorUserId && !r.actorCredentialId ? (
+          <Person userId={r.actorUserId} name={actorLabel(r)} />
+        ) : (
+          actorLabel(r)
+        )}
+      </TableCell>
       <TableCell>{operationLabel(r.operation)}</TableCell>
       <TableCell>{entityLabel(r.entityType)}</TableCell>
       <TableCell className="max-w-[240px] whitespace-normal text-fg-muted">

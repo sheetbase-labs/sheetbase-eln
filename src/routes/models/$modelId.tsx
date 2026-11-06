@@ -1,4 +1,5 @@
 import { RegistrySettingsDialog } from '#/components/registry/registry-settings'
+import { SupplierListDialog } from '#/components/materials/supplier-list'
 import { ModelQualityDialog } from '#/components/results/model-quality-dialog'
 import { useQualityOptions } from '#/lib/result-quality'
 import { RequestSettingsDialog } from '#/components/requests/request-settings'
@@ -295,6 +296,7 @@ function RecordModelLayout({
   const [subtypeOpen, setSubtypeOpen] = useState(false)
   const [basedOnOpen, setBasedOnOpen] = useState(false)
   const [registryOpen, setRegistryOpen] = useState(false)
+  const [suppliersOpen, setSuppliersOpen] = useState(false)
   const [qualityOpen, setQualityOpen] = useState(false)
   const quality = useQualityOptions(workspaceId ?? undefined)
   const [requestsOpen, setRequestsOpen] = useState(false)
@@ -365,6 +367,9 @@ function RecordModelLayout({
                     {m.is_registry
                       ? t('registry.settings.buttonOn')
                       : t('registry.settings.button')}
+                  </Button>
+                  <Button onClick={() => setSuppliersOpen(true)}>
+                    {t('spend.suppliers.listDialog.button')}
                   </Button>
                   <Button onClick={() => setQualityOpen(true)}>
                     {t('quality.limits.button')}
@@ -470,6 +475,13 @@ function RecordModelLayout({
             open
             onOpenChange={setRequestsOpen}
             model={m}
+          />
+        ) : null}
+        {suppliersOpen ? (
+          <SupplierListDialog
+            open
+            onOpenChange={setSuppliersOpen}
+            modelKey={m.key}
           />
         ) : null}
         {registryOpen ? (

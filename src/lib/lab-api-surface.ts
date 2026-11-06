@@ -193,6 +193,8 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_object_kind:
     '`instrument`, `pipeline`, `analysis`, `record` and the other pinnable kinds.',
   p_object_id: 'Id of the object.',
+  p_from: 'First day (YYYY-MM-DD).',
+  p_to: 'Day to stop before (YYYY-MM-DD).',
   p_part_id: 'The part of the experiment.',
   p_link_id: 'The link between two records.',
   p_day_offset:
@@ -1121,6 +1123,19 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
     params: [['p_record_id', 'uuid', 1]],
     result:
       'rows:part_id=uuid,part_number=int,title=text,day_offset=int,due_on=date,assignee_user_id=text,status=text,is_current=bool,opened_at=ts,completed_at=ts,completed_by_user_id=text,step_count=int,steps_done=int,block_count=int,result_count=int',
+  },
+  parts_in_range: {
+    summary:
+      'List the parts of running experiments that fall in a range of days',
+    description:
+      'Parts of experiments that are in progress or returned, whose day falls from `p_from` up to (not including) `p_to`, in date order. `due_on` is the day. `status` is `done`, `now` or `later`. At most 500 rows.',
+    scope: 'lab:read',
+    params: [
+      ['p_from', 'date', 1],
+      ['p_to', 'date', 1],
+    ],
+    result:
+      'rows:part_id=uuid,record_id=uuid,identifier=text,record_title=text,part_number=int,title=text,day_offset=int,due_on=date,assignee_user_id=text,status=text',
   },
   create_experiment_part: {
     summary: 'Add a part to an experiment',

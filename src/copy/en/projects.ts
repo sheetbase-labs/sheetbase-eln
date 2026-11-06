@@ -2745,6 +2745,7 @@ export const projects = {
     bookingsOn: 'Bookings, {day}',
     cancelOrView: 'Cancel or view booking {title}',
     reviewsDue: 'Reviews due',
+    partsDue: 'Experiment parts',
     inbox: 'Inbox',
     nothingDue: 'Nothing due',
     materials: 'Materials for today',

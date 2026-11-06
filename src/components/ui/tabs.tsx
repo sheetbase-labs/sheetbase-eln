@@ -105,7 +105,8 @@ const ACTIVE_DATA: Record<TabVariant, string> = {
 
 /** The strip's own container: the rail for `strip` and `chip`, the control body for `segment`. */
 const LIST: Record<TabVariant, string> = {
-  strip: 'flex gap-5 overflow-x-auto whitespace-nowrap [scrollbar-width:none]',
+  strip:
+    'flex gap-5 max-md:gap-4 overflow-x-auto whitespace-nowrap [scrollbar-width:none]',
   segment:
     'flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-md border border-border bg-surface-muted p-0.5 [scrollbar-width:none]',
   chip: 'flex items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none]',

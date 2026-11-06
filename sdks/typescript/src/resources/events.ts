@@ -89,6 +89,15 @@ export const EVENT_NAMES = [
   "project.access.revoked",
   "workspace.credential.created",
   "workspace.credential.revoked",
+  "member.work_handed_over",
+  "member.absence_set",
+  "member.absence_cancelled",
+  "workspace.group_role.mapped",
+  "workspace.group_role.removed",
+  "workspace.group_role.adopted",
+  "member.role_changed_by_groups",
+  "member.passkey_added",
+  "member.passkey_removed",
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];

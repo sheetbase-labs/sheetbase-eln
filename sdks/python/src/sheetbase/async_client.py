@@ -78,6 +78,7 @@ class AsyncSheetbaseClient:
         self.agent_operations = AsyncAgentOperations(self._transport)
         self.webhooks = AsyncWebhooks(self._transport)
         self.pipelines = AsyncPipelines(self._transport)
+        self.people = AsyncPeople(self._transport)
 
     @property
     def version(self) -> str:
@@ -983,6 +984,97 @@ class AsyncWebhooks:
 
 _SETTLED_STATES = ("succeeded", "failed", "cancelled")
 _UUID_RE = re.compile(r"^[0-9a-f-]{36}$", re.IGNORECASE)
+
+
+class AsyncPeople:
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        self._t = transport
+
+    async def list_absences(
+        self, *, params: Optional[dict[str, Any]] = None
+    ) -> list[dict[str, Any]]:
+        return await self._t.get("/api/db/member_absences", params=params)
+
+    async def list_group_mappings(
+        self, *, params: Optional[dict[str, Any]] = None
+    ) -> list[dict[str, Any]]:
+        return await self._t.get("/api/db/idp_group_mappings", params=params)
+
+    async def preview_handover(self, *, workspace_id: str, user_id: str) -> Any:
+        return await self._t.post(
+            "/api/db/rpc/preview_member_handover",
+            json_body={"p_workspace_id": workspace_id, "p_user_id": user_id},
+        )
+
+    async def hand_over_work(
+        self,
+        *,
+        workspace_id: str,
+        from_user_id: str,
+        to_user_id: str,
+        selection: Sequence[str],
+    ) -> Any:
+        return await self._t.post(
+            "/api/db/rpc/hand_over_member_work",
+            json_body={
+                "p_workspace_id": workspace_id,
+                "p_from_user_id": from_user_id,
+                "p_to_user_id": to_user_id,
+                "p_selection": list(selection),
+            },
+        )
+
+    async def set_absence(
+        self,
+        *,
+        workspace_id: str,
+        starts_on: str,
+        ends_on: str,
+        delegate_user_id: Optional[str] = None,
+        note: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> Any:
+        body: dict[str, Any] = {
+            "p_workspace_id": workspace_id,
+            "p_starts_on": starts_on,
+            "p_ends_on": ends_on,
+            "p_delegate_user_id": delegate_user_id,
+        }
+        if note is not None:
+            body["p_note"] = note
+        if user_id is not None:
+            body["p_user_id"] = user_id
+        return await self._t.post("/api/db/rpc/set_member_absence", json_body=body)
+
+    async def cancel_absence(self, *, absence_id: str) -> Any:
+        return await self._t.post(
+            "/api/db/rpc/cancel_member_absence",
+            json_body={"p_absence_id": absence_id},
+        )
+
+    async def set_group_mapping(
+        self, *, workspace_id: str, group_name: str, role: str
+    ) -> Any:
+        return await self._t.post(
+            "/api/db/rpc/set_idp_group_mapping",
+            json_body={
+                "p_workspace_id": workspace_id,
+                "p_group_name": group_name,
+                "p_role": role,
+            },
+        )
+
+    async def remove_group_mapping(self, *, mapping_id: str) -> Any:
+        return await self._t.post(
+            "/api/db/rpc/remove_idp_group_mapping",
+            json_body={"p_id": mapping_id},
+        )
+
+    async def adopt_group_roles(self, *, workspace_id: str) -> Any:
+        return await self._t.post(
+            "/api/db/rpc/adopt_group_roles",
+            json_body={"p_workspace_id": workspace_id},
+        )
 
 
 class AsyncPipelines:

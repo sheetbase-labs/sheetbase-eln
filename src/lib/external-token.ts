@@ -141,6 +141,8 @@ export interface TableAccess {
  */
 export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   projects: { read: 'projects:read', write: 'projects:write' },
+  member_absences: { read: 'people:read' },
+  idp_group_mappings: { read: 'people:read' },
   folders: { read: 'projects:read' },
   records: { read: 'projects:read', write: 'projects:write' },
   blocks: { read: 'projects:read', write: 'projects:write' },
@@ -185,6 +187,17 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
  * `datasets:*` never includes Dataset Schema Version authoring.
  */
 export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
+  // People and continuity. Personal tokens only; the member's own permissions
+  // still decide (setting someone else's absence or handing over their work
+  // needs members access).
+  preview_member_handover: ['people:read'],
+  hand_over_member_work: ['people:write'],
+  set_member_absence: ['people:write'],
+  cancel_member_absence: ['people:write'],
+  set_idp_group_mapping: ['people:write'],
+  remove_idp_group_mapping: ['people:write'],
+  adopt_group_roles: ['people:write'],
+
   create_project: ['projects:write'],
   create_record: ['projects:write'],
   create_record_with_blocks: ['projects:write'],

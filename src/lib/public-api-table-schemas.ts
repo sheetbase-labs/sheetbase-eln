@@ -38,6 +38,54 @@ function row(
 }
 
 export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
+  member_absences: row(
+    'member_absences',
+    'Out of office: who is away, until when and which colleague covers their reviews.',
+    {
+      id: UUID,
+      workspace_id: UUID,
+      user_id: TEXT,
+      starts_on: { type: 'string', format: 'date' },
+      ends_on: { type: 'string', format: 'date' },
+      delegate_user_id: { ...TEXT, nullable: true },
+      note: { ...TEXT, nullable: true },
+      cancelled_at: { ...TS, nullable: true },
+      created_by_user_id: TEXT,
+      created_at: TS,
+    },
+    [
+      'id',
+      'workspace_id',
+      'user_id',
+      'starts_on',
+      'ends_on',
+      'created_by_user_id',
+      'created_at',
+    ],
+  ),
+  idp_group_mappings: row(
+    'idp_group_mappings',
+    'Which sign-in group (as the identity provider spells it) gives which role.',
+    {
+      id: UUID,
+      workspace_id: UUID,
+      group_name: TEXT,
+      role: {
+        type: 'string',
+        enum: [
+          'admin',
+          'steward',
+          'scientist',
+          'analyst',
+          'reviewer',
+          'viewer',
+        ],
+      },
+      created_by_user_id: { ...TEXT, nullable: true },
+      created_at: TS,
+    },
+    ['id', 'workspace_id', 'group_name', 'role', 'created_at'],
+  ),
   blocks: row(
     'blocks',
     'Optimistic concurrency: `version`.',

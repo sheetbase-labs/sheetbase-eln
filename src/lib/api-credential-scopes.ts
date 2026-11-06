@@ -34,6 +34,8 @@ export const VALID_SCOPES = [
   'pipelines:write',
   'admin:read',
   'admin:write',
+  'people:read',
+  'people:write',
 ] as const
 
 export type Scope = (typeof VALID_SCOPES)[number]
@@ -130,6 +132,13 @@ export const SCOPE_GROUPS: ReadonlyArray<{
     effective: false,
     personalOnly: true,
     scopes: ['admin:read', 'admin:write'],
+  },
+  {
+    title: t('settings.apiScopes.people'),
+    description: t('settings.apiScopes.peopleDescription'),
+    effective: true,
+    personalOnly: true,
+    scopes: ['people:read', 'people:write'],
   },
 ]
 

@@ -65,6 +65,7 @@ export {
   CataloguesResource,
   AgentOperationsResource,
   WebhooksResource,
+  PeopleResource,
   PipelinesResource,
   applyStepSource,
   notebookToPython,

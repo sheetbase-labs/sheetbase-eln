@@ -14,6 +14,7 @@ export type {
   AgentWorkflowUsage,
 } from "./agent-operations.js";
 export { WebhooksResource } from "./webhooks.js";
+export { PeopleResource } from "./people.js";
 export {
   PipelinesResource,
   applyStepSource,

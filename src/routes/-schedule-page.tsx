@@ -1035,11 +1035,11 @@ function PartsDue({
             to="/experiments/$expId/notebook/$part"
             params={{ expId: part.recordId, part: String(part.number) }}
           >
-            <span className="mono text-fg-muted">{part.identifier}</span>{' '}
             {t('notebook.parts.partTitle', {
               number: String(part.number),
               title: part.title,
             })}
+            <span className="text-fg-muted"> · {part.identifier}</span>
           </Link>
           <span
             className={

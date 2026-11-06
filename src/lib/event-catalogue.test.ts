@@ -459,6 +459,18 @@ const LAB_EVENTS: ReadonlyArray<{
     operation: 'create',
     payload: {},
   },
+  {
+    name: 'experiment.series_member_added',
+    entityType: 'experiment_series_member',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'experiment.series_member_removed',
+    entityType: 'experiment_series_member',
+    operation: 'delete',
+    payload: {},
+  },
 ]
 
 describe('lab feature events', () => {

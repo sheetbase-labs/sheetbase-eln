@@ -4127,6 +4127,666 @@
         }
       }
     },
+    "/api/db/experiment_series": {
+      "get": {
+        "tags": ["Lab"],
+        "summary": "Read experiment_series",
+        "operationId": "get_experiment_series",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:read"],
+        "description": "GET `experiment_series` through PostgREST.\n\nPagination: `limit` and `offset` query parameters.\n\nSort: `order=column.asc` or `column.desc`; repeat `order` for multiple columns.\n\nFilters: `{column}={operator}.{value}` where operator is one of `eq, neq, gt, gte, lt, lte, like, ilike, in, is, cs, cd, ov, fts, plfts, phfts, wfts, not`. Examples: `id=eq.<uuid>`, `kind=eq.experiment`, `status=in.(draft,in-progress)`.\n\nLogic: `and=(status.eq.draft,kind.eq.experiment)` and `or=(...)`.\n\nCount: send header `Prefer: count=exact` (optionally with `Range: 0-0` or `limit=0`) and read the total from `Content-Range`.\n\nColumn selection: `select=id,title`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `experiment_series` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExperimentSeriesRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExperimentSeriesRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": ["Lab"],
+        "summary": "Headers for experiment_series",
+        "operationId": "head_experiment_series",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:read"],
+        "description": "Same query string and `Prefer` / `Range` headers as GET. Use with `Prefer: count=exact` to obtain `Content-Range` without a body.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `experiment_series` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExperimentSeriesRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExperimentSeriesRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/experiment_series_members": {
+      "get": {
+        "tags": ["Lab"],
+        "summary": "Read experiment_series_members",
+        "operationId": "get_experiment_series_members",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:read"],
+        "description": "GET `experiment_series_members` through PostgREST.\n\nPagination: `limit` and `offset` query parameters.\n\nSort: `order=column.asc` or `column.desc`; repeat `order` for multiple columns.\n\nFilters: `{column}={operator}.{value}` where operator is one of `eq, neq, gt, gte, lt, lte, like, ilike, in, is, cs, cd, ov, fts, plfts, phfts, wfts, not`. Examples: `id=eq.<uuid>`, `kind=eq.experiment`, `status=in.(draft,in-progress)`.\n\nLogic: `and=(status.eq.draft,kind.eq.experiment)` and `or=(...)`.\n\nCount: send header `Prefer: count=exact` (optionally with `Range: 0-0` or `limit=0`) and read the total from `Content-Range`.\n\nColumn selection: `select=id,title`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `experiment_series_members` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExperimentSeriesMembersRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExperimentSeriesMembersRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": ["Lab"],
+        "summary": "Headers for experiment_series_members",
+        "operationId": "head_experiment_series_members",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:read"],
+        "description": "Same query string and `Prefer` / `Range` headers as GET. Use with `Prefer: count=exact` to obtain `Content-Range` without a body.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `experiment_series_members` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExperimentSeriesMembersRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExperimentSeriesMembersRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/field_spec_limits": {
       "get": {
         "tags": ["Lab"],
@@ -24224,6 +24884,139 @@
         }
       }
     },
+    "/api/db/rpc/add_series_member": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Add an experiment to a series",
+        "operationId": "rpc_add_series_member",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Puts an experiment in a series, at the end unless a position is given, and makes the series if it is not one yet. The experiment keeps its own owner, review and signature and is not changed, even when approved. An experiment is in one series at most and a series cannot sit inside another. Returns the membership.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_series_record_id", "p_member_record_id"],
+                "properties": {
+                  "p_series_record_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The experiment that heads the series."
+                  },
+                  "p_member_record_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The experiment that is, or is to become, a member."
+                  },
+                  "p_position": {
+                    "type": "number",
+                    "description": "Where it sits in the series. Omit for the end."
+                  },
+                  "p_planned_on": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "The day it is planned to run (YYYY-MM-DD). Omit for none."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of add_series_member",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "description": "Add an experiment to a series A JSON object."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/add_step_result": {
       "post": {
         "tags": ["Lab"],
@@ -29714,6 +30507,125 @@
         }
       }
     },
+    "/api/db/rpc/dissolve_experiment_series": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Stop treating an experiment as a series",
+        "operationId": "rpc_dissolve_experiment_series",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Removes the series, which frees its members. Neither the head nor the members are changed otherwise. Sends `experiment.series_member_removed` for each member.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_record_id"],
+                "properties": {
+                  "p_record_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Record id."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of dissolve_experiment_series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "description": "Stop treating an experiment as a series A JSON object."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/duplicate_sheet_instance": {
       "post": {
         "tags": ["Sheets"],
@@ -32698,6 +33610,129 @@
                     }
                   },
                   "required": ["block", "structure_version"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/move_series_member": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Move an experiment within its series",
+        "operationId": "rpc_move_series_member",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Changes where a member sits. Positions are numbers and members are ordered by them; use a number between two neighbours to go between them.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_member_record_id", "p_position"],
+                "properties": {
+                  "p_member_record_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The experiment that is, or is to become, a member."
+                  },
+                  "p_position": {
+                    "type": "number",
+                    "description": "Where it sits in the series. Omit for the end."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of move_series_member",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "description": "Move an experiment within its series A JSON object."
                 }
               }
             }
@@ -35990,6 +37025,163 @@
         }
       }
     },
+    "/api/db/rpc/record_series": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Which series an experiment is in",
+        "operationId": "rpc_record_series",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:read"],
+        "description": "The series an experiment belongs to, where it sits (\"3 of 5\") and the experiments either side of it. No row when it is in no series.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_record_id"],
+                "properties": {
+                  "p_record_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Record id."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of record_series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "series_record_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "series_identifier": {
+                        "type": "string"
+                      },
+                      "series_title": {
+                        "type": "string"
+                      },
+                      "member_number": {
+                        "type": "integer"
+                      },
+                      "member_total": {
+                        "type": "integer"
+                      },
+                      "previous_record_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "previous_identifier": {
+                        "type": "string"
+                      },
+                      "previous_title": {
+                        "type": "string"
+                      },
+                      "next_record_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "next_identifier": {
+                        "type": "string"
+                      },
+                      "next_title": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/record_steps": {
       "post": {
         "tags": ["Lab"],
@@ -36993,6 +38185,125 @@
                   "type": "null",
                   "nullable": true,
                   "description": "No content."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/remove_series_member": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Take an experiment out of its series",
+        "operationId": "rpc_remove_series_member",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Removes an experiment from the series it is in. The experiment is not changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_member_record_id"],
+                "properties": {
+                  "p_member_record_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The experiment that is, or is to become, a member."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of remove_series_member",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "description": "Take an experiment out of its series A JSON object."
                 }
               }
             }
@@ -40109,6 +41420,298 @@
         }
       }
     },
+    "/api/db/rpc/series_members": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "List the experiments in a series",
+        "operationId": "rpc_series_members",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:read"],
+        "description": "The members of a series in order, as you may see them: an experiment you cannot read is left out. Each row has the experiment, its status, owner, reviewer, planned day, steps done out of total and how many samples it links.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_series_record_id"],
+                "properties": {
+                  "p_series_record_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The experiment that heads the series."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of series_members",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "member_record_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "member_number": {
+                        "type": "integer"
+                      },
+                      "position": {
+                        "type": "number"
+                      },
+                      "identifier": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "owner_user_id": {
+                        "type": "string"
+                      },
+                      "reviewer_user_id": {
+                        "type": "string"
+                      },
+                      "assignee_user_id": {
+                        "type": "string"
+                      },
+                      "planned_on": {
+                        "type": "string",
+                        "format": "date"
+                      },
+                      "planned_end": {
+                        "type": "string",
+                        "format": "date"
+                      },
+                      "day_offset": {
+                        "type": "integer"
+                      },
+                      "locked_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "steps_total": {
+                        "type": "integer"
+                      },
+                      "steps_done": {
+                        "type": "integer"
+                      },
+                      "sample_count": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/series_rollup": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "What a series adds up to",
+        "operationId": "rpc_series_rollup",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:read"],
+        "description": "How many experiments the series has and how many are approved, in review and in progress, the next one due, the samples across all of them and the first and last planned days.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_series_record_id"],
+                "properties": {
+                  "p_series_record_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The experiment that heads the series."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of series_rollup",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "description": "What a series adds up to A JSON object."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/set_field_spec_limits": {
       "post": {
         "tags": ["Lab"],
@@ -41980,6 +43583,130 @@
         }
       }
     },
+    "/api/db/rpc/set_series_member_day": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Plan the day a series member runs",
+        "operationId": "rpc_set_series_member_day",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Sets the day a member of a series is planned for, or clears it when `p_planned_on` is left out. The series counts its days from the earliest planned day.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_member_record_id"],
+                "properties": {
+                  "p_member_record_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The experiment that is, or is to become, a member."
+                  },
+                  "p_planned_on": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "The day it is planned to run (YYYY-MM-DD). Omit for none."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of set_series_member_day",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "description": "Plan the day a series member runs A JSON object."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/set_step_done": {
       "post": {
         "tags": ["Lab"],
@@ -42169,6 +43896,125 @@
                       }
                     }
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/start_experiment_series": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Make an experiment a series",
+        "operationId": "rpc_start_experiment_series",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Marks an experiment as the head of a series so members can be added. Adding the first member does this by itself. Safe to repeat.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_record_id"],
+                "properties": {
+                  "p_record_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Record id."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of start_experiment_series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "description": "Make an experiment a series A JSON object."
                 }
               }
             }
@@ -52107,6 +53953,81 @@
           "created_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "ExperimentSeriesRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`api.experiment_series` row (snake_case). An experiment that heads a series: it groups other experiments that run as separate pieces of one piece of work.",
+        "required": [
+          "record_id",
+          "workspace_id",
+          "created_at",
+          "created_by_user_id"
+        ],
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by_user_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ExperimentSeriesMembersRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`api.experiment_series_members` row (snake_case). An experiment in a series, with where it sits and the day it is planned. An experiment is in one series at most.",
+        "required": [
+          "id",
+          "series_record_id",
+          "member_record_id",
+          "workspace_id",
+          "position",
+          "created_at",
+          "created_by_user_id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "series_record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "member_record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "position": {
+            "type": "number"
+          },
+          "planned_on": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by_user_id": {
+            "type": "string"
           }
         }
       },

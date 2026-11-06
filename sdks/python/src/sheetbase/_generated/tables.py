@@ -33,6 +33,8 @@ from sheetbase._generated.models import (
     DatasetVersionsRow,
     DatasetsRow,
     DatasetsRowInsert,
+    ExperimentSeriesMembersRow,
+    ExperimentSeriesRow,
     FieldSpecLimitsRow,
     FoldersRow,
     IdpGroupMappingsRow,
@@ -310,6 +312,42 @@ class AsyncDatasetsTable(
     Scopes: datasets:read, datasets:write.
     """
     name = "datasets"
+
+
+class ExperimentSeriesTable(ReadableTable[ExperimentSeriesRow]):
+    """
+    ``/api/db/experiment_series`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "experiment_series"
+
+
+class AsyncExperimentSeriesTable(AsyncReadableTable[ExperimentSeriesRow]):
+    """
+    ``/api/db/experiment_series`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "experiment_series"
+
+
+class ExperimentSeriesMembersTable(ReadableTable[ExperimentSeriesMembersRow]):
+    """
+    ``/api/db/experiment_series_members`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "experiment_series_members"
+
+
+class AsyncExperimentSeriesMembersTable(AsyncReadableTable[ExperimentSeriesMembersRow]):
+    """
+    ``/api/db/experiment_series_members`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "experiment_series_members"
 
 
 class FieldSpecLimitsTable(ReadableTable[FieldSpecLimitsRow]):
@@ -1395,6 +1433,8 @@ class Tables:
         "dataset_schema_versions",
         "dataset_versions",
         "datasets",
+        "experiment_series",
+        "experiment_series_members",
         "field_spec_limits",
         "folders",
         "idp_group_mappings",
@@ -1467,6 +1507,8 @@ class Tables:
         self.dataset_schema_versions = DatasetSchemaVersionsTable(transport)
         self.dataset_versions = DatasetVersionsTable(transport)
         self.datasets = DatasetsTable(transport)
+        self.experiment_series = ExperimentSeriesTable(transport)
+        self.experiment_series_members = ExperimentSeriesMembersTable(transport)
         self.field_spec_limits = FieldSpecLimitsTable(transport)
         self.folders = FoldersTable(transport)
         self.idp_group_mappings = IdpGroupMappingsTable(transport)
@@ -1550,6 +1592,8 @@ class AsyncTables:
         "dataset_schema_versions",
         "dataset_versions",
         "datasets",
+        "experiment_series",
+        "experiment_series_members",
         "field_spec_limits",
         "folders",
         "idp_group_mappings",
@@ -1622,6 +1666,8 @@ class AsyncTables:
         self.dataset_schema_versions = AsyncDatasetSchemaVersionsTable(transport)
         self.dataset_versions = AsyncDatasetVersionsTable(transport)
         self.datasets = AsyncDatasetsTable(transport)
+        self.experiment_series = AsyncExperimentSeriesTable(transport)
+        self.experiment_series_members = AsyncExperimentSeriesMembersTable(transport)
         self.field_spec_limits = AsyncFieldSpecLimitsTable(transport)
         self.folders = AsyncFoldersTable(transport)
         self.idp_group_mappings = AsyncIdpGroupMappingsTable(transport)

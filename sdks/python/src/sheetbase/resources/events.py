@@ -140,6 +140,8 @@ EVENT_NAMES: tuple[str, ...] = (
     "step.completed",
     "step.reopened",
     "step.result_added",
+    "experiment.series_member_added",
+    "experiment.series_member_removed",
 )
 
 #: Shipped wire aliases (table-name leaks kept for compatibility) mapped to

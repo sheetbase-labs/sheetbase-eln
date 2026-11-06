@@ -56,6 +56,8 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `recurring_schedules`          | A recurring experiment or booking. `kind` is `booking` or `experiment`; `status` is active, paused or ended.                                                                 |
 | `recurring_occurrences`        | One planned run of a recurring schedule and what became of it (`outcome`).                                                                                                   |
 | `instrument_service_log`       | A service, repair, calibration or other visit logged against an instrument.                                                                                                  |
+| `experiment_series`            | An experiment that heads a series: it groups other experiments that run as separate pieces of one piece of work.                                                             |
+| `experiment_series_members`    | An experiment in a series, with where it sits (`position`) and the day it is planned (`planned_on`). An experiment is in one series at most.                                 |
 | `step_timers`                  | A timer started on a protocol step. Personal tokens only: you see your own timers.                                                                                           |
 | `material_safety`              | Chemical safety information for a material: hazard pictograms, signal word, hazard statements and the safety data sheet file.                                                |
 | `material_ingredients`         | What went into a prepared solution: one row per ingredient lot, with quantity and unit.                                                                                      |
@@ -371,6 +373,101 @@ Scope: `lab:write`.
 ### `record_steps`
 
 List the steps of an experiment with their status. Every protocol step in order. `status` comes from the evidence on the notebook: `done` when ticked, `in_progress` when it has a note, a result or a running timer of yours, otherwise `not_started`. `is_current` marks the first step that is not done.
+
+Scope: `lab:read`.
+
+| Argument        | Type |            |
+| --------------- | ---- | ---------- |
+| `p_record_id` * | uuid | Record id. |
+
+### `start_experiment_series`
+
+Make an experiment a series. Marks an experiment as the head of a series so members can be added. Adding the first member does this by itself. Safe to repeat.
+
+Scope: `lab:write`.
+
+| Argument        | Type |            |
+| --------------- | ---- | ---------- |
+| `p_record_id` * | uuid | Record id. |
+
+### `add_series_member`
+
+Add an experiment to a series. Puts an experiment in a series, at the end unless a position is given, and makes the series if it is not one yet. The experiment keeps its own owner, review and signature and is not changed, even when approved. An experiment is in one series at most and a series cannot sit inside another. Returns the membership. Sends `experiment.series_member_added` (see the [event catalogue](event-catalogue.md)).
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                           |
+| ---------------------- | ---- | --------------------------------------------------------- |
+| `p_series_record_id` * | uuid | The experiment that heads the series.                     |
+| `p_member_record_id` * | uuid | The experiment that is, or is to become, a member.        |
+| `p_position`           | num  | Where it sits in the series. Omit for the end.            |
+| `p_planned_on`         | date | The day it is planned to run (YYYY-MM-DD). Omit for none. |
+
+### `remove_series_member`
+
+Take an experiment out of its series. Removes an experiment from the series it is in. The experiment is not changed. Sends `experiment.series_member_removed`.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                    |
+| ---------------------- | ---- | -------------------------------------------------- |
+| `p_member_record_id` * | uuid | The experiment that is, or is to become, a member. |
+
+### `move_series_member`
+
+Move an experiment within its series. Changes where a member sits. Positions are numbers and members are ordered by them; use a number between two neighbours to go between them.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                    |
+| ---------------------- | ---- | -------------------------------------------------- |
+| `p_member_record_id` * | uuid | The experiment that is, or is to become, a member. |
+| `p_position` *         | num  | Where it sits in the series. Omit for the end.     |
+
+### `set_series_member_day`
+
+Plan the day a series member runs. Sets the day a member of a series is planned for, or clears it when `p_planned_on` is left out. The series counts its days from the earliest planned day.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                           |
+| ---------------------- | ---- | --------------------------------------------------------- |
+| `p_member_record_id` * | uuid | The experiment that is, or is to become, a member.        |
+| `p_planned_on`         | date | The day it is planned to run (YYYY-MM-DD). Omit for none. |
+
+### `dissolve_experiment_series`
+
+Stop treating an experiment as a series. Removes the series, which frees its members. Neither the head nor the members are changed otherwise. Sends `experiment.series_member_removed` for each member.
+
+Scope: `lab:write`.
+
+| Argument        | Type |            |
+| --------------- | ---- | ---------- |
+| `p_record_id` * | uuid | Record id. |
+
+### `series_members`
+
+List the experiments in a series. The members of a series in order, as you may see them: an experiment you cannot read is left out. Each row has the experiment, its status, owner, reviewer, planned day, steps done out of total and how many samples it links.
+
+Scope: `lab:read`.
+
+| Argument               | Type |                                       |
+| ---------------------- | ---- | ------------------------------------- |
+| `p_series_record_id` * | uuid | The experiment that heads the series. |
+
+### `series_rollup`
+
+What a series adds up to. How many experiments the series has and how many are approved, in review and in progress, the next one due, the samples across all of them and the first and last planned days.
+
+Scope: `lab:read`.
+
+| Argument               | Type |                                       |
+| ---------------------- | ---- | ------------------------------------- |
+| `p_series_record_id` * | uuid | The experiment that heads the series. |
+
+### `record_series`
+
+Which series an experiment is in. The series an experiment belongs to, where it sits ("3 of 5") and the experiments either side of it. No row when it is in no series.
 
 Scope: `lab:read`.
 

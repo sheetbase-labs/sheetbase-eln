@@ -7,8 +7,11 @@ from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 
 __all__ = [
+    "AddRecordsToLegalHoldParams",
+    "AddRegistryParentParams",
     "AdoptGroupRolesParams",
     "AdvanceAgentWorkflowParams",
+    "AdvanceSampleWorkflowParams",
     "AgentDatasetCommitRow",
     "AgentDatasetSchemaField",
     "AgentOperation",
@@ -56,26 +59,35 @@ __all__ = [
     "ArchiveDatasetParams",
     "ArchiveRecordParams",
     "ArchiveSheetInstanceParams",
+    "AssignRecordParams",
     "BlocksRow",
     "BlocksRowInsert",
     "BlocksRowPatch",
     "CancelAgentWorkflowParams",
     "CancelMemberAbsenceParams",
+    "CancelReagentOrderParams",
+    "CancelShipmentParams",
+    "CancelStocktakeParams",
     "CommitDatasetRowBatchParams",
     "CommitSheetRecordBatchParams",
+    "CompleteStocktakeParams",
     "CompositionAdoptionApplyResult",
     "CompositionAdoptionApplyResultApplied",
     "CompositionAdoptionApplyResultIncompatible",
     "CompositionAdoptionPreview",
     "CreateAgentWorkflowParams",
     "CreateAndLinkSheetRecordParams",
+    "CreateLegalHoldParams",
     "CreatePipelineDefinitionVersionParams",
     "CreateProjectParams",
     "CreateRecordLinkParams",
     "CreateRecordParams",
     "CreateRecordWithBlocksParams",
+    "CreateRecurringScheduleParams",
+    "CreateRegistryEntryParams",
     "CreateSheetInstanceFromDefinitionParams",
     "CreateSheetInstanceParams",
+    "CreateShipmentParams",
     "CreateWebhookSubscriptionParams",
     "DatasetSchemaDefinitionsRow",
     "DatasetSchemaVersionFieldsRow",
@@ -88,34 +100,59 @@ __all__ = [
     "DeleteWebhookSubscriptionParams",
     "DuplicateSheetInstanceBlockParams",
     "DuplicateSheetInstanceParams",
+    "EndRecurringScheduleParams",
+    "EndStepTimerParams",
+    "EnrolSampleInWorkflowParams",
     "FieldCategory",
     "FieldCategoryEmbedded",
     "FieldCategoryVocabulary",
     "FieldQuantity",
     "FieldRelationship",
+    "FieldSpecLimitsRow",
     "FieldValidation",
     "FoldersRow",
+    "FollowProjectParams",
     "GetWebhookEndpointHealthParams",
     "HandOverMemberWorkParams",
     "IdpGroupMappingsRow",
+    "InboxWorkItemsRow",
     "InsertBlockParams",
     "InsertSheetInstanceBlockParams",
     "InsertSheetInstanceBlockResult",
     "InstantiateNotebookTemplateResult",
     "InstantiateNotebookTemplateVersionParams",
     "InstantiateTemplateParams",
+    "InstrumentBookingRulesRow",
+    "InstrumentFeedsRow",
+    "InstrumentReadingsRow",
+    "InstrumentRequiredTrainingRow",
+    "InstrumentServiceLogRow",
+    "IsRecordOnHoldParams",
     "JsonObjectMap",
     "JsonScalar",
     "JsonValue",
+    "LeaveSampleWorkflowParams",
+    "LegalHoldRecordsRow",
+    "LegalHoldsRow",
+    "ListInstrumentFeedSeriesParams",
     "ListWebhookDeliveriesParams",
+    "LogInstrumentServiceParams",
+    "MarkReagentOrderedParams",
+    "MarkShipmentInTransitParams",
+    "MaterialIngredientsRow",
+    "MaterialSafetyRow",
+    "MaterialiseRecurringScheduleParams",
     "MaterializationPreview",
     "MaterializationResult",
     "MaterializationSourceVersion",
     "MaterializeSheetInstanceParams",
     "MemberAbsencesRow",
+    "ModelIncidentLogsRow",
     "MoveBlockParams",
     "MutateSheetInstanceCalculationsParams",
     "MutateSheetInstanceLocalStateParams",
+    "MyInstrumentTrainingGapsParams",
+    "MyWorkItemsRow",
     "NotebookTemplateConfiguration",
     "NotebookTemplatePlacement",
     "NotebookTemplatePlacementNarrative",
@@ -131,12 +168,15 @@ __all__ = [
     "PipelineRunLogsRow",
     "PipelineRunOutputsRow",
     "PipelineRunsRow",
+    "PoolSamplesParams",
+    "PrepareSolutionParams",
     "PreviewMemberHandoverParams",
     "PreviewNotebookTemplateUpgradeParams",
     "PreviewSheetInstanceCompositionAdoptionParams",
     "PreviewSheetInstanceDefinitionUpgradeParams",
     "PreviewSheetMaterializationParams",
     "PreviewSubmissionDigestParams",
+    "ProjectFollowsRow",
     "ProjectsRow",
     "ProjectsRowInsert",
     "ProjectsRowPatch",
@@ -148,31 +188,64 @@ __all__ = [
     "QuerySheetInstanceRowsParams",
     "QuerySheetInstanceRowsResult",
     "ReadSheetInstanceCalculationResultsParams",
+    "ReagentOrdersRow",
+    "ReceiveReagentOrderParams",
+    "ReceiveShipmentParams",
     "RecordFieldDefinitionsRow",
+    "RecordInstrumentReadingsParams",
     "RecordLinksRow",
     "RecordLinksRowInsert",
     "RecordLinksRowPatch",
     "RecordModelsRow",
+    "RecordSpecResultsRow",
+    "RecordStocktakeScanParams",
     "RecordsRow",
     "RecordsRowInsert",
     "RecordsRowPatch",
+    "RecurringOccurrencesRow",
+    "RecurringSchedulesRow",
+    "RegisterReplacementLotParams",
+    "RegistryFindDuplicatesParams",
     "RemoveIdpGroupMappingParams",
+    "RemoveInstrumentFeedParams",
+    "RemoveRegistryParentParams",
     "ReplayWebhookDeliveriesParams",
     "ReplayWebhookDeliveryParams",
     "ReportAgentWorkflowUsageParams",
+    "RequestDetailsRow",
+    "RequestFormsRow",
+    "RequestReagentOrderParams",
     "ResolveSheetInstanceRowIdentityParams",
+    "ResolveStocktakeItemParams",
     "RestoreDatasetParams",
     "RestoreRecordParams",
     "RestoreSheetInstanceParams",
+    "RetentionDueParams",
+    "RetentionRulesRow",
+    "ReviewCoverRow",
     "RevisionsRow",
     "RotateWebhookSecretParams",
     "RunSavedSearchParams",
+    "SampleWorkflowEventsRow",
+    "SampleWorkflowRunsRow",
+    "SampleWorkflowStagesRow",
+    "SampleWorkflowTransitionsRow",
+    "SampleWorkflowsRow",
+    "SaveSampleWorkflowParams",
     "SaveSearchParams",
     "SavedSearchesRow",
     "SearchParams",
     "SearchSheetRecordsParams",
+    "SetFieldSpecLimitsParams",
     "SetIdpGroupMappingParams",
+    "SetInstrumentBookingRulesParams",
+    "SetInstrumentFeedLimitsParams",
+    "SetInstrumentOutOfServiceParams",
+    "SetMaterialSafetyParams",
     "SetMemberAbsenceParams",
+    "SetRecordFavouriteParams",
+    "SetRecurringSchedulePausedParams",
+    "SetSampleWorkflowStatusParams",
     "SheetCalculation",
     "SheetCalculationChange",
     "SheetCalculationChangeRetire",
@@ -216,17 +289,27 @@ __all__ = [
     "SheetRecordWriteTargetDataset",
     "SheetRecordWriteTargetLocal",
     "SheetRecordWriteTargetModel",
+    "ShipmentItemsRow",
+    "ShipmentsRow",
     "SnapshotDatasetParams",
+    "StartStepTimerParams",
+    "StartStocktakeParams",
+    "StepTimersRow",
+    "StocktakeItemsRow",
+    "StocktakesRow",
+    "SubmitRequestParams",
     "TemplateParameter",
     "TokenError",
     "TokenExchangeRequest",
     "TokenExchangeResponse",
     "TransitionRecordStatusParams",
+    "UnfollowProjectParams",
     "UpdateBlockPayloadParams",
     "UpdatePipelineDefinitionVersionDraftParams",
     "UpdateRecordCustomFieldsParams",
     "UpdateSavedSearchParams",
     "UpdateSheetInstanceParams",
+    "UpdateShipmentParams",
     "UpdateWebhookSubscriptionParams",
     "ValidateDatasetRowBatchParams",
     "ValidateSheetRecordBatchParams",
@@ -899,6 +982,26 @@ class FieldRelationship(TypedDict):
     cardinality: Literal["one", "many"]
 
 
+class _FieldSpecLimitsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    kind: str
+    field_name: str
+    created_at: str
+    updated_at: str
+    created_by_user_id: str
+
+
+class FieldSpecLimitsRow(_FieldSpecLimitsRowRequired, total=False):
+    """`api.field_spec_limits` row (snake_case). Specification and alert limits for a numeric field on a record kind."""
+    lower_limit: Optional[float]
+    upper_limit: Optional[float]
+    alert_lower: Optional[float]
+    alert_upper: Optional[float]
+    note: Optional[str]
+    updated_by_user_id: Optional[str]
+
+
 class FieldValidation(TypedDict, total=False):
     min: float
     max: float
@@ -937,6 +1040,30 @@ class IdpGroupMappingsRow(_IdpGroupMappingsRowRequired, total=False):
     created_by_user_id: Optional[str]
 
 
+class InboxWorkItemsRow(TypedDict, total=False):
+    """`api.inbox_work_items` row (snake_case). The person's Inbox items with tab and type. Personal tokens only."""
+    kind: Optional[str]
+    record_id: Optional[str]
+    identifier: Optional[str]
+    title: Optional[str]
+    project_id: Optional[str]
+    reason: Optional[str]
+    due_at: Optional[str]
+    state: Optional[str]
+    created_at: Optional[str]
+    source_type: Optional[str]
+    source_id: Optional[str]
+    parser_version_id: Optional[str]
+    connector_id: Optional[str]
+    revision_id: Optional[str]
+    dataset_id: Optional[str]
+    row_id: Optional[str]
+    field_id: Optional[str]
+    item_key: Optional[str]
+    inbox_tab: Optional[str]
+    inbox_type: Optional[str]
+
+
 class _InsertSheetInstanceBlockResultRequired(TypedDict):
     block: "BlocksRow"
     structure_version: int
@@ -953,6 +1080,72 @@ class InstantiateNotebookTemplateResult(TypedDict):
     idempotent: bool
 
 
+class _InstrumentBookingRulesRowRequired(TypedDict):
+    instrument_id: str
+    workspace_id: str
+    updated_at: str
+
+
+class InstrumentBookingRulesRow(_InstrumentBookingRulesRowRequired, total=False):
+    """`api.instrument_booking_rules` row (snake_case). Booking limits on an instrument: longest booking and how far ahead people may book."""
+    max_booking_minutes: Optional[int]
+    max_advance_days: Optional[int]
+    updated_by_user_id: Optional[str]
+
+
+class _InstrumentFeedsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    instrument_id: str
+    name: str
+    limit_state: str
+    reading_count: int
+    created_at: str
+
+
+class InstrumentFeedsRow(_InstrumentFeedsRowRequired, total=False):
+    """`api.instrument_feeds` row (snake_case). A live measurement series on an instrument (temperature, pressure and so on), with its alert limits and last value."""
+    unit: Optional[str]
+    low_limit: Optional[float]
+    high_limit: Optional[float]
+    last_value: Optional[float]
+    last_at: Optional[str]
+
+
+class InstrumentReadingsRow(TypedDict):
+    """`api.instrument_readings` row (snake_case). One reading in an instrument feed. Large; filter by `feed_id` and `taken_at`, or use `list_instrument_feed_series` for charts."""
+    id: int
+    workspace_id: str
+    instrument_id: str
+    feed_id: str
+    taken_at: str
+    value: float
+
+
+class InstrumentRequiredTrainingRow(TypedDict):
+    """`api.instrument_required_training` row (snake_case). Training protocols a person must hold before booking an instrument."""
+    instrument_id: str
+    protocol_record_id: str
+    workspace_id: str
+
+
+class _InstrumentServiceLogRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    instrument_id: str
+    kind: str
+    visited_on: str
+    summary: str
+    created_at: str
+
+
+class InstrumentServiceLogRow(_InstrumentServiceLogRowRequired, total=False):
+    """`api.instrument_service_log` row (snake_case). A service, repair, calibration or other visit logged against an instrument."""
+    details: Optional[str]
+    performed_by: Optional[str]
+    logged_by: Optional[str]
+
+
 JsonObjectMap = Dict[str, "JsonValue"]
 
 
@@ -960,6 +1153,68 @@ JsonScalar = Optional[Union[str, float, bool]]
 
 
 JsonValue = Union["JsonScalar", List["JsonValue"], Dict[str, "JsonValue"]]
+
+
+class LegalHoldRecordsRow(TypedDict):
+    """`api.legal_hold_records` row (snake_case). A record placed on a legal hold."""
+    hold_id: str
+    workspace_id: str
+    record_id: str
+    added_at: str
+    added_by_user_id: str
+
+
+class _LegalHoldsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    name: str
+    created_at: str
+    created_by_user_id: str
+
+
+class LegalHoldsRow(_LegalHoldsRowRequired, total=False):
+    """`api.legal_holds` row (snake_case). A legal hold keeping records from deletion or archiving until it is released."""
+    reason: Optional[str]
+    project_id: Optional[str]
+    kind: Optional[str]
+    released_at: Optional[str]
+    released_by_user_id: Optional[str]
+    release_note: Optional[str]
+
+
+class _MaterialIngredientsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    product_record_id: str
+    quantity: float
+    ingredient_identifier: str
+    ingredient_title: str
+    position: int
+    created_at: str
+
+
+class MaterialIngredientsRow(_MaterialIngredientsRowRequired, total=False):
+    """`api.material_ingredients` row (snake_case). What went into a prepared solution: one row per ingredient lot, with quantity and unit."""
+    ingredient_record_id: Optional[str]
+    unit: Optional[str]
+    ingredient_lot: Optional[str]
+    ingredient_expiry: Optional[str]
+    created_by: Optional[str]
+
+
+class _MaterialSafetyRowRequired(TypedDict):
+    record_id: str
+    workspace_id: str
+    pictograms: List[str]
+    hazard_statements: List[str]
+    updated_at: str
+
+
+class MaterialSafetyRow(_MaterialSafetyRowRequired, total=False):
+    """`api.material_safety` row (snake_case). Chemical safety information for a material: hazard pictograms, signal word, hazard statements and the safety data sheet file."""
+    signal_word: Optional[str]
+    sds_file_object_id: Optional[str]
+    updated_by: Optional[str]
 
 
 class _MaterializationPreviewRequired(TypedDict):
@@ -1015,6 +1270,35 @@ class MemberAbsencesRow(_MemberAbsencesRowRequired, total=False):
     delegate_user_id: Optional[str]
     note: Optional[str]
     cancelled_at: Optional[str]
+
+
+class ModelIncidentLogsRow(TypedDict):
+    """`api.model_incident_logs` row (snake_case). Record models that are used as incident logs."""
+    workspace_id: str
+    model_key: str
+    created_at: str
+    created_by_user_id: str
+
+
+class MyWorkItemsRow(TypedDict, total=False):
+    """`api.my_work_items` row (snake_case). What is waiting on the person: reviews, tasks, assigned records and so on. Personal tokens only."""
+    kind: Optional[str]
+    record_id: Optional[str]
+    identifier: Optional[str]
+    title: Optional[str]
+    project_id: Optional[str]
+    reason: Optional[str]
+    due_at: Optional[str]
+    state: Optional[str]
+    created_at: Optional[str]
+    source_type: Optional[str]
+    source_id: Optional[str]
+    parser_version_id: Optional[str]
+    connector_id: Optional[str]
+    revision_id: Optional[str]
+    dataset_id: Optional[str]
+    row_id: Optional[str]
+    field_id: Optional[str]
 
 
 class NotebookTemplateConfiguration(TypedDict):
@@ -1209,6 +1493,15 @@ class PipelineRunsRow(_PipelineRunsRowRequired, total=False):
     actor_credential_id: Optional[str]
 
 
+class ProjectFollowsRow(TypedDict):
+    """`api.project_follows` row (snake_case). Projects a person follows. Personal tokens only: you see your own follows."""
+    id: str
+    workspace_id: str
+    user_id: str
+    project_id: str
+    created_at: str
+
+
 class _ProjectsRowRequired(TypedDict):
     id: str
     workspace_id: str
@@ -1268,6 +1561,39 @@ class QuerySheetInstanceRowsResult(_QuerySheetInstanceRowsResultRequired, total=
     definitionVersionId: str
     definitionConfiguration: "SheetDefinitionConfiguration"
     localFieldIds: List[str]
+
+
+class _ReagentOrdersRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    number: int
+    material_title: str
+    quantity: float
+    status: str
+    requested_at: str
+    updated_at: str
+
+
+class ReagentOrdersRow(_ReagentOrdersRowRequired, total=False):
+    """`api.reagent_orders` row (snake_case). A reagent order: requested from a material that is running low, placed with the supplier, then received as a new lot. `status` is requested, ordered, received or cancelled."""
+    material_record_id: Optional[str]
+    project_id: Optional[str]
+    supplier: Optional[str]
+    catalog_no: Optional[str]
+    unit: Optional[str]
+    note: Optional[str]
+    order_reference: Optional[str]
+    expected_on: Optional[str]
+    cancel_reason: Optional[str]
+    received_record_id: Optional[str]
+    received_lot: Optional[str]
+    requested_by: Optional[str]
+    ordered_by: Optional[str]
+    ordered_at: Optional[str]
+    received_by: Optional[str]
+    received_at: Optional[str]
+    cancelled_by: Optional[str]
+    cancelled_at: Optional[str]
 
 
 class _RecordFieldDefinitionsRowRequired(TypedDict):
@@ -1359,6 +1685,24 @@ class RecordModelsRow(_RecordModelsRowRequired, total=False):
     updated_by_user_id: Optional[str]
 
 
+class RecordSpecResultsRow(TypedDict, total=False):
+    """`api.record_spec_results` row (snake_case). Each record's value for a field with result limits, and whether it is within spec, in the alert band or out. Personal tokens only."""
+    record_id: Optional[str]
+    workspace_id: Optional[str]
+    kind: Optional[str]
+    identifier: Optional[str]
+    title: Optional[str]
+    project_id: Optional[str]
+    archived_at: Optional[str]
+    field_name: Optional[str]
+    value: Optional[float]
+    lower_limit: Optional[float]
+    upper_limit: Optional[float]
+    alert_lower: Optional[float]
+    alert_upper: Optional[float]
+    verdict: Optional[str]
+
+
 class _RecordsRowRequired(TypedDict):
     id: str
     workspace_id: str
@@ -1388,6 +1732,11 @@ class RecordsRow(_RecordsRowRequired, total=False):
     locked_at: Optional[str]
     locked_by_revision_id: Optional[str]
     source_notebook_template_version_id: Optional[str]
+    assignee_user_id: Optional[str]
+    reviewer_user_id: Optional[str]
+    planned_end: Optional[str]
+    decision: Optional[str]
+    decision_notes: Optional[str]
 
 
 class _RecordsRowInsertRequired(TypedDict):
@@ -1409,6 +1758,11 @@ class RecordsRowInsert(_RecordsRowInsertRequired, total=False):
     locked_by_revision_id: Optional[str]
     custom_fields: Dict[str, "JsonValue"]
     source_notebook_template_version_id: Optional[str]
+    assignee_user_id: Optional[str]
+    reviewer_user_id: Optional[str]
+    planned_end: Optional[str]
+    decision: Optional[str]
+    decision_notes: Optional[str]
 
 
 class RecordsRowPatch(TypedDict, total=False):
@@ -1428,6 +1782,116 @@ class RecordsRowPatch(TypedDict, total=False):
     locked_by_revision_id: Optional[str]
     custom_fields: Dict[str, "JsonValue"]
     source_notebook_template_version_id: Optional[str]
+    assignee_user_id: Optional[str]
+    reviewer_user_id: Optional[str]
+    planned_end: Optional[str]
+    decision: Optional[str]
+    decision_notes: Optional[str]
+
+
+class _RecurringOccurrencesRowRequired(TypedDict):
+    id: str
+    schedule_id: str
+    workspace_id: str
+    occurrence_on: str
+    outcome: str
+    created_at: str
+
+
+class RecurringOccurrencesRow(_RecurringOccurrencesRowRequired, total=False):
+    """`api.recurring_occurrences` row (snake_case). One planned run of a recurring schedule and what became of it (`outcome`)."""
+    booking_id: Optional[str]
+    record_id: Optional[str]
+    message: Optional[str]
+
+
+class _RecurringSchedulesRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    kind: str
+    title: str
+    status: str
+    frequency: str
+    interval_count: int
+    starts_on: str
+    timezone: str
+    lead_days: int
+    created_by_user_id: str
+    created_at: str
+    updated_at: str
+
+
+class RecurringSchedulesRow(_RecurringSchedulesRowRequired, total=False):
+    """`api.recurring_schedules` row (snake_case). A recurring experiment or booking. `kind` is `booking` or `experiment`; `status` is active, paused or ended."""
+    weekdays: Optional[List[int]]
+    offsets_days: Optional[List[int]]
+    ends_on: Optional[str]
+    max_occurrences: Optional[int]
+    resource_id: Optional[str]
+    start_time: Optional[str]
+    end_time: Optional[str]
+    notebook_template_id: Optional[str]
+    project_id: Optional[str]
+    notes: Optional[str]
+    ended_at: Optional[str]
+
+
+class _RequestDetailsRowRequired(TypedDict):
+    record_id: str
+    workspace_id: str
+
+
+class RequestDetailsRow(_RequestDetailsRowRequired, total=False):
+    """`api.request_details` row (snake_case). What was asked and how it was decided, for each request record."""
+    note: Optional[str]
+    decided_by: Optional[str]
+    decided_at: Optional[str]
+    decision_note: Optional[str]
+
+
+class _RequestFormsRowRequired(TypedDict):
+    workspace_id: str
+    model_key: str
+    handler_user_ids: List[str]
+    created_at: str
+    updated_at: str
+
+
+class RequestFormsRow(_RequestFormsRowRequired, total=False):
+    """`api.request_forms` row (snake_case). Which record models accept requests, their intro text and who handles them."""
+    intro: Optional[str]
+    updated_by_user_id: Optional[str]
+
+
+class _RetentionRulesRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    kind: str
+    keep_months: int
+    created_at: str
+    updated_at: str
+    created_by_user_id: str
+
+
+class RetentionRulesRow(_RetentionRulesRowRequired, total=False):
+    """`api.retention_rules` row (snake_case). How many months each kind of record is kept before it comes up for archiving."""
+    note: Optional[str]
+    updated_by_user_id: Optional[str]
+
+
+class _ReviewCoverRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    submission_id: str
+    absence_id: str
+    absent_user_id: str
+    delegate_user_id: str
+    created_at: str
+
+
+class ReviewCoverRow(_ReviewCoverRowRequired, total=False):
+    """`api.review_cover` row (snake_case). Each review a colleague covered while someone was out of office, kept as history. Personal tokens only."""
+    ended_at: Optional[str]
 
 
 class _RevisionsRowRequired(TypedDict):
@@ -1450,6 +1914,81 @@ class _RevisionsRowRequired(TypedDict):
 class RevisionsRow(_RevisionsRowRequired, total=False):
     """`api.revisions` row (snake_case). GET-only. Created by human-session submit, not API keys."""
     superseded_by_revision_id: Optional[str]
+
+
+class _SampleWorkflowEventsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    run_id: str
+    record_id: str
+    automation: Dict[str, "JsonValue"]
+    created_at: str
+
+
+class SampleWorkflowEventsRow(_SampleWorkflowEventsRowRequired, total=False):
+    """`api.sample_workflow_events` row (snake_case). The history of moves a sample made through a workflow."""
+    from_stage_name: Optional[str]
+    to_stage_name: Optional[str]
+    notes: Optional[str]
+    actor_user_id: Optional[str]
+
+
+class _SampleWorkflowRunsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    workflow_id: str
+    record_id: str
+    stage_id: str
+    entered_at: str
+
+
+class SampleWorkflowRunsRow(_SampleWorkflowRunsRowRequired, total=False):
+    """`api.sample_workflow_runs` row (snake_case). A sample's journey through a workflow: its current stage, when it entered and when it is due."""
+    due_at: Optional[str]
+    started_by_user_id: Optional[str]
+    completed_at: Optional[str]
+
+
+class _SampleWorkflowStagesRowRequired(TypedDict):
+    id: str
+    workflow_id: str
+    workspace_id: str
+    position: int
+    name: str
+    is_final: bool
+    required_fields: List[str]
+    actions: Dict[str, "JsonValue"]
+
+
+class SampleWorkflowStagesRow(_SampleWorkflowStagesRowRequired, total=False):
+    """`api.sample_workflow_stages` row (snake_case). A stage in a sample workflow, with its turnaround time, required fields and actions."""
+    description: Optional[str]
+    turnaround_days: Optional[int]
+
+
+class SampleWorkflowTransitionsRow(TypedDict):
+    """`api.sample_workflow_transitions` row (snake_case). Which stage a sample may move to from another stage."""
+    workflow_id: str
+    workspace_id: str
+    from_stage_id: str
+    to_stage_id: str
+
+
+class _SampleWorkflowsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    name: str
+    auto_enrol: bool
+    status: str
+    created_by_user_id: str
+    created_at: str
+    updated_at: str
+
+
+class SampleWorkflowsRow(_SampleWorkflowsRowRequired, total=False):
+    """`api.sample_workflows` row (snake_case). A sample workflow: the stages a sample moves through. `status` is draft, active or archived."""
+    description: Optional[str]
+    sample_type: Optional[str]
 
 
 class _SavedSearchesRowRequired(TypedDict):
@@ -1841,6 +2380,121 @@ class SheetRecordWriteTargetModel(TypedDict):
 SheetRecordWriteTarget = Union["SheetRecordWriteTargetDataset", "SheetRecordWriteTargetLocal", "SheetRecordWriteTargetModel"]
 
 
+class _ShipmentItemsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    shipment_id: str
+    position: int
+    title: str
+
+
+class ShipmentItemsRow(_ShipmentItemsRowRequired, total=False):
+    """`api.shipment_items` row (snake_case). An item on a shipment, with whether it arrived and in what condition."""
+    record_id: Optional[str]
+    identifier: Optional[str]
+    kind: Optional[str]
+    quantity: Optional[float]
+    unit: Optional[str]
+    note: Optional[str]
+    received: Optional[bool]
+    received_note: Optional[str]
+
+
+class _ShipmentsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    number: int
+    direction: str
+    status: str
+    counterparty: str
+    created_by: str
+    created_at: str
+    updated_at: str
+
+
+class ShipmentsRow(_ShipmentsRowRequired, total=False):
+    """`api.shipments` row (snake_case). A sample shipment in or out. `direction` is inbound or outbound; `status` is draft, in_transit, received or cancelled."""
+    project_id: Optional[str]
+    carrier: Optional[str]
+    tracking_reference: Optional[str]
+    shipped_on: Optional[str]
+    expected_on: Optional[str]
+    received_at: Optional[str]
+    received_by: Optional[str]
+    condition_note: Optional[str]
+    notes: Optional[str]
+    cancel_reason: Optional[str]
+    cancelled_at: Optional[str]
+
+
+class _StepTimersRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    user_id: str
+    record_id: str
+    block_id: str
+    label: str
+    duration_seconds: int
+    started_at: str
+    ends_at: str
+    status: str
+
+
+class StepTimersRow(_StepTimersRowRequired, total=False):
+    """`api.step_timers` row (snake_case). A timer started on a protocol step. Personal tokens only: you see your own timers."""
+    notified_at: Optional[str]
+    closed_at: Optional[str]
+
+
+class _StocktakeItemsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    stocktake_id: str
+    record_id: str
+    identifier: str
+    record_kind: str
+    expected: bool
+    state: str
+
+
+class StocktakeItemsRow(_StocktakeItemsRowRequired, total=False):
+    """`api.stocktake_items` row (snake_case). One item expected in or found during a stocktake, with where it should be, where it was found and how a mismatch was resolved."""
+    title: Optional[str]
+    expected_box_id: Optional[str]
+    expected_path: Optional[str]
+    found_box_id: Optional[str]
+    found_path: Optional[str]
+    scanned_by: Optional[str]
+    scanned_at: Optional[str]
+    resolution: Optional[str]
+    resolution_note: Optional[str]
+    resolved_by: Optional[str]
+    resolved_at: Optional[str]
+
+
+class _StocktakesRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    number: int
+    scope_level: str
+    scope_id: str
+    scope_name: str
+    scope_path: str
+    status: str
+    started_at: str
+    updated_at: str
+
+
+class StocktakesRow(_StocktakesRowRequired, total=False):
+    """`api.stocktakes` row (snake_case). A stocktake of a freezer, shelf or box. `status` is in_progress, completed or cancelled."""
+    note: Optional[str]
+    started_by: Optional[str]
+    completed_by: Optional[str]
+    completed_at: Optional[str]
+    cancelled_by: Optional[str]
+    cancelled_at: Optional[str]
+
+
 class _TemplateParameterRequired(TypedDict):
     id: str
     key: str
@@ -1860,7 +2514,7 @@ class TokenError(TypedDict):
 
 class TokenExchangeRequest(TypedDict):
     credential: str
-    scopes: List[Literal["projects:read", "projects:write", "datasets:read", "datasets:write", "schema:read", "schema:write", "schema:publish", "sheets:read", "sheets:write", "models:read", "models:write", "templates:read", "templates:write", "reviews:read", "reviews:write", "files:read", "files:write", "webhooks:read", "webhooks:write", "agent_operations:read", "agent_operations:write", "pipelines:read", "pipelines:write", "admin:read", "admin:write", "people:read", "people:write"]]
+    scopes: List[Literal["projects:read", "projects:write", "datasets:read", "datasets:write", "schema:read", "schema:write", "schema:publish", "sheets:read", "sheets:write", "models:read", "models:write", "templates:read", "templates:write", "reviews:read", "reviews:write", "files:read", "files:write", "webhooks:read", "webhooks:write", "agent_operations:read", "agent_operations:write", "pipelines:read", "pipelines:write", "lab:read", "lab:write", "admin:read", "admin:write", "people:read", "people:write"]]
 
 
 class TokenExchangeResponse(TypedDict):
@@ -1945,6 +2599,20 @@ class WebhookSubscriptionsRow(_WebhookSubscriptionsRowRequired, total=False):
     updated_by_credential_id: Optional[str]
 
 
+class AddRecordsToLegalHoldParams(TypedDict):
+    p_hold_id: str
+    p_record_ids: List[str]
+
+
+class _AddRegistryParentParamsRequired(TypedDict):
+    p_entry_id: str
+    p_parent_id: str
+
+
+class AddRegistryParentParams(_AddRegistryParentParamsRequired, total=False):
+    p_role: str
+
+
 class AdoptGroupRolesParams(TypedDict):
     p_workspace_id: str
 
@@ -1952,6 +2620,15 @@ class AdoptGroupRolesParams(TypedDict):
 class AdvanceAgentWorkflowParams(TypedDict):
     p_workflow_id: str
     p_expected_revision: int
+
+
+class _AdvanceSampleWorkflowParamsRequired(TypedDict):
+    p_run_id: str
+    p_to_stage_id: str
+
+
+class AdvanceSampleWorkflowParams(_AdvanceSampleWorkflowParamsRequired, total=False):
+    p_notes: str
 
 
 class ApplyNotebookTemplateUpgradeParams(TypedDict):
@@ -1993,6 +2670,12 @@ class ArchiveSheetInstanceParams(TypedDict):
     p_expected_revision: int
 
 
+class AssignRecordParams(TypedDict):
+    p_record_id: str
+    p_expected_metadata_version: int
+    p_assignee_user_id: str
+
+
 class CancelAgentWorkflowParams(TypedDict):
     p_workflow_id: str
     p_expected_revision: int
@@ -2001,6 +2684,26 @@ class CancelAgentWorkflowParams(TypedDict):
 
 class CancelMemberAbsenceParams(TypedDict):
     p_absence_id: str
+
+
+class _CancelReagentOrderParamsRequired(TypedDict):
+    p_order_id: str
+
+
+class CancelReagentOrderParams(_CancelReagentOrderParamsRequired, total=False):
+    p_reason: str
+
+
+class _CancelShipmentParamsRequired(TypedDict):
+    p_shipment_id: str
+
+
+class CancelShipmentParams(_CancelShipmentParamsRequired, total=False):
+    p_reason: str
+
+
+class CancelStocktakeParams(TypedDict):
+    p_stocktake_id: str
 
 
 class CommitDatasetRowBatchParams(TypedDict):
@@ -2015,6 +2718,10 @@ class CommitSheetRecordBatchParams(TypedDict):
     p_model_key: str
     p_rows: List["SheetRecordBatchRow"]
     p_idempotency_key: str
+
+
+class CompleteStocktakeParams(TypedDict):
+    p_stocktake_id: str
 
 
 class CreateAgentWorkflowParams(TypedDict):
@@ -2033,6 +2740,17 @@ class CreateAndLinkSheetRecordParams(TypedDict):
     p_title: str
     p_custom_fields: Dict[str, "JsonValue"]
     p_write_target: "SheetRecordWriteTarget"
+
+
+class _CreateLegalHoldParamsRequired(TypedDict):
+    p_name: str
+
+
+class CreateLegalHoldParams(_CreateLegalHoldParamsRequired, total=False):
+    p_reason: str
+    p_project_id: str
+    p_kind: str
+    p_record_ids: List[str]
 
 
 class CreatePipelineDefinitionVersionParams(TypedDict):
@@ -2073,6 +2791,40 @@ class CreateRecordWithBlocksParams(TypedDict):
     p_properties: Dict[str, "JsonValue"]
 
 
+class _CreateRecurringScheduleParamsRequired(TypedDict):
+    p_kind: str
+    p_title: str
+    p_frequency: str
+    p_starts_on: str
+    p_timezone: str
+
+
+class CreateRecurringScheduleParams(_CreateRecurringScheduleParamsRequired, total=False):
+    p_interval_count: int
+    p_weekdays: List[int]
+    p_offsets_days: List[int]
+    p_ends_on: str
+    p_max_occurrences: int
+    p_resource_id: str
+    p_start_time: str
+    p_end_time: str
+    p_notebook_template_id: str
+    p_lead_days: int
+    p_project_id: str
+    p_notes: str
+
+
+class _CreateRegistryEntryParamsRequired(TypedDict):
+    p_project_id: str
+    p_kind: str
+    p_title: str
+
+
+class CreateRegistryEntryParams(_CreateRegistryEntryParamsRequired, total=False):
+    p_custom_fields: Dict[str, "JsonValue"]
+    p_allow_duplicate: bool
+
+
 class CreateSheetInstanceParams(TypedDict):
     p_workspace_id: str
     p_name: str
@@ -2092,6 +2844,20 @@ class CreateSheetInstanceFromDefinitionParams(TypedDict):
     p_notebook_record_id: Optional[str]
     p_state: "SheetInstanceState"
     p_parameter_inputs: List["SheetParameterInput"]
+
+
+class _CreateShipmentParamsRequired(TypedDict):
+    p_direction: str
+    p_counterparty: str
+
+
+class CreateShipmentParams(_CreateShipmentParamsRequired, total=False):
+    p_items: Dict[str, "JsonValue"]
+    p_carrier: str
+    p_tracking_reference: str
+    p_expected_on: str
+    p_notes: str
+    p_project_id: str
 
 
 class _CreateWebhookSubscriptionParamsRequired(TypedDict):
@@ -2134,6 +2900,27 @@ class DuplicateSheetInstanceParams(TypedDict):
 class DuplicateSheetInstanceBlockParams(TypedDict):
     p_block_id: str
     p_expected_structure_version: int
+
+
+class _EndRecurringScheduleParamsRequired(TypedDict):
+    p_schedule_id: str
+
+
+class EndRecurringScheduleParams(_EndRecurringScheduleParamsRequired, total=False):
+    p_cancel_upcoming: bool
+
+
+class EndStepTimerParams(TypedDict):
+    p_timer_id: str
+
+
+class EnrolSampleInWorkflowParams(TypedDict):
+    p_record_id: str
+    p_workflow_id: str
+
+
+class FollowProjectParams(TypedDict):
+    p_project_id: str
 
 
 class _GetWebhookEndpointHealthParamsRequired(TypedDict):
@@ -2183,6 +2970,28 @@ class InstantiateTemplateParams(TypedDict):
     p_title: str
 
 
+class IsRecordOnHoldParams(TypedDict):
+    p_record_id: str
+
+
+class _LeaveSampleWorkflowParamsRequired(TypedDict):
+    p_run_id: str
+
+
+class LeaveSampleWorkflowParams(_LeaveSampleWorkflowParamsRequired, total=False):
+    p_notes: str
+
+
+class _ListInstrumentFeedSeriesParamsRequired(TypedDict):
+    p_feed_id: str
+    p_since: str
+
+
+class ListInstrumentFeedSeriesParams(_ListInstrumentFeedSeriesParamsRequired, total=False):
+    p_until: str
+    p_buckets: int
+
+
 class _ListWebhookDeliveriesParamsRequired(TypedDict):
     p_workspace_id: str
 
@@ -2195,6 +3004,43 @@ class ListWebhookDeliveriesParams(_ListWebhookDeliveriesParamsRequired, total=Fa
     p_event_type: str
     p_since: str
     p_until: str
+
+
+class _LogInstrumentServiceParamsRequired(TypedDict):
+    p_instrument_id: str
+    p_kind: str
+    p_visited_on: str
+    p_summary: str
+
+
+class LogInstrumentServiceParams(_LogInstrumentServiceParamsRequired, total=False):
+    p_details: str
+    p_performed_by: str
+
+
+class _MarkReagentOrderedParamsRequired(TypedDict):
+    p_order_id: str
+
+
+class MarkReagentOrderedParams(_MarkReagentOrderedParamsRequired, total=False):
+    p_order_reference: str
+    p_expected_on: str
+    p_supplier: str
+
+
+class _MarkShipmentInTransitParamsRequired(TypedDict):
+    p_shipment_id: str
+
+
+class MarkShipmentInTransitParams(_MarkShipmentInTransitParamsRequired, total=False):
+    p_shipped_on: str
+    p_carrier: str
+    p_tracking_reference: str
+    p_expected_on: str
+
+
+class MaterialiseRecurringScheduleParams(TypedDict):
+    p_schedule_id: str
 
 
 class MaterializeSheetInstanceParams(TypedDict):
@@ -2227,6 +3073,36 @@ class MutateSheetInstanceLocalStateParams(TypedDict):
     p_field_changes: List[Dict[str, Any]]
     p_rows: List[Dict[str, Any]]
     p_cells: List[Dict[str, Any]]
+
+
+class MyInstrumentTrainingGapsParams(TypedDict):
+    p_instrument_id: str
+
+
+class _PoolSamplesParamsRequired(TypedDict):
+    p_sources: Dict[str, "JsonValue"]
+    p_purpose_experiment_id: str
+
+
+class PoolSamplesParams(_PoolSamplesParamsRequired, total=False):
+    p_unit: str
+    p_notes: str
+    p_new_container: Dict[str, "JsonValue"]
+
+
+class _PrepareSolutionParamsRequired(TypedDict):
+    p_project_id: str
+    p_title: str
+    p_lot: str
+    p_quantity: float
+    p_unit: str
+    p_ingredients: Dict[str, "JsonValue"]
+
+
+class PrepareSolutionParams(_PrepareSolutionParamsRequired, total=False):
+    p_expiry: str
+    p_storage: str
+    p_note: str
 
 
 class PreviewMemberHandoverParams(TypedDict):
@@ -2313,8 +3189,72 @@ class ReadSheetInstanceCalculationResultsParams(TypedDict):
     p_row_keys: List[str]
 
 
+class _ReceiveReagentOrderParamsRequired(TypedDict):
+    p_order_id: str
+    p_lot: str
+    p_expiry: str
+
+
+class ReceiveReagentOrderParams(_ReceiveReagentOrderParamsRequired, total=False):
+    p_quantity: float
+
+
+class _ReceiveShipmentParamsRequired(TypedDict):
+    p_shipment_id: str
+
+
+class ReceiveShipmentParams(_ReceiveShipmentParamsRequired, total=False):
+    p_results: Dict[str, "JsonValue"]
+    p_condition_note: str
+
+
+class RecordInstrumentReadingsParams(TypedDict):
+    p_instrument_id: str
+    p_readings: Dict[str, "JsonValue"]
+
+
+class _RecordStocktakeScanParamsRequired(TypedDict):
+    p_stocktake_id: str
+    p_record_id: str
+
+
+class RecordStocktakeScanParams(_RecordStocktakeScanParamsRequired, total=False):
+    p_box_id: str
+
+
+class _RegisterReplacementLotParamsRequired(TypedDict):
+    p_reagent_record_id: str
+    p_lot: str
+    p_expiry: str
+    p_quantity: float
+
+
+class RegisterReplacementLotParams(_RegisterReplacementLotParamsRequired, total=False):
+    p_unit: str
+    p_reason: str
+
+
+class _RegistryFindDuplicatesParamsRequired(TypedDict):
+    p_kind: str
+    p_title: str
+
+
+class RegistryFindDuplicatesParams(_RegistryFindDuplicatesParamsRequired, total=False):
+    p_custom_fields: Dict[str, "JsonValue"]
+    p_exclude_id: str
+
+
 class RemoveIdpGroupMappingParams(TypedDict):
     p_id: str
+
+
+class RemoveInstrumentFeedParams(TypedDict):
+    p_feed_id: str
+
+
+class RemoveRegistryParentParams(TypedDict):
+    p_entry_id: str
+    p_parent_id: str
 
 
 class _ReplayWebhookDeliveriesParamsRequired(TypedDict):
@@ -2341,9 +3281,28 @@ class ReportAgentWorkflowUsageParams(TypedDict):
     p_cost_microusd: int
 
 
+class _RequestReagentOrderParamsRequired(TypedDict):
+    p_material_record_id: str
+    p_quantity: float
+
+
+class RequestReagentOrderParams(_RequestReagentOrderParamsRequired, total=False):
+    p_unit: str
+    p_note: str
+
+
 class ResolveSheetInstanceRowIdentityParams(TypedDict):
     p_instance_id: str
     p_expected_revision: int
+
+
+class _ResolveStocktakeItemParamsRequired(TypedDict):
+    p_item_id: str
+    p_action: str
+
+
+class ResolveStocktakeItemParams(_ResolveStocktakeItemParamsRequired, total=False):
+    p_notes: str
 
 
 class RestoreDatasetParams(TypedDict):
@@ -2359,6 +3318,10 @@ class RestoreRecordParams(TypedDict):
 class RestoreSheetInstanceParams(TypedDict):
     p_instance_id: str
     p_expected_revision: int
+
+
+class RetentionDueParams(TypedDict, total=False):
+    p_kind: str
 
 
 class _RotateWebhookSecretParamsRequired(TypedDict):
@@ -2377,6 +3340,11 @@ class _RunSavedSearchParamsRequired(TypedDict):
 class RunSavedSearchParams(_RunSavedSearchParamsRequired, total=False):
     p_limit: int
     p_offset: int
+
+
+class SaveSampleWorkflowParams(TypedDict):
+    p_workflow_id: str
+    p_definition: Dict[str, "JsonValue"]
 
 
 class _SaveSearchParamsRequired(TypedDict):
@@ -2412,10 +3380,65 @@ class SearchSheetRecordsParams(_SearchSheetRecordsParamsRequired, total=False):
     p_include_archived: bool
 
 
+class _SetFieldSpecLimitsParamsRequired(TypedDict):
+    p_kind: str
+    p_field_name: str
+
+
+class SetFieldSpecLimitsParams(_SetFieldSpecLimitsParamsRequired, total=False):
+    p_lower: float
+    p_upper: float
+    p_alert_lower: float
+    p_alert_upper: float
+    p_note: str
+
+
 class SetIdpGroupMappingParams(TypedDict):
     p_workspace_id: str
     p_group_name: str
     p_role: str
+
+
+class _SetInstrumentBookingRulesParamsRequired(TypedDict):
+    p_instrument_id: str
+
+
+class SetInstrumentBookingRulesParams(_SetInstrumentBookingRulesParamsRequired, total=False):
+    p_required_protocol_ids: List[str]
+    p_max_booking_minutes: int
+    p_max_advance_days: int
+
+
+class _SetInstrumentFeedLimitsParamsRequired(TypedDict):
+    p_feed_id: str
+    p_low: float
+    p_high: float
+
+
+class SetInstrumentFeedLimitsParams(_SetInstrumentFeedLimitsParamsRequired, total=False):
+    p_unit: str
+
+
+class _SetInstrumentOutOfServiceParamsRequired(TypedDict):
+    p_instrument_id: str
+    p_out_of_service: bool
+
+
+class SetInstrumentOutOfServiceParams(_SetInstrumentOutOfServiceParamsRequired, total=False):
+    p_reason: str
+    p_expected_back_on: str
+    p_work_done: str
+
+
+class _SetMaterialSafetyParamsRequired(TypedDict):
+    p_record_id: str
+    p_pictograms: List[str]
+    p_signal_word: str
+    p_hazard_statements: List[str]
+
+
+class SetMaterialSafetyParams(_SetMaterialSafetyParamsRequired, total=False):
+    p_all_lots: bool
 
 
 class _SetMemberAbsenceParamsRequired(TypedDict):
@@ -2430,16 +3453,64 @@ class SetMemberAbsenceParams(_SetMemberAbsenceParamsRequired, total=False):
     p_user_id: Optional[str]
 
 
+class SetRecordFavouriteParams(TypedDict):
+    p_object_kind: str
+    p_object_id: str
+    p_favourite: bool
+
+
+class SetRecurringSchedulePausedParams(TypedDict):
+    p_schedule_id: str
+    p_paused: bool
+
+
+class SetSampleWorkflowStatusParams(TypedDict):
+    p_workflow_id: str
+    p_status: str
+
+
 class SnapshotDatasetParams(TypedDict):
     p_dataset_id: str
     p_expected_dataset_revision: int
     p_label: str
 
 
+class _StartStepTimerParamsRequired(TypedDict):
+    p_block_id: str
+
+
+class StartStepTimerParams(_StartStepTimerParamsRequired, total=False):
+    p_seconds: int
+
+
+class _StartStocktakeParamsRequired(TypedDict):
+    p_scope_level: str
+    p_scope_id: str
+
+
+class StartStocktakeParams(_StartStocktakeParamsRequired, total=False):
+    p_note: str
+
+
+class _SubmitRequestParamsRequired(TypedDict):
+    p_model_key: str
+    p_title: str
+
+
+class SubmitRequestParams(_SubmitRequestParamsRequired, total=False):
+    p_custom_fields: Dict[str, "JsonValue"]
+    p_project_id: str
+    p_note: str
+
+
 class TransitionRecordStatusParams(TypedDict):
     p_record_id: str
     p_target_status: str
     p_expected_metadata_version: int
+
+
+class UnfollowProjectParams(TypedDict):
+    p_project_id: str
 
 
 class UpdateBlockPayloadParams(TypedDict):
@@ -2475,6 +3546,19 @@ class UpdateSheetInstanceParams(TypedDict):
     p_instance_id: str
     p_expected_revision: int
     p_state: "SheetInstanceState"
+
+
+class _UpdateShipmentParamsRequired(TypedDict):
+    p_shipment_id: str
+
+
+class UpdateShipmentParams(_UpdateShipmentParamsRequired, total=False):
+    p_counterparty: str
+    p_carrier: str
+    p_tracking_reference: str
+    p_expected_on: str
+    p_notes: str
+    p_items: Dict[str, "JsonValue"]
 
 
 class _UpdateWebhookSubscriptionParamsRequired(TypedDict):

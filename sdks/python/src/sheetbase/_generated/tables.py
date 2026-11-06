@@ -33,9 +33,22 @@ from sheetbase._generated.models import (
     DatasetVersionsRow,
     DatasetsRow,
     DatasetsRowInsert,
+    FieldSpecLimitsRow,
     FoldersRow,
     IdpGroupMappingsRow,
+    InboxWorkItemsRow,
+    InstrumentBookingRulesRow,
+    InstrumentFeedsRow,
+    InstrumentReadingsRow,
+    InstrumentRequiredTrainingRow,
+    InstrumentServiceLogRow,
+    LegalHoldRecordsRow,
+    LegalHoldsRow,
+    MaterialIngredientsRow,
+    MaterialSafetyRow,
     MemberAbsencesRow,
+    ModelIncidentLogsRow,
+    MyWorkItemsRow,
     NotebookTemplateVersionsRow,
     NotebookTemplatesRow,
     PipelineDefinitionVersionsRow,
@@ -43,22 +56,41 @@ from sheetbase._generated.models import (
     PipelineRunLogsRow,
     PipelineRunOutputsRow,
     PipelineRunsRow,
+    ProjectFollowsRow,
     ProjectsRow,
     ProjectsRowInsert,
     ProjectsRowPatch,
+    ReagentOrdersRow,
     RecordFieldDefinitionsRow,
     RecordLinksRow,
     RecordLinksRowInsert,
     RecordLinksRowPatch,
     RecordModelsRow,
+    RecordSpecResultsRow,
     RecordsRow,
     RecordsRowInsert,
     RecordsRowPatch,
+    RecurringOccurrencesRow,
+    RecurringSchedulesRow,
+    RequestDetailsRow,
+    RequestFormsRow,
+    RetentionRulesRow,
+    ReviewCoverRow,
     RevisionsRow,
+    SampleWorkflowEventsRow,
+    SampleWorkflowRunsRow,
+    SampleWorkflowStagesRow,
+    SampleWorkflowTransitionsRow,
+    SampleWorkflowsRow,
     SavedSearchesRow,
     SheetDefinitionVersionsRow,
     SheetDefinitionsRow,
     SheetInstancesRow,
+    ShipmentItemsRow,
+    ShipmentsRow,
+    StepTimersRow,
+    StocktakeItemsRow,
+    StocktakesRow,
     WebhookDeliveriesRow,
     WebhookSubscriptionsRow,
 )
@@ -276,6 +308,24 @@ class AsyncDatasetsTable(
     name = "datasets"
 
 
+class FieldSpecLimitsTable(ReadableTable[FieldSpecLimitsRow]):
+    """
+    ``/api/db/field_spec_limits`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "field_spec_limits"
+
+
+class AsyncFieldSpecLimitsTable(AsyncReadableTable[FieldSpecLimitsRow]):
+    """
+    ``/api/db/field_spec_limits`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "field_spec_limits"
+
+
 class FoldersTable(ReadableTable[FoldersRow]):
     """
     ``/api/db/folders`` (GET, HEAD).
@@ -312,6 +362,186 @@ class AsyncIdpGroupMappingsTable(AsyncReadableTable[IdpGroupMappingsRow]):
     name = "idp_group_mappings"
 
 
+class InboxWorkItemsTable(ReadableTable[InboxWorkItemsRow]):
+    """
+    ``/api/db/inbox_work_items`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "inbox_work_items"
+
+
+class AsyncInboxWorkItemsTable(AsyncReadableTable[InboxWorkItemsRow]):
+    """
+    ``/api/db/inbox_work_items`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "inbox_work_items"
+
+
+class InstrumentBookingRulesTable(ReadableTable[InstrumentBookingRulesRow]):
+    """
+    ``/api/db/instrument_booking_rules`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_booking_rules"
+
+
+class AsyncInstrumentBookingRulesTable(AsyncReadableTable[InstrumentBookingRulesRow]):
+    """
+    ``/api/db/instrument_booking_rules`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_booking_rules"
+
+
+class InstrumentFeedsTable(ReadableTable[InstrumentFeedsRow]):
+    """
+    ``/api/db/instrument_feeds`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_feeds"
+
+
+class AsyncInstrumentFeedsTable(AsyncReadableTable[InstrumentFeedsRow]):
+    """
+    ``/api/db/instrument_feeds`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_feeds"
+
+
+class InstrumentReadingsTable(ReadableTable[InstrumentReadingsRow]):
+    """
+    ``/api/db/instrument_readings`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_readings"
+
+
+class AsyncInstrumentReadingsTable(AsyncReadableTable[InstrumentReadingsRow]):
+    """
+    ``/api/db/instrument_readings`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_readings"
+
+
+class InstrumentRequiredTrainingTable(ReadableTable[InstrumentRequiredTrainingRow]):
+    """
+    ``/api/db/instrument_required_training`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_required_training"
+
+
+class AsyncInstrumentRequiredTrainingTable(AsyncReadableTable[InstrumentRequiredTrainingRow]):
+    """
+    ``/api/db/instrument_required_training`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_required_training"
+
+
+class InstrumentServiceLogTable(ReadableTable[InstrumentServiceLogRow]):
+    """
+    ``/api/db/instrument_service_log`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_service_log"
+
+
+class AsyncInstrumentServiceLogTable(AsyncReadableTable[InstrumentServiceLogRow]):
+    """
+    ``/api/db/instrument_service_log`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_service_log"
+
+
+class LegalHoldRecordsTable(ReadableTable[LegalHoldRecordsRow]):
+    """
+    ``/api/db/legal_hold_records`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "legal_hold_records"
+
+
+class AsyncLegalHoldRecordsTable(AsyncReadableTable[LegalHoldRecordsRow]):
+    """
+    ``/api/db/legal_hold_records`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "legal_hold_records"
+
+
+class LegalHoldsTable(ReadableTable[LegalHoldsRow]):
+    """
+    ``/api/db/legal_holds`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "legal_holds"
+
+
+class AsyncLegalHoldsTable(AsyncReadableTable[LegalHoldsRow]):
+    """
+    ``/api/db/legal_holds`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "legal_holds"
+
+
+class MaterialIngredientsTable(ReadableTable[MaterialIngredientsRow]):
+    """
+    ``/api/db/material_ingredients`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "material_ingredients"
+
+
+class AsyncMaterialIngredientsTable(AsyncReadableTable[MaterialIngredientsRow]):
+    """
+    ``/api/db/material_ingredients`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "material_ingredients"
+
+
+class MaterialSafetyTable(ReadableTable[MaterialSafetyRow]):
+    """
+    ``/api/db/material_safety`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "material_safety"
+
+
+class AsyncMaterialSafetyTable(AsyncReadableTable[MaterialSafetyRow]):
+    """
+    ``/api/db/material_safety`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "material_safety"
+
+
 class MemberAbsencesTable(ReadableTable[MemberAbsencesRow]):
     """
     ``/api/db/member_absences`` (GET, HEAD).
@@ -328,6 +558,42 @@ class AsyncMemberAbsencesTable(AsyncReadableTable[MemberAbsencesRow]):
     Scopes: people:read.
     """
     name = "member_absences"
+
+
+class ModelIncidentLogsTable(ReadableTable[ModelIncidentLogsRow]):
+    """
+    ``/api/db/model_incident_logs`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "model_incident_logs"
+
+
+class AsyncModelIncidentLogsTable(AsyncReadableTable[ModelIncidentLogsRow]):
+    """
+    ``/api/db/model_incident_logs`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "model_incident_logs"
+
+
+class MyWorkItemsTable(ReadableTable[MyWorkItemsRow]):
+    """
+    ``/api/db/my_work_items`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "my_work_items"
+
+
+class AsyncMyWorkItemsTable(AsyncReadableTable[MyWorkItemsRow]):
+    """
+    ``/api/db/my_work_items`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "my_work_items"
 
 
 class NotebookTemplateVersionsTable(ReadableTable[NotebookTemplateVersionsRow]):
@@ -456,6 +722,24 @@ class AsyncPipelineRunsTable(AsyncReadableTable[PipelineRunsRow]):
     name = "pipeline_runs"
 
 
+class ProjectFollowsTable(ReadableTable[ProjectFollowsRow]):
+    """
+    ``/api/db/project_follows`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "project_follows"
+
+
+class AsyncProjectFollowsTable(AsyncReadableTable[ProjectFollowsRow]):
+    """
+    ``/api/db/project_follows`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "project_follows"
+
+
 class ProjectsTable(
     ReadableTable[ProjectsRow],
     InsertableTable[ProjectsRow, ProjectsRowInsert],
@@ -480,6 +764,24 @@ class AsyncProjectsTable(
     Scopes: projects:read, projects:write.
     """
     name = "projects"
+
+
+class ReagentOrdersTable(ReadableTable[ReagentOrdersRow]):
+    """
+    ``/api/db/reagent_orders`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "reagent_orders"
+
+
+class AsyncReagentOrdersTable(AsyncReadableTable[ReagentOrdersRow]):
+    """
+    ``/api/db/reagent_orders`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "reagent_orders"
 
 
 class RecordFieldDefinitionsTable(ReadableTable[RecordFieldDefinitionsRow]):
@@ -544,6 +846,24 @@ class AsyncRecordModelsTable(AsyncReadableTable[RecordModelsRow]):
     name = "record_models"
 
 
+class RecordSpecResultsTable(ReadableTable[RecordSpecResultsRow]):
+    """
+    ``/api/db/record_spec_results`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "record_spec_results"
+
+
+class AsyncRecordSpecResultsTable(AsyncReadableTable[RecordSpecResultsRow]):
+    """
+    ``/api/db/record_spec_results`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "record_spec_results"
+
+
 class RecordsTable(
     ReadableTable[RecordsRow],
     InsertableTable[RecordsRow, RecordsRowInsert],
@@ -570,6 +890,114 @@ class AsyncRecordsTable(
     name = "records"
 
 
+class RecurringOccurrencesTable(ReadableTable[RecurringOccurrencesRow]):
+    """
+    ``/api/db/recurring_occurrences`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "recurring_occurrences"
+
+
+class AsyncRecurringOccurrencesTable(AsyncReadableTable[RecurringOccurrencesRow]):
+    """
+    ``/api/db/recurring_occurrences`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "recurring_occurrences"
+
+
+class RecurringSchedulesTable(ReadableTable[RecurringSchedulesRow]):
+    """
+    ``/api/db/recurring_schedules`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "recurring_schedules"
+
+
+class AsyncRecurringSchedulesTable(AsyncReadableTable[RecurringSchedulesRow]):
+    """
+    ``/api/db/recurring_schedules`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "recurring_schedules"
+
+
+class RequestDetailsTable(ReadableTable[RequestDetailsRow]):
+    """
+    ``/api/db/request_details`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "request_details"
+
+
+class AsyncRequestDetailsTable(AsyncReadableTable[RequestDetailsRow]):
+    """
+    ``/api/db/request_details`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "request_details"
+
+
+class RequestFormsTable(ReadableTable[RequestFormsRow]):
+    """
+    ``/api/db/request_forms`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "request_forms"
+
+
+class AsyncRequestFormsTable(AsyncReadableTable[RequestFormsRow]):
+    """
+    ``/api/db/request_forms`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "request_forms"
+
+
+class RetentionRulesTable(ReadableTable[RetentionRulesRow]):
+    """
+    ``/api/db/retention_rules`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "retention_rules"
+
+
+class AsyncRetentionRulesTable(AsyncReadableTable[RetentionRulesRow]):
+    """
+    ``/api/db/retention_rules`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "retention_rules"
+
+
+class ReviewCoverTable(ReadableTable[ReviewCoverRow]):
+    """
+    ``/api/db/review_cover`` (GET, HEAD).
+
+    Scopes: people:read.
+    """
+    name = "review_cover"
+
+
+class AsyncReviewCoverTable(AsyncReadableTable[ReviewCoverRow]):
+    """
+    ``/api/db/review_cover`` (GET, HEAD).
+
+    Scopes: people:read.
+    """
+    name = "review_cover"
+
+
 class RevisionsTable(ReadableTable[RevisionsRow]):
     """
     ``/api/db/revisions`` (GET, HEAD).
@@ -586,6 +1014,96 @@ class AsyncRevisionsTable(AsyncReadableTable[RevisionsRow]):
     Scopes: projects:read.
     """
     name = "revisions"
+
+
+class SampleWorkflowEventsTable(ReadableTable[SampleWorkflowEventsRow]):
+    """
+    ``/api/db/sample_workflow_events`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "sample_workflow_events"
+
+
+class AsyncSampleWorkflowEventsTable(AsyncReadableTable[SampleWorkflowEventsRow]):
+    """
+    ``/api/db/sample_workflow_events`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "sample_workflow_events"
+
+
+class SampleWorkflowRunsTable(ReadableTable[SampleWorkflowRunsRow]):
+    """
+    ``/api/db/sample_workflow_runs`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "sample_workflow_runs"
+
+
+class AsyncSampleWorkflowRunsTable(AsyncReadableTable[SampleWorkflowRunsRow]):
+    """
+    ``/api/db/sample_workflow_runs`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "sample_workflow_runs"
+
+
+class SampleWorkflowStagesTable(ReadableTable[SampleWorkflowStagesRow]):
+    """
+    ``/api/db/sample_workflow_stages`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "sample_workflow_stages"
+
+
+class AsyncSampleWorkflowStagesTable(AsyncReadableTable[SampleWorkflowStagesRow]):
+    """
+    ``/api/db/sample_workflow_stages`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "sample_workflow_stages"
+
+
+class SampleWorkflowTransitionsTable(ReadableTable[SampleWorkflowTransitionsRow]):
+    """
+    ``/api/db/sample_workflow_transitions`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "sample_workflow_transitions"
+
+
+class AsyncSampleWorkflowTransitionsTable(AsyncReadableTable[SampleWorkflowTransitionsRow]):
+    """
+    ``/api/db/sample_workflow_transitions`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "sample_workflow_transitions"
+
+
+class SampleWorkflowsTable(ReadableTable[SampleWorkflowsRow]):
+    """
+    ``/api/db/sample_workflows`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "sample_workflows"
+
+
+class AsyncSampleWorkflowsTable(AsyncReadableTable[SampleWorkflowsRow]):
+    """
+    ``/api/db/sample_workflows`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "sample_workflows"
 
 
 class SavedSearchesTable(ReadableTable[SavedSearchesRow]):
@@ -660,6 +1178,96 @@ class AsyncSheetInstancesTable(AsyncReadableTable[SheetInstancesRow]):
     name = "sheet_instances"
 
 
+class ShipmentItemsTable(ReadableTable[ShipmentItemsRow]):
+    """
+    ``/api/db/shipment_items`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "shipment_items"
+
+
+class AsyncShipmentItemsTable(AsyncReadableTable[ShipmentItemsRow]):
+    """
+    ``/api/db/shipment_items`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "shipment_items"
+
+
+class ShipmentsTable(ReadableTable[ShipmentsRow]):
+    """
+    ``/api/db/shipments`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "shipments"
+
+
+class AsyncShipmentsTable(AsyncReadableTable[ShipmentsRow]):
+    """
+    ``/api/db/shipments`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "shipments"
+
+
+class StepTimersTable(ReadableTable[StepTimersRow]):
+    """
+    ``/api/db/step_timers`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "step_timers"
+
+
+class AsyncStepTimersTable(AsyncReadableTable[StepTimersRow]):
+    """
+    ``/api/db/step_timers`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "step_timers"
+
+
+class StocktakeItemsTable(ReadableTable[StocktakeItemsRow]):
+    """
+    ``/api/db/stocktake_items`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "stocktake_items"
+
+
+class AsyncStocktakeItemsTable(AsyncReadableTable[StocktakeItemsRow]):
+    """
+    ``/api/db/stocktake_items`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "stocktake_items"
+
+
+class StocktakesTable(ReadableTable[StocktakesRow]):
+    """
+    ``/api/db/stocktakes`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "stocktakes"
+
+
+class AsyncStocktakesTable(AsyncReadableTable[StocktakesRow]):
+    """
+    ``/api/db/stocktakes`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "stocktakes"
+
+
 class WebhookDeliveriesTable(ReadableTable[WebhookDeliveriesRow]):
     """
     ``/api/db/webhook_deliveries`` (GET, HEAD).
@@ -711,9 +1319,22 @@ class Tables:
         "dataset_schema_versions",
         "dataset_versions",
         "datasets",
+        "field_spec_limits",
         "folders",
         "idp_group_mappings",
+        "inbox_work_items",
+        "instrument_booking_rules",
+        "instrument_feeds",
+        "instrument_readings",
+        "instrument_required_training",
+        "instrument_service_log",
+        "legal_hold_records",
+        "legal_holds",
+        "material_ingredients",
+        "material_safety",
         "member_absences",
+        "model_incident_logs",
+        "my_work_items",
         "notebook_template_versions",
         "notebook_templates",
         "pipeline_definition_versions",
@@ -721,16 +1342,35 @@ class Tables:
         "pipeline_run_logs",
         "pipeline_run_outputs",
         "pipeline_runs",
+        "project_follows",
         "projects",
+        "reagent_orders",
         "record_field_definitions",
         "record_links",
         "record_models",
+        "record_spec_results",
         "records",
+        "recurring_occurrences",
+        "recurring_schedules",
+        "request_details",
+        "request_forms",
+        "retention_rules",
+        "review_cover",
         "revisions",
+        "sample_workflow_events",
+        "sample_workflow_runs",
+        "sample_workflow_stages",
+        "sample_workflow_transitions",
+        "sample_workflows",
         "saved_searches",
         "sheet_definition_versions",
         "sheet_definitions",
         "sheet_instances",
+        "shipment_items",
+        "shipments",
+        "step_timers",
+        "stocktake_items",
+        "stocktakes",
         "webhook_deliveries",
         "webhook_subscriptions",
     )
@@ -747,9 +1387,22 @@ class Tables:
         self.dataset_schema_versions = DatasetSchemaVersionsTable(transport)
         self.dataset_versions = DatasetVersionsTable(transport)
         self.datasets = DatasetsTable(transport)
+        self.field_spec_limits = FieldSpecLimitsTable(transport)
         self.folders = FoldersTable(transport)
         self.idp_group_mappings = IdpGroupMappingsTable(transport)
+        self.inbox_work_items = InboxWorkItemsTable(transport)
+        self.instrument_booking_rules = InstrumentBookingRulesTable(transport)
+        self.instrument_feeds = InstrumentFeedsTable(transport)
+        self.instrument_readings = InstrumentReadingsTable(transport)
+        self.instrument_required_training = InstrumentRequiredTrainingTable(transport)
+        self.instrument_service_log = InstrumentServiceLogTable(transport)
+        self.legal_hold_records = LegalHoldRecordsTable(transport)
+        self.legal_holds = LegalHoldsTable(transport)
+        self.material_ingredients = MaterialIngredientsTable(transport)
+        self.material_safety = MaterialSafetyTable(transport)
         self.member_absences = MemberAbsencesTable(transport)
+        self.model_incident_logs = ModelIncidentLogsTable(transport)
+        self.my_work_items = MyWorkItemsTable(transport)
         self.notebook_template_versions = NotebookTemplateVersionsTable(transport)
         self.notebook_templates = NotebookTemplatesTable(transport)
         self.pipeline_definition_versions = PipelineDefinitionVersionsTable(transport)
@@ -757,16 +1410,35 @@ class Tables:
         self.pipeline_run_logs = PipelineRunLogsTable(transport)
         self.pipeline_run_outputs = PipelineRunOutputsTable(transport)
         self.pipeline_runs = PipelineRunsTable(transport)
+        self.project_follows = ProjectFollowsTable(transport)
         self.projects = ProjectsTable(transport)
+        self.reagent_orders = ReagentOrdersTable(transport)
         self.record_field_definitions = RecordFieldDefinitionsTable(transport)
         self.record_links = RecordLinksTable(transport)
         self.record_models = RecordModelsTable(transport)
+        self.record_spec_results = RecordSpecResultsTable(transport)
         self.records = RecordsTable(transport)
+        self.recurring_occurrences = RecurringOccurrencesTable(transport)
+        self.recurring_schedules = RecurringSchedulesTable(transport)
+        self.request_details = RequestDetailsTable(transport)
+        self.request_forms = RequestFormsTable(transport)
+        self.retention_rules = RetentionRulesTable(transport)
+        self.review_cover = ReviewCoverTable(transport)
         self.revisions = RevisionsTable(transport)
+        self.sample_workflow_events = SampleWorkflowEventsTable(transport)
+        self.sample_workflow_runs = SampleWorkflowRunsTable(transport)
+        self.sample_workflow_stages = SampleWorkflowStagesTable(transport)
+        self.sample_workflow_transitions = SampleWorkflowTransitionsTable(transport)
+        self.sample_workflows = SampleWorkflowsTable(transport)
         self.saved_searches = SavedSearchesTable(transport)
         self.sheet_definition_versions = SheetDefinitionVersionsTable(transport)
         self.sheet_definitions = SheetDefinitionsTable(transport)
         self.sheet_instances = SheetInstancesTable(transport)
+        self.shipment_items = ShipmentItemsTable(transport)
+        self.shipments = ShipmentsTable(transport)
+        self.step_timers = StepTimersTable(transport)
+        self.stocktake_items = StocktakeItemsTable(transport)
+        self.stocktakes = StocktakesTable(transport)
         self.webhook_deliveries = WebhookDeliveriesTable(transport)
         self.webhook_subscriptions = WebhookSubscriptionsTable(transport)
 
@@ -794,9 +1466,22 @@ class AsyncTables:
         "dataset_schema_versions",
         "dataset_versions",
         "datasets",
+        "field_spec_limits",
         "folders",
         "idp_group_mappings",
+        "inbox_work_items",
+        "instrument_booking_rules",
+        "instrument_feeds",
+        "instrument_readings",
+        "instrument_required_training",
+        "instrument_service_log",
+        "legal_hold_records",
+        "legal_holds",
+        "material_ingredients",
+        "material_safety",
         "member_absences",
+        "model_incident_logs",
+        "my_work_items",
         "notebook_template_versions",
         "notebook_templates",
         "pipeline_definition_versions",
@@ -804,16 +1489,35 @@ class AsyncTables:
         "pipeline_run_logs",
         "pipeline_run_outputs",
         "pipeline_runs",
+        "project_follows",
         "projects",
+        "reagent_orders",
         "record_field_definitions",
         "record_links",
         "record_models",
+        "record_spec_results",
         "records",
+        "recurring_occurrences",
+        "recurring_schedules",
+        "request_details",
+        "request_forms",
+        "retention_rules",
+        "review_cover",
         "revisions",
+        "sample_workflow_events",
+        "sample_workflow_runs",
+        "sample_workflow_stages",
+        "sample_workflow_transitions",
+        "sample_workflows",
         "saved_searches",
         "sheet_definition_versions",
         "sheet_definitions",
         "sheet_instances",
+        "shipment_items",
+        "shipments",
+        "step_timers",
+        "stocktake_items",
+        "stocktakes",
         "webhook_deliveries",
         "webhook_subscriptions",
     )
@@ -830,9 +1534,22 @@ class AsyncTables:
         self.dataset_schema_versions = AsyncDatasetSchemaVersionsTable(transport)
         self.dataset_versions = AsyncDatasetVersionsTable(transport)
         self.datasets = AsyncDatasetsTable(transport)
+        self.field_spec_limits = AsyncFieldSpecLimitsTable(transport)
         self.folders = AsyncFoldersTable(transport)
         self.idp_group_mappings = AsyncIdpGroupMappingsTable(transport)
+        self.inbox_work_items = AsyncInboxWorkItemsTable(transport)
+        self.instrument_booking_rules = AsyncInstrumentBookingRulesTable(transport)
+        self.instrument_feeds = AsyncInstrumentFeedsTable(transport)
+        self.instrument_readings = AsyncInstrumentReadingsTable(transport)
+        self.instrument_required_training = AsyncInstrumentRequiredTrainingTable(transport)
+        self.instrument_service_log = AsyncInstrumentServiceLogTable(transport)
+        self.legal_hold_records = AsyncLegalHoldRecordsTable(transport)
+        self.legal_holds = AsyncLegalHoldsTable(transport)
+        self.material_ingredients = AsyncMaterialIngredientsTable(transport)
+        self.material_safety = AsyncMaterialSafetyTable(transport)
         self.member_absences = AsyncMemberAbsencesTable(transport)
+        self.model_incident_logs = AsyncModelIncidentLogsTable(transport)
+        self.my_work_items = AsyncMyWorkItemsTable(transport)
         self.notebook_template_versions = AsyncNotebookTemplateVersionsTable(transport)
         self.notebook_templates = AsyncNotebookTemplatesTable(transport)
         self.pipeline_definition_versions = AsyncPipelineDefinitionVersionsTable(transport)
@@ -840,16 +1557,35 @@ class AsyncTables:
         self.pipeline_run_logs = AsyncPipelineRunLogsTable(transport)
         self.pipeline_run_outputs = AsyncPipelineRunOutputsTable(transport)
         self.pipeline_runs = AsyncPipelineRunsTable(transport)
+        self.project_follows = AsyncProjectFollowsTable(transport)
         self.projects = AsyncProjectsTable(transport)
+        self.reagent_orders = AsyncReagentOrdersTable(transport)
         self.record_field_definitions = AsyncRecordFieldDefinitionsTable(transport)
         self.record_links = AsyncRecordLinksTable(transport)
         self.record_models = AsyncRecordModelsTable(transport)
+        self.record_spec_results = AsyncRecordSpecResultsTable(transport)
         self.records = AsyncRecordsTable(transport)
+        self.recurring_occurrences = AsyncRecurringOccurrencesTable(transport)
+        self.recurring_schedules = AsyncRecurringSchedulesTable(transport)
+        self.request_details = AsyncRequestDetailsTable(transport)
+        self.request_forms = AsyncRequestFormsTable(transport)
+        self.retention_rules = AsyncRetentionRulesTable(transport)
+        self.review_cover = AsyncReviewCoverTable(transport)
         self.revisions = AsyncRevisionsTable(transport)
+        self.sample_workflow_events = AsyncSampleWorkflowEventsTable(transport)
+        self.sample_workflow_runs = AsyncSampleWorkflowRunsTable(transport)
+        self.sample_workflow_stages = AsyncSampleWorkflowStagesTable(transport)
+        self.sample_workflow_transitions = AsyncSampleWorkflowTransitionsTable(transport)
+        self.sample_workflows = AsyncSampleWorkflowsTable(transport)
         self.saved_searches = AsyncSavedSearchesTable(transport)
         self.sheet_definition_versions = AsyncSheetDefinitionVersionsTable(transport)
         self.sheet_definitions = AsyncSheetDefinitionsTable(transport)
         self.sheet_instances = AsyncSheetInstancesTable(transport)
+        self.shipment_items = AsyncShipmentItemsTable(transport)
+        self.shipments = AsyncShipmentsTable(transport)
+        self.step_timers = AsyncStepTimersTable(transport)
+        self.stocktake_items = AsyncStocktakeItemsTable(transport)
+        self.stocktakes = AsyncStocktakesTable(transport)
         self.webhook_deliveries = AsyncWebhookDeliveriesTable(transport)
         self.webhook_subscriptions = AsyncWebhookSubscriptionsTable(transport)
 

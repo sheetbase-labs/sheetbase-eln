@@ -43,6 +43,7 @@ export type EventFamily =
   | 'instrument'
   | 'pipeline'
   | 'administration'
+  | 'people'
 
 /** Which `change_events` row produces the event. */
 export interface ProducerMapping {
@@ -77,7 +78,8 @@ export interface PayloadCondition {
 export type CatalogueStatus = 'stable' | 'provisional' | 'reserved'
 
 /** Which introduction introduced (shipped or pinned) the entry. */
-export type CatalogueIntroducedIn = 'api-06' | 'event-01' | 'notify-01'
+export type CatalogueIntroducedIn =
+  'api-06' | 'event-01' | 'notify-01' | 'people-01'
 
 /** Which consumers can observe the event today. */
 export interface EventConsumerMap {
@@ -999,6 +1001,132 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     introducedIn: 'event-01',
     consumers: sseOnly,
   },
+  // -- people and continuity --------------------------------------------------
+  {
+    name: 'member.work_handed_over',
+    family: 'people',
+    summary: 'A member’s open work was handed to a colleague.',
+    producer: {
+      entityType: 'member_handover',
+      operation: 'update',
+    },
+    wireName: 'member.work_handed_over',
+    status: 'stable',
+    introducedIn: 'people-01',
+    consumers: webhookSse,
+    notes:
+      'The payload names who it came from and went to and counts what moved and what stayed, by kind of work.',
+  },
+  {
+    name: 'member.absence_set',
+    family: 'people',
+    summary: 'A member set an out of office.',
+    producer: {
+      entityType: 'member_absence',
+      operation: 'create',
+    },
+    wireName: 'member.absence_set',
+    status: 'stable',
+    introducedIn: 'people-01',
+    consumers: webhookSse,
+    notes: 'The payload carries the dates and the delegate who covers reviews.',
+  },
+  {
+    name: 'member.absence_cancelled',
+    family: 'people',
+    summary: 'A member cancelled an out of office.',
+    producer: {
+      entityType: 'member_absence',
+      operation: 'update',
+      when: { key: 'action', equals: 'absence-cancelled' },
+    },
+    wireName: 'member.absence_cancelled',
+    status: 'stable',
+    introducedIn: 'people-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'workspace.group_role.mapped',
+    family: 'people',
+    summary: 'A sign-in group was given a role.',
+    producer: {
+      entityType: 'idp_group_mapping',
+      operation: 'update',
+      when: { key: 'action', equals: 'group-mapped' },
+    },
+    wireName: 'workspace.group_role.mapped',
+    status: 'stable',
+    introducedIn: 'people-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'workspace.group_role.removed',
+    family: 'people',
+    summary: 'A sign-in group no longer gives a role.',
+    producer: {
+      entityType: 'idp_group_mapping',
+      operation: 'delete',
+    },
+    wireName: 'workspace.group_role.removed',
+    status: 'stable',
+    introducedIn: 'people-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'workspace.group_role.adopted',
+    family: 'people',
+    summary: 'Sign-in groups now decide people’s roles.',
+    producer: {
+      entityType: 'idp_group_mapping',
+      operation: 'update',
+      when: { key: 'action', equals: 'groups-decide-roles' },
+    },
+    wireName: 'workspace.group_role.adopted',
+    status: 'stable',
+    introducedIn: 'people-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'member.role_changed_by_groups',
+    family: 'people',
+    summary: 'A member’s role changed from their sign-in groups.',
+    producer: {
+      entityType: 'idp_group_mapping',
+      operation: 'update',
+      when: { key: 'action', equals: 'role-from-groups' },
+    },
+    wireName: 'member.role_changed_by_groups',
+    status: 'stable',
+    introducedIn: 'people-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'member.passkey_added',
+    family: 'people',
+    summary: 'A member added a passkey.',
+    producer: {
+      entityType: 'member_passkey',
+      operation: 'create',
+    },
+    wireName: 'member.passkey_added',
+    status: 'stable',
+    introducedIn: 'people-01',
+    consumers: webhookSse,
+    notes: 'Carries the passkey name only, never key material.',
+  },
+  {
+    name: 'member.passkey_removed',
+    family: 'people',
+    summary: 'A member removed a passkey.',
+    producer: {
+      entityType: 'member_passkey',
+      operation: 'delete',
+    },
+    wireName: 'member.passkey_removed',
+    status: 'stable',
+    introducedIn: 'people-01',
+    consumers: webhookSse,
+  },
 ])
 
 /**
@@ -1166,6 +1294,7 @@ const FAMILY_GROUPS: Readonly<Record<EventFamily, string>> = Object.freeze({
   approval: 'Approvals',
   storage: 'Storage',
   instrument: 'Instruments',
+  people: 'People and sign-in',
   pipeline: 'Pipelines',
   administration: 'Projects',
 })

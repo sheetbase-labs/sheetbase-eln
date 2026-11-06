@@ -283,6 +283,41 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
             })
           }
         }
+        // Adding or removing a passkey is announced to the person's
+        // workspaces (webhooks, activity). Never allowed to fail the call.
+        if (
+          ctx.path === '/passkey/verify-registration' ||
+          ctx.path === '/passkey/delete-passkey'
+        ) {
+          try {
+            const result: unknown = ctx.context.returned
+            const failed =
+              result instanceof Error ||
+              (typeof result === 'object' &&
+                result !== null &&
+                'statusCode' in result)
+            const added = ctx.path === '/passkey/verify-registration'
+            const body = (ctx.body ?? {}) as { id?: unknown }
+            const made = (
+              typeof result === 'object' && result !== null ? result : {}
+            ) as { id?: unknown; name?: unknown; userId?: unknown }
+            const userId = ctx.context.session?.user.id ?? made.userId
+            const passkeyId = added ? made.id : body.id
+            if (
+              !failed &&
+              typeof userId === 'string' &&
+              typeof passkeyId === 'string'
+            ) {
+              await database.execute(
+                sql`select internal.record_passkey_event(${userId}, ${added ? 'added' : 'removed'}, ${passkeyId}, ${typeof made.name === 'string' ? made.name : null})`,
+              )
+            }
+          } catch (error) {
+            logger.warn('passkey event could not be recorded', {
+              error: error instanceof Error ? error.message : String(error),
+            })
+          }
+        }
         const returned: unknown = ctx.context.returned
         annotateRequest({
           auth_flow: {

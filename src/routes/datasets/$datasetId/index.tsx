@@ -86,12 +86,23 @@ function DatasetOverviewPanel({ dataset }: { dataset: DatasetListRow }) {
             [t('data.datasetOverview.datasetSchema'), dataset.model],
             [
               t('data.datasetOverview.project'),
-              dataset.projectId
-                ? (project.data?.title ??
-                  (project.isLoading
-                    ? 'Loading…'
-                    : t('data.datasetOverview.restrictedProject')))
-                : t('data.datasetOverview.noProject'),
+              dataset.projectId ? (
+                project.data?.title ? (
+                  <ObjectLink
+                    kind="project"
+                    id={dataset.projectId}
+                    mono={false}
+                  >
+                    {project.data.title}
+                  </ObjectLink>
+                ) : project.isLoading ? (
+                  'Loading…'
+                ) : (
+                  t('data.datasetOverview.restrictedProject')
+                )
+              ) : (
+                t('data.datasetOverview.noProject')
+              ),
             ],
             [
               t('data.datasetOverview.owner'),

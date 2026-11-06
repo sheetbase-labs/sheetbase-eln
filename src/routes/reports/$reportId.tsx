@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ObjectLink } from '#/components/ui/object-link'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -261,7 +262,11 @@ function ReportPage() {
                 <Status tone={status.tone}>{status.label}</Status>
               </span>
               {report.subtitle ? <span>{report.subtitle}</span> : null}
-              {report.projectTitle ? <span>{report.projectTitle}</span> : null}
+              {report.projectTitle ? (
+                <ObjectLink kind="project" id={report.projectId} mono={false}>
+                  {report.projectTitle}
+                </ObjectLink>
+              ) : null}
             </>
           }
           tabs={
@@ -385,7 +390,17 @@ function ReportPage() {
                 [t('projects.reports.builder.status'), status.label],
                 [
                   t('projects.reports.builder.project'),
-                  report.projectTitle ?? '—',
+                  report.projectTitle ? (
+                    <ObjectLink
+                      kind="project"
+                      id={report.projectId}
+                      mono={false}
+                    >
+                      {report.projectTitle}
+                    </ObjectLink>
+                  ) : (
+                    '—'
+                  ),
                 ],
                 [
                   t('projects.reports.builder.owner'),

@@ -1692,6 +1692,7 @@ export const projects = {
       move: 'move',
       open: 'open',
       beside: 'open beside',
+      below: 'open below',
       newTab: 'open in new tab',
       close: 'close',
       keyEsc: 'Esc',

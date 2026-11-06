@@ -385,7 +385,7 @@ The visible language for panes, implemented as the Multiplex system (`src/compon
 - **Linked panes.** `⌘L` links a pane with its neighbour as link A, B or C (cyan, violet, amber chips, never a blue header). The driver's scroll position is mirrored to followers. Selection following is not built.
 - **Trail.** Each pane keeps its own history with `⌘[` and `⌘]`. "Save trail as evidence" needs a backend and is not built.
 - **Not built.** Provenance line and drag-to-cite between panes, team (shared) layouts, Newer data from individual pages.
-- **Keyboard.** `⌘1`–`⌘9` focus pane · `⌘\` split right · `⌘⇧\` split below · `⌘W` close pane · `⌘⇧↵` maximise · `⌥↵` open beside · Space peek · `⌘L` link · `⌘[` `⌘]` trail · `P` pin · `⌘⇧P` make primary · `⌘T` `⌃Tab` workspaces · `⌘S` save layout. The sidebar rail toggle moved from `⌘\` to `⌘B` to free `⌘\` for split. Browsers reserve `⌘W`, `⌘T`, `⌘L`, `⌘S` and `⌃Tab` in ordinary tabs, so those work in an installed app window.
+- **Keyboard.** `⌘1`–`⌘9` focus pane · `⌘\` split right · `⌘⇧\` split below · `⌘W` close pane · `⌘⇧↵` maximise · `⌥↵` open beside · `⌥⇧↵` open below · Space peek · `⌘L` link · `⌘[` `⌘]` trail · `P` pin · `⌘⇧P` make primary · `⌘T` `⌃Tab` workspaces · `⌘S` save layout. The sidebar rail toggle moved from `⌘\` to `⌘B` to free `⌘\` for split. Browsers reserve `⌘W`, `⌘T`, `⌘L`, `⌘S` and `⌃Tab` in ordinary tabs, so those work in an installed app window.
 
 ### Cards and surfaces
 

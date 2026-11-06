@@ -1514,3 +1514,18 @@ END $$;
 INSERT INTO internal.webhook_event_names (name) VALUES
   ('plate_run.created'), ('plate_run.analysed'), ('plate_run.archived'),
   ('plate_worklist.created'), ('plate_worklist.completed');
+--> statement-breakpoint
+
+-- A pipeline can add a plate run, make or complete a worklist, and archive a run.
+DO $$
+DECLARE
+  v_def text;
+  v_added text := $added$,{"operation":"create_plate_run","rpc":"create_plate_run","label":"Add a plate run","description":"Add a plate read with its layout and readings, to be checked against its own controls on the Plates page.","arguments":[{"name":"p_name","type":"text","required":true,"nullable":false},{"name":"p_format","type":"text","required":true,"nullable":false},{"name":"p_wells","type":"jsonb","required":true,"nullable":false},{"name":"p_readout","type":"jsonb","required":true,"nullable":false},{"name":"p_config","type":"jsonb","required":false,"nullable":false},{"name":"p_project_id","type":"uuid","required":false,"nullable":true},{"name":"p_record_id","type":"uuid","required":false,"nullable":true},{"name":"p_design_id","type":"uuid","required":false,"nullable":true}]},{"operation":"create_plate_worklist","rpc":"create_plate_worklist","label":"Make a liquid handler worklist","description":"Make a worklist of transfers for a liquid handler from a plate run.","arguments":[{"name":"p_name","type":"text","required":true,"nullable":false},{"name":"p_format","type":"text","required":true,"nullable":false},{"name":"p_mode","type":"text","required":true,"nullable":false},{"name":"p_source_plate","type":"text","required":true,"nullable":false},{"name":"p_source_format","type":"text","required":true,"nullable":false},{"name":"p_dest_plate","type":"text","required":true,"nullable":false},{"name":"p_dest_format","type":"text","required":true,"nullable":false},{"name":"p_transfers","type":"jsonb","required":true,"nullable":false},{"name":"p_plate_run_id","type":"uuid","required":false,"nullable":true},{"name":"p_record_id","type":"uuid","required":false,"nullable":true},{"name":"p_options","type":"jsonb","required":false,"nullable":false}]},{"operation":"complete_plate_worklist","rpc":"complete_plate_worklist","label":"Complete a worklist","description":"Complete a worklist with what the robot really moved, optionally taking it out of the source samples.","arguments":[{"name":"p_worklist_id","type":"uuid","required":true,"nullable":false},{"name":"p_reconciled","type":"jsonb","required":true,"nullable":false},{"name":"p_purpose_record_id","type":"uuid","required":false,"nullable":true},{"name":"p_record_withdrawals","type":"boolean","required":false,"nullable":false}]},{"operation":"archive_plate_run","rpc":"archive_plate_run","label":"Archive a plate run","description":"Take a plate run off the Plates list.","arguments":[{"name":"p_plate_run_id","type":"uuid","required":true,"nullable":false}]}$added$;
+BEGIN
+  SELECT pg_get_functiondef('internal.pipeline_action_errors(jsonb)'::regprocedure) INTO v_def;
+  IF position(']$catalogue$::jsonb' IN v_def) = 0 THEN
+    RAISE EXCEPTION 'unexpected shape for internal.pipeline_action_errors';
+  END IF;
+  v_def := replace(v_def, ']$catalogue$::jsonb', v_added || ']$catalogue$::jsonb');
+  EXECUTE v_def;
+END $$;

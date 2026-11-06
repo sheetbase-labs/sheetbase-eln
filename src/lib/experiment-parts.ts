@@ -1,5 +1,5 @@
 /**
- * Parts of an experiment (migration 0109): one notebook split over days, each
+ * Parts of an experiment (see the experiment_parts migration): one notebook split over days, each
  * part its own page.
  *
  * An experiment with no parts is a single page, as ever. Once it has parts every
@@ -369,7 +369,7 @@ export function splitPointsAtHeadings(
 }
 
 // ---------------------------------------------------------------------------
-// Writes: each is one database function (see migration 0109).
+// Writes: each is one database function (see the experiment_parts migration).
 // ---------------------------------------------------------------------------
 
 export function createExperimentPart(

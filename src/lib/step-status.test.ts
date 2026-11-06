@@ -31,7 +31,7 @@ describe('stepProgress', () => {
       'in_progress',
     ])
     expect(steps.map((s) => s.current)).toEqual([false, true, false, false])
-    expect(steps[2]!.results).toBe(1)
+    expect(steps[2].results).toBe(1)
     expect(currentStep(steps)?.blockId).toBe('b')
   })
 
@@ -46,7 +46,7 @@ describe('stepProgress', () => {
   })
 
   it('keeps a not-started step not started', () => {
-    expect(stepProgress([step('a', { note: '  ' })])[0]!.status).toBe(
+    expect(stepProgress([step('a', { note: '  ' })])[0].status).toBe(
       'not_started',
     )
   })

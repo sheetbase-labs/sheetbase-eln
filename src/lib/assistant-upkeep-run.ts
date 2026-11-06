@@ -70,6 +70,9 @@ export async function runUpkeepAction(
     case 'group_role.remove':
       await removeGroupMapping(client, action.mappingId)
       return { openHref: '/settings/workspace/members' }
+    case 'scim_token.revoke':
+      await client.rpc('revoke_scim_token', { p_id: action.tokenId })
+      return { openHref: '/settings/workspace/members' }
     case 'absence.cancel':
       await cancelAbsence(client, action.absenceId)
       return { openHref: '/settings/account/away' }

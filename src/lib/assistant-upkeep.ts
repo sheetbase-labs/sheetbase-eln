@@ -27,6 +27,7 @@ export const ABSENCE_CANCEL_TOOL = 'sheetbase.absence.cancel'
 export const HANDOVER_TOOL = 'sheetbase.handover.start'
 export const GROUP_ROLE_SET_TOOL = 'sheetbase.group_role.set'
 export const GROUP_ROLE_REMOVE_TOOL = 'sheetbase.group_role.remove'
+export const SCIM_TOKEN_REVOKE_TOOL = 'sheetbase.scim_token.revoke'
 
 export const UPKEEP_PROPOSE_TOOL_NAMES = [
   PROJECT_CREATE_TOOL,
@@ -43,6 +44,7 @@ export const UPKEEP_PROPOSE_TOOL_NAMES = [
   HANDOVER_TOOL,
   GROUP_ROLE_SET_TOOL,
   GROUP_ROLE_REMOVE_TOOL,
+  SCIM_TOKEN_REVOKE_TOOL,
 ] as const
 
 export type UpkeepProposeToolName = (typeof UPKEEP_PROPOSE_TOOL_NAMES)[number]
@@ -254,6 +256,15 @@ export const proposeGroupRoleRemoveSchema = z
   })
   .strict()
 
+export const proposeScimTokenRevokeSchema = z
+  .object({
+    title,
+    summary,
+    /** The label the token was given when it was made. */
+    token: z.string().min(1).max(200),
+  })
+  .strict()
+
 /** What an upkeep card does when its button is pressed. */
 export type UpkeepAction =
   | { kind: 'project.create'; title: string; startedOn: string | null }
@@ -327,6 +338,7 @@ export type UpkeepAction =
       role: string
     }
   | { kind: 'group_role.remove'; mappingId: string }
+  | { kind: 'scim_token.revoke'; tokenId: string }
 
 export type UpkeepActionKind = UpkeepAction['kind']
 
@@ -346,6 +358,7 @@ const KINDS: readonly string[] = [
   'handover.run',
   'group_role.set',
   'group_role.remove',
+  'scim_token.revoke',
 ]
 
 export function isUpkeepAction(action: {

@@ -342,6 +342,8 @@ function readToolArgs(
         p_limit: data.limit ?? 50,
         p_offset: data.offset ?? 0,
       }
+    case 'sheetbase.directory_sync.status':
+      return { p_workspace_id: data.workspaceId }
     case 'sheetbase.spend.report':
     case 'sheetbase.usage.report':
       return {

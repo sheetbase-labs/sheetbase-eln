@@ -1355,3 +1355,37 @@ describe('MCP money proposals', () => {
     )
   })
 })
+
+describe('MCP directory sync status', () => {
+  it('is offered with the people read scope and calls the status RPC', async () => {
+    const without = await request('tools/list', {}, context(['datasets:read']))
+    expect(
+      (without?.result as { tools: Array<{ name: string }> }).tools.map(
+        (tool) => tool.name,
+      ),
+    ).not.toContain('sheetbase.directory_sync.status')
+
+    const rpc = vi.fn(async () => ({ active_tokens: 1 }) as unknown)
+    const ctx = context(
+      ['people:read'],
+      fakeClient({ rpc: rpc as unknown as DataClient['rpc'] }),
+    )
+    const listed = await request('tools/list', {}, ctx)
+    expect(
+      (listed?.result as { tools: Array<{ name: string }> }).tools.map(
+        (tool) => tool.name,
+      ),
+    ).toContain('sheetbase.directory_sync.status')
+    await request(
+      'tools/call',
+      {
+        name: 'sheetbase.directory_sync.status',
+        arguments: { workspaceId: WORKSPACE_ID },
+      },
+      ctx,
+    )
+    expect(rpc).toHaveBeenCalledWith('directory_sync_status', {
+      p_workspace_id: WORKSPACE_ID,
+    })
+  })
+})

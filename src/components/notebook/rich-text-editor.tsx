@@ -5,6 +5,9 @@ import { EditorContent, Extension, useEditor } from '@tiptap/react'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import StarterKit from '@tiptap/starter-kit'
+import Collaboration from '@tiptap/extension-collaboration'
+import CollaborationCaret from '@tiptap/extension-collaboration-caret'
+import { ySyncPluginKey } from '@tiptap/y-tiptap'
 import Link from '@tiptap/extension-link'
 import Subscript from '@tiptap/extension-subscript'
 import Superscript from '@tiptap/extension-superscript'
@@ -14,6 +17,7 @@ import { Button } from '#/components/ui/button'
 import { RichTextContent } from '#/lib/blocks/rich-text'
 import type { RichTextDocument, RichTextPayload } from '#/lib/blocks/rich-text'
 import { cn } from '#/lib/utils'
+import { colorForUser } from '#/lib/collaboration/provider'
 import {
   AI_SLASH_TYPE,
   SlashCommandMenu,
@@ -23,29 +27,46 @@ import {
 import { AiComposer } from './ai-composer'
 import { usePageAi } from '#/lib/use-page-ai'
 import { useAnchoredPlacement } from '#/lib/use-anchored-placement'
+import { fingerprint, liveFieldName, useLiveRichText } from './live-rich-text'
 
 /** The slash menu's natural cap; it shrinks to fit above the keyboard. */
 const SLASH_MENU_MAX_HEIGHT = 320
 
-const baseExtensions = [
-  StarterKit.configure({
-    blockquote: false,
-    codeBlock: false,
-    hardBreak: false,
-    heading: { levels: [2, 3] },
-    horizontalRule: false,
-    link: false,
-    strike: false,
-    trailingNode: false,
-  }),
-  Link.configure({
-    openOnClick: false,
-    defaultProtocol: 'https',
-    HTMLAttributes: { class: null, rel: null, target: null },
-  }),
-  Subscript,
-  Superscript,
-]
+/**
+ * The content extensions. `live` drops the editor's own undo history: while a
+ * block is shared, undo belongs to the shared document so that pressing it
+ * takes back only your own typing, never a collaborator's.
+ */
+function contentExtensions(live: boolean) {
+  return [
+    StarterKit.configure({
+      ...(live ? { undoRedo: false as const } : {}),
+      blockquote: false,
+      codeBlock: false,
+      hardBreak: false,
+      heading: { levels: [2, 3] },
+      horizontalRule: false,
+      link: false,
+      strike: false,
+      trailingNode: false,
+    }),
+    Link.configure({
+      openOnClick: false,
+      defaultProtocol: 'https',
+      HTMLAttributes: { class: null, rel: null, target: null },
+    }),
+    Subscript,
+    Superscript,
+  ]
+}
+
+const baseExtensions = contentExtensions(false)
+const liveContentExtensions = contentExtensions(true)
+
+/** How long a shared block must stay quiet before this person saves it too. */
+const ADOPT_AFTER_MS = 4000
+/** A conflict on a shared block is settled automatically at most this often. */
+const MAX_AUTO_RESOLVES = 8
 
 interface RichTextEditorProps {
   payload: RichTextPayload
@@ -73,6 +94,24 @@ interface RichTextEditorProps {
    * so the payload is untouched and print output stays expanded.
    */
   hiddenNodeIndexes?: ReadonlySet<number>
+  /**
+   * Live co-editing: the block's id. With a joined room that lets this person
+   * write, the editor binds to the room's shared copy of the block so everyone
+   * sees each other type. Without one it is the ordinary private editor.
+   */
+  liveBlockId?: string
+  /**
+   * Live co-editing: the block as last saved. A shared block is saved by
+   * someone as soon as the author stops typing; this person saves it if nobody
+   * has by then, so closing a tab never strands text only a peer was shown.
+   */
+  savedDoc?: RichTextDocument
+  /** Live co-editing: the block's autosave reports a version conflict. */
+  conflict?: boolean
+  /** The newer saved copy the conflict is about. */
+  conflictServerDoc?: RichTextDocument
+  /** Live co-editing: save this person's (merged) text over the conflict. */
+  onResolveConflict?: () => void
   /** Called when the user picks a block type from the slash command menu. */
   onSlashCommand?: (type: string) => void
   /** Enter at end of the last paragraph → create a new text block below. */
@@ -205,6 +244,11 @@ export function RichTextEditor({
   className,
   anchorPrefix,
   hiddenNodeIndexes,
+  liveBlockId,
+  savedDoc,
+  conflict,
+  conflictServerDoc,
+  onResolveConflict,
   onSlashCommand,
   onEnterAtEnd,
   onBackspaceAtStart,
@@ -246,16 +290,43 @@ export function RichTextEditor({
   const decorationPlugins = React.useRef(
     createDecorationPlugins(anchorPrefixRef, hiddenIndexesRef, placeholderRef),
   ).current
-  const extensions = React.useMemo(
-    () => [
-      ...baseExtensions,
-      Extension.create({
-        name: 'notebookDecorations',
-        addProseMirrorPlugins: () => decorationPlugins,
+  const payloadRef = React.useRef(payload)
+  payloadRef.current = payload
+  const editedRef = React.useRef(false)
+  const { live, provider } = useLiveRichText({
+    blockId: liveBlockId,
+    extensions: baseExtensions,
+    getSaved: () => payloadRef.current.doc,
+    edited: () => editedRef.current,
+  })
+  const liveProvider = live ? provider : null
+  const extensions = React.useMemo(() => {
+    const decorations = Extension.create({
+      name: 'notebookDecorations',
+      addProseMirrorPlugins: () => decorationPlugins,
+    })
+    if (!liveProvider || !liveBlockId) return [...baseExtensions, decorations]
+    const identity = liveProvider.identity
+    return [
+      ...liveContentExtensions,
+      decorations,
+      Collaboration.configure({
+        document: liveProvider.doc,
+        field: liveFieldName(liveBlockId),
       }),
-    ],
-    [decorationPlugins],
-  )
+      CollaborationCaret.configure({
+        provider: liveProvider,
+        // The caret extension writes this as my awareness `user`, which the
+        // server checks against who I signed in as, so it carries the id.
+        user: {
+          id: identity?.id ?? '',
+          name: identity?.name ?? '',
+          avatar: identity?.avatar ?? null,
+          color: identity?.color ?? colorForUser(identity?.id ?? ''),
+        },
+      }),
+    ]
+  }, [decorationPlugins, liveProvider, liveBlockId])
 
   const cbRef = React.useRef({
     onChange,
@@ -276,163 +347,289 @@ export function RichTextEditor({
     onArrowDownFromEnd,
   }
 
-  const editor = useEditor({
-    extensions,
-    content: payload.doc,
-    immediatelyRender: false,
-    editorProps: {
-      attributes: {
-        'aria-label': t('notebook.richTextEditor.textContent'),
-        'aria-multiline': 'true',
-        role: 'textbox',
-        class:
-          'space-y-1.5 text-sm leading-6 text-fg outline-none [&_h2]:font-display [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:leading-7 [&_h2]:tracking-tight [&_h3]:font-display [&_h3]:text-base [&_h3]:font-semibold [&_h3]:leading-6 [&_h3]:tracking-tight [&_ol]:list-decimal [&_ol]:space-y-0.5 [&_ol]:pl-5 [&_p]:min-h-[1.25rem] [&_ul]:list-disc [&_ul]:space-y-0.5 [&_ul]:pl-5',
+  const adoptTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  React.useEffect(
+    () => () => {
+      if (adoptTimer.current) clearTimeout(adoptTimer.current)
+    },
+    [],
+  )
+  const savedDocRef = React.useRef(savedDoc)
+  savedDocRef.current = savedDoc
+  // Joining the shared document swaps the editor for one bound to the room.
+  // The text is the same, so the swap must not cost the person their place:
+  // remember where the caret was and put it back in the new editor.
+  const placeRef = React.useRef<{
+    from: number
+    to: number
+    focused: boolean
+  } | null>(null)
+  const restoreRef = React.useRef<typeof placeRef.current>(null)
+  const lastLiveProvider = React.useRef(liveProvider)
+  if (lastLiveProvider.current !== liveProvider) {
+    lastLiveProvider.current = liveProvider
+    restoreRef.current = placeRef.current
+  }
+  // Every state this editor has shown. A save that beat ours to the server and
+  // matches one of them came from a collaborator, whose text we already hold;
+  // a save that matches none came from outside the room and must not be
+  // overwritten without asking.
+  const seenStates = React.useRef<string[]>([])
+  const noteState = (current: { getJSON: () => unknown }) => {
+    const seen = seenStates.current
+    const key = fingerprint(current.getJSON())
+    if (seen[seen.length - 1] === key) return
+    seen.push(key)
+    if (seen.length > 200) seen.splice(0, seen.length - 200)
+  }
+
+  const editor = useEditor(
+    {
+      extensions,
+      // A shared block takes its text from the room, never from a prop.
+      content: liveProvider ? undefined : payload.doc,
+      immediatelyRender: false,
+      editorProps: {
+        attributes: {
+          'aria-label': t('notebook.richTextEditor.textContent'),
+          'aria-multiline': 'true',
+          role: 'textbox',
+          class:
+            'space-y-1.5 text-sm leading-6 text-fg outline-none [&_h2]:font-display [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:leading-7 [&_h2]:tracking-tight [&_h3]:font-display [&_h3]:text-base [&_h3]:font-semibold [&_h3]:leading-6 [&_h3]:tracking-tight [&_ol]:list-decimal [&_ol]:space-y-0.5 [&_ol]:pl-5 [&_p]:min-h-[1.25rem] [&_ul]:list-disc [&_ul]:space-y-0.5 [&_ul]:pl-5',
+        },
+        handleKeyDown: (view, event) => {
+          const menu = slashMenuRef.current
+          const cb = cbRef.current
+
+          // --- Slash menu open: intercept navigation keys ---
+          if (menu.open) {
+            if (event.key === 'ArrowDown') {
+              event.preventDefault()
+              const count = slashCommandFilterCount(
+                menu.query,
+                aiLiveRef.current,
+              )
+              setSlashMenu((m) => ({
+                ...m,
+                index: Math.min(m.index + 1, Math.max(count - 1, 0)),
+              }))
+              return true
+            }
+            if (event.key === 'ArrowUp') {
+              event.preventDefault()
+              setSlashMenu((m) => ({ ...m, index: Math.max(m.index - 1, 0) }))
+              return true
+            }
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              const filtered = slashCommandFilteredOptions(
+                menu.query,
+                aiLiveRef.current,
+              )
+              const selected = filtered.at(menu.index)
+              if (!selected) return true
+              if (selected.type === AI_SLASH_TYPE) {
+                removeSlashQuery(view)
+                setAiComposer({ selection: '' })
+              } else if (selected.type === 'rich_text') {
+                // Stay in the same block — just remove the /query text.
+                removeSlashQuery(view)
+              } else {
+                // Block will be replaced — no need to clean up editor text.
+                cb.onSlashCommand?.(selected.type)
+              }
+              setSlashMenu(SLASH_MENU_CLOSED)
+              return true
+            }
+            if (event.key === 'Escape') {
+              event.preventDefault()
+              setSlashMenu(SLASH_MENU_CLOSED)
+              return true
+            }
+            // Any other key falls through to Tiptap, then onUpdate re-checks.
+          }
+
+          // --- Block-level keyboard navigation (menu closed) ---
+          if (!menu.open) {
+            const { doc, selection } = view.state
+            const isCollapsed = selection.from === selection.to
+            const hasModifier =
+              event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
+
+            // Enter at end of the last top-level paragraph/heading → new block
+            if (event.key === 'Enter' && !hasModifier && isCollapsed) {
+              const $from = selection.$from
+              const isLastTopLevel =
+                $from.depth === 1 &&
+                $from.index(0) === doc.content.childCount - 1
+              const isAtBlockEnd =
+                $from.parentOffset === $from.parent.content.size
+              if (
+                isLastTopLevel &&
+                isAtBlockEnd &&
+                $from.parent.textContent.length > 0
+              ) {
+                event.preventDefault()
+                cb.onEnterAtEnd?.()
+                return true
+              }
+            }
+
+            // Backspace at the start of the block's first paragraph. The owner
+            // decides what happens: inside a prose run this joins the row into
+            // the row above, on an empty row it deletes the row, and otherwise
+            // nothing changes. Intercepting only at index 0 leaves ProseMirror's
+            // own join (a paragraph after a heading) untouched.
+            if (event.key === 'Backspace' && !hasModifier && isCollapsed) {
+              const $from = selection.$from
+              const isFirstTopLevel = $from.depth === 1 && $from.index(0) === 0
+              if (isFirstTopLevel && $from.parentOffset === 0) {
+                event.preventDefault()
+                cb.onBackspaceAtStart?.()
+                return true
+              }
+            }
+
+            // ArrowUp at start of first paragraph → previous block
+            if (event.key === 'ArrowUp' && !hasModifier && isCollapsed) {
+              const $from = selection.$from
+              const isFirstTopLevel = $from.depth === 1 && $from.index(0) === 0
+              if ($from.parentOffset === 0 && isFirstTopLevel) {
+                event.preventDefault()
+                cb.onArrowUpFromStart?.()
+                return true
+              }
+            }
+
+            // ArrowDown at end of last paragraph → next block
+            if (event.key === 'ArrowDown' && !hasModifier && isCollapsed) {
+              const $from = selection.$from
+              const isLastTopLevel =
+                $from.depth === 1 &&
+                $from.index(0) === doc.content.childCount - 1
+              const isAtParaEnd =
+                $from.parentOffset === $from.parent.content.size
+              if (isAtParaEnd && isLastTopLevel) {
+                event.preventDefault()
+                cb.onArrowDownFromEnd?.()
+                return true
+              }
+            }
+          }
+
+          return false
+        },
       },
-      handleKeyDown: (view, event) => {
-        const menu = slashMenuRef.current
-        const cb = cbRef.current
-
-        // --- Slash menu open: intercept navigation keys ---
-        if (menu.open) {
-          if (event.key === 'ArrowDown') {
-            event.preventDefault()
-            const count = slashCommandFilterCount(menu.query, aiLiveRef.current)
-            setSlashMenu((m) => ({
-              ...m,
-              index: Math.min(m.index + 1, Math.max(count - 1, 0)),
-            }))
-            return true
-          }
-          if (event.key === 'ArrowUp') {
-            event.preventDefault()
-            setSlashMenu((m) => ({ ...m, index: Math.max(m.index - 1, 0) }))
-            return true
-          }
-          if (event.key === 'Enter') {
-            event.preventDefault()
-            const filtered = slashCommandFilteredOptions(
-              menu.query,
-              aiLiveRef.current,
-            )
-            const selected = filtered.at(menu.index)
-            if (!selected) return true
-            if (selected.type === AI_SLASH_TYPE) {
-              removeSlashQuery(view)
-              setAiComposer({ selection: '' })
-            } else if (selected.type === 'rich_text') {
-              // Stay in the same block — just remove the /query text.
-              removeSlashQuery(view)
-            } else {
-              // Block will be replaced — no need to clean up editor text.
-              cb.onSlashCommand?.(selected.type)
-            }
-            setSlashMenu(SLASH_MENU_CLOSED)
-            return true
-          }
-          if (event.key === 'Escape') {
-            event.preventDefault()
-            setSlashMenu(SLASH_MENU_CLOSED)
-            return true
-          }
-          // Any other key falls through to Tiptap, then onUpdate re-checks.
+      onCreate: ({ editor: created }) => {
+        noteState(created)
+        const place = restoreRef.current
+        restoreRef.current = null
+        if (!place) return
+        const end = created.state.doc.content.size
+        created.commands.setTextSelection({
+          from: Math.min(place.from, end),
+          to: Math.min(place.to, end),
+        })
+        if (place.focused)
+          created.commands.focus(null, { scrollIntoView: false })
+      },
+      onFocus: ({ editor: focused }) => {
+        placeRef.current = {
+          from: focused.state.selection.from,
+          to: focused.state.selection.to,
+          focused: true,
         }
-
-        // --- Block-level keyboard navigation (menu closed) ---
-        if (!menu.open) {
-          const { doc, selection } = view.state
-          const isCollapsed = selection.from === selection.to
-          const hasModifier =
-            event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
-
-          // Enter at end of the last top-level paragraph/heading → new block
-          if (event.key === 'Enter' && !hasModifier && isCollapsed) {
-            const $from = selection.$from
-            const isLastTopLevel =
-              $from.depth === 1 && $from.index(0) === doc.content.childCount - 1
-            const isAtBlockEnd =
-              $from.parentOffset === $from.parent.content.size
-            if (
-              isLastTopLevel &&
-              isAtBlockEnd &&
-              $from.parent.textContent.length > 0
-            ) {
-              event.preventDefault()
-              cb.onEnterAtEnd?.()
-              return true
-            }
-          }
-
-          // Backspace at the start of the block's first paragraph. The owner
-          // decides what happens: inside a prose run this joins the row into
-          // the row above, on an empty row it deletes the row, and otherwise
-          // nothing changes. Intercepting only at index 0 leaves ProseMirror's
-          // own join (a paragraph after a heading) untouched.
-          if (event.key === 'Backspace' && !hasModifier && isCollapsed) {
-            const $from = selection.$from
-            const isFirstTopLevel = $from.depth === 1 && $from.index(0) === 0
-            if (isFirstTopLevel && $from.parentOffset === 0) {
-              event.preventDefault()
-              cb.onBackspaceAtStart?.()
-              return true
-            }
-          }
-
-          // ArrowUp at start of first paragraph → previous block
-          if (event.key === 'ArrowUp' && !hasModifier && isCollapsed) {
-            const $from = selection.$from
-            const isFirstTopLevel = $from.depth === 1 && $from.index(0) === 0
-            if ($from.parentOffset === 0 && isFirstTopLevel) {
-              event.preventDefault()
-              cb.onArrowUpFromStart?.()
-              return true
-            }
-          }
-
-          // ArrowDown at end of last paragraph → next block
-          if (event.key === 'ArrowDown' && !hasModifier && isCollapsed) {
-            const $from = selection.$from
-            const isLastTopLevel =
-              $from.depth === 1 && $from.index(0) === doc.content.childCount - 1
-            const isAtParaEnd = $from.parentOffset === $from.parent.content.size
-            if (isAtParaEnd && isLastTopLevel) {
-              event.preventDefault()
-              cb.onArrowDownFromEnd?.()
-              return true
-            }
-          }
+      },
+      onUpdate: ({ editor: currentEditor, transaction }) => {
+        noteState(currentEditor)
+        // A change that arrived from a collaborator (not this person's own
+        // typing or undo) is not an edit of theirs: it is saved by its author,
+        // or by this person once the author has been quiet for a while.
+        const sync = transaction.getMeta(ySyncPluginKey) as
+          | { isChangeOrigin?: boolean; isUndoRedoOperation?: boolean }
+          | undefined
+        if (sync?.isChangeOrigin && !sync.isUndoRedoOperation) {
+          if (adoptTimer.current) clearTimeout(adoptTimer.current)
+          adoptTimer.current = setTimeout(() => {
+            adoptTimer.current = null
+            const saved = savedDocRef.current
+            if (currentEditor.isDestroyed || !saved) return
+            const current = currentEditor.getJSON()
+            const normalised = currentEditor.schema.nodeFromJSON(saved).toJSON()
+            if (JSON.stringify(current) === JSON.stringify(normalised)) return
+            editedRef.current = true
+            cbRef.current.onChange({ doc: current as RichTextDocument })
+          }, ADOPT_AFTER_MS)
+          return
         }
-
-        return false
+        editedRef.current = true
+        cbRef.current.onChange({
+          doc: currentEditor.getJSON() as RichTextDocument,
+        })
+        checkSlashCommand(currentEditor)
+      },
+      onSelectionUpdate: ({ editor: currentEditor }) => {
+        placeRef.current = {
+          from: currentEditor.state.selection.from,
+          to: currentEditor.state.selection.to,
+          focused: currentEditor.view.hasFocus(),
+        }
+        updateSelectionState(currentEditor)
+      },
+      onTransaction: ({ editor: currentEditor }) => {
+        updateSelectionState(currentEditor)
+      },
+      onBlur: () => {
+        cbRef.current.onBlur()
+        setSlashMenu(SLASH_MENU_CLOSED)
+        setHasSelection(false)
       },
     },
-    onUpdate: ({ editor: currentEditor }) => {
-      cbRef.current.onChange({
-        doc: currentEditor.getJSON() as RichTextDocument,
-      })
-      checkSlashCommand(currentEditor)
-    },
-    onSelectionUpdate: ({ editor: currentEditor }) => {
-      updateSelectionState(currentEditor)
-    },
-    onTransaction: ({ editor: currentEditor }) => {
-      updateSelectionState(currentEditor)
-    },
-    onBlur: () => {
-      cbRef.current.onBlur()
-      setSlashMenu(SLASH_MENU_CLOSED)
-      setHasSelection(false)
-    },
-  })
+    [liveProvider],
+  )
 
+  // A shared block's text comes from the room, so the saved copy must not be
+  // pushed back into the editor.
   const serializedPayload = JSON.stringify(payload.doc)
   React.useEffect(() => {
-    if (!editor || JSON.stringify(editor.getJSON()) === serializedPayload)
+    if (liveProvider) return
+    if (
+      !editor ||
+      editor.isDestroyed ||
+      JSON.stringify(editor.getJSON()) === serializedPayload
+    )
       return
     editor.commands.setContent(payload.doc, { emitUpdate: false })
-  }, [editor, payload.doc, serializedPayload])
+  }, [editor, liveProvider, payload.doc, serializedPayload])
+
+  // The merged shared text is what everyone should end up with, so a version
+  // conflict on a shared block is settled by saving it rather than asking the
+  // person to choose between their half and someone else's.
+  const autoResolves = React.useRef(0)
+  const resolveRef = React.useRef(onResolveConflict)
+  resolveRef.current = onResolveConflict
+  React.useEffect(() => {
+    if (!conflict || !liveProvider?.synced || !editor || editor.isDestroyed) {
+      return
+    }
+    if (autoResolves.current >= MAX_AUTO_RESOLVES) return
+    // Only a collaborator's save is settled here. Anything else that changed
+    // the block is shown to the person to choose, as for any editor.
+    if (!conflictServerDoc) return
+    const theirs = fingerprint(
+      editor.schema.nodeFromJSON(conflictServerDoc).toJSON(),
+    )
+    if (!seenStates.current.includes(theirs)) return
+    autoResolves.current += 1
+    editedRef.current = true
+    cbRef.current.onChange({ doc: editor.getJSON() as RichTextDocument })
+    resolveRef.current?.()
+  }, [conflict, conflictServerDoc, editor, liveProvider])
 
   React.useEffect(() => {
-    if (!editor || !autoFocus) return
+    if (!editor || editor.isDestroyed || !autoFocus) return
+    // Mid-swap into the shared document the caret is restored where it was.
+    if (restoreRef.current) return
     editor.commands.focus(caretHint === 'start' ? 'start' : 'end')
   }, [autoFocus, caretHint, editor])
 

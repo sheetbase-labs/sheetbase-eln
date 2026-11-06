@@ -141,7 +141,7 @@ export function RequestEditAccessDialog({
 export interface NotebookViewerActionsProps {
   /** The project the record belongs to; the access request needs it. */
   projectId: string | null
-  /** True when block comments can be opened (collaboration on, room ready). */
+  /** True when block comments can be opened. */
   commentEnabled: boolean
   /** The block the reader has selected, if any. */
   selectedBlockId: string | null

@@ -59,24 +59,6 @@ vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   notebookDataClient: { rpc: rpcMock, list: listMock },
 }))
 
-// Collaboration on and the room mounted, so the block comment affordance is
-// actually present to open.
-vi.mock('#/lib/collaboration/liveblocks.config', () => ({
-  useCollaborationEnabled: () => true,
-  useThreads: () => ({ threads: [] }),
-  useOthers: () => [],
-  useUpdateMyPresence: () => () => {},
-}))
-
-vi.mock('#/components/collaboration/collaboration-room', () => ({
-  useCollaborationRoomReady: () => true,
-}))
-
-vi.mock('#/components/collaboration/thread-panel', () => ({
-  ThreadPanel: () => <div data-testid="thread-panel" />,
-  threadMatchesAnchor: () => false,
-}))
-
 beforeAll(() => {
   document.elementFromPoint = () => null
   Range.prototype.getClientRects = () => [] as unknown as DOMRectList

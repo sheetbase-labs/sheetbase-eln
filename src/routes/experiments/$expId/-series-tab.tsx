@@ -1,8 +1,12 @@
 import { useState, useSyncExternalStore } from 'react'
+import type { ComponentProps } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
+import { today } from '#/lib/absences'
+import { Icon } from '#/components/icons'
+import { Tooltip } from '#/components/ui/tooltip'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -208,39 +212,57 @@ export function ExperimentSeries({
         const member = row.original
         const progress = memberProgress(member, rows[member.member_number - 2])
         const status = experimentStatus(member.status)
-        if (progress.kind === 'active' && progress.step && progress.steps) {
-          return (
-            <Status tone="progress">
-              {t('projects.series.tab.stepOf', {
-                step: progress.step,
-                steps: progress.steps,
-              })}
-            </Status>
-          )
+        let tone: ComponentProps<typeof Status>['tone'] = status.tone
+        let full: string = status.label
+        let short: string = status.label
+        let muted = false
+        if (progress.kind === 'active') {
+          tone = 'progress'
+          short = t('projects.series.tab.short.inProgress')
+          full =
+            progress.step && progress.steps
+              ? t('projects.series.tab.stepOf', {
+                  step: progress.step,
+                  steps: progress.steps,
+                })
+              : short
+        } else if (progress.kind === 'review') {
+          tone = 'review'
+          short = t('projects.series.tab.short.inReview')
+          full = member.reviewer_user_id
+            ? t('projects.series.tab.inReviewBy', {
+                name: userLabel(member.reviewer_user_id),
+              })
+            : short
+        } else if (progress.kind === 'waiting' && progress.waitingFor) {
+          tone = 'none'
+          muted = true
+          short = t('projects.series.tab.short.waiting')
+          full = t('projects.series.tab.waitingFor', {
+            title: progress.waitingTitle ?? progress.waitingFor,
+          })
         }
-        if (progress.kind === 'review') {
-          return (
-            <Status tone="review">
-              {member.reviewer_user_id
-                ? t('projects.series.tab.inReviewBy', {
-                    name: userLabel(member.reviewer_user_id),
-                  })
-                : t('projects.series.tab.inReview')}
-            </Status>
-          )
-        }
-        if (progress.kind === 'waiting' && progress.waitingFor) {
-          return (
-            <Status tone="none">
-              <span className="text-fg-muted">
-                {t('projects.series.tab.waitingFor', {
-                  identifier: progress.waitingFor,
-                })}
-              </span>
-            </Status>
-          )
-        }
-        return <Status tone={status.tone}>{status.label}</Status>
+        // On a phone the cell is a short word and the detail is in a tooltip.
+        const text = isPhone ? short : full
+        const detail =
+          progress.kind === 'waiting' && progress.waitingFor
+            ? t('projects.series.tab.waitingForTip', {
+                identifier: progress.waitingFor,
+                title: progress.waitingTitle ?? '',
+              })
+            : full
+        const label = muted ? (
+          <span className="text-fg-muted">{text}</span>
+        ) : (
+          text
+        )
+        return (
+          <Tooltip content={detail}>
+            <span className="inline-flex">
+              <Status tone={tone}>{label}</Status>
+            </span>
+          </Tooltip>
+        )
       },
     },
     {
@@ -259,14 +281,14 @@ export function ExperimentSeries({
               render={
                 <Button
                   variant="quiet"
-                  size="sm"
+                  size="icon"
                   aria-label={t('projects.series.tab.menu.label', {
                     identifier: member.identifier,
                   })}
                 />
               }
             >
-              {t('projects.series.tab.menu.trigger')}
+              <Icon name="more" size={14} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[220px]">
               <DropdownMenuItem
@@ -426,16 +448,29 @@ export function ExperimentSeries({
             {rollup.data.samples}
           </RollupCard>
           <RollupCard label={t('projects.series.tab.rollup.nextDue')}>
-            {nextDue
-              ? nextDue.due_on
-                ? t('projects.series.tab.rollup.nextDueValue', {
-                    identifier: nextDue.identifier,
+            {nextDue ? (
+              nextDue.due_on ? (
+                <span
+                  className={
+                    nextDue.due_on < today() ? 'text-danger-text' : undefined
+                  }
+                >
+                  {t('projects.series.tab.rollup.nextDueValue', {
+                    title: nextDue.title,
                     date: formatSeriesDay(nextDue.due_on),
-                  })
-                : t('projects.series.tab.rollup.nextDueUndated', {
-                    identifier: nextDue.identifier,
-                  })
-              : t('projects.series.tab.rollup.allDone')}
+                  })}
+                  {nextDue.due_on < today()
+                    ? ` · ${t('projects.series.tab.rollup.overdue')}`
+                    : ''}
+                </span>
+              ) : (
+                t('projects.series.tab.rollup.nextDueUndated', {
+                  title: nextDue.title,
+                })
+              )
+            ) : (
+              t('projects.series.tab.rollup.allDone')
+            )}
           </RollupCard>
         </div>
       ) : null}

@@ -56,6 +56,25 @@ import { ShareWithClientDialog } from '#/components/client-sharing/share-with-cl
 import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
 import { CurrentStepCard } from '#/components/notebook/current-step-card'
 import { SeriesBar } from '#/components/experiments/series-bar'
+import {
+  PartFooter,
+  PartsOutline,
+  PartsStrip,
+  UpNextBanner,
+} from '#/components/notebook/parts-strip'
+import {
+  PartsMenu,
+  SplitIntoPartsAction,
+} from '#/components/notebook/parts-menu'
+import { useRecordPartsProgress } from '#/components/notebook/use-record-parts'
+import type { PartProgress } from '#/lib/experiment-parts'
+import {
+  blocksOfPart,
+  currentPart,
+  partNumberFromParam,
+  setBlockPart,
+  shownPart,
+} from '#/lib/experiment-parts'
 import { stepProgress } from '#/lib/step-status'
 import { WithdrawReviewDialog } from '#/components/notebook/withdraw-review-dialog'
 import { ReturnedReviewBanner } from '#/components/notebook/returned-review-banner'
@@ -390,10 +409,13 @@ export function RecordNotebookPage({
   context,
   recordId,
   embedded = false,
+  partParam,
 }: {
   context: RecordRouteContext
   recordId: string
   embedded?: boolean
+  /** The part number in the URL (`/notebook/3`); absent opens the current part. */
+  partParam?: string
 }) {
   // FIND-01: this page counts as a "view" for the Recent surface.
   useRecentViewTracking('record', recordId)
@@ -606,6 +628,40 @@ export function RecordNotebookPage({
   const record = recordQuery.data ?? null
   const sequences = useLinkedSequences(record?.id ?? null)
   const blocks = blocksQuery.data ?? []
+  // Parts: when the experiment is split, the page shows one part at a time and
+  // the rest of the notebook stays a click away. With none it is one page.
+  const partsView = useRecordPartsProgress(
+    recordId,
+    blocks,
+    !historicalRevisionId,
+  )
+  const partsList = partsView.parts
+  const hashedBlockId = useRouterState({
+    select: (state) =>
+      /block-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/.exec(
+        state.location.hash,
+      )?.[1] ?? null,
+  })
+  const partOfHashedBlock = hashedBlockId
+    ? (blocks.find((block) => block.id === hashedBlockId)?.partId ?? null)
+    : null
+  const requestedPart =
+    partNumberFromParam(partParam) ??
+    (partOfHashedBlock
+      ? (partsList.find((part) => part.id === partOfHashedBlock)?.number ??
+        null)
+      : null)
+  const partNames = useUserNames(
+    partsList
+      .map((part) => part.completedByUserId)
+      .filter((id): id is string => Boolean(id)),
+  )
+  const userLabelForParts = partNames.userLabel
+  const shownPartNow = shownPart(partsList, requestedPart)
+  const nowPart = currentPart(partsList)
+  const canvasBlocks = shownPartNow
+    ? blocksOfPart(blocks, shownPartNow)
+    : blocks
   const links = linksQuery.data ?? []
   const revisions = revisionsQuery.data ?? []
   const activity = activityQuery.data ?? []
@@ -619,10 +675,10 @@ export function RecordNotebookPage({
       // collapse: later blocks (block-granular) or content inside their own
       // rich_text block (same-block node range). An empty span would render
       // a meaningless placeholder.
-      const spans = notebookSectionSpans(blocks)
+      const spans = notebookSectionSpans(canvasBlocks)
       setCollapsedSections(
         new Set(
-          notebookOutline(blocks)
+          notebookOutline(canvasBlocks)
             .filter((entry) => {
               const span = spans.get(entry.anchorId)
               return !!span && sectionSpanHidesContent(span)
@@ -836,6 +892,32 @@ export function RecordNotebookPage({
               links={links}
               linksLoading={linksQuery.isLoading}
               blocks={blocks}
+              partsAction={
+                embedded &&
+                record.kind === 'experiment' &&
+                canWrite &&
+                !record.lockedAt &&
+                !record.archivedAt &&
+                !partsView.isLoading &&
+                partsList.length === 0 &&
+                blocks.length > 0 ? (
+                  <SplitIntoPartsAction
+                    recordId={record.id}
+                    expId={record.id}
+                    blocks={blocks}
+                  />
+                ) : undefined
+              }
+              partsOutline={
+                partsList.length > 0 && shownPartNow
+                  ? {
+                      expId: record.id,
+                      parts: partsList,
+                      shownPartId: shownPartNow.id,
+                      startedAt: record.createdAt,
+                    }
+                  : undefined
+              }
               /* R5-NOTE-02: the requested-signature table reads the same
                  signature evidence the Signatures tab shows. */
               actionContext={{
@@ -890,6 +972,32 @@ export function RecordNotebookPage({
               workspaceId={context.workspace?.id}
               embedded={embedded}
               blocks={historicalEvidence?.blocks ?? blocks}
+              hasParts={partsList.length > 0}
+              partsStrip={
+                embedded &&
+                !historicalRevisionId &&
+                tab === 'notebook' &&
+                partsList.length > 0 &&
+                shownPartNow ? (
+                  <PartsStrip
+                    expId={record.id}
+                    parts={partsList}
+                    shown={shownPartNow}
+                    startedAt={record.createdAt}
+                    actions={
+                      canWrite && !record.lockedAt && !record.archivedAt ? (
+                        <PartsMenu
+                          recordId={record.id}
+                          expId={record.id}
+                          parts={partsList}
+                          shown={shownPartNow}
+                          workspaceId={context.workspace?.id}
+                        />
+                      ) : undefined
+                    }
+                  />
+                ) : null
+              }
               historicalRevisionId={historicalRevisionId}
               review={review}
               hasUnsavedWork={hasUnsavedWork}
@@ -1014,24 +1122,46 @@ export function RecordNotebookPage({
                 client={notebookDataClient}
               />
             ) : (
-              <NotebookCanvas
-                record={record}
-                blocks={blocks}
-                isLoading={blocksQuery.isLoading}
-                error={blocksQuery.error}
-                onRetry={() => blocksQuery.refetch()}
-                client={notebookDataClient}
-                queryClient={queryClient}
-                collaborationWorkspaceId={context.workspace?.id}
-                outline={outlineControls}
-                collaborationRole={context.workspace?.role}
-                // EXP-04.5: a workspace viewer reads the notebook view-only
-                // instead of being handed the editable path for the server to
-                // refuse. GOV-01: viewer has no record.create.
-                viewOnly={!canWrite || record.status === 'approved'}
-                onUnsavedWorkChange={setHasUnsavedWork}
-                onCellSelectionChange={onCellSelectionChange}
-              />
+              <>
+                {shownPartNow &&
+                nowPart &&
+                shownPartNow.state === 'later' &&
+                embedded ? (
+                  <UpNextBanner
+                    expId={record.id}
+                    shown={shownPartNow}
+                    current={nowPart}
+                  />
+                ) : null}
+                <NotebookCanvas
+                  record={record}
+                  blocks={canvasBlocks}
+                  partId={shownPartNow?.id ?? null}
+                  isLoading={blocksQuery.isLoading || partsView.isLoading}
+                  error={blocksQuery.error}
+                  onRetry={() => blocksQuery.refetch()}
+                  client={notebookDataClient}
+                  queryClient={queryClient}
+                  collaborationWorkspaceId={context.workspace?.id}
+                  outline={outlineControls}
+                  collaborationRole={context.workspace?.role}
+                  // EXP-04.5: a workspace viewer reads the notebook view-only
+                  // instead of being handed the editable path for the server to
+                  // refuse. GOV-01: viewer has no record.create.
+                  viewOnly={!canWrite || record.status === 'approved'}
+                  onUnsavedWorkChange={setHasUnsavedWork}
+                  onCellSelectionChange={onCellSelectionChange}
+                />
+                {embedded && shownPartNow ? (
+                  <PartFooter
+                    expId={record.id}
+                    parts={partsList}
+                    shown={shownPartNow}
+                    startedAt={record.createdAt}
+                    nameOf={userLabelForParts}
+                  />
+                ) : null}
+              </>
             )}
           </div>
         </RouteShell>
@@ -1162,6 +1292,8 @@ export function StickyRecordHeader({
   workspaceId,
   embedded = false,
   blocks = [],
+  hasParts = false,
+  partsStrip = null,
   historicalRevisionId,
   review = null,
   /** NOTE-04: document-level unsaved-work signal for the submit dialog. */
@@ -1187,6 +1319,10 @@ export function StickyRecordHeader({
   /** The experiment page carries the title and identifier above this header. */
   embedded?: boolean
   blocks?: NotebookBlockDomain[]
+  /** The experiment is split into parts: the Now card follows the current one. */
+  hasParts?: boolean
+  /** The strip of parts, shown above the Now card. */
+  partsStrip?: ReactNode
   historicalRevisionId?: string
   review?: NotebookReviewContext | null
   /** NOTE-04: NotebookDocument's unsaved-work signal. */
@@ -1258,7 +1394,7 @@ export function StickyRecordHeader({
     (record.status === 'in_progress' || record.status === 'returned') &&
     !historicalRevisionId &&
     !record.archivedAt &&
-    stepProgress(blocks).length > 0
+    (hasParts || stepProgress(blocks).length > 0)
   const canOpenReview = Boolean(reviewRevisionId)
   const hasSignatureToGive = useHasSignatureToGive({
     revisionId: reviewRevisionId,
@@ -1601,9 +1737,11 @@ export function StickyRecordHeader({
       {embedded ? (
         <SeriesBar recordId={record.id} placement="notebook" />
       ) : null}
+      {partsStrip}
       {stepCardOn ? (
         <CurrentStepCard
           recordId={record.id}
+          startedAt={record.createdAt}
           blocks={blocks}
           canEdit={canWrite && !lockedAt && !record.archivedAt}
           returned={record.status === 'returned'}
@@ -2115,6 +2253,7 @@ export function LockedBanner({
 export function NotebookCanvas({
   record,
   blocks,
+  partId = null,
   isLoading,
   error,
   onRetry,
@@ -2128,6 +2267,8 @@ export function NotebookCanvas({
 }: {
   record: NotebookRecord
   blocks: NotebookBlockDomain[]
+  /** The part these blocks are the page of; new blocks are added to it. */
+  partId?: string | null
   isLoading: boolean
   error: unknown
   onRetry: () => void
@@ -2227,6 +2368,7 @@ export function NotebookCanvas({
     <EditableNotebook
       record={record}
       blocks={blocks}
+      partId={partId}
       client={client}
       queryClient={queryClient}
       collaborationWorkspaceId={collaborationWorkspaceId}
@@ -2249,6 +2391,7 @@ export function NotebookCanvas({
 function EditableNotebook({
   record,
   blocks,
+  partId = null,
   client,
   queryClient,
   collaborationWorkspaceId,
@@ -2259,6 +2402,8 @@ function EditableNotebook({
 }: {
   record: NotebookRecord
   blocks: NotebookBlockDomain[]
+  /** The part being edited: a block added here belongs to it. */
+  partId?: string | null
   client: DataClient
   queryClient: QueryClient
   /** COLLAB-02: active workspace id for block comment anchors. */
@@ -2362,6 +2507,26 @@ function EditableNotebook({
   }
 
   // --- Save (update payload) ---------------------------------------------
+  // A block added while a part is open belongs to that part, whatever it was
+  // added after: the database puts it with the block before it, which is the
+  // right part unless this one is empty or the block goes at the end.
+  async function placeInPart<
+    T extends { block: NotebookBlockDomain; structureVersion: number },
+  >(inserted: T): Promise<T> {
+    if (!partId || inserted.block.partId === partId) return inserted
+    const placed = await setBlockPart(client, inserted.block.id, partId)
+    return {
+      ...inserted,
+      structureVersion: placed.structure_version ?? inserted.structureVersion,
+      block: {
+        ...inserted.block,
+        partId,
+        order: placed.order,
+        version: placed.version ?? inserted.block.version,
+      },
+    }
+  }
+
   // --- Insert ------------------------------------------------------------
   const insertMutation = useMutation({
     mutationFn: async ({
@@ -2379,16 +2544,18 @@ function EditableNotebook({
     }) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
       if (type === 'sheet' || type === 'sheet_shared') {
-        return insertSheetInstanceBlock(client, {
-          recordId: record.id,
-          afterBlockId,
-          expectedStructureVersion:
-            current?.structureVersion ?? record.structureVersion,
-          instanceId: options?.instanceId,
-        })
+        return placeInPart(
+          await insertSheetInstanceBlock(client, {
+            recordId: record.id,
+            afterBlockId,
+            expectedStructureVersion:
+              current?.structureVersion ?? record.structureVersion,
+            instanceId: options?.instanceId,
+          }),
+        )
       }
       const payload = options?.payload ?? defaultPayloadFor(type)
-      return insertBlock(client, {
+      const inserted = await insertBlock(client, {
         recordId: record.id,
         type,
         payload,
@@ -2396,6 +2563,7 @@ function EditableNotebook({
         expectedStructureVersion:
           current?.structureVersion ?? record.structureVersion,
       })
+      return placeInPart(inserted)
     },
     onSuccess: (res) => {
       upsertBlock(res.block)
@@ -3479,6 +3647,8 @@ export function NotebookInspector({
   revisionEvidence,
   commentsRevisionId,
   outlineControls,
+  partsOutline,
+  partsAction,
   cell = null,
   unsynced = null,
   /**
@@ -3521,6 +3691,15 @@ export function NotebookInspector({
   commentsRevisionId?: string
   /** NOTE-02: section-collapse controls; absent on read-only/historical views. */
   outlineControls?: NotebookOutlineControls
+  /** For an experiment with no parts: the way to split it, in the Outline tab. */
+  partsAction?: ReactNode
+  /** The parts of the experiment, listed above the sections in the Outline tab. */
+  partsOutline?: {
+    expId: string
+    parts: PartProgress[]
+    shownPartId: string
+    startedAt: string
+  }
   /**
    * EXP-04.4: the selected Sheet cell's facts. Rendered at the head of the
    * Properties tab, above the record's own metadata. Null (the default) when
@@ -3577,7 +3756,15 @@ export function NotebookInspector({
 
   // NOTE-02: the outline is a projection of the (evidence or live) blocks —
   // the same heading nodes the editor writes, never a second structure.
-  const outlineEntries = notebookOutline(evidenceBlocks)
+  // With parts, the sections listed are those of the part on the page; the
+  // parts themselves are listed above them.
+  const outlineEntries = notebookOutline(
+    partsOutline
+      ? evidenceBlocks.filter(
+          (block) => block.partId === partsOutline.shownPartId,
+        )
+      : evidenceBlocks,
+  )
 
   // R5-NOTE-02: the sections the record type requires, named by the notebook
   // template the record was instantiated from (read by the route and passed
@@ -3769,6 +3956,17 @@ export function NotebookInspector({
       label: t('notebook.notebookPage.outlineLabel'),
       content: (
         <NotebookOutlinePanel
+          partsOutline={
+            partsAction ??
+            (partsOutline ? (
+              <PartsOutline
+                expId={partsOutline.expId}
+                parts={partsOutline.parts}
+                shownPartId={partsOutline.shownPartId}
+                blocks={evidenceBlocks}
+              />
+            ) : undefined)
+          }
           entries={outlineEntries}
           controls={outlineControls}
           blocks={evidenceBlocks}

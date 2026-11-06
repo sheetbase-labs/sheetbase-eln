@@ -205,6 +205,7 @@ import { Route as ExperimentsExpIdDataDatasetsRouteImport } from './routes/exper
 import { Route as ExperimentsExpIdDataFilesRouteImport } from './routes/experiments/$expId/data/files'
 import { Route as ExperimentsExpIdDataLinksRouteImport } from './routes/experiments/$expId/data/links'
 import { Route as ExperimentsExpIdDataResultsRouteImport } from './routes/experiments/$expId/data/results'
+import { Route as ExperimentsExpIdNotebookPartRouteImport } from './routes/experiments/$expId/notebook_.$part'
 import { Route as ExperimentsExpIdReviewIndexRouteImport } from './routes/experiments/$expId/review/index'
 import { Route as ExperimentsExpIdReviewHistoryRouteImport } from './routes/experiments/$expId/review/history'
 import { Route as ExperimentsExpIdReviewRevisionsRouteImport } from './routes/experiments/$expId/review/revisions'
@@ -1244,6 +1245,12 @@ const ExperimentsExpIdDataResultsRoute =
     path: '/results',
     getParentRoute: () => ExperimentsExpIdDataRoute,
   } as any)
+const ExperimentsExpIdNotebookPartRoute =
+  ExperimentsExpIdNotebookPartRouteImport.update({
+    id: '/notebook_/$part',
+    path: '/notebook/$part',
+    getParentRoute: () => ExperimentsExpIdRoute,
+  } as any)
 const ExperimentsExpIdReviewIndexRoute =
   ExperimentsExpIdReviewIndexRouteImport.update({
     id: '/',
@@ -1567,6 +1574,7 @@ export interface FileRoutesByFullPath {
   '/experiments/$expId/data/files': typeof ExperimentsExpIdDataFilesRoute
   '/experiments/$expId/data/links': typeof ExperimentsExpIdDataLinksRoute
   '/experiments/$expId/data/results': typeof ExperimentsExpIdDataResultsRoute
+  '/experiments/$expId/notebook/$part': typeof ExperimentsExpIdNotebookPartRoute
   '/experiments/$expId/review/history': typeof ExperimentsExpIdReviewHistoryRoute
   '/experiments/$expId/review/revisions': typeof ExperimentsExpIdReviewRevisionsRoute
   '/experiments/$expId/review/signatures': typeof ExperimentsExpIdReviewSignaturesRoute
@@ -1772,6 +1780,7 @@ export interface FileRoutesByTo {
   '/experiments/$expId/data/files': typeof ExperimentsExpIdDataFilesRoute
   '/experiments/$expId/data/links': typeof ExperimentsExpIdDataLinksRoute
   '/experiments/$expId/data/results': typeof ExperimentsExpIdDataResultsRoute
+  '/experiments/$expId/notebook/$part': typeof ExperimentsExpIdNotebookPartRoute
   '/experiments/$expId/review/history': typeof ExperimentsExpIdReviewHistoryRoute
   '/experiments/$expId/review/revisions': typeof ExperimentsExpIdReviewRevisionsRoute
   '/experiments/$expId/review/signatures': typeof ExperimentsExpIdReviewSignaturesRoute
@@ -1993,6 +2002,7 @@ export interface FileRoutesById {
   '/experiments/$expId/data/files': typeof ExperimentsExpIdDataFilesRoute
   '/experiments/$expId/data/links': typeof ExperimentsExpIdDataLinksRoute
   '/experiments/$expId/data/results': typeof ExperimentsExpIdDataResultsRoute
+  '/experiments/$expId/notebook_/$part': typeof ExperimentsExpIdNotebookPartRoute
   '/experiments/$expId/review/history': typeof ExperimentsExpIdReviewHistoryRoute
   '/experiments/$expId/review/revisions': typeof ExperimentsExpIdReviewRevisionsRoute
   '/experiments/$expId/review/signatures': typeof ExperimentsExpIdReviewSignaturesRoute
@@ -2215,6 +2225,7 @@ export interface FileRouteTypes {
     | '/experiments/$expId/data/files'
     | '/experiments/$expId/data/links'
     | '/experiments/$expId/data/results'
+    | '/experiments/$expId/notebook/$part'
     | '/experiments/$expId/review/history'
     | '/experiments/$expId/review/revisions'
     | '/experiments/$expId/review/signatures'
@@ -2420,6 +2431,7 @@ export interface FileRouteTypes {
     | '/experiments/$expId/data/files'
     | '/experiments/$expId/data/links'
     | '/experiments/$expId/data/results'
+    | '/experiments/$expId/notebook/$part'
     | '/experiments/$expId/review/history'
     | '/experiments/$expId/review/revisions'
     | '/experiments/$expId/review/signatures'
@@ -2640,6 +2652,7 @@ export interface FileRouteTypes {
     | '/experiments/$expId/data/files'
     | '/experiments/$expId/data/links'
     | '/experiments/$expId/data/results'
+    | '/experiments/$expId/notebook_/$part'
     | '/experiments/$expId/review/history'
     | '/experiments/$expId/review/revisions'
     | '/experiments/$expId/review/signatures'
@@ -4149,6 +4162,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExperimentsExpIdDataResultsRouteImport
       parentRoute: typeof ExperimentsExpIdDataRoute
     }
+    '/experiments/$expId/notebook_/$part': {
+      id: '/experiments/$expId/notebook_/$part'
+      path: '/notebook/$part'
+      fullPath: '/experiments/$expId/notebook/$part'
+      preLoaderRoute: typeof ExperimentsExpIdNotebookPartRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
     '/experiments/$expId/review/': {
       id: '/experiments/$expId/review/'
       path: '/'
@@ -4402,6 +4422,7 @@ interface ExperimentsExpIdRouteChildren {
   ExperimentsExpIdSeriesRoute: typeof ExperimentsExpIdSeriesRoute
   ExperimentsExpIdSummaryRoute: typeof ExperimentsExpIdSummaryRoute
   ExperimentsExpIdIndexRoute: typeof ExperimentsExpIdIndexRoute
+  ExperimentsExpIdNotebookPartRoute: typeof ExperimentsExpIdNotebookPartRoute
 }
 
 const ExperimentsExpIdRouteChildren: ExperimentsExpIdRouteChildren = {
@@ -4412,6 +4433,7 @@ const ExperimentsExpIdRouteChildren: ExperimentsExpIdRouteChildren = {
   ExperimentsExpIdSeriesRoute: ExperimentsExpIdSeriesRoute,
   ExperimentsExpIdSummaryRoute: ExperimentsExpIdSummaryRoute,
   ExperimentsExpIdIndexRoute: ExperimentsExpIdIndexRoute,
+  ExperimentsExpIdNotebookPartRoute: ExperimentsExpIdNotebookPartRoute,
 }
 
 const ExperimentsExpIdRouteWithChildren =

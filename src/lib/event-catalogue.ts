@@ -1805,7 +1805,8 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     consumers: webhookSsePipeline,
     notes:
       'Payload carries blockId (the step), resultBlockId, label, recordId, identifier, title, stepNumber and step.',
-  },  {
+  },
+  {
     name: 'experiment.part_created',
     family: 'record',
     summary: 'A part was added to an experiment.',

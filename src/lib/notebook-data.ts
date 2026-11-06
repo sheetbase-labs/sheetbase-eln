@@ -76,6 +76,8 @@ export interface BlockWire {
   payload_schema_version: number
   order: number
   version: number
+  /** The part of the experiment the block is in (null: no parts). */
+  part_id?: string | null
   created_at: string
   updated_at: string
 }
@@ -177,6 +179,8 @@ export interface NotebookBlock {
   payloadSchemaVersion: number
   order: number
   version: number
+  /** The part of the experiment the block is in, when it has parts. */
+  partId?: string | null
 }
 
 export interface NotebookLink {
@@ -254,6 +258,7 @@ export function toBlock(row: BlockWire): NotebookBlock {
     payloadSchemaVersion: row.payload_schema_version,
     order: row.order,
     version: row.version,
+    partId: row.part_id ?? null,
   }
 }
 

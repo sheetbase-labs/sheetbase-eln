@@ -21,6 +21,7 @@ from sheetbase._generated.models import (
     CompositionAdoptionPreview,
     DatasetVersionsRow,
     DatasetsRow,
+    ExperimentPartsRow,
     FieldSpecLimitsRow,
     IdpGroupMappingsRow,
     InsertSheetInstanceBlockResult,
@@ -113,6 +114,7 @@ class Rpc:
         "complete_stocktake",
         "create_agent_workflow",
         "create_and_link_sheet_record",
+        "create_experiment_part",
         "create_legal_hold",
         "create_pipeline_definition_version",
         "create_plate_run",
@@ -129,6 +131,7 @@ class Rpc:
         "create_supplier_model",
         "create_webhook_subscription",
         "delete_block",
+        "delete_experiment_part",
         "delete_saved_search",
         "delete_scheduled_report",
         "delete_webhook_subscription",
@@ -156,6 +159,7 @@ class Rpc:
         "materialise_recurring_schedule",
         "materialize_sheet_instance",
         "move_block",
+        "move_experiment_part",
         "move_series_member",
         "mutate_sheet_instance_calculations",
         "mutate_sheet_instance_local_state",
@@ -178,6 +182,7 @@ class Rpc:
         "receive_reagent_order",
         "receive_shipment",
         "record_instrument_readings",
+        "record_parts",
         "record_series",
         "record_steps",
         "record_stocktake_scan",
@@ -214,6 +219,7 @@ class Rpc:
         "send_scheduled_report_now",
         "series_members",
         "series_rollup",
+        "set_block_part",
         "set_field_spec_limits",
         "set_idp_group_mapping",
         "set_instrument_booking_rules",
@@ -223,6 +229,7 @@ class Rpc:
         "set_material_safety",
         "set_member_absence",
         "set_model_supplier_list",
+        "set_part_done",
         "set_reagent_order_price",
         "set_record_favourite",
         "set_recurring_schedule_paused",
@@ -232,6 +239,7 @@ class Rpc:
         "set_step_done",
         "set_timestamp_settings",
         "snapshot_dataset",
+        "split_record_into_parts",
         "start_experiment_series",
         "start_step_timer",
         "start_stocktake",
@@ -240,6 +248,7 @@ class Rpc:
         "transition_record_status",
         "unfollow_project",
         "update_block_payload",
+        "update_experiment_part",
         "update_pipeline_definition_version_draft",
         "update_plate_run",
         "update_record_custom_fields",
@@ -851,6 +860,32 @@ class Rpc:
         body["p_write_target"] = write_target
         return self._call("create_and_link_sheet_record", body)  # type: ignore[no-any-return]
 
+    def create_experiment_part(
+        self,
+        *,
+        record_id: str,
+        title: str,
+        day_offset: Union[int, Unset] = UNSET,
+        after_part_id: Union[str, Unset] = UNSET,
+    ) -> Union["ExperimentPartsRow", List["ExperimentPartsRow"]]:
+        """
+        Add a part to an experiment
+
+        Adds a part after `p_after_part_id`, or at the end. The first part takes the blocks already on the page. Returns the part.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_experiment_part``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        body["p_title"] = title
+        if not isinstance(day_offset, Unset):
+            body["p_day_offset"] = day_offset
+        if not isinstance(after_part_id, Unset):
+            body["p_after_part_id"] = after_part_id
+        return self._call("create_experiment_part", body)  # type: ignore[no-any-return]
+
     def create_legal_hold(
         self,
         *,
@@ -1364,6 +1399,27 @@ class Rpc:
         body["p_block_id"] = block_id
         body["p_expected_structure_version"] = expected_structure_version
         return self._call("delete_block", body)  # type: ignore[no-any-return]
+
+    def delete_experiment_part(
+        self,
+        *,
+        part_id: str,
+        move_blocks_to: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Delete a part of an experiment
+
+        Deletes the part. A part that still has blocks needs `p_move_blocks_to`, the part that takes them. Returns how many blocks moved.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/delete_experiment_part``
+        """
+        body: Dict[str, Any] = {}
+        body["p_part_id"] = part_id
+        if not isinstance(move_blocks_to, Unset):
+            body["p_move_blocks_to"] = move_blocks_to
+        return self._call("delete_experiment_part", body)  # type: ignore[no-any-return]
 
     def delete_saved_search(self, *, id: str) -> None:
         """
@@ -1958,6 +2014,27 @@ class Rpc:
         body["p_before_block_id"] = before_block_id
         return self._call("move_block", body)  # type: ignore[no-any-return]
 
+    def move_experiment_part(
+        self,
+        *,
+        part_id: str,
+        after_part_id: Union[str, Unset] = UNSET,
+    ) -> Union["ExperimentPartsRow", List["ExperimentPartsRow"]]:
+        """
+        Reorder the parts of an experiment
+
+        Moves a part to sit after `p_after_part_id`, or first when that is left out. Its blocks move with it. Returns the part.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/move_experiment_part``
+        """
+        body: Dict[str, Any] = {}
+        body["p_part_id"] = part_id
+        if not isinstance(after_part_id, Unset):
+            body["p_after_part_id"] = after_part_id
+        return self._call("move_experiment_part", body)  # type: ignore[no-any-return]
+
     def move_series_member(
         self,
         *,
@@ -2475,6 +2552,20 @@ class Rpc:
         body["p_instrument_id"] = instrument_id
         body["p_readings"] = readings
         return self._call("record_instrument_readings", body)  # type: ignore[no-any-return]
+
+    def record_parts(self, *, record_id: str) -> List[Dict[str, Any]]:
+        """
+        List the parts of an experiment with where each stands
+
+        Every part in order, with `due_on` (the day it falls on) and its steps. `status` is `done`, `now` (the first part that is not done) or `later`. Empty for an experiment with no parts.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/record_parts``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        return self._call("record_parts", body)  # type: ignore[no-any-return]
 
     def record_series(self, *, record_id: str) -> List[Dict[str, Any]]:
         """
@@ -3269,6 +3360,21 @@ class Rpc:
         body["p_series_record_id"] = series_record_id
         return self._call("series_rollup", body)  # type: ignore[no-any-return]
 
+    def set_block_part(self, *, block_id: str, part_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Move a block to another part
+
+        Puts the block at the end of that part of the notebook. Returns the block, its part and its new order.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_block_part``
+        """
+        body: Dict[str, Any] = {}
+        body["p_block_id"] = block_id
+        body["p_part_id"] = part_id
+        return self._call("set_block_part", body)  # type: ignore[no-any-return]
+
     def set_field_spec_limits(
         self,
         *,
@@ -3502,6 +3608,26 @@ class Rpc:
         body["p_enabled"] = enabled
         return self._call("set_model_supplier_list", body)  # type: ignore[no-any-return]
 
+    def set_part_done(
+        self,
+        *,
+        part_id: str,
+        done: bool,
+    ) -> Union["ExperimentPartsRow", List["ExperimentPartsRow"]]:
+        """
+        Mark a part of an experiment done or open
+
+        For a part with no steps. A part with steps is done when its steps are. Finishing the current part opens the next. Returns the part.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_part_done``
+        """
+        body: Dict[str, Any] = {}
+        body["p_part_id"] = part_id
+        body["p_done"] = done
+        return self._call("set_part_done", body)  # type: ignore[no-any-return]
+
     def set_reagent_order_price(
         self,
         *,
@@ -3690,6 +3816,26 @@ class Rpc:
         body["p_label"] = label
         return self._call("snapshot_dataset", body)  # type: ignore[no-any-return]
 
+    def split_record_into_parts(
+        self,
+        *,
+        record_id: str,
+        parts: Dict[str, "JsonValue"],
+    ) -> List[Dict[str, Any]]:
+        """
+        Split an experiment into parts
+
+        Divides a notebook that has no parts at the blocks you name. Returns the parts.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/split_record_into_parts``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        body["p_parts"] = parts
+        return self._call("split_record_into_parts", body)  # type: ignore[no-any-return]
+
     def start_experiment_series(self, *, record_id: str) -> Dict[str, "JsonValue"]:
         """
         Make an experiment a series
@@ -3850,6 +3996,36 @@ class Rpc:
         body["p_expected_version"] = expected_version
         body["p_payload_schema_version"] = payload_schema_version
         return self._call("update_block_payload", body)  # type: ignore[no-any-return]
+
+    def update_experiment_part(
+        self,
+        *,
+        part_id: str,
+        title: Union[str, Unset] = UNSET,
+        day_offset: Union[int, Unset] = UNSET,
+        assignee_user_id: Union[str, Unset] = UNSET,
+        clear_assignee: Union[bool, Unset] = UNSET,
+    ) -> Union["ExperimentPartsRow", List["ExperimentPartsRow"]]:
+        """
+        Change a part of an experiment
+
+        Changes the title, the day or who does it. Pass `p_clear_assignee` to clear the person. Returns the part.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/update_experiment_part``
+        """
+        body: Dict[str, Any] = {}
+        body["p_part_id"] = part_id
+        if not isinstance(title, Unset):
+            body["p_title"] = title
+        if not isinstance(day_offset, Unset):
+            body["p_day_offset"] = day_offset
+        if not isinstance(assignee_user_id, Unset):
+            body["p_assignee_user_id"] = assignee_user_id
+        if not isinstance(clear_assignee, Unset):
+            body["p_clear_assignee"] = clear_assignee
+        return self._call("update_experiment_part", body)  # type: ignore[no-any-return]
 
     def update_pipeline_definition_version_draft(
         self,
@@ -4143,6 +4319,7 @@ class AsyncRpc:
         "complete_stocktake",
         "create_agent_workflow",
         "create_and_link_sheet_record",
+        "create_experiment_part",
         "create_legal_hold",
         "create_pipeline_definition_version",
         "create_plate_run",
@@ -4159,6 +4336,7 @@ class AsyncRpc:
         "create_supplier_model",
         "create_webhook_subscription",
         "delete_block",
+        "delete_experiment_part",
         "delete_saved_search",
         "delete_scheduled_report",
         "delete_webhook_subscription",
@@ -4186,6 +4364,7 @@ class AsyncRpc:
         "materialise_recurring_schedule",
         "materialize_sheet_instance",
         "move_block",
+        "move_experiment_part",
         "move_series_member",
         "mutate_sheet_instance_calculations",
         "mutate_sheet_instance_local_state",
@@ -4208,6 +4387,7 @@ class AsyncRpc:
         "receive_reagent_order",
         "receive_shipment",
         "record_instrument_readings",
+        "record_parts",
         "record_series",
         "record_steps",
         "record_stocktake_scan",
@@ -4244,6 +4424,7 @@ class AsyncRpc:
         "send_scheduled_report_now",
         "series_members",
         "series_rollup",
+        "set_block_part",
         "set_field_spec_limits",
         "set_idp_group_mapping",
         "set_instrument_booking_rules",
@@ -4253,6 +4434,7 @@ class AsyncRpc:
         "set_material_safety",
         "set_member_absence",
         "set_model_supplier_list",
+        "set_part_done",
         "set_reagent_order_price",
         "set_record_favourite",
         "set_recurring_schedule_paused",
@@ -4262,6 +4444,7 @@ class AsyncRpc:
         "set_step_done",
         "set_timestamp_settings",
         "snapshot_dataset",
+        "split_record_into_parts",
         "start_experiment_series",
         "start_step_timer",
         "start_stocktake",
@@ -4270,6 +4453,7 @@ class AsyncRpc:
         "transition_record_status",
         "unfollow_project",
         "update_block_payload",
+        "update_experiment_part",
         "update_pipeline_definition_version_draft",
         "update_plate_run",
         "update_record_custom_fields",
@@ -4881,6 +5065,32 @@ class AsyncRpc:
         body["p_write_target"] = write_target
         return await self._call("create_and_link_sheet_record", body)  # type: ignore[no-any-return]
 
+    async def create_experiment_part(
+        self,
+        *,
+        record_id: str,
+        title: str,
+        day_offset: Union[int, Unset] = UNSET,
+        after_part_id: Union[str, Unset] = UNSET,
+    ) -> Union["ExperimentPartsRow", List["ExperimentPartsRow"]]:
+        """
+        Add a part to an experiment
+
+        Adds a part after `p_after_part_id`, or at the end. The first part takes the blocks already on the page. Returns the part.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_experiment_part``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        body["p_title"] = title
+        if not isinstance(day_offset, Unset):
+            body["p_day_offset"] = day_offset
+        if not isinstance(after_part_id, Unset):
+            body["p_after_part_id"] = after_part_id
+        return await self._call("create_experiment_part", body)  # type: ignore[no-any-return]
+
     async def create_legal_hold(
         self,
         *,
@@ -5394,6 +5604,27 @@ class AsyncRpc:
         body["p_block_id"] = block_id
         body["p_expected_structure_version"] = expected_structure_version
         return await self._call("delete_block", body)  # type: ignore[no-any-return]
+
+    async def delete_experiment_part(
+        self,
+        *,
+        part_id: str,
+        move_blocks_to: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Delete a part of an experiment
+
+        Deletes the part. A part that still has blocks needs `p_move_blocks_to`, the part that takes them. Returns how many blocks moved.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/delete_experiment_part``
+        """
+        body: Dict[str, Any] = {}
+        body["p_part_id"] = part_id
+        if not isinstance(move_blocks_to, Unset):
+            body["p_move_blocks_to"] = move_blocks_to
+        return await self._call("delete_experiment_part", body)  # type: ignore[no-any-return]
 
     async def delete_saved_search(self, *, id: str) -> None:
         """
@@ -5988,6 +6219,27 @@ class AsyncRpc:
         body["p_before_block_id"] = before_block_id
         return await self._call("move_block", body)  # type: ignore[no-any-return]
 
+    async def move_experiment_part(
+        self,
+        *,
+        part_id: str,
+        after_part_id: Union[str, Unset] = UNSET,
+    ) -> Union["ExperimentPartsRow", List["ExperimentPartsRow"]]:
+        """
+        Reorder the parts of an experiment
+
+        Moves a part to sit after `p_after_part_id`, or first when that is left out. Its blocks move with it. Returns the part.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/move_experiment_part``
+        """
+        body: Dict[str, Any] = {}
+        body["p_part_id"] = part_id
+        if not isinstance(after_part_id, Unset):
+            body["p_after_part_id"] = after_part_id
+        return await self._call("move_experiment_part", body)  # type: ignore[no-any-return]
+
     async def move_series_member(
         self,
         *,
@@ -6505,6 +6757,20 @@ class AsyncRpc:
         body["p_instrument_id"] = instrument_id
         body["p_readings"] = readings
         return await self._call("record_instrument_readings", body)  # type: ignore[no-any-return]
+
+    async def record_parts(self, *, record_id: str) -> List[Dict[str, Any]]:
+        """
+        List the parts of an experiment with where each stands
+
+        Every part in order, with `due_on` (the day it falls on) and its steps. `status` is `done`, `now` (the first part that is not done) or `later`. Empty for an experiment with no parts.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/record_parts``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        return await self._call("record_parts", body)  # type: ignore[no-any-return]
 
     async def record_series(self, *, record_id: str) -> List[Dict[str, Any]]:
         """
@@ -7299,6 +7565,21 @@ class AsyncRpc:
         body["p_series_record_id"] = series_record_id
         return await self._call("series_rollup", body)  # type: ignore[no-any-return]
 
+    async def set_block_part(self, *, block_id: str, part_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Move a block to another part
+
+        Puts the block at the end of that part of the notebook. Returns the block, its part and its new order.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_block_part``
+        """
+        body: Dict[str, Any] = {}
+        body["p_block_id"] = block_id
+        body["p_part_id"] = part_id
+        return await self._call("set_block_part", body)  # type: ignore[no-any-return]
+
     async def set_field_spec_limits(
         self,
         *,
@@ -7532,6 +7813,26 @@ class AsyncRpc:
         body["p_enabled"] = enabled
         return await self._call("set_model_supplier_list", body)  # type: ignore[no-any-return]
 
+    async def set_part_done(
+        self,
+        *,
+        part_id: str,
+        done: bool,
+    ) -> Union["ExperimentPartsRow", List["ExperimentPartsRow"]]:
+        """
+        Mark a part of an experiment done or open
+
+        For a part with no steps. A part with steps is done when its steps are. Finishing the current part opens the next. Returns the part.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_part_done``
+        """
+        body: Dict[str, Any] = {}
+        body["p_part_id"] = part_id
+        body["p_done"] = done
+        return await self._call("set_part_done", body)  # type: ignore[no-any-return]
+
     async def set_reagent_order_price(
         self,
         *,
@@ -7720,6 +8021,26 @@ class AsyncRpc:
         body["p_label"] = label
         return await self._call("snapshot_dataset", body)  # type: ignore[no-any-return]
 
+    async def split_record_into_parts(
+        self,
+        *,
+        record_id: str,
+        parts: Dict[str, "JsonValue"],
+    ) -> List[Dict[str, Any]]:
+        """
+        Split an experiment into parts
+
+        Divides a notebook that has no parts at the blocks you name. Returns the parts.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/split_record_into_parts``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        body["p_parts"] = parts
+        return await self._call("split_record_into_parts", body)  # type: ignore[no-any-return]
+
     async def start_experiment_series(self, *, record_id: str) -> Dict[str, "JsonValue"]:
         """
         Make an experiment a series
@@ -7880,6 +8201,36 @@ class AsyncRpc:
         body["p_expected_version"] = expected_version
         body["p_payload_schema_version"] = payload_schema_version
         return await self._call("update_block_payload", body)  # type: ignore[no-any-return]
+
+    async def update_experiment_part(
+        self,
+        *,
+        part_id: str,
+        title: Union[str, Unset] = UNSET,
+        day_offset: Union[int, Unset] = UNSET,
+        assignee_user_id: Union[str, Unset] = UNSET,
+        clear_assignee: Union[bool, Unset] = UNSET,
+    ) -> Union["ExperimentPartsRow", List["ExperimentPartsRow"]]:
+        """
+        Change a part of an experiment
+
+        Changes the title, the day or who does it. Pass `p_clear_assignee` to clear the person. Returns the part.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/update_experiment_part``
+        """
+        body: Dict[str, Any] = {}
+        body["p_part_id"] = part_id
+        if not isinstance(title, Unset):
+            body["p_title"] = title
+        if not isinstance(day_offset, Unset):
+            body["p_day_offset"] = day_offset
+        if not isinstance(assignee_user_id, Unset):
+            body["p_assignee_user_id"] = assignee_user_id
+        if not isinstance(clear_assignee, Unset):
+            body["p_clear_assignee"] = clear_assignee
+        return await self._call("update_experiment_part", body)  # type: ignore[no-any-return]
 
     async def update_pipeline_definition_version_draft(
         self,

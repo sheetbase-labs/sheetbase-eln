@@ -8,10 +8,21 @@
  * evaluate the media queries, so the split is proved by the responsive classes,
  * as `app-shell.test.tsx` does for the phone shell.
  */
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render as plainRender, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { RecordModelRecord } from './record-model-record'
+
+function render(ui: ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return plainRender(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  )
+}
 
 const mocks = vi.hoisted(() => {
   const record = {

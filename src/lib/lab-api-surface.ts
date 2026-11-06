@@ -104,7 +104,10 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_since: 'Start of the window.',
   p_until: 'End of the window (default now).',
   p_buckets: 'Number of time buckets (default 240).',
-  p_block_id: 'The protocol step block the timer belongs to.',
+  p_block_id: 'The protocol step block (a `procedure_step` block).',
+  p_done: 'true to finish the step (default), false to reopen it.',
+  p_label: 'What was measured.',
+  p_value: 'The measured value, as a number or text.',
   p_seconds: "Duration in seconds. Omit to use the step's own duration.",
   p_timer_id: 'Step timer id.',
   p_record_id: 'Record id.',
@@ -947,6 +950,40 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
     scope: 'lab:write',
     params: [['p_timer_id', 'uuid', 1]],
     result: 'row:step_timers',
+  },
+  set_step_done: {
+    summary: 'Finish or reopen a protocol step',
+    description:
+      'Ticks a protocol step as done, or reopens it, with an optional note. The step records who finished it and when. Returns the step.',
+    scope: 'lab:write',
+    params: [
+      ['p_block_id', 'uuid', 1],
+      ['p_done', 'bool', 0],
+      ['p_note', 'text', 0],
+    ],
+    result: 'json',
+  },
+  add_step_result: {
+    summary: 'Record a result on a protocol step',
+    description:
+      'Adds a measurement to the notebook straight after the step, so it reads in order and goes to review with the record. Returns the new block.',
+    scope: 'lab:write',
+    params: [
+      ['p_block_id', 'uuid', 1],
+      ['p_label', 'text', 1],
+      ['p_value', 'text', 1],
+      ['p_unit', 'text', 0],
+    ],
+    result: 'json',
+  },
+  record_steps: {
+    summary: 'List the steps of an experiment with their status',
+    description:
+      'Every protocol step in order. `status` comes from the evidence on the notebook: `done` when ticked, `in_progress` when it has a note, a result or a running timer of yours, otherwise `not_started`. `is_current` marks the first step that is not done.',
+    scope: 'lab:read',
+    params: [['p_record_id', 'uuid', 1]],
+    result:
+      'rows:block_id=uuid,step_number=int,step_text=text,status=text,is_current=bool,completed_at=ts,completed_by_user_id=text,note=text,result_count=int,duration_seconds=int,timer_ends_at=ts,instrument_id=uuid',
   },
   set_material_safety: {
     summary: 'Set chemical safety information',

@@ -84,6 +84,7 @@ class Rpc:
     NAMES = (
         "add_records_to_legal_hold",
         "add_registry_parent",
+        "add_step_result",
         "adopt_group_roles",
         "advance_agent_workflow",
         "advance_sample_workflow",
@@ -164,6 +165,7 @@ class Rpc:
         "receive_reagent_order",
         "receive_shipment",
         "record_instrument_readings",
+        "record_steps",
         "record_stocktake_scan",
         "record_storage_readings",
         "register_replacement_lot",
@@ -206,6 +208,7 @@ class Rpc:
         "set_recurring_schedule_paused",
         "set_sample_workflow_status",
         "set_scheduled_report_active",
+        "set_step_done",
         "snapshot_dataset",
         "start_step_timer",
         "start_stocktake",
@@ -269,6 +272,31 @@ class Rpc:
         if not isinstance(role, Unset):
             body["p_role"] = role
         return self._call("add_registry_parent", body)  # type: ignore[no-any-return]
+
+    def add_step_result(
+        self,
+        *,
+        block_id: str,
+        label: str,
+        value: str,
+        unit: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Record a result on a protocol step
+
+        Adds a measurement to the notebook straight after the step, so it reads in order and goes to review with the record. Returns the new block.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/add_step_result``
+        """
+        body: Dict[str, Any] = {}
+        body["p_block_id"] = block_id
+        body["p_label"] = label
+        body["p_value"] = value
+        if not isinstance(unit, Unset):
+            body["p_unit"] = unit
+        return self._call("add_step_result", body)  # type: ignore[no-any-return]
 
     def adopt_group_roles(self, *, workspace_id: str) -> int:
         """
@@ -2207,6 +2235,20 @@ class Rpc:
         body["p_readings"] = readings
         return self._call("record_instrument_readings", body)  # type: ignore[no-any-return]
 
+    def record_steps(self, *, record_id: str) -> List[Dict[str, Any]]:
+        """
+        List the steps of an experiment with their status
+
+        Every protocol step in order. `status` comes from the evidence on the notebook: `done` when ticked, `in_progress` when it has a note, a result or a running timer of yours, otherwise `not_started`. `is_current` marks the first step that is not done.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/record_steps``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        return self._call("record_steps", body)  # type: ignore[no-any-return]
+
     def record_stocktake_scan(
         self,
         *,
@@ -3201,6 +3243,30 @@ class Rpc:
         body["p_active"] = active
         return self._call("set_scheduled_report_active", body)  # type: ignore[no-any-return]
 
+    def set_step_done(
+        self,
+        *,
+        block_id: str,
+        done: Union[bool, Unset] = UNSET,
+        note: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Finish or reopen a protocol step
+
+        Ticks a protocol step as done, or reopens it, with an optional note. The step records who finished it and when. Returns the step.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_step_done``
+        """
+        body: Dict[str, Any] = {}
+        body["p_block_id"] = block_id
+        if not isinstance(done, Unset):
+            body["p_done"] = done
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        return self._call("set_step_done", body)  # type: ignore[no-any-return]
+
     def snapshot_dataset(
         self,
         *,
@@ -3576,6 +3642,7 @@ class AsyncRpc:
     NAMES = (
         "add_records_to_legal_hold",
         "add_registry_parent",
+        "add_step_result",
         "adopt_group_roles",
         "advance_agent_workflow",
         "advance_sample_workflow",
@@ -3656,6 +3723,7 @@ class AsyncRpc:
         "receive_reagent_order",
         "receive_shipment",
         "record_instrument_readings",
+        "record_steps",
         "record_stocktake_scan",
         "record_storage_readings",
         "register_replacement_lot",
@@ -3698,6 +3766,7 @@ class AsyncRpc:
         "set_recurring_schedule_paused",
         "set_sample_workflow_status",
         "set_scheduled_report_active",
+        "set_step_done",
         "snapshot_dataset",
         "start_step_timer",
         "start_stocktake",
@@ -3761,6 +3830,31 @@ class AsyncRpc:
         if not isinstance(role, Unset):
             body["p_role"] = role
         return await self._call("add_registry_parent", body)  # type: ignore[no-any-return]
+
+    async def add_step_result(
+        self,
+        *,
+        block_id: str,
+        label: str,
+        value: str,
+        unit: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Record a result on a protocol step
+
+        Adds a measurement to the notebook straight after the step, so it reads in order and goes to review with the record. Returns the new block.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/add_step_result``
+        """
+        body: Dict[str, Any] = {}
+        body["p_block_id"] = block_id
+        body["p_label"] = label
+        body["p_value"] = value
+        if not isinstance(unit, Unset):
+            body["p_unit"] = unit
+        return await self._call("add_step_result", body)  # type: ignore[no-any-return]
 
     async def adopt_group_roles(self, *, workspace_id: str) -> int:
         """
@@ -5699,6 +5793,20 @@ class AsyncRpc:
         body["p_readings"] = readings
         return await self._call("record_instrument_readings", body)  # type: ignore[no-any-return]
 
+    async def record_steps(self, *, record_id: str) -> List[Dict[str, Any]]:
+        """
+        List the steps of an experiment with their status
+
+        Every protocol step in order. `status` comes from the evidence on the notebook: `done` when ticked, `in_progress` when it has a note, a result or a running timer of yours, otherwise `not_started`. `is_current` marks the first step that is not done.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/record_steps``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        return await self._call("record_steps", body)  # type: ignore[no-any-return]
+
     async def record_stocktake_scan(
         self,
         *,
@@ -6692,6 +6800,30 @@ class AsyncRpc:
         body["p_id"] = id
         body["p_active"] = active
         return await self._call("set_scheduled_report_active", body)  # type: ignore[no-any-return]
+
+    async def set_step_done(
+        self,
+        *,
+        block_id: str,
+        done: Union[bool, Unset] = UNSET,
+        note: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Finish or reopen a protocol step
+
+        Ticks a protocol step as done, or reopens it, with an optional note. The step records who finished it and when. Returns the step.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_step_done``
+        """
+        body: Dict[str, Any] = {}
+        body["p_block_id"] = block_id
+        if not isinstance(done, Unset):
+            body["p_done"] = done
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        return await self._call("set_step_done", body)  # type: ignore[no-any-return]
 
     async def snapshot_dataset(
         self,

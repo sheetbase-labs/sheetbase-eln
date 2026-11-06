@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 __all__ = [
     "AddRecordsToLegalHoldParams",
     "AddRegistryParentParams",
+    "AddStepResultParams",
     "AdoptGroupRolesParams",
     "AdvanceAgentWorkflowParams",
     "AdvanceSampleWorkflowParams",
@@ -206,6 +207,7 @@ __all__ = [
     "RecordLinksRowPatch",
     "RecordModelsRow",
     "RecordSpecResultsRow",
+    "RecordStepsParams",
     "RecordStocktakeScanParams",
     "RecordStorageReadingsParams",
     "RecordsRow",
@@ -265,6 +267,7 @@ __all__ = [
     "SetRecurringSchedulePausedParams",
     "SetSampleWorkflowStatusParams",
     "SetScheduledReportActiveParams",
+    "SetStepDoneParams",
     "SheetCalculation",
     "SheetCalculationChange",
     "SheetCalculationChangeRetire",
@@ -2731,6 +2734,16 @@ class AddRegistryParentParams(_AddRegistryParentParamsRequired, total=False):
     p_role: str
 
 
+class _AddStepResultParamsRequired(TypedDict):
+    p_block_id: str
+    p_label: str
+    p_value: str
+
+
+class AddStepResultParams(_AddStepResultParamsRequired, total=False):
+    p_unit: str
+
+
 class AdoptGroupRolesParams(TypedDict):
     p_workspace_id: str
 
@@ -3350,6 +3363,10 @@ class RecordInstrumentReadingsParams(TypedDict):
     p_readings: Dict[str, "JsonValue"]
 
 
+class RecordStepsParams(TypedDict):
+    p_record_id: str
+
+
 class _RecordStocktakeScanParamsRequired(TypedDict):
     p_stocktake_id: str
     p_record_id: str
@@ -3686,6 +3703,15 @@ class SetSampleWorkflowStatusParams(TypedDict):
 class SetScheduledReportActiveParams(TypedDict):
     p_id: str
     p_active: bool
+
+
+class _SetStepDoneParamsRequired(TypedDict):
+    p_block_id: str
+
+
+class SetStepDoneParams(_SetStepDoneParamsRequired, total=False):
+    p_done: bool
+    p_note: str
 
 
 class SnapshotDatasetParams(TypedDict):

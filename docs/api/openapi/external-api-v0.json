@@ -24224,6 +24224,137 @@
         }
       }
     },
+    "/api/db/rpc/add_step_result": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Record a result on a protocol step",
+        "operationId": "rpc_add_step_result",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Adds a measurement to the notebook straight after the step, so it reads in order and goes to review with the record. Returns the new block.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_block_id", "p_label", "p_value"],
+                "properties": {
+                  "p_block_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The protocol step block (a `procedure_step` block)."
+                  },
+                  "p_label": {
+                    "type": "string",
+                    "description": "What was measured."
+                  },
+                  "p_value": {
+                    "type": "string",
+                    "description": "The measured value, as a number or text."
+                  },
+                  "p_unit": {
+                    "type": "string",
+                    "description": "Unit of the quantity."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of add_step_result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "description": "Record a result on a protocol step A JSON object."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/adopt_group_roles": {
       "post": {
         "tags": ["Projects"],
@@ -35859,6 +35990,167 @@
         }
       }
     },
+    "/api/db/rpc/record_steps": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "List the steps of an experiment with their status",
+        "operationId": "rpc_record_steps",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:read"],
+        "description": "Every protocol step in order. `status` comes from the evidence on the notebook: `done` when ticked, `in_progress` when it has a note, a result or a running timer of yours, otherwise `not_started`. `is_current` marks the first step that is not done.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_record_id"],
+                "properties": {
+                  "p_record_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Record id."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of record_steps",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "block_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "step_number": {
+                        "type": "integer"
+                      },
+                      "step_text": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "is_current": {
+                        "type": "boolean"
+                      },
+                      "completed_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "completed_by_user_id": {
+                        "type": "string"
+                      },
+                      "note": {
+                        "type": "string"
+                      },
+                      "result_count": {
+                        "type": "integer"
+                      },
+                      "duration_seconds": {
+                        "type": "integer"
+                      },
+                      "timer_ends_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "instrument_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/record_stocktake_scan": {
       "post": {
         "tags": ["Lab"],
@@ -41688,6 +41980,133 @@
         }
       }
     },
+    "/api/db/rpc/set_step_done": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Finish or reopen a protocol step",
+        "operationId": "rpc_set_step_done",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Ticks a protocol step as done, or reopens it, with an optional note. The step records who finished it and when. Returns the step.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_block_id"],
+                "properties": {
+                  "p_block_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The protocol step block (a `procedure_step` block)."
+                  },
+                  "p_done": {
+                    "type": "boolean",
+                    "description": "true to finish the step (default), false to reopen it."
+                  },
+                  "p_note": {
+                    "type": "string",
+                    "description": "A note."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of set_step_done",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "description": "Finish or reopen a protocol step A JSON object."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/snapshot_dataset": {
       "post": {
         "tags": ["Datasets"],
@@ -41851,7 +42270,7 @@
                   "p_block_id": {
                     "type": "string",
                     "format": "uuid",
-                    "description": "The protocol step block the timer belongs to."
+                    "description": "The protocol step block (a `procedure_step` block)."
                   },
                   "p_seconds": {
                     "type": "integer",

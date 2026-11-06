@@ -1287,34 +1287,6 @@ class AsyncFacility:
         }
         return await self._t.post("/api/db/rpc/set_model_supplier_list", json_body=body)
 
-    async def mark_reagent_ordered(
-        self,
-        *,
-        order_id: str,
-        order_reference: Optional[str] = None,
-        expected_on: Optional[str] = None,
-        supplier: Optional[str] = None,
-        supplier_record_id: Optional[str] = None,
-        total_price: Optional[float] = None,
-        currency: Optional[str] = None,
-    ) -> Any:
-        body: dict[str, Any] = {
-            "p_order_id": order_id,
-        }
-        if order_reference is not None:
-            body["p_order_reference"] = order_reference
-        if expected_on is not None:
-            body["p_expected_on"] = expected_on
-        if supplier is not None:
-            body["p_supplier"] = supplier
-        if supplier_record_id is not None:
-            body["p_supplier_record_id"] = supplier_record_id
-        if total_price is not None:
-            body["p_total_price"] = total_price
-        if currency is not None:
-            body["p_currency"] = currency
-        return await self._t.post("/api/db/rpc/mark_reagent_ordered", json_body=body)
-
     async def set_reagent_order_price(
         self,
         *,

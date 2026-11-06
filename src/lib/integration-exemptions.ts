@@ -76,4 +76,7 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
   set_retention_enabled: 'Turns retention on for the workspace; admin setting.',
   set_spec_limits_enabled:
     'Turns result limits on for the workspace; admin setting.',
+  // Helpers.
+  normalize_pipeline_event_type:
+    'Checks the event name on a pipeline schedule; the schedule calls already take it.',
 }

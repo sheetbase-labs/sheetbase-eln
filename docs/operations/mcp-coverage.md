@@ -36,8 +36,8 @@ notebooks, sheets, datasets, dataset versions and analyses. `sheetbase.search`,
 `sheetbase.storage.readings` (freezer, fridge, incubator and room readings with
 their alarm limits, optionally only those out of range) and
 `sheetbase.sheet_instance.materialization_preview` remain the convenience reads.
-Sending readings is the `record_storage_readings` API call, which is also what
-loggers and the connector stream use.
+Logging readings is `record_storage_readings` through `sheetbase.lab.act`, the
+same call loggers and scripts make over the API.
 
 The admin read tool covers the tables that are not on the external allowlist:
 workspace settings/counts, members, credential metadata (owner only),

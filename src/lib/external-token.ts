@@ -253,11 +253,6 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
   save_search: ['projects:write'],
   update_saved_search: ['projects:write'],
   delete_saved_search: ['projects:write'],
-  // Readings kept for freezers, fridges, incubators and rooms: read what they
-  // say now, and send readings from a logger or script (the same call the
-  // connector stream makes).
-  query_storage_readings: ['projects:read'],
-  record_storage_readings: ['projects:write'],
   search_sheet_records: ['models:read'],
   update_record_custom_fields: ['models:write'],
   create_and_link_sheet_record: ['models:write'],

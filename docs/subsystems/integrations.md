@@ -378,7 +378,7 @@ log file or network port → scripts/instrument-agent.mjs → POST /api/connecto
   instrument that is not retired. 403 means give up, 422 means the batch was
   refused, 5xx or 429 means try again.
 - **Freezers and rooms.** A storage unit or room keeps feeds the same way
-  (migration 0090): send `storageUnitId` or `storageRoomId` in place of
+  (migration 0097): send `storageUnitId` or `storageRoomId` in place of
   `instrumentId` (`api.record_storage_readings`; the agent does not target them
   yet), or log a reading by hand in Settings > Lab setup > Storage locations. A
   new `Temperature` feed starts with the place's own temperature range as its

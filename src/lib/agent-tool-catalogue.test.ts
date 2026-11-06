@@ -182,10 +182,10 @@ describe('agent tool catalogue', () => {
 
   it('filters discovery by caller capabilities', () => {
     const reads = listAgentTools({ scopes: ['projects:read'] })
-    expect(reads.map((entry) => entry.name)).toEqual([
-      'sheetbase.search',
-      'sheetbase.storage.readings',
-    ])
+    expect(reads.map((entry) => entry.name)).toEqual(['sheetbase.search'])
+    expect(
+      listAgentTools({ scopes: ['lab:read'] }).map((entry) => entry.name),
+    ).toEqual(['sheetbase.storage.readings'])
 
     const proposer = listAgentTools({ scopes: ['agent_operations:write'] })
     expect(proposer.length).toBeGreaterThan(0)

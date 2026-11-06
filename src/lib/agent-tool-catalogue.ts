@@ -1330,12 +1330,12 @@ const READ_TOOLS: AgentToolEntry[] = [
     name: 'sheetbase.storage.readings',
     mode: 'read',
     description:
-      'Read the temperatures and other readings kept for freezers, fridges, incubators and rooms: each latest value, its alarm limits and whether it is out of range. Read-only; logging a reading is the record_storage_readings API call.',
+      'Read the temperatures and other readings kept for freezers, fridges, incubators and rooms: each latest value, its alarm limits and whether it is out of range. Read-only; to log a reading use sheetbase.lab.act with record_storage_readings.',
     rpc: 'query_storage_readings',
     via: 'query_storage_readings',
     capability: {
-      scopes: ['projects:read'],
-      permission: 'project read',
+      scopes: ['lab:read'],
+      permission: 'lab read',
       actor: 'workspace_actor',
       note: 'Ordinary canonical read; same RLS as normal clients.',
     },

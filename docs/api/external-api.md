@@ -92,7 +92,13 @@ acts for a person without that person's token. The same scope covers
 `preview_member_handover` / `hand_over_member_work` (members access, or the
 person for themselves), `set_idp_group_mapping` / `remove_idp_group_mapping` /
 `adopt_group_roles` (members access), and reads of `member_absences`, `review_cover` and
-`idp_group_mappings`. Passkeys are deliberately not on the API: a passkey must
+`idp_group_mappings`. Directory sync (SCIM) is covered the same way:
+`directory_sync_status` and `revoke_scim_token` (members access), and reads of
+`scim_tokens` (never the secret), `scim_groups` and `scim_group_members`.
+Making a token is deliberately not on the API, so a token cannot mint another:
+only a signed-in member can do it, on the Members page. The SCIM endpoint
+itself is for identity providers; see
+[`scim.md`](scim.md). Passkeys are deliberately not on the API: a passkey must
 be created on the person's own device, so only the sign-in page and Profile
 can add one. Their events are webhook events (see
 [`event-catalogue.md`](event-catalogue.md)).

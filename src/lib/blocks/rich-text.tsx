@@ -1,5 +1,7 @@
 import * as React from 'react'
 
+import { LinkedText } from '#/components/ui/linked-text'
+
 export type RichTextMark =
   | { type: 'bold' | 'italic' | 'code' | 'subscript' | 'superscript' }
   | {
@@ -234,7 +236,15 @@ export function richTextToPlainText(payload: RichTextPayload): string {
 }
 
 function renderText(node: RichTextTextNode, key: number): React.ReactNode {
-  let child: React.ReactNode = node.text
+  const plain = !(node.marks ?? []).some(
+    (mark) => mark.type === 'link' || mark.type === 'code',
+  )
+  // An identifier that names a real record reads as a link to it.
+  let child: React.ReactNode = plain ? (
+    <LinkedText text={node.text} />
+  ) : (
+    node.text
+  )
   for (const mark of node.marks ?? []) {
     switch (mark.type) {
       case 'bold':

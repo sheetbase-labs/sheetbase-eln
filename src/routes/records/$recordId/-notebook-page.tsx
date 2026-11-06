@@ -864,13 +864,13 @@ export function RecordNotebookPage({
             />
           }
         >
-          <div className="flex-1 overflow-y-auto px-4 pb-16 md:px-6">
+          <div className="flex-1 overflow-y-auto px-4 pb-16 md:px-6 lg:pl-10">
             {/* EXP-05.2: the offline banner, full-bleed over the column's
               padding, plus the offline-capabilities note below it. */}
             <NotebookOfflineSurfaces
               store={deviceOfflineEditStore()}
               scope={{ userId: context.user.id, recordId: record.id }}
-              className="-mx-4 md:-mx-6"
+              className="-mx-4 md:-mx-6 lg:-ml-10"
               capabilitiesClassName="my-3"
               replayClassName="my-3"
               onReport={() =>

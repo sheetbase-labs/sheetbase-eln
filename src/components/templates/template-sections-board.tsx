@@ -161,10 +161,10 @@ export function TemplateSectionsBoard({
     : null
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1">
+    <div className="flex min-h-0 min-w-0 flex-1 max-md:flex-col">
       <nav
         aria-label={t('library.templates.templateSectionsBoard.sections')}
-        className="w-[236px] shrink-0 overflow-auto border-r border-border px-3 py-4"
+        className="w-[236px] shrink-0 overflow-auto border-r border-border px-3 py-4 max-md:w-full max-md:border-b max-md:border-r-0"
       >
         <div className="mb-2 flex items-center justify-between px-2">
           <span className="text-label text-fg-muted">
@@ -218,7 +218,7 @@ export function TemplateSectionsBoard({
         </button>
       </nav>
 
-      <div className="min-w-0 flex-1 overflow-auto px-6 py-5">
+      <div className="min-w-0 flex-1 overflow-auto px-6 py-5 max-md:px-4">
         {selected ? (
           <SectionDetail
             entry={selected}

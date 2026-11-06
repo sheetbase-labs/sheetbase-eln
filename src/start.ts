@@ -108,6 +108,15 @@ const recurringWorkMiddleware = createMiddleware().server(async ({ next }) => {
   return next()
 })
 
+// Out of office: starts and lifts a colleague's cover on reviews as absences
+// begin and end. Guarded like the other schedulers.
+const absenceCoverMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startAbsenceCoverScheduler } =
+    await import('#/lib/absence-cover.server')
+  startAbsenceCoverScheduler()
+  return next()
+})
+
 // Step timers: writes the bell notification for a timer that has ended, for
 // people with no page open. Guarded like the other schedulers.
 const stepTimerMiddleware = createMiddleware().server(async ({ next }) => {
@@ -218,6 +227,7 @@ export const startInstance = createStart(() => ({
     sampleHoldSchedulerMiddleware,
     reagentExpirySchedulerMiddleware,
     recurringWorkMiddleware,
+    absenceCoverMiddleware,
     stepTimerMiddleware,
     auditVerificationMiddleware,
     backupSchedulerMiddleware,

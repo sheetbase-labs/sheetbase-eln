@@ -375,7 +375,7 @@ Scope: `lab:write`.
 
 ### `record_steps`
 
-List the steps of an experiment with their status. Every protocol step in order. `status` comes from the evidence on the notebook: `done` when ticked, `in_progress` when it has a note, a result or a running timer of yours, otherwise `not_started`. `is_current` marks the first step that is not done.
+List the steps of an experiment with their status. Every protocol step in order. `status` comes from the evidence on the notebook: `done` when ticked, `in_progress` when it has a note, a result or a running timer of yours, otherwise `not_started`. `is_current` marks the first step that is not done. In an experiment with parts, `step_number` is the place in the part.
 
 Scope: `lab:read`.
 

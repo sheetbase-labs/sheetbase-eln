@@ -1218,7 +1218,7 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
   record_steps: {
     summary: 'List the steps of an experiment with their status',
     description:
-      'Every protocol step in order. `status` comes from the evidence on the notebook: `done` when ticked, `in_progress` when it has a note, a result or a running timer of yours, otherwise `not_started`. `is_current` marks the first step that is not done.',
+      'Every protocol step in order. `status` comes from the evidence on the notebook: `done` when ticked, `in_progress` when it has a note, a result or a running timer of yours, otherwise `not_started`. `is_current` marks the first step that is not done. In an experiment with parts, `step_number` is the place in the part.',
     scope: 'lab:read',
     params: [['p_record_id', 'uuid', 1]],
     result:

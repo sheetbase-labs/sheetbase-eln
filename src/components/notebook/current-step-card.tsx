@@ -232,7 +232,7 @@ function RunningStep({
       await refresh()
       toast.success(
         t('notebook.currentStep.stepDone', {
-          number: String(step.stepNumber ?? step.index),
+          number: String(step.partStepIndex ?? step.stepNumber ?? step.index),
         }),
       )
     },

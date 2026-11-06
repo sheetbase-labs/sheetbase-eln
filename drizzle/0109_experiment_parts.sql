@@ -943,7 +943,8 @@ REVOKE ALL ON FUNCTION api.record_parts(p_record_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION api.record_parts(p_record_id uuid) TO authenticated;
 --> statement-breakpoint
 
--- Steps now say which part they are in and are numbered within it, and the
+-- Steps now say which part they are in and are numbered within it (step_number
+-- is the place in the part), and the
 -- current step is the first open one of the current part.
 DROP FUNCTION api.record_steps(uuid);
 --> statement-breakpoint
@@ -984,7 +985,8 @@ CREATE FUNCTION api.record_steps(p_record_id uuid)
       FROM steps s
   )
   SELECT r.id,
-         CASE WHEN (r.payload->>'stepNumber') ~ '^[0-9]+$' THEN (r.payload->>'stepNumber')::integer END,
+         CASE WHEN r.part_id IS NOT NULL THEN r.in_part::integer
+              WHEN (r.payload->>'stepNumber') ~ '^[0-9]+$' THEN (r.payload->>'stepNumber')::integer END,
          r.payload->>'text', r.status,
          (NOT r.done AND r.first_open = 1
             AND r.part_id IS NOT DISTINCT FROM (SELECT cp.id FROM current_part cp)),

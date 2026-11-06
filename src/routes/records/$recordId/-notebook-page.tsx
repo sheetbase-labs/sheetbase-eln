@@ -76,6 +76,7 @@ import {
   shownPart,
 } from '#/lib/experiment-parts'
 import { stepProgress } from '#/lib/step-status'
+import { StepNumbersProvider } from '#/lib/step-numbers'
 import { WithdrawReviewDialog } from '#/components/notebook/withdraw-review-dialog'
 import { ReturnedReviewBanner } from '#/components/notebook/returned-review-banner'
 import { reopenTaskFromSearch } from '#/lib/return-to'
@@ -662,6 +663,15 @@ export function RecordNotebookPage({
   const canvasBlocks = shownPartNow
     ? blocksOfPart(blocks, shownPartNow)
     : blocks
+  const stepNumbers = useMemo(() => {
+    const numbers = new Map<string, number>()
+    if (partsList.length === 0) return numbers
+    for (const step of stepProgress(blocks, undefined, partsList)) {
+      if (step.partStepIndex != null)
+        numbers.set(step.blockId, step.partStepIndex)
+    }
+    return numbers
+  }, [blocks, partsList])
   const links = linksQuery.data ?? []
   const revisions = revisionsQuery.data ?? []
   const activity = activityQuery.data ?? []
@@ -833,6 +843,63 @@ export function RecordNotebookPage({
           <SampleExtensionPanel loadSummary={loadSampleSummary} />
         ) : null,
       )
+  const notices = (
+    <>
+      {historicalRevisionId ? (
+        <HistoricalEvidenceBanner recordId={record.id} />
+      ) : null}
+      {isArchived ? (
+        <ArchivedBanner
+          projectId={projectId}
+          projectArchived={Boolean(project?.archivedAt)}
+          onRestore={async () => {
+            await restoreRecord(
+              notebookDataClient,
+              record.id,
+              record.metadataVersion,
+            )
+            await Promise.all([
+              queryClient.invalidateQueries({
+                queryKey: notebookQueryKeys.record(record.id),
+              }),
+              queryClient.invalidateQueries({
+                queryKey: notebookQueryKeys.blocks(record.id),
+              }),
+            ])
+          }}
+        />
+      ) : null}
+      {/* EXP-04.1: the template-version state of the working notebook.
+        Frozen evidence, archived and signed records are read-only, so an
+        update banner would only dangle there; the signed banner below
+        points at Amend, after which the update is offered. */}
+      {!historicalRevisionId && !isArchived && !record.lockedAt ? (
+        <NotebookTemplateUpgradeBanner
+          recordId={record.id}
+          pinnedVersionId={record.sourceNotebookTemplateVersionId}
+        />
+      ) : null}
+      {!historicalRevisionId && record.lockedAt ? (
+        <LockedBanner
+          record={record}
+          onAmended={() => {
+            void queryClient.invalidateQueries({
+              queryKey: notebookQueryKeys.record(record.id),
+            })
+            void queryClient.invalidateQueries({
+              queryKey: notebookQueryKeys.blocks(record.id),
+            })
+          }}
+        />
+      ) : null}
+    </>
+  )
+  const partsNoticesInHeader =
+    embedded &&
+    !historicalRevisionId &&
+    tab === 'notebook' &&
+    partsList.length > 0
+
   return (
     // EXP-05.2: one device-store scope for this user and record drives the
     // offline banner, the cell/block markers and the inspector list. It sits
@@ -973,6 +1040,7 @@ export function RecordNotebookPage({
               embedded={embedded}
               blocks={historicalEvidence?.blocks ?? blocks}
               hasParts={partsList.length > 0}
+              notices={partsNoticesInHeader ? notices : null}
               partsStrip={
                 embedded &&
                 !historicalRevisionId &&
@@ -1067,53 +1135,7 @@ export function RecordNotebookPage({
                 <SampleExtensionPanel loadSummary={loadSampleSummary} />
               </DialogContent>
             </Dialog>
-            {historicalRevisionId ? (
-              <HistoricalEvidenceBanner recordId={record.id} />
-            ) : null}
-            {isArchived ? (
-              <ArchivedBanner
-                projectId={projectId}
-                projectArchived={Boolean(project?.archivedAt)}
-                onRestore={async () => {
-                  await restoreRecord(
-                    notebookDataClient,
-                    record.id,
-                    record.metadataVersion,
-                  )
-                  await Promise.all([
-                    queryClient.invalidateQueries({
-                      queryKey: notebookQueryKeys.record(record.id),
-                    }),
-                    queryClient.invalidateQueries({
-                      queryKey: notebookQueryKeys.blocks(record.id),
-                    }),
-                  ])
-                }}
-              />
-            ) : null}
-            {/* EXP-04.1: the template-version state of the working notebook.
-              Frozen evidence, archived and signed records are read-only, so an
-              update banner would only dangle there; the signed banner below
-              points at Amend, after which the update is offered. */}
-            {!historicalRevisionId && !isArchived && !record.lockedAt ? (
-              <NotebookTemplateUpgradeBanner
-                recordId={record.id}
-                pinnedVersionId={record.sourceNotebookTemplateVersionId}
-              />
-            ) : null}
-            {!historicalRevisionId && record.lockedAt ? (
-              <LockedBanner
-                record={record}
-                onAmended={() => {
-                  void queryClient.invalidateQueries({
-                    queryKey: notebookQueryKeys.record(record.id),
-                  })
-                  void queryClient.invalidateQueries({
-                    queryKey: notebookQueryKeys.blocks(record.id),
-                  })
-                }}
-              />
-            ) : null}
+            {partsNoticesInHeader ? null : notices}
             {tab !== 'notebook' &&
             !historicalRevisionId ? null : historicalRevisionId ? (
               <HistoricalNotebookCanvas
@@ -1122,7 +1144,7 @@ export function RecordNotebookPage({
                 client={notebookDataClient}
               />
             ) : (
-              <>
+              <StepNumbersProvider value={stepNumbers}>
                 {shownPartNow &&
                 nowPart &&
                 shownPartNow.state === 'later' &&
@@ -1161,7 +1183,7 @@ export function RecordNotebookPage({
                     nameOf={userLabelForParts}
                   />
                 ) : null}
-              </>
+              </StepNumbersProvider>
             )}
           </div>
         </RouteShell>
@@ -1294,6 +1316,7 @@ export function StickyRecordHeader({
   blocks = [],
   hasParts = false,
   partsStrip = null,
+  notices = null,
   historicalRevisionId,
   review = null,
   /** NOTE-04: document-level unsaved-work signal for the submit dialog. */
@@ -1323,6 +1346,8 @@ export function StickyRecordHeader({
   hasParts?: boolean
   /** The strip of parts, shown above the Now card. */
   partsStrip?: ReactNode
+  /** Notices that belong above the parts strip, so they never split the Now card from its part. */
+  notices?: ReactNode
   historicalRevisionId?: string
   review?: NotebookReviewContext | null
   /** NOTE-04: NotebookDocument's unsaved-work signal. */
@@ -1737,6 +1762,7 @@ export function StickyRecordHeader({
       {embedded ? (
         <SeriesBar recordId={record.id} placement="notebook" />
       ) : null}
+      {notices}
       {partsStrip}
       {stepCardOn ? (
         <CurrentStepCard

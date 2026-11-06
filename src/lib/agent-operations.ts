@@ -205,6 +205,30 @@ export type AgentOperation =
       definitionId: string
     }
   | {
+      kind: 'reagent_order.mark_ordered'
+      orderId: string
+      orderReference?: string
+      expectedOn?: string
+      supplier?: string
+      supplierRecordId?: string
+      totalPrice?: number
+      currency?: string
+    }
+  | {
+      kind: 'reagent_order.set_price'
+      orderId: string
+      /** `null` clears the price. */
+      totalPrice: number | null
+      currency?: string
+    }
+  | {
+      kind: 'instrument_rate.set'
+      instrumentId: string
+      /** `null` clears the rate. */
+      ratePerHour: number | null
+      currency?: string
+    }
+  | {
       kind: 'sheet_instance.materialize'
       instanceId: string
       expectedRevision: number
@@ -552,6 +576,12 @@ export function agentOperationLabel(kind: AgentOperationKind): string {
       return 'Update model field'
     case 'model_field.activate':
       return 'Activate model field'
+    case 'reagent_order.mark_ordered':
+      return 'Mark reagent order placed'
+    case 'reagent_order.set_price':
+      return 'Set reagent order price'
+    case 'instrument_rate.set':
+      return 'Set instrument rate'
     case 'sheet_instance.materialize':
       return 'Materialize Sheet Instance'
     case 'workspace_ai_settings.update':

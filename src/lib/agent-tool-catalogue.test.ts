@@ -16,8 +16,8 @@ const WS = '20000000-0000-4000-8000-000000000001'
 
 describe('agent tool catalogue', () => {
   it('is bounded: 25 operation tools, 5 lifecycle RPCs, 8 canonical reads', () => {
-    expect(AGENT_TOOL_CATALOGUE).toHaveLength(38)
-    expect(listAgentTools({ mode: 'draft' })).toHaveLength(27)
+    expect(AGENT_TOOL_CATALOGUE).toHaveLength(41)
+    expect(listAgentTools({ mode: 'draft' })).toHaveLength(30)
     expect(listAgentTools({ mode: 'read' })).toHaveLength(8)
     expect(listAgentTools({ mode: 'mutate' })).toHaveLength(3)
   })
@@ -47,6 +47,9 @@ describe('agent tool catalogue', () => {
         'model_field.create',
         'model_field.update',
         'model_field.activate',
+        'reagent_order.mark_ordered',
+        'reagent_order.set_price',
+        'instrument_rate.set',
         'pipeline_definition.create',
         'pipeline_definition.create_version',
         'pipeline_definition.update_draft',
@@ -83,7 +86,7 @@ describe('agent tool catalogue', () => {
         .map((entry) => entry.name),
     ).toEqual(['sheetbase.dataset_rows.commit'])
     expect(operations.filter((entry) => entry.mode === 'draft')).toHaveLength(
-      24,
+      27,
     )
   })
 

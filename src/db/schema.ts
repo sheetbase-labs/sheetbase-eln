@@ -306,7 +306,7 @@ export const apiCredentials = internal.table(
     index('idx_api_credentials_secret_hash').on(table.secretHash),
     check(
       'chk_api_credentials_scopes',
-      sql`cardinality(${table.scopes}) > 0 AND ${table.scopes} <@ ARRAY['projects:read','projects:write','datasets:read','datasets:write','schema:read','schema:write','schema:publish','sheets:read','sheets:write','models:read','models:write','templates:read','templates:write','reviews:read','reviews:write','files:read','files:write','webhooks:read','webhooks:write','agent_operations:read','agent_operations:write','pipelines:read','pipelines:write','admin:read','admin:write','people:read','people:write']::text[]`,
+      sql`cardinality(${table.scopes}) > 0 AND ${table.scopes} <@ ARRAY['projects:read','projects:write','datasets:read','datasets:write','schema:read','schema:write','schema:publish','sheets:read','sheets:write','models:read','models:write','templates:read','templates:write','reviews:read','reviews:write','files:read','files:write','webhooks:read','webhooks:write','agent_operations:read','agent_operations:write','pipelines:read','pipelines:write','admin:read','admin:write','people:read','people:write','lab:read','lab:write']::text[]`,
     ),
     check(
       'chk_api_credentials_kind',
@@ -595,7 +595,7 @@ export const workspaceSettings = api.table(
     aiFeatureFlags: jsonb('ai_feature_flags')
       .notNull()
       .default(
-        sql`'{"assistant": true, "mcp_read": true, "mcp_draft": true, "mcp_workflow": false, "mcp_admin_read": false, "mcp_admin_propose": false}'::jsonb`,
+        sql`'{"assistant": true, "mcp_read": true, "mcp_draft": true, "mcp_workflow": false, "mcp_admin_read": false, "mcp_admin_propose": false, "mcp_lab": false}'::jsonb`,
       ),
     integrationSettings: jsonb('integration_settings')
       .notNull()

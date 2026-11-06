@@ -3,6 +3,7 @@
  * Column lists match live `api.*` (snake_case PostgREST wire).
  */
 import { EXTERNAL_TABLE_ACCESS } from '#/lib/external-token'
+import { labTableRowSchemas } from '#/lib/lab-api-schemas'
 import type { JsonSchema } from '#/lib/public-api-rpc-contracts'
 
 const UUID: JsonSchema = { type: 'string', format: 'uuid' }
@@ -560,6 +561,11 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
       locked_by_revision_id: { ...UUID, nullable: true },
       custom_fields: jsonMap('Model field name → canonical value.'),
       source_notebook_template_version_id: { ...UUID, nullable: true },
+      assignee_user_id: { ...TEXT, nullable: true },
+      reviewer_user_id: { ...TEXT, nullable: true },
+      planned_end: { type: 'string', format: 'date', nullable: true },
+      decision: { ...TEXT, nullable: true },
+      decision_notes: { ...TEXT, nullable: true },
     },
     [
       'id',
@@ -1352,6 +1358,8 @@ export function tableInsertSchemaName(table: string): string {
 export function tablePatchSchemaName(table: string): string {
   return `${tableSchemaName(table)}Patch`
 }
+
+Object.assign(TABLE_ROW_SCHEMAS, labTableRowSchemas())
 
 const missingTables = Object.keys(EXTERNAL_TABLE_ACCESS).filter(
   (name) => !Object.hasOwn(TABLE_ROW_SCHEMAS, name),

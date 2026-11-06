@@ -240,14 +240,22 @@ describe('SDK-01 public-contract support matrix', () => {
     expect(matrix.tables.every((entry) => entry.python === 'generic')).toBe(
       true,
     )
-    expect(matrix.rpcs.every((entry) => entry.python === 'resource')).toBe(true)
+    expect(
+      matrix.rpcs.every((entry) =>
+        // The lab actions are reached through the SDKs' generic RPC helper.
+        entry.resource === 'lab'
+          ? entry.python === 'generic'
+          : entry.python === 'resource',
+      ),
+    ).toBe(true)
   })
 
   it('has one dedicated wrapper in each SDK for every and only public RPC', () => {
-    const names = matrix.rpcs.map(({ name }) => name).sort()
+    const wrapped = matrix.rpcs.filter(({ resource }) => resource !== 'lab')
+    const names = wrapped.map(({ name }) => name).sort()
     expect(rpcPathsIn(pythonResources)).toEqual(names)
     expect(rpcPathsIn(typescriptResources)).toEqual(names)
-    for (const { name, resource } of matrix.rpcs) {
+    for (const { name, resource } of wrapped) {
       const files = resourceFiles[resource]
       expect(files, `${name} has a known resource`).toBeDefined()
       if (!files) throw new Error(`Unknown SDK resource: ${resource}`)

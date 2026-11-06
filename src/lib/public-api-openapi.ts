@@ -13,6 +13,7 @@ import {
 } from '#/lib/external-token'
 import type { Scope } from '#/lib/api-credential-scopes'
 import { VALID_SCOPES } from '#/lib/api-credential-scopes'
+import { LAB_RPCS, LAB_TABLES } from '#/lib/lab-api-surface'
 import { ERROR_CATEGORIES } from '#/lib/errors'
 import {
   POSTGREST_FILTER_OPERATORS,
@@ -189,6 +190,7 @@ function scopeExtension(scopes: readonly Scope[]): Record<string, unknown> {
 }
 
 function tagForTable(resource: string): string {
+  if (resource in LAB_TABLES) return 'Lab'
   if (resource.startsWith('pipeline_')) return 'Pipelines'
   if (
     resource.startsWith('dataset_schema') ||
@@ -203,6 +205,7 @@ function tagForTable(resource: string): string {
 }
 
 function tagForRpc(resource: string, scopes: readonly Scope[]): string {
+  if (resource in LAB_RPCS) return 'Lab'
   if (resource.includes('pipeline')) return 'Pipelines'
   if (resource.startsWith('query_dataset') || resource.includes('dataset')) {
     return 'Datasets'
@@ -663,6 +666,11 @@ export function buildExternalApiOpenApi(): ExternalApiOpenApi {
         description: 'Notebook template catalogue and instantiation.',
       },
       { name: 'Search', description: 'Workspace search.' },
+      {
+        name: 'Lab',
+        description:
+          'Reagent orders, recurring work, instrument service and feeds, stocktakes, shipments, requests, sample workflows, registry entries, result limits, legal holds, retention and follows. Reads need lab:read; actions need lab:write and run as the person a personal token belongs to.',
+      },
       {
         name: 'Pipelines',
         description:

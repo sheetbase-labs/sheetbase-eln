@@ -657,6 +657,13 @@
       "when": 1801405017830,
       "tag": "0095_people_scopes",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1801408617830,
+      "tag": "0096_lab_api_access",
+      "breakpoints": true
     }
   ]
 }

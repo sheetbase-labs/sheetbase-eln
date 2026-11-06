@@ -23,6 +23,7 @@ import { and, eq } from 'drizzle-orm'
 
 import type * as schema from '#/db/schema'
 import { apiCredentials, workspaceMemberships } from '#/db/schema'
+import { LAB_RPC_SCOPES, LAB_TABLE_ACCESS } from '#/lib/lab-api-schemas'
 import type { ProxyPath } from '#/lib/postgrest-path'
 import type { Scope } from '#/lib/api-credentials'
 import { hmacKey } from '#/lib/hmac-key'
@@ -179,6 +180,9 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   // Searches shared with the workspace. Service credentials see only shared
   // ones; a personal token also sees its owner's private searches.
   saved_searches: { read: 'projects:read' },
+  // The lab: reagent orders, stocktakes, shipments, requests, workflows,
+  // holds, instrument feeds and the rest (lab-api-surface.ts).
+  ...LAB_TABLE_ACCESS,
 }
 
 /**
@@ -278,6 +282,10 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
   // version and starting a run remain human actions in the product.
   create_pipeline_definition_version: ['pipelines:write'],
   update_pipeline_definition_version_draft: ['pipelines:write'],
+
+  // Lab actions: ordering, receiving, stocktakes, shipments, workflows and so
+  // on. They run as the person a personal token belongs to.
+  ...LAB_RPC_SCOPES,
 }
 
 const READ_METHODS = new Set(['GET', 'HEAD'])

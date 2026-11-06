@@ -105,7 +105,85 @@
       "typescript": "generic"
     },
     {
+      "resource": "field_spec_limits",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "folders",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "inbox_work_items",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "instrument_booking_rules",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "instrument_feeds",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "instrument_readings",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "instrument_required_training",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "instrument_service_log",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "legal_hold_records",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "legal_holds",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "material_ingredients",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "material_safety",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "model_incident_logs",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "my_work_items",
       "methods": ["GET", "HEAD"],
       "python": "generic",
       "typescript": "generic"
@@ -153,7 +231,7 @@
       "typescript": "generic"
     },
     {
-      "resource": "saved_searches",
+      "resource": "project_follows",
       "methods": ["GET", "HEAD"],
       "python": "generic",
       "typescript": "generic"
@@ -165,13 +243,13 @@
       "typescript": "generic"
     },
     {
-      "resource": "record_field_definitions",
+      "resource": "reagent_orders",
       "methods": ["GET", "HEAD"],
       "python": "generic",
       "typescript": "generic"
     },
     {
-      "resource": "record_models",
+      "resource": "record_field_definitions",
       "methods": ["GET", "HEAD"],
       "python": "generic",
       "typescript": "generic"
@@ -183,13 +261,91 @@
       "typescript": "generic"
     },
     {
+      "resource": "record_models",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "record_spec_results",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "records",
       "methods": ["GET", "HEAD", "POST", "PATCH"],
       "python": "generic",
       "typescript": "generic"
     },
     {
+      "resource": "recurring_occurrences",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "recurring_schedules",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "request_details",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "request_forms",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "retention_rules",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "revisions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "sample_workflow_events",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "sample_workflow_runs",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "sample_workflow_stages",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "sample_workflow_transitions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "sample_workflows",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "saved_searches",
       "methods": ["GET", "HEAD"],
       "python": "generic",
       "typescript": "generic"
@@ -208,6 +364,36 @@
     },
     {
       "resource": "sheet_instances",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "shipment_items",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "shipments",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "step_timers",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "stocktake_items",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "stocktakes",
       "methods": ["GET", "HEAD"],
       "python": "generic",
       "typescript": "generic"
@@ -239,10 +425,28 @@
   ],
   "rpcs": [
     {
+      "name": "add_records_to_legal_hold",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "add_registry_parent",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "advance_agent_workflow",
       "resource": "agentOperations",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "advance_sample_workflow",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "apply_notebook_template_upgrade",
@@ -281,10 +485,34 @@
       "typescript": "resource"
     },
     {
+      "name": "assign_record",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "cancel_agent_workflow",
       "resource": "agentOperations",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "cancel_reagent_order",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "cancel_shipment",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "cancel_stocktake",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "commit_dataset_row_batch",
@@ -299,6 +527,12 @@
       "typescript": "resource"
     },
     {
+      "name": "complete_stocktake",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "create_agent_workflow",
       "resource": "agentOperations",
       "python": "resource",
@@ -309,6 +543,12 @@
       "resource": "sheets",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "create_legal_hold",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "create_pipeline_definition_version",
@@ -341,6 +581,18 @@
       "typescript": "resource"
     },
     {
+      "name": "create_recurring_schedule",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "create_registry_entry",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "create_sheet_instance",
       "resource": "sheets",
       "python": "resource",
@@ -353,6 +605,12 @@
       "typescript": "resource"
     },
     {
+      "name": "create_shipment",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "create_webhook_subscription",
       "resource": "webhooks",
       "python": "resource",
@@ -361,6 +619,12 @@
     {
       "name": "delete_block",
       "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "delete_saved_search",
+      "resource": "search",
       "python": "resource",
       "typescript": "resource"
     },
@@ -381,6 +645,30 @@
       "resource": "sheets",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "end_recurring_schedule",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "end_step_timer",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "enrol_sample_in_workflow",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "follow_project",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "get_webhook_endpoint_health",
@@ -413,10 +701,52 @@
       "typescript": "resource"
     },
     {
+      "name": "is_record_on_hold",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "leave_sample_workflow",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "list_instrument_feed_series",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "list_webhook_deliveries",
       "resource": "webhooks",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "log_instrument_service",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "mark_reagent_ordered",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "mark_shipment_in_transit",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "materialise_recurring_schedule",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "materialize_sheet_instance",
@@ -441,6 +771,24 @@
       "resource": "sheets",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "my_instrument_training_gaps",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "pool_samples",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "prepare_solution",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "preview_notebook_template_upgrade",
@@ -509,6 +857,54 @@
       "typescript": "resource"
     },
     {
+      "name": "receive_reagent_order",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "receive_shipment",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "record_instrument_readings",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "record_stocktake_scan",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "register_replacement_lot",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "registry_find_duplicates",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "remove_instrument_feed",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "remove_registry_parent",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "replay_webhook_deliveries",
       "resource": "webhooks",
       "python": "resource",
@@ -527,10 +923,22 @@
       "typescript": "resource"
     },
     {
+      "name": "request_reagent_order",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "resolve_sheet_instance_row_identity",
       "resource": "sheets",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "resolve_stocktake_item",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "restore_dataset",
@@ -551,14 +959,14 @@
       "typescript": "resource"
     },
     {
-      "name": "rotate_webhook_secret",
-      "resource": "webhooks",
-      "python": "resource",
-      "typescript": "resource"
+      "name": "retention_due",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
-      "name": "search",
-      "resource": "search",
+      "name": "rotate_webhook_secret",
+      "resource": "webhooks",
       "python": "resource",
       "typescript": "resource"
     },
@@ -569,19 +977,19 @@
       "typescript": "resource"
     },
     {
+      "name": "save_sample_workflow",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "save_search",
       "resource": "search",
       "python": "resource",
       "typescript": "resource"
     },
     {
-      "name": "update_saved_search",
-      "resource": "search",
-      "python": "resource",
-      "typescript": "resource"
-    },
-    {
-      "name": "delete_saved_search",
+      "name": "search",
       "resource": "search",
       "python": "resource",
       "typescript": "resource"
@@ -593,16 +1001,88 @@
       "typescript": "resource"
     },
     {
+      "name": "set_field_spec_limits",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "set_instrument_booking_rules",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "set_instrument_feed_limits",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "set_instrument_out_of_service",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "set_material_safety",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "set_record_favourite",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "set_recurring_schedule_paused",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "set_sample_workflow_status",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "snapshot_dataset",
       "resource": "datasets",
       "python": "resource",
       "typescript": "resource"
     },
     {
+      "name": "start_step_timer",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "start_stocktake",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "submit_request",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "transition_record_status",
       "resource": "records",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "unfollow_project",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "update_block_payload",
@@ -623,10 +1103,22 @@
       "typescript": "resource"
     },
     {
+      "name": "update_saved_search",
+      "resource": "search",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
       "name": "update_sheet_instance",
       "resource": "sheets",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "update_shipment",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "update_webhook_subscription",

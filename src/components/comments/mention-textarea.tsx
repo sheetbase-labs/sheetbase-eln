@@ -1,5 +1,6 @@
 import { t } from '#/copy'
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 
 import { activeMention, insertMention, matchMentions } from '#/lib/mentions'
 import type { MentionCandidate } from '#/lib/mentions'
@@ -47,6 +48,36 @@ export function MentionTextarea({
     setIndex(0)
     pendingCaret.current = next.caret
   }
+
+  // The list floats over the page (a portal with fixed placement), so a panel
+  // that clips its overflow cannot cut it off. It opens below the box, or
+  // above it when there is more room there.
+  const [place, setPlace] = React.useState<React.CSSProperties | null>(null)
+  React.useLayoutEffect(() => {
+    if (!open) return
+    const update = () => {
+      const box = ref.current?.getBoundingClientRect()
+      if (!box) return
+      const below = window.innerHeight - box.bottom
+      const flip = below < 200 && box.top > below
+      const width = Math.min(256, window.innerWidth - 16)
+      setPlace({
+        left: Math.max(8, Math.min(box.left, window.innerWidth - width - 8)),
+        width,
+        maxHeight: Math.max(96, Math.min(192, (flip ? box.top : below) - 12)),
+        ...(flip
+          ? { bottom: window.innerHeight - box.top + 4 }
+          : { top: box.bottom + 4 }),
+      })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [open, value])
 
   // Apply the caret after React has rendered the inserted mention. A
   // requestAnimationFrame here let a fast typist (and userEvent) type at the
@@ -101,35 +132,39 @@ export function MentionTextarea({
           }
         }}
       />
-      {open ? (
-        <ul
-          id={listId}
-          role="listbox"
-          aria-label={t('notebook.mentionTextarea.ariaLabel')}
-          className={cn(
-            'absolute left-0 top-full z-20 mt-1 max-h-48 w-64 overflow-auto rounded-md border bg-surface p-1 shadow-md',
-          )}
-        >
-          {options.map((candidate, position) => (
-            <li
-              key={candidate.userId}
-              role="option"
-              aria-selected={position === index}
+      {open && place
+        ? createPortal(
+            <ul
+              id={listId}
+              role="listbox"
+              aria-label={t('notebook.mentionTextarea.ariaLabel')}
               className={cn(
-                'cursor-pointer rounded px-2 py-1 text-xs',
-                position === index && 'bg-surface-muted',
+                'fixed z-[100] overflow-auto rounded-md border bg-surface p-1 shadow-md',
               )}
-              // mousedown, not click: the textarea must not lose its caret first.
-              onMouseDown={(event) => {
-                event.preventDefault()
-                choose(candidate)
-              }}
+              style={place}
             >
-              <Person userId={candidate.userId} name={candidate.name} />
-            </li>
-          ))}
-        </ul>
-      ) : null}
+              {options.map((candidate, position) => (
+                <li
+                  key={candidate.userId}
+                  role="option"
+                  aria-selected={position === index}
+                  className={cn(
+                    'cursor-pointer rounded px-2 py-1 text-xs',
+                    position === index && 'bg-surface-muted',
+                  )}
+                  // mousedown, not click: the textarea must not lose its caret first.
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    choose(candidate)
+                  }}
+                >
+                  <Person userId={candidate.userId} name={candidate.name} />
+                </li>
+              ))}
+            </ul>,
+            document.body,
+          )
+        : null}
     </div>
   )
 }

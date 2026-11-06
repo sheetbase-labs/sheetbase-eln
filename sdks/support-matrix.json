@@ -411,6 +411,24 @@
       "typescript": "generic"
     },
     {
+      "resource": "scim_group_members",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "scim_groups",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "scim_tokens",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "sheet_definition_versions",
       "methods": ["GET", "HEAD"],
       "python": "generic",
@@ -759,6 +777,12 @@
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"
+    },
+    {
+      "name": "directory_sync_status",
+      "resource": "people",
+      "python": "resource",
+      "typescript": "resource"
     },
     {
       "name": "duplicate_sheet_instance",
@@ -1161,6 +1185,12 @@
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"
+    },
+    {
+      "name": "revoke_scim_token",
+      "resource": "people",
+      "python": "resource",
+      "typescript": "resource"
     },
     {
       "name": "rotate_webhook_secret",

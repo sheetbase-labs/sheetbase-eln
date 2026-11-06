@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { ObjectLink } from '#/components/ui/object-link'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   Link,
@@ -320,7 +321,9 @@ function Experiments() {
           headerClassName: 'max-xl:hidden',
           cellClassName: 'mono max-xl:hidden',
         },
-        cell: ({ row }) => <span className="mono">{row.original.id}</span>,
+        cell: ({ row }) => (
+          <ObjectLink kind="experiment" identifier={row.original.id} />
+        ),
       },
       {
         id: 'title',

@@ -470,3 +470,92 @@ describe('scheduled reports', () => {
     expect(nobody.rows[0].id).toBeNull()
   })
 })
+
+describe('change events', () => {
+  async function eventsFor(entityType: string, entityId: string) {
+    const { rows } = await migrator.query(
+      `SELECT operation, payload FROM api.change_events
+        WHERE entity_type = $1 AND entity_uuid = $2 ORDER BY sequence`,
+      [entityType, entityId],
+    )
+    return rows as Array<{
+      operation: string
+      payload: Record<string, unknown>
+    }>
+  }
+
+  it('announces an order moving, a price and a rate without the amounts', async () => {
+    const steward = await actor(STEWARD)
+    const lot = await material(steward, 'Event buffer')
+    const order = (
+      await steward.query(`SELECT * FROM api.request_reagent_order($1, 1)`, [
+        lot,
+      ])
+    ).rows[0]
+    await steward.query(
+      `SELECT api.mark_reagent_ordered($1, 'PO-E', null, 'Sigma', null, 99.5, 'GBP')`,
+      [order.id],
+    )
+    // Touching the order without changing its status says nothing new.
+    await migrator.query(
+      `UPDATE api.reagent_orders SET note = 'chased' WHERE id = $1`,
+      [order.id],
+    )
+    await steward.query(`SELECT api.set_reagent_order_price($1, 120, 'GBP')`, [
+      order.id,
+    ])
+    await steward.query(`SELECT api.set_reagent_order_price($1, null, null)`, [
+      order.id,
+    ])
+
+    const orderEvents = await eventsFor('reagent_order', order.id)
+    expect(orderEvents.map((e) => [e.operation, e.payload.status])).toEqual([
+      ['create', 'requested'],
+      ['update', 'ordered'],
+    ])
+    const priceEvents = await eventsFor('reagent_order_price', order.id)
+    expect(priceEvents.map((e) => e.operation)).toEqual([
+      'update',
+      'update',
+      'delete',
+    ])
+    for (const event of [...orderEvents, ...priceEvents]) {
+      expect(JSON.stringify(event.payload)).not.toMatch(/99\.5|120/)
+    }
+
+    await steward.query(`SELECT api.set_instrument_rate($1, 18, 'GBP')`, [
+      INSTRUMENT,
+    ])
+    await steward.query(`SELECT api.set_instrument_rate($1, null, null)`, [
+      INSTRUMENT,
+    ])
+    const rateEvents = await eventsFor('instrument_rate', INSTRUMENT)
+    expect(rateEvents.slice(-2).map((e) => e.operation)).toEqual([
+      'update',
+      'delete',
+    ])
+    expect(JSON.stringify(rateEvents.at(-2)?.payload)).not.toContain('18')
+  })
+
+  it('announces a schedule being set up and changed, not each send', async () => {
+    const owner = await actor(OWNER)
+    const id = (
+      await owner.query(
+        `SELECT * FROM api.save_scheduled_report(null,'Event spend','spend',null,'previous_week',10,'weekly',1,1,8,'UTC',ARRAY[$1],true)`,
+        [OWNER],
+      )
+    ).rows[0].id
+    await migrator.query(
+      `UPDATE api.scheduled_reports SET last_run_at = now(), last_result = 'sent' WHERE id = $1`,
+      [id],
+    )
+    await owner.query(`SELECT api.set_scheduled_report_active($1, false)`, [id])
+    await owner.query(`SELECT api.delete_scheduled_report($1)`, [id])
+    const events = await eventsFor('scheduled_report', id)
+    expect(events.map((e) => e.operation)).toEqual([
+      'create',
+      'update',
+      'delete',
+    ])
+  })
+})

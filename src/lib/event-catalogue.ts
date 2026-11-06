@@ -37,6 +37,8 @@ export type EventFamily =
   | 'notebook'
   | 'sample'
   | 'booking'
+  | 'order'
+  | 'report'
   | 'import'
   | 'approval'
   | 'storage'
@@ -81,7 +83,7 @@ export type CatalogueStatus = 'stable' | 'provisional' | 'reserved'
 
 /** Which introduction introduced (shipped or pinned) the entry. */
 export type CatalogueIntroducedIn =
-  'api-06' | 'event-01' | 'notify-01' | 'people-01' | 'lab-01'
+  'api-06' | 'event-01' | 'notify-01' | 'people-01' | 'lab-01' | 'spend-01'
 
 /** Which consumers can observe the event today. */
 export interface EventConsumerMap {
@@ -586,6 +588,154 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'sample.hold_exceeded',
     status: 'stable',
     introducedIn: 'notify-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'order.requested',
+    family: 'order',
+    summary: 'A reagent order was requested.',
+    producer: {
+      entityType: 'reagent_order',
+      operation: 'create',
+    },
+    wireName: 'order.requested',
+    status: 'stable',
+    introducedIn: 'spend-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'order.placed',
+    family: 'order',
+    summary: 'A reagent order was placed with a supplier.',
+    producer: {
+      entityType: 'reagent_order',
+      operation: 'update',
+      when: { key: 'status', equals: 'ordered' },
+    },
+    wireName: 'order.placed',
+    status: 'stable',
+    introducedIn: 'spend-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'order.received',
+    family: 'order',
+    summary: 'A reagent order arrived and was received.',
+    producer: {
+      entityType: 'reagent_order',
+      operation: 'update',
+      when: { key: 'status', equals: 'received' },
+    },
+    wireName: 'order.received',
+    status: 'stable',
+    introducedIn: 'spend-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'order.cancelled',
+    family: 'order',
+    summary: 'A reagent order was cancelled.',
+    producer: {
+      entityType: 'reagent_order',
+      operation: 'update',
+      when: { key: 'status', equals: 'cancelled' },
+    },
+    wireName: 'order.cancelled',
+    status: 'stable',
+    introducedIn: 'spend-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'order.priced',
+    family: 'order',
+    summary:
+      'The price of a reagent order was set or changed. The amount is not in the event.',
+    producer: {
+      entityType: 'reagent_order_price',
+      operation: 'update',
+    },
+    wireName: 'order.priced',
+    status: 'stable',
+    introducedIn: 'spend-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'order.price_removed',
+    family: 'order',
+    summary: 'The price of a reagent order was removed.',
+    producer: {
+      entityType: 'reagent_order_price',
+      operation: 'delete',
+    },
+    wireName: 'order.price_removed',
+    status: 'stable',
+    introducedIn: 'spend-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'instrument.rate_set',
+    family: 'instrument',
+    summary:
+      'An instrument’s recharge rate was set or changed. The amount is not in the event.',
+    producer: {
+      entityType: 'instrument_rate',
+      operation: 'update',
+    },
+    wireName: 'instrument.rate_set',
+    status: 'stable',
+    introducedIn: 'spend-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'instrument.rate_removed',
+    family: 'instrument',
+    summary: 'An instrument stopped being charged for.',
+    producer: {
+      entityType: 'instrument_rate',
+      operation: 'delete',
+    },
+    wireName: 'instrument.rate_removed',
+    status: 'stable',
+    introducedIn: 'spend-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'report.schedule.created',
+    family: 'report',
+    summary: 'A report was scheduled to be emailed.',
+    producer: {
+      entityType: 'scheduled_report',
+      operation: 'create',
+    },
+    wireName: 'report.schedule.created',
+    status: 'stable',
+    introducedIn: 'spend-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'report.schedule.updated',
+    family: 'report',
+    summary: 'A scheduled report was changed, paused or resumed.',
+    producer: {
+      entityType: 'scheduled_report',
+      operation: 'update',
+    },
+    wireName: 'report.schedule.updated',
+    status: 'stable',
+    introducedIn: 'spend-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'report.schedule.deleted',
+    family: 'report',
+    summary: 'A scheduled report was deleted.',
+    producer: {
+      entityType: 'scheduled_report',
+      operation: 'delete',
+    },
+    wireName: 'report.schedule.deleted',
+    status: 'stable',
+    introducedIn: 'spend-01',
     consumers: webhookSse,
   },
   {
@@ -1564,6 +1714,17 @@ export const INTENTIONALLY_EXCLUDED: readonly ExcludedProducer[] =
  * and pipeline pickers. An event not listed is spelled out from its name.
  */
 const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  'order.requested': 'A reagent order is requested',
+  'order.placed': 'A reagent order is placed',
+  'order.received': 'A reagent order is received',
+  'order.cancelled': 'A reagent order is cancelled',
+  'order.priced': 'An order’s price is set',
+  'order.price_removed': 'An order’s price is removed',
+  'instrument.rate_set': 'An instrument’s rate is set',
+  'instrument.rate_removed': 'An instrument stops being charged for',
+  'report.schedule.created': 'A report is scheduled',
+  'report.schedule.updated': 'A scheduled report is changed',
+  'report.schedule.deleted': 'A scheduled report is deleted',
   'project.created': 'A project is created',
   'project.updated': 'A project is edited',
   'project.deleted': 'A project is deleted',

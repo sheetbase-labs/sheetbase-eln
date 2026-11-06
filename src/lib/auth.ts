@@ -18,7 +18,7 @@ import { createAuthMiddleware } from 'better-auth/api'
 import { genericOAuth } from 'better-auth/plugins/generic-oauth'
 import { magicLink } from 'better-auth/plugins/magic-link'
 import { twoFactor as twoFactorPlugin } from 'better-auth/plugins/two-factor'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { AsyncLocalStorage } from 'node:async_hooks'
 
 import { db } from '#/db/client.server'
@@ -41,6 +41,12 @@ import {
   joinWorkspaceByEmailDomain,
 } from '#/lib/bootstrap'
 import { safeNextPath } from '#/lib/sign-in-redirect'
+import {
+  DEFAULT_GROUPS_CLAIM,
+  groupsFromProfile,
+  holdGroups,
+  takeGroups,
+} from '#/lib/idp-groups'
 import {
   REGULATED_IDLE_SECONDS,
   WORKING_DAY_IDLE_SECONDS,
@@ -158,9 +164,21 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
             discoveryUrl: `${oidc.issuerUrl}/.well-known/openid-configuration`,
             clientId: oidc.clientId,
             clientSecret: oidc.clientSecret,
-            scopes: ['openid', 'email', 'profile'],
+            scopes: ['openid', 'email', 'profile', ...(oidc.extraScopes ?? [])],
             pkce: true,
             requireIdTokenVerification: true,
+            // Groups come with the profile and are applied once the sign-in
+            // has a person to apply them to (the after hook below).
+            mapProfileToUser: (profile) => {
+              const groups = groupsFromProfile(
+                profile,
+                oidc.groupsClaim ?? DEFAULT_GROUPS_CLAIM,
+              )
+              if (groups && typeof profile.email === 'string') {
+                holdGroups(profile.email, groups)
+              }
+              return {}
+            },
           },
         ],
       }),
@@ -215,6 +233,32 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
     hooks: {
       // One line of context on every auth call: which flow, and how it ended.
       after: createAuthMiddleware(async (ctx) => {
+        // Single sign-on groups decide roles in the workspaces that map them.
+        // Never allowed to fail the sign-in itself.
+        if (
+          ctx.path.startsWith('/oauth2/callback/') &&
+          ctx.context.newSession
+        ) {
+          try {
+            const { id, email } = ctx.context.newSession.user
+            const groups = takeGroups(email)
+            if (groups) {
+              const result = await database.execute<{ n: number }>(
+                sql`select internal.apply_idp_groups(${id}, ${groups}::text[]) as n`,
+              )
+              annotateRequest({
+                sso_groups: {
+                  count: groups.length,
+                  roles_changed: Number(result.rows[0]?.n ?? 0),
+                },
+              })
+            }
+          } catch (error) {
+            logger.warn('sso groups could not be applied', {
+              error: error instanceof Error ? error.message : String(error),
+            })
+          }
+        }
         const returned: unknown = ctx.context.returned
         annotateRequest({
           auth_flow: {

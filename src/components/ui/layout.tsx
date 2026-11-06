@@ -147,6 +147,23 @@ function useCollapsedOnScroll(
     const root = header.current?.parentElement
     if (!enabled || !root) return
     const last = new WeakMap<EventTarget, number>()
+    // Folding the header changes the height of the page under it, which moves
+    // the scroll position by itself. Those scrolls are the layout settling,
+    // not the person scrolling, so they are ignored for a moment after each
+    // change; otherwise the header can fold and unfold in a loop.
+    let settledAt = 0
+    const change = (next: boolean) => {
+      settledAt = Date.now() + 350
+      setCollapsed(next)
+    }
+    const typing = () => {
+      const active = document.activeElement
+      return (
+        active instanceof HTMLElement &&
+        (active.isContentEditable ||
+          /^(input|textarea|select)$/i.test(active.tagName))
+      )
+    }
     const onScroll = (event: Event) => {
       const target = event.target
       if (!(target instanceof HTMLElement) || header.current?.contains(target))
@@ -154,9 +171,12 @@ function useCollapsedOnScroll(
       const top = target.scrollTop
       const previous = last.get(target) ?? 0
       last.set(target, top)
-      if (top < 24) setCollapsed(false)
-      else if (top - previous > 6 && top > 96) setCollapsed(true)
-      else if (previous - top > 6) setCollapsed(false)
+      // While writing, the page scrolls to keep the caret in view; the header
+      // stays as it is rather than moving under the person's hands.
+      if (typing() || Date.now() < settledAt) return
+      if (top < 24) change(false)
+      else if (top - previous > 6 && top > 96) change(true)
+      else if (previous - top > 6) change(false)
     }
     root.addEventListener('scroll', onScroll, { capture: true, passive: true })
     return () => root.removeEventListener('scroll', onScroll, { capture: true })

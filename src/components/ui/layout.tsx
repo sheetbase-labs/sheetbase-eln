@@ -45,24 +45,37 @@ export function PageHeader({
       )}
     >
       {trail?.length ? <Breadcrumb trail={trail} /> : null}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
-        <Title className="min-w-0 flex-1 basis-60 text-title max-md:basis-40 max-md:text-[18px] max-md:leading-6 md:truncate">
+      {/* On a phone the actions follow the meta on the same line, instead of
+          taking a line of their own, so the header is a row shorter above the
+          content. They wrap to the next line only when the meta is long. */}
+      <div className="grid grid-cols-[minmax(10rem,1fr)_auto] items-center gap-x-2 gap-y-1.5 max-md:flex max-md:flex-wrap max-md:gap-x-3.5 max-md:gap-y-1">
+        <Title
+          className={cn(
+            'col-start-1 row-start-1 min-w-0 text-title max-md:text-[18px] max-md:leading-6 md:truncate',
+            meta
+              ? 'max-md:mb-0.5 max-md:w-full'
+              : 'max-md:flex-1 max-md:basis-40',
+          )}
+        >
           {title}
         </Title>
         {actions ? (
           <div
             data-page-actions
-            className="flex max-w-full shrink-0 flex-wrap gap-2"
+            className="col-start-2 row-start-1 flex max-w-full flex-wrap justify-end gap-2 max-md:order-last max-md:ml-auto"
           >
             {actions}
           </div>
         ) : null}
+        {meta ? (
+          <div
+            data-page-meta
+            className="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1 text-label text-fg-muted max-md:contents"
+          >
+            {meta}
+          </div>
+        ) : null}
       </div>
-      {meta ? (
-        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-label text-fg-muted">
-          {meta}
-        </div>
-      ) : null}
       {tabs ? (
         <div
           data-page-tabs

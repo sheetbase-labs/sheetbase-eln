@@ -1,3 +1,4 @@
+import type { Server } from 'node:http'
 import { defineConfig } from 'vite'
 import { devtools } from '@tanstack/devtools-vite'
 
@@ -6,6 +7,8 @@ import { nitro } from 'nitro/vite'
 
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+
+import { createCollabHost } from './scripts/lib/collab-host.mjs'
 
 /**
  * The pinned clock, exposed to the browser bundle so client-rendered,
@@ -40,6 +43,30 @@ const clientRequestStub = {
   },
 }
 
+/**
+ * Live co-editing in development: the same bundled WebSocket server production
+ * runs, attached to Vite's HTTP server. Vite's own HMR socket keeps its
+ * upgrades; only the collaboration path is handled here.
+ */
+const collabDevServer = {
+  name: 'sheetbase:collab-dev-server',
+  apply: 'serve' as const,
+  configureServer(server: { httpServer: Server | null }) {
+    if (!server.httpServer) return
+    const collab = createCollabHost({
+      fetchApp: (request) => fetch(request),
+      log: (level, message, fields) => {
+        if (level !== 'info') console.warn(`[collab] ${message}`, fields ?? '')
+      },
+    })
+    ;(globalThis as Record<string, unknown>).__sheetbaseCollab = collab
+    server.httpServer.on('upgrade', (request, socket, head) => {
+      collab.handleUpgrade(request, socket, head)
+    })
+    server.httpServer.on('close', () => collab.close())
+  },
+}
+
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
   define: {
@@ -51,6 +78,7 @@ const config = defineConfig({
     devtools({ consolePiping: { enabled: false } }),
     tailwindcss(),
     clientRequestStub,
+    collabDevServer,
     tanstackStart(),
     nitro(),
     viteReact(),

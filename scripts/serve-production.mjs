@@ -9,6 +9,7 @@ import application from '../.output/server/index.mjs'
 import { acceptsEncoding } from './lib/accept-encoding.mjs'
 import { dynamicEncoding } from './lib/compress-response.mjs'
 import { applyProductionSecurityHeaders } from './lib/security-headers.mjs'
+import { createCollabHost } from './lib/collab-host.mjs'
 
 const host = process.env.HOST ?? '0.0.0.0'
 const port = Number(process.env.PORT ?? '3000')
@@ -199,6 +200,25 @@ const server = createServer(async (incoming, outgoing) => {
     outgoing.end(JSON.stringify({ error: { category: 'server_error' } }))
   }
 })
+
+// Live co-editing: the bundled WebSocket server shares this process and this
+// port, so it needs nothing extra to deploy. Other upgrade requests are not
+// ours and are closed.
+const collab = createCollabHost({
+  fetchApp: (request) => application.fetch(request),
+  log: writeLog,
+})
+globalThis.__sheetbaseCollab = collab
+server.on('upgrade', (request, socket, head) => {
+  if (!collab.handleUpgrade(request, socket, head)) socket.destroy()
+})
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.once(signal, () => {
+    collab.close()
+    server.close()
+    process.exit(0)
+  })
+}
 
 // A dropped database connection or a rejected background promise should be
 // logged, not take the whole server (and everyone's session) down with it.

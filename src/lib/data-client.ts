@@ -134,6 +134,21 @@ export function dropSharedReads(): void {
   readStores.forEach((store) => store.clear())
 }
 
+type RowsChangedListener = () => void
+const rowsChangedListeners = new Set<RowsChangedListener>()
+
+/**
+ * Hear about every write that succeeded and changed rows. The app uses it to
+ * mark cached lists, counts and sidebars stale so a change made on one page
+ * shows on every other page straight away, not only after a reload.
+ */
+export function onRowsChanged(listener: RowsChangedListener): () => void {
+  rowsChangedListeners.add(listener)
+  return () => {
+    rowsChangedListeners.delete(listener)
+  }
+}
+
 function readStoreFor(fetchImpl: object): Map<string, SharedRead> | null {
   // The server renders for many people; only the browser shares reads.
   if (typeof window === 'undefined') return null
@@ -153,6 +168,19 @@ const READ_ONLY_RPC =
 function changesRows(path: string, method: string | undefined): boolean {
   if (method === undefined || method === 'GET') return false
   return !READ_ONLY_RPC.test(path)
+}
+
+/**
+ * Functions the app calls with POST that really change something. Some read
+ * functions are also POSTs (reports, audit, member lists), so a POST alone does
+ * not mean a change; announcing those would refresh the page that just asked.
+ */
+const WRITING_RPC =
+  /^\/rpc\/(create|set|update|remove|delete|save|apply|retire|request|cancel|add|archive|unarchive|resolve|move|start|restore|publish|complete|revoke|edit|register|link|unlink|submit|assign|unassign|mark|withdraw|commit|duplicate|fail|receive|instantiate|insert|decide|approve|reject|clear|freeze|unfreeze|follow|unfollow|return|promote|bind|rotate|replace|upgrade|reparent|transition|mutate|enable|disable|leave|rename|reorder|sign|install|append|advance|change|release|end|grant|accept|share|unshare|dispose|discard|quarantine|dismiss|pin|unpin|reopen|transfer|certify|import|suspend|reinstate|reissue|dissolve|resume|activate|aliquot|pool|join|flag|skip|keep|claim|confirm|acknowledge|send|reply|answer|post|log|finalize|ensure|configure|extension|enrol|propose|adopt|convert|retarget|consume|ingest|touch|run|recompute|sweep|prune|snapshot|record_(?:sample_measurement|reagent_movement|stocktake_scan|qc_check|instrument_calibration|protocol_deviation_reason|client_sharing))/
+
+function announcesChange(path: string, method: string | undefined): boolean {
+  if (!changesRows(path, method)) return false
+  return !path.startsWith('/rpc/') || WRITING_RPC.test(path)
 }
 
 export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
@@ -236,6 +264,8 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
       }
       throw await parseError(response)
     }
+    if (announcesChange(path, init.method))
+      rowsChangedListeners.forEach((listener) => listener())
     return response
   }
 

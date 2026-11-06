@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 
-import { DataClientError } from '#/lib/data-client'
+import { DataClientError, onRowsChanged } from '#/lib/data-client'
 
 /**
  * A request the server refused (not found, not allowed, bad input) answers the
@@ -23,6 +23,52 @@ export function shouldRetryQuery(
   return failureCount < 3
 }
 
+/**
+ * Caches that hold what a person is typing into or editing cell by cell. A
+ * write made from them must not refetch them under the person's hands.
+ */
+const EDITING_CACHES = new Set([
+  'notebook',
+  'scientific-table',
+  'scientific-tables',
+  'scientific-rows',
+  'scientific-all-rows',
+  'scientific-formulas',
+  'scientific-dependencies',
+  'scientific-calculation-results',
+  'formula',
+  'calculation',
+  'comments',
+])
+
+/**
+ * After this tab saves something, every other cached list, count, header and
+ * sidebar row that could show it is marked stale (and refetched when on
+ * screen). Without this each mutation has to remember every other place that
+ * shows its data, and the ones it forgets keep the old value until a reload.
+ * Writes that arrive in a burst are folded into one refresh.
+ */
+export function refreshAfterWrites(
+  queryClient: QueryClient,
+  delayMs = 250,
+): () => void {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const stop = onRowsChanged(() => {
+    if (timer !== null) return
+    timer = setTimeout(() => {
+      timer = null
+      void queryClient.invalidateQueries({
+        predicate: (query) => !EDITING_CACHES.has(String(query.queryKey[0])),
+      })
+    }, delayMs)
+  })
+  return () => {
+    stop()
+    if (timer !== null) clearTimeout(timer)
+    timer = null
+  }
+}
+
 export function createRouterContext() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -43,6 +89,8 @@ export function createRouterContext() {
       },
     },
   })
+
+  if (typeof window !== 'undefined') refreshAfterWrites(queryClient)
 
   return {
     queryClient,

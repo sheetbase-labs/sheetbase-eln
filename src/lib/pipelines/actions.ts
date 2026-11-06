@@ -13,7 +13,14 @@ export interface PipelineAction {
   mode?: 'execute' | 'propose'
 }
 export type PipelineActionArgumentType =
-  'uuid' | 'text' | 'integer' | 'bigint' | 'numeric' | 'jsonb' | 'text[]'
+  | 'uuid'
+  | 'text'
+  | 'date'
+  | 'integer'
+  | 'bigint'
+  | 'numeric'
+  | 'jsonb'
+  | 'text[]'
 export interface PipelineActionArgument {
   name: string
   type: PipelineActionArgumentType
@@ -181,6 +188,40 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
       arg('p_operation', 'text'),
       arg('p_quantity_delta', 'numeric', false),
       arg('p_reason', 'text', false, true),
+    ],
+  ),
+  definition(
+    'mark_reagent_ordered',
+    t('data.pipelineActions.markOrderPlaced'),
+    t('data.pipelineActions.markOrderPlacedWithPrice'),
+    [
+      arg('p_order_id', 'uuid'),
+      arg('p_order_reference', 'text', false, true),
+      arg('p_expected_on', 'date', false, true),
+      arg('p_supplier', 'text', false, true),
+      arg('p_supplier_record_id', 'uuid', false, true),
+      arg('p_total_price', 'numeric', false, true),
+      arg('p_currency', 'text', false, true),
+    ],
+  ),
+  definition(
+    'set_reagent_order_price',
+    t('data.pipelineActions.setOrderPrice'),
+    t('data.pipelineActions.setOrderPriceDescription'),
+    [
+      arg('p_order_id', 'uuid'),
+      arg('p_total_price', 'numeric', true, true),
+      arg('p_currency', 'text', false, true),
+    ],
+  ),
+  definition(
+    'set_instrument_rate',
+    t('data.pipelineActions.setInstrumentRate'),
+    t('data.pipelineActions.setInstrumentRateDescription'),
+    [
+      arg('p_instrument_id', 'uuid'),
+      arg('p_rate_per_hour', 'numeric', true, true),
+      arg('p_currency', 'text', true, true),
     ],
   ),
   definition(

@@ -145,6 +145,31 @@ describe('running a planning card', () => {
     })
   })
 
+  it('finishes a step and records a result on it', async () => {
+    const { client, rpcs } = recordingClient()
+    await runAssistantAction(client, {
+      kind: 'step.done',
+      blockId: 'blk',
+      done: true,
+      note: 'plate 4',
+    })
+    await runAssistantAction(client, {
+      kind: 'step.result',
+      blockId: 'blk',
+      label: 'OD450',
+      value: '0.82',
+      unit: null,
+    })
+    expect(rpcs[0]).toEqual({
+      name: 'set_step_done',
+      args: { p_block_id: 'blk', p_done: true, p_note: 'plate 4' },
+    })
+    expect(rpcs[1]).toEqual({
+      name: 'add_step_result',
+      args: { p_block_id: 'blk', p_label: 'OD450', p_value: '0.82' },
+    })
+  })
+
   it('creates a shipment and marks it on its way', async () => {
     const { client, rpcs } = recordingClient()
     await runAssistantAction(client, {

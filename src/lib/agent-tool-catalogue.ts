@@ -77,6 +77,8 @@ export const ASSISTANT_READ_TOOL_NAMES = [
   'sheetbase.facility.report',
   // What is waiting on the person: their inbox, read only (assistant-planning.server.ts).
   'sheetbase.inbox.read',
+  // The steps of an experiment with their status, read only (assistant-planning.server.ts).
+  'sheetbase.steps.read',
 ] as const
 
 export type AssistantReadToolName = (typeof ASSISTANT_READ_TOOL_NAMES)[number]
@@ -122,6 +124,8 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.record.ask',
   'sheetbase.booking.repeat',
   'sheetbase.timer.start',
+  'sheetbase.step.complete',
+  'sheetbase.step.result',
   'sheetbase.shipment.send',
   'sheetbase.shipment.receive',
   // Keeping the lab tidy from a card: start a project, follow something, mark

@@ -60,6 +60,8 @@ const ACTION_COPY = {
   'record.comment': 'ask',
   'booking.repeat': 'repeat',
   'timer.start': 'timer',
+  'step.done': 'finishStep',
+  'step.result': 'stepResult',
   'shipment.create': 'sendShipment',
   'shipment.receive': 'receiveShipment',
   'project.create': 'createProject',

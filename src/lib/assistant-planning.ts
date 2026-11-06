@@ -16,6 +16,7 @@ import type { ManifestLine } from './shipments'
  */
 
 export const INBOX_READ_TOOL = 'sheetbase.inbox.read'
+export const STEPS_READ_TOOL = 'sheetbase.steps.read'
 
 export const EXPERIMENT_START_TOOL = 'sheetbase.experiment.start'
 export const RECORD_ASSIGN_TOOL = 'sheetbase.record.assign'
@@ -24,6 +25,8 @@ export const BOOKING_REPEAT_TOOL = 'sheetbase.booking.repeat'
 export const TIMER_START_TOOL = 'sheetbase.timer.start'
 export const SHIPMENT_SEND_TOOL = 'sheetbase.shipment.send'
 export const SHIPMENT_RECEIVE_TOOL = 'sheetbase.shipment.receive'
+export const STEP_DONE_TOOL = 'sheetbase.step.complete'
+export const STEP_RESULT_TOOL = 'sheetbase.step.result'
 
 export const PLANNING_PROPOSE_TOOL_NAMES = [
   EXPERIMENT_START_TOOL,
@@ -33,6 +36,8 @@ export const PLANNING_PROPOSE_TOOL_NAMES = [
   TIMER_START_TOOL,
   SHIPMENT_SEND_TOOL,
   SHIPMENT_RECEIVE_TOOL,
+  STEP_DONE_TOOL,
+  STEP_RESULT_TOOL,
 ] as const
 
 export type PlanningProposeToolName =
@@ -47,6 +52,53 @@ const named = (what: string) => z.string().min(1).max(200).describe(what)
 export const inboxReadSchema = z
   .object({
     limit: z.number().int().min(1).max(50).optional(),
+  })
+  .strict()
+
+export const stepsReadSchema = z
+  .object({
+    record: named('The experiment by identifier (EXP-12) or title.'),
+  })
+  .strict()
+
+const stepWords = z
+  .string()
+  .min(1)
+  .max(200)
+  .optional()
+  .describe(
+    'Words from the step, such as "incubate". Leave out for the current step, the first one not yet done.',
+  )
+
+export const proposeStepDoneSchema = z
+  .object({
+    title,
+    summary,
+    record: named('The experiment by identifier (EXP-12) or title.'),
+    step: stepWords,
+    done: z
+      .boolean()
+      .optional()
+      .describe('false to reopen a finished step. Default true.'),
+    note: z
+      .string()
+      .max(2_000)
+      .optional()
+      .describe('A note for the step, such as what was done differently.'),
+  })
+  .strict()
+
+export const proposeStepResultSchema = z
+  .object({
+    title,
+    summary,
+    record: named('The experiment by identifier (EXP-12) or title.'),
+    step: stepWords,
+    label: z.string().min(1).max(200).describe('What was measured.'),
+    value: z
+      .union([z.string().min(1).max(200), z.number()])
+      .describe('The measured value.'),
+    unit: z.string().max(40).optional(),
   })
   .strict()
 
@@ -247,6 +299,14 @@ export type PlanningAction =
     }
   | { kind: 'booking.repeat'; input: CreateRepeatInput }
   | { kind: 'timer.start'; blockId: string; seconds: number | null }
+  | { kind: 'step.done'; blockId: string; done: boolean; note: string | null }
+  | {
+      kind: 'step.result'
+      blockId: string
+      label: string
+      value: string
+      unit: string | null
+    }
   | {
       kind: 'shipment.create'
       input: {
@@ -283,6 +343,8 @@ export function isPlanningAction(action: {
     'record.comment',
     'booking.repeat',
     'timer.start',
+    'step.done',
+    'step.result',
     'shipment.create',
     'shipment.receive',
   ].includes(action.kind)

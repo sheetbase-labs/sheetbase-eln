@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import { instantFromLocal } from './assistant-booking'
-import { buildPlanningProposal, readInbox } from './assistant-planning.server'
+import {
+  buildPlanningProposal,
+  readInbox,
+  readSteps,
+} from './assistant-planning.server'
 import type { LabToolContext } from './assistant-lab-tools.server'
 import type { DataClient } from './data-client'
 
@@ -39,6 +43,7 @@ function fakeClient(
     blocks?: Array<Record<string, unknown>>
     shipments?: Array<Record<string, unknown>>
     shipmentItems?: Array<Record<string, unknown>>
+    steps?: Array<Record<string, unknown>>
   } = {},
 ) {
   const client = {
@@ -81,6 +86,7 @@ function fakeClient(
       }
     },
     rpc: (name: string) => {
+      if (name === 'record_steps') return Promise.resolve(data.steps ?? [])
       if (name === 'workspace_members_list') {
         return Promise.resolve([
           { user_id: 'user-me', name: 'Gareth P' },
@@ -435,5 +441,140 @@ describe('shipments', () => {
       ),
     )
     expect(built.ok).toBe(false)
+  })
+})
+
+const step = (
+  n: number,
+  text: string,
+  extra: Record<string, unknown> = {},
+) => ({
+  block_id: `step-${n}`,
+  step_number: n,
+  step_text: text,
+  status: 'not_started',
+  is_current: false,
+  completed_at: null,
+  completed_by_user_id: null,
+  note: null,
+  result_count: 0,
+  ...extra,
+})
+
+const steps = [
+  step(1, 'Coat the plate', {
+    status: 'done',
+    completed_by_user_id: 'user-priya',
+    completed_at: '2026-11-06T09:00:00Z',
+  }),
+  step(2, 'Block with BSA', { status: 'in_progress', is_current: true }),
+  step(3, 'Read the plate at 450 nm'),
+]
+
+describe('steps', () => {
+  it('reads the steps with their status and who finished them', async () => {
+    const read = await readSteps(
+      { record: 'EXP-12' },
+      context(fakeClient({ steps })),
+    )
+    const body = JSON.parse(read.text)
+    expect(read.isError).toBe(false)
+    expect(body.stepsDone).toBe(1)
+    expect(body.steps.map((row: { status: string }) => row.status)).toEqual([
+      'done',
+      'in_progress',
+      'not_started',
+    ])
+    expect(body.steps[0].finishedBy).toBe('Priya Shah')
+    expect(body.steps[1].current).toBe(true)
+  })
+
+  it('finishes the current step when none is named', async () => {
+    const built = await buildPlanningProposal(
+      'sheetbase.step.complete',
+      { title: 'Finish blocking', summary: 's', record: 'EXP-12' },
+      context(fakeClient({ steps })),
+    )
+    expect(built.ok && built.proposal.action).toEqual({
+      kind: 'step.done',
+      blockId: 'step-2',
+      done: true,
+      note: null,
+    })
+  })
+
+  it('finds a step by its words, and can reopen it with a note', async () => {
+    const built = await buildPlanningProposal(
+      'sheetbase.step.complete',
+      {
+        title: 'Reopen coating',
+        summary: 's',
+        record: 'EXP-12',
+        step: 'coat',
+        done: false,
+        note: 'Wrong plate',
+      },
+      context(fakeClient({ steps })),
+    )
+    expect(built.ok && built.proposal.action).toEqual({
+      kind: 'step.done',
+      blockId: 'step-1',
+      done: false,
+      note: 'Wrong plate',
+    })
+  })
+
+  it('records a result against the current step', async () => {
+    const built = await buildPlanningProposal(
+      'sheetbase.step.result',
+      {
+        title: 'Log OD',
+        summary: 's',
+        record: 'EXP-12',
+        label: 'OD450',
+        value: 0.82,
+        unit: 'AU',
+      },
+      context(fakeClient({ steps })),
+    )
+    expect(built.ok && built.proposal.action).toEqual({
+      kind: 'step.result',
+      blockId: 'step-2',
+      label: 'OD450',
+      value: '0.82',
+      unit: 'AU',
+    })
+  })
+
+  it('says so when every step is done, when nothing matches and when it is ambiguous', async () => {
+    const allDone = steps.map((row) => ({
+      ...row,
+      status: 'done',
+      is_current: false,
+    }))
+    const finished = await buildPlanningProposal(
+      'sheetbase.step.complete',
+      { title: 't', summary: 's', record: 'EXP-12' },
+      context(fakeClient({ steps: allDone })),
+    )
+    expect(!finished.ok && finished.message).toContain('already done')
+    const none = await buildPlanningProposal(
+      'sheetbase.step.complete',
+      { title: 't', summary: 's', record: 'EXP-12', step: 'centrifuge' },
+      context(fakeClient({ steps })),
+    )
+    expect(!none.ok && none.message).toContain('No step')
+    const several = await buildPlanningProposal(
+      'sheetbase.step.complete',
+      { title: 't', summary: 's', record: 'EXP-12', step: 'plate' },
+      context(fakeClient({ steps })),
+    )
+    expect(!several.ok && several.message).toContain('More than one')
+    const empty = await buildPlanningProposal(
+      'sheetbase.step.complete',
+      { title: 't', summary: 's', record: 'EXP-12' },
+      context(fakeClient({ steps: [] })),
+    )
+    expect(!empty.ok && empty.message).toContain('no protocol steps')
   })
 })

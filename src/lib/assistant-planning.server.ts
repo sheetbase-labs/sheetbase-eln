@@ -9,6 +9,9 @@ import {
   RECORD_ASSIGN_TOOL,
   SHIPMENT_RECEIVE_TOOL,
   SHIPMENT_SEND_TOOL,
+  STEPS_READ_TOOL,
+  STEP_DONE_TOOL,
+  STEP_RESULT_TOOL,
   TIMER_START_TOOL,
   inboxReadSchema,
   proposeBookingRepeatSchema,
@@ -17,8 +20,11 @@ import {
   proposeRecordAssignSchema,
   proposeShipmentReceiveSchema,
   proposeShipmentSendSchema,
+  proposeStepDoneSchema,
+  proposeStepResultSchema,
   proposeTimerStartSchema,
   repeatDates,
+  stepsReadSchema,
 } from './assistant-planning'
 import type { PlanningProposeToolName } from './assistant-planning'
 import {
@@ -59,6 +65,10 @@ export function isInboxReadTool(name: string): boolean {
   return name === INBOX_READ_TOOL
 }
 
+export function isStepsReadTool(name: string): boolean {
+  return name === STEPS_READ_TOOL
+}
+
 export function isPlanningProposalTool(
   name: string,
 ): name is PlanningProposeToolName {
@@ -82,6 +92,16 @@ export function inboxToolDefs(): ProviderToolDef[] {
       INBOX_READ_TOOL,
       'Read what is waiting on the person: reviews, requests, orders, shipments, tasks and anything overdue, with a link to each. Use it for "what do I need to do today" or "what is waiting on me".',
       inboxReadSchema,
+    ),
+  ]
+}
+
+export function stepsToolDefs(): ProviderToolDef[] {
+  return [
+    toolDef(
+      STEPS_READ_TOOL,
+      'Read the protocol steps of an experiment in order: each step’s status (done, in progress or not started, from the notes, results and timers on the page), who finished it and when, and which one is current. Use it for "where am I in EXP-12" or "what is the next step".',
+      stepsReadSchema,
     ),
   ]
 }
@@ -114,6 +134,16 @@ export function planningProposalDefs(): ProviderToolDef[] {
       TIMER_START_TOOL,
       `Propose starting a timer on a step of a notebook or protocol, such as a 30 minute incubation. The person gets the usual timer and alert. ${note}`,
       proposeTimerStartSchema,
+    ),
+    toolDef(
+      STEP_DONE_TOOL,
+      `Propose finishing a protocol step of an experiment, or reopening it, with an optional note. With no step named it is the current step. ${note}`,
+      proposeStepDoneSchema,
+    ),
+    toolDef(
+      STEP_RESULT_TOOL,
+      `Propose recording a result, such as a measurement, against a protocol step of an experiment. With no step named it is the current step. ${note}`,
+      proposeStepResultSchema,
     ),
     toolDef(
       SHIPMENT_SEND_TOOL,
@@ -173,6 +203,118 @@ export async function readInbox(
         page.total === 0
           ? 'Nothing is waiting on the person.'
           : 'Each item has a link in `open`; give it as a link the person can press.',
+    }),
+    isError: false,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The steps of an experiment.
+// ---------------------------------------------------------------------------
+
+interface StepRow {
+  block_id: string
+  step_number: number | null
+  step_text: string | null
+  status: 'done' | 'in_progress' | 'not_started'
+  is_current: boolean
+  completed_at: string | null
+  completed_by_user_id: string | null
+  note: string | null
+  result_count: number
+}
+
+const stepLabel = (row: StepRow) =>
+  `${row.step_number ?? '·'}. ${(row.step_text ?? 'Untitled step').slice(0, 80)}`
+
+function stepRows(client: DataClient, recordId: string): Promise<StepRow[]> {
+  return client.rpc<StepRow[]>('record_steps', { p_record_id: recordId })
+}
+
+/** The step the person means: words from it, or else the current one. */
+function pickStep(
+  rows: readonly StepRow[],
+  words: string | undefined,
+  recordName: string,
+): Lookup<StepRow> {
+  if (rows.length === 0) {
+    return {
+      ok: false,
+      message: `${recordName} has no protocol steps. Tell the person.`,
+    }
+  }
+  const wanted = (words ?? '').toLowerCase().split(/\s+/).filter(Boolean)
+  if (wanted.length === 0) {
+    const current = rows.find((row) => row.is_current)
+    return current
+      ? { ok: true, value: current }
+      : {
+          ok: false,
+          message: `Every step of ${recordName} is already done. Tell the person.`,
+        }
+  }
+  const matches = rows.filter((row) =>
+    wanted.every((word) => (row.step_text ?? '').toLowerCase().includes(word)),
+  )
+  if (matches.length === 1) return { ok: true, value: matches[0] }
+  if (matches.length === 0) {
+    return {
+      ok: false,
+      message: `No step in ${recordName} matches "${words}". Its steps are: ${rows
+        .slice(0, 8)
+        .map(stepLabel)
+        .join('; ')}.`,
+    }
+  }
+  return {
+    ok: false,
+    message: `More than one step fits: ${matches
+      .slice(0, 6)
+      .map(stepLabel)
+      .join('; ')}. Ask the person which one.`,
+  }
+}
+
+export async function readSteps(
+  args: unknown,
+  context: LabToolContext,
+): Promise<{ text: string; isError: boolean }> {
+  const parsed = stepsReadSchema.safeParse(args)
+  if (!parsed.success) return { text: invalid(parsed.error), isError: true }
+  const record = await findRecord(context.client, parsed.data.record)
+  if (!record.ok) return { text: record.message, isError: true }
+  let rows: StepRow[]
+  try {
+    rows = await stepRows(context.client, record.value.id)
+  } catch {
+    return { text: 'The steps could not be read just now.', isError: true }
+  }
+  const names = await memberNames(context.client).catch(
+    () => new Map<string, string>(),
+  )
+  const done = rows.filter((row) => row.status === 'done').length
+  return {
+    text: JSON.stringify({
+      experiment: recordTarget(record.value),
+      stepsDone: done,
+      stepCount: rows.length,
+      steps: rows.map((row) => ({
+        number: row.step_number,
+        step: row.step_text,
+        status: row.status,
+        current: row.is_current,
+        finishedBy: row.completed_by_user_id
+          ? (names.get(row.completed_by_user_id) ?? null)
+          : null,
+        finishedAt: row.completed_at,
+        note: row.note,
+        results: row.result_count,
+      })),
+      open: recordLink(record.value.id),
+      note:
+        rows.length === 0
+          ? 'This experiment has no protocol steps.'
+          : 'Status comes from what is on the page: done when ticked, in progress when it has a note, a result or a running timer.',
     }),
     isError: false,
   }
@@ -673,6 +815,91 @@ export async function buildPlanningProposal(
             { label: 'Timer', before: null, after: formatDuration(length) },
           ],
           action: { kind: 'timer.start', blockId: step.id, seconds },
+        },
+      }
+    }
+    case STEP_DONE_TOOL: {
+      const parsed = proposeStepDoneSchema.safeParse(args)
+      if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
+      const input = parsed.data
+      const record = await findRecord(client, input.record)
+      if (!record.ok) return record
+      const step = pickStep(
+        await stepRows(client, record.value.id),
+        input.step,
+        recordTarget(record.value),
+      )
+      if (!step.ok) return step
+      const reopen = input.done === false
+      const changes = [
+        {
+          label: 'Step',
+          before: null,
+          after: stepLabel(step.value),
+        },
+        {
+          label: 'Status',
+          before: step.value.status === 'done' ? 'Done' : 'Not done',
+          after: reopen ? 'Reopened' : 'Done',
+        },
+      ]
+      if (input.note) {
+        changes.push({ label: 'Note', before: null, after: input.note })
+      }
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: recordTarget(record.value),
+          deepLink: recordLink(record.value.id),
+          changes,
+          action: {
+            kind: 'step.done',
+            blockId: step.value.block_id,
+            done: !reopen,
+            note: input.note ?? null,
+          },
+        },
+      }
+    }
+    case STEP_RESULT_TOOL: {
+      const parsed = proposeStepResultSchema.safeParse(args)
+      if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
+      const input = parsed.data
+      const record = await findRecord(client, input.record)
+      if (!record.ok) return record
+      const step = pickStep(
+        await stepRows(client, record.value.id),
+        input.step,
+        recordTarget(record.value),
+      )
+      if (!step.ok) return step
+      const value = String(input.value)
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: recordTarget(record.value),
+          deepLink: recordLink(record.value.id),
+          changes: [
+            { label: 'Step', before: null, after: stepLabel(step.value) },
+            {
+              label: input.label,
+              before: null,
+              after: input.unit ? `${value} ${input.unit}` : value,
+            },
+          ],
+          action: {
+            kind: 'step.result',
+            blockId: step.value.block_id,
+            label: input.label,
+            value,
+            unit: input.unit ?? null,
+          },
         },
       }
     }

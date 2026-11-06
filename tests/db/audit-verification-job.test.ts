@@ -5,6 +5,7 @@
  * then records the result as a System entry so the log itself shows whether the
  * trail is intact. DEC-04 fixes the schedule at 06:00.
  */
+// @requirement VAL-AUD-02, VAL-SIG-01
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 

@@ -11,6 +11,7 @@
  * - submit/sign/amend/checks and the four decision RPCs deny api_client;
  * - archived/deleted/inaccessible records fail closed for the review RPCs.
  */
+// @requirement VAL-SIG-01, VAL-REV-01
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { createHmac } from 'node:crypto'
 import type { Client } from 'pg'

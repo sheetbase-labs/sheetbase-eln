@@ -3,6 +3,7 @@
  * caller exactly the projects internal.can_view_project gives them one by one.
  * Row-level security reads the set; the function stays for single lookups.
  */
+// @requirement VAL-ACC-01
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 

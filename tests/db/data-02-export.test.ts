@@ -3,6 +3,7 @@
  * canonical api.revision_evidence_package read. Runs against a freshly
  * migrated sheetbase_test database.
  */
+// @requirement VAL-EXP-01
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 

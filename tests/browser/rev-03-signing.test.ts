@@ -10,6 +10,7 @@
  * before signing), REV-09 (signatures and audit trail of a locked record) and
  * REV-10 (amend with a stated reason).
  */
+// @requirement VAL-SIG-01, VAL-SIG-02
 import { createHmac, randomUUID } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { config } from 'dotenv'

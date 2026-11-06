@@ -5,6 +5,7 @@
  * from the acknowledgements, so the status can never disagree with what
  * starting an experiment checks.
  */
+// @requirement VAL-PRT-01
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 

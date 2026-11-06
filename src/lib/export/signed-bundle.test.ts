@@ -1,3 +1,4 @@
+// @requirement VAL-TS-02, VAL-EXP-01
 import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'

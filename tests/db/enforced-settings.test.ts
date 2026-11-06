@@ -6,6 +6,7 @@
  * administration capabilities are workspace choices. Each is read where the
  * data changes, so saving a setting changes what the database accepts.
  */
+// @requirement VAL-CHG-01
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 

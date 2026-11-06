@@ -11,6 +11,7 @@
  * role gating for sensitive classes; cross-workspace isolation; cursor
  * pagination determinism; deleted/archived history honesty.
  */
+// @requirement VAL-AUD-01
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 

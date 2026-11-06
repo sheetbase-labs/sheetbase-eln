@@ -8,6 +8,7 @@
  *  - failures back off, give up after six attempts, and can be asked for again;
  *  - the export key is made once per workspace and only its public half is readable.
  */
+// @requirement VAL-TS-01
 import { createHash } from 'node:crypto'
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'

@@ -9,6 +9,7 @@
  * and proves the record it wrote: the acting person, the exact version and the
  * time, both on screen and in the table, and that it survives a reload.
  */
+// @requirement VAL-PRT-01
 import { config } from 'dotenv'
 import { Client } from 'pg'
 import { expect, test } from 'playwright/test'

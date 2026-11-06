@@ -1,0 +1,202 @@
+{
+  "entries": [
+    {
+      "requirement": "VAL-ACC-01",
+      "file": "tests/db/notebook-rls.test.ts",
+      "layer": "database",
+      "title": "notebook domain read isolation"
+    },
+    {
+      "requirement": "VAL-ACC-01",
+      "file": "tests/db/set-based-project-access.test.ts",
+      "layer": "database",
+      "title": "viewable_project_ids"
+    },
+    {
+      "requirement": "VAL-ACC-01",
+      "file": "tests/db/workspace-rls.test.ts",
+      "layer": "database",
+      "title": "workspace read isolation"
+    },
+    {
+      "requirement": "VAL-AUD-01",
+      "file": "tests/db/audit-hash-chain.test.ts",
+      "layer": "database",
+      "title": "REV-05.1 audit hash chain"
+    },
+    {
+      "requirement": "VAL-AUD-01",
+      "file": "tests/db/gov-03-audit-events.test.ts",
+      "layer": "database",
+      "title": "GOV-03 trigger coverage"
+    },
+    {
+      "requirement": "VAL-AUD-02",
+      "file": "tests/db/audit-hash-chain.test.ts",
+      "layer": "database",
+      "title": "REV-05.1 audit hash chain"
+    },
+    {
+      "requirement": "VAL-AUD-02",
+      "file": "tests/db/audit-verification-job.test.ts",
+      "layer": "database",
+      "title": "REV-05.2 audit verification job"
+    },
+    {
+      "requirement": "VAL-AUD-02",
+      "file": "tests/db/audit-verification-status.test.ts",
+      "layer": "database",
+      "title": "api.audit_verification_status"
+    },
+    {
+      "requirement": "VAL-CHG-01",
+      "file": "tests/db/enforced-settings.test.ts",
+      "layer": "database",
+      "title": "signature meanings follow the signature policy"
+    },
+    {
+      "requirement": "VAL-CHG-01",
+      "file": "tests/db/regulated-lab.test.ts",
+      "layer": "database",
+      "title": "a workspace is not regulated until it says so"
+    },
+    {
+      "requirement": "VAL-EXP-01",
+      "file": "src/lib/export/signed-bundle.test.ts",
+      "layer": "unit",
+      "title": "src/lib/export/signed-bundle.test.ts"
+    },
+    {
+      "requirement": "VAL-EXP-01",
+      "file": "tests/db/data-02-export.test.ts",
+      "layer": "database",
+      "title": "DATA-02 export receipts (api.data_exports)"
+    },
+    {
+      "requirement": "VAL-EXP-02",
+      "file": "tests/db/upgrade-backup.test.ts",
+      "layer": "database",
+      "title": "backup before an upgrade"
+    },
+    {
+      "requirement": "VAL-EXP-02",
+      "file": "tests/db/workspace-export.test.ts",
+      "layer": "database",
+      "title": "the workspace archive"
+    },
+    {
+      "requirement": "VAL-ID-01",
+      "file": "tests/db/auth-session.test.ts",
+      "layer": "database",
+      "title": "session lifecycle"
+    },
+    {
+      "requirement": "VAL-ID-01",
+      "file": "tests/db/regulated-lab.test.ts",
+      "layer": "database",
+      "title": "a workspace is not regulated until it says so"
+    },
+    {
+      "requirement": "VAL-PRT-01",
+      "file": "tests/browser/protocol-acknowledgement.test.ts",
+      "layer": "browser",
+      "title": "a member acknowledges the frozen version and the record survives a reload"
+    },
+    {
+      "requirement": "VAL-PRT-01",
+      "file": "tests/db/protocol-training-reminders.test.ts",
+      "layer": "database",
+      "title": "LAB-07 protocol training reminders"
+    },
+    {
+      "requirement": "VAL-PRT-01",
+      "file": "tests/db/protocol-training.test.ts",
+      "layer": "database",
+      "title": "assign_protocol_training"
+    },
+    {
+      "requirement": "VAL-REV-01",
+      "file": "tests/browser/journeys/review.test.ts",
+      "layer": "browser",
+      "title": "REV-01 to REV-04 submit, review, return and see it come back"
+    },
+    {
+      "requirement": "VAL-REV-01",
+      "file": "tests/db/gov-04-review-signatures.test.ts",
+      "layer": "database",
+      "title": "GOV-04 frozen evidence and signature attachment"
+    },
+    {
+      "requirement": "VAL-SIG-01",
+      "file": "tests/browser/rev-03-signing.test.ts",
+      "layer": "browser",
+      "title": "independent certification, practice, password focus and exact-digest signing use real HTTP"
+    },
+    {
+      "requirement": "VAL-SIG-01",
+      "file": "tests/db/audit-verification-job.test.ts",
+      "layer": "database",
+      "title": "REV-05.2 audit verification job"
+    },
+    {
+      "requirement": "VAL-SIG-01",
+      "file": "tests/db/gov-04-review-signatures.test.ts",
+      "layer": "database",
+      "title": "GOV-04 frozen evidence and signature attachment"
+    },
+    {
+      "requirement": "VAL-SIG-01",
+      "file": "tests/db/signatures.test.ts",
+      "layer": "database",
+      "title": "SIGN-001 electronic signatures"
+    },
+    {
+      "requirement": "VAL-SIG-02",
+      "file": "tests/browser/rev-03-signing.test.ts",
+      "layer": "browser",
+      "title": "independent certification, practice, password focus and exact-digest signing use real HTTP"
+    },
+    {
+      "requirement": "VAL-SIG-02",
+      "file": "tests/db/regulated-lab.test.ts",
+      "layer": "database",
+      "title": "a workspace is not regulated until it says so"
+    },
+    {
+      "requirement": "VAL-SIG-02",
+      "file": "tests/db/signature-certification.test.ts",
+      "layer": "database",
+      "title": "REV-03 independent certification and password evidence"
+    },
+    {
+      "requirement": "VAL-SIG-03",
+      "file": "tests/db/sign-002-lock-amend.test.ts",
+      "layer": "database",
+      "title": "SIGN-002 lock + amendment + timeline + evidence"
+    },
+    {
+      "requirement": "VAL-SIG-03",
+      "file": "tests/db/signatures.test.ts",
+      "layer": "database",
+      "title": "SIGN-001 electronic signatures"
+    },
+    {
+      "requirement": "VAL-TS-01",
+      "file": "src/lib/timestamps/tsp.test.ts",
+      "layer": "unit",
+      "title": "src/lib/timestamps/tsp.test.ts"
+    },
+    {
+      "requirement": "VAL-TS-01",
+      "file": "tests/db/trusted-timestamps.test.ts",
+      "layer": "database",
+      "title": "timestamp settings"
+    },
+    {
+      "requirement": "VAL-TS-02",
+      "file": "src/lib/export/signed-bundle.test.ts",
+      "layer": "unit",
+      "title": "src/lib/export/signed-bundle.test.ts"
+    }
+  ]
+}

@@ -3,6 +3,7 @@
  * first and stops if it cannot; one with nothing to apply, or a first install,
  * does not.
  */
+// @requirement VAL-EXP-02
 import { readFileSync } from 'node:fs'
 import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'

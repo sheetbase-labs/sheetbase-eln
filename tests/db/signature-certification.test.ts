@@ -1,3 +1,4 @@
+// @requirement VAL-SIG-02
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { createHmac, createHash } from 'node:crypto'
 import type { Client } from 'pg'

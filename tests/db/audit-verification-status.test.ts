@@ -2,6 +2,7 @@
  * Every member of a workspace can read when its audit trail and signed records
  * were last found intact. The nightly check writes the result; this only reads it.
  */
+// @requirement VAL-AUD-02
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 

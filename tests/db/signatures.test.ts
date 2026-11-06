@@ -8,6 +8,7 @@
  * permission, passing required checks, name confirmation, and no prior
  * signature by the same signer.
  */
+// @requirement VAL-SIG-01, VAL-SIG-03
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { createHmac } from 'node:crypto'
 import type { Client } from 'pg'

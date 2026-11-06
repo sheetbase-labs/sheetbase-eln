@@ -140,6 +140,9 @@ export interface PipelineConfig {
     name: string
     operation: string
     arguments: Record<string, unknown>
+    mode?: 'execute' | 'propose'
+    /** Bulk import: run the action once for each row of this list. */
+    forEach?: { $ref: string }
   }>
   parameters: PipelineParameter[]
   inputs: PipelineInput[]

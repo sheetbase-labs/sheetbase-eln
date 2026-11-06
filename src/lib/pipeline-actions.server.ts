@@ -1,5 +1,9 @@
 import type { ExecConnection } from './pipeline-execute.server'
-import { PIPELINE_ACTIONS, validatePipelineActions } from './pipelines/actions'
+import {
+  PIPELINE_ACTIONS,
+  PIPELINE_ACTION_ROW_LIMIT,
+  validatePipelineActions,
+} from './pipelines/actions'
 import type {
   PipelineAction,
   PipelineActionArgument,
@@ -30,7 +34,7 @@ export function resolvePipelineActionValue(
       throw new Error('A reference must contain only a $ref path.')
     const parts = value.$ref.split('.')
     if (
-      !['parameters', 'previous', 'actions', 'output'].includes(
+      !['parameters', 'previous', 'actions', 'output', 'row'].includes(
         parts[0] ?? '',
       ) ||
       parts.some((part) => !/^[A-Za-z0-9_-]+$/.test(part) || blocked.has(part))
@@ -119,6 +123,41 @@ function proposalOperation(
       expectedRevision,
     }
   }
+  // The money proposals leave out whatever the pipeline left empty, so the proposal
+  // says only what the pipeline means to change.
+  const present = (entries: Record<string, unknown>) =>
+    Object.fromEntries(
+      Object.entries(entries).filter(
+        ([, value]) => value !== undefined && value !== null,
+      ),
+    )
+  if (proposalKind === 'reagent_order.mark_ordered')
+    return {
+      kind: proposalKind,
+      orderId: resolved.p_order_id,
+      ...present({
+        orderReference: resolved.p_order_reference,
+        expectedOn: resolved.p_expected_on,
+        supplier: resolved.p_supplier,
+        supplierRecordId: resolved.p_supplier_record_id,
+        totalPrice: resolved.p_total_price,
+        currency: resolved.p_currency,
+      }),
+    }
+  if (proposalKind === 'reagent_order.set_price')
+    return {
+      kind: proposalKind,
+      orderId: resolved.p_order_id,
+      totalPrice: resolved.p_total_price ?? null,
+      ...present({ currency: resolved.p_currency }),
+    }
+  if (proposalKind === 'instrument_rate.set')
+    return {
+      kind: proposalKind,
+      instrumentId: resolved.p_instrument_id,
+      ratePerHour: resolved.p_rate_per_hour ?? null,
+      ...present({ currency: resolved.p_currency }),
+    }
   throw new Error(`No proposal form is implemented for ${proposalKind}.`)
 }
 
@@ -129,6 +168,7 @@ async function proposePipelineAction(
   action: PipelineAction,
   definition: { operation: string; label: string; proposalKind?: string },
   resolved: Record<string, unknown>,
+  suffix = '',
 ): Promise<Record<string, unknown>> {
   const provenance = await conn.query<{
     definition_id: string
@@ -161,9 +201,9 @@ async function proposePipelineAction(
         pipelineName: row.definition_name,
         definitionVersionId: row.version_id,
         runId: run.runId,
-        invocationId: `${run.runId}:${action.name}`,
+        invocationId: `${run.runId}:${action.name}${suffix}`,
       }),
-      `pipeline:${run.runId}:${action.name}`,
+      `pipeline:${run.runId}:${action.name}${suffix}`,
     ],
   )
   const result = response.rows.at(0)?.result
@@ -197,30 +237,34 @@ export async function executePipelineActions(
   // would bypass their RLS; execute the catalogue as the authenticated role.
   await conn.query('SET LOCAL ROLE authenticated')
   try {
-    for (const action of actions) {
+    // One action for one set of arguments: the RPC call, or a proposal of it.
+    const runOnce = async (
+      action: PipelineAction,
+      scope: Record<string, unknown>,
+      suffix: string,
+    ): Promise<unknown> => {
       const definition = PIPELINE_ACTIONS.find(
         (entry) => entry.operation === action.operation,
       )!
-      const resolved = resolvePipelineActionValue(action.arguments, {
-        ...context,
-        actions: results,
-      }) as Record<string, unknown>
-      if (action.mode === 'propose') {
-        results[action.name] = await proposePipelineAction(
+      const resolved = resolvePipelineActionValue(
+        action.arguments,
+        scope,
+      ) as Record<string, unknown>
+      if (action.mode === 'propose')
+        return proposePipelineAction(
           conn,
           run,
           action,
           definition,
           resolved,
+          suffix,
         )
-        continue
-      }
       const values: unknown[] = []
       const named: string[] = []
       for (const field of definition.arguments) {
         if (!field.server && !Object.hasOwn(resolved, field.name)) continue
         const value = field.server
-          ? `pipeline:${run.runId}:${action.name}`
+          ? `pipeline:${run.runId}:${action.name}${suffix}`
           : resolved[field.name]
         values.push(sqlValue(field, value))
         named.push(`${field.name} => $${values.length}::${field.type}`)
@@ -240,7 +284,35 @@ export async function executePipelineActions(
         throw new Error(
           `Action ${action.name} (${definition.label}) was rejected.`,
         )
-      results[action.name] = result
+      return result
+    }
+    for (const action of actions) {
+      const scope = { ...context, actions: results }
+      if (!action.forEach) {
+        results[action.name] = await runOnce(action, scope, '')
+        continue
+      }
+      // Bulk import: the same action for each row. A failing row throws, and the caller
+      // rolls back every row, so an import is all or nothing.
+      const rows = resolvePipelineActionValue(action.forEach, scope)
+      if (!Array.isArray(rows) || !rows.every(isObject))
+        throw new Error(
+          `Action ${action.name} repeats for each row, but its list is not a list of rows.`,
+        )
+      if (rows.length > PIPELINE_ACTION_ROW_LIMIT)
+        throw new Error(
+          `Action ${action.name} would run for ${rows.length} rows; the most is ${PIPELINE_ACTION_ROW_LIMIT}. Split the import into smaller runs.`,
+        )
+      const each: unknown[] = []
+      for (const [index, row] of rows.entries()) {
+        try {
+          each.push(await runOnce(action, { ...scope, row }, `:${index}`))
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error)
+          throw new Error(`Row ${index + 1} of ${rows.length}: ${reason}`)
+        }
+      }
+      results[action.name] = each
     }
   } finally {
     // ROLLBACK TO the caller savepoint also restores the role after SQL errors.

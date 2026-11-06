@@ -95,12 +95,57 @@ A supplier is an ordinary record, so adding or changing one is a
 
 ## From MCP, pipelines and the assistant
 
-MCP: `sheetbase.spend.report` and `sheetbase.usage.report` (read, needs
+MCP reads: `sheetbase.spend.report` and `sheetbase.usage.report` (need
 `facility:read`), and `sheetbase.canonical.read` over `supplier_models`,
 `instrument_rates`, `reagent_order_prices` and `scheduled_reports`.
 
+MCP writes are proposals that a person approves, never direct changes. They need
+`agent_operations:write` and `facility:write`:
+
+| Tool                                   | Proposal kind                | What a person approves                                        |
+| -------------------------------------- | ---------------------------- | ------------------------------------------------------------- |
+| `sheetbase.reagent_order.mark_ordered` | `reagent_order.mark_ordered` | A requested order is placed, with optional price and supplier |
+| `sheetbase.reagent_order.set_price`    | `reagent_order.set_price`    | An order's price is set, or cleared with `totalPrice: null`   |
+| `sheetbase.instrument_rate.set`        | `instrument_rate.set`        | An instrument's rate per hour is set, or cleared with `null`  |
+
+A price or rate needs its currency. The proposal's preview shows the price on
+file only to someone who may see prices. Proposing needs the same standing as
+doing the work yourself (placing orders, or managing instruments).
+
 Pipeline actions: `mark_reagent_ordered`, `set_reagent_order_price` and
-`set_instrument_rate` (the same arguments as above).
+`set_instrument_rate` (the same arguments as above). Each can run, or propose
+so that a person decides (`"mode": "propose"`).
 
 The assistant can propose marking an order placed and setting a rate (each a
 card the person confirms), and can read spend and usage for a period.
+
+## Bulk import from a pipeline
+
+Any pipeline action can run once for each row of a list, which is how a price
+list or a rate sheet is imported. Add `forEach` to the action and take each
+value from the current row with `{ "$ref": "row.<column>" }`:
+
+```json
+{
+  "name": "prices",
+  "operation": "set_reagent_order_price",
+  "mode": "propose",
+  "forEach": { "$ref": "previous" },
+  "arguments": {
+    "p_order_id": { "$ref": "row.order_id" },
+    "p_total_price": { "$ref": "row.price" },
+    "p_currency": { "$ref": "row.currency" }
+  }
+}
+```
+
+- `forEach` takes the rows of the step before it (`previous`), a run parameter
+  (`parameters.<name>`), the run output, or an earlier action's result. Each
+  row must be an object; column names use letters, digits, `_` and `-`.
+- A run imports at most 500 rows. Split a larger file into several runs.
+- It is all or nothing: if one row fails, the run stops, names the row
+  ("Row 12 of 80: ..."), and none of the rows is kept.
+- With `"mode": "propose"` each row becomes its own proposal for a person to
+  accept or reject. The action's result is the list of each row's result, so a
+  later action can refer to `actions.prices.0`.
+- Each row gets its own idempotency key, so a retried run does not repeat rows.

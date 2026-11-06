@@ -11,7 +11,25 @@ export interface PipelineAction {
    * to be something the proposal contract can validate and execute.
    */
   mode?: 'execute' | 'propose'
+  /**
+   * Bulk import: run the action once for each row of a list, such as the rows the step
+   * before it returned (`{ "$ref": "previous" }`). Arguments name a value from the current
+   * row with `{ "$ref": "row.column" }`. All the rows succeed or none do, and a person
+   * decides each one when the action proposes.
+   */
+  forEach?: { $ref: string }
 }
+
+/** The most rows one action may run for. A larger import is split into several runs. */
+export const PIPELINE_ACTION_ROW_LIMIT = 500
+
+/** Where a row loop may take its rows from. */
+export const PIPELINE_ACTION_ROW_SOURCES = [
+  'previous',
+  'parameters',
+  'output',
+  'actions',
+]
 export type PipelineActionArgumentType =
   | 'uuid'
   | 'text'
@@ -203,6 +221,7 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
       arg('p_total_price', 'numeric', false, true),
       arg('p_currency', 'text', false, true),
     ],
+    'reagent_order.mark_ordered',
   ),
   definition(
     'set_reagent_order_price',
@@ -213,6 +232,7 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
       arg('p_total_price', 'numeric', true, true),
       arg('p_currency', 'text', false, true),
     ],
+    'reagent_order.set_price',
   ),
   definition(
     'set_instrument_rate',
@@ -223,6 +243,7 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
       arg('p_rate_per_hour', 'numeric', true, true),
       arg('p_currency', 'text', true, true),
     ],
+    'instrument_rate.set',
   ),
   definition(
     'commit_dataset_row_batch',
@@ -334,6 +355,27 @@ export function validatePipelineActions(value: unknown): string[] {
           t('data.pipelineActions.actionRequires', {
             value: index + 1,
             name: field.name,
+          }),
+        )
+    }
+    const forEach: unknown = item.forEach
+    if (forEach !== undefined) {
+      const reference =
+        forEach !== null &&
+        typeof forEach === 'object' &&
+        !Array.isArray(forEach) &&
+        Object.keys(forEach).length === 1
+          ? (forEach as { $ref?: unknown }).$ref
+          : undefined
+      const parts = typeof reference === 'string' ? reference.split('.') : []
+      if (
+        parts.length === 0 ||
+        !PIPELINE_ACTION_ROW_SOURCES.includes(parts[0]) ||
+        parts.some((part) => !/^[A-Za-z0-9_-]+$/.test(part))
+      )
+        errors.push(
+          t('data.pipelineActions.actionRowLoopNeedsList', {
+            value: index + 1,
           }),
         )
     }

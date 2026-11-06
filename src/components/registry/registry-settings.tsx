@@ -4,7 +4,7 @@
  * holds a sequence, if any.
  */
 import { useEffect, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
@@ -22,6 +22,11 @@ import { toast } from '#/components/ui/sonner'
 import { t } from '#/copy'
 import { messageOf, setModelRegistry } from '#/lib/bio-registry'
 import { notebookDataClient } from '#/lib/notebook-data'
+import {
+  indexExistingStructures,
+  setModelChemistry,
+} from '#/lib/compound-registry'
+import { loadOcl } from '#/lib/chemistry-draw'
 import {
   recordModelQueryKeys,
   useRecordModelFields,
@@ -51,22 +56,44 @@ export function RegistrySettingsDialog({
   const [sequenceField, setSequenceField] = useState(
     model.registry_sequence_field ?? '',
   )
+  const [structureField, setStructureField] = useState(
+    model.registry_structure_field ?? '',
+  )
+  const [lotKind, setLotKind] = useState(model.registry_lot_kind ?? '')
+  const otherModels = useQuery({
+    queryKey: ['registry', 'lot-models'],
+    queryFn: () =>
+      notebookDataClient.list<{ key: string; name: string }>(
+        'record_models',
+        '?select=key,name&order=name.asc',
+      ),
+    enabled: open,
+    staleTime: 30_000,
+  })
 
   useEffect(() => {
     if (!open) return
     setIsRegistry(Boolean(model.is_registry))
     setKeyFields(model.registry_key_fields ?? [])
     setSequenceField(model.registry_sequence_field ?? '')
+    setStructureField(model.registry_structure_field ?? '')
+    setLotKind(model.registry_lot_kind ?? '')
   }, [open, model])
 
   const save = useMutation({
-    mutationFn: () =>
-      setModelRegistry(notebookDataClient, {
+    mutationFn: async () => {
+      await setModelRegistry(notebookDataClient, {
         modelKey: model.key,
         isRegistry,
         keyFields: isRegistry ? keyFields : [],
         sequenceField: isRegistry && sequenceField ? sequenceField : null,
-      }),
+      })
+      await setModelChemistry(notebookDataClient, {
+        modelKey: model.key,
+        structureField: isRegistry && structureField ? structureField : null,
+        lotKind: isRegistry && structureField && lotKind ? lotKind : null,
+      })
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['registry'] })
       void queryClient.invalidateQueries({
@@ -77,6 +104,26 @@ export function RegistrySettingsDialog({
     },
     onError: (e: unknown) =>
       toast.error(messageOf(e, t('registry.settings.couldNotSave'))),
+  })
+
+  const readExisting = useMutation({
+    mutationFn: async () => {
+      const ocl = await loadOcl()
+      return indexExistingStructures(notebookDataClient, ocl, {
+        key: model.key,
+        registry_structure_field: model.registry_structure_field ?? '',
+      })
+    },
+    onSuccess: (count) => {
+      void queryClient.invalidateQueries({ queryKey: ['compounds'] })
+      toast.success(
+        count === 0
+          ? t('registry.chemistry.settings.readNothing')
+          : t('registry.chemistry.settings.readDone', { count }),
+      )
+    },
+    onError: (e: unknown) =>
+      toast.error(messageOf(e, t('registry.chemistry.settings.couldNotRead'))),
   })
 
   function toggle(name: string, on: boolean) {
@@ -162,6 +209,66 @@ export function RegistrySettingsDialog({
                       ))}
                     </Select>
                   </Field>
+                ) : null}
+                {fields.length > 0 ? (
+                  <Field
+                    label={t('registry.chemistry.settings.structureField')}
+                    hint={t('registry.chemistry.settings.structureFieldHint')}
+                  >
+                    <Select
+                      value={structureField}
+                      onChange={(e) => setStructureField(e.target.value)}
+                    >
+                      <option value="">
+                        {t('registry.chemistry.settings.structureNone')}
+                      </option>
+                      {fields.map((field) => (
+                        <option key={field.fieldName} value={field.fieldName}>
+                          {field.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                ) : null}
+                {structureField ? (
+                  <>
+                    <Field
+                      label={t('registry.chemistry.settings.lotKind')}
+                      hint={t('registry.chemistry.settings.lotKindHint')}
+                    >
+                      <Select
+                        value={lotKind}
+                        onChange={(e) => setLotKind(e.target.value)}
+                      >
+                        <option value="">
+                          {t('registry.chemistry.settings.lotNone')}
+                        </option>
+                        {(otherModels.data ?? [])
+                          .filter((m) => m.key !== model.key)
+                          .map((m) => (
+                            <option key={m.key} value={m.key}>
+                              {m.name}
+                            </option>
+                          ))}
+                      </Select>
+                    </Field>
+                    {model.registry_structure_field === structureField ? (
+                      <div className="flex flex-col items-start gap-1">
+                        <Button
+                          type="button"
+                          disabled={readExisting.isPending}
+                          onClick={() => readExisting.mutate()}
+                        >
+                          {readExisting.isPending
+                            ? t('registry.chemistry.settings.reading')
+                            : t('registry.chemistry.settings.readExisting')}
+                        </Button>
+                        <span className="text-label text-fg-muted">
+                          {t('registry.chemistry.settings.readExistingHint')}
+                        </span>
+                      </div>
+                    ) : null}
+                  </>
                 ) : null}
               </>
             ) : null}

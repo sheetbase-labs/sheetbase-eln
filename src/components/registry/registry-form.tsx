@@ -12,6 +12,7 @@ import { Notice } from '#/components/ui/alert'
 import { t } from '#/copy'
 import { messageOf, readSequence } from '#/lib/bio-registry'
 import type { DuplicateMatch } from '#/lib/bio-registry'
+import type { StructureMatch } from '#/lib/compound-registry'
 import { SEQUENCE_ACCEPT, parseSequenceFile } from '#/lib/sequence'
 
 export function DuplicateNotice({
@@ -182,5 +183,95 @@ export function SequenceReader({
         </span>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * Shown when the parent structure is already registered. The same drawing is a
+ * repeat; a different salt or solvent of it is a lot of the compound, so the
+ * person can add it as one when the registry takes lots.
+ */
+export function StructureDuplicateNotice({
+  modelKey,
+  matches,
+  canAddLot,
+  addingLot,
+  onAddLot,
+  acknowledged,
+  onAcknowledge,
+}: {
+  modelKey: string
+  matches: StructureMatch[]
+  canAddLot: boolean
+  addingLot: boolean
+  onAddLot: (match: StructureMatch) => void
+  acknowledged: boolean
+  onAcknowledge: (value: boolean) => void
+}) {
+  const same = matches.filter((m) => m.sameForm)
+  const listed = same.length > 0 ? same : matches
+  const entries = listed
+    .map(
+      (m) =>
+        `${m.identifier} ${m.title}${m.archived ? t('registry.duplicate.retiredNote') : ''}`,
+    )
+    .join(', ')
+  const first = listed[0]
+  return (
+    <Notice
+      tone="warn"
+      title={
+        same.length > 0
+          ? t('registry.chemistry.duplicate.sameTitle')
+          : t('registry.chemistry.duplicate.formTitle')
+      }
+    >
+      <div className="flex flex-col gap-2">
+        <p className="m-0">
+          {same.length > 0
+            ? t('registry.chemistry.duplicate.sameBody', { entries })
+            : t('registry.chemistry.duplicate.formBody', { entries })}
+        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {listed.map((m) => (
+            <Link
+              key={m.id}
+              to="/models/$modelId/records/$recordId"
+              params={{ modelId: modelKey, recordId: m.id }}
+              className="text-link underline-offset-2 hover:underline"
+            >
+              {t('registry.duplicate.use', { number: m.identifier })}
+            </Link>
+          ))}
+          {canAddLot ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={addingLot}
+              onClick={() => onAddLot(first)}
+            >
+              {t('registry.chemistry.duplicate.addLot', {
+                number: first.identifier,
+              })}
+            </Button>
+          ) : null}
+        </div>
+        <label className="flex items-start gap-2 text-label">
+          <Checkbox
+            checked={acknowledged}
+            onCheckedChange={(checked) => onAcknowledge(checked === true)}
+            className="mt-0.5"
+          />
+          <span className="flex flex-col">
+            <span className="font-medium">
+              {t('registry.duplicate.registerAnyway')}
+            </span>
+            <span className="text-fg-muted">
+              {t('registry.duplicate.anywayHint')}
+            </span>
+          </span>
+        </label>
+      </div>
+    </Notice>
   )
 }

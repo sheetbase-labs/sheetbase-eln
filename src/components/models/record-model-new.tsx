@@ -31,12 +31,23 @@ import {
   createRegistryEntry,
   findDuplicates,
   isDuplicateError,
+  messageOf,
   registryKeys,
 } from '#/lib/bio-registry'
+import { toast } from '#/components/ui/sonner'
 import {
   DuplicateNotice,
   SequenceReader,
+  StructureDuplicateNotice,
 } from '#/components/registry/registry-form'
+import { StructureInput } from '#/components/registry/structure-input'
+import {
+  addCompoundLot,
+  compoundKeys,
+  findStructureDuplicates,
+  registerCompound,
+} from '#/lib/compound-registry'
+import type { StructureDescriptor } from '#/lib/compound-registry'
 import type { ReadSequence } from '#/components/registry/registry-form'
 
 /**
@@ -87,6 +98,8 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
   const [values, setValues] = useState<Record<string, string | boolean>>({})
   const [submitting, setSubmitting] = useState(false)
   const [sequence, setSequence] = useState<ReadSequence | null>(null)
+  const [structure, setStructure] = useState<StructureDescriptor | null>(null)
+  const [addingLot, setAddingLot] = useState(false)
   const [acknowledged, setAcknowledged] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   // Errors are held back until the person has interacted: a pristine form is
@@ -99,19 +112,24 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
   const sequenceField = isRegistry
     ? (model.data?.registry_sequence_field ?? null)
     : null
+  const structureField = isRegistry
+    ? (model.data?.registry_structure_field ?? null)
+    : null
+  const lotKind = model.data?.registry_lot_kind ?? null
   // The sequence file fills the sequence field, so it is not typed in too.
   const shownFields = useMemo(
     () =>
       fields.filter(
         (field) =>
           field.fieldName !== sequenceField &&
+          field.fieldName !== structureField &&
           !(
             sequenceField &&
             (field.fieldName === 'sequence_length' ||
               field.fieldName === 'shape')
           ),
       ),
-    [fields, sequenceField],
+    [fields, sequenceField, structureField],
   )
   const customFields = useMemo(
     () => buildRecordModelCustomFields(fields, values),
@@ -146,7 +164,23 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
       isRegistry && (settled.title.trim() !== '' || settled.custom !== '{}'),
     staleTime: 5_000,
   })
-  const matches = isRegistry ? (duplicates.data ?? []) : []
+  const nameMatches = isRegistry ? (duplicates.data ?? []) : []
+  const structureMatches = useQuery({
+    queryKey: compoundKeys.duplicates([
+      modelKey,
+      structure?.parentCode ?? '',
+      structure?.drawnCode ?? '',
+    ]),
+    queryFn: () =>
+      findStructureDuplicates(notebookDataClient, {
+        kind: modelKey,
+        descriptor: structure as StructureDescriptor,
+      }),
+    enabled: Boolean(structureField && structure),
+    staleTime: 5_000,
+  })
+  const structureHits = structure ? (structureMatches.data ?? []) : []
+  const matches = nameMatches
 
   const fieldErrors = useMemo(
     () => modelFieldInputErrors(fields, values),
@@ -171,7 +205,8 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
     validation.blocks.length === 0 &&
     Object.keys(fieldErrors).length === 0 &&
     Boolean(selectedProject) &&
-    (matches.length === 0 || acknowledged)
+    (!structureField || structure !== null) &&
+    (matches.length === 0 && structureHits.length === 0 ? true : acknowledged)
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -179,32 +214,42 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
     setSubmitting(true)
     setSubmitError(null)
     try {
-      const created = isRegistry
-        ? await createRegistryEntry<RecordModelRecord>(notebookDataClient, {
-            projectId: selectedProject,
-            kind: modelKey,
-            title: title.trim(),
-            customFields,
-            allowDuplicate: acknowledged,
-          })
-        : await notebookDataClient.rpc<RecordModelRecord>(
-            'create_model_record',
-            {
-              p_project_id: selectedProject,
-              p_kind: parentKey ? rootKey : modelKey,
-              p_title: title.trim(),
-              p_status: 'draft',
-              p_tags: [],
-              p_properties: {},
-              p_custom_fields: parentKey
-                ? Object.fromEntries(
-                    Object.entries(customFields).filter(([key]) =>
-                      rootFieldKeys.has(key),
-                    ),
-                  )
-                : customFields,
-            },
-          )
+      const created =
+        structureField && structure
+          ? await registerCompound<RecordModelRecord>(notebookDataClient, {
+              projectId: selectedProject,
+              kind: modelKey,
+              title: title.trim(),
+              customFields,
+              descriptor: structure,
+              allowDuplicate: acknowledged,
+            })
+          : isRegistry
+            ? await createRegistryEntry<RecordModelRecord>(notebookDataClient, {
+                projectId: selectedProject,
+                kind: modelKey,
+                title: title.trim(),
+                customFields,
+                allowDuplicate: acknowledged,
+              })
+            : await notebookDataClient.rpc<RecordModelRecord>(
+                'create_model_record',
+                {
+                  p_project_id: selectedProject,
+                  p_kind: parentKey ? rootKey : modelKey,
+                  p_title: title.trim(),
+                  p_status: 'draft',
+                  p_tags: [],
+                  p_properties: {},
+                  p_custom_fields: parentKey
+                    ? Object.fromEntries(
+                        Object.entries(customFields).filter(([key]) =>
+                          rootFieldKeys.has(key),
+                        ),
+                      )
+                    : customFields,
+                },
+              )
       if (parentKey)
         await setModelType(
           notebookDataClient,
@@ -223,6 +268,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
     } catch (caught) {
       if (isDuplicateError(caught)) {
         void duplicates.refetch()
+        void structureMatches.refetch()
         setSubmitError(t('registry.duplicate.refused'))
         setSubmitting(false)
         return
@@ -233,6 +279,33 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
           : t('library.models.recordModelNew.couldNotCreateTheRecord'),
       )
       setSubmitting(false)
+    }
+  }
+
+  async function addAsLot(match: { id: string; identifier: string }) {
+    setAddingLot(true)
+    setSubmitError(null)
+    try {
+      const lot = await addCompoundLot<RecordModelRecord>(notebookDataClient, {
+        compoundId: match.id,
+        projectId: selectedProject,
+        title: title.trim(),
+        customFields: {},
+      })
+      toast.success(
+        t('registry.chemistry.duplicate.lotAdded', {
+          number: match.identifier,
+        }),
+      )
+      await navigate({
+        to: '/models/$modelId/records/$recordId',
+        params: { modelId: lotKind ?? modelKey, recordId: lot.id },
+      })
+    } catch (caught) {
+      setSubmitError(
+        messageOf(caught, t('registry.chemistry.duplicate.couldNotAddLot')),
+      )
+      setAddingLot(false)
     }
   }
 
@@ -302,6 +375,20 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
               ) : null}
             </label>
 
+            {structureHits.length > 0 ? (
+              <div className="md:col-span-2">
+                <StructureDuplicateNotice
+                  modelKey={modelKey}
+                  matches={structureHits}
+                  canAddLot={Boolean(lotKind) && selectedProject !== ''}
+                  addingLot={addingLot}
+                  onAddLot={(match) => void addAsLot(match)}
+                  acknowledged={acknowledged}
+                  onAcknowledge={setAcknowledged}
+                />
+              </div>
+            ) : null}
+
             {matches.length > 0 ? (
               <div className="md:col-span-2">
                 <DuplicateNotice
@@ -311,6 +398,18 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
                   onAcknowledge={setAcknowledged}
                 />
               </div>
+            ) : null}
+
+            {structureField ? (
+              <StructureInput
+                value={structure}
+                disabled={submitting}
+                onChange={(next) => {
+                  setStructure(next)
+                  setAcknowledged(false)
+                  setInteracted(true)
+                }}
+              />
             ) : null}
 
             {sequenceField ? (

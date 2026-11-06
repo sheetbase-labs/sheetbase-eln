@@ -231,6 +231,16 @@ describe('what each block type contributes', () => {
       items: [{ action: 'zebrafinch fix', ownerName: 'Pat', status: 'open' }],
     },
     dataset_import: { sheetName: 'zebrafinch sheet' },
+    structure: {
+      title: 'zebrafinch target',
+      name: 'Aspirin',
+      formula: 'C9H8O4',
+      molfile: 'not words',
+    },
+    reaction: {
+      title: 'zebrafinch acetylation',
+      rows: [{ id: 'r1', role: 'reactant', name: 'Salicylic acid' }],
+    },
   }
 
   it('has a sample for every block type', () => {

@@ -387,3 +387,173 @@ describe('running upkeep actions', () => {
     })
   })
 })
+
+describe('people and continuity cards', () => {
+  function withPeople(rows: Rows, rpc: Record<string, unknown> = {}) {
+    const made = context(rows)
+    const client = made.ctx.client as unknown as Record<string, unknown>
+    client.rpc = (name: string) =>
+      Promise.resolve(
+        name === 'workspace_members_list'
+          ? [
+              { user_id: 'me', name: 'Gareth P.' },
+              { user_id: 'u2', name: 'Priya S.' },
+              { user_id: 'u3', name: 'Tom H.' },
+            ]
+          : (rpc[name] ?? []),
+      )
+    return made
+  }
+
+  it('sets out of office with a named cover, and refuses past dates', async () => {
+    const { ctx } = withPeople({})
+    const ok = await buildUpkeepProposal(
+      'sheetbase.absence.set',
+      { ...base, from: '2999-01-01', until: '2999-01-05', cover: 'Priya' },
+      ctx,
+    )
+    expect(ok).toMatchObject({
+      ok: true,
+      proposal: {
+        action: {
+          kind: 'absence.set',
+          startsOn: '2999-01-01',
+          endsOn: '2999-01-05',
+          delegateUserId: 'u2',
+        },
+      },
+    })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.absence.set',
+        { ...base, from: '2000-01-01', until: '2000-01-05' },
+        ctx,
+      ),
+    ).toMatchObject({ ok: false })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.absence.set',
+        { ...base, until: '2999-01-05', cover: 'Gareth' },
+        ctx,
+      ),
+    ).toMatchObject({ ok: false })
+  })
+
+  it('cancels only an absence that exists', async () => {
+    const none = withPeople({ member_absences: [] })
+    expect(
+      await buildUpkeepProposal('sheetbase.absence.cancel', base, none.ctx),
+    ).toMatchObject({ ok: false })
+    const some = withPeople({
+      member_absences: [
+        { id: 'a1', starts_on: '2999-01-01', ends_on: '2999-01-05' },
+      ],
+    })
+    expect(
+      await buildUpkeepProposal('sheetbase.absence.cancel', base, some.ctx),
+    ).toMatchObject({
+      ok: true,
+      proposal: { action: { kind: 'absence.cancel', absenceId: 'a1' } },
+    })
+  })
+
+  it('hands over what is open, and says when nothing is', async () => {
+    const open = withPeople(
+      {},
+      {
+        preview_member_handover: [
+          { category: 'task', record_kind: null, n: 3 },
+        ],
+      },
+    )
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.handover.start',
+        { ...base, to: 'Tom' },
+        open.ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: {
+        action: {
+          kind: 'handover.run',
+          fromUserId: 'me',
+          toUserId: 'u3',
+          selection: ['task'],
+        },
+      },
+    })
+    const empty = withPeople({}, { preview_member_handover: [] })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.handover.start',
+        { ...base, to: 'Tom' },
+        empty.ctx,
+      ),
+    ).toMatchObject({ ok: false })
+  })
+
+  it('maps and unmaps a sign-in group', async () => {
+    const { ctx } = withPeople({
+      idp_group_mappings: [
+        { id: 'g1', group_name: 'lab-admins', role: 'admin' },
+      ],
+    })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.group_role.set',
+        { ...base, group: 'lab-scientists', role: 'scientist' },
+        ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: { action: { kind: 'group_role.set', role: 'scientist' } },
+    })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.group_role.remove',
+        { ...base, group: 'lab-admins' },
+        ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: { action: { kind: 'group_role.remove', mappingId: 'g1' } },
+    })
+  })
+
+  it('runs the cards through the ordinary RPCs', async () => {
+    const calls: Array<[string, Record<string, unknown>]> = []
+    const client = {
+      rpc: (name: string, args: Record<string, unknown>) => {
+        calls.push([name, args])
+        return Promise.resolve({})
+      },
+    } as unknown as DataClient
+    await runUpkeepAction(client, {
+      kind: 'absence.set',
+      workspaceId: WS,
+      startsOn: '2999-01-01',
+      endsOn: '2999-01-05',
+      delegateUserId: 'u2',
+      note: null,
+    })
+    await runUpkeepAction(client, {
+      kind: 'handover.run',
+      workspaceId: WS,
+      fromUserId: 'me',
+      toUserId: 'u3',
+      selection: ['task'],
+    })
+    await runUpkeepAction(client, {
+      kind: 'group_role.set',
+      workspaceId: WS,
+      groupName: 'lab-admins',
+      role: 'admin',
+    })
+    expect(calls.map(([name]) => name)).toEqual([
+      'set_member_absence',
+      'hand_over_member_work',
+      'set_idp_group_mapping',
+    ])
+  })
+})

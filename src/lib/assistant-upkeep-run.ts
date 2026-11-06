@@ -1,3 +1,7 @@
+import { cancelAbsence, setAbsence } from './absences'
+import { handOverWork } from './handover'
+import { removeGroupMapping, setGroupMapping } from './group-roles'
+import type { GroupRole } from './group-roles'
 import type { DataClient } from './data-client'
 import { setFollowing } from './follows'
 import { markNotificationsRead } from './notifications-data'
@@ -39,6 +43,36 @@ export async function runUpkeepAction(
             ? `/projects/${action.id}`
             : `/records/${action.id}`,
       }
+    case 'absence.set':
+      await setAbsence(client, {
+        workspaceId: action.workspaceId,
+        startsOn: action.startsOn,
+        endsOn: action.endsOn,
+        delegateUserId: action.delegateUserId,
+        note: action.note ?? '',
+      })
+      return { openHref: '/settings/account/away' }
+    case 'handover.run':
+      await handOverWork(client, {
+        workspaceId: action.workspaceId,
+        fromUserId: action.fromUserId,
+        toUserId: action.toUserId,
+        selection: action.selection,
+      })
+      return { openHref: '/settings/workspace/members' }
+    case 'group_role.set':
+      await setGroupMapping(client, {
+        workspaceId: action.workspaceId,
+        groupName: action.groupName,
+        role: action.role as GroupRole,
+      })
+      return { openHref: '/settings/workspace/members' }
+    case 'group_role.remove':
+      await removeGroupMapping(client, action.mappingId)
+      return { openHref: '/settings/workspace/members' }
+    case 'absence.cancel':
+      await cancelAbsence(client, action.absenceId)
+      return { openHref: '/settings/account/away' }
     case 'notifications.read':
       await markNotificationsRead(client, null)
       return { openHref: '/inbox' }

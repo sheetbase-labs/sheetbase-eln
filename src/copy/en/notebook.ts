@@ -114,6 +114,27 @@ export const notebook = {
         applied: 'Created',
       },
       follow: { apply: 'Save', applying: 'Saving…', applied: 'Done' },
+      setAway: {
+        apply: 'Set out of office',
+        applying: 'Saving…',
+        applied: 'Out of office set',
+      },
+      handOver: {
+        apply: 'Hand over',
+        applying: 'Handing over…',
+        applied: 'Handed over',
+      },
+      mapGroup: { apply: 'Save group', applying: 'Saving…', applied: 'Saved' },
+      unmapGroup: {
+        apply: 'Remove group',
+        applying: 'Removing…',
+        applied: 'Removed',
+      },
+      cancelAway: {
+        apply: 'Cancel out of office',
+        applying: 'Cancelling…',
+        applied: 'Cancelled',
+      },
       markRead: {
         apply: 'Mark all read',
         applying: 'Marking…',

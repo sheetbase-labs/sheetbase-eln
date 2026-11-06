@@ -48,10 +48,9 @@ async function experiment(who: Client, title: string): Promise<string> {
 }
 
 async function members(who: Client, series: string) {
-  const { rows } = await who.query(
-    `select * from api.series_members($1)`,
-    [series],
-  )
+  const { rows } = await who.query(`select * from api.series_members($1)`, [
+    series,
+  ])
   return rows as Array<{
     member_record_id: string
     member_number: number
@@ -77,7 +76,12 @@ async function addSteps(recordId: string, texts: string[], done: number) {
     await migrator.query(
       `insert into api.blocks(record_id,type,payload,"order",created_by_user_id)
        values($1,'procedure_step',$2::jsonb,$3,$4)`,
-      [protocol, JSON.stringify({ text, stepNumber: index + 1 }), index + 1, OWNER],
+      [
+        protocol,
+        JSON.stringify({ text, stepNumber: index + 1 }),
+        index + 1,
+        OWNER,
+      ],
     )
   }
   const pin = (
@@ -87,15 +91,16 @@ async function addSteps(recordId: string, texts: string[], done: number) {
     )
   ).rows[0].result.block as { id: string; version: number }
   const structure = (
-    await migrator.query(`select structure_version from api.records where id=$1`, [recordId])
+    await migrator.query(
+      `select structure_version from api.records where id=$1`,
+      [recordId],
+    )
   ).rows[0].structure_version as number
   const copied = (
-    await owner.query(`select api.pin_protocol_reference($1,$2,$3,$4) as result`, [
-      pin.id,
-      protocol,
-      pin.version,
-      structure,
-    ])
+    await owner.query(
+      `select api.pin_protocol_reference($1,$2,$3,$4) as result`,
+      [pin.id, protocol, pin.version, structure],
+    )
   ).rows[0].result.copied_steps as Array<{ id: string }>
   for (const step of copied.slice(0, done)) {
     await owner.query(`select api.set_step_done($1, true)`, [step.id])
@@ -178,9 +183,10 @@ describe('members of a series', () => {
     expect(rows.map((row) => row.member_number)).toEqual([1, 2])
     expect(
       (
-        await owner.query(`select 1 from api.experiment_series where record_id=$1`, [
-          series,
-        ])
+        await owner.query(
+          `select 1 from api.experiment_series where record_id=$1`,
+          [series],
+        )
       ).rowCount,
     ).toBe(1)
 
@@ -226,12 +232,16 @@ describe('members of a series', () => {
       await owner.query(`select api.add_series_member($1,$2)`, [series, id])
     }
     await owner.query(`select api.move_series_member($1, 0.5)`, [three])
-    expect((await members(owner, series)).map((row) => row.member_record_id)).toEqual(
-      [three, one, two],
-    )
+    expect(
+      (await members(owner, series)).map((row) => row.member_record_id),
+    ).toEqual([three, one, two])
 
-    await owner.query(`select api.set_series_member_day($1,'2026-11-02')`, [three])
-    await owner.query(`select api.set_series_member_day($1,'2026-11-09')`, [two])
+    await owner.query(`select api.set_series_member_day($1,'2026-11-02')`, [
+      three,
+    ])
+    await owner.query(`select api.set_series_member_day($1,'2026-11-09')`, [
+      two,
+    ])
     const rows = await members(owner, series)
     expect(rows.map((row) => row.day_offset)).toEqual([0, null, 7])
   })
@@ -267,18 +277,29 @@ describe('members of a series', () => {
       await migrator.query(
         `insert into api.record_links(source_record_id,target_kind,target_identifier,target_record_id,link_type,created_by_user_id)
          values($1,'sample',$2,$3,'sample',$4)`,
-        [member, `${sample}-${series.slice(0, 8)}`, sampleIds.get(sample), OWNER],
+        [
+          member,
+          `${sample}-${series.slice(0, 8)}`,
+          sampleIds.get(sample),
+          OWNER,
+        ],
       )
     }
-    await migrator.query(`update api.records set status='approved' where id=$1`, [
-      first,
-    ])
+    await migrator.query(
+      `update api.records set status='approved' where id=$1`,
+      [first],
+    )
 
     const rows = await members(owner, series)
-    expect(rows[1]).toMatchObject({ steps_total: 2, steps_done: 1, sample_count: 2 })
-    const { rows: roll } = await owner.query(`select api.series_rollup($1) as r`, [
-      series,
-    ])
+    expect(rows[1]).toMatchObject({
+      steps_total: 2,
+      steps_done: 1,
+      sample_count: 2,
+    })
+    const { rows: roll } = await owner.query(
+      `select api.series_rollup($1) as r`,
+      [series],
+    )
     expect(roll[0].r).toMatchObject({
       total: 2,
       approved: 1,
@@ -286,6 +307,17 @@ describe('members of a series', () => {
       first_day: '2026-11-02',
       next: { record_id: second, due_on: '2026-11-09' },
     })
+
+    // A member already in review is waiting on someone else, so it is not next.
+    await migrator.query(
+      `update api.records set status='in_review' where id=$1`,
+      [second],
+    )
+    const { rows: later } = await owner.query(
+      `select api.series_rollup($1) as r`,
+      [series],
+    )
+    expect(later[0].r.next).toBeNull()
   })
 
   it('says where a member sits and who is either side of it', async () => {
@@ -308,9 +340,13 @@ describe('members of a series', () => {
       previous_record_id: ids[0],
       next_record_id: ids[2],
     })
-    const end = await owner.query(`select * from api.record_series($1)`, [ids[2]])
+    const end = await owner.query(`select * from api.record_series($1)`, [
+      ids[2],
+    ])
     expect(end.rows[0].next_record_id).toBeNull()
-    const none = await owner.query(`select * from api.record_series($1)`, [series])
+    const none = await owner.query(`select * from api.record_series($1)`, [
+      series,
+    ])
     expect(none.rowCount).toBe(0)
   })
 
@@ -319,13 +355,18 @@ describe('members of a series', () => {
     const series = await experiment(priya, 'Privacy')
     const mine = await experiment(priya, 'Mine')
     const theirs = await experiment(owner, 'Owner draft')
-    await migrator.query(`update api.records set status='in_progress' where id=$1`, [theirs])
+    await migrator.query(
+      `update api.records set status='in_progress' where id=$1`,
+      [theirs],
+    )
     await priya.query(`select api.add_series_member($1,$2)`, [series, mine])
     await priya.query(`select api.add_series_member($1,$2)`, [series, theirs])
-    await migrator.query(`update api.records set status='draft' where id=$1`, [theirs])
-    expect((await members(priya, series)).map((row) => row.member_record_id)).toEqual([
-      mine,
+    await migrator.query(`update api.records set status='draft' where id=$1`, [
+      theirs,
     ])
+    expect(
+      (await members(priya, series)).map((row) => row.member_record_id),
+    ).toEqual([mine])
     expect((await members(owner, series)).length).toBe(2)
   })
 })
@@ -347,15 +388,17 @@ describe('who may change a series', () => {
       viewer.query(`select api.remove_series_member($1)`, [member]),
     ).rejects.toThrow()
 
-    await migrator.query(`update api.records set archived_at=now() where id=$1`, [
-      series,
-    ])
+    await migrator.query(
+      `update api.records set archived_at=now() where id=$1`,
+      [series],
+    )
     await expect(
       owner.query(`select api.remove_series_member($1)`, [member]),
     ).rejects.toThrow(/archived or approved/)
-    await migrator.query(`update api.records set archived_at=null where id=$1`, [
-      series,
-    ])
+    await migrator.query(
+      `update api.records set archived_at=null where id=$1`,
+      [series],
+    )
   })
 
   it('adds an approved member without touching it', async () => {
@@ -366,15 +409,17 @@ describe('who may change a series', () => {
       [done],
     )
     const before = (
-      await migrator.query(`select updated_at, metadata_version from api.records where id=$1`, [
-        done,
-      ])
+      await migrator.query(
+        `select updated_at, metadata_version from api.records where id=$1`,
+        [done],
+      )
     ).rows[0]
     await owner.query(`select api.add_series_member($1,$2)`, [series, done])
     const after = (
-      await migrator.query(`select updated_at, metadata_version from api.records where id=$1`, [
-        done,
-      ])
+      await migrator.query(
+        `select updated_at, metadata_version from api.records where id=$1`,
+        [done],
+      )
     ).rows[0]
     expect(after).toEqual(before)
     expect((await members(owner, series))[0].status).toBe('approved')
@@ -393,12 +438,14 @@ describe('who may change a series', () => {
       'experiment.series_member_removed',
     ])
 
-    const { rows } = await owner.query(`select api.dissolve_experiment_series($1) as r`, [
-      series,
-    ])
+    const { rows } = await owner.query(
+      `select api.dissolve_experiment_series($1) as r`,
+      [series],
+    )
     expect(rows[0].r.members_released).toBe(1)
     expect(
-      (await owner.query(`select 1 from api.record_series($1)`, [two])).rowCount,
+      (await owner.query(`select 1 from api.record_series($1)`, [two]))
+        .rowCount,
     ).toBe(0)
     // Free to join another series now.
     const other = await experiment(owner, 'Other series')

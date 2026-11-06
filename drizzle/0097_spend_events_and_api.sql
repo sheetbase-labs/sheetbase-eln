@@ -16,13 +16,13 @@ BEGIN
     FROM pg_constraint
    WHERE conrelid = 'api.change_events'::regclass
      AND conname = 'chk_change_events_entity_type';
-  IF v_def IS NULL OR position('''approval_request''::text]' IN v_def) = 0 THEN
+  IF v_def IS NULL OR position('::text]' IN v_def) = 0 THEN
     RAISE EXCEPTION 'unexpected shape for chk_change_events_entity_type';
   END IF;
   v_def := replace(
     v_def,
-    '''approval_request''::text]',
-    '''approval_request''::text, ''reagent_order''::text, ''reagent_order_price''::text, ''instrument_rate''::text, ''scheduled_report''::text]'
+    '::text]',
+    '::text, ''reagent_order''::text, ''reagent_order_price''::text, ''instrument_rate''::text, ''scheduled_report''::text]'
   );
   EXECUTE 'ALTER TABLE api.change_events DROP CONSTRAINT chk_change_events_entity_type';
   EXECUTE 'ALTER TABLE api.change_events ADD CONSTRAINT chk_change_events_entity_type ' || v_def;
@@ -187,6 +187,6 @@ ALTER TABLE internal.api_credentials
       'reviews:read','reviews:write','files:read','files:write',
       'webhooks:read','webhooks:write','agent_operations:read',
       'agent_operations:write','pipelines:read','pipelines:write',
-      'admin:read','admin:write','facility:read','facility:write'
+      'admin:read','admin:write','people:read','people:write','facility:read','facility:write'
     ]::text[]
   );

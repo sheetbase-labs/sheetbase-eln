@@ -1,5 +1,5 @@
 /**
- * Suppliers (migration 0090). There is no supplier table: any record model can
+ * Suppliers (migration 0096). There is no supplier table: any record model can
  * be ticked as the lab's supplier list, and its records are the suppliers. A
  * ready-made Supplier model is offered for a lab that has none. A reagent
  * order names the supplier record it was placed with.

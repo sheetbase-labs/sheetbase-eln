@@ -119,7 +119,7 @@ const PLACEHOLDER_PLUGIN_KEY = new PluginKey('notebookPlaceholder')
 /**
  * A2: an empty prose row would otherwise be an invisible caret with no target,
  * which is the single most obvious difference between an empty block and an
- * empty document. The placeholder is a widget decoration, so it is never part
+ * empty document. The placeholder is a decoration, so it is never part
  * of the document and can never be saved into a payload.
  */
 function createPlaceholderPlugin(placeholderRef: React.RefObject<string>) {
@@ -132,18 +132,15 @@ function createPlaceholderPlugin(placeholderRef: React.RefObject<string>) {
         const only = doc.firstChild
         if (!only || only.type.name !== 'paragraph') return DecorationSet.empty
         if (only.content.size > 0) return DecorationSet.empty
-        const widget = Decoration.widget(
-          1,
-          () => {
-            const span = document.createElement('span')
-            span.className = 'pointer-events-none select-none text-fg-muted/50'
-            span.setAttribute('aria-hidden', 'true')
-            span.textContent = placeholderRef.current
-            return span
-          },
-          { side: -1 },
-        )
-        return DecorationSet.create(doc, [widget])
+        // A node decoration + CSS ::before (see styles.css), not an inline
+        // widget: a widget sits in the text flow, so browsers (iOS Safari
+        // especially) drop the caret after it instead of at the start.
+        return DecorationSet.create(doc, [
+          Decoration.node(0, only.nodeSize, {
+            class: 'sb-empty-placeholder',
+            'data-placeholder': placeholderRef.current,
+          }),
+        ])
       },
     },
   })

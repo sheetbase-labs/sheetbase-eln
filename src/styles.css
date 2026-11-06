@@ -848,3 +848,14 @@
   line-height: 22px;
   font-weight: 600;
 }
+
+/* Notebook empty-block placeholder. Taken out of flow (float + zero height) so
+   the caret stays at the start of the line on every browser, including iOS. */
+.sb-empty-placeholder::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  user-select: none;
+  color: color-mix(in oklab, var(--color-fg-muted) 50%, transparent);
+}

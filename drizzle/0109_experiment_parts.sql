@@ -130,6 +130,69 @@ BEGIN
 END $$;
 --> statement-breakpoint
 
+-- A notebook template may list parts and tag its placements with the part they
+-- belong to. The database's check of a template configuration (strict about
+-- the keys it allows) learns both.
+DO $$
+DECLARE
+  v_def text;
+  v_nl text := chr(10);
+BEGIN
+  SELECT pg_get_functiondef('internal.validate_notebook_template_configuration(uuid,jsonb)'::regprocedure) INTO v_def;
+  IF position('''placements.narrative''' IN v_def) = 0 OR position('''placements.sheet''' IN v_def) = 0 THEN
+    RAISE EXCEPTION 'unexpected shape for internal.validate_notebook_template_configuration';
+  END IF;
+  v_def := replace(v_def,
+    'ARRAY[''formatVersion'',''parameters'',''placements''],' || v_nl || '    ''configuration''',
+    'ARRAY[''formatVersion'',''parameters'',''placements'',''parts''],' || v_nl || '    ''configuration''');
+  v_def := replace(v_def,
+    'ARRAY[''id'',''kind'',''order'',''blockType'',''payload''],' || v_nl || '        ''placements.narrative''',
+    'ARRAY[''id'',''kind'',''order'',''blockType'',''payload'',''partId''],' || v_nl || '        ''placements.narrative''');
+  v_def := replace(v_def,
+    '''parameterMappings'',''title''],' || v_nl || '        ''placements.sheet''',
+    '''parameterMappings'',''title'',''partId''],' || v_nl || '        ''placements.sheet''');
+  v_def := replace(v_def,
+    '  FOR item IN SELECT value FROM jsonb_array_elements(p_config->''placements'') LOOP',
+    $parts$  IF p_config ? 'parts' THEN
+    IF jsonb_typeof(p_config->'parts') <> 'array' OR jsonb_array_length(p_config->'parts') > 60 THEN
+      RAISE EXCEPTION 'invalid Notebook Template parts' USING ERRCODE = 'SB091';
+    END IF;
+    FOR item IN SELECT value FROM jsonb_array_elements(p_config->'parts') LOOP
+      PERFORM internal.assert_sheet_definition_object(
+        item, ARRAY['id','title','dayOffset'], ARRAY['id','title','dayOffset'], 'parts');
+      PERFORM internal.sheet_definition_uuid(item->>'id', 'parts.id');
+      IF jsonb_typeof(item->'title') <> 'string'
+         OR length(btrim(item->>'title')) NOT BETWEEN 1 AND 200
+         OR jsonb_typeof(item->'dayOffset') <> 'number'
+         OR (item->>'dayOffset')::numeric <> trunc((item->>'dayOffset')::numeric)
+         OR (item->>'dayOffset')::numeric NOT BETWEEN 0 AND 3650 THEN
+        RAISE EXCEPTION 'invalid Notebook Template part' USING ERRCODE = 'SB091';
+      END IF;
+    END LOOP;
+    IF (SELECT count(DISTINCT pr.value->>'id') FROM jsonb_array_elements(p_config->'parts') pr)
+       <> jsonb_array_length(p_config->'parts') THEN
+      RAISE EXCEPTION 'duplicate Notebook Template part' USING ERRCODE = 'SB091';
+    END IF;
+  END IF;
+
+  FOR item IN SELECT value FROM jsonb_array_elements(p_config->'placements') LOOP$parts$);
+  v_def := replace(v_def,
+    '    placement_ids := array_append(placement_ids, id);',
+    $ids$    placement_ids := array_append(placement_ids, id);
+    IF item ? 'partId' AND NOT EXISTS (
+      SELECT 1 FROM jsonb_array_elements(coalesce(p_config->'parts', '[]'::jsonb)) pr
+       WHERE pr.value->>'id' = item->>'partId') THEN
+      RAISE EXCEPTION 'a placement names a part the Template does not have' USING ERRCODE = 'SB091';
+    END IF;$ids$);
+  IF position('''parts''],' IN v_def) = 0 OR position('''partId''],' IN v_def) = 0
+     OR position('duplicate Notebook Template part' IN v_def) = 0
+     OR position('names a part the Template' IN v_def) = 0 THEN
+    RAISE EXCEPTION 'could not patch internal.validate_notebook_template_configuration';
+  END IF;
+  EXECUTE v_def;
+END $$;
+--> statement-breakpoint
+
 -- One event for a part: change is created, completed, reopened or opened.
 CREATE FUNCTION internal.emit_part_event(p_part api.experiment_parts, p_entity_type text, p_operation text, p_change text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER

@@ -13,6 +13,7 @@ const wire: ReagentOrderWire = {
   material_record_id: 'm-1',
   material_title: 'Tris buffer',
   supplier: 'Sigma',
+  supplier_record_id: null,
   catalog_no: 'T9285',
   quantity: '4.000000',
   unit: 'mL',

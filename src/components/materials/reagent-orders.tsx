@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Field, Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
 import { Tabs } from '#/components/ui/tabs'
@@ -41,14 +42,31 @@ import { now as appNow } from '#/lib/clock'
 import { formatDate } from '#/lib/format-date'
 import {
   cancelReagentOrder,
+  fetchReagentOrderPrices,
   fetchReagentOrders,
   isOpenOrder,
   markReagentOrdered,
   reagentOrderQueryKeys,
   receiveReagentOrder,
   requestReagentOrder,
+  setReagentOrderPrice,
 } from '#/lib/reagent-orders'
-import type { ReagentOrder, ReagentOrderStatus } from '#/lib/reagent-orders'
+import type {
+  OrderPrice,
+  ReagentOrder,
+  ReagentOrderStatus,
+} from '#/lib/reagent-orders'
+import {
+  currencyOptions,
+  isCurrencyCode,
+  lastCurrency,
+  rememberCurrency,
+} from '#/lib/currency'
+import { formatMoney } from '#/lib/report-period'
+import {
+  SetUpSuppliers,
+  useSuppliers,
+} from '#/components/materials/supplier-list'
 import { t } from '#/copy'
 
 const client = notebookDataClient
@@ -57,6 +75,16 @@ export function useReagentOrders() {
   return useQuery({
     queryKey: reagentOrderQueryKeys.all,
     queryFn: () => fetchReagentOrders(client),
+    staleTime: 15_000,
+  })
+}
+
+/** What each order cost; empty for anyone who may not read prices. */
+export function useReagentOrderPrices(enabled: boolean) {
+  return useQuery({
+    queryKey: reagentOrderQueryKeys.prices,
+    queryFn: () => fetchReagentOrderPrices(client),
+    enabled,
     staleTime: 15_000,
   })
 }
@@ -248,36 +276,136 @@ export function RequestReorderDialog({
 // Mark ordered
 // ---------------------------------------------------------------------------
 
+const OTHER_SUPPLIER = '__other__'
+
+/** The price and currency fields shared by placing an order and editing its price. */
+function PriceFields({
+  price,
+  currency,
+  onPrice,
+  onCurrency,
+  error,
+  disabled,
+  autoFocus,
+}: {
+  price: string
+  currency: string
+  onPrice: (value: string) => void
+  onCurrency: (value: string) => void
+  error?: string | null
+  disabled?: boolean
+  autoFocus?: boolean
+}) {
+  return (
+    <div className="grid grid-cols-[1fr_120px] items-start gap-3">
+      <Field
+        label={t('spend.price.amount')}
+        hint={t('spend.price.amountHint')}
+        error={error}
+      >
+        <Input
+          type="number"
+          inputMode="decimal"
+          min="0"
+          step="0.01"
+          value={price}
+          aria-invalid={error != null && error !== ''}
+          autoFocus={autoFocus}
+          onChange={(e) => onPrice(e.target.value)}
+          disabled={disabled}
+        />
+      </Field>
+      <Field label={t('spend.price.currency')}>
+        <Select
+          value={currency}
+          onChange={(e) => onCurrency(e.target.value)}
+          disabled={disabled}
+        >
+          {currencyOptions(currency).map((code) => (
+            <option key={code} value={code}>
+              {code}
+            </option>
+          ))}
+        </Select>
+      </Field>
+    </div>
+  )
+}
+
+/** A price typed in a form: empty means none, otherwise zero or more. */
+function parsePrice(text: string): number | null | 'invalid' {
+  if (text.trim() === '') return null
+  const value = Number(text)
+  return Number.isFinite(value) && value >= 0 ? value : 'invalid'
+}
+
 function MarkOrderedDialog({
   order,
   onClose,
+  canSetUpSuppliers,
 }: {
   order: ReagentOrder | null
   onClose: () => void
+  canSetUpSuppliers: boolean
 }) {
   const refresh = useRefreshOrders()
+  const list = useSuppliers()
   const [reference, setReference] = useState('')
   const [expectedOn, setExpectedOn] = useState('')
-  const [supplier, setSupplier] = useState<string | null>(null)
+  const [supplierChoice, setSupplierChoice] = useState<string | null>(null)
+  const [supplierName, setSupplierName] = useState<string | null>(null)
+  const [price, setPrice] = useState('')
+  const [currency, setCurrency] = useState(lastCurrency)
+  const [priceError, setPriceError] = useState<string | null>(null)
+
+  const hasList = list.suppliers.length > 0
+  // With a supplier list the order starts on the supplier whose name matches
+  // what the material says; without one it is a plain name.
+  const matching = hasList
+    ? list.suppliers.find(
+        (s) =>
+          s.title.trim().toLowerCase() ===
+          (order?.supplier ?? '').trim().toLowerCase(),
+      )
+    : undefined
+  const choice =
+    supplierChoice ??
+    (hasList
+      ? (matching?.id ?? (order?.supplier ? OTHER_SUPPLIER : ''))
+      : OTHER_SUPPLIER)
+  const typedName = supplierName ?? order?.supplier ?? ''
+
+  const reset = () => {
+    setReference('')
+    setExpectedOn('')
+    setSupplierChoice(null)
+    setSupplierName(null)
+    setPrice('')
+    setPriceError(null)
+  }
 
   const mark = useMutation({
-    mutationFn: () =>
-      markReagentOrdered(client, {
+    mutationFn: () => {
+      const parsed = parsePrice(price)
+      return markReagentOrdered(client, {
         orderId: order!.id,
         orderReference: reference.trim() || null,
         expectedOn: expectedOn || null,
-        supplier: (supplier ?? order?.supplier ?? '').trim() || null,
-      }),
+        supplier: choice === OTHER_SUPPLIER ? typedName.trim() || null : null,
+        supplierRecordId: choice && choice !== OTHER_SUPPLIER ? choice : null,
+        totalPrice: parsed === 'invalid' ? null : parsed,
+        currency: parsed === null || parsed === 'invalid' ? null : currency,
+      })
+    },
     onSuccess: () => {
       refresh()
+      if (parsePrice(price) !== null) rememberCurrency(currency)
       toast(
         t('library.materials.orders.markedOrdered', {
           reference: order!.reference,
         }),
       )
-      setReference('')
-      setExpectedOn('')
-      setSupplier(null)
+      reset()
       onClose()
     },
     onError: (e: unknown) =>
@@ -299,19 +427,55 @@ function MarkOrderedDialog({
             className="flex flex-col gap-3"
             onSubmit={(event) => {
               event.preventDefault()
+              const parsed = parsePrice(price)
+              if (parsed === 'invalid') {
+                setPriceError(t('spend.price.enterAPrice'))
+                return
+              }
+              setPriceError(null)
               mark.mutate()
             }}
           >
             <p className="text-label text-fg-muted">
               {t('library.materials.orders.markOrderedHelp')}
             </p>
-            <Field label={t('library.materials.orders.supplier')}>
-              <Input
-                value={supplier ?? order?.supplier ?? ''}
-                onChange={(e) => setSupplier(e.target.value)}
-                disabled={mark.isPending}
-              />
-            </Field>
+            {hasList ? (
+              <Field label={t('spend.suppliers.field')}>
+                <Select
+                  value={choice}
+                  onChange={(e) => setSupplierChoice(e.target.value)}
+                  disabled={mark.isPending}
+                >
+                  <option value="">{t('spend.suppliers.none')}</option>
+                  {list.suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.title}
+                    </option>
+                  ))}
+                  <option value={OTHER_SUPPLIER}>
+                    {t('spend.suppliers.anotherSupplier')}
+                  </option>
+                </Select>
+              </Field>
+            ) : null}
+            {choice === OTHER_SUPPLIER ? (
+              <Field
+                label={
+                  hasList
+                    ? t('spend.suppliers.anotherName')
+                    : t('library.materials.orders.supplier')
+                }
+              >
+                <Input
+                  value={typedName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                  disabled={mark.isPending}
+                />
+              </Field>
+            ) : null}
+            {!hasList && !list.isPending ? (
+              <SetUpSuppliers canSetUp={canSetUpSuppliers} />
+            ) : null}
             <Field label={t('library.materials.orders.purchaseOrder')}>
               <Input
                 value={reference}
@@ -329,6 +493,17 @@ function MarkOrderedDialog({
                 disabled={mark.isPending}
               />
             </Field>
+            <PriceFields
+              price={price}
+              currency={currency}
+              onPrice={(value) => {
+                setPrice(value)
+                setPriceError(null)
+              }}
+              onCurrency={setCurrency}
+              error={priceError}
+              disabled={mark.isPending}
+            />
           </form>
         </DialogBody>
         <DialogFooter>
@@ -344,6 +519,116 @@ function MarkOrderedDialog({
             {mark.isPending
               ? t('library.materials.orders.saving')
               : t('library.materials.orders.save')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Price
+// ---------------------------------------------------------------------------
+
+/** Enter, change or remove what an order cost. */
+export function OrderPriceDialog({
+  order,
+  current,
+  onClose,
+}: {
+  order: ReagentOrder | null
+  current: OrderPrice | undefined
+  onClose: () => void
+}) {
+  const refresh = useRefreshOrders()
+  const [price, setPrice] = useState<string | null>(null)
+  const [currency, setCurrency] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const shownPrice = price ?? (current ? String(current.totalPrice) : '')
+  const shownCurrency = currency ?? current?.currency ?? lastCurrency()
+
+  const save = useMutation({
+    mutationFn: (value: number | null) =>
+      setReagentOrderPrice(client, {
+        orderId: order!.id,
+        totalPrice: value,
+        currency: value === null ? null : shownCurrency,
+      }),
+    onSuccess: (_result, value) => {
+      refresh()
+      if (value !== null) rememberCurrency(shownCurrency)
+      toast(value === null ? t('spend.price.removed') : t('spend.price.saved'))
+      setPrice(null)
+      setCurrency(null)
+      onClose()
+    },
+    onError: (e: unknown) => toast(messageOf(e, t('spend.price.couldNotSave'))),
+  })
+
+  return (
+    <Dialog open={order !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="w-[min(420px,calc(100vw-32px))]">
+        <DialogHeader
+          title={t('spend.price.dialogTitle')}
+          description={
+            order ? `${order.reference} · ${order.materialTitle}` : undefined
+          }
+        />
+        <DialogBody>
+          <form
+            id="order-price-form"
+            className="flex flex-col gap-3"
+            onSubmit={(event) => {
+              event.preventDefault()
+              const parsed = parsePrice(shownPrice)
+              if (parsed === null || parsed === 'invalid') {
+                setError(t('spend.price.enterAPrice'))
+                return
+              }
+              if (!isCurrencyCode(shownCurrency)) {
+                setError(t('spend.price.enterACurrency'))
+                return
+              }
+              setError(null)
+              save.mutate(parsed)
+            }}
+          >
+            <PriceFields
+              price={shownPrice}
+              currency={shownCurrency}
+              onPrice={(value) => {
+                setPrice(value)
+                setError(null)
+              }}
+              onCurrency={setCurrency}
+              error={error}
+              disabled={save.isPending}
+              autoFocus
+            />
+          </form>
+        </DialogBody>
+        <DialogFooter>
+          {current ? (
+            <Button
+              variant="quiet"
+              disabled={save.isPending}
+              onClick={() => save.mutate(null)}
+            >
+              {t('spend.price.remove')}
+            </Button>
+          ) : null}
+          <span className="flex-1" />
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
+          <Button
+            variant="primary"
+            type="submit"
+            form="order-price-form"
+            disabled={save.isPending}
+          >
+            {t('spend.price.save')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -593,8 +878,10 @@ export function ReagentOrdersPanel({
   const { auth } = useRouteContext({ from: '__root__' })
   const currentUserId = auth?.user.id ?? null
   const orders = useReagentOrders()
+  const prices = useReagentOrderPrices(canPlace)
   const names = useWorkspaceMemberNames()
   const [filter, setFilter] = useState<OrderFilter>('open')
+  const [pricing, setPricing] = useState<ReagentOrder | null>(null)
   const [ordering, setOrdering] = useState<ReagentOrder | null>(null)
   const [receiving, setReceiving] = useState<ReagentOrder | null>(null)
   const [cancelling, setCancelling] = useState<ReagentOrder | null>(null)
@@ -643,6 +930,46 @@ export function ReagentOrdersPanel({
         accessorFn: (order) =>
           [order.supplier, order.catalogNo].filter(Boolean).join(' · ') || '—',
       },
+      ...(canPlace
+        ? [
+            {
+              id: 'price',
+              header: t('spend.price.column'),
+              accessorFn: (order: ReagentOrder) => {
+                const price = prices.data?.get(order.id)
+                return price
+                  ? formatMoney(price.totalPrice, price.currency)
+                  : ''
+              },
+              cell: ({ row }: { row: { original: ReagentOrder } }) => {
+                const order = row.original
+                const price = prices.data?.get(order.id)
+                if (price) {
+                  return (
+                    <span className="num">
+                      {formatMoney(price.totalPrice, price.currency)}
+                    </span>
+                  )
+                }
+                if (
+                  order.status === 'requested' ||
+                  order.status === 'cancelled'
+                ) {
+                  return <span className="text-fg-muted">—</span>
+                }
+                return (
+                  <Button
+                    size="sm"
+                    variant="quiet"
+                    onClick={() => setPricing(order)}
+                  >
+                    {t('spend.price.edit')}
+                  </Button>
+                )
+              },
+            } satisfies RegistryColumn<ReagentOrder>,
+          ]
+        : []),
       {
         id: 'requested',
         header: t('library.materials.orders.columns.requested'),
@@ -723,7 +1050,7 @@ export function ReagentOrdersPanel({
         },
       },
     ],
-    [names.data, canPlace, canWrite, currentUserId],
+    [names.data, canPlace, canWrite, currentUserId, prices.data],
   )
 
   return (
@@ -783,7 +1110,16 @@ export function ReagentOrdersPanel({
           total: all.length,
         })}
       </ListFooter>
-      <MarkOrderedDialog order={ordering} onClose={() => setOrdering(null)} />
+      <MarkOrderedDialog
+        order={ordering}
+        onClose={() => setOrdering(null)}
+        canSetUpSuppliers={canPlace}
+      />
+      <OrderPriceDialog
+        order={pricing}
+        current={pricing ? prices.data?.get(pricing.id) : undefined}
+        onClose={() => setPricing(null)}
+      />
       <ReceiveOrderDialog
         order={receiving}
         onClose={() => setReceiving(null)}

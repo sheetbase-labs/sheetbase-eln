@@ -28,6 +28,7 @@ export interface ReagentOrderWire {
   material_record_id: string | null
   material_title: string
   supplier: string | null
+  supplier_record_id: string | null
   catalog_no: string | null
   quantity: string | number
   unit: string | null
@@ -52,6 +53,7 @@ export interface ReagentOrder {
   materialRecordId: string | null
   materialTitle: string
   supplier: string | null
+  supplierRecordId: string | null
   catalogNo: string | null
   quantity: number
   unit: string | null
@@ -87,6 +89,7 @@ export function toReagentOrder(row: ReagentOrderWire): ReagentOrder {
     materialRecordId: row.material_record_id,
     materialTitle: row.material_title,
     supplier: row.supplier,
+    supplierRecordId: row.supplier_record_id ?? null,
     catalogNo: row.catalog_no,
     quantity: Number(row.quantity),
     unit: row.unit,
@@ -107,6 +110,45 @@ export function toReagentOrder(row: ReagentOrderWire): ReagentOrder {
 
 export const reagentOrderQueryKeys = {
   all: ['ui-port', 'materials', 'orders'] as const,
+  prices: ['ui-port', 'materials', 'orders', 'prices'] as const,
+}
+
+/** What an order cost. Only the people who place orders can read it. */
+export interface OrderPrice {
+  totalPrice: number
+  currency: string
+}
+
+/** Prices by order id; empty for anyone who may not read them. */
+export async function fetchReagentOrderPrices(
+  client: DataClient,
+): Promise<Map<string, OrderPrice>> {
+  const rows = await client.list<{
+    order_id: string
+    total_price: string | number
+    currency: string
+  }>('reagent_order_prices', '?limit=5000')
+  return new Map(
+    rows.map((row) => [
+      row.order_id,
+      { totalPrice: Number(row.total_price), currency: row.currency },
+    ]),
+  )
+}
+
+export function setReagentOrderPrice(
+  client: DataClient,
+  input: {
+    orderId: string
+    totalPrice: number | null
+    currency: string | null
+  },
+): Promise<unknown> {
+  return client.rpc('set_reagent_order_price', {
+    p_order_id: input.orderId,
+    p_total_price: input.totalPrice,
+    p_currency: input.currency,
+  })
 }
 
 /** Newest first; a lab's order history is short enough to read in one go. */
@@ -145,6 +187,11 @@ export interface MarkReagentOrderedInput {
   /** ISO date YYYY-MM-DD. */
   expectedOn?: string | null
   supplier?: string | null
+  /** A record from the supplier list; its name becomes the order's supplier. */
+  supplierRecordId?: string | null
+  totalPrice?: number | null
+  /** Three-letter code, such as GBP. */
+  currency?: string | null
 }
 
 export function markReagentOrdered(
@@ -156,6 +203,9 @@ export function markReagentOrdered(
     p_order_reference: input.orderReference ?? null,
     p_expected_on: input.expectedOn || null,
     p_supplier: input.supplier ?? null,
+    p_supplier_record_id: input.supplierRecordId ?? null,
+    p_total_price: input.totalPrice ?? null,
+    p_currency: input.currency ?? null,
   })
 }
 

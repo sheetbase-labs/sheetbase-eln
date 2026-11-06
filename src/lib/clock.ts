@@ -24,9 +24,12 @@ function resolvePinnedNow(): Date | null {
  * substituted, which vite.config.ts only fills for development and test builds.
  */
 function readPinnedValue(): string | null {
-  const environment = process.env.SHEETBASE_ENV
-  if (environment === 'development' || environment === 'test') {
-    if (process.env.SHEETBASE_NOW) return process.env.SHEETBASE_NOW
+  // The browser (and Storybook) has no `process`; only the server reads it.
+  if (typeof process !== 'undefined') {
+    const environment = process.env.SHEETBASE_ENV
+    if (environment === 'development' || environment === 'test') {
+      if (process.env.SHEETBASE_NOW) return process.env.SHEETBASE_NOW
+    }
   }
   if (typeof __SHEETBASE_NOW__ === 'string' && __SHEETBASE_NOW__) {
     return __SHEETBASE_NOW__

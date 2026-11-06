@@ -1299,7 +1299,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'request.submitted',
     status: 'stable',
     introducedIn: 'lab-01',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'request.decided',
@@ -1312,7 +1312,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'request.decided',
     status: 'stable',
     introducedIn: 'lab-01',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
     notes: 'Payload decision is accepted, declined or completed.',
   },
   {
@@ -1415,7 +1415,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'incident.reported',
     status: 'stable',
     introducedIn: 'lab-01',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
     notes:
       'A record of any model with the Incident log box ticked. The same record also emits record.created.',
   },
@@ -1430,7 +1430,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'registry.entry.created',
     status: 'stable',
     introducedIn: 'lab-01',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
     notes:
       'A record of any model with the Registry box ticked. The same record also emits record.created.',
   },
@@ -1475,7 +1475,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'record.assigned',
     status: 'stable',
     introducedIn: 'lab-01',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
     notes:
       'Payload carries assigneeUserId (null when unassigned) and previousAssigneeUserId.',
   },

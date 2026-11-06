@@ -133,6 +133,9 @@ accepts them.
 | `instrument.reading.out_of_limits` / `instrument.reading.back_in_range`              | `instrument_feed` + `update`, by `limitState` (not `ok` / `ok`)                                                      | `feedId`, `feed`, `instrumentId`, `instrument`, `limitState` (`low`, `high` or `ok`), `previousState`, `value`, `unit`, `lowLimit`, `highLimit`, `readingAt`. Sent when a feed crosses a limit, not on every reading.                      |
 | `record.assigned`                                                                    | `record_assignment` + `update`                                                                                       | `recordId`, `identifier`, `title`, `assigneeUserId` (null when unassigned), `previousAssigneeUserId`                                                                                                                                       |
 
+`request.submitted`, `request.decided`, `incident.reported`, `registry.entry.created` and `record.assigned`
+are also pipeline trigger events (they sit in the `record` family, like `record.created`).
+
 Booking rules, calendar feeds, step timers, solution preparation and display
 settings are personal or configuration changes and are not events.
 

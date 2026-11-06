@@ -4,7 +4,9 @@ import {
   BENCH_PROPOSE_TOOL_NAMES,
   INCIDENT_REPORT_TOOL,
   INSTRUMENT_SERVICE_TOOL,
+  INSTRUMENT_RATE_TOOL,
   REAGENT_ORDER_TOOL,
+  REAGENT_PLACE_TOOL,
   REAGENT_RECEIVE_TOOL,
   REQUEST_SEND_TOOL,
   SAMPLES_LOG_TOOL,
@@ -15,7 +17,9 @@ import {
   STORAGE_READING_TOOL,
   proposeIncidentSchema,
   proposeInstrumentServiceSchema,
+  proposeInstrumentRateSchema,
   proposeReagentOrderSchema,
+  proposeReagentPlaceSchema,
   proposeReagentReceiveSchema,
   proposeRequestSchema,
   proposeSampleAdvanceSchema,
@@ -37,6 +41,8 @@ import {
 import type { LabToolContext } from './assistant-lab-tools.server'
 import type { AssistantProposal, ProposalChange } from './assistant-proposals'
 import type { DataClient } from './data-client'
+import { fetchSupplierModelKeys, fetchSuppliers } from './suppliers'
+import { formatMoney } from './report-period'
 import { fetchModelFields } from './model-fields'
 import type { ModelFieldDefinition } from './model-fields'
 import { fetchSampleRuns } from './sample-workflows'
@@ -71,6 +77,16 @@ export function benchProposalDefs(): ProviderToolDef[] {
       REAGENT_RECEIVE_TOOL,
       `Propose marking a reagent order as received when it arrives, with its lot and expiry. Ask for the lot and expiry if the person has not said. ${NOTE}`,
       proposeReagentReceiveSchema,
+    ),
+    toolDef(
+      REAGENT_PLACE_TOOL,
+      `Propose marking a requested reagent order as ordered, with who it was bought from, the price and currency. Only for people who place orders. Ask for the price and currency if the person has not said. ${NOTE}`,
+      proposeReagentPlaceSchema,
+    ),
+    toolDef(
+      INSTRUMENT_RATE_TOOL,
+      `Propose the recharge rate for an instrument: what each booked hour costs the person or project that books it, or no charge. Only for people who manage instruments. ${NOTE}`,
+      proposeInstrumentRateSchema,
     ),
     toolDef(
       SAMPLES_LOG_TOOL,
@@ -588,6 +604,151 @@ export async function buildBenchProposal(
           lot: input.lot,
           expiry: input.expiry,
           quantity: input.quantity ?? null,
+        },
+      })
+    }
+
+    case REAGENT_PLACE_TOOL: {
+      const parsed = parse(proposeReagentPlaceSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      if (input.price !== undefined && !input.currency) {
+        return fail('Ask the person which currency the price is in.')
+      }
+      const number = /^RO-?(\d+)$/i.exec(input.order.trim())
+      const orders = await client.list<{
+        id: string
+        number: number
+        material_title: string
+      }>(
+        'reagent_orders',
+        `?status=eq.requested&${
+          number
+            ? `number=eq.${Number(number[1])}`
+            : `material_title=ilike.${likeValue(input.order)}`
+        }&select=id,number,material_title&order=number.desc&limit=6`,
+      )
+      if (orders.length === 0) {
+        return fail(`No requested order matches "${input.order}".`)
+      }
+      if (orders.length > 1) {
+        return fail(
+          `More than one requested order matches: ${orders
+            .map(
+              (o) =>
+                `RO-${String(o.number).padStart(4, '0')} ${o.material_title}`,
+            )
+            .join(', ')}. Ask which one.`,
+        )
+      }
+      const order = orders[0]
+      let supplierName: string | null = input.supplier?.trim() || null
+      let supplierRecordId: string | null = null
+      if (supplierName) {
+        const suppliers = await fetchSuppliers(
+          client,
+          await fetchSupplierModelKeys(client),
+        )
+        const wanted = supplierName.toLowerCase()
+        const match = suppliers.filter((s) =>
+          s.title.toLowerCase().includes(wanted),
+        )
+        const exact = match.filter((s) => s.title.toLowerCase() === wanted)
+        const chosen = exact.length === 1 ? exact : match
+        if (chosen.length === 1) {
+          supplierRecordId = chosen[0].id
+          supplierName = chosen[0].title
+        } else if (chosen.length > 1) {
+          return fail(
+            `More than one supplier matches: ${chosen
+              .map((s) => s.title)
+              .join(', ')}. Ask which one.`,
+          )
+        }
+      }
+      const currency = input.currency?.toUpperCase() ?? null
+      const changes: ProposalChange[] = [
+        { label: 'Material', before: null, after: order.material_title },
+      ]
+      if (supplierName) {
+        changes.push({ label: 'Supplier', before: null, after: supplierName })
+      }
+      if (input.reference) {
+        changes.push({
+          label: 'Reference',
+          before: null,
+          after: input.reference,
+        })
+      }
+      if (input.price !== undefined && currency) {
+        changes.push({
+          label: 'Price',
+          before: null,
+          after: formatMoney(input.price, currency),
+        })
+      }
+      if (input.expectedOn) {
+        changes.push({
+          label: 'Expected',
+          before: null,
+          after: input.expectedOn,
+        })
+      }
+      return card(name, input, {
+        target: `RO-${String(order.number).padStart(4, '0')}`,
+        deepLink: '/materials',
+        changes,
+        action: {
+          kind: 'reagent.place',
+          orderId: order.id,
+          supplier: supplierName,
+          supplierRecordId,
+          reference: input.reference?.trim() || null,
+          price: input.price ?? null,
+          currency: input.price === undefined ? null : currency,
+          expectedOn: input.expectedOn ?? null,
+        },
+      })
+    }
+
+    case INSTRUMENT_RATE_TOOL: {
+      const parsed = parse(proposeInstrumentRateSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      if (input.ratePerHour !== null && !input.currency) {
+        return fail('Ask the person which currency the rate is in.')
+      }
+      const found = await resolveInstrument(
+        client,
+        workspaceId,
+        input.instrument,
+      )
+      if (!found.ok) return fail(found.message)
+      const instrument = found.instrument
+      const current = await client.list<{
+        rate_per_hour: string | number
+        currency: string
+      }>(
+        'instrument_rates',
+        `?instrument_id=eq.${instrument.id}&select=rate_per_hour,currency&limit=1`,
+      )
+      const before = current.at(0)
+        ? `${formatMoney(Number(current[0].rate_per_hour), current[0].currency)} an hour`
+        : 'No charge'
+      const currency = input.currency?.toUpperCase() ?? null
+      const after =
+        input.ratePerHour === null || !currency
+          ? 'No charge'
+          : `${formatMoney(input.ratePerHour, currency)} an hour`
+      return card(name, input, {
+        target: instrumentLabel(instrument),
+        deepLink: '/instruments',
+        changes: [{ label: 'Rate', before, after }],
+        action: {
+          kind: 'instrument.rate',
+          instrumentId: instrument.id,
+          ratePerHour: input.ratePerHour,
+          currency,
         },
       })
     }

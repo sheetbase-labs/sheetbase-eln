@@ -1,4 +1,9 @@
-import { receiveReagentOrder, requestReagentOrder } from './reagent-orders'
+import {
+  markReagentOrdered,
+  receiveReagentOrder,
+  requestReagentOrder,
+} from './reagent-orders'
+import { setInstrumentRate } from './facility-usage'
 import { advanceRun } from './sample-workflows'
 import { submitRequest } from './requests'
 import {
@@ -34,6 +39,24 @@ export async function runBenchAction(
         lot: action.lot,
         expiry: action.expiry,
         quantity: action.quantity,
+      })
+      return
+    case 'reagent.place':
+      await markReagentOrdered(client, {
+        orderId: action.orderId,
+        orderReference: action.reference,
+        expectedOn: action.expectedOn,
+        supplier: action.supplier,
+        supplierRecordId: action.supplierRecordId,
+        totalPrice: action.price,
+        currency: action.currency,
+      })
+      return
+    case 'instrument.rate':
+      await setInstrumentRate(client, {
+        instrumentId: action.instrumentId,
+        ratePerHour: action.ratePerHour,
+        currency: action.ratePerHour === null ? null : action.currency,
       })
       return
     case 'samples.log': {

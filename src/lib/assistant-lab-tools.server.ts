@@ -16,6 +16,15 @@ import type { AssistantProposal } from './assistant-proposals'
 import { describeMinutes } from './booking-rules'
 import type { CalendarBookingWire } from './calendar'
 import type { DataClient } from './data-client'
+import { fetchUsageLines, utilisationByInstrument } from './facility-usage'
+import {
+  formatHours,
+  formatRange,
+  formatShare,
+  formatTotals,
+  resolvePeriod,
+} from './report-period'
+import { fetchSpendLines, groupSpend, totalSpend } from './spend-report'
 import type { ProviderToolDef } from './ai-providers/types'
 
 /**
@@ -30,11 +39,13 @@ import type { ProviderToolDef } from './ai-providers/types'
 export const SCHEDULE_TOOL = 'sheetbase.schedule.read'
 export const FREE_TIME_TOOL = 'sheetbase.schedule.free_time'
 export const LAB_LIST_TOOL = 'sheetbase.lab.list'
+export const FACILITY_REPORT_TOOL = 'sheetbase.facility.report'
 
 export const LAB_READ_TOOL_NAMES = [
   SCHEDULE_TOOL,
   FREE_TIME_TOOL,
   LAB_LIST_TOOL,
+  FACILITY_REPORT_TOOL,
 ] as const
 
 export const BOOKING_PROPOSE_TOOL_NAMES = [
@@ -177,6 +188,11 @@ export function labToolDefs(): ProviderToolDef[] {
         .map(([key, text]) => `${key} (${text})`)
         .join('; ')}.`,
       labListSchema,
+    ),
+    toolDef(
+      FACILITY_REPORT_TOOL,
+      'Read what the lab spent on orders, or how much its instruments were used and what that use costs, for a period. Spend is only visible to people who place orders; amounts are per currency and orders without a price are counted separately.',
+      facilityReportSchema,
     ),
   ]
 }
@@ -369,6 +385,93 @@ export function invalid(error: z.ZodError): string {
     .join('; ')}`
 }
 
+const facilityReportSchema = z
+  .object({
+    report: z
+      .enum(['spend', 'usage'])
+      .describe('Spend on orders, or instrument usage and recharge.'),
+    period: z
+      .enum([
+        'this_month',
+        'last_month',
+        'last_7_days',
+        'last_30_days',
+        'previous_week',
+      ])
+      .default('last_month'),
+    openHoursPerDay: z
+      .number()
+      .positive()
+      .max(24)
+      .default(10)
+      .describe('Hours an instrument is open on a weekday, for utilisation.'),
+  })
+  .strict()
+
+async function readFacilityReport(
+  input: z.infer<typeof facilityReportSchema>,
+  context: LabToolContext,
+): Promise<string> {
+  const range = resolvePeriod(
+    input.period,
+    context.now ?? new Date(),
+    context.timeZone,
+  )
+  const heading = `${input.report === 'spend' ? 'Spend on orders' : 'Instrument usage'}, ${formatRange(range, context.timeZone)}`
+  if (input.report === 'spend') {
+    const lines = await fetchSpendLines(
+      context.client,
+      context.workspaceId,
+      range,
+    )
+    if (lines.length === 0) return `${heading}: no orders were placed.`
+    const total = totalSpend(lines)
+    const rows = (by: 'project' | 'supplier') =>
+      groupSpend(lines, by, context.timeZone)
+        .slice(0, 10)
+        .map(
+          (g) =>
+            `- ${g.label || 'None'}: ${formatTotals(g.totals) || 'nothing priced'} (${g.orders} orders)`,
+        )
+        .join('\n')
+    return [
+      `${heading}.`,
+      `Spent: ${formatTotals(total.totals) || 'nothing priced'}; ${total.orders} orders placed, ${total.unpriced} without a price.`,
+      'By project:',
+      rows('project'),
+      'By supplier:',
+      rows('supplier'),
+    ].join('\n')
+  }
+  const lines = await fetchUsageLines(
+    context.client,
+    context.workspaceId,
+    range,
+  )
+  if (lines.length === 0) return `${heading}: no bookings.`
+  const rows = utilisationByInstrument(
+    lines,
+    range,
+    input.openHoursPerDay,
+    context.timeZone,
+  )
+  const hours = rows.reduce((sum, r) => sum + r.hours, 0)
+  const charges: Record<string, number> = {}
+  for (const row of rows) {
+    for (const [currency, amount] of Object.entries(row.charges)) {
+      charges[currency] = (charges[currency] ?? 0) + amount
+    }
+  }
+  return [
+    `${heading}.`,
+    `Booked ${formatHours(hours)} h across ${lines.length} bookings; recharge ${formatTotals(charges) || 'none (no rates set)'}.`,
+    ...rows.map(
+      (r) =>
+        `- ${r.name}${r.code ? ` (${r.code})` : ''}: ${formatHours(r.hours)} h, ${formatShare(r.utilisation)} used, ${r.people} people${formatTotals(r.charges) ? `, ${formatTotals(r.charges)}` : ''}`,
+    ),
+  ].join('\n')
+}
+
 export async function runLabReadTool(
   name: string,
   args: unknown,
@@ -399,6 +502,15 @@ export async function runLabReadTool(
         if (!parsed.success)
           return { text: invalid(parsed.error), isError: true }
         return { text: await listLabArea(parsed.data, context), isError: false }
+      }
+      case FACILITY_REPORT_TOOL: {
+        const parsed = facilityReportSchema.safeParse(args)
+        if (!parsed.success)
+          return { text: invalid(parsed.error), isError: true }
+        return {
+          text: await readFacilityReport(parsed.data, context),
+          isError: false,
+        }
       }
       default:
         return { text: 'That tool is not available.', isError: true }

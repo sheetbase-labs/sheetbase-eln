@@ -44,6 +44,8 @@ const ACTION_COPY = {
   'booking.cancel': 'cancel',
   'reagent.order': 'orderReagent',
   'reagent.receive': 'receiveReagent',
+  'reagent.place': 'placeReagent',
+  'instrument.rate': 'instrumentRate',
   'samples.log': 'logSamples',
   'sample.use': 'useSample',
   'sample.move': 'moveSamples',

@@ -15,6 +15,8 @@ import { z } from 'zod'
 
 export const REAGENT_ORDER_TOOL = 'sheetbase.reagent.order'
 export const REAGENT_RECEIVE_TOOL = 'sheetbase.reagent.receive'
+export const REAGENT_PLACE_TOOL = 'sheetbase.reagent.mark_ordered'
+export const INSTRUMENT_RATE_TOOL = 'sheetbase.instrument.set_rate'
 export const SAMPLES_LOG_TOOL = 'sheetbase.sample.log'
 export const SAMPLE_USE_TOOL = 'sheetbase.sample.use'
 export const SAMPLE_MOVE_TOOL = 'sheetbase.sample.move'
@@ -28,6 +30,8 @@ export const STORAGE_READING_TOOL = 'sheetbase.storage.log_reading'
 export const BENCH_PROPOSE_TOOL_NAMES = [
   REAGENT_ORDER_TOOL,
   REAGENT_RECEIVE_TOOL,
+  REAGENT_PLACE_TOOL,
+  INSTRUMENT_RATE_TOOL,
   SAMPLES_LOG_TOOL,
   SAMPLE_USE_TOOL,
   SAMPLE_MOVE_TOOL,
@@ -100,6 +104,67 @@ export const proposeReagentReceiveSchema = z
       .positive()
       .optional()
       .describe('Amount received. Leave out when it is what was ordered.'),
+  })
+  .strict()
+
+export const proposeReagentPlaceSchema = z
+  .object({
+    title,
+    summary,
+    order: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe(
+        'The open order by number (RO-0007) or the material it is for.',
+      ),
+    supplier: z
+      .string()
+      .max(200)
+      .optional()
+      .describe(
+        'Who it was bought from, as the person says it. Matched to the lab’s supplier list when there is one.',
+      ),
+    reference: z
+      .string()
+      .max(100)
+      .optional()
+      .describe('Purchase order or reference number.'),
+    price: z
+      .number()
+      .min(0)
+      .optional()
+      .describe('What the whole order cost, including tax and carriage.'),
+    currency: z
+      .string()
+      .regex(/^[A-Za-z]{3}$/, 'Use a three-letter code such as GBP.')
+      .optional()
+      .describe('Three-letter currency code. Needed with a price.'),
+    expectedOn: day.optional().describe('When it should arrive, YYYY-MM-DD.'),
+  })
+  .strict()
+
+export const proposeInstrumentRateSchema = z
+  .object({
+    title,
+    summary,
+    instrument: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe(
+        'The instrument as the person names it: its name or INS number.',
+      ),
+    ratePerHour: z
+      .number()
+      .min(0)
+      .nullable()
+      .describe('What each booked hour is charged. Null to stop charging.'),
+    currency: z
+      .string()
+      .regex(/^[A-Za-z]{3}$/, 'Use a three-letter code such as GBP.')
+      .optional()
+      .describe('Three-letter currency code. Needed with a rate.'),
   })
   .strict()
 
@@ -344,6 +409,22 @@ export type BenchAction =
       lot: string
       expiry: string
       quantity: number | null
+    }
+  | {
+      kind: 'reagent.place'
+      orderId: string
+      supplier: string | null
+      supplierRecordId: string | null
+      reference: string | null
+      price: number | null
+      currency: string | null
+      expectedOn: string | null
+    }
+  | {
+      kind: 'instrument.rate'
+      instrumentId: string
+      ratePerHour: number | null
+      currency: string | null
     }
   | {
       kind: 'samples.log'

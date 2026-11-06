@@ -196,6 +196,50 @@ describe('going out of range', () => {
       'Temperature in Freezer F-01 is back in range',
     )
     expect((await unitFeed('Temperature'))!.out_of_range_since).toBeNull()
+
+    // The same moments are events for webhooks and the stream.
+    const { rows: events } = await migrator.query<{
+      operation: string
+      payload: { state: string; feed: string; storageUnitId: string }
+    }>(
+      `select operation, payload from api.change_events
+        where workspace_id = $1 and entity_type = 'storage_alarm' order by sequence`,
+      [WS],
+    )
+    expect(events.map((e) => e.operation)).toEqual(['create', 'resolve'])
+    expect(events[0]!.payload).toMatchObject({
+      state: 'high',
+      feed: 'Temperature',
+      storageUnitId: unitId,
+    })
+    expect(events[1]!.payload.state).toBe('ok')
+  })
+})
+
+describe('reading them back', () => {
+  it('lists each measurement with its limits, and only the out-of-range ones on request', async () => {
+    const scientist = await actor(SCIENTIST)
+    await sendUnit(scientist, [{ feed: 'Humidity', value: 40, unit: '%' }])
+    await sendUnit(scientist, [{ feed: 'Temperature', value: -50 }])
+    const all = await scientist.query<{
+      query_storage_readings: Array<{ feed: string; state: string }>
+    }>('select api.query_storage_readings($1,null,false,100)', [unitId])
+    expect(all.rows[0]!.query_storage_readings.map((r) => r.feed)).toEqual([
+      'Humidity',
+      'Temperature',
+    ])
+    const out = await scientist.query<{
+      query_storage_readings: Array<{ feed: string; state: string }>
+    }>('select api.query_storage_readings(null,null,true,100)')
+    expect(out.rows[0]!.query_storage_readings).toMatchObject([
+      { feed: 'Temperature', state: 'high' },
+    ])
+    // Someone from another workspace sees none of it.
+    const stranger = await actor(STRANGER, OTHER_WS)
+    const none = await stranger.query<{ query_storage_readings: unknown[] }>(
+      'select api.query_storage_readings(null,null,false,100)',
+    )
+    expect(none.rows[0]!.query_storage_readings).toEqual([])
   })
 })
 

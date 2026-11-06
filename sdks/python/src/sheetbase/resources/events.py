@@ -74,6 +74,8 @@ EVENT_NAMES: tuple[str, ...] = (
     "storage.placed",
     "storage.moved",
     "storage.removed",
+    "storage.alarm.raised",
+    "storage.alarm.cleared",
     "instrument.run.created",
     "instrument.run.completed",
     "instrument.run.failed",

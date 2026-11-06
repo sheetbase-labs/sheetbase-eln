@@ -48,6 +48,7 @@ const order = (
   materialRecordId: LOT_ID,
   materialTitle: 'Acetonitrile, HPLC grade',
   supplier: 'Fisher Scientific',
+  supplierRecordId: null,
   catalogNo: 'A998-4',
   quantity: 4,
   unit: 'L',

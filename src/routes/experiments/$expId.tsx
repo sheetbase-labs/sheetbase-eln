@@ -59,6 +59,8 @@ export interface RecordLinkWire {
   target_identifier: string
   target_record_id: string | null
   link_type: string
+  /** The part of the experiment it was made in; none for an experiment without parts. */
+  part_id?: string | null
   created_at: string
 }
 
@@ -104,7 +106,7 @@ export function useExperimentLinks(recordId: string) {
     queryFn: () =>
       notebookDataClient.list<RecordLinkWire>(
         'record_links',
-        `?source_record_id=eq.${recordId}&select=id,target_kind,target_identifier,target_record_id,link_type,created_at&order=created_at.desc`,
+        `?source_record_id=eq.${recordId}&select=id,target_kind,target_identifier,target_record_id,link_type,part_id,created_at&order=created_at.desc`,
       ),
   })
 }

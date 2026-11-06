@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router'
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
+import { Select } from '#/components/ui/select'
 import { Sheet, SheetContent } from '#/components/ui/sheet'
 import {
   openBesideOnAlt,
@@ -570,4 +571,51 @@ export function PartsOutline({
       </p>
     </nav>
   )
+}
+
+/** What an experiment's samples and data are shown for: every part, or one. */
+export type PartFilterValue = 'all' | string
+
+/**
+ * The filter above the Samples and Data lists. Nothing shows for an experiment
+ * without parts. An item that was not made in a part shows under every part.
+ */
+export function PartFilter({
+  parts,
+  value,
+  onChange,
+}: {
+  parts: readonly Pick<PartProgress, 'id' | 'number' | 'title'>[]
+  value: PartFilterValue
+  onChange: (value: PartFilterValue) => void
+}) {
+  if (parts.length === 0) return null
+  return (
+    <label className="flex items-center gap-1.5">
+      {t('notebook.parts.filterLabel')}
+      <Select
+        size="sm"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="all">{t('notebook.parts.filterAll')}</option>
+        {parts.map((part) => (
+          <option key={part.id} value={part.id}>
+            {t('notebook.parts.partTitle', {
+              number: String(part.number),
+              title: part.title,
+            })}
+          </option>
+        ))}
+      </Select>
+    </label>
+  )
+}
+
+/** Whether an item made in `itemPartId` shows for the chosen filter. */
+export function showsForPart(
+  itemPartId: string | null | undefined,
+  filter: PartFilterValue,
+): boolean {
+  return filter === 'all' || !itemPartId || itemPartId === filter
 }

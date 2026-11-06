@@ -460,6 +460,24 @@ const LAB_EVENTS: ReadonlyArray<{
     payload: {},
   },
   {
+    name: 'compound.registered',
+    entityType: 'compound',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'compound.structure_changed',
+    entityType: 'compound',
+    operation: 'update',
+    payload: {},
+  },
+  {
+    name: 'compound.lot_added',
+    entityType: 'compound_lot',
+    operation: 'create',
+    payload: {},
+  },
+  {
     name: 'experiment.series_member_added',
     entityType: 'experiment_series_member',
     operation: 'create',

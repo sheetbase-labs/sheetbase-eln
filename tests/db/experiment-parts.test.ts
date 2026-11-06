@@ -1,5 +1,5 @@
 /**
- * Parts of an experiment (migration 0104): parts run in order, finishing the
+ * Parts of an experiment (migration 0105): parts run in order, finishing the
  * steps of a part finishes it and opens the next, blocks stay in their part,
  * and the change feed hears about all of it.
  * Runs against a freshly migrated sheetbase_test database.

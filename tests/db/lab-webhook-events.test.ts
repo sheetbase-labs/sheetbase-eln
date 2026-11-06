@@ -441,13 +441,15 @@ describe('record assignment', () => {
 })
 
 describe('pipeline triggers', () => {
-  it('accepts every record-family lab event as a trigger', async () => {
+  it('accepts the lab events and storage alarms as triggers', async () => {
     for (const name of [
       'request.submitted',
       'request.decided',
       'incident.reported',
       'registry.entry.created',
       'record.assigned',
+      'storage.alarm.raised',
+      'storage.alarm.cleared',
     ]) {
       const { rows } = await migrator.query(
         `select api.normalize_pipeline_event_type($1) as name`,

@@ -324,7 +324,8 @@ BEGIN
         'notebook.template.versioned',
         -- Lab features in the record family.
         'request.submitted', 'request.decided', 'incident.reported',
-        'registry.entry.created', 'record.assigned'
+        'registry.entry.created', 'record.assigned',
+        'storage.alarm.raised', 'storage.alarm.cleared'
       ) THEN
         RETURN p_event;
       END IF;

@@ -11,6 +11,7 @@ import { spawn } from 'node:child_process'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { migratorUrl, prepareTestDatabase } from './helpers'
+import { readJournal } from '../../scripts/lib/migrations.mjs'
 
 type ThenArg<T> = T extends PromiseLike<infer U> ? U : never
 
@@ -51,9 +52,7 @@ describe('migrate-once advisory locking', () => {
       'SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations',
     )
     // The full migration history is applied exactly once.
-    const manifest = JSON.parse(
-      readFileSync('drizzle/meta/_journal.json', 'utf8'),
-    ) as { entries: unknown[] }
+    const manifest = readJournal() as { entries: unknown[] }
     expect(Number(journal.rows[0].n)).toBe(manifest.entries.length)
   })
 

@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
+import { readJournal } from '../../scripts/lib/migrations.mjs'
 
 const dockerfile = readFileSync('Dockerfile', 'utf8')
 const deployComposeRaw = readFileSync('compose.deploy.yaml', 'utf8')
@@ -41,9 +42,7 @@ esac
 `,
       { mode: 0o700 },
     )
-    const journal = JSON.parse(
-      readFileSync('drizzle/meta/_journal.json', 'utf8'),
-    )
+    const journal = readJournal()
     const env = {
       ...process.env,
       PATH: `${bin}:${process.env.PATH}`,

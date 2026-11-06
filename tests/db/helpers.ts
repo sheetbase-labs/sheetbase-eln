@@ -4,9 +4,10 @@
  */
 import { config } from 'dotenv'
 import { drizzle } from 'drizzle-orm/node-postgres'
-import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { Client } from 'pg'
 import { expect } from 'vitest'
+
+import { applyMigrations } from '../../scripts/lib/migrations.mjs'
 
 import type { SandboxConnection } from '#/lib/pipeline-sandbox.server'
 
@@ -111,11 +112,12 @@ export async function cloneTestDatabase(): Promise<void> {
 
 /** Apply the full migration history to the test database. */
 export async function migrateTestDatabase(): Promise<void> {
-  const db = drizzle(migratorUrl())
+  const client = new Client({ connectionString: migratorUrl() })
+  await client.connect()
   try {
-    await migrate(db, { migrationsFolder: 'drizzle' })
+    await applyMigrations(client, 'drizzle')
   } finally {
-    await db.$client.end()
+    await client.end()
   }
 }
 
@@ -197,19 +199,19 @@ export async function ensureTestTemplateDatabase(): Promise<void> {
     // PostgreSQL" in whichever worker lost the race.
     const templateUrl = new URL(required('MIGRATION_DATABASE_URL'))
     templateUrl.pathname = `/${TEST_TEMPLATE_DATABASE}`
-    const db = drizzle(templateUrl.toString())
+    const db = new Client({ connectionString: templateUrl.toString() })
+    await db.connect()
     try {
-      await migrate(db, { migrationsFolder: 'drizzle' })
-      await db.$client.query(
+      await applyMigrations(db, 'drizzle')
+      await db.query(
         `create table if not exists public.test_template_meta(hash text not null)`,
       )
-      await db.$client.query(`delete from public.test_template_meta`)
-      await db.$client.query(
-        `insert into public.test_template_meta(hash) values($1)`,
-        [wanted],
-      )
+      await db.query(`delete from public.test_template_meta`)
+      await db.query(`insert into public.test_template_meta(hash) values($1)`, [
+        wanted,
+      ])
     } finally {
-      await db.$client.end()
+      await db.end()
     }
   } finally {
     await admin.query('select pg_advisory_unlock(918273645)').catch(() => {})

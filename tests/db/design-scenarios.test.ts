@@ -5,12 +5,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { drizzle } from 'drizzle-orm/node-postgres'
-import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { Client } from 'pg'
 import { expect, it } from 'vitest'
 
 import * as schema from '#/db/schema'
 import { DESIGN_USER_IDS, prepareDesignScenario } from '#/db/seed/design'
+import { applyMigrations } from '../../scripts/lib/migrations.mjs'
 import { roleUrl } from './helpers'
 
 const execute = promisify(execFile)
@@ -59,7 +59,15 @@ it.each(scenarios)(
       throw new Error('MIGRATION_DATABASE_URL required')
     const database = drizzle(process.env.MIGRATION_DATABASE_URL, { schema })
     try {
-      await migrate(database, { migrationsFolder: 'drizzle' })
+      const migration = new Client({
+        connectionString: process.env.MIGRATION_DATABASE_URL,
+      })
+      await migration.connect()
+      try {
+        await applyMigrations(migration, 'drizzle')
+      } finally {
+        await migration.end()
+      }
       const seeded = await execute('pnpm', ['db:seed:design'], {
         env: { ...process.env, FILE_STORAGE_DIR: storage },
       })

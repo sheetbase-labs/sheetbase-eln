@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 
 import {
@@ -6,6 +5,7 @@ import {
   assertImmutableImageReference,
   latestMigrationVersion,
 } from '../src/lib/deployment-plan'
+import { readJournal } from './lib/migrations.mjs'
 
 function required(name: string): string {
   const value = process.env[name]
@@ -34,9 +34,7 @@ const imageTag = required('SHEETBASE_ARTIFACT_TAG')
 if (imageTag.endsWith(':latest'))
   throw new Error('SHEETBASE_ARTIFACT_TAG must not use latest')
 
-const journal = JSON.parse(
-  readFileSync('drizzle/meta/_journal.json', 'utf8'),
-) as Parameters<typeof latestMigrationVersion>[0]
+const journal = readJournal()
 const migration = latestMigrationVersion(journal)
 const sourceRevision = run('git', ['rev-parse', 'HEAD'])
 const sourceStatus = run('git', [

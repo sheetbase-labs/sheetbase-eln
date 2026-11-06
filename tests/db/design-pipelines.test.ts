@@ -1,5 +1,4 @@
 import { drizzle } from 'drizzle-orm/node-postgres'
-import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { Client } from 'pg'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
@@ -9,6 +8,7 @@ import {
   DESIGN_WORKSPACE_IDS,
   designSteps,
 } from '#/db/seed/design'
+import { applyMigrations } from '../../scripts/lib/migrations.mjs'
 import { migratorUrl, resetTestDatabase, roleUrl, setActorJwt } from './helpers'
 
 const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
@@ -47,9 +47,9 @@ async function latestRuns() {
 beforeEach(async () => {
   await resetTestDatabase()
   db = drizzle(migratorUrl(), { schema })
-  await migrate(db, { migrationsFolder: 'drizzle' })
   migrator = new Client({ connectionString: migratorUrl() })
   await migrator.connect()
+  await applyMigrations(migrator, 'drizzle')
   for (const name of [
     'design people',
     'design workspaces',

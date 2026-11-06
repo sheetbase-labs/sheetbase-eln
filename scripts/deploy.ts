@@ -1,5 +1,4 @@
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { z } from 'zod'
 import { verifyBackupSet } from './backup-io'
@@ -11,6 +10,7 @@ import {
   latestMigrationVersion,
   validateArtifactImageMetadata,
 } from '../src/lib/deployment-plan'
+import { readJournal } from './lib/migrations.mjs'
 
 function required(name: string): string {
   const value = process.env[name]
@@ -114,9 +114,7 @@ if (
   throw new Error('deployment flow is restricted to staging or production')
 }
 
-const journal = JSON.parse(
-  readFileSync('drizzle/meta/_journal.json', 'utf8'),
-) as Parameters<typeof latestMigrationVersion>[0]
+const journal = readJournal()
 const repositoryMigration = latestMigrationVersion(journal)
 if (repositoryMigration.version !== deployment.expectedMigration) {
   throw new Error(

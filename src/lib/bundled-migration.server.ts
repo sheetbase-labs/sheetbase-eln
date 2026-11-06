@@ -1,7 +1,6 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-
 import { latestMigrationVersion } from '#/lib/deployment-plan'
+
+import { readJournal } from '../../scripts/lib/migrations.mjs'
 
 /**
  * The newest migration this build carries, read from the journal that ships
@@ -11,10 +10,7 @@ import { latestMigrationVersion } from '#/lib/deployment-plan'
  */
 export function bundledMigrationVersion(root = process.cwd()): string | null {
   try {
-    const journal = JSON.parse(
-      readFileSync(resolve(root, 'drizzle/meta/_journal.json'), 'utf8'),
-    ) as Parameters<typeof latestMigrationVersion>[0]
-    return latestMigrationVersion(journal).version
+    return latestMigrationVersion(readJournal(`${root}/drizzle`)).version
   } catch {
     return null
   }

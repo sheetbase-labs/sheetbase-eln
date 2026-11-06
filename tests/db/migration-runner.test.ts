@@ -1,12 +1,18 @@
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import {
+  listMigrations,
+  readMigrations,
+} from '../../scripts/lib/migrations.mjs'
 import { migratorUrl, roleUrl } from './helpers'
 
 const database = `sheetbase_upgrade_${process.pid}`
@@ -80,11 +86,9 @@ describe('migration runner', () => {
         'SELECT hash, created_at FROM drizzle.__drizzle_migrations ORDER BY id',
       )
     ).rows
-    const manifest = JSON.parse(
-      await readFile('drizzle/meta/_journal.json', 'utf8'),
-    ) as { entries: { tag: string; when: number }[] }
-    expect(journal).toHaveLength(manifest.entries.length)
-    for (const [index, entry] of manifest.entries.entries()) {
+    const manifest = readMigrations()
+    expect(journal).toHaveLength(manifest.length)
+    for (const [index, entry] of manifest.entries()) {
       const sql = await readFile(`drizzle/${entry.tag}.sql`)
       expect(journal[index]).toEqual({
         hash: createHash('sha256').update(sql).digest('hex'),
@@ -127,29 +131,14 @@ describe('migration runner', () => {
   })
 
   it('rolls back a failed pending migration and closes its privileged session', async () => {
-    const journal = JSON.parse(
-      await readFile('drizzle/meta/_journal.json', 'utf8'),
-    ) as {
-      entries: { idx: number; tag: string; when: number; version: string }[]
-    }
-    const last = journal.entries.at(-1)!
-    // Drizzle applies only migrations newer than the latest applied timestamp,
-    // and the journal is not strictly ordered by it, so the probe has to
-    // outrank the newest entry rather than the last one.
-    const newest = Math.max(...journal.entries.map((entry) => entry.when))
-    journal.entries.push({
-      ...last,
-      idx: last.idx + 1,
-      tag: 'runner_failure_probe',
-      when: newest + 1,
-    })
+    const appliedBefore = (
+      await client.query(
+        'SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations',
+      )
+    ).rows[0].n
     // A deliberately failing migration exists only in the disposable fixture.
     await writeFile(
-      join(fixture, 'drizzle/meta/_journal.json'),
-      JSON.stringify(journal),
-    )
-    await writeFile(
-      join(fixture, 'drizzle/runner_failure_probe.sql'),
+      join(fixture, 'drizzle/29990101000000_runner_failure_probe.sql'),
       'CREATE TABLE internal.runner_rollback_probe(id integer);--> statement-breakpoint\nSELECT 1 / 0;',
     )
     const result = await run(
@@ -178,7 +167,7 @@ describe('migration runner', () => {
           'SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations',
         )
       ).rows[0].n,
-    ).toBe(journal.entries.length - 1)
+    ).toBe(appliedBefore)
     const lock = await client.query(
       'SELECT pg_try_advisory_lock($1) AS acquired',
       [lockKey],
@@ -220,6 +209,96 @@ describe('migration runner', () => {
     } finally {
       await freshClient.end()
       await admin.query(`DROP DATABASE ${fresh} WITH (FORCE)`)
+    }
+  }, 120_000)
+
+  it('carries a database migrated by the numbered runner forward and applies timestamped migrations in any order', async () => {
+    const legacy = `${database}_legacy`
+    await admin.query(`CREATE DATABASE ${legacy} OWNER migrator`)
+    const url = inDatabase(migratorUrl(), legacy)
+    const legacyClient = new Client({ connectionString: url })
+    try {
+      await legacyClient.connect()
+      // What a live install looks like: every numbered migration recorded
+      // under the ledger Drizzle wrote, nothing timestamped yet.
+      await legacyClient.query(
+        "SELECT set_config('sheetbase.sheet_instance_write','rpc-v1',false)",
+      )
+      const numbered = listMigrations('drizzle').filter((m) =>
+        /^\d{4}_/.test(m.tag),
+      )
+      await migrate(drizzle(legacyClient), { migrationsFolder: 'drizzle' })
+      // The fixture holds only the numbered history plus what this test adds.
+      for (const name of await readdir(join(fixture, 'drizzle'))) {
+        if (/^\d{14}_/.test(name)) await rm(join(fixture, 'drizzle', name))
+      }
+      const before = (
+        await legacyClient.query(
+          'SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations',
+        )
+      ).rows[0].n
+      expect(before).toBe(numbered.length)
+
+      // Nothing to apply: the runner reports success and records nothing.
+      expect(
+        (
+          await run(process.execPath, [resolve('scripts/migrate-once.mjs')], {
+            cwd: fixture,
+            url,
+          })
+        ).code,
+      ).toBe(0)
+      expect(
+        (
+          await legacyClient.query(
+            'SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations',
+          )
+        ).rows[0].n,
+      ).toBe(before)
+
+      // Two timestamped migrations land; the later one is applied first,
+      // then the earlier one arrives from another branch and still runs.
+      const later = join(fixture, 'drizzle/29990101000100_probe_later.sql')
+      const earlier = join(fixture, 'drizzle/29990101000050_probe_earlier.sql')
+      await writeFile(later, 'CREATE TABLE internal.probe_later(id integer);')
+      expect(
+        (
+          await run(process.execPath, [resolve('scripts/migrate-once.mjs')], {
+            cwd: fixture,
+            url,
+          })
+        ).code,
+      ).toBe(0)
+      await writeFile(
+        earlier,
+        'CREATE TABLE internal.probe_earlier(id integer);',
+      )
+      expect(
+        (
+          await run(process.execPath, [resolve('scripts/migrate-once.mjs')], {
+            cwd: fixture,
+            url,
+          })
+        ).code,
+      ).toBe(0)
+      const probes = await legacyClient.query(
+        `SELECT to_regclass('internal.probe_later') AS later,
+                to_regclass('internal.probe_earlier') AS earlier`,
+      )
+      expect(probes.rows[0]).toEqual({
+        later: 'internal.probe_later',
+        earlier: 'internal.probe_earlier',
+      })
+      expect(
+        (
+          await legacyClient.query(
+            'SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations',
+          )
+        ).rows[0].n,
+      ).toBe(before + 2)
+    } finally {
+      await legacyClient.end()
+      await admin.query(`DROP DATABASE ${legacy} WITH (FORCE)`)
     }
   }, 120_000)
 })

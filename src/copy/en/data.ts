@@ -2893,6 +2893,12 @@ export const data = {
     setInstrumentRate: 'Set an instrument’s recharge rate',
     setInstrumentRateDescription:
       'Set what each booked hour of an instrument is charged, or no charge with an empty rate. Needs the right to manage instruments.',
+    finishStep: 'Finish or reopen a step',
+    finishStepDescription:
+      'Tick a protocol step as done, or reopen it, with an optional note. Records who finished it and when.',
+    addStepResult: 'Record a result on a step',
+    addStepResultDescription:
+      'Add a measurement to the notebook against a protocol step.',
     createProject: 'Create project',
     createProjectRunWorkspace: 'Create a project in the run workspace.',
     createRecord: 'Create record',

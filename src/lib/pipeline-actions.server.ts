@@ -70,6 +70,9 @@ function sqlValue(field: PipelineActionArgument, value: unknown): unknown {
     case 'text':
       valid = typeof value === 'string'
       break
+    case 'boolean':
+      valid = typeof value === 'boolean'
+      break
     case 'integer':
     case 'bigint':
       valid =

@@ -418,4 +418,50 @@ describe('ELN pipeline actions', () => {
       ).not.toEqual([])
     })
   })
+  it('finishes a step and records a result with typed, bound values', async () => {
+    const { conn, query } = connection([{ done: true }, { block: {} }])
+    const step = '00000000-0000-4000-8000-0000000000b1'
+    await executePipelineActions(
+      conn,
+      { workspaceId, runId },
+      [
+        {
+          name: 'finish',
+          operation: 'set_step_done',
+          arguments: { p_block_id: step, p_done: true, p_note: 'plate 4 read' },
+        },
+        {
+          name: 'result',
+          operation: 'add_step_result',
+          arguments: {
+            p_block_id: step,
+            p_label: 'Titre',
+            p_value: '1.2e12',
+            p_unit: 'vg/mL',
+          },
+        },
+      ],
+      context,
+    )
+    const calls = query.mock.calls.filter(([sql]) =>
+      sql.startsWith('SELECT to_jsonb'),
+    )
+    expect(calls[0][0]).toContain('p_done => $2::boolean')
+    expect(calls[0][1]).toEqual([step, true, 'plate 4 read'])
+    expect(calls[1][1]).toEqual([step, 'Titre', '1.2e12', 'vg/mL'])
+    await expect(
+      executePipelineActions(
+        connection().conn,
+        { workspaceId, runId },
+        [
+          {
+            name: 'bad',
+            operation: 'set_step_done',
+            arguments: { p_block_id: step, p_done: 'yes' },
+          },
+        ],
+        context,
+      ),
+    ).rejects.toThrow('Invalid p_done')
+  })
 })

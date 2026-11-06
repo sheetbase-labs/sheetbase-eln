@@ -33,6 +33,7 @@ export const PIPELINE_ACTION_ROW_SOURCES = [
 export type PipelineActionArgumentType =
   | 'uuid'
   | 'text'
+  | 'boolean'
   | 'date'
   | 'integer'
   | 'bigint'
@@ -244,6 +245,27 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
       arg('p_currency', 'text', true, true),
     ],
     'instrument_rate.set',
+  ),
+  definition(
+    'set_step_done',
+    t('data.pipelineActions.finishStep'),
+    t('data.pipelineActions.finishStepDescription'),
+    [
+      arg('p_block_id', 'uuid'),
+      arg('p_done', 'boolean', false),
+      arg('p_note', 'text', false, true),
+    ],
+  ),
+  definition(
+    'add_step_result',
+    t('data.pipelineActions.addStepResult'),
+    t('data.pipelineActions.addStepResultDescription'),
+    [
+      arg('p_block_id', 'uuid'),
+      arg('p_label', 'text'),
+      arg('p_value', 'text'),
+      arg('p_unit', 'text', false, true),
+    ],
   ),
   definition(
     'commit_dataset_row_batch',

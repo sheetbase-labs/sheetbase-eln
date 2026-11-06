@@ -1018,11 +1018,13 @@
   }
   /* Labelled actions take the full row; an icon-only action (px-0), or a
      small way out such as Cancel (data-keep-inline), stays beside the title
-     instead of stranding itself on a row of its own. */
+     instead of stranding itself on a row of its own. A header with a meta
+     line keeps its actions at the end of that line instead (PageHeader). */
   .workspace-page [data-page-actions] {
     gap: 6px;
   }
   .workspace-page
+    [data-page-header]:not(:has([data-page-meta]))
     [data-page-actions]:has(
       > :not(.px-0, .max-md\:hidden, .max-lg\:hidden, [data-keep-inline])
     ) {

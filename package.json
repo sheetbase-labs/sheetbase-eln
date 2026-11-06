@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "generate-routes": "node scripts/generate-routes.mjs",
-    "openapi:generate": "tsx scripts/generate-public-openapi.ts && prettier --write docs/api/openapi/external-api-v0.json",
+    "openapi:generate": "tsx scripts/generate-public-openapi.ts && prettier --write docs/api/openapi/external-api-v0.json && python3 sdks/python/scripts/generate.py",
+    "sdk:generate": "python3 sdks/python/scripts/generate.py",
+    "sdk:check": "python3 sdks/python/scripts/generate.py --check",
     "build": "vite build",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",

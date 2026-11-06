@@ -699,6 +699,13 @@
       "when": 1801415997830,
       "tag": "0101_spend_events_and_api",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1801416057830,
+      "tag": "0102_spend_writes",
+      "breakpoints": true
     }
   ]
 }

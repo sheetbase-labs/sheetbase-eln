@@ -2,6 +2,7 @@ import { t } from '#/copy'
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { EditorContent, Extension, useEditor } from '@tiptap/react'
+import type { Editor } from '@tiptap/react'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import StarterKit from '@tiptap/starter-kit'
@@ -365,10 +366,21 @@ export function RichTextEditor({
     focused: boolean
   } | null>(null)
   const restoreRef = React.useRef<typeof placeRef.current>(null)
+  const editorRef = React.useRef<Editor | null>(null)
   const lastLiveProvider = React.useRef(liveProvider)
   if (lastLiveProvider.current !== liveProvider) {
     lastLiveProvider.current = liveProvider
-    restoreRef.current = placeRef.current
+    // Read the place from the editor being replaced rather than from the last
+    // focus event, which a click that has only just landed may not have fired.
+    const old = editorRef.current
+    restoreRef.current =
+      old && !old.isDestroyed && old.isFocused
+        ? {
+            from: old.state.selection.from,
+            to: old.state.selection.to,
+            focused: true,
+          }
+        : null
   }
   // Every state this editor has shown. A save that beat ours to the server and
   // matches one of them came from a collaborator, whose text we already hold;
@@ -530,8 +542,6 @@ export function RichTextEditor({
           from: Math.min(place.from, end),
           to: Math.min(place.to, end),
         })
-        if (place.focused)
-          created.commands.focus(null, { scrollIntoView: false })
       },
       onFocus: ({ editor: focused }) => {
         placeRef.current = {
@@ -587,6 +597,7 @@ export function RichTextEditor({
     },
     [liveProvider],
   )
+  editorRef.current = editor
 
   // A shared block's text comes from the room, so the saved copy must not be
   // pushed back into the editor.
@@ -629,7 +640,12 @@ export function RichTextEditor({
   React.useEffect(() => {
     if (!editor || editor.isDestroyed || !autoFocus) return
     // Mid-swap into the shared document the caret is restored where it was.
-    if (restoreRef.current) return
+    const place = restoreRef.current
+    if (place) {
+      // The view is shown by now, so the focus can be given back.
+      if (place.focused) editor.commands.focus(null, { scrollIntoView: false })
+      return
+    }
     editor.commands.focus(caretHint === 'start' ? 'start' : 'end')
   }, [autoFocus, caretHint, editor])
 

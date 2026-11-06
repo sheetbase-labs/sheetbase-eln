@@ -133,11 +133,26 @@ export function useLiveRichText({
   const provider = useRoomProvider()
   const { synced, canWrite } = useRoomConnection()
   const [liveFor, setLiveFor] = React.useState<CollabProvider | null>(null)
+  // The shared document only matters once someone else is here to share it
+  // with. Alone, the private draft is the same text without the swap, which
+  // can interrupt typing in a block that has just opened.
+  const [crowded, setCrowded] = React.useState(false)
+  React.useEffect(() => {
+    if (!provider) {
+      setCrowded(false)
+      return
+    }
+    const { awareness } = provider
+    const update = () => setCrowded(awareness.getStates().size > 1)
+    update()
+    awareness.on('change', update)
+    return () => awareness.off('change', update)
+  }, [provider])
   const latest = React.useRef({ extensions, getSaved, edited })
   latest.current = { extensions, getSaved, edited }
 
   React.useEffect(() => {
-    if (!blockId || !provider || !synced || !canWrite) return
+    if (!blockId || !provider || !synced || !canWrite || !crowded) return
     if (liveFor === provider) return
     // Someone who has already started typing keeps their draft for now: the
     // shared document would replace what they typed.
@@ -210,7 +225,7 @@ export function useLiveRichText({
       cancelled = true
       stopWatching()
     }
-  }, [blockId, provider, synced, canWrite, liveFor])
+  }, [blockId, provider, synced, canWrite, crowded, liveFor])
 
   // Leaving or replacing the room ends live mode with it.
   React.useEffect(() => {

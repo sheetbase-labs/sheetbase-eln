@@ -109,9 +109,9 @@ export const people = {
     description:
       'Let your organisation’s directory add new people, update their details and switch them off when they leave. Groups it sends can give roles, the same way sign-in groups do.',
     summary: {
-      one: '{managed} person is kept up to date by your directory; {off} switched off',
+      one: '{count} person is kept up to date by your directory; {off} switched off',
       other:
-        '{managed} people are kept up to date by your directory; {off} switched off',
+        '{count} people are kept up to date by your directory; {off} switched off',
     },
     none: 'No tokens yet. Make one and paste it into your directory.',
     labelColumn: 'Name',

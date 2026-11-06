@@ -5,6 +5,7 @@ import {
   buildPlanningProposal,
   readInbox,
   readSeries,
+  readParts,
   readSteps,
 } from './assistant-planning.server'
 import type { LabToolContext } from './assistant-lab-tools.server'
@@ -47,6 +48,7 @@ function fakeClient(
     steps?: Array<Record<string, unknown>>
     membership?: Record<string, Record<string, unknown>>
     seriesMembers?: Array<Record<string, unknown>>
+    parts?: Array<Record<string, unknown>>
   } = {},
 ) {
   const client = {
@@ -99,6 +101,7 @@ function fakeClient(
       if (name === 'series_rollup') {
         return Promise.resolve({ total: 2, approved: 1, samples: 3 })
       }
+      if (name === 'record_parts') return Promise.resolve(data.parts ?? [])
       if (name === 'workspace_members_list') {
         return Promise.resolve([
           { user_id: 'user-me', name: 'Gareth P' },
@@ -482,6 +485,124 @@ const steps = [
   step(2, 'Block with BSA', { status: 'in_progress', is_current: true }),
   step(3, 'Read the plate at 450 nm'),
 ]
+
+function part(
+  number: number,
+  title: string,
+  extra: Record<string, unknown> = {},
+) {
+  return {
+    part_id: `part-${number}`,
+    part_number: number,
+    title,
+    day_offset: number - 1,
+    due_on: `2026-11-0${number}`,
+    assignee_user_id: null,
+    status: 'later',
+    is_current: false,
+    opened_at: null,
+    completed_at: null,
+    completed_by_user_id: null,
+    step_count: 0,
+    steps_done: 0,
+    block_count: 0,
+    result_count: 0,
+    ...extra,
+  }
+}
+
+const parts = [
+  part(1, 'Seed cells', {
+    status: 'done',
+    completed_by_user_id: 'user-priya',
+    step_count: 2,
+    steps_done: 2,
+  }),
+  part(2, 'Dose with compound', { status: 'now', is_current: true }),
+  part(3, 'Read the plate'),
+]
+
+describe('parts', () => {
+  it('reads the parts with their day, status and who finished them', async () => {
+    const read = await readParts(
+      { record: 'EXP-12' },
+      context(fakeClient({ parts })),
+    )
+    const body = JSON.parse(read.text)
+    expect(read.isError).toBe(false)
+    expect(body.partsDone).toBe(1)
+    expect(body.parts[0].doneBy).toBe('Priya Shah')
+    expect(body.parts[1]).toMatchObject({ day: 2, current: true })
+  })
+
+  it('adds a part on a day', async () => {
+    const built = await buildPlanningProposal(
+      'sheetbase.part.add',
+      {
+        title: 'Add a wash',
+        summary: 's',
+        record: 'EXP-12',
+        part: 'Wash',
+        day: 4,
+      },
+      context(fakeClient({ parts })),
+    )
+    expect(built.ok && built.proposal.action).toEqual({
+      kind: 'part.add',
+      recordId: 'exp-12',
+      title: 'Wash',
+      dayOffset: 4,
+    })
+  })
+
+  it('changes the current part when none is named, and finds one by number', async () => {
+    const current = await buildPlanningProposal(
+      'sheetbase.part.update',
+      { title: 'Move', summary: 's', record: 'EXP-12', day: 5 },
+      context(fakeClient({ parts })),
+    )
+    expect(current.ok && current.proposal.action).toMatchObject({
+      kind: 'part.update',
+      partId: 'part-2',
+      dayOffset: 5,
+    })
+    const byNumber = await buildPlanningProposal(
+      'sheetbase.part.update',
+      {
+        title: 'Hand over',
+        summary: 's',
+        record: 'EXP-12',
+        part: 'part 3',
+        assignee: 'Sam',
+      },
+      context(fakeClient({ parts })),
+    )
+    expect(byNumber.ok && byNumber.proposal.action).toMatchObject({
+      partId: 'part-3',
+      assigneeUserId: 'user-sam',
+      clearAssignee: false,
+    })
+  })
+
+  it('marks a part with no steps done, and refuses one with steps', async () => {
+    const ok = await buildPlanningProposal(
+      'sheetbase.part.complete',
+      { title: 'Done', summary: 's', record: 'EXP-12' },
+      context(fakeClient({ parts })),
+    )
+    expect(ok.ok && ok.proposal.action).toEqual({
+      kind: 'part.done',
+      partId: 'part-2',
+      done: true,
+    })
+    const refused = await buildPlanningProposal(
+      'sheetbase.part.complete',
+      { title: 'Done', summary: 's', record: 'EXP-12', part: 'seed' },
+      context(fakeClient({ parts })),
+    )
+    expect(refused.ok).toBe(false)
+  })
+})
 
 describe('steps', () => {
   it('reads the steps with their status and who finished them', async () => {

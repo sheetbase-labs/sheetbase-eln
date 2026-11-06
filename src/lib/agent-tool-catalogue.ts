@@ -81,6 +81,8 @@ export const ASSISTANT_READ_TOOL_NAMES = [
   'sheetbase.steps.read',
   // A series of experiments: its members, roll-up and where one sits, read only (assistant-planning.server.ts).
   'sheetbase.series.read',
+  // The parts of an experiment with their days and status, read only (assistant-planning.server.ts).
+  'sheetbase.parts.read',
 ] as const
 
 export type AssistantReadToolName = (typeof ASSISTANT_READ_TOOL_NAMES)[number]
@@ -130,6 +132,9 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.step.result',
   'sheetbase.series.add_member',
   'sheetbase.series.remove_member',
+  'sheetbase.part.add',
+  'sheetbase.part.update',
+  'sheetbase.part.complete',
   'sheetbase.shipment.send',
   'sheetbase.shipment.receive',
   // Keeping the lab tidy from a card: start a project, follow something, mark

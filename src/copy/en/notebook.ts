@@ -122,6 +122,21 @@ export const notebook = {
         applying: 'Saving…',
         applied: 'Step updated',
       },
+      addPart: {
+        apply: 'Add part',
+        applying: 'Adding…',
+        applied: 'Part added',
+      },
+      updatePart: {
+        apply: 'Update part',
+        applying: 'Saving…',
+        applied: 'Part updated',
+      },
+      finishPart: {
+        apply: 'Update part',
+        applying: 'Saving…',
+        applied: 'Part updated',
+      },
       stepResult: {
         apply: 'Add result',
         applying: 'Adding…',

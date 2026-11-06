@@ -377,6 +377,8 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
   chart: 'Chart',
   analysis: 'Analysis',
   plate_map: 'Plate map',
+  structure: 'Structure',
+  reaction: 'Reaction',
   file: 'File',
   metric: 'Metric',
   procedure_step: 'Procedure step',

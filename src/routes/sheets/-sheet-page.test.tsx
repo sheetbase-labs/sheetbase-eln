@@ -72,7 +72,7 @@ vi.mock('#/components/collaboration/collaboration-room', () => ({
   safeBuildRoomId: () => null,
 }))
 
-vi.mock('#/lib/collaboration/liveblocks.config', () => ({
+vi.mock('#/lib/collaboration/collaboration-enabled', () => ({
   useCollaborationEnabled: () => false,
 }))
 

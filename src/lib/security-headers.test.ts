@@ -37,8 +37,8 @@ describe('buildContentSecurityPolicy', () => {
     expect(csp).toContain("form-action 'self'")
     expect(csp).toContain("style-src 'self' 'unsafe-inline'")
     expect(csp).toContain("img-src 'self' data: blob:")
-    expect(csp).toContain('wss://*.liveblocks.io')
-    expect(csp).toContain('https://*.liveblocks.io')
+    expect(csp).toContain("connect-src 'self';")
+    expect(csp).not.toContain('liveblocks')
     expect(csp).toContain('https://avatars.githubusercontent.com')
     expect(csp).toContain("worker-src 'self' blob:")
     // GitHub OAuth needs no github.com endpoints; only the avatar image host

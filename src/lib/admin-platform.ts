@@ -687,7 +687,7 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
         externalApiEnabled: true,
         connectorSecretEncryptionConfigured: Boolean(env.PGRST_JWT_SECRET),
         metricsEnabled: Boolean(env.SHEETBASE_METRICS_TOKEN),
-        collaborationEnabled: Boolean(env.LIVEBLOCKS_SECRET_KEY),
+        collaborationEnabled: env.SHEETBASE_COLLABORATION !== 'off',
       },
     }
   })

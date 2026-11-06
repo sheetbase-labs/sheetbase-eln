@@ -5,7 +5,7 @@ import type { PresenceSelection } from '#/lib/collaboration/types'
  * of React and room hooks so the toolbar chip logic is directly testable.
  */
 
-/** Minimal structural shape of a Liveblocks "other" the helpers read. */
+/** Minimal structural shape of a peer the helpers read. */
 export interface SelectionPeer {
   connectionId?: number
   info?: { name?: string; avatar?: string }

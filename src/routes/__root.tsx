@@ -32,7 +32,6 @@ import { ChangeReasonDialog } from '#/components/shell/change-reason-dialog'
 import { DevToolbar } from '#/components/dev-toolbar/dev-toolbar'
 
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
-import { CollaborationProvider } from '../components/collaboration/collaboration-provider'
 import { CollaborationEnabledContext } from '#/lib/collaboration/collaboration-enabled'
 import { DemoSigningContext } from '#/lib/demo-signing'
 import { createServerFn } from '@tanstack/react-start'
@@ -364,46 +363,44 @@ function AppRoot() {
           value={auth?.collaborationEnabled ?? false}
         >
           <DemoSigningContext.Provider value={auth?.authFree ?? false}>
-            <CollaborationProvider>
-              {auth && !auth.authFree && !bareRoute ? (
-                <SessionExpiredBanner />
-              ) : null}
-              {bareRoute ? (
+            {auth && !auth.authFree && !bareRoute ? (
+              <SessionExpiredBanner />
+            ) : null}
+            {bareRoute ? (
+              <Outlet />
+            ) : auth && (!auth.workspace || auth.workspace.suspended) ? (
+              // J-SET-03/04: no live membership. The shell and every
+              // workspace read would fail without saying why.
+              <AccessBlocked
+                user={auth.user}
+                suspendedWorkspace={
+                  auth.workspace ? { name: auth.workspace.name } : null
+                }
+                contacts={auth.accessContacts ?? []}
+                otherWorkspaces={auth.workspaces.filter(
+                  (w) => w.id !== auth.workspace?.id && !w.suspended,
+                )}
+              />
+            ) : legacyShell ? (
+              <ShellProvider>
                 <Outlet />
-              ) : auth && (!auth.workspace || auth.workspace.suspended) ? (
-                // J-SET-03/04: no live membership. The shell and every
-                // workspace read would fail without saying why.
-                <AccessBlocked
-                  user={auth.user}
-                  suspendedWorkspace={
-                    auth.workspace ? { name: auth.workspace.name } : null
+              </ShellProvider>
+            ) : (
+              <AvatarPhotosProvider>
+                <V3AppShell
+                  data={appShellData}
+                  banner={auth && !auth.authFree ? <JoinOfferBanner /> : null}
+                  workspaceMenuExtra={
+                    auth && !auth.authFree ? <JoinOfferMenuItem /> : null
                   }
-                  contacts={auth.accessContacts ?? []}
-                  otherWorkspaces={auth.workspaces.filter(
-                    (w) => w.id !== auth.workspace?.id && !w.suspended,
-                  )}
-                />
-              ) : legacyShell ? (
-                <ShellProvider>
-                  <Outlet />
-                </ShellProvider>
-              ) : (
-                <AvatarPhotosProvider>
-                  <V3AppShell
-                    data={appShellData}
-                    banner={auth && !auth.authFree ? <JoinOfferBanner /> : null}
-                    workspaceMenuExtra={
-                      auth && !auth.authFree ? <JoinOfferMenuItem /> : null
-                    }
-                  >
-                    <WorkspaceHost context={resolvedRootContext}>
-                      <Outlet />
-                    </WorkspaceHost>
-                    {auth ? <StepTimersHost /> : null}
-                  </V3AppShell>
-                </AvatarPhotosProvider>
-              )}
-            </CollaborationProvider>
+                >
+                  <WorkspaceHost context={resolvedRootContext}>
+                    <Outlet />
+                  </WorkspaceHost>
+                  {auth ? <StepTimersHost /> : null}
+                </V3AppShell>
+              </AvatarPhotosProvider>
+            )}
           </DemoSigningContext.Provider>
         </CollaborationEnabledContext.Provider>
       </LiveEventProvider>

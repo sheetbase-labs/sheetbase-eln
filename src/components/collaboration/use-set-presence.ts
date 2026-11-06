@@ -1,10 +1,7 @@
 import * as React from 'react'
 
-import { useUpdateMyPresence } from '#/lib/collaboration/liveblocks.config'
-import type {
-  ActiveObjectRef,
-  CollaborationPresence,
-} from '#/lib/collaboration/types'
+import { useUpdateMyPresence } from '#/lib/collaboration/room-hooks'
+import type { ActiveObjectRef } from '#/lib/collaboration/types'
 
 import { useCollaborationRoomReady } from './collaboration-room'
 
@@ -44,22 +41,15 @@ function presenceSyncKey(fields: SettablePresenceFields): string {
 /**
  * Raw effect hook: reports `fields` as my presence on mount (and whenever
  * their semantic identity changes) and restores the defaults on unmount.
- * MUST run only inside a mounted `CollaborationRoom` — same contract as
- * every other suspense room hook in this codebase. Gated callers should
- * use `PresenceSync` instead, which owns the readiness check.
+ * Outside a joined room it does nothing. Gated callers can use
+ * `PresenceSync` instead, which owns the readiness check.
  *
  * `activeObject` is deliberately absent from the restore defaults: presence
  * is room-scoped, so leaving a room discards it wholesale; only block- and
  * field-level awareness survives within one room and needs explicit reset.
  */
 export function useSetPresence(fields: SettablePresenceFields): void {
-  // Liveblocks validates the global Presence override with `extends
-  // JsonObject`, which no interface satisfies (interfaces lack implicit
-  // index signatures), so the hook's patch parameter degrades to an error
-  // brand. Cast to the real contract — runtime accepts any JSON partial.
-  const updateMyPresence = useUpdateMyPresence() as unknown as (
-    patch: Partial<CollaborationPresence>,
-  ) => void
+  const updateMyPresence = useUpdateMyPresence()
   const fieldsRef = React.useRef(fields)
   fieldsRef.current = fields
 

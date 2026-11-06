@@ -69,18 +69,12 @@ export function buildContentSecurityPolicy(
       : nonce
         ? `'self' 'nonce-${nonce}'`
         : "'self' 'unsafe-inline'"
-  // COLLAB: presence/comments ride Liveblocks websockets and API calls;
-  // auth itself is same-origin (/api/collaboration/*). GitHub avatars are
-  // rendered from user profiles in collaboration surfaces.
-  const liveblocksConnect =
-    mode === 'production'
-      ? ' wss://*.liveblocks.io https://*.liveblocks.io'
-      : ''
+  // COLLAB: presence and live editing ride a same-origin WebSocket to the
+  // bundled co-editing server, which `'self'` covers, so no third-party host
+  // is allowed. GitHub avatars are rendered from user profiles in
+  // collaboration surfaces.
   const avatarImg = ' https://avatars.githubusercontent.com'
-  const connectSrc =
-    mode === 'production'
-      ? `'self'${liveblocksConnect}`
-      : `'self' ws: wss:${liveblocksConnect}`
+  const connectSrc = mode === 'production' ? `'self'` : `'self' ws: wss:`
 
   const editorOrigin = officeEditorOrigin()
   const editorSource = editorOrigin ? ` ${editorOrigin}` : ''

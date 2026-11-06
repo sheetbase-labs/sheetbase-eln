@@ -158,6 +158,10 @@ jobs:
               tests/browser/journeys/notebook-keys.test.ts
           - name: workspace panes
             files: tests/browser/workspace-panes.test.ts
+          # Two browsers typing in one notebook block through the bundled
+          # co-editing server.
+          - name: live co-editing
+            files: tests/browser/collab-01-co-editing.test.ts
           # iPhone size, installed-app safe areas and a simulated keyboard:
           # every menu, popover and sheet must open where it can be seen.
           # Two jobs: the whole folder ran about 11 minutes in one job, twice

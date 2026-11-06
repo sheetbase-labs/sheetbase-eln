@@ -7,7 +7,7 @@ import { BlockCoEditBadge } from '#/components/collaboration/presence-co-editing
  * COLLAB-01 co-editing awareness badge.
  *
  * The badge needs other users' live presence, so the populated state
- * requires a connected Liveblocks room. Covered here is the reachable
+ * requires a connected co-editing room. Covered here is the reachable
  * contract: nothing renders before the room is ready, and nothing renders
  * for a block the local user is not editing. `coEditingPeerNames` (the pure
  * name extractor) is an exported helper with no rendered surface and is

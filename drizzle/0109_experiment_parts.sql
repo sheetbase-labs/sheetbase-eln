@@ -114,6 +114,22 @@ BEGIN
 END $$;
 --> statement-breakpoint
 
+-- A pipeline can mark a part done. The database's copy of the action catalogue
+-- (checked when a pipeline is saved) gains the action.
+DO $$
+DECLARE
+  v_def text;
+  v_added text := $added$,{"operation":"set_part_done","rpc":"set_part_done","label":"Finish or reopen a part","description":"Mark a part of an experiment that has no steps as done, or reopen it. A part with steps is done when its steps are.","arguments":[{"name":"p_part_id","type":"uuid","required":true,"nullable":false},{"name":"p_done","type":"boolean","required":true,"nullable":false}]}]$added$;
+BEGIN
+  SELECT pg_get_functiondef('internal.pipeline_action_errors(jsonb)'::regprocedure) INTO v_def;
+  IF position(']$catalogue$::jsonb' IN v_def) = 0 THEN
+    RAISE EXCEPTION 'unexpected shape for internal.pipeline_action_errors';
+  END IF;
+  v_def := replace(v_def, ']$catalogue$::jsonb', v_added || '$catalogue$::jsonb');
+  EXECUTE v_def;
+END $$;
+--> statement-breakpoint
+
 -- One event for a part: change is created, completed, reopened or opened.
 CREATE FUNCTION internal.emit_part_event(p_part api.experiment_parts, p_entity_type text, p_operation text, p_change text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER

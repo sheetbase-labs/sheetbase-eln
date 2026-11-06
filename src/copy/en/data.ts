@@ -2963,6 +2963,9 @@ export const data = {
     finishStep: 'Finish or reopen a step',
     finishStepDescription:
       'Tick a protocol step as done, or reopen it, with an optional note. Records who finished it and when.',
+    finishPart: 'Finish or reopen a part',
+    finishPartDescription:
+      'Mark a part of an experiment that has no steps as done, or reopen it. A part with steps is done when its steps are.',
     addStepResult: 'Record a result on a step',
     addStepResultDescription:
       'Add a measurement to the notebook against a protocol step.',

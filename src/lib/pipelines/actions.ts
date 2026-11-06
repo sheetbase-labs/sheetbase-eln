@@ -257,6 +257,12 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
     ],
   ),
   definition(
+    'set_part_done',
+    t('data.pipelineActions.finishPart'),
+    t('data.pipelineActions.finishPartDescription'),
+    [arg('p_part_id', 'uuid'), arg('p_done', 'boolean')],
+  ),
+  definition(
     'add_step_result',
     t('data.pipelineActions.addStepResult'),
     t('data.pipelineActions.addStepResultDescription'),

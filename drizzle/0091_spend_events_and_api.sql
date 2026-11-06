@@ -171,3 +171,22 @@ CREATE POLICY instrument_rates_client_select ON api.instrument_rates FOR SELECT 
   USING (workspace_id = api.current_workspace_id());
 --> statement-breakpoint
 GRANT SELECT ON TABLE api.instrument_rates TO api_client;
+--> statement-breakpoint
+
+-- Credentials may carry the facility scopes.
+ALTER TABLE internal.api_credentials
+  DROP CONSTRAINT chk_api_credentials_scopes;
+--> statement-breakpoint
+ALTER TABLE internal.api_credentials
+  ADD CONSTRAINT chk_api_credentials_scopes CHECK (
+    cardinality(scopes) > 0
+    AND scopes <@ ARRAY[
+      'projects:read','projects:write','datasets:read','datasets:write',
+      'schema:read','schema:write','schema:publish','sheets:read','sheets:write',
+      'models:read','models:write','templates:read','templates:write',
+      'reviews:read','reviews:write','files:read','files:write',
+      'webhooks:read','webhooks:write','agent_operations:read',
+      'agent_operations:write','pipelines:read','pipelines:write',
+      'admin:read','admin:write','facility:read','facility:write'
+    ]::text[]
+  );

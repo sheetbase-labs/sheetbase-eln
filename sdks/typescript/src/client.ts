@@ -36,6 +36,7 @@ import {
   WebhooksResource,
   PeopleResource,
   PipelinesResource,
+  FacilityResource,
 } from "./resources/index.js";
 
 export interface SheetbaseClientOptions {
@@ -59,6 +60,7 @@ export class SheetbaseClient {
   readonly webhooks: WebhooksResource;
   readonly pipelines: PipelinesResource;
   readonly people: PeopleResource;
+  readonly facility: FacilityResource;
 
   constructor(options: SheetbaseClientOptions) {
     this.transport = new HttpTransport(
@@ -79,6 +81,7 @@ export class SheetbaseClient {
     this.catalogues = new CataloguesResource(this.transport);
     this.agentOperations = new AgentOperationsResource(this.transport);
     this.webhooks = new WebhooksResource(this.transport);
+    this.facility = new FacilityResource(this.transport);
     this.pipelines = new PipelinesResource(this.transport);
     this.people = new PeopleResource(this.transport);
   }

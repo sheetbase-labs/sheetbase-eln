@@ -45,6 +45,7 @@ from sheetbase.resources import (
     CataloguesResource,
     DatasetsResource,
     PeopleResource,
+    FacilityResource,
     PipelinesResource,
     ProjectsResource,
     RecordsResource,
@@ -90,6 +91,7 @@ class SheetbaseClient:
         self.catalogues = CataloguesResource(self._transport)
         self.agent_operations = AgentOperationsResource(self._transport)
         self.webhooks = WebhooksResource(self._transport)
+        self.facility = FacilityResource(self._transport)
         self.pipelines = PipelinesResource(self._transport)
         self.people = PeopleResource(self._transport)
 

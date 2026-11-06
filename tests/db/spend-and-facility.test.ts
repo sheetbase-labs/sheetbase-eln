@@ -559,3 +559,16 @@ describe('change events', () => {
     ])
   })
 })
+
+describe('facility credential scopes', () => {
+  it('lets a credential carry the facility scopes and still rejects unknown ones', async () => {
+    const check = await migrator.query(
+      `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint
+        WHERE conname = 'chk_api_credentials_scopes'`,
+    )
+    const def = String(check.rows[0].def)
+    expect(def).toContain('facility:read')
+    expect(def).toContain('facility:write')
+    expect(def).not.toContain('facility:admin')
+  })
+})

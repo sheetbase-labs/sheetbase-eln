@@ -15,6 +15,7 @@ export type {
 } from "./agent-operations.js";
 export { WebhooksResource } from "./webhooks.js";
 export { PeopleResource } from "./people.js";
+export { FacilityResource } from "./facility.js";
 export {
   PipelinesResource,
   applyStepSource,

@@ -118,6 +118,19 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.timer.start',
   'sheetbase.shipment.send',
   'sheetbase.shipment.receive',
+  // Keeping the lab tidy from a card: start a project, follow something, mark
+  // notifications read, place or cancel a reagent order, cancel a shipment,
+  // reserve, quarantine or dispose of a sample, log a service visit
+  // (assistant-upkeep.ts).
+  'sheetbase.project.create',
+  'sheetbase.follow',
+  'sheetbase.inbox.mark_read',
+  'sheetbase.reagent.update',
+  'sheetbase.shipment.cancel',
+  'sheetbase.sample.reserve',
+  'sheetbase.sample.quarantine',
+  'sheetbase.sample.dispose',
+  'sheetbase.instrument.log_service',
 ] as const
 
 /** Model APIs only allow letters, digits, `_` and `-` in a function name. */

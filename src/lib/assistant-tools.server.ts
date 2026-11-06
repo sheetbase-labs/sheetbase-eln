@@ -35,6 +35,11 @@ import {
   planningProposalDefs,
   readInbox,
 } from './assistant-planning.server'
+import {
+  buildUpkeepProposal,
+  isUpkeepProposalTool,
+  upkeepProposalDefs,
+} from './assistant-upkeep.server'
 import { describeSlot, localFromInstant } from './assistant-booking'
 import {
   MAX_WORKSPACE_PANES,
@@ -167,6 +172,9 @@ function instructionsFor(
     flags.mcp_draft
       ? 'You can also propose planning and follow-up as cards the person presses: start an experiment from a template, hand a record to someone, ask someone about a record (a comment that mentions them), repeat a booking on a pattern, start a timer on a step, send a shipment and mark one received. For "what is waiting on me" or "what do I need to do today", read the inbox and list what is waiting, each as a link. You cannot sign, approve, decide a request or release a sample: say those are for the person and offer to open the page.'
       : 'For "what is waiting on me", read the inbox and list what is waiting, each as a link.',
+    flags.mcp_draft
+      ? 'Housekeeping works the same way: start a project, follow or unfollow a record or project, mark notifications read, mark a reagent order as placed or cancel it, cancel a shipment, reserve some of a sample for an experiment, quarantine a sample, record a disposal, and log a repair, service or inspection visit on an instrument. Disposal cannot be undone: only propose it when the person clearly asked, and ask for the reason if they did not give one.'
+      : 'Housekeeping such as starting a project, following a record or logging an instrument visit is done on its page; say where.',
     ...CHAT_RULES,
     clockLine(timeZone, now),
     always,
@@ -237,6 +245,7 @@ export async function createAssistantToolkit(deps: {
       ...bookingProposalDefs(),
       ...benchProposalDefs(),
       ...planningProposalDefs(),
+      ...upkeepProposalDefs(),
     )
   }
   const timeZone = deps.timeZone ?? 'UTC'
@@ -304,6 +313,17 @@ export async function createAssistantToolkit(deps: {
 
       if (isPlanningProposalTool(name)) {
         const built = await buildPlanningProposal(name, args, labContext)
+        return built.ok
+          ? {
+              text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
+              isError: false,
+              proposal: built.proposal,
+            }
+          : { text: built.message, isError: true }
+      }
+
+      if (isUpkeepProposalTool(name)) {
+        const built = await buildUpkeepProposal(name, args, labContext)
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',

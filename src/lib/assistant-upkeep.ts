@@ -1,0 +1,252 @@
+import { z } from 'zod'
+
+/**
+ * Keeping the lab tidy from the assistant: start a project, follow a record or
+ * project, mark notifications read, move a reagent order on or cancel it,
+ * cancel a shipment, reserve some of a sample for an experiment, quarantine or
+ * dispose of a sample, and log a service visit.
+ *
+ * Like the other cards, the model names things the way people do, the server
+ * finds them and sends back a card, and nothing happens until the person
+ * presses the button. The button calls the ordinary RPC as the signed-in
+ * person, so permissions, versions and the audit trail are the page's own.
+ * Signing, approving, deciding requests and releasing samples stay with people.
+ */
+
+export const PROJECT_CREATE_TOOL = 'sheetbase.project.create'
+export const FOLLOW_TOOL = 'sheetbase.follow'
+export const NOTIFICATIONS_READ_TOOL = 'sheetbase.inbox.mark_read'
+export const REAGENT_UPDATE_TOOL = 'sheetbase.reagent.update'
+export const SHIPMENT_CANCEL_TOOL = 'sheetbase.shipment.cancel'
+export const SAMPLE_RESERVE_TOOL = 'sheetbase.sample.reserve'
+export const SAMPLE_QUARANTINE_TOOL = 'sheetbase.sample.quarantine'
+export const SAMPLE_DISPOSE_TOOL = 'sheetbase.sample.dispose'
+export const INSTRUMENT_LOG_TOOL = 'sheetbase.instrument.log_service'
+
+export const UPKEEP_PROPOSE_TOOL_NAMES = [
+  PROJECT_CREATE_TOOL,
+  FOLLOW_TOOL,
+  NOTIFICATIONS_READ_TOOL,
+  REAGENT_UPDATE_TOOL,
+  SHIPMENT_CANCEL_TOOL,
+  SAMPLE_RESERVE_TOOL,
+  SAMPLE_QUARANTINE_TOOL,
+  SAMPLE_DISPOSE_TOOL,
+  INSTRUMENT_LOG_TOOL,
+] as const
+
+export type UpkeepProposeToolName = (typeof UPKEEP_PROPOSE_TOOL_NAMES)[number]
+
+const title = z.string().min(1).max(120)
+const summary = z.string().min(1).max(400)
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD.')
+const sampleRef = z
+  .string()
+  .min(1)
+  .max(200)
+  .describe(
+    'The sample as the person names it: its identifier (S-0142) or name.',
+  )
+
+export const proposeProjectCreateSchema = z
+  .object({
+    title,
+    summary,
+    projectName: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('The name of the new project, in the person’s words.'),
+    startedOn: day.optional().describe('When it starts, if they said.'),
+  })
+  .strict()
+
+export const proposeFollowSchema = z
+  .object({
+    title,
+    summary,
+    target: z.enum(['record', 'project']),
+    name: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe(
+        'The record by identifier (EXP-12) or title, or the project by name or key.',
+      ),
+    follow: z
+      .boolean()
+      .optional()
+      .describe('false to stop following. Default true.'),
+  })
+  .strict()
+
+export const proposeNotificationsReadSchema = z
+  .object({ title, summary })
+  .strict()
+
+export const proposeReagentUpdateSchema = z
+  .object({
+    title,
+    summary,
+    order: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('The order by number (RO-0012) or words from the material.'),
+    change: z
+      .enum(['ordered', 'cancelled'])
+      .describe(
+        'ordered: it has now been placed with the supplier. cancelled: it is not needed.',
+      ),
+    supplier: z.string().max(200).optional(),
+    orderReference: z
+      .string()
+      .max(200)
+      .optional()
+      .describe('The supplier’s order or PO number.'),
+    expectedOn: day.optional().describe('When it should arrive.'),
+    reason: z.string().max(400).optional().describe('Why, for a cancellation.'),
+  })
+  .strict()
+
+export const proposeShipmentCancelSchema = z
+  .object({
+    title,
+    summary,
+    shipment: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe(
+        'The shipment by number (SHP-0012) or words from who it is for.',
+      ),
+    reason: z.string().max(400).optional(),
+  })
+  .strict()
+
+export const proposeSampleReserveSchema = z
+  .object({
+    title,
+    summary,
+    sample: sampleRef,
+    experiment: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('The experiment it is held for, by identifier or title.'),
+    quantity: z.number().positive(),
+    notes: z.string().max(400).optional(),
+  })
+  .strict()
+
+export const proposeSampleRetireSchema = z
+  .object({
+    title,
+    summary,
+    sample: sampleRef,
+    reason: z
+      .string()
+      .min(1)
+      .max(400)
+      .describe('Why, in the person’s words. Ask if they have not said.'),
+    notes: z.string().max(400).optional(),
+  })
+  .strict()
+
+export const proposeInstrumentLogSchema = z
+  .object({
+    title,
+    summary,
+    instrument: z.string().min(1).max(200),
+    kind: z.enum(['repair', 'service', 'inspection', 'other']),
+    visitedOn: day.describe('The day of the visit.'),
+    summaryOfWork: z
+      .string()
+      .min(1)
+      .max(400)
+      .describe('One line on what was done.'),
+    details: z.string().max(2_000).optional(),
+    performedBy: z
+      .string()
+      .max(200)
+      .optional()
+      .describe('Who did it, such as the engineer or company.'),
+  })
+  .strict()
+
+/** What an upkeep card does when its button is pressed. */
+export type UpkeepAction =
+  | { kind: 'project.create'; title: string; startedOn: string | null }
+  | {
+      kind: 'follow.set'
+      target: 'record' | 'project'
+      id: string
+      following: boolean
+    }
+  | { kind: 'notifications.read' }
+  | {
+      kind: 'reagent.ordered'
+      orderId: string
+      supplier: string | null
+      orderReference: string | null
+      expectedOn: string | null
+    }
+  | { kind: 'reagent.cancel'; orderId: string; reason: string | null }
+  | { kind: 'shipment.cancel'; shipmentId: string; reason: string }
+  | {
+      kind: 'sample.reserve'
+      recordId: string
+      experimentId: string
+      quantity: number
+      unit: string | null
+      notes: string | null
+    }
+  | {
+      kind: 'sample.quarantine'
+      recordId: string
+      expectedMetadataVersion: number
+      reason: string
+      notes: string | null
+    }
+  | {
+      kind: 'sample.dispose'
+      recordId: string
+      expectedMetadataVersion: number
+      reason: string
+      notes: string | null
+    }
+  | {
+      kind: 'instrument.log'
+      instrumentId: string
+      serviceKind: 'repair' | 'service' | 'inspection' | 'other'
+      visitedOn: string
+      summary: string
+      details: string | null
+      performedBy: string | null
+    }
+
+export type UpkeepActionKind = UpkeepAction['kind']
+
+const KINDS: readonly string[] = [
+  'project.create',
+  'follow.set',
+  'notifications.read',
+  'reagent.ordered',
+  'reagent.cancel',
+  'shipment.cancel',
+  'sample.reserve',
+  'sample.quarantine',
+  'sample.dispose',
+  'instrument.log',
+]
+
+export function isUpkeepAction(action: {
+  kind: string
+}): action is UpkeepAction {
+  return KINDS.includes(action.kind)
+}
+
+/** What running a card gave back, for the card to link to. */
+export interface UpkeepActionResult {
+  openHref?: string
+}

@@ -1,3 +1,4 @@
+import type { FrozenState } from '#/lib/workspace-state'
 import {
   createContext,
   useCallback,
@@ -98,10 +99,8 @@ export interface PaneContextValue {
   readOnly: boolean
   /** Report that a newer revision than the pinned one exists (`S-16`). */
   reportNewer: (revision: string | undefined) => void
-  /** Report that the record on show is frozen by an approved signature. */
-  reportFrozen: (frozen: boolean) => void
-  /** Report that the record on show is out for review, so nobody edits it. */
-  reportInReview?: (inReview: boolean) => void
+  /** Report that the record on show is frozen, and why when it is known. */
+  reportFrozen: (frozen: FrozenState) => void
   /** Report that the record this page addresses doesn't exist. */
   reportMissing?: (missing: boolean) => void
   /** Report the row this pane has selected, for panes linked to follow it. */
@@ -132,22 +131,13 @@ export function usePaneContext() {
 }
 
 /** Tell the pane header that the record on show is frozen, so it reads
- * "Frozen evidence" rather than "Editing". */
-export function useReportFrozen(frozen: boolean) {
+ * "Read-only · in review" or "Approved · locked" rather than "Editing". */
+export function useReportFrozen(frozen: FrozenState, skip = false) {
   const { reportFrozen } = useContext(PaneContext)
   useEffect(() => {
+    if (skip) return
     reportFrozen(frozen)
-  }, [reportFrozen, frozen])
-}
-
-/** Tell the pane header that the record is out for review, so it reads
- * "Read-only · in review" rather than "Editing". */
-export function useReportInReview(inReview: boolean) {
-  const { reportInReview } = useContext(PaneContext)
-  useEffect(() => {
-    reportInReview?.(inReview)
-    return () => reportInReview?.(false)
-  }, [reportInReview, inReview])
+  }, [reportFrozen, frozen, skip])
 }
 
 /**

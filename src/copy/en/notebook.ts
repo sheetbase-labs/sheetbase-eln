@@ -1244,6 +1244,8 @@ export const notebook = {
       'Reference copy: another pane is editing this record. {rest}',
     theIdentifierPane: 'the {identifier} pane',
     anotherPane: 'another pane',
+    readingForReview:
+      'This notebook is read-only while it is in review. You can read, copy and comment.',
     readOnlyHereEditing: 'Read-only here: editing happens in {holder}. {rest}',
     couldNotCopyTo: 'Couldn’t copy to the clipboard.',
   },

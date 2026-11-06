@@ -1119,6 +1119,9 @@ export const notebook = {
     description:
       'Each submission for review keeps the revision it was judged against; they appear here once the record is submitted.',
     evidenceZip: 'evidence ZIP',
+    signedBundle: 'signed bundle',
+    signedBundleHint:
+      'The evidence ZIP plus a signed manifest and any trusted timestamps, with scripts to check it without Sheetbase.',
     submittedDate: 'Submitted {date}',
   },
   notebookInspector: {

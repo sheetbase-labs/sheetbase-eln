@@ -66,7 +66,10 @@ beforeAll(async () => {
      values($1,$2,$3,'experiment','EXP-TS','Signed',$4)`,
     [RECORD, WS, PROJECT, OWNER],
   )
-  const revision = await migrator.query<{ id: string; integrity_digest: string }>(
+  const revision = await migrator.query<{
+    id: string
+    integrity_digest: string
+  }>(
     `insert into api.revisions(record_id,structure_version,metadata_version,metadata_snapshot,
                                block_snapshot,reason,created_by_user_id,updated_at)
      values($1,1,1,'{"title":"Signed"}'::jsonb,'[]'::jsonb,'submit',$2,now())
@@ -89,7 +92,14 @@ beforeAll(async () => {
      values($1,$2,$3,$4,'reviewed-and-approved','standard',$5,$6,'sess-ts','reviewer','password',
             'I confirm',now())
      returning id`,
-    [WS, submission.rows[0]!.id, revision.rows[0]!.id, RECORD, revision.rows[0]!.integrity_digest, OWNER],
+    [
+      WS,
+      submission.rows[0]!.id,
+      revision.rows[0]!.id,
+      RECORD,
+      revision.rows[0]!.integrity_digest,
+      OWNER,
+    ],
   )
   signatureId = signature.rows[0]!.id
 })
@@ -100,7 +110,8 @@ afterAll(async () => {
 })
 
 const due = async () =>
-  (await migrator.query(`select * from internal.signatures_due_timestamp(50)`)).rows
+  (await migrator.query(`select * from internal.signatures_due_timestamp(50)`))
+    .rows
 
 describe('timestamp settings', () => {
   it('start switched off and only an audit manager can change them', async () => {
@@ -111,7 +122,9 @@ describe('timestamp settings', () => {
     )
     expect(rows[0].s).toMatchObject({ enabled: false })
     await expectDenied(
-      member.query(`select api.set_timestamp_settings($1::uuid, true, 'dfn')`, [WS]),
+      member.query(`select api.set_timestamp_settings($1::uuid, true, 'dfn')`, [
+        WS,
+      ]),
       'SB060',
     )
     expect(await due()).toHaveLength(0)
@@ -120,7 +133,9 @@ describe('timestamp settings', () => {
   it('validates the authority and keeps the chosen address', async () => {
     const owner = await as(OWNER)
     await expect(
-      owner.query(`select api.set_timestamp_settings($1::uuid, true, 'nope')`, [WS]),
+      owner.query(`select api.set_timestamp_settings($1::uuid, true, 'nope')`, [
+        WS,
+      ]),
     ).rejects.toThrow(/choose a time-stamping authority/)
     await expect(
       owner.query(
@@ -170,7 +185,7 @@ describe('stamping', () => {
         [signatureId],
       )
     }
-    expect((await due())).toHaveLength(1)
+    expect(await due()).toHaveLength(1)
     await migrator.query(
       `select internal.record_signature_timestamp_failure($1, 'authority down')`,
       [signatureId],
@@ -179,7 +194,11 @@ describe('stamping', () => {
       `select status, attempts, last_error from api.signature_timestamps where signature_id = $1`,
       [signatureId],
     )
-    expect(rows[0]).toMatchObject({ status: 'failed', attempts: 6, last_error: 'authority down' })
+    expect(rows[0]).toMatchObject({
+      status: 'failed',
+      attempts: 6,
+      last_error: 'authority down',
+    })
     expect(await due()).toHaveLength(0)
     const events = await migrator.query(
       `select payload from api.change_events
@@ -192,7 +211,9 @@ describe('stamping', () => {
   it('lets an audit manager ask again, and nobody else', async () => {
     const member = await as(MEMBER)
     await expectDenied(
-      member.query(`select * from api.request_signature_timestamp($1)`, [signatureId]),
+      member.query(`select * from api.request_signature_timestamp($1)`, [
+        signatureId,
+      ]),
       'SB060',
     )
     const owner = await as(OWNER)
@@ -220,7 +241,11 @@ describe('stamping', () => {
       `select status, imprint_sha256, gen_time, serial from api.signature_timestamps where signature_id = $1`,
       [signatureId],
     )
-    expect(rows[0]).toMatchObject({ status: 'stamped', imprint_sha256: imprint, serial: '2a' })
+    expect(rows[0]).toMatchObject({
+      status: 'stamped',
+      imprint_sha256: imprint,
+      serial: '2a',
+    })
     const events = await migrator.query(
       `select payload from api.change_events
         where workspace_id = $1 and entity_type = 'signature_timestamp' and payload->>'action' = 'timestamped'`,
@@ -238,7 +263,9 @@ describe('stamping', () => {
 
   it('cannot be read from another workspace', async () => {
     const other = await as(OWNER, OTHER_WS)
-    const { rows } = await other.query(`select id from api.signature_timestamps`)
+    const { rows } = await other.query(
+      `select id from api.signature_timestamps`,
+    )
     expect(rows).toHaveLength(0)
   })
 })
@@ -246,7 +273,13 @@ describe('stamping', () => {
 describe('export signing key', () => {
   it('is made once per workspace and only the public half is readable', async () => {
     const owner = await as(OWNER)
-    expect((await owner.query(`select api.workspace_signing_key($1::uuid) as k`, [WS])).rows[0].k).toBeNull()
+    expect(
+      (
+        await owner.query(`select api.workspace_signing_key($1::uuid) as k`, [
+          WS,
+        ])
+      ).rows[0].k,
+    ).toBeNull()
     await migrator.query(
       `select * from internal.ensure_workspace_signing_key($1,'PUB1','PRIV1','fp1')`,
       [WS],
@@ -255,9 +288,19 @@ describe('export signing key', () => {
       `select * from internal.ensure_workspace_signing_key($1,'PUB2','PRIV2','fp2')`,
       [WS],
     )
-    expect(second.rows[0]).toMatchObject({ public_key_pem: 'PUB1', private_key_pem: 'PRIV1' })
-    const { rows } = await owner.query(`select api.workspace_signing_key($1::uuid) as k`, [WS])
-    expect(rows[0].k).toMatchObject({ publicKeyPem: 'PUB1', fingerprint: 'fp1', algorithm: 'ed25519' })
+    expect(second.rows[0]).toMatchObject({
+      public_key_pem: 'PUB1',
+      private_key_pem: 'PRIV1',
+    })
+    const { rows } = await owner.query(
+      `select api.workspace_signing_key($1::uuid) as k`,
+      [WS],
+    )
+    expect(rows[0].k).toMatchObject({
+      publicKeyPem: 'PUB1',
+      fingerprint: 'fp1',
+      algorithm: 'ed25519',
+    })
     expect(JSON.stringify(rows[0].k)).not.toContain('PRIV')
     await expectDenied(
       owner.query(`select * from internal.workspace_signing_keys`),
@@ -304,7 +347,10 @@ describe.skipIf(!opensslAvailable)('the sweep', () => {
     })
     const info = verifyTimestampResponse(
       new Uint8Array(Buffer.from(row.response_b64, 'base64')),
-      { expectedImprintHex: row.imprint_sha256, trustedRoots: [authority.rootPem] },
+      {
+        expectedImprintHex: row.imprint_sha256,
+        trustedRoots: [authority.rootPem],
+      },
     )
     expect(info.trusted).toBe(true)
     expect(row.authority_name).toBe('tsa.lab.test')
@@ -317,14 +363,22 @@ describe.skipIf(!opensslAvailable)('the sweep', () => {
 
   it('records a failure and retries later when the authority is down', async () => {
     const id = await addSignature('witnessed')
-    const down = (async () => new Response('no', { status: 503 })) as unknown as typeof fetch
-    expect(await sweepTimestamps({ connect, fetch: down })).toEqual({ stamped: 0, failed: 1 })
+    const down = (async () =>
+      new Response('no', { status: 503 })) as unknown as typeof fetch
+    expect(await sweepTimestamps({ connect, fetch: down })).toEqual({
+      stamped: 0,
+      failed: 1,
+    })
     const { rows } = await migrator.query(
       `select status, attempts, last_error, next_attempt_at > now() as later
          from api.signature_timestamps where signature_id = $1`,
       [id],
     )
-    expect(rows[0]).toMatchObject({ status: 'pending', attempts: 1, later: true })
+    expect(rows[0]).toMatchObject({
+      status: 'pending',
+      attempts: 1,
+      later: true,
+    })
     expect(rows[0].last_error).toMatch(/503/)
   })
 })

@@ -4,7 +4,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import { generateWorkspaceKeyPair, keyFingerprint, signWithKey } from './bundle-key'
+import {
+  generateWorkspaceKeyPair,
+  keyFingerprint,
+  signWithKey,
+} from './bundle-key'
 import { buildSignedBundle } from './signed-bundle'
 import type { EvidencePackageInput } from './evidence-package'
 import { canonicalSignedData, sha256Hex } from '../timestamps/signed-data'
@@ -15,8 +19,7 @@ import {
 import type { TestAuthority } from '../timestamps/test-authority'
 import { buildTimestampRequest } from '../timestamps/tsp'
 
-const haveTools =
-  opensslAvailable && spawnSync('unzip', ['-v']).status === 0
+const haveTools = opensslAvailable && spawnSync('unzip', ['-v']).status === 0
 
 const evidence: EvidencePackageInput = {
   revision: {
@@ -32,7 +35,12 @@ const evidence: EvidencePackageInput = {
     createdAt: '2026-11-06T10:00:00Z',
     createdByUserId: 'u1',
   },
-  record: { identifier: 'EXP-1', title: 'Assay', kind: 'experiment', status: 'approved' },
+  record: {
+    identifier: 'EXP-1',
+    title: 'Assay',
+    kind: 'experiment',
+    status: 'approved',
+  },
   metadataSnapshot: {},
   blockSnapshot: [],
   canonicalSnapshot: {},
@@ -73,7 +81,9 @@ describe.skipIf(!haveTools)('signed export bundle', () => {
         {
           signatureId: 'sig-1',
           signedData,
-          responseB64: Buffer.from(authority.reply(request.der)).toString('base64'),
+          responseB64: Buffer.from(authority.reply(request.der)).toString(
+            'base64',
+          ),
           authorityName: 'Test TSA',
           authorityUrl: 'https://tsa.test',
           genTime: '2026-11-06T10:00:01.000Z',
@@ -100,7 +110,13 @@ describe.skipIf(!haveTools)('signed export bundle', () => {
 
   it('verifies offline with node and with openssl', async () => {
     await extract()
-    const node = run('node', ['verify.mjs', '--tsa-ca', rootFile, '--key-fingerprint', fingerprint])
+    const node = run('node', [
+      'verify.mjs',
+      '--tsa-ca',
+      rootFile,
+      '--key-fingerprint',
+      fingerprint,
+    ])
     expect(node.stdout).toContain('Bundle verified.')
     expect(node.status).toBe(0)
     expect(node.stdout).toContain('manifest.json is signed by public-key.pem')
@@ -140,10 +156,16 @@ describe.skipIf(!haveTools)('signed export bundle', () => {
   it('fails against the wrong authority root or the wrong key', async () => {
     await extract()
     const other = createTestAuthority()
-    const wrongRoot = run('node', ['verify.mjs', '--tsa-ca', join(other.dir, 'ca.pem')])
+    const wrongRoot = run('node', [
+      'verify.mjs',
+      '--tsa-ca',
+      join(other.dir, 'ca.pem'),
+    ])
     expect(wrongRoot.status).toBe(1)
     const wrongKey = run('node', ['verify.mjs', '--key-fingerprint', 'aa:bb'])
     expect(wrongKey.status).toBe(1)
-    expect(wrongKey.stdout).toContain('FAILED  key fingerprint is the one you expected')
+    expect(wrongKey.stdout).toContain(
+      'FAILED  key fingerprint is the one you expected',
+    )
   })
 })

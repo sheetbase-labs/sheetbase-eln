@@ -1043,6 +1043,93 @@ export async function handleRevisionEvidencePackage(
 }
 
 /**
+ * Signed export bundle: the evidence package plus a manifest signed with the
+ * workspace's export key and every trusted timestamp the revision's signatures
+ * have. Verifies offline (see signed-bundle.ts).
+ */
+export async function handleRevisionSignedBundle(
+  request: Request,
+  revisionId: string,
+  deps: SessionAuthDeps,
+): Promise<Response> {
+  const auth = await resolveSessionAuth(request.headers, deps)
+  if (!auth.ok)
+    return requestErrorResponse(auth.status, auth.code, auth.message)
+  const { context } = auth
+
+  const rpcRes = await postgrestRpc<unknown>(
+    'revision_evidence_package',
+    { p_revision_id: revisionId },
+    context.token,
+  )
+  if (rpcRes.status >= 400 || !rpcRes.body) {
+    return requestErrorResponse(404, 'not_found', 'Revision not found.')
+  }
+  const pkg = rpcRes.body as Parameters<typeof buildEvidencePackage>[0]
+
+  const stampRes = await postgrestSelect<
+    Array<{
+      signature_id: string
+      signed_data: string
+      response_b64: string
+      authority_name: string | null
+      authority_url: string | null
+      gen_time: string | null
+      serial: string | null
+      signer: string | null
+    }>
+  >(
+    'signature_timestamps',
+    `select=signature_id,signed_data,response_b64,authority_name,authority_url,gen_time,serial,signer&revision_id=eq.${encodeURIComponent(revisionId)}&status=eq.stamped`,
+    context.token,
+  )
+  if (stampRes.status >= 400 || !Array.isArray(stampRes.body)) {
+    return requestErrorResponse(
+      502,
+      'upstream_error',
+      'Could not read timestamps.',
+    )
+  }
+
+  const { buildSignedBundle } = await import('./signed-bundle')
+  const { ensureWorkspaceKey } = await import('./bundle-key.server')
+  const { signWithKey } = await import('./bundle-key')
+  const key = await ensureWorkspaceKey(pkg.revision.workspaceId)
+  const bytes = await buildSignedBundle({
+    evidence: pkg,
+    timestamps: stampRes.body.map((row) => ({
+      signatureId: row.signature_id,
+      signedData: row.signed_data,
+      responseB64: row.response_b64,
+      authorityName: row.authority_name,
+      authorityUrl: row.authority_url,
+      genTime: row.gen_time,
+      serial: row.serial,
+      signer: row.signer,
+    })),
+    publicKeyPem: key.publicKeyPem,
+    fingerprint: key.fingerprint,
+    sign: (manifest) => signWithKey(key.privateKeyPem, manifest),
+    generatedAt: new Date().toISOString(),
+  })
+
+  await insertReceipt({
+    actorUserId: context.userId,
+    workspaceId: pkg.revision.workspaceId,
+    objectType: 'revision',
+    objectId: pkg.revision.id,
+    format: 'signed-bundle-zip',
+    byteSize: bytes.byteLength,
+  })
+
+  return exportResponse(
+    bytes as unknown as BodyInit,
+    'application/zip',
+    `signed-bundle-${pkg.revision.id}.zip`,
+  )
+}
+
+/**
  * Internal PDF of a signed revision, rendered from the same evidence package
  * as the ZIP. The receipt is written only after the bytes exist.
  */

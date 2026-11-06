@@ -221,6 +221,7 @@ import { Route as ApiClientPortalRecordsRecordIdPdfRouteImport } from './routes/
 import { Route as ApiExportProjectIdElnRouteImport } from './routes/api/export/project/$id/eln'
 import { Route as ApiExportRecordIdAuditRouteImport } from './routes/api/export/record/$id/audit'
 import { Route as ApiExportRecordIdElnRouteImport } from './routes/api/export/record/$id/eln'
+import { Route as ApiExportRevisionIdBundleRouteImport } from './routes/api/export/revision/$id/bundle'
 import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
 import { Route as ApiExportRevisionIdPdfRouteImport } from './routes/api/export/revision/$id/pdf'
 import { Route as ApiWopiFilesFileIdIndexRouteImport } from './routes/api/wopi/files/$fileId/index'
@@ -1337,6 +1338,12 @@ const ApiExportRecordIdElnRoute = ApiExportRecordIdElnRouteImport.update({
   path: '/eln',
   getParentRoute: () => ApiExportRecordIdRoute,
 } as any)
+const ApiExportRevisionIdBundleRoute =
+  ApiExportRevisionIdBundleRouteImport.update({
+    id: '/api/export/revision/$id/bundle',
+    path: '/api/export/revision/$id/bundle',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiExportRevisionIdPackageRoute =
   ApiExportRevisionIdPackageRouteImport.update({
     id: '/api/export/revision/$id/package',
@@ -1579,6 +1586,7 @@ export interface FileRoutesByFullPath {
   '/api/export/project/$id/eln': typeof ApiExportProjectIdElnRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/record/$id/eln': typeof ApiExportRecordIdElnRoute
+  '/api/export/revision/$id/bundle': typeof ApiExportRevisionIdBundleRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
   '/api/wopi/files/$fileId/contents': typeof ApiWopiFilesFileIdContentsRoute
@@ -1783,6 +1791,7 @@ export interface FileRoutesByTo {
   '/api/export/project/$id/eln': typeof ApiExportProjectIdElnRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/record/$id/eln': typeof ApiExportRecordIdElnRoute
+  '/api/export/revision/$id/bundle': typeof ApiExportRevisionIdBundleRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
   '/api/wopi/files/$fileId/contents': typeof ApiWopiFilesFileIdContentsRoute
@@ -2003,6 +2012,7 @@ export interface FileRoutesById {
   '/api/export/project/$id/eln': typeof ApiExportProjectIdElnRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/record/$id/eln': typeof ApiExportRecordIdElnRoute
+  '/api/export/revision/$id/bundle': typeof ApiExportRevisionIdBundleRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
   '/api/wopi/files/$fileId/contents': typeof ApiWopiFilesFileIdContentsRoute
@@ -2224,6 +2234,7 @@ export interface FileRouteTypes {
     | '/api/export/project/$id/eln'
     | '/api/export/record/$id/audit'
     | '/api/export/record/$id/eln'
+    | '/api/export/revision/$id/bundle'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
     | '/api/wopi/files/$fileId/contents'
@@ -2428,6 +2439,7 @@ export interface FileRouteTypes {
     | '/api/export/project/$id/eln'
     | '/api/export/record/$id/audit'
     | '/api/export/record/$id/eln'
+    | '/api/export/revision/$id/bundle'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
     | '/api/wopi/files/$fileId/contents'
@@ -2647,6 +2659,7 @@ export interface FileRouteTypes {
     | '/api/export/project/$id/eln'
     | '/api/export/record/$id/audit'
     | '/api/export/record/$id/eln'
+    | '/api/export/revision/$id/bundle'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
     | '/api/wopi/files/$fileId/contents'
@@ -2758,6 +2771,7 @@ export interface RootRouteChildren {
   ApiScimV2SplatRoute: typeof ApiScimV2SplatRoute
   ApiClientPortalRecordsRecordIdPdfRoute: typeof ApiClientPortalRecordsRecordIdPdfRoute
   ApiExportProjectIdElnRoute: typeof ApiExportProjectIdElnRoute
+  ApiExportRevisionIdBundleRoute: typeof ApiExportRevisionIdBundleRoute
   ApiExportRevisionIdPackageRoute: typeof ApiExportRevisionIdPackageRoute
   ApiExportRevisionIdPdfRoute: typeof ApiExportRevisionIdPdfRoute
   ApiWopiFilesFileIdContentsRoute: typeof ApiWopiFilesFileIdContentsRoute
@@ -4250,6 +4264,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExportRecordIdElnRouteImport
       parentRoute: typeof ApiExportRecordIdRoute
     }
+    '/api/export/revision/$id/bundle': {
+      id: '/api/export/revision/$id/bundle'
+      path: '/api/export/revision/$id/bundle'
+      fullPath: '/api/export/revision/$id/bundle'
+      preLoaderRoute: typeof ApiExportRevisionIdBundleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/export/revision/$id/package': {
       id: '/api/export/revision/$id/package'
       path: '/api/export/revision/$id/package'
@@ -4889,6 +4910,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiClientPortalRecordsRecordIdPdfRoute:
     ApiClientPortalRecordsRecordIdPdfRoute,
   ApiExportProjectIdElnRoute: ApiExportProjectIdElnRoute,
+  ApiExportRevisionIdBundleRoute: ApiExportRevisionIdBundleRoute,
   ApiExportRevisionIdPackageRoute: ApiExportRevisionIdPackageRoute,
   ApiExportRevisionIdPdfRoute: ApiExportRevisionIdPdfRoute,
   ApiWopiFilesFileIdContentsRoute: ApiWopiFilesFileIdContentsRoute,

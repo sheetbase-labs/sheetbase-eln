@@ -93,7 +93,8 @@ export class TimestampError extends Error {}
 function parseGeneralizedTime(text: string): string {
   const m = /^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)(?:\.(\d+))?Z$/.exec(text)
   if (!m) throw new TimestampError('unreadable time in the token')
-  const millis = (m[7] ?? '').padEnd(3, '0').slice(0, 3) || '000'
+  const millis =
+    ((m[7] as string | undefined) ?? '').padEnd(3, '0').slice(0, 3) || '000'
   return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}.${millis}Z`
 }
 
@@ -102,7 +103,7 @@ function hex(bytes: Uint8Array): string {
 }
 
 function child(nodes: DerNode[], index: number): DerNode {
-  const node = nodes[index]
+  const node = nodes[index] as DerNode | undefined
   if (!node) throw new TimestampError('the token is incomplete')
   return node
 }
@@ -115,7 +116,9 @@ function splitResponse(resp: Uint8Array): { status: number; token: DerNode } {
   const statusInfo = derChildren(resp, child(parts, 0))
   const status = Number(derInteger(resp, child(statusInfo, 0)))
   if (status !== 0 && status !== 1) {
-    throw new TimestampError(`the authority refused the request (status ${status})`)
+    throw new TimestampError(
+      `the authority refused the request (status ${status})`,
+    )
   }
   return { status, token: child(parts, 1) }
 }
@@ -147,7 +150,10 @@ function verifyInner(resp: Uint8Array, options: VerifyOptions): TimestampInfo {
   if (derOid(resp, child(tokenParts, 0)) !== OID_SIGNED_DATA) {
     throw new TimestampError('the token is not signed data')
   }
-  const signedData = derChildren(resp, child(derChildren(resp, child(tokenParts, 1)), 0))
+  const signedData = derChildren(
+    resp,
+    child(derChildren(resp, child(tokenParts, 1)), 0),
+  )
   // version, digestAlgorithms, encapContentInfo, [0] certificates, [1] crls, signerInfos
   const encap = derChildren(resp, child(signedData, 2))
   if (derOid(resp, child(encap, 0)) !== OID_TST_INFO) {
@@ -222,7 +228,8 @@ function verifyInner(resp: Uint8Array, options: VerifyOptions): TimestampInfo {
     }
     return null
   })()
-  if (!messageDigest) throw new TimestampError('the token has no message digest')
+  if (!messageDigest)
+    throw new TimestampError('the token has no message digest')
   const contentDigest = createHash(hashName).update(tstBytes).digest('hex')
   if (hex(messageDigest) !== contentDigest) {
     throw new TimestampError('the token content does not match its signature')

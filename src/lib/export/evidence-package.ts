@@ -134,11 +134,11 @@ function gridForEvidence(
   return { headers, rows }
 }
 
-export async function buildEvidencePackage(
+/** The evidence, readme, grids and file manifest, added to an archive. */
+export function addEvidenceEntries(
+  writer: ZipWriter,
   input: EvidencePackageInput,
-): Promise<Uint8Array> {
-  const writer = new ZipWriter()
-
+): void {
   writer.add('evidence.json', JSON.stringify(input, null, 2))
 
   writer.add('README.md', readme(input))
@@ -180,6 +180,14 @@ export async function buildEvidencePackage(
     writer.add('files/files-manifest.csv', manifest + '\r\n')
   }
 
+}
+
+export async function buildEvidencePackage(
+  input: EvidencePackageInput,
+): Promise<Uint8Array> {
+  const writer = new ZipWriter()
+  addEvidenceEntries(writer, input)
+
   // sha256sum -c compatible manifest over every other entry in the archive.
   const checksums = await checksumLines(writer)
   writer.add('checksums.sha256', checksums)
@@ -191,7 +199,7 @@ function headerLine(headers: string[]): string {
   return headers.map(csvEscape).join(',')
 }
 
-async function checksumLines(writer: ZipWriter): Promise<string> {
+export async function checksumLines(writer: ZipWriter): Promise<string> {
   const { createHash } = await import('node:crypto')
   const entries = writer.entries()
   const lines: string[] = []

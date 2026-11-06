@@ -60,6 +60,7 @@ export const ASSISTANT_READ_TOOL_NAMES = [
   'sheetbase.context.assemble',
   'sheetbase.canonical.read',
   'sheetbase.search',
+  'sheetbase.storage.readings',
   'sheetbase.dataset_rows.query',
   'sheetbase.dataset_version_rows.query',
   'sheetbase.sheet_instance_rows.query',
@@ -1321,6 +1322,29 @@ const READ_TOOLS: AgentToolEntry[] = [
       .object({
         query: z.string().min(1).max(500),
         limit: z.number().int().min(1).max(100).nullish(),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
+  },
+  {
+    name: 'sheetbase.storage.readings',
+    mode: 'read',
+    description:
+      'Read the temperatures and other readings kept for freezers, fridges, incubators and rooms: each latest value, its alarm limits and whether it is out of range. Read-only; logging a reading is the record_storage_readings API call.',
+    rpc: 'query_storage_readings',
+    via: 'query_storage_readings',
+    capability: {
+      scopes: ['projects:read'],
+      permission: 'project read',
+      actor: 'workspace_actor',
+      note: 'Ordinary canonical read; same RLS as normal clients.',
+    },
+    inputSchema: z
+      .object({
+        storageUnitId: uuid.nullish(),
+        storageRoomId: uuid.nullish(),
+        outOfRangeOnly: z.boolean().nullish(),
+        limit: z.number().int().min(1).max(500).nullish(),
       })
       .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],

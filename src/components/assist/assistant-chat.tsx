@@ -408,6 +408,8 @@ function lookupLabel(
       return t(`notebook.assistantPanel.lookup.context.${phase}`)
     case 'sheetbase.search':
       return t(`notebook.assistantPanel.lookup.search.${phase}`)
+    case 'sheetbase.storage.readings':
+      return t(`notebook.assistantPanel.lookup.storageReadings.${phase}`)
     case 'sheetbase.canonical.read': {
       const resource =
         input !== null && typeof input === 'object' && 'resource' in input

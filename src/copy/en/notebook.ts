@@ -321,6 +321,10 @@ export const notebook = {
         running: 'Searching the workspace…',
         done: 'Searched the workspace',
       },
+      storageReadings: {
+        running: 'Checking freezer and room readings…',
+        done: 'Checked freezer and room readings',
+      },
       canonical: {
         running: 'Looking up {resource}…',
         done: 'Looked up {resource}',

@@ -271,6 +271,37 @@ export class RecordsResource {
     });
   }
 
+  /** Readings kept for freezers, fridges, incubators and rooms, with limits. */
+  async storageReadings(options?: {
+    unitId?: string;
+    roomId?: string;
+    outOfRangeOnly?: boolean;
+    limit?: number;
+  }): Promise<Record<string, any>[]> {
+    return this.transport.post("/api/db/rpc/query_storage_readings", {
+      jsonBody: {
+        p_unit_id: options?.unitId ?? null,
+        p_room_id: options?.roomId ?? null,
+        p_out_of_range_only: options?.outOfRangeOnly ?? false,
+        p_limit: options?.limit ?? 100,
+      },
+    });
+  }
+
+  /** Send readings for one storage unit or room (name exactly one). */
+  async recordStorageReadings(
+    readings: Array<{ feed: string; value: number; unit?: string; at?: string }>,
+    options?: { unitId?: string; roomId?: string },
+  ): Promise<{ stored: number; feeds?: number }> {
+    return this.transport.post("/api/db/rpc/record_storage_readings", {
+      jsonBody: {
+        p_unit_id: options?.unitId ?? null,
+        p_room_id: options?.roomId ?? null,
+        p_readings: readings,
+      },
+    });
+  }
+
   async *iter(options?: {
     kind?: string;
     projectId?: string;

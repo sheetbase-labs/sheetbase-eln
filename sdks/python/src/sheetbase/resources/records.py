@@ -278,6 +278,42 @@ class RecordsResource:
             json_body={"p_record_id": record_id},
         )
 
+    def storage_readings(
+        self,
+        *,
+        unit_id: Optional[str] = None,
+        room_id: Optional[str] = None,
+        out_of_range_only: bool = False,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Readings kept for freezers, fridges, incubators and rooms, with limits."""
+        return self._transport.post(
+            "/api/db/rpc/query_storage_readings",
+            json_body={
+                "p_unit_id": unit_id,
+                "p_room_id": room_id,
+                "p_out_of_range_only": out_of_range_only,
+                "p_limit": limit,
+            },
+        )
+
+    def record_storage_readings(
+        self,
+        readings: list[dict[str, Any]],
+        *,
+        unit_id: Optional[str] = None,
+        room_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Send readings for one storage unit or room (name exactly one)."""
+        return self._transport.post(
+            "/api/db/rpc/record_storage_readings",
+            json_body={
+                "p_unit_id": unit_id,
+                "p_room_id": room_id,
+                "p_readings": readings,
+            },
+        )
+
     def iter(
         self,
         *,

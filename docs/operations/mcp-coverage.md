@@ -32,8 +32,12 @@ delivery's HMAC `signature` is replaced with `[redacted]`.
 `sheetbase.context.assemble` remains the grounded envelope for records,
 notebooks, sheets, datasets, dataset versions and analyses. `sheetbase.search`,
 `sheetbase.dataset_rows.query`, `sheetbase.dataset_version_rows.query`,
-`sheetbase.sheet_instance_rows.query` and
+`sheetbase.sheet_instance_rows.query`,
+`sheetbase.storage.readings` (freezer, fridge, incubator and room readings with
+their alarm limits, optionally only those out of range) and
 `sheetbase.sheet_instance.materialization_preview` remain the convenience reads.
+Sending readings is the `record_storage_readings` API call, which is also what
+loggers and the connector stream use.
 
 The admin read tool covers the tables that are not on the external allowlist:
 workspace settings/counts, members, credential metadata (owner only),

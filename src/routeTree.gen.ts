@@ -162,6 +162,7 @@ import { Route as SamplesSampleIdMeasurementsRouteImport } from './routes/sample
 import { Route as SamplesSampleIdSequencesRouteImport } from './routes/samples/$sampleId/sequences'
 import { Route as SamplesSampleIdUsageRouteImport } from './routes/samples/$sampleId/usage'
 import { Route as SettingsAccountApiRouteImport } from './routes/settings/account/api'
+import { Route as SettingsAccountAwayRouteImport } from './routes/settings/account/away'
 import { Route as SettingsAccountNotificationsRouteImport } from './routes/settings/account/notifications'
 import { Route as SettingsAccountProfileRouteImport } from './routes/settings/account/profile'
 import { Route as SettingsAccountSignatureRouteImport } from './routes/settings/account/signature'
@@ -1001,6 +1002,11 @@ const SettingsAccountApiRoute = SettingsAccountApiRouteImport.update({
   path: '/account/api',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsAccountAwayRoute = SettingsAccountAwayRouteImport.update({
+  id: '/account/away',
+  path: '/account/away',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsAccountNotificationsRoute =
   SettingsAccountNotificationsRouteImport.update({
     id: '/account/notifications',
@@ -1446,6 +1452,7 @@ export interface FileRoutesByFullPath {
   '/samples/$sampleId/sequences': typeof SamplesSampleIdSequencesRoute
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
   '/settings/account/api': typeof SettingsAccountApiRoute
+  '/settings/account/away': typeof SettingsAccountAwayRoute
   '/settings/account/notifications': typeof SettingsAccountNotificationsRoute
   '/settings/account/profile': typeof SettingsAccountProfileRoute
   '/settings/account/signature': typeof SettingsAccountSignatureRoute
@@ -1642,6 +1649,7 @@ export interface FileRoutesByTo {
   '/samples/$sampleId/sequences': typeof SamplesSampleIdSequencesRoute
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
   '/settings/account/api': typeof SettingsAccountApiRoute
+  '/settings/account/away': typeof SettingsAccountAwayRoute
   '/settings/account/notifications': typeof SettingsAccountNotificationsRoute
   '/settings/account/profile': typeof SettingsAccountProfileRoute
   '/settings/account/signature': typeof SettingsAccountSignatureRoute
@@ -1852,6 +1860,7 @@ export interface FileRoutesById {
   '/samples/$sampleId/sequences': typeof SamplesSampleIdSequencesRoute
   '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
   '/settings/account/api': typeof SettingsAccountApiRoute
+  '/settings/account/away': typeof SettingsAccountAwayRoute
   '/settings/account/notifications': typeof SettingsAccountNotificationsRoute
   '/settings/account/profile': typeof SettingsAccountProfileRoute
   '/settings/account/signature': typeof SettingsAccountSignatureRoute
@@ -2063,6 +2072,7 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/sequences'
     | '/samples/$sampleId/usage'
     | '/settings/account/api'
+    | '/settings/account/away'
     | '/settings/account/notifications'
     | '/settings/account/profile'
     | '/settings/account/signature'
@@ -2259,6 +2269,7 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/sequences'
     | '/samples/$sampleId/usage'
     | '/settings/account/api'
+    | '/settings/account/away'
     | '/settings/account/notifications'
     | '/settings/account/profile'
     | '/settings/account/signature'
@@ -2468,6 +2479,7 @@ export interface FileRouteTypes {
     | '/samples/$sampleId/sequences'
     | '/samples/$sampleId/usage'
     | '/settings/account/api'
+    | '/settings/account/away'
     | '/settings/account/notifications'
     | '/settings/account/profile'
     | '/settings/account/signature'
@@ -3713,6 +3725,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsAccountApiRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/account/away': {
+      id: '/settings/account/away'
+      path: '/account/away'
+      fullPath: '/settings/account/away'
+      preLoaderRoute: typeof SettingsAccountAwayRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/account/notifications': {
       id: '/settings/account/notifications'
       path: '/account/notifications'
@@ -4436,6 +4455,7 @@ const SettingsWorkspaceIntegrationsRouteWithChildren =
 interface SettingsRouteChildren {
   SettingsIndexRoute: typeof SettingsIndexRoute
   SettingsAccountApiRoute: typeof SettingsAccountApiRoute
+  SettingsAccountAwayRoute: typeof SettingsAccountAwayRoute
   SettingsAccountNotificationsRoute: typeof SettingsAccountNotificationsRoute
   SettingsAccountProfileRoute: typeof SettingsAccountProfileRoute
   SettingsAccountSignatureRoute: typeof SettingsAccountSignatureRoute
@@ -4463,6 +4483,7 @@ interface SettingsRouteChildren {
 const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsIndexRoute: SettingsIndexRoute,
   SettingsAccountApiRoute: SettingsAccountApiRoute,
+  SettingsAccountAwayRoute: SettingsAccountAwayRoute,
   SettingsAccountNotificationsRoute: SettingsAccountNotificationsRoute,
   SettingsAccountProfileRoute: SettingsAccountProfileRoute,
   SettingsAccountSignatureRoute: SettingsAccountSignatureRoute,

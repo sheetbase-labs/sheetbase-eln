@@ -34,12 +34,12 @@ openssl ts -verify -data data.json -in token.tsr -CAfile authority-root.pem
 
 ## Calls
 
-| Call                                           | Scope           | What it does                                                           |
-| ---------------------------------------------- | --------------- | ---------------------------------------------------------------------- |
-| `POST /api/db/rpc/timestamp_settings`          | `admin:read`    | Which service the workspace uses, if any                               |
-| `POST /api/db/rpc/set_timestamp_settings`      | `admin:write`   | Choose `dfn`, `digicert` or `custom` (with an address), or turn it off |
-| `POST /api/db/rpc/request_signature_timestamp` | `reviews:write` | Queue a signature that has no stamp or gave up. Needs audit access     |
-| `POST /api/db/rpc/workspace_signing_key`       | `reviews:read`  | The public half of the workspace's export key and its fingerprint      |
+| Call                                           | Scope          | What it does                                                           |
+| ---------------------------------------------- | -------------- | ---------------------------------------------------------------------- |
+| `POST /api/db/rpc/timestamp_settings`          | `admin:read`   | Which service the workspace uses, if any                               |
+| `POST /api/db/rpc/set_timestamp_settings`      | `admin:write`  | Choose `dfn`, `digicert` or `custom` (with an address), or turn it off |
+| `POST /api/db/rpc/request_signature_timestamp` | `admin:write`  | Queue a signature that has no stamp or gave up. Needs audit access     |
+| `POST /api/db/rpc/workspace_signing_key`       | `reviews:read` | The public half of the workspace's export key and its fingerprint      |
 
 Choosing a service and asking again act as a person, so they need a personal
 token and that person's own audit access.

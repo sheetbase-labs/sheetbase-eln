@@ -9,9 +9,20 @@
 -- (and retention gains one summary event below).
 
 -- New kinds of thing on the change feed.
-ALTER TABLE api.change_events DROP CONSTRAINT chk_change_events_entity_type;
---> statement-breakpoint
-ALTER TABLE api.change_events ADD CONSTRAINT chk_change_events_entity_type CHECK ((entity_type = ANY (ARRAY['project'::text, 'analysis_view'::text, 'folder'::text, 'record'::text, 'block'::text, 'record_link'::text, 'scientific_table'::text, 'scientific_row'::text, 'formula'::text, 'calculation'::text, 'record_field_definition'::text, 'model_field_option'::text, 'file'::text, 'dataset_schema'::text, 'dataset_schema_field'::text, 'dataset_schema_relationship'::text, 'dataset'::text, 'dataset_version'::text, 'sample_event'::text, 'comment'::text, 'review_submission'::text, 'record_model_version'::text, 'protocol_version'::text, 'protocol_deviation'::text, 'signature'::text, 'review_decision'::text, 'storage_site'::text, 'storage_room'::text, 'storage_unit'::text, 'storage_shelf'::text, 'storage_rack'::text, 'storage_box'::text, 'storage_position'::text, 'storage_movement'::text, 'plate_design'::text, 'plate_well'::text, 'plate_layout_template'::text, 'calendar_resource'::text, 'calendar_booking'::text, 'calendar_booking_participant'::text, 'calendar_booking_sample'::text, 'study_workstream'::text, 'study_task'::text, 'study_task_dependency'::text, 'study_task_assignment'::text, 'study_task_resource'::text, 'study_deliverable'::text, 'study_project'::text, 'study_experiment'::text, 'study_plan_snapshot'::text, 'instrument'::text, 'instrument_run'::text, 'instrument_run_stage'::text, 'instrument_observation'::text, 'instrument_plate_snapshot'::text, 'instrument_qc_check'::text, 'instrument_raw_file'::text, 'instrument_run_link'::text, 'report_definition'::text, 'report_section'::text, 'report_generation'::text, 'sheet_instance'::text, 'sheet_definition'::text, 'sheet_definition_version'::text, 'notebook_template'::text, 'notebook_template_version'::text, 'workspace_invitation'::text, 'workspace_settings'::text, 'project_access'::text, 'workspace_group'::text, 'workspace_group_membership'::text, 'project_access_request'::text, 'api_credential'::text, 'connector'::text, 'connector_run'::text, 'pipeline_definition'::text, 'pipeline_definition_version'::text, 'pipeline_run'::text, 'pipeline_schedule'::text, 'webhook_subscription'::text, 'webhook_delivery'::text, 'agent_operation_policy'::text, 'agent_operation_proposal'::text, 'extension'::text, 'dataset_import_file'::text, 'dataset_import'::text, 'parser'::text, 'parser_version'::text, 'system'::text, 'material'::text, 'approval_request'::text, 'member_handover'::text, 'member_absence'::text, 'idp_group_mapping'::text, 'member_passkey'::text, 'stocktake'::text, 'shipment'::text, 'request'::text, 'sample_workflow_run'::text, 'incident'::text, 'registry_entry'::text, 'instrument_feed'::text, 'record_assignment'::text])));
+DO $$
+DECLARE
+  v_def text;
+BEGIN
+  SELECT pg_get_constraintdef(oid) INTO v_def
+    FROM pg_constraint
+   WHERE conrelid = 'api.change_events'::regclass AND conname = 'chk_change_events_entity_type';
+  IF v_def IS NULL THEN
+    RAISE EXCEPTION 'chk_change_events_entity_type is missing';
+  END IF;
+  ALTER TABLE api.change_events DROP CONSTRAINT chk_change_events_entity_type;
+  EXECUTE 'ALTER TABLE api.change_events ADD CONSTRAINT chk_change_events_entity_type '
+    || replace(v_def, '''system''::text', '''system''::text, ''stocktake''::text, ''shipment''::text, ''request''::text, ''sample_workflow_run''::text, ''incident''::text, ''registry_entry''::text, ''instrument_feed''::text, ''record_assignment''::text');
+END $$;
 --> statement-breakpoint
 
 -- Webhook subscriptions may list the new names.

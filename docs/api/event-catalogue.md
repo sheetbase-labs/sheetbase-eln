@@ -112,7 +112,7 @@ them (`when` in the catalogue).
 
 ### Lab features: stock, shipping, requests, holds, workflows (`stable`, webhook and SSE)
 
-Added with migration 0090. Every event below is delivered to webhooks and the
+Added with migration 0099. Every event below is delivered to webhooks and the
 live feed, carries the standard envelope, and has the payload keys listed
 (`data` in the envelope). The event is picked by the payload key shown, as with
 the sample events above. Subscribe with these names; `api.create_webhook_subscription`

@@ -2,9 +2,9 @@ import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
 import { createServer } from 'node:net'
-import { drizzle } from 'drizzle-orm/node-postgres'
-import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { Client } from 'pg'
+
+import { applyMigrations } from '../../scripts/lib/migrations.mjs'
 
 function localUrl(name: string): URL {
   const url = new URL(process.env[name] ?? '')
@@ -123,7 +123,7 @@ export async function startApiTestStack() {
       await migrationClient.query(
         "SELECT set_config('sheetbase.sheet_instance_write','rpc-v1',false)",
       )
-      await migrate(drizzle(migrationClient), { migrationsFolder: 'drizzle' })
+      await applyMigrations(migrationClient, 'drizzle')
     } finally {
       await migrationClient.end()
     }

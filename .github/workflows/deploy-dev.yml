@@ -100,7 +100,7 @@ jobs:
       - name: Read expected migration
         id: migration
         run: |
-          VERSION="$(node -e "const j=require('./drizzle/meta/_journal.json'); console.log(j.entries.at(-1).when)")"
+          VERSION="$(node --input-type=module -e "import { readJournal } from './scripts/lib/migrations.mjs'; console.log(readJournal().entries.at(-1).when)")"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Build app image

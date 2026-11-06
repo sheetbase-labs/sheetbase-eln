@@ -1,7 +1,7 @@
 /**
  * PLAT-01 — concurrency-safe one-shot migration runner.
  *
- * Drizzle migrate is idempotent but does not take a cross-connection
+ * The migration runner is idempotent but does not take a cross-connection
  * lock, so two simultaneous migrators (e.g. a retried deploy while the first
  * migrate container is still running) could race on the journal. This wrapper
  * holds a PostgreSQL advisory lock for the whole migration, so concurrent
@@ -13,9 +13,9 @@
  * and non-zero so the deployment controller stops before starting the app.
  */
 import { config } from 'dotenv'
-import { drizzle } from 'drizzle-orm/node-postgres'
-import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { Client } from 'pg'
+
+import { applyMigrations } from './lib/migrations.mjs'
 
 // Match drizzle.config.ts: environment credentials take precedence over files.
 config({ path: ['.env.local', '.env'], quiet: true })
@@ -54,12 +54,12 @@ try {
   // Historical data backfills (including 0255) must pass the same enabled
   // Sheet Instance guard as RPC writes. This context belongs only to this
   // newly created migration connection, never an application pool or role.
-  // Drizzle owns the transaction. Session context spans that transaction and
+  // The migration runner owns the transaction. Session context spans that transaction and
   // is discarded when this dedicated connection closes in finally.
   await client.query(
     `SELECT set_config('sheetbase.sheet_instance_write', 'rpc-v1', false)`,
   )
-  await migrate(drizzle(client), { migrationsFolder: './drizzle' })
+  await applyMigrations(client, './drizzle')
   // PostgREST keeps a cache of the schema and only sees a new function or view
   // when told to reload (a running service answers 404 "not in the schema
   // cache" until then). Tell it every time, so a migration that adds an RPC

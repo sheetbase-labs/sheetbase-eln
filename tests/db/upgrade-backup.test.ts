@@ -19,13 +19,12 @@ import {
 } from '#/lib/workspace-export/upgrade-backup.server'
 import type { MigrationJournal } from '#/lib/workspace-export/upgrade-backup.server'
 import { migratorUrl, prepareTestDatabase } from './helpers'
+import { readJournal } from '../../scripts/lib/migrations.mjs'
 
 const WS_1 = '00000000-0000-4000-8000-0000000049e1'
 const WS_2 = '00000000-0000-4000-8000-0000000049e2'
 
-const journal = JSON.parse(
-  readFileSync('drizzle/meta/_journal.json', 'utf8'),
-) as MigrationJournal
+const journal = readJournal() as MigrationJournal
 const withNewerMigration: MigrationJournal = {
   entries: [
     ...journal.entries,

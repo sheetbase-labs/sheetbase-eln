@@ -180,15 +180,22 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      # The browser's system libraries come to about 22 MB, mostly fonts, and
+      # the runner's apt mirror sometimes serves them at 40 kB/s, which took
+      # 9 to 15 minutes. Keep the downloaded packages between runs. (Timeouts
+      # do not help: the mirror is slow, not stalled.)
+      - name: Restore the browser's system packages
+        uses: actions/cache@v4
+        with:
+          path: ~/apt-debs
+          key: apt-playwright-${{ runner.os }}-${{ env.ImageVersion }}-${{ steps.playwright.outputs.version }}
+      - name: Point apt at the cached packages
+        run: |
+          mkdir -p ~/apt-debs/partial
+          printf 'Dir::Cache::archives "%s/apt-debs";\n' "$HOME" | sudo tee /etc/apt/apt.conf.d/99-cached-debs
       - name: Install browser
         if: steps.browser-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
-      # apt on a hosted runner sometimes stalls on one slow mirror connection
-      # for ten minutes or more (seen: 541s and 904s against a usual 12s).
-      # Short timeouts turn a stall into a quick retry.
-      - name: Make apt give up on a stalled connection
-        run: |
-          printf 'Acquire::Retries "5";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\n' | sudo tee /etc/apt/apt.conf.d/99-fast-fail
       - name: Install browser system libraries
         if: steps.browser-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium

@@ -107,6 +107,27 @@ export const twoFactor = internal.table(
   (table) => [index('idx_two_factor_user_id').on(table.userId)],
 )
 
+/** Migration 0093: one row per passkey a person has registered to sign in. */
+export const passkey = internal.table(
+  'passkey',
+  {
+    id: text('id').primaryKey(),
+    name: text('name'),
+    publicKey: text('publicKey').notNull(),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    credentialID: text('credentialID').notNull().unique(),
+    counter: integer('counter').notNull(),
+    deviceType: text('deviceType').notNull(),
+    backedUp: boolean('backedUp').notNull(),
+    transports: text('transports'),
+    createdAt: timestamp('createdAt', { withTimezone: true, mode: 'date' }),
+    aaguid: text('aaguid'),
+  },
+  (table) => [index('idx_passkey_user_id').on(table.userId)],
+)
+
 export const session = internal.table(
   'session',
   {

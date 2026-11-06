@@ -544,7 +544,7 @@ function renderProcedureStep(
         <p
           className={cn(
             'whitespace-pre-wrap text-sm leading-6',
-            completed ? 'text-fg-muted line-through' : 'text-fg',
+            completed ? 'text-fg-muted' : 'text-fg',
           )}
         >
           {text}

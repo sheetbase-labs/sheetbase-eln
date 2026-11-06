@@ -1876,7 +1876,7 @@ function ExecutionStepEditor(props: BlockEditorProps) {
           <span
             className={cn(
               'block text-sm',
-              a.draft.completed && 'text-fg-muted line-through',
+              a.draft.completed && 'text-fg-muted',
             )}
           >
             {String(payload.text)}

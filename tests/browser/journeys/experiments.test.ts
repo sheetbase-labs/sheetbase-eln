@@ -44,7 +44,9 @@ test('EXP-03 a draft is started from its header', async ({ page }) => {
     await dialog.getByRole('button', { name: /^start/i }).click()
   }
   await expect(page.getByText('In progress').first()).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Put on hold' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Submit for review', exact: true }),
+  ).toBeVisible()
 })
 
 test('EXP-04 an experiment can be saved as a template and the template is offered when creating', async ({

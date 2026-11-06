@@ -34,10 +34,14 @@ async function submitFor(
   if (await starting.count()) {
     await starting.getByRole('button', { name: /^start/i }).click()
   }
-  await expect(page.getByRole('button', { name: 'Put on hold' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Submit for review', exact: true }),
+  ).toBeVisible()
   await page.locator('[contenteditable="true"]').first().click()
   await page.keyboard.type('Titre doubled at 72 h.')
-  await page.getByRole('button', { name: 'Submit', exact: true }).click()
+  await page
+    .getByRole('button', { name: 'Submit for review', exact: true })
+    .click()
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
   await dialog.getByRole('checkbox', { name: /Mei/ }).check()

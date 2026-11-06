@@ -1,7 +1,6 @@
 import { rich, t } from '#/copy'
 import {
   useReportFrozen,
-  useReportInReview,
 } from '#/components/workspace/workspace-navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
@@ -1219,10 +1218,12 @@ export function StickyRecordHeader({
   const [linkOpen, setLinkOpen] = useState(false)
   const lockedAt = liveLockedAt ?? record.lockedAt
   // On the experiment page the page itself reports why the record is frozen.
-  useReportFrozen(Boolean(lockedAt), embedded)
+  useReportFrozen(
+    lockedAt ? true : reviewActivity === 'submitted' ? 'review' : false,
+    embedded,
+  )
   const lockedByRevisionId = liveLockedByRevisionId ?? record.lockedByRevisionId
   const reviewActivity = notebookReviewActivity(review)
-  useReportInReview(reviewActivity === 'submitted' && !lockedAt)
   // NOTE-04: defensive for the submit dialog's readiness checklist — the
   // dialog only opens from a submittable header, but an active review that
   // appears between render and confirm is surfaced honestly.

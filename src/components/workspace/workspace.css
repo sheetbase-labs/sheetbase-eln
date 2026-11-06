@@ -613,13 +613,15 @@
 
 /* Open affordance: record IDs, hover hint, drag-to-open drop zone */
 .workspace a[data-record-link],
-.workspace-page a[data-record-link] {
+.workspace-page a[data-record-link],
+[data-slot='dialog-content'] a[data-record-link] {
   text-decoration: underline dotted;
   text-decoration-color: var(--mx-faint, currentColor);
   text-underline-offset: 3px;
 }
 .workspace a[data-record-link]:hover,
-.workspace-page a[data-record-link]:hover {
+.workspace-page a[data-record-link]:hover,
+[data-slot='dialog-content'] a[data-record-link]:hover {
   text-decoration-style: solid;
   text-decoration-color: currentColor;
 }

@@ -38,6 +38,23 @@ jobs:
       - uses: ./.github/actions/install
       - run: ${{ matrix.command }}
 
+  # A migration added by a PR must sort after the newest one on main, so a branch
+  # started before another migration merged gets caught here rather than applied
+  # out of order. Needs no install: it only reads git and file names.
+  migration-order:
+    name: Migration order
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - run: node scripts/check-migrations.mjs origin/${{ github.base_ref }}
+
   unit:
     name: Unit and component tests (${{ matrix.shard }})
     runs-on: ubuntu-latest

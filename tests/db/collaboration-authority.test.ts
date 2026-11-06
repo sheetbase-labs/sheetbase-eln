@@ -23,7 +23,6 @@ const OUTSIDER = 'collab-outsider'
 let dataset: string
 let migrator: Client
 let access: typeof import('#/lib/collaboration/access.server')
-let resolution: typeof import('#/lib/collaboration/resolution.server')
 let database: typeof import('#/db/client.server')
 
 const room = (kind = 'record', id = RECORD, workspace = WS) =>
@@ -34,10 +33,8 @@ beforeAll(async () => {
   const url = new URL(process.env.DATABASE_URL!)
   url.pathname = `/${testDatabaseName()}`
   vi.stubEnv('DATABASE_URL', url.toString())
-  vi.stubEnv('LIVEBLOCKS_SECRET_KEY', 'sk_test-not-used-for-network')
   // Import the actual server modules against this worker's disposable DB.
   access = await import('#/lib/collaboration/access.server')
-  resolution = await import('#/lib/collaboration/resolution.server')
   database = await import('#/db/client.server')
   for (const user of [OWNER, EDITOR, READER, VIEWER, FORBIDDEN, OUTSIDER]) {
     await migrator.query(
@@ -145,14 +142,10 @@ async function grant(userId: string, roomId = room()) {
 
 async function denied(userId: string, roomId: string) {
   expect(await grant(userId, roomId)).toMatchObject({ ok: false, status: 403 })
-  expect(await resolution.resolveRoomsForCaller(userId, [roomId])).toEqual([])
-  expect(
-    await resolution.mentionSuggestionsForRoom(userId, roomId, ''),
-  ).toEqual([])
 }
 
 describe('canonical collaboration authority through real server resolvers', () => {
-  it('denies same-workspace project guesses, private drafts and cross-workspace objects without names or mentions', async () => {
+  it('denies same-workspace project guesses, private drafts and cross-workspace objects', async () => {
     for (const roomId of [
       room(),
       room('sheet', SHEET),
@@ -163,16 +156,6 @@ describe('canonical collaboration authority through real server resolvers', () =
     }
     await denied(EDITOR, room('record', DRAFT))
     await denied(EDITOR, room('sheet', DRAFT_SHEET))
-    const draftNames = await resolution.resolveRoomsForCaller(OWNER, [
-      room('record', DRAFT),
-    ])
-    expect(draftNames).toEqual([
-      {
-        id: room('record', DRAFT),
-        name: 'COL-2 · Private draft',
-        url: expect.any(String),
-      },
-    ])
     await denied(OWNER, room('record', RECORD, OTHER_WS))
     await denied(EDITOR, room('record', crypto.randomUUID()))
     expect(await grant(OWNER, room('record', DRAFT))).toMatchObject({
@@ -189,7 +172,7 @@ describe('canonical collaboration authority through real server resolvers', () =
       expect(await grant(EDITOR, roomId)).toMatchObject({
         ok: true,
         permissions: {
-          permissions: expect.arrayContaining(['comments:write']),
+          permissions: expect.arrayContaining(['room:write']),
         },
       })
       for (const reader of [READER, VIEWER]) {
@@ -197,32 +180,11 @@ describe('canonical collaboration authority through real server resolvers', () =
           ok: true,
           objectState: 'read_only',
           permissions: {
-            permissions: [
-              'room:read',
-              'comments:read',
-              'storage:none',
-              'feeds:none',
-            ],
+            permissions: ['room:read'],
           },
         })
-        expect(
-          await resolution.resolveRoomsForCaller(reader, [roomId]),
-        ).toHaveLength(1)
       }
     }
-    const mentions = await resolution.mentionSuggestionsForRoom(
-      OWNER,
-      room(),
-      '',
-    )
-    expect(mentions.sort()).toEqual([EDITOR, READER, VIEWER].sort())
-    expect(
-      await resolution.mentionSuggestionsForRoom(
-        OWNER,
-        room('record', DRAFT),
-        '',
-      ),
-    ).toEqual([])
   })
 
   it('keeps archived/locked objects readable but never writable, and denies deleted objects', async () => {
@@ -288,13 +250,6 @@ describe('canonical collaboration authority through real server resolvers', () =
       ok: true,
       objectState: 'read_only',
     })
-    expect(
-      await resolution.resolveRoomsForCaller(EDITOR, [
-        room(),
-        room('sheet', SHEET),
-        room('dataset', dataset),
-      ]),
-    ).toHaveLength(3)
     await migrator.query(
       `update api.sheet_instances set lifecycle='active' where id=$1`,
       [SHEET],
@@ -305,7 +260,7 @@ describe('canonical collaboration authority through real server resolvers', () =
     )
   })
 
-  it('rechecks grants, resolution and mention eligibility immediately after authority is revoked', async () => {
+  it('rechecks grants immediately after authority is revoked', async () => {
     expect(await grant(EDITOR)).toMatchObject({
       ok: true,
       objectState: 'writable',
@@ -323,9 +278,6 @@ describe('canonical collaboration authority through real server resolvers', () =
       [PROJECT, EDITOR],
     )
     await denied(EDITOR, room())
-    expect(
-      await resolution.mentionSuggestionsForRoom(OWNER, room(), ''),
-    ).not.toContain(EDITOR)
     const group = await migrator.query<{ id: string }>(
       `insert into api.workspace_groups(workspace_id,name) values($1,'Collaboration group') returning id`,
       [WS],

@@ -21,11 +21,13 @@ from sheetbase._generated.models import (
     CompositionAdoptionPreview,
     DatasetVersionsRow,
     DatasetsRow,
+    IdpGroupMappingsRow,
     InsertSheetInstanceBlockResult,
     InstantiateNotebookTemplateResult,
     JsonValue,
     MaterializationPreview,
     MaterializationResult,
+    MemberAbsencesRow,
     NotebookUpgradeApplyResult,
     NotebookUpgradeDecision,
     NotebookUpgradePreview,
@@ -69,6 +71,7 @@ class Rpc:
     """
 
     NAMES = (
+        "adopt_group_roles",
         "advance_agent_workflow",
         "apply_notebook_template_upgrade",
         "apply_sheet_instance_composition_adoption",
@@ -77,6 +80,7 @@ class Rpc:
         "archive_record",
         "archive_sheet_instance",
         "cancel_agent_workflow",
+        "cancel_member_absence",
         "commit_dataset_row_batch",
         "commit_sheet_record_batch",
         "create_agent_workflow",
@@ -95,6 +99,7 @@ class Rpc:
         "duplicate_sheet_instance",
         "duplicate_sheet_instance_block",
         "get_webhook_endpoint_health",
+        "hand_over_member_work",
         "insert_block",
         "insert_sheet_instance_block",
         "instantiate_notebook_template_version",
@@ -104,6 +109,7 @@ class Rpc:
         "move_block",
         "mutate_sheet_instance_calculations",
         "mutate_sheet_instance_local_state",
+        "preview_member_handover",
         "preview_notebook_template_upgrade",
         "preview_sheet_instance_composition_adoption",
         "preview_sheet_instance_definition_upgrade",
@@ -115,6 +121,7 @@ class Rpc:
         "query_dataset_version_transfer",
         "query_sheet_instance_rows",
         "read_sheet_instance_calculation_results",
+        "remove_idp_group_mapping",
         "replay_webhook_deliveries",
         "replay_webhook_delivery",
         "report_agent_workflow_usage",
@@ -127,6 +134,8 @@ class Rpc:
         "save_search",
         "search",
         "search_sheet_records",
+        "set_idp_group_mapping",
+        "set_member_absence",
         "snapshot_dataset",
         "transition_record_status",
         "update_block_payload",
@@ -147,6 +156,20 @@ class Rpc:
 
     def _call(self, name: str, body: Dict[str, Any]) -> Any:
         return self._transport.post(f"/api/db/rpc/{name}", json_body=body)
+
+    def adopt_group_roles(self, *, workspace_id: str) -> int:
+        """
+        Let sign-in groups decide roles
+
+        Needs members access. Hands everyone except owners and client accounts over to group control and returns how many people changed.
+
+        Scopes: people:write.
+
+        ``POST /api/db/rpc/adopt_group_roles``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return self._call("adopt_group_roles", body)  # type: ignore[no-any-return]
 
     def advance_agent_workflow(
         self,
@@ -327,6 +350,24 @@ class Rpc:
         body["p_expected_revision"] = expected_revision
         body["p_reason"] = reason
         return self._call("cancel_agent_workflow", body)  # type: ignore[no-any-return]
+
+    def cancel_member_absence(
+        self,
+        *,
+        absence_id: str,
+    ) -> Union["MemberAbsencesRow", List["MemberAbsencesRow"]]:
+        """
+        Cancel an out of office
+
+        Ends the absence and withdraws the cover it added.
+
+        Scopes: people:write.
+
+        ``POST /api/db/rpc/cancel_member_absence``
+        """
+        body: Dict[str, Any] = {}
+        body["p_absence_id"] = absence_id
+        return self._call("cancel_member_absence", body)  # type: ignore[no-any-return]
 
     def commit_dataset_row_batch(
         self,
@@ -780,6 +821,30 @@ class Rpc:
             body["p_subscription_id"] = subscription_id
         return self._call("get_webhook_endpoint_health", body)  # type: ignore[no-any-return]
 
+    def hand_over_member_work(
+        self,
+        *,
+        workspace_id: str,
+        from_user_id: str,
+        to_user_id: str,
+        selection: List[str],
+    ) -> Dict[str, Any]:
+        """
+        Hand a member’s open work to a colleague
+
+        Moves the chosen open work and reports `moved` and `kept` counts. Signed, locked, archived and finished work stays, as does anything the colleague cannot see or review. Selection names: `record:<kind>`, `record_reviewer`, `task`, `review`, `instrument`, `project_reviewer`.
+
+        Scopes: people:write.
+
+        ``POST /api/db/rpc/hand_over_member_work``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_from_user_id"] = from_user_id
+        body["p_to_user_id"] = to_user_id
+        body["p_selection"] = selection
+        return self._call("hand_over_member_work", body)  # type: ignore[no-any-return]
+
     def insert_block(
         self,
         *,
@@ -1026,6 +1091,26 @@ class Rpc:
         body["p_rows"] = rows
         body["p_cells"] = cells
         return self._call("mutate_sheet_instance_local_state", body)  # type: ignore[no-any-return]
+
+    def preview_member_handover(
+        self,
+        *,
+        workspace_id: str,
+        user_id: str,
+    ) -> List[Dict[str, Any]]:
+        """
+        Preview the open work that could be handed over
+
+        Counts what a member still has open: assigned records by kind, reviewer names, tasks, reviews waiting, instruments and default project reviews. Allowed for members access, or for the person themselves.
+
+        Scopes: people:read.
+
+        ``POST /api/db/rpc/preview_member_handover``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_user_id"] = user_id
+        return self._call("preview_member_handover", body)  # type: ignore[no-any-return]
 
     def preview_notebook_template_upgrade(
         self,
@@ -1275,6 +1360,20 @@ class Rpc:
         body["p_instance_id"] = instance_id
         body["p_row_keys"] = row_keys
         return self._call("read_sheet_instance_calculation_results", body)  # type: ignore[no-any-return]
+
+    def remove_idp_group_mapping(self, *, id: str) -> None:
+        """
+        Remove a sign-in group mapping
+
+        Needs members access.
+
+        Scopes: people:write.
+
+        ``POST /api/db/rpc/remove_idp_group_mapping``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return self._call("remove_idp_group_mapping", body)  # type: ignore[no-any-return]
 
     def replay_webhook_deliveries(
         self,
@@ -1579,6 +1678,58 @@ class Rpc:
             body["p_include_archived"] = include_archived
         return self._call("search_sheet_records", body)  # type: ignore[no-any-return]
 
+    def set_idp_group_mapping(
+        self,
+        *,
+        workspace_id: str,
+        group_name: str,
+        role: str,
+    ) -> Union["IdpGroupMappingsRow", List["IdpGroupMappingsRow"]]:
+        """
+        Map a sign-in group to a role
+
+        Needs members access. People in the group get the role the next time they sign in through the identity provider; the highest mapped role wins and anyone in no mapped group becomes a viewer.
+
+        Scopes: people:write.
+
+        ``POST /api/db/rpc/set_idp_group_mapping``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_group_name"] = group_name
+        body["p_role"] = role
+        return self._call("set_idp_group_mapping", body)  # type: ignore[no-any-return]
+
+    def set_member_absence(
+        self,
+        *,
+        workspace_id: str,
+        starts_on: str,
+        ends_on: str,
+        delegate_user_id: Optional[str],
+        note: Union[Optional[str], Unset] = UNSET,
+        user_id: Union[Optional[str], Unset] = UNSET,
+    ) -> Union["MemberAbsencesRow", List["MemberAbsencesRow"]]:
+        """
+        Set an out of office
+
+        Names the days a member is away and, optionally, the colleague who covers reviews waiting on them. Replaces any absence that overlaps. Omit `p_user_id` to set your own; setting someone else’s needs members access.
+
+        Scopes: people:write.
+
+        ``POST /api/db/rpc/set_member_absence``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_starts_on"] = starts_on
+        body["p_ends_on"] = ends_on
+        body["p_delegate_user_id"] = delegate_user_id
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        if not isinstance(user_id, Unset):
+            body["p_user_id"] = user_id
+        return self._call("set_member_absence", body)  # type: ignore[no-any-return]
+
     def snapshot_dataset(
         self,
         *,
@@ -1829,6 +1980,7 @@ class AsyncRpc:
     """Async counterpart of :class:`Rpc`."""
 
     NAMES = (
+        "adopt_group_roles",
         "advance_agent_workflow",
         "apply_notebook_template_upgrade",
         "apply_sheet_instance_composition_adoption",
@@ -1837,6 +1989,7 @@ class AsyncRpc:
         "archive_record",
         "archive_sheet_instance",
         "cancel_agent_workflow",
+        "cancel_member_absence",
         "commit_dataset_row_batch",
         "commit_sheet_record_batch",
         "create_agent_workflow",
@@ -1855,6 +2008,7 @@ class AsyncRpc:
         "duplicate_sheet_instance",
         "duplicate_sheet_instance_block",
         "get_webhook_endpoint_health",
+        "hand_over_member_work",
         "insert_block",
         "insert_sheet_instance_block",
         "instantiate_notebook_template_version",
@@ -1864,6 +2018,7 @@ class AsyncRpc:
         "move_block",
         "mutate_sheet_instance_calculations",
         "mutate_sheet_instance_local_state",
+        "preview_member_handover",
         "preview_notebook_template_upgrade",
         "preview_sheet_instance_composition_adoption",
         "preview_sheet_instance_definition_upgrade",
@@ -1875,6 +2030,7 @@ class AsyncRpc:
         "query_dataset_version_transfer",
         "query_sheet_instance_rows",
         "read_sheet_instance_calculation_results",
+        "remove_idp_group_mapping",
         "replay_webhook_deliveries",
         "replay_webhook_delivery",
         "report_agent_workflow_usage",
@@ -1887,6 +2043,8 @@ class AsyncRpc:
         "save_search",
         "search",
         "search_sheet_records",
+        "set_idp_group_mapping",
+        "set_member_absence",
         "snapshot_dataset",
         "transition_record_status",
         "update_block_payload",
@@ -1907,6 +2065,20 @@ class AsyncRpc:
 
     async def _call(self, name: str, body: Dict[str, Any]) -> Any:
         return await self._transport.post(f"/api/db/rpc/{name}", json_body=body)
+
+    async def adopt_group_roles(self, *, workspace_id: str) -> int:
+        """
+        Let sign-in groups decide roles
+
+        Needs members access. Hands everyone except owners and client accounts over to group control and returns how many people changed.
+
+        Scopes: people:write.
+
+        ``POST /api/db/rpc/adopt_group_roles``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return await self._call("adopt_group_roles", body)  # type: ignore[no-any-return]
 
     async def advance_agent_workflow(
         self,
@@ -2087,6 +2259,24 @@ class AsyncRpc:
         body["p_expected_revision"] = expected_revision
         body["p_reason"] = reason
         return await self._call("cancel_agent_workflow", body)  # type: ignore[no-any-return]
+
+    async def cancel_member_absence(
+        self,
+        *,
+        absence_id: str,
+    ) -> Union["MemberAbsencesRow", List["MemberAbsencesRow"]]:
+        """
+        Cancel an out of office
+
+        Ends the absence and withdraws the cover it added.
+
+        Scopes: people:write.
+
+        ``POST /api/db/rpc/cancel_member_absence``
+        """
+        body: Dict[str, Any] = {}
+        body["p_absence_id"] = absence_id
+        return await self._call("cancel_member_absence", body)  # type: ignore[no-any-return]
 
     async def commit_dataset_row_batch(
         self,
@@ -2540,6 +2730,30 @@ class AsyncRpc:
             body["p_subscription_id"] = subscription_id
         return await self._call("get_webhook_endpoint_health", body)  # type: ignore[no-any-return]
 
+    async def hand_over_member_work(
+        self,
+        *,
+        workspace_id: str,
+        from_user_id: str,
+        to_user_id: str,
+        selection: List[str],
+    ) -> Dict[str, Any]:
+        """
+        Hand a member’s open work to a colleague
+
+        Moves the chosen open work and reports `moved` and `kept` counts. Signed, locked, archived and finished work stays, as does anything the colleague cannot see or review. Selection names: `record:<kind>`, `record_reviewer`, `task`, `review`, `instrument`, `project_reviewer`.
+
+        Scopes: people:write.
+
+        ``POST /api/db/rpc/hand_over_member_work``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_from_user_id"] = from_user_id
+        body["p_to_user_id"] = to_user_id
+        body["p_selection"] = selection
+        return await self._call("hand_over_member_work", body)  # type: ignore[no-any-return]
+
     async def insert_block(
         self,
         *,
@@ -2786,6 +3000,26 @@ class AsyncRpc:
         body["p_rows"] = rows
         body["p_cells"] = cells
         return await self._call("mutate_sheet_instance_local_state", body)  # type: ignore[no-any-return]
+
+    async def preview_member_handover(
+        self,
+        *,
+        workspace_id: str,
+        user_id: str,
+    ) -> List[Dict[str, Any]]:
+        """
+        Preview the open work that could be handed over
+
+        Counts what a member still has open: assigned records by kind, reviewer names, tasks, reviews waiting, instruments and default project reviews. Allowed for members access, or for the person themselves.
+
+        Scopes: people:read.
+
+        ``POST /api/db/rpc/preview_member_handover``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_user_id"] = user_id
+        return await self._call("preview_member_handover", body)  # type: ignore[no-any-return]
 
     async def preview_notebook_template_upgrade(
         self,
@@ -3035,6 +3269,20 @@ class AsyncRpc:
         body["p_instance_id"] = instance_id
         body["p_row_keys"] = row_keys
         return await self._call("read_sheet_instance_calculation_results", body)  # type: ignore[no-any-return]
+
+    async def remove_idp_group_mapping(self, *, id: str) -> None:
+        """
+        Remove a sign-in group mapping
+
+        Needs members access.
+
+        Scopes: people:write.
+
+        ``POST /api/db/rpc/remove_idp_group_mapping``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return await self._call("remove_idp_group_mapping", body)  # type: ignore[no-any-return]
 
     async def replay_webhook_deliveries(
         self,
@@ -3338,6 +3586,58 @@ class AsyncRpc:
         if not isinstance(include_archived, Unset):
             body["p_include_archived"] = include_archived
         return await self._call("search_sheet_records", body)  # type: ignore[no-any-return]
+
+    async def set_idp_group_mapping(
+        self,
+        *,
+        workspace_id: str,
+        group_name: str,
+        role: str,
+    ) -> Union["IdpGroupMappingsRow", List["IdpGroupMappingsRow"]]:
+        """
+        Map a sign-in group to a role
+
+        Needs members access. People in the group get the role the next time they sign in through the identity provider; the highest mapped role wins and anyone in no mapped group becomes a viewer.
+
+        Scopes: people:write.
+
+        ``POST /api/db/rpc/set_idp_group_mapping``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_group_name"] = group_name
+        body["p_role"] = role
+        return await self._call("set_idp_group_mapping", body)  # type: ignore[no-any-return]
+
+    async def set_member_absence(
+        self,
+        *,
+        workspace_id: str,
+        starts_on: str,
+        ends_on: str,
+        delegate_user_id: Optional[str],
+        note: Union[Optional[str], Unset] = UNSET,
+        user_id: Union[Optional[str], Unset] = UNSET,
+    ) -> Union["MemberAbsencesRow", List["MemberAbsencesRow"]]:
+        """
+        Set an out of office
+
+        Names the days a member is away and, optionally, the colleague who covers reviews waiting on them. Replaces any absence that overlaps. Omit `p_user_id` to set your own; setting someone else’s needs members access.
+
+        Scopes: people:write.
+
+        ``POST /api/db/rpc/set_member_absence``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_starts_on"] = starts_on
+        body["p_ends_on"] = ends_on
+        body["p_delegate_user_id"] = delegate_user_id
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        if not isinstance(user_id, Unset):
+            body["p_user_id"] = user_id
+        return await self._call("set_member_absence", body)  # type: ignore[no-any-return]
 
     async def snapshot_dataset(
         self,

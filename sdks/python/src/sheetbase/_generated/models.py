@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 
 __all__ = [
+    "AdoptGroupRolesParams",
     "AdvanceAgentWorkflowParams",
     "AgentDatasetCommitRow",
     "AgentDatasetSchemaField",
@@ -59,6 +60,7 @@ __all__ = [
     "BlocksRowInsert",
     "BlocksRowPatch",
     "CancelAgentWorkflowParams",
+    "CancelMemberAbsenceParams",
     "CommitDatasetRowBatchParams",
     "CommitSheetRecordBatchParams",
     "CompositionAdoptionApplyResult",
@@ -94,6 +96,8 @@ __all__ = [
     "FieldValidation",
     "FoldersRow",
     "GetWebhookEndpointHealthParams",
+    "HandOverMemberWorkParams",
+    "IdpGroupMappingsRow",
     "InsertBlockParams",
     "InsertSheetInstanceBlockParams",
     "InsertSheetInstanceBlockResult",
@@ -108,6 +112,7 @@ __all__ = [
     "MaterializationResult",
     "MaterializationSourceVersion",
     "MaterializeSheetInstanceParams",
+    "MemberAbsencesRow",
     "MoveBlockParams",
     "MutateSheetInstanceCalculationsParams",
     "MutateSheetInstanceLocalStateParams",
@@ -126,6 +131,7 @@ __all__ = [
     "PipelineRunLogsRow",
     "PipelineRunOutputsRow",
     "PipelineRunsRow",
+    "PreviewMemberHandoverParams",
     "PreviewNotebookTemplateUpgradeParams",
     "PreviewSheetInstanceCompositionAdoptionParams",
     "PreviewSheetInstanceDefinitionUpgradeParams",
@@ -150,6 +156,7 @@ __all__ = [
     "RecordsRow",
     "RecordsRowInsert",
     "RecordsRowPatch",
+    "RemoveIdpGroupMappingParams",
     "ReplayWebhookDeliveriesParams",
     "ReplayWebhookDeliveryParams",
     "ReportAgentWorkflowUsageParams",
@@ -164,6 +171,8 @@ __all__ = [
     "SavedSearchesRow",
     "SearchParams",
     "SearchSheetRecordsParams",
+    "SetIdpGroupMappingParams",
+    "SetMemberAbsenceParams",
     "SheetCalculation",
     "SheetCalculationChange",
     "SheetCalculationChangeRetire",
@@ -915,6 +924,19 @@ class FoldersRow(_FoldersRowRequired, total=False):
     archived_at: Optional[str]
 
 
+class _IdpGroupMappingsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    group_name: str
+    role: Literal["admin", "steward", "scientist", "analyst", "reviewer", "viewer"]
+    created_at: str
+
+
+class IdpGroupMappingsRow(_IdpGroupMappingsRowRequired, total=False):
+    """`api.idp_group_mappings` row (snake_case). Which sign-in group (as the identity provider spells it) gives which role."""
+    created_by_user_id: Optional[str]
+
+
 class _InsertSheetInstanceBlockResultRequired(TypedDict):
     block: "BlocksRow"
     structure_version: int
@@ -976,6 +998,23 @@ class _MaterializationSourceVersionRequired(TypedDict):
 
 class MaterializationSourceVersion(_MaterializationSourceVersionRequired, total=False):
     datasetVersionId: Optional[str]
+
+
+class _MemberAbsencesRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    user_id: str
+    starts_on: str
+    ends_on: str
+    created_by_user_id: str
+    created_at: str
+
+
+class MemberAbsencesRow(_MemberAbsencesRowRequired, total=False):
+    """`api.member_absences` row (snake_case). Out of office: who is away, until when and which colleague covers their reviews."""
+    delegate_user_id: Optional[str]
+    note: Optional[str]
+    cancelled_at: Optional[str]
 
 
 class NotebookTemplateConfiguration(TypedDict):
@@ -1821,7 +1860,7 @@ class TokenError(TypedDict):
 
 class TokenExchangeRequest(TypedDict):
     credential: str
-    scopes: List[Literal["projects:read", "projects:write", "datasets:read", "datasets:write", "schema:read", "schema:write", "schema:publish", "sheets:read", "sheets:write", "models:read", "models:write", "templates:read", "templates:write", "reviews:read", "reviews:write", "files:read", "files:write", "webhooks:read", "webhooks:write", "agent_operations:read", "agent_operations:write", "pipelines:read", "pipelines:write", "admin:read", "admin:write"]]
+    scopes: List[Literal["projects:read", "projects:write", "datasets:read", "datasets:write", "schema:read", "schema:write", "schema:publish", "sheets:read", "sheets:write", "models:read", "models:write", "templates:read", "templates:write", "reviews:read", "reviews:write", "files:read", "files:write", "webhooks:read", "webhooks:write", "agent_operations:read", "agent_operations:write", "pipelines:read", "pipelines:write", "admin:read", "admin:write", "people:read", "people:write"]]
 
 
 class TokenExchangeResponse(TypedDict):
@@ -1906,6 +1945,10 @@ class WebhookSubscriptionsRow(_WebhookSubscriptionsRowRequired, total=False):
     updated_by_credential_id: Optional[str]
 
 
+class AdoptGroupRolesParams(TypedDict):
+    p_workspace_id: str
+
+
 class AdvanceAgentWorkflowParams(TypedDict):
     p_workflow_id: str
     p_expected_revision: int
@@ -1954,6 +1997,10 @@ class CancelAgentWorkflowParams(TypedDict):
     p_workflow_id: str
     p_expected_revision: int
     p_reason: str
+
+
+class CancelMemberAbsenceParams(TypedDict):
+    p_absence_id: str
 
 
 class CommitDatasetRowBatchParams(TypedDict):
@@ -2097,6 +2144,13 @@ class GetWebhookEndpointHealthParams(_GetWebhookEndpointHealthParamsRequired, to
     p_subscription_id: str
 
 
+class HandOverMemberWorkParams(TypedDict):
+    p_workspace_id: str
+    p_from_user_id: str
+    p_to_user_id: str
+    p_selection: List[str]
+
+
 class InsertBlockParams(TypedDict):
     p_record_id: str
     p_type: str
@@ -2173,6 +2227,11 @@ class MutateSheetInstanceLocalStateParams(TypedDict):
     p_field_changes: List[Dict[str, Any]]
     p_rows: List[Dict[str, Any]]
     p_cells: List[Dict[str, Any]]
+
+
+class PreviewMemberHandoverParams(TypedDict):
+    p_workspace_id: str
+    p_user_id: str
 
 
 class PreviewNotebookTemplateUpgradeParams(TypedDict):
@@ -2252,6 +2311,10 @@ class QuerySheetInstanceRowsParams(_QuerySheetInstanceRowsParamsRequired, total=
 class ReadSheetInstanceCalculationResultsParams(TypedDict):
     p_instance_id: str
     p_row_keys: List[str]
+
+
+class RemoveIdpGroupMappingParams(TypedDict):
+    p_id: str
 
 
 class _ReplayWebhookDeliveriesParamsRequired(TypedDict):
@@ -2347,6 +2410,24 @@ class SearchSheetRecordsParams(_SearchSheetRecordsParamsRequired, total=False):
     p_query: str
     p_limit: int
     p_include_archived: bool
+
+
+class SetIdpGroupMappingParams(TypedDict):
+    p_workspace_id: str
+    p_group_name: str
+    p_role: str
+
+
+class _SetMemberAbsenceParamsRequired(TypedDict):
+    p_workspace_id: str
+    p_starts_on: str
+    p_ends_on: str
+    p_delegate_user_id: Optional[str]
+
+
+class SetMemberAbsenceParams(_SetMemberAbsenceParamsRequired, total=False):
+    p_note: Optional[str]
+    p_user_id: Optional[str]
 
 
 class SnapshotDatasetParams(TypedDict):

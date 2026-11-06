@@ -34,6 +34,8 @@ from sheetbase._generated.models import (
     DatasetsRow,
     DatasetsRowInsert,
     FoldersRow,
+    IdpGroupMappingsRow,
+    MemberAbsencesRow,
     NotebookTemplateVersionsRow,
     NotebookTemplatesRow,
     PipelineDefinitionVersionsRow,
@@ -290,6 +292,42 @@ class AsyncFoldersTable(AsyncReadableTable[FoldersRow]):
     Scopes: projects:read.
     """
     name = "folders"
+
+
+class IdpGroupMappingsTable(ReadableTable[IdpGroupMappingsRow]):
+    """
+    ``/api/db/idp_group_mappings`` (GET, HEAD).
+
+    Scopes: people:read.
+    """
+    name = "idp_group_mappings"
+
+
+class AsyncIdpGroupMappingsTable(AsyncReadableTable[IdpGroupMappingsRow]):
+    """
+    ``/api/db/idp_group_mappings`` (GET, HEAD).
+
+    Scopes: people:read.
+    """
+    name = "idp_group_mappings"
+
+
+class MemberAbsencesTable(ReadableTable[MemberAbsencesRow]):
+    """
+    ``/api/db/member_absences`` (GET, HEAD).
+
+    Scopes: people:read.
+    """
+    name = "member_absences"
+
+
+class AsyncMemberAbsencesTable(AsyncReadableTable[MemberAbsencesRow]):
+    """
+    ``/api/db/member_absences`` (GET, HEAD).
+
+    Scopes: people:read.
+    """
+    name = "member_absences"
 
 
 class NotebookTemplateVersionsTable(ReadableTable[NotebookTemplateVersionsRow]):
@@ -674,6 +712,8 @@ class Tables:
         "dataset_versions",
         "datasets",
         "folders",
+        "idp_group_mappings",
+        "member_absences",
         "notebook_template_versions",
         "notebook_templates",
         "pipeline_definition_versions",
@@ -708,6 +748,8 @@ class Tables:
         self.dataset_versions = DatasetVersionsTable(transport)
         self.datasets = DatasetsTable(transport)
         self.folders = FoldersTable(transport)
+        self.idp_group_mappings = IdpGroupMappingsTable(transport)
+        self.member_absences = MemberAbsencesTable(transport)
         self.notebook_template_versions = NotebookTemplateVersionsTable(transport)
         self.notebook_templates = NotebookTemplatesTable(transport)
         self.pipeline_definition_versions = PipelineDefinitionVersionsTable(transport)
@@ -753,6 +795,8 @@ class AsyncTables:
         "dataset_versions",
         "datasets",
         "folders",
+        "idp_group_mappings",
+        "member_absences",
         "notebook_template_versions",
         "notebook_templates",
         "pipeline_definition_versions",
@@ -787,6 +831,8 @@ class AsyncTables:
         self.dataset_versions = AsyncDatasetVersionsTable(transport)
         self.datasets = AsyncDatasetsTable(transport)
         self.folders = AsyncFoldersTable(transport)
+        self.idp_group_mappings = AsyncIdpGroupMappingsTable(transport)
+        self.member_absences = AsyncMemberAbsencesTable(transport)
         self.notebook_template_versions = AsyncNotebookTemplateVersionsTable(transport)
         self.notebook_templates = AsyncNotebookTemplatesTable(transport)
         self.pipeline_definition_versions = AsyncPipelineDefinitionVersionsTable(transport)

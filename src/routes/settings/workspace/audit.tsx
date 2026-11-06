@@ -28,6 +28,7 @@ import {
 import { TimestampsDialog } from '#/components/settings/audit-timestamps'
 import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
 import { canManageSettings } from '#/lib/settings-access'
+import { useRegulatedLab } from '#/lib/regulated-lab'
 import { useUserNames } from '#/lib/user-names'
 import {
   ACTION_LABELS,
@@ -95,6 +96,7 @@ function Audit() {
   const [retentionOpen, setRetentionOpen] = useState(false)
   const [timestampsOpen, setTimestampsOpen] = useState(false)
   const canManage = canManageSettings(context.workspace, 'audit')
+  const { regulated } = useRegulatedLab(workspaceId)
   const [exporting, setExporting] = useState(false)
   // The box holds the typed term and the grid reads the settled one.
   const {
@@ -382,6 +384,11 @@ function Audit() {
             <Button onClick={() => setTimestampsOpen(true)}>
               {t('settings.timestamps.button')}
             </Button>
+            {regulated ? (
+              <Button render={<Link to="/settings/workspace/validation" />}>
+                {t('settings.validation.button')}
+              </Button>
+            ) : null}
             {canManage ? <CheckNowButton workspaceId={workspaceId} /> : null}
             <Button onClick={() => void activity.refetch()}>
               {t('common.actions.refresh')}

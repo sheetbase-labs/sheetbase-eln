@@ -1586,6 +1586,20 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     consumers: webhookSse,
   },
   {
+    name: 'validation.run_completed',
+    family: 'compliance',
+    summary:
+      'Installation and operation checks were run on this install (regulated labs). The payload has the counts; the full results are on the validation_runs resource.',
+    producer: {
+      entityType: 'validation_run',
+      operation: 'create',
+    },
+    wireName: 'validation.run_completed',
+    status: 'stable',
+    introducedIn: 'trust-01',
+    consumers: webhookSse,
+  },
+  {
     name: 'legal_hold.created',
     family: 'compliance',
     summary:
@@ -1979,6 +1993,7 @@ export const INTENTIONALLY_EXCLUDED: readonly ExcludedProducer[] =
  * and pipeline pickers. An event not listed is spelled out from its name.
  */
 const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  'validation.run_completed': 'Validation checks finish',
   'signature.timestamped': 'A signature is timestamped',
   'signature.timestamp_failed': 'A signature’s timestamp gives up',
   'workspace.timestamping.updated': 'The time-stamping service changes',

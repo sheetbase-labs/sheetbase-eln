@@ -1901,6 +1901,52 @@ export const signatureTimestamps = api.table(
   ],
 )
 
+/**
+ * validation_runs are the evidence of each installation and operation check run
+ * on a regulated-lab install (migration 0106). Written only through
+ * internal.record_validation_run and never changed or deleted afterwards.
+ */
+export const validationRuns = api.table(
+  'validation_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    runByUserId: text('run_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    appVersion: text('app_version').notNull(),
+    migration: text('migration'),
+    status: text('status').notNull(),
+    passed: integer('passed').notNull(),
+    failed: integer('failed').notNull(),
+    skipped: integer('skipped').notNull(),
+    results: jsonb('results').notNull(),
+    startedAt: timestamp('started_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    finishedAt: timestamp('finished_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_validation_runs_status',
+      sql`${table.status} IN ('passed', 'failed')`,
+    ),
+    check(
+      'chk_validation_runs_results',
+      sql`jsonb_typeof(${table.results}) = 'array'`,
+    ),
+    index('idx_validation_runs_workspace').on(
+      table.workspaceId,
+      table.finishedAt,
+    ),
+  ],
+)
+
 /** Explicit human request, pinned to the same frozen revision as its signature. */
 export const signatureWitnessRequests = api.table(
   'signature_witness_requests',
@@ -5830,7 +5876,7 @@ export const changeEvents = api.table(
     ),
     check(
       'chk_change_events_entity_type',
-      sql`${table.entityType} IN ('project', 'analysis_view', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'model_field_option', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'dataset', 'dataset_version', 'sample_event', 'comment', 'review_submission', 'signature', 'review_decision', 'storage_site', 'storage_room', 'storage_unit', 'storage_shelf', 'storage_rack', 'storage_box', 'storage_position', 'storage_movement', 'plate_design', 'plate_well', 'plate_layout_template', 'calendar_resource', 'calendar_booking', 'calendar_booking_participant', 'calendar_booking_sample', 'study_workstream', 'study_task', 'study_task_dependency', 'study_task_assignment', 'study_task_resource', 'study_deliverable', 'study_project', 'study_experiment', 'study_plan_snapshot', 'instrument', 'instrument_run', 'instrument_run_stage', 'instrument_observation', 'instrument_plate_snapshot', 'instrument_qc_check', 'instrument_raw_file', 'instrument_run_link', 'report_definition', 'report_section', 'report_generation', 'sheet_instance', 'sheet_definition', 'sheet_definition_version', 'notebook_template', 'notebook_template_version', 'workspace_invitation', 'workspace_settings', 'project_access', 'api_credential', 'connector', 'connector_run', 'pipeline_definition', 'pipeline_definition_version', 'pipeline_run', 'pipeline_schedule', 'webhook_subscription', 'webhook_delivery', 'agent_operation_policy', 'agent_operation_proposal', 'extension', 'dataset_import_file', 'dataset_import', 'parser', 'parser_version', 'member_handover', 'member_absence', 'idp_group_mapping', 'member_passkey', 'signature_timestamp')`,
+      sql`${table.entityType} IN ('project', 'analysis_view', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'model_field_option', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'dataset', 'dataset_version', 'sample_event', 'comment', 'review_submission', 'signature', 'review_decision', 'storage_site', 'storage_room', 'storage_unit', 'storage_shelf', 'storage_rack', 'storage_box', 'storage_position', 'storage_movement', 'plate_design', 'plate_well', 'plate_layout_template', 'calendar_resource', 'calendar_booking', 'calendar_booking_participant', 'calendar_booking_sample', 'study_workstream', 'study_task', 'study_task_dependency', 'study_task_assignment', 'study_task_resource', 'study_deliverable', 'study_project', 'study_experiment', 'study_plan_snapshot', 'instrument', 'instrument_run', 'instrument_run_stage', 'instrument_observation', 'instrument_plate_snapshot', 'instrument_qc_check', 'instrument_raw_file', 'instrument_run_link', 'report_definition', 'report_section', 'report_generation', 'sheet_instance', 'sheet_definition', 'sheet_definition_version', 'notebook_template', 'notebook_template_version', 'workspace_invitation', 'workspace_settings', 'project_access', 'api_credential', 'connector', 'connector_run', 'pipeline_definition', 'pipeline_definition_version', 'pipeline_run', 'pipeline_schedule', 'webhook_subscription', 'webhook_delivery', 'agent_operation_policy', 'agent_operation_proposal', 'extension', 'dataset_import_file', 'dataset_import', 'parser', 'parser_version', 'member_handover', 'member_absence', 'idp_group_mapping', 'member_passkey', 'signature_timestamp', 'validation_run')`,
     ),
     check(
       'chk_change_events_operation',

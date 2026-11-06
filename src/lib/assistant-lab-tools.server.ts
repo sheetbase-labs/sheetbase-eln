@@ -140,6 +140,8 @@ export const LAB_AREAS = {
     'Worklists for liquid handlers made from plate runs, and whether they are done',
   timestamps:
     'Trusted timestamps on signatures: which are stamped, waiting or gave up (openOnly: only those not yet stamped)',
+  validation:
+    'Validation checks run on this install (regulated labs): when, and how many passed, failed or were skipped (openOnly: only runs with a failure)',
   safety:
     'Chemical safety information on materials: hazard pictograms, signal word and hazard statements',
   directory_sync:
@@ -704,6 +706,7 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   plate_runs: 'status=neq.archived',
   worklists: 'status=eq.planned',
   timestamps: 'status=neq.stamped',
+  validation: 'status=eq.failed',
   sample_workflows: 'status=eq.active',
   directory_sync: 'revoked_at=is.null',
 }
@@ -844,6 +847,13 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'created_at.desc',
     search: ['authority_name'],
     page: '/settings/workspace/audit',
+  },
+  validation: {
+    table: 'validation_runs',
+    select: 'id,status,passed,failed,skipped,app_version,migration,finished_at',
+    order: 'finished_at.desc',
+    search: [],
+    page: '/settings/workspace/validation',
   },
   retention_rules: {
     table: 'retention_rules',

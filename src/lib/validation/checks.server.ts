@@ -282,7 +282,7 @@ export const CHECKS: readonly CheckDefinition[] = [
            FROM api.workspace_settings WHERE workspace_id = $1`,
         [workspaceId],
       )
-      const s = rows[0]
+      const s = rows[0] as (typeof rows)[number] | undefined
       if (!s) return fail('The workspace has no settings.')
       const off = [
         s.regulated_lab ? null : 'Regulated lab',
@@ -322,7 +322,7 @@ export const CHECKS: readonly CheckDefinition[] = [
         `SELECT api.run_audit_verification($1) AS result`,
         [workspaceId],
       )
-      const r = rows[0]?.result
+      const r = (rows[0] as (typeof rows)[number] | undefined)?.result
       if (!r) return fail('The check returned nothing.')
       auditResults.set(workspaceId, r)
       return r.chain.ok

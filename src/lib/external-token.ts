@@ -197,6 +197,9 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   // Trusted timestamps kept beside signatures. Read only; stamping is the
   // server's job.
   signature_timestamps: { read: 'reviews:read' },
+  // Validation runs (regulated labs): the evidence of each check run. Read
+  // only; a run is started by a person signed in to the app.
+  validation_runs: { read: 'admin:read' },
 }
 
 /**

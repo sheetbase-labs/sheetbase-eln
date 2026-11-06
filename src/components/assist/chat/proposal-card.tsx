@@ -76,6 +76,7 @@ const ACTION_COPY = {
   'scim_token.revoke': 'revokeSync',
   'timestamps.set': 'setTimestamps',
   'timestamps.retry': 'retryTimestamp',
+  'validation.run': 'runValidation',
   'notifications.read': 'markRead',
   'reagent.ordered': 'markOrdered',
   'reagent.cancel': 'cancelOrder',

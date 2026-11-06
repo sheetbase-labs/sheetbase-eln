@@ -8,8 +8,10 @@ import {
   SCIM_TOKEN_REVOKE_TOOL,
   GROUP_ROLE_SET_TOOL,
   TIMESTAMPS_RETRY_TOOL,
+  VALIDATION_RUN_TOOL,
   TIMESTAMPS_SET_TOOL,
   proposeTimestampsRetrySchema,
+  proposeValidationRunSchema,
   proposeTimestampsSetSchema,
   HANDOVER_TOOL,
   INSTRUMENT_LOG_TOOL,
@@ -160,6 +162,11 @@ export function upkeepProposalDefs(): ProviderToolDef[] {
       TIMESTAMPS_RETRY_TOOL,
       `Propose asking again for a timestamp on a signature whose timestamp gave up. List the timestamps area first for its id. ${NOTE}`,
       proposeTimestampsRetrySchema,
+    ),
+    toolDef(
+      VALIDATION_RUN_TOOL,
+      `Propose running the installation and operation checks of the validation pack now and keeping the evidence. Only for regulated labs, for people who manage the audit settings. ${NOTE}`,
+      proposeValidationRunSchema,
     ),
   ]
 }
@@ -593,6 +600,31 @@ export async function buildUpkeepProposal(
           kind: 'timestamps.retry',
           signatureId: input.signatureId,
         },
+      })
+    }
+
+    case VALIDATION_RUN_TOOL: {
+      const parsed = parse(proposeValidationRunSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const allowed = await client.rpc<boolean>('can_run_validation', {
+        p_workspace_id: workspaceId,
+      })
+      if (allowed !== true) {
+        return fail(
+          'Validation checks are for regulated labs, and need audit access.',
+        )
+      }
+      return card(name, parsed.data, {
+        target: 'Validation checks',
+        deepLink: '/settings/workspace/validation',
+        changes: [
+          {
+            label: 'Checks',
+            before: null,
+            after: 'Run now and keep the results',
+          },
+        ],
+        action: { kind: 'validation.run' },
       })
     }
 

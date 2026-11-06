@@ -160,6 +160,11 @@ export const notebook = {
         applying: 'Saving…',
         applied: 'Saved',
       },
+      runValidation: {
+        apply: 'Run checks',
+        applying: 'Running…',
+        applied: 'Checks finished',
+      },
       retryTimestamp: {
         apply: 'Try again',
         applying: 'Asking…',

@@ -360,6 +360,7 @@ __all__ = [
     "UpdateWebhookSubscriptionParams",
     "ValidateDatasetRowBatchParams",
     "ValidateSheetRecordBatchParams",
+    "ValidationRunsRow",
     "WebhookBulkReplayResult",
     "WebhookDeliveriesRow",
     "WebhookDeliveryListResult",
@@ -2771,6 +2772,25 @@ class TokenExchangeRequest(TypedDict):
 
 class TokenExchangeResponse(TypedDict):
     token: str
+
+
+class _ValidationRunsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    app_version: str
+    status: Literal["passed", "failed"]
+    passed: int
+    failed: int
+    skipped: int
+    results: List[Dict[str, Any]]
+    started_at: str
+    finished_at: str
+
+
+class ValidationRunsRow(_ValidationRunsRowRequired, total=False):
+    """`api.validation_runs` row (snake_case). One run of the installation and operation checks of the validation pack (regulated labs). `results` lists every check with what it found. A run cannot be changed or deleted."""
+    run_by_user_id: Optional[str]
+    migration: Optional[str]
 
 
 class WebhookBulkReplayResult(TypedDict):

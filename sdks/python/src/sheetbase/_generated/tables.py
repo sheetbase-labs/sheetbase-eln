@@ -103,6 +103,7 @@ from sheetbase._generated.models import (
     StocktakeItemsRow,
     StocktakesRow,
     SupplierModelsRow,
+    ValidationRunsRow,
     WebhookDeliveriesRow,
     WebhookSubscriptionsRow,
 )
@@ -1496,6 +1497,24 @@ class AsyncSupplierModelsTable(AsyncReadableTable[SupplierModelsRow]):
     name = "supplier_models"
 
 
+class ValidationRunsTable(ReadableTable[ValidationRunsRow]):
+    """
+    ``/api/db/validation_runs`` (GET, HEAD).
+
+    Scopes: admin:read.
+    """
+    name = "validation_runs"
+
+
+class AsyncValidationRunsTable(AsyncReadableTable[ValidationRunsRow]):
+    """
+    ``/api/db/validation_runs`` (GET, HEAD).
+
+    Scopes: admin:read.
+    """
+    name = "validation_runs"
+
+
 class WebhookDeliveriesTable(ReadableTable[WebhookDeliveriesRow]):
     """
     ``/api/db/webhook_deliveries`` (GET, HEAD).
@@ -1611,6 +1630,7 @@ class Tables:
         "stocktake_items",
         "stocktakes",
         "supplier_models",
+        "validation_runs",
         "webhook_deliveries",
         "webhook_subscriptions",
     )
@@ -1691,6 +1711,7 @@ class Tables:
         self.stocktake_items = StocktakeItemsTable(transport)
         self.stocktakes = StocktakesTable(transport)
         self.supplier_models = SupplierModelsTable(transport)
+        self.validation_runs = ValidationRunsTable(transport)
         self.webhook_deliveries = WebhookDeliveriesTable(transport)
         self.webhook_subscriptions = WebhookSubscriptionsTable(transport)
 
@@ -1782,6 +1803,7 @@ class AsyncTables:
         "stocktake_items",
         "stocktakes",
         "supplier_models",
+        "validation_runs",
         "webhook_deliveries",
         "webhook_subscriptions",
     )
@@ -1862,6 +1884,7 @@ class AsyncTables:
         self.stocktake_items = AsyncStocktakeItemsTable(transport)
         self.stocktakes = AsyncStocktakesTable(transport)
         self.supplier_models = AsyncSupplierModelsTable(transport)
+        self.validation_runs = AsyncValidationRunsTable(transport)
         self.webhook_deliveries = AsyncWebhookDeliveriesTable(transport)
         self.webhook_subscriptions = AsyncWebhookSubscriptionsTable(transport)
 

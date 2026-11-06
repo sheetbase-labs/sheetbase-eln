@@ -1341,7 +1341,7 @@ function NavLink({ item }: { item: NavItem }) {
     select: (state) => isHomePage(state.location.pathname),
   })
   const selectedProps = {
-    className: 'bg-selection font-medium hover:bg-selection',
+    className: 'bg-nav-selected font-medium hover:bg-nav-selected',
     'aria-current': 'page' as const,
   }
   return (
@@ -1414,7 +1414,7 @@ function NavEntry({
                 title={pin.name}
                 className="flex h-[28px] min-w-0 flex-1 items-center rounded-md px-2 text-body leading-[normal] text-fg-muted no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
                 activeProps={{
-                  className: 'bg-selection text-fg hover:bg-selection',
+                  className: 'bg-nav-selected text-fg hover:bg-nav-selected',
                   'aria-current': 'page',
                 }}
               >
@@ -1513,7 +1513,7 @@ function SideNav({
         to={settingsTo}
         className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline [&_svg]:text-fg-muted"
         activeProps={{
-          className: 'bg-selection font-medium hover:bg-selection',
+          className: 'bg-nav-selected font-medium hover:bg-nav-selected',
           'aria-current': 'page',
         }}
       >

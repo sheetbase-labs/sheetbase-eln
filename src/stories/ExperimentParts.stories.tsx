@@ -4,7 +4,6 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { expect, screen, userEvent } from 'storybook/test'
 
 import { SavedTrails } from '#/components/audit/saved-trails'
-import { BookInstrumentButton } from '#/components/experiments/book-instrument-button'
 import { ResultsWorkspace } from '#/components/experiments/results-workspace'
 import { SaveAsTemplateDialog } from '#/components/experiments/save-as-template-dialog'
 import { Button } from '#/components/ui/button'
@@ -53,13 +52,6 @@ function inside(queryClient: QueryClient, width = 960) {
   )
 }
 const seeded = (data: ReadSeed[]) => screenQueryClient({ data })
-
-// --- Book an instrument -----------------------------------------------------
-
-export const BookInstrument: Story = {
-  render: () => <BookInstrumentButton experimentId={EXP_ID} />,
-  decorators: [inside(seeded([]), 240)],
-}
 
 // --- Save as template -------------------------------------------------------
 

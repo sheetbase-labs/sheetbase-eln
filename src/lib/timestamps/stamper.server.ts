@@ -15,11 +15,7 @@ import type { QueryResultRow } from 'pg'
 import { PooledClient } from '#/db/pool.server'
 import { env } from '#/env.server'
 import { logger } from '../logger'
-import {
-  authorityLabel,
-  canonicalSignedData,
-  sha256Hex,
-} from './signed-data'
+import { authorityLabel, canonicalSignedData, sha256Hex } from './signed-data'
 import {
   buildTimestampRequest,
   requestTimestamp,

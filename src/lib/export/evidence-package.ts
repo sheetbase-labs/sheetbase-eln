@@ -179,7 +179,6 @@ export function addEvidenceEntries(
     ].join('\r\n')
     writer.add('files/files-manifest.csv', manifest + '\r\n')
   }
-
 }
 
 export async function buildEvidencePackage(

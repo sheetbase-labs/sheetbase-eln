@@ -20,10 +20,7 @@ export interface WorkspaceKey {
 export function keyFingerprint(publicKeyPem: string): string {
   const der = createHash('sha256')
     .update(
-      Buffer.from(
-        publicKeyPem.replace(/-----[A-Z ]+-----|\s/g, ''),
-        'base64',
-      ),
+      Buffer.from(publicKeyPem.replace(/-----[A-Z ]+-----|\s/g, ''), 'base64'),
     )
     .digest('hex')
   return der.match(/.{2}/g)!.join(':')

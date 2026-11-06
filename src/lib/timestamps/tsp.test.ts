@@ -52,7 +52,9 @@ describe.skipIf(!opensslAvailable)('RFC 3161 timestamps', () => {
   it('rejects a token for different data, another request, or a tampered body', () => {
     const request = buildTimestampRequest(imprint)
     const response = authority.reply(request.der)
-    const otherData = createHash('sha256').update('something else').digest('hex')
+    const otherData = createHash('sha256')
+      .update('something else')
+      .digest('hex')
     expect(() =>
       verifyTimestampResponse(response, { expectedImprintHex: otherData }),
     ).toThrow(TimestampError)

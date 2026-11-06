@@ -87,6 +87,13 @@ export function NotebookHistoryPanel({
                 >
                   {t('notebook.notebookHistoryPanel.evidenceZip')}
                 </a>
+                <a
+                  href={`/api/export/revision/${revision.id}/bundle`}
+                  title={t('notebook.notebookHistoryPanel.signedBundleHint')}
+                  className="text-xs text-fg-muted underline-offset-4 hover:underline"
+                >
+                  {t('notebook.notebookHistoryPanel.signedBundle')}
+                </a>
               </li>
             )
           })}

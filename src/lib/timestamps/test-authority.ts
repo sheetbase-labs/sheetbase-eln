@@ -56,26 +56,71 @@ export function createTestAuthority(): TestAuthority {
   writeFileSync(join(dir, 'tsa.cnf'), CONFIG)
   writeFileSync(join(dir, 'serial'), '01\n')
   run([
-    'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', 'ca.key',
-    '-out', 'ca.pem', '-subj', '/CN=Sheetbase Test Root', '-days', '3650',
-    '-config', 'tsa.cnf', '-extensions', 'v3_ca',
+    'req',
+    '-x509',
+    '-newkey',
+    'rsa:2048',
+    '-nodes',
+    '-keyout',
+    'ca.key',
+    '-out',
+    'ca.pem',
+    '-subj',
+    '/CN=Sheetbase Test Root',
+    '-days',
+    '3650',
+    '-config',
+    'tsa.cnf',
+    '-extensions',
+    'v3_ca',
   ])
   run([
-    'req', '-newkey', 'rsa:2048', '-nodes', '-keyout', 'tsa.key', '-out',
-    'tsa.csr', '-subj', '/CN=Sheetbase Test Timestamp Authority',
-    '-config', 'tsa.cnf',
+    'req',
+    '-newkey',
+    'rsa:2048',
+    '-nodes',
+    '-keyout',
+    'tsa.key',
+    '-out',
+    'tsa.csr',
+    '-subj',
+    '/CN=Sheetbase Test Timestamp Authority',
+    '-config',
+    'tsa.cnf',
   ])
   run([
-    'x509', '-req', '-in', 'tsa.csr', '-CA', 'ca.pem', '-CAkey', 'ca.key',
-    '-CAcreateserial', '-out', 'tsa.pem', '-days', '3650', '-extfile',
-    'tsa.cnf', '-extensions', 'v3_tsa',
+    'x509',
+    '-req',
+    '-in',
+    'tsa.csr',
+    '-CA',
+    'ca.pem',
+    '-CAkey',
+    'ca.key',
+    '-CAcreateserial',
+    '-out',
+    'tsa.pem',
+    '-days',
+    '3650',
+    '-extfile',
+    'tsa.cnf',
+    '-extensions',
+    'v3_tsa',
   ])
   writeFileSync(join(dir, 'chain.pem'), readFileSync(join(dir, 'ca.pem')))
   const reply = (request: Uint8Array): Uint8Array => {
     writeFileSync(join(dir, 'q.tsq'), request)
     run([
-      'ts', '-reply', '-queryfile', 'q.tsq', '-config', 'tsa.cnf',
-      '-section', 'tsa_config1', '-out', 'r.tsr',
+      'ts',
+      '-reply',
+      '-queryfile',
+      'q.tsq',
+      '-config',
+      'tsa.cnf',
+      '-section',
+      'tsa_config1',
+      '-out',
+      'r.tsr',
     ])
     return new Uint8Array(readFileSync(join(dir, 'r.tsr')))
   }

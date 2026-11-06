@@ -28,10 +28,14 @@ def test_vocabulary_matches_catalogue() -> None:
 
 def test_aliases_match_catalogue_wire_names() -> None:
     text = (REPO_ROOT / "src" / "lib" / "event-catalogue.ts").read_text()
-    pairs = re.findall(
-        r"name: '([^']+)',\s+family:[^;]+?wireName: '([^']+)'", text
-    )
-    expected = {wire: name for name, wire in pairs if wire != name}
+    expected = {}
+    # One catalogue entry at a time, so an entry without a string wireName
+    # can't borrow the next entry's.
+    for entry in re.split(r"\n  \{", text):
+        name = re.search(r"^\s*name: '([^']+)',\s+family:", entry)
+        wire = re.search(r"\n\s+wireName: '([^']+)'", entry)
+        if name and wire and wire.group(1) != name.group(1):
+            expected[wire.group(1)] = name.group(1)
     assert EVENT_ALIASES == expected
 
 

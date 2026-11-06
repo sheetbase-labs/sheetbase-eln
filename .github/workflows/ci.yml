@@ -143,8 +143,12 @@ jobs:
             files: tests/browser/workspace-panes.test.ts
           # iPhone size, installed-app safe areas and a simulated keyboard:
           # every menu, popover and sheet must open where it can be seen.
-          - name: phone layout
-            files: tests/browser/phone
+          # Two jobs: the whole folder ran about 11 minutes in one job, twice
+          # as long as any other journey job.
+          - name: phone pages
+            files: tests/browser/phone/pages.test.ts
+          - name: phone slash menu
+            files: tests/browser/phone/slash-menu.test.ts
     env:
       SHEETBASE_DEV_AUTH_FREE: 'false'
     steps:
@@ -179,6 +183,12 @@ jobs:
       - name: Install browser
         if: steps.browser-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
+      # apt on a hosted runner sometimes stalls on one slow mirror connection
+      # for ten minutes or more (seen: 541s and 904s against a usual 12s).
+      # Short timeouts turn a stall into a quick retry.
+      - name: Make apt give up on a stalled connection
+        run: |
+          printf 'Acquire::Retries "5";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\n' | sudo tee /etc/apt/apt.conf.d/99-fast-fail
       - name: Install browser system libraries
         if: steps.browser-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium

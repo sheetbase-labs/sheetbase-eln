@@ -204,13 +204,13 @@ describe('Record reading — blocked states', () => {
       validate({
         sample: 's1',
         dataset: 'd1',
-        returnTo: '/experiments/e1/results',
+        returnTo: '/experiments/e1/data/results',
         project: 'ignored',
       }),
     ).toEqual({
       sample: 's1',
       dataset: 'd1',
-      returnTo: '/experiments/e1/results',
+      returnTo: '/experiments/e1/data/results',
     })
     // A return path must stay inside the app.
     expect(validate({ returnTo: 'https://example.com' })).toEqual({})

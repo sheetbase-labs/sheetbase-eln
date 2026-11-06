@@ -123,16 +123,11 @@ import { Route as DatasetsDatasetIdCompareRouteImport } from './routes/datasets/
 import { Route as DatasetsDatasetIdRowsRouteImport } from './routes/datasets/$datasetId/rows'
 import { Route as DatasetsDatasetIdSnapshotsRouteImport } from './routes/datasets/$datasetId/snapshots'
 import { Route as ExperimentsExpIdIndexRouteImport } from './routes/experiments/$expId/index'
-import { Route as ExperimentsExpIdDatasetsRouteImport } from './routes/experiments/$expId/datasets'
-import { Route as ExperimentsExpIdFilesRouteImport } from './routes/experiments/$expId/files'
-import { Route as ExperimentsExpIdHistoryRouteImport } from './routes/experiments/$expId/history'
-import { Route as ExperimentsExpIdLinksRouteImport } from './routes/experiments/$expId/links'
+import { Route as ExperimentsExpIdDataRouteImport } from './routes/experiments/$expId/data'
 import { Route as ExperimentsExpIdNotebookRouteImport } from './routes/experiments/$expId/notebook'
-import { Route as ExperimentsExpIdOverviewRouteImport } from './routes/experiments/$expId/overview'
-import { Route as ExperimentsExpIdResultsRouteImport } from './routes/experiments/$expId/results'
-import { Route as ExperimentsExpIdRevisionsRouteImport } from './routes/experiments/$expId/revisions'
+import { Route as ExperimentsExpIdReviewRouteImport } from './routes/experiments/$expId/review'
 import { Route as ExperimentsExpIdSamplesRouteImport } from './routes/experiments/$expId/samples'
-import { Route as ExperimentsExpIdSignaturesRouteImport } from './routes/experiments/$expId/signatures'
+import { Route as ExperimentsExpIdSummaryRouteImport } from './routes/experiments/$expId/summary'
 import { Route as ModelsModelIdIndexRouteImport } from './routes/models/$modelId/index'
 import { Route as ModelsModelIdDatasetsRouteImport } from './routes/models/$modelId/datasets'
 import { Route as ModelsModelIdEditRouteImport } from './routes/models/$modelId/edit'
@@ -202,6 +197,16 @@ import { Route as ApiFilesFileIdDownloadRouteImport } from './routes/api/files/$
 import { Route as ApiFilesFileIdUploadRouteImport } from './routes/api/files/$fileId/upload'
 import { Route as ApiFilesFileIdVersionRouteImport } from './routes/api/files/$fileId/version'
 import { Route as ApiPipelinesWebhookDefinitionIdRouteImport } from './routes/api/pipelines/webhook.$definitionId'
+import { Route as ExperimentsExpIdDataIndexRouteImport } from './routes/experiments/$expId/data/index'
+import { Route as ExperimentsExpIdDataDatasetsRouteImport } from './routes/experiments/$expId/data/datasets'
+import { Route as ExperimentsExpIdDataFilesRouteImport } from './routes/experiments/$expId/data/files'
+import { Route as ExperimentsExpIdDataLinksRouteImport } from './routes/experiments/$expId/data/links'
+import { Route as ExperimentsExpIdDataResultsRouteImport } from './routes/experiments/$expId/data/results'
+import { Route as ExperimentsExpIdReviewIndexRouteImport } from './routes/experiments/$expId/review/index'
+import { Route as ExperimentsExpIdReviewHistoryRouteImport } from './routes/experiments/$expId/review/history'
+import { Route as ExperimentsExpIdReviewRevisionsRouteImport } from './routes/experiments/$expId/review/revisions'
+import { Route as ExperimentsExpIdReviewSignaturesRouteImport } from './routes/experiments/$expId/review/signatures'
+import { Route as ExperimentsExpIdReviewSubmissionsRouteImport } from './routes/experiments/$expId/review/submissions'
 import { Route as ModelsModelIdRecordsIndexRouteImport } from './routes/models/$modelId/records/index'
 import { Route as ModelsModelIdRecordsRecordIdRouteImport } from './routes/models/$modelId/records/$recordId'
 import { Route as ModelsModelIdRecordsNewRouteImport } from './routes/models/$modelId/records/new'
@@ -793,25 +798,9 @@ const ExperimentsExpIdIndexRoute = ExperimentsExpIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ExperimentsExpIdRoute,
 } as any)
-const ExperimentsExpIdDatasetsRoute =
-  ExperimentsExpIdDatasetsRouteImport.update({
-    id: '/datasets',
-    path: '/datasets',
-    getParentRoute: () => ExperimentsExpIdRoute,
-  } as any)
-const ExperimentsExpIdFilesRoute = ExperimentsExpIdFilesRouteImport.update({
-  id: '/files',
-  path: '/files',
-  getParentRoute: () => ExperimentsExpIdRoute,
-} as any)
-const ExperimentsExpIdHistoryRoute = ExperimentsExpIdHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
-  getParentRoute: () => ExperimentsExpIdRoute,
-} as any)
-const ExperimentsExpIdLinksRoute = ExperimentsExpIdLinksRouteImport.update({
-  id: '/links',
-  path: '/links',
+const ExperimentsExpIdDataRoute = ExperimentsExpIdDataRouteImport.update({
+  id: '/data',
+  path: '/data',
   getParentRoute: () => ExperimentsExpIdRoute,
 } as any)
 const ExperimentsExpIdNotebookRoute =
@@ -820,34 +809,21 @@ const ExperimentsExpIdNotebookRoute =
     path: '/notebook',
     getParentRoute: () => ExperimentsExpIdRoute,
   } as any)
-const ExperimentsExpIdOverviewRoute =
-  ExperimentsExpIdOverviewRouteImport.update({
-    id: '/overview',
-    path: '/overview',
-    getParentRoute: () => ExperimentsExpIdRoute,
-  } as any)
-const ExperimentsExpIdResultsRoute = ExperimentsExpIdResultsRouteImport.update({
-  id: '/results',
-  path: '/results',
+const ExperimentsExpIdReviewRoute = ExperimentsExpIdReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
   getParentRoute: () => ExperimentsExpIdRoute,
 } as any)
-const ExperimentsExpIdRevisionsRoute =
-  ExperimentsExpIdRevisionsRouteImport.update({
-    id: '/revisions',
-    path: '/revisions',
-    getParentRoute: () => ExperimentsExpIdRoute,
-  } as any)
 const ExperimentsExpIdSamplesRoute = ExperimentsExpIdSamplesRouteImport.update({
   id: '/samples',
   path: '/samples',
   getParentRoute: () => ExperimentsExpIdRoute,
 } as any)
-const ExperimentsExpIdSignaturesRoute =
-  ExperimentsExpIdSignaturesRouteImport.update({
-    id: '/signatures',
-    path: '/signatures',
-    getParentRoute: () => ExperimentsExpIdRoute,
-  } as any)
+const ExperimentsExpIdSummaryRoute = ExperimentsExpIdSummaryRouteImport.update({
+  id: '/summary',
+  path: '/summary',
+  getParentRoute: () => ExperimentsExpIdRoute,
+} as any)
 const ModelsModelIdIndexRoute = ModelsModelIdIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -1221,6 +1197,66 @@ const ApiPipelinesWebhookDefinitionIdRoute =
     path: '/api/pipelines/webhook/$definitionId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ExperimentsExpIdDataIndexRoute =
+  ExperimentsExpIdDataIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => ExperimentsExpIdDataRoute,
+  } as any)
+const ExperimentsExpIdDataDatasetsRoute =
+  ExperimentsExpIdDataDatasetsRouteImport.update({
+    id: '/datasets',
+    path: '/datasets',
+    getParentRoute: () => ExperimentsExpIdDataRoute,
+  } as any)
+const ExperimentsExpIdDataFilesRoute =
+  ExperimentsExpIdDataFilesRouteImport.update({
+    id: '/files',
+    path: '/files',
+    getParentRoute: () => ExperimentsExpIdDataRoute,
+  } as any)
+const ExperimentsExpIdDataLinksRoute =
+  ExperimentsExpIdDataLinksRouteImport.update({
+    id: '/links',
+    path: '/links',
+    getParentRoute: () => ExperimentsExpIdDataRoute,
+  } as any)
+const ExperimentsExpIdDataResultsRoute =
+  ExperimentsExpIdDataResultsRouteImport.update({
+    id: '/results',
+    path: '/results',
+    getParentRoute: () => ExperimentsExpIdDataRoute,
+  } as any)
+const ExperimentsExpIdReviewIndexRoute =
+  ExperimentsExpIdReviewIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => ExperimentsExpIdReviewRoute,
+  } as any)
+const ExperimentsExpIdReviewHistoryRoute =
+  ExperimentsExpIdReviewHistoryRouteImport.update({
+    id: '/history',
+    path: '/history',
+    getParentRoute: () => ExperimentsExpIdReviewRoute,
+  } as any)
+const ExperimentsExpIdReviewRevisionsRoute =
+  ExperimentsExpIdReviewRevisionsRouteImport.update({
+    id: '/revisions',
+    path: '/revisions',
+    getParentRoute: () => ExperimentsExpIdReviewRoute,
+  } as any)
+const ExperimentsExpIdReviewSignaturesRoute =
+  ExperimentsExpIdReviewSignaturesRouteImport.update({
+    id: '/signatures',
+    path: '/signatures',
+    getParentRoute: () => ExperimentsExpIdReviewRoute,
+  } as any)
+const ExperimentsExpIdReviewSubmissionsRoute =
+  ExperimentsExpIdReviewSubmissionsRouteImport.update({
+    id: '/submissions',
+    path: '/submissions',
+    getParentRoute: () => ExperimentsExpIdReviewRoute,
+  } as any)
 const ModelsModelIdRecordsIndexRoute =
   ModelsModelIdRecordsIndexRouteImport.update({
     id: '/',
@@ -1424,16 +1460,11 @@ export interface FileRoutesByFullPath {
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
   '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
   '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
-  '/experiments/$expId/datasets': typeof ExperimentsExpIdDatasetsRoute
-  '/experiments/$expId/files': typeof ExperimentsExpIdFilesRoute
-  '/experiments/$expId/history': typeof ExperimentsExpIdHistoryRoute
-  '/experiments/$expId/links': typeof ExperimentsExpIdLinksRoute
+  '/experiments/$expId/data': typeof ExperimentsExpIdDataRouteWithChildren
   '/experiments/$expId/notebook': typeof ExperimentsExpIdNotebookRoute
-  '/experiments/$expId/overview': typeof ExperimentsExpIdOverviewRoute
-  '/experiments/$expId/results': typeof ExperimentsExpIdResultsRoute
-  '/experiments/$expId/revisions': typeof ExperimentsExpIdRevisionsRoute
+  '/experiments/$expId/review': typeof ExperimentsExpIdReviewRouteWithChildren
   '/experiments/$expId/samples': typeof ExperimentsExpIdSamplesRoute
-  '/experiments/$expId/signatures': typeof ExperimentsExpIdSignaturesRoute
+  '/experiments/$expId/summary': typeof ExperimentsExpIdSummaryRoute
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/edit': typeof ModelsModelIdEditRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
@@ -1506,11 +1537,21 @@ export interface FileRoutesByFullPath {
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/api/files/$fileId/version': typeof ApiFilesFileIdVersionRoute
   '/api/pipelines/webhook/$definitionId': typeof ApiPipelinesWebhookDefinitionIdRoute
+  '/experiments/$expId/data/datasets': typeof ExperimentsExpIdDataDatasetsRoute
+  '/experiments/$expId/data/files': typeof ExperimentsExpIdDataFilesRoute
+  '/experiments/$expId/data/links': typeof ExperimentsExpIdDataLinksRoute
+  '/experiments/$expId/data/results': typeof ExperimentsExpIdDataResultsRoute
+  '/experiments/$expId/review/history': typeof ExperimentsExpIdReviewHistoryRoute
+  '/experiments/$expId/review/revisions': typeof ExperimentsExpIdReviewRevisionsRoute
+  '/experiments/$expId/review/signatures': typeof ExperimentsExpIdReviewSignaturesRoute
+  '/experiments/$expId/review/submissions': typeof ExperimentsExpIdReviewSubmissionsRoute
   '/models/$modelId/records/$recordId': typeof ModelsModelIdRecordsRecordIdRoute
   '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
   '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
   '/records/$recordId/evidence/$revisionId': typeof RecordsRecordIdEvidenceRevisionIdRoute
   '/settings/workspace/integrations/$connectorId': typeof SettingsWorkspaceIntegrationsConnectorIdRoute
+  '/experiments/$expId/data/': typeof ExperimentsExpIdDataIndexRoute
+  '/experiments/$expId/review/': typeof ExperimentsExpIdReviewIndexRoute
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
@@ -1623,16 +1664,9 @@ export interface FileRoutesByTo {
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
   '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
   '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
-  '/experiments/$expId/datasets': typeof ExperimentsExpIdDatasetsRoute
-  '/experiments/$expId/files': typeof ExperimentsExpIdFilesRoute
-  '/experiments/$expId/history': typeof ExperimentsExpIdHistoryRoute
-  '/experiments/$expId/links': typeof ExperimentsExpIdLinksRoute
   '/experiments/$expId/notebook': typeof ExperimentsExpIdNotebookRoute
-  '/experiments/$expId/overview': typeof ExperimentsExpIdOverviewRoute
-  '/experiments/$expId/results': typeof ExperimentsExpIdResultsRoute
-  '/experiments/$expId/revisions': typeof ExperimentsExpIdRevisionsRoute
   '/experiments/$expId/samples': typeof ExperimentsExpIdSamplesRoute
-  '/experiments/$expId/signatures': typeof ExperimentsExpIdSignaturesRoute
+  '/experiments/$expId/summary': typeof ExperimentsExpIdSummaryRoute
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/edit': typeof ModelsModelIdEditRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
@@ -1704,11 +1738,21 @@ export interface FileRoutesByTo {
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/api/files/$fileId/version': typeof ApiFilesFileIdVersionRoute
   '/api/pipelines/webhook/$definitionId': typeof ApiPipelinesWebhookDefinitionIdRoute
+  '/experiments/$expId/data/datasets': typeof ExperimentsExpIdDataDatasetsRoute
+  '/experiments/$expId/data/files': typeof ExperimentsExpIdDataFilesRoute
+  '/experiments/$expId/data/links': typeof ExperimentsExpIdDataLinksRoute
+  '/experiments/$expId/data/results': typeof ExperimentsExpIdDataResultsRoute
+  '/experiments/$expId/review/history': typeof ExperimentsExpIdReviewHistoryRoute
+  '/experiments/$expId/review/revisions': typeof ExperimentsExpIdReviewRevisionsRoute
+  '/experiments/$expId/review/signatures': typeof ExperimentsExpIdReviewSignaturesRoute
+  '/experiments/$expId/review/submissions': typeof ExperimentsExpIdReviewSubmissionsRoute
   '/models/$modelId/records/$recordId': typeof ModelsModelIdRecordsRecordIdRoute
   '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
   '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
   '/records/$recordId/evidence/$revisionId': typeof RecordsRecordIdEvidenceRevisionIdRoute
   '/settings/workspace/integrations/$connectorId': typeof SettingsWorkspaceIntegrationsConnectorIdRoute
+  '/experiments/$expId/data': typeof ExperimentsExpIdDataIndexRoute
+  '/experiments/$expId/review': typeof ExperimentsExpIdReviewIndexRoute
   '/models/$modelId/records': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
@@ -1834,16 +1878,11 @@ export interface FileRoutesById {
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
   '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
   '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
-  '/experiments/$expId/datasets': typeof ExperimentsExpIdDatasetsRoute
-  '/experiments/$expId/files': typeof ExperimentsExpIdFilesRoute
-  '/experiments/$expId/history': typeof ExperimentsExpIdHistoryRoute
-  '/experiments/$expId/links': typeof ExperimentsExpIdLinksRoute
+  '/experiments/$expId/data': typeof ExperimentsExpIdDataRouteWithChildren
   '/experiments/$expId/notebook': typeof ExperimentsExpIdNotebookRoute
-  '/experiments/$expId/overview': typeof ExperimentsExpIdOverviewRoute
-  '/experiments/$expId/results': typeof ExperimentsExpIdResultsRoute
-  '/experiments/$expId/revisions': typeof ExperimentsExpIdRevisionsRoute
+  '/experiments/$expId/review': typeof ExperimentsExpIdReviewRouteWithChildren
   '/experiments/$expId/samples': typeof ExperimentsExpIdSamplesRoute
-  '/experiments/$expId/signatures': typeof ExperimentsExpIdSignaturesRoute
+  '/experiments/$expId/summary': typeof ExperimentsExpIdSummaryRoute
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/edit': typeof ModelsModelIdEditRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
@@ -1916,11 +1955,21 @@ export interface FileRoutesById {
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/api/files/$fileId/version': typeof ApiFilesFileIdVersionRoute
   '/api/pipelines/webhook/$definitionId': typeof ApiPipelinesWebhookDefinitionIdRoute
+  '/experiments/$expId/data/datasets': typeof ExperimentsExpIdDataDatasetsRoute
+  '/experiments/$expId/data/files': typeof ExperimentsExpIdDataFilesRoute
+  '/experiments/$expId/data/links': typeof ExperimentsExpIdDataLinksRoute
+  '/experiments/$expId/data/results': typeof ExperimentsExpIdDataResultsRoute
+  '/experiments/$expId/review/history': typeof ExperimentsExpIdReviewHistoryRoute
+  '/experiments/$expId/review/revisions': typeof ExperimentsExpIdReviewRevisionsRoute
+  '/experiments/$expId/review/signatures': typeof ExperimentsExpIdReviewSignaturesRoute
+  '/experiments/$expId/review/submissions': typeof ExperimentsExpIdReviewSubmissionsRoute
   '/models/$modelId/records/$recordId': typeof ModelsModelIdRecordsRecordIdRoute
   '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
   '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
   '/records/$recordId/evidence/$revisionId': typeof RecordsRecordIdEvidenceRevisionIdRoute
   '/settings/workspace/integrations/$connectorId': typeof SettingsWorkspaceIntegrationsConnectorIdRoute
+  '/experiments/$expId/data/': typeof ExperimentsExpIdDataIndexRoute
+  '/experiments/$expId/review/': typeof ExperimentsExpIdReviewIndexRoute
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
@@ -2047,16 +2096,11 @@ export interface FileRouteTypes {
     | '/datasets/$datasetId/compare'
     | '/datasets/$datasetId/rows'
     | '/datasets/$datasetId/snapshots'
-    | '/experiments/$expId/datasets'
-    | '/experiments/$expId/files'
-    | '/experiments/$expId/history'
-    | '/experiments/$expId/links'
+    | '/experiments/$expId/data'
     | '/experiments/$expId/notebook'
-    | '/experiments/$expId/overview'
-    | '/experiments/$expId/results'
-    | '/experiments/$expId/revisions'
+    | '/experiments/$expId/review'
     | '/experiments/$expId/samples'
-    | '/experiments/$expId/signatures'
+    | '/experiments/$expId/summary'
     | '/models/$modelId/datasets'
     | '/models/$modelId/edit'
     | '/models/$modelId/fields'
@@ -2129,11 +2173,21 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/upload'
     | '/api/files/$fileId/version'
     | '/api/pipelines/webhook/$definitionId'
+    | '/experiments/$expId/data/datasets'
+    | '/experiments/$expId/data/files'
+    | '/experiments/$expId/data/links'
+    | '/experiments/$expId/data/results'
+    | '/experiments/$expId/review/history'
+    | '/experiments/$expId/review/revisions'
+    | '/experiments/$expId/review/signatures'
+    | '/experiments/$expId/review/submissions'
     | '/models/$modelId/records/$recordId'
     | '/models/$modelId/records/new'
     | '/pipelines/$pipelineId/runs/$runId'
     | '/records/$recordId/evidence/$revisionId'
     | '/settings/workspace/integrations/$connectorId'
+    | '/experiments/$expId/data/'
+    | '/experiments/$expId/review/'
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
     | '/api/client-portal/records/$recordId/pdf'
@@ -2246,16 +2300,9 @@ export interface FileRouteTypes {
     | '/datasets/$datasetId/compare'
     | '/datasets/$datasetId/rows'
     | '/datasets/$datasetId/snapshots'
-    | '/experiments/$expId/datasets'
-    | '/experiments/$expId/files'
-    | '/experiments/$expId/history'
-    | '/experiments/$expId/links'
     | '/experiments/$expId/notebook'
-    | '/experiments/$expId/overview'
-    | '/experiments/$expId/results'
-    | '/experiments/$expId/revisions'
     | '/experiments/$expId/samples'
-    | '/experiments/$expId/signatures'
+    | '/experiments/$expId/summary'
     | '/models/$modelId/datasets'
     | '/models/$modelId/edit'
     | '/models/$modelId/fields'
@@ -2327,11 +2374,21 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/upload'
     | '/api/files/$fileId/version'
     | '/api/pipelines/webhook/$definitionId'
+    | '/experiments/$expId/data/datasets'
+    | '/experiments/$expId/data/files'
+    | '/experiments/$expId/data/links'
+    | '/experiments/$expId/data/results'
+    | '/experiments/$expId/review/history'
+    | '/experiments/$expId/review/revisions'
+    | '/experiments/$expId/review/signatures'
+    | '/experiments/$expId/review/submissions'
     | '/models/$modelId/records/$recordId'
     | '/models/$modelId/records/new'
     | '/pipelines/$pipelineId/runs/$runId'
     | '/records/$recordId/evidence/$revisionId'
     | '/settings/workspace/integrations/$connectorId'
+    | '/experiments/$expId/data'
+    | '/experiments/$expId/review'
     | '/models/$modelId/records'
     | '/pipelines/$pipelineId/runs'
     | '/api/client-portal/records/$recordId/pdf'
@@ -2456,16 +2513,11 @@ export interface FileRouteTypes {
     | '/datasets/$datasetId/compare'
     | '/datasets/$datasetId/rows'
     | '/datasets/$datasetId/snapshots'
-    | '/experiments/$expId/datasets'
-    | '/experiments/$expId/files'
-    | '/experiments/$expId/history'
-    | '/experiments/$expId/links'
+    | '/experiments/$expId/data'
     | '/experiments/$expId/notebook'
-    | '/experiments/$expId/overview'
-    | '/experiments/$expId/results'
-    | '/experiments/$expId/revisions'
+    | '/experiments/$expId/review'
     | '/experiments/$expId/samples'
-    | '/experiments/$expId/signatures'
+    | '/experiments/$expId/summary'
     | '/models/$modelId/datasets'
     | '/models/$modelId/edit'
     | '/models/$modelId/fields'
@@ -2538,11 +2590,21 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/upload'
     | '/api/files/$fileId/version'
     | '/api/pipelines/webhook/$definitionId'
+    | '/experiments/$expId/data/datasets'
+    | '/experiments/$expId/data/files'
+    | '/experiments/$expId/data/links'
+    | '/experiments/$expId/data/results'
+    | '/experiments/$expId/review/history'
+    | '/experiments/$expId/review/revisions'
+    | '/experiments/$expId/review/signatures'
+    | '/experiments/$expId/review/submissions'
     | '/models/$modelId/records/$recordId'
     | '/models/$modelId/records/new'
     | '/pipelines/$pipelineId/runs/$runId'
     | '/records/$recordId/evidence/$revisionId'
     | '/settings/workspace/integrations/$connectorId'
+    | '/experiments/$expId/data/'
+    | '/experiments/$expId/review/'
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
     | '/api/client-portal/records/$recordId/pdf'
@@ -3464,32 +3526,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExperimentsExpIdIndexRouteImport
       parentRoute: typeof ExperimentsExpIdRoute
     }
-    '/experiments/$expId/datasets': {
-      id: '/experiments/$expId/datasets'
-      path: '/datasets'
-      fullPath: '/experiments/$expId/datasets'
-      preLoaderRoute: typeof ExperimentsExpIdDatasetsRouteImport
-      parentRoute: typeof ExperimentsExpIdRoute
-    }
-    '/experiments/$expId/files': {
-      id: '/experiments/$expId/files'
-      path: '/files'
-      fullPath: '/experiments/$expId/files'
-      preLoaderRoute: typeof ExperimentsExpIdFilesRouteImport
-      parentRoute: typeof ExperimentsExpIdRoute
-    }
-    '/experiments/$expId/history': {
-      id: '/experiments/$expId/history'
-      path: '/history'
-      fullPath: '/experiments/$expId/history'
-      preLoaderRoute: typeof ExperimentsExpIdHistoryRouteImport
-      parentRoute: typeof ExperimentsExpIdRoute
-    }
-    '/experiments/$expId/links': {
-      id: '/experiments/$expId/links'
-      path: '/links'
-      fullPath: '/experiments/$expId/links'
-      preLoaderRoute: typeof ExperimentsExpIdLinksRouteImport
+    '/experiments/$expId/data': {
+      id: '/experiments/$expId/data'
+      path: '/data'
+      fullPath: '/experiments/$expId/data'
+      preLoaderRoute: typeof ExperimentsExpIdDataRouteImport
       parentRoute: typeof ExperimentsExpIdRoute
     }
     '/experiments/$expId/notebook': {
@@ -3499,25 +3540,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExperimentsExpIdNotebookRouteImport
       parentRoute: typeof ExperimentsExpIdRoute
     }
-    '/experiments/$expId/overview': {
-      id: '/experiments/$expId/overview'
-      path: '/overview'
-      fullPath: '/experiments/$expId/overview'
-      preLoaderRoute: typeof ExperimentsExpIdOverviewRouteImport
-      parentRoute: typeof ExperimentsExpIdRoute
-    }
-    '/experiments/$expId/results': {
-      id: '/experiments/$expId/results'
-      path: '/results'
-      fullPath: '/experiments/$expId/results'
-      preLoaderRoute: typeof ExperimentsExpIdResultsRouteImport
-      parentRoute: typeof ExperimentsExpIdRoute
-    }
-    '/experiments/$expId/revisions': {
-      id: '/experiments/$expId/revisions'
-      path: '/revisions'
-      fullPath: '/experiments/$expId/revisions'
-      preLoaderRoute: typeof ExperimentsExpIdRevisionsRouteImport
+    '/experiments/$expId/review': {
+      id: '/experiments/$expId/review'
+      path: '/review'
+      fullPath: '/experiments/$expId/review'
+      preLoaderRoute: typeof ExperimentsExpIdReviewRouteImport
       parentRoute: typeof ExperimentsExpIdRoute
     }
     '/experiments/$expId/samples': {
@@ -3527,11 +3554,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExperimentsExpIdSamplesRouteImport
       parentRoute: typeof ExperimentsExpIdRoute
     }
-    '/experiments/$expId/signatures': {
-      id: '/experiments/$expId/signatures'
-      path: '/signatures'
-      fullPath: '/experiments/$expId/signatures'
-      preLoaderRoute: typeof ExperimentsExpIdSignaturesRouteImport
+    '/experiments/$expId/summary': {
+      id: '/experiments/$expId/summary'
+      path: '/summary'
+      fullPath: '/experiments/$expId/summary'
+      preLoaderRoute: typeof ExperimentsExpIdSummaryRouteImport
       parentRoute: typeof ExperimentsExpIdRoute
     }
     '/models/$modelId/': {
@@ -4017,6 +4044,76 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPipelinesWebhookDefinitionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/experiments/$expId/data/': {
+      id: '/experiments/$expId/data/'
+      path: '/'
+      fullPath: '/experiments/$expId/data/'
+      preLoaderRoute: typeof ExperimentsExpIdDataIndexRouteImport
+      parentRoute: typeof ExperimentsExpIdDataRoute
+    }
+    '/experiments/$expId/data/datasets': {
+      id: '/experiments/$expId/data/datasets'
+      path: '/datasets'
+      fullPath: '/experiments/$expId/data/datasets'
+      preLoaderRoute: typeof ExperimentsExpIdDataDatasetsRouteImport
+      parentRoute: typeof ExperimentsExpIdDataRoute
+    }
+    '/experiments/$expId/data/files': {
+      id: '/experiments/$expId/data/files'
+      path: '/files'
+      fullPath: '/experiments/$expId/data/files'
+      preLoaderRoute: typeof ExperimentsExpIdDataFilesRouteImport
+      parentRoute: typeof ExperimentsExpIdDataRoute
+    }
+    '/experiments/$expId/data/links': {
+      id: '/experiments/$expId/data/links'
+      path: '/links'
+      fullPath: '/experiments/$expId/data/links'
+      preLoaderRoute: typeof ExperimentsExpIdDataLinksRouteImport
+      parentRoute: typeof ExperimentsExpIdDataRoute
+    }
+    '/experiments/$expId/data/results': {
+      id: '/experiments/$expId/data/results'
+      path: '/results'
+      fullPath: '/experiments/$expId/data/results'
+      preLoaderRoute: typeof ExperimentsExpIdDataResultsRouteImport
+      parentRoute: typeof ExperimentsExpIdDataRoute
+    }
+    '/experiments/$expId/review/': {
+      id: '/experiments/$expId/review/'
+      path: '/'
+      fullPath: '/experiments/$expId/review/'
+      preLoaderRoute: typeof ExperimentsExpIdReviewIndexRouteImport
+      parentRoute: typeof ExperimentsExpIdReviewRoute
+    }
+    '/experiments/$expId/review/history': {
+      id: '/experiments/$expId/review/history'
+      path: '/history'
+      fullPath: '/experiments/$expId/review/history'
+      preLoaderRoute: typeof ExperimentsExpIdReviewHistoryRouteImport
+      parentRoute: typeof ExperimentsExpIdReviewRoute
+    }
+    '/experiments/$expId/review/revisions': {
+      id: '/experiments/$expId/review/revisions'
+      path: '/revisions'
+      fullPath: '/experiments/$expId/review/revisions'
+      preLoaderRoute: typeof ExperimentsExpIdReviewRevisionsRouteImport
+      parentRoute: typeof ExperimentsExpIdReviewRoute
+    }
+    '/experiments/$expId/review/signatures': {
+      id: '/experiments/$expId/review/signatures'
+      path: '/signatures'
+      fullPath: '/experiments/$expId/review/signatures'
+      preLoaderRoute: typeof ExperimentsExpIdReviewSignaturesRouteImport
+      parentRoute: typeof ExperimentsExpIdReviewRoute
+    }
+    '/experiments/$expId/review/submissions': {
+      id: '/experiments/$expId/review/submissions'
+      path: '/submissions'
+      fullPath: '/experiments/$expId/review/submissions'
+      preLoaderRoute: typeof ExperimentsExpIdReviewSubmissionsRouteImport
+      parentRoute: typeof ExperimentsExpIdReviewRoute
+    }
     '/models/$modelId/records/': {
       id: '/models/$modelId/records/'
       path: '/'
@@ -4177,31 +4274,64 @@ const DatasetsRouteWithChildren = DatasetsRoute._addFileChildren(
   DatasetsRouteChildren,
 )
 
+interface ExperimentsExpIdDataRouteChildren {
+  ExperimentsExpIdDataDatasetsRoute: typeof ExperimentsExpIdDataDatasetsRoute
+  ExperimentsExpIdDataFilesRoute: typeof ExperimentsExpIdDataFilesRoute
+  ExperimentsExpIdDataLinksRoute: typeof ExperimentsExpIdDataLinksRoute
+  ExperimentsExpIdDataResultsRoute: typeof ExperimentsExpIdDataResultsRoute
+  ExperimentsExpIdDataIndexRoute: typeof ExperimentsExpIdDataIndexRoute
+}
+
+const ExperimentsExpIdDataRouteChildren: ExperimentsExpIdDataRouteChildren = {
+  ExperimentsExpIdDataDatasetsRoute: ExperimentsExpIdDataDatasetsRoute,
+  ExperimentsExpIdDataFilesRoute: ExperimentsExpIdDataFilesRoute,
+  ExperimentsExpIdDataLinksRoute: ExperimentsExpIdDataLinksRoute,
+  ExperimentsExpIdDataResultsRoute: ExperimentsExpIdDataResultsRoute,
+  ExperimentsExpIdDataIndexRoute: ExperimentsExpIdDataIndexRoute,
+}
+
+const ExperimentsExpIdDataRouteWithChildren =
+  ExperimentsExpIdDataRoute._addFileChildren(ExperimentsExpIdDataRouteChildren)
+
+interface ExperimentsExpIdReviewRouteChildren {
+  ExperimentsExpIdReviewHistoryRoute: typeof ExperimentsExpIdReviewHistoryRoute
+  ExperimentsExpIdReviewRevisionsRoute: typeof ExperimentsExpIdReviewRevisionsRoute
+  ExperimentsExpIdReviewSignaturesRoute: typeof ExperimentsExpIdReviewSignaturesRoute
+  ExperimentsExpIdReviewSubmissionsRoute: typeof ExperimentsExpIdReviewSubmissionsRoute
+  ExperimentsExpIdReviewIndexRoute: typeof ExperimentsExpIdReviewIndexRoute
+}
+
+const ExperimentsExpIdReviewRouteChildren: ExperimentsExpIdReviewRouteChildren =
+  {
+    ExperimentsExpIdReviewHistoryRoute: ExperimentsExpIdReviewHistoryRoute,
+    ExperimentsExpIdReviewRevisionsRoute: ExperimentsExpIdReviewRevisionsRoute,
+    ExperimentsExpIdReviewSignaturesRoute:
+      ExperimentsExpIdReviewSignaturesRoute,
+    ExperimentsExpIdReviewSubmissionsRoute:
+      ExperimentsExpIdReviewSubmissionsRoute,
+    ExperimentsExpIdReviewIndexRoute: ExperimentsExpIdReviewIndexRoute,
+  }
+
+const ExperimentsExpIdReviewRouteWithChildren =
+  ExperimentsExpIdReviewRoute._addFileChildren(
+    ExperimentsExpIdReviewRouteChildren,
+  )
+
 interface ExperimentsExpIdRouteChildren {
-  ExperimentsExpIdDatasetsRoute: typeof ExperimentsExpIdDatasetsRoute
-  ExperimentsExpIdFilesRoute: typeof ExperimentsExpIdFilesRoute
-  ExperimentsExpIdHistoryRoute: typeof ExperimentsExpIdHistoryRoute
-  ExperimentsExpIdLinksRoute: typeof ExperimentsExpIdLinksRoute
+  ExperimentsExpIdDataRoute: typeof ExperimentsExpIdDataRouteWithChildren
   ExperimentsExpIdNotebookRoute: typeof ExperimentsExpIdNotebookRoute
-  ExperimentsExpIdOverviewRoute: typeof ExperimentsExpIdOverviewRoute
-  ExperimentsExpIdResultsRoute: typeof ExperimentsExpIdResultsRoute
-  ExperimentsExpIdRevisionsRoute: typeof ExperimentsExpIdRevisionsRoute
+  ExperimentsExpIdReviewRoute: typeof ExperimentsExpIdReviewRouteWithChildren
   ExperimentsExpIdSamplesRoute: typeof ExperimentsExpIdSamplesRoute
-  ExperimentsExpIdSignaturesRoute: typeof ExperimentsExpIdSignaturesRoute
+  ExperimentsExpIdSummaryRoute: typeof ExperimentsExpIdSummaryRoute
   ExperimentsExpIdIndexRoute: typeof ExperimentsExpIdIndexRoute
 }
 
 const ExperimentsExpIdRouteChildren: ExperimentsExpIdRouteChildren = {
-  ExperimentsExpIdDatasetsRoute: ExperimentsExpIdDatasetsRoute,
-  ExperimentsExpIdFilesRoute: ExperimentsExpIdFilesRoute,
-  ExperimentsExpIdHistoryRoute: ExperimentsExpIdHistoryRoute,
-  ExperimentsExpIdLinksRoute: ExperimentsExpIdLinksRoute,
+  ExperimentsExpIdDataRoute: ExperimentsExpIdDataRouteWithChildren,
   ExperimentsExpIdNotebookRoute: ExperimentsExpIdNotebookRoute,
-  ExperimentsExpIdOverviewRoute: ExperimentsExpIdOverviewRoute,
-  ExperimentsExpIdResultsRoute: ExperimentsExpIdResultsRoute,
-  ExperimentsExpIdRevisionsRoute: ExperimentsExpIdRevisionsRoute,
+  ExperimentsExpIdReviewRoute: ExperimentsExpIdReviewRouteWithChildren,
   ExperimentsExpIdSamplesRoute: ExperimentsExpIdSamplesRoute,
-  ExperimentsExpIdSignaturesRoute: ExperimentsExpIdSignaturesRoute,
+  ExperimentsExpIdSummaryRoute: ExperimentsExpIdSummaryRoute,
   ExperimentsExpIdIndexRoute: ExperimentsExpIdIndexRoute,
 }
 

@@ -1366,7 +1366,7 @@ test('REV-09 and REV-10 a signed notebook shows its signatures and audit trail, 
 
   // REV-09: QA reads the signatures and the audit trail of the locked record.
   await signInAsDesignUser(page, signer)
-  await page.goto(`/experiments/${record}/signatures`)
+  await page.goto(`/experiments/${record}/review/signatures`)
   const table = page.getByRole('table', { name: 'Signatures' })
   await expect(
     table.getByRole('cell', { name: signerName, exact: true }).first(),

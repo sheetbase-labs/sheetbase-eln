@@ -13,13 +13,13 @@ describe('/samples search', () => {
         new: 'true',
         project: 'p-1',
         experiment: 'e-1',
-        returnTo: '/experiments/e-1/links',
+        returnTo: '/experiments/e-1/data/links',
       }),
     ).toMatchObject({
       new: true,
       project: 'p-1',
       experiment: 'e-1',
-      returnTo: '/experiments/e-1/links',
+      returnTo: '/experiments/e-1/data/links',
     })
   })
 

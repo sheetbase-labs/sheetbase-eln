@@ -132,7 +132,7 @@ test('CORE-07 importing from an experiment links the dataset to it and offers th
   const projectPath = await createProject(page, uniqueName('Journey project'))
   const expTitle = uniqueName('Import run')
   const expId = await createExperiment(page, projectPath, expTitle)
-  await open(page, `/experiments/${expId}/links`)
+  await open(page, `/experiments/${expId}/data/links`)
   await action(page, /import data/i).click()
   await expect(page).toHaveURL(new RegExp(`/import\\?.*experiment=${expId}`))
   await expect(page.getByLabel('Link to experiment')).toContainText(expTitle)
@@ -165,7 +165,7 @@ test('CORE-09 a dataset snapshot can be referenced from the notebook', async ({
   await dialog.getByText(title).first().click()
   await dialog.getByRole('button', { name: /^cite$/i }).click()
   await expect(page.getByText('Cited in a notebook')).toBeVisible()
-  await open(page, `/experiments/${expId}/links`)
+  await open(page, `/experiments/${expId}/data/links`)
   await expect(page.getByRole('link', { name: 'DS-0311' })).toBeVisible()
 })
 

@@ -92,7 +92,7 @@ test('ANA-05 a chart is cited into an experiment notebook and shows there', asyn
   await expect(page.getByText('Cited in a notebook').first()).toBeVisible()
   await open(page, `/experiments/${id}/notebook`)
   await expect(page.getByText(caption).first()).toBeVisible()
-  await open(page, `/experiments/${id}/results`)
+  await open(page, `/experiments/${id}/data/results`)
   await expect(page.getByText('AN-').first()).toBeVisible()
 })
 

@@ -425,7 +425,7 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
   { screen: 'ExperimentsList', route: '/experiments' },
   {
     screen: 'ExpOverview',
-    route: '/experiments/EXP-0142/overview',
+    route: '/experiments/EXP-0142/summary',
     state: rec('EXP-0142'),
   },
   {
@@ -435,22 +435,22 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
   },
   {
     screen: 'ExpDatasets',
-    route: '/experiments/EXP-0142/datasets',
+    route: '/experiments/EXP-0142/data/datasets',
     state: rec('EXP-0142'),
   },
   {
     screen: 'ExpResults',
-    route: '/experiments/EXP-0142/results',
+    route: '/experiments/EXP-0142/data/results',
     state: rec('EXP-0142'),
   },
   {
     screen: 'ExpFiles',
-    route: '/experiments/EXP-0142/files',
+    route: '/experiments/EXP-0142/data/files',
     state: rec('EXP-0142'),
   },
   {
     screen: 'ExpHistory',
-    route: '/experiments/EXP-0142/history',
+    route: '/experiments/EXP-0142/review/history',
     state: rec('EXP-0142'),
   },
   { screen: 'ReviewRecord', route: '/review/EXP-0138', state: rec('EXP-0138') },

@@ -26,7 +26,7 @@ test('EXP-05 notebooks made from a template are moved to its new version togethe
 }) => {
   const path = await createProject(page, uniqueName('Template line'))
   const sourceId = await createExperiment(page, path, uniqueName('Good run'))
-  await open(page, `/experiments/${sourceId}/overview`)
+  await open(page, `/experiments/${sourceId}/summary`)
   await page.getByRole('button', { name: 'More experiment actions' }).click()
   await page.getByRole('menuitem', { name: 'Save as template' }).click()
   const dialog = page.getByRole('dialog')

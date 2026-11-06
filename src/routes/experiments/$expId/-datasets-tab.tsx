@@ -480,7 +480,7 @@ export function ExperimentDatasets({ expId }: { expId: string }) {
                     search={{
                       mode: 'chart',
                       experiment: expId,
-                      returnTo: `/experiments/${expId}/datasets`,
+                      returnTo: `/experiments/${expId}/data/datasets`,
                     }}
                   />
                 }

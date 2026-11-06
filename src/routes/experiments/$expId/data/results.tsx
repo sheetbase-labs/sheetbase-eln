@@ -22,7 +22,7 @@ import {
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { toast } from '#/components/ui/sonner'
 import { ObjectLink } from '#/components/ui/object-link'
-import { useExperimentLinks } from '../$expId'
+import { useExperimentLinks } from '../../$expId'
 import { datasetValidation } from '#/components/datasets/datasets-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
@@ -31,7 +31,7 @@ import { t } from '#/copy'
 
 /** UI port (RM-118): an experiment's results — the datasets it produced, the
  * analyses it cites, and the recorded decision. */
-export const Route = createFileRoute('/experiments/$expId/results')({
+export const Route = createFileRoute('/experiments/$expId/data/results')({
   component: ResultsTab,
 })
 
@@ -181,7 +181,7 @@ function ResultsTab() {
             mode: 'chart',
             dataset: row.original.id,
             experiment: expId,
-            returnTo: `/experiments/${expId}/results`,
+            returnTo: `/experiments/${expId}/data/results`,
           }}
           className="text-link"
         >
@@ -270,7 +270,7 @@ function ResultsTab() {
                     search={{
                       mode: 'chart',
                       experiment: expId,
-                      returnTo: `/experiments/${expId}/results`,
+                      returnTo: `/experiments/${expId}/data/results`,
                     }}
                   />
                 }

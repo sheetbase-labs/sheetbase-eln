@@ -601,7 +601,7 @@ describe('ImportUploadFlow context', () => {
         createdByUserId="u-1"
         initialExperimentId="exp-1"
         initialProjectId="prj-2"
-        returnTo="/experiments/exp-1/datasets"
+        returnTo="/experiments/exp-1/data/datasets"
       />,
     )
     await user.upload(
@@ -614,7 +614,7 @@ describe('ImportUploadFlow context', () => {
     })
     expect(navigate.mock.calls[0]?.[0].search).toMatchObject({
       project: 'prj-2',
-      returnTo: '/experiments/exp-1/datasets',
+      returnTo: '/experiments/exp-1/data/datasets',
     })
   })
 

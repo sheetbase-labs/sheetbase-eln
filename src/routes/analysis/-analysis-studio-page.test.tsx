@@ -178,12 +178,12 @@ describe('Analysis Studio return path (Phase 4)', () => {
   }
 
   it('offers the way back to the page that opened the studio', () => {
-    header('/experiments/e1/results')
+    header('/experiments/e1/data/results')
     expect(
       screen
         .getByRole('link', { name: 'Back to what you were doing' })
         .getAttribute('href'),
-    ).toBe('/experiments/e1/results')
+    ).toBe('/experiments/e1/data/results')
   })
 
   it('offers no way back when the studio was opened directly', () => {

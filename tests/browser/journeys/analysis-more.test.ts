@@ -65,7 +65,7 @@ test('DATA-23 a dataset linked from the notebook opens on its own page', async (
   await expect(page).toHaveURL(/\/datasets\/[0-9a-f-]{36}/, { timeout: 15_000 })
 
   // The same dataset is on the experiment's Links tab, not only in the note.
-  await open(page, `/experiments/${experimentId}/links`)
+  await open(page, `/experiments/${experimentId}/data/links`)
   await expect(
     page.getByRole('link', { name: /^DS-\d+$/ }).first(),
   ).toBeVisible()

@@ -170,13 +170,13 @@ function routes(ids) {
   if (ids.experiment)
     list.push(
       `/experiments/${ids.experiment}`,
-      `/experiments/${ids.experiment}/overview`,
+      `/experiments/${ids.experiment}/summary`,
       `/experiments/${ids.experiment}/samples`,
-      `/experiments/${ids.experiment}/datasets`,
+      `/experiments/${ids.experiment}/data/datasets`,
       `/experiments/${ids.experiment}/notebook`,
       `/records/${ids.experiment}/notebook`,
-      `/experiments/${ids.experiment}/results`,
-      `/experiments/${ids.experiment}/results?state=gap`,
+      `/experiments/${ids.experiment}/data/results`,
+      `/experiments/${ids.experiment}/data/results?state=gap`,
     )
   if (ids.sample)
     list.push(
@@ -230,7 +230,8 @@ function routes(ids) {
       `/templates/${ids.template}/in-use?state=denied`,
     )
   if (ids.reagent) list.push(`/materials?q=`)
-  if (ids.connector) list.push(`/settings/workspace/integrations/${ids.connector}`)
+  if (ids.connector)
+    list.push(`/settings/workspace/integrations/${ids.connector}`)
   if (ids.analysis) list.push(`/analysis/${ids.analysis}`)
   if (ids.protocol) list.push(`/protocols/${ids.protocol}`)
   if (ids.revision) list.push(`/review/${ids.revision}`)

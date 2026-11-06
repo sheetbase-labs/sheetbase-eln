@@ -73,7 +73,7 @@ async function detailPages(): Promise<string[]> {
     )
     return [
       experiment && `/experiments/${experiment}/notebook`,
-      experiment && `/experiments/${experiment}/overview`,
+      experiment && `/experiments/${experiment}/summary`,
       project && `/projects/${project}`,
       sample && `/samples/${sample}`,
       dataset && `/datasets/${dataset}`,

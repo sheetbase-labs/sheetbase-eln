@@ -106,7 +106,7 @@ test('CORE-19 duplicating an experiment starts a run that follows it', async ({
   await expect(page).toHaveURL(/\/experiments\/[0-9a-f-]{36}\/notebook/)
   await expect(page).not.toHaveURL(new RegExp(original))
   await expect(page).toHaveURL(/\/experiments\/[0-9a-f-]{36}\/notebook/)
-  await open(page, `/experiments/${original}/overview`)
+  await open(page, `/experiments/${original}/summary`)
   await expect(page.getByText('Next', { exact: true }).first()).toBeVisible()
   await expect(page.getByText(`${title} copy`).first()).toBeVisible()
 })
@@ -123,7 +123,7 @@ test('CORE-22 renaming an experiment shows on its overview', async ({
   await input.fill(renamed)
   await input.blur()
   await page.waitForTimeout(800)
-  await open(page, `/experiments/${id}/overview`)
+  await open(page, `/experiments/${id}/summary`)
   await expect(page.getByLabel('Notebook title').first()).toHaveValue(renamed)
 })
 

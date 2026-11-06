@@ -30,13 +30,13 @@ const meta = {
   parameters: {
     tanstack: {
       router: {
-        route: screenRoutes('/experiments/$expId/results', [
+        route: screenRoutes('/experiments/$expId/data/results', [
           '/schedule',
           '/analysis/new',
           '/templates/$templateId',
           '/review/$revisionId',
         ]),
-        path: '/experiments/$expId/results',
+        path: '/experiments/$expId/data/results',
         params: { expId: EXP_ID },
       },
     },

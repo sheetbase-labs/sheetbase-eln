@@ -60,6 +60,7 @@ import {
   AgentStatusLine,
 } from '#/components/instruments/agent-download'
 import { BookingRulesSection } from '#/components/instruments/booking-rules'
+import { InstrumentRateSection } from '#/components/facility/instrument-rate'
 import { LiveReadingsSection } from '#/components/instruments/live-readings'
 import { IntakeSetupDialog } from '#/components/instruments/intake-setup-dialog'
 import {
@@ -932,6 +933,14 @@ function InstrumentPage() {
             />
 
             <BookingRulesSection
+              instrument={i}
+              canManage={hasCapability(
+                context.workspace?.role,
+                'instrument.manage',
+              )}
+            />
+
+            <InstrumentRateSection
               instrument={i}
               canManage={hasCapability(
                 context.workspace?.role,

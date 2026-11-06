@@ -71,6 +71,9 @@ function sqlValue(field: PipelineActionArgument, value: unknown): unknown {
       valid =
         typeof value === 'number' && Number.isSafeInteger(value) && value >= 1
       break
+    case 'date':
+      valid = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+      break
     case 'numeric':
       valid = typeof value === 'number' && Number.isFinite(value)
       break

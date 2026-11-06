@@ -2883,6 +2883,15 @@ export const data = {
     insertNotebookBlock: 'Insert a notebook block',
     insertBlockIntoNotebook:
       'Insert a block into a notebook record, after a named block. A step may propose this instead of doing it.',
+    markOrderPlaced: 'Mark an order as placed',
+    markOrderPlacedWithPrice:
+      'Mark a requested reagent order as ordered, with its supplier, price and currency.',
+    setOrderPrice: 'Set the price of an order',
+    setOrderPriceDescription:
+      'Record or change what a reagent order cost, so spend adds up. Needs the right to place orders.',
+    setInstrumentRate: 'Set an instrument’s recharge rate',
+    setInstrumentRateDescription:
+      'Set what each booked hour of an instrument is charged, or no charge with an empty rate. Needs the right to manage instruments.',
     createProject: 'Create project',
     createProjectRunWorkspace: 'Create a project in the run workspace.',
     createRecord: 'Create record',

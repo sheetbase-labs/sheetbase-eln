@@ -222,4 +222,55 @@ describe('ELN pipeline actions', () => {
       resolvePipelineActionValue({ $ref: 'previous', extra: true }, context),
     ).toThrow()
   })
+  it('calls the order and rate actions with typed, bound values', async () => {
+    const { conn, query } = connection([{ id: 'o1' }, { instrument_id: 'i1' }])
+    const order = '00000000-0000-4000-8000-0000000000a1'
+    const instrument = '00000000-0000-4000-8000-0000000000a2'
+    await executePipelineActions(
+      conn,
+      { workspaceId, runId },
+      [
+        {
+          name: 'place',
+          operation: 'mark_reagent_ordered',
+          arguments: {
+            p_order_id: order,
+            p_expected_on: '2026-12-01',
+            p_total_price: 120.5,
+            p_currency: 'GBP',
+          },
+        },
+        {
+          name: 'rate',
+          operation: 'set_instrument_rate',
+          arguments: {
+            p_instrument_id: instrument,
+            p_rate_per_hour: null,
+            p_currency: null,
+          },
+        },
+      ],
+      context,
+    )
+    const calls = query.mock.calls.filter(([sql]) =>
+      sql.startsWith('SELECT to_jsonb'),
+    )
+    expect(calls[0][0]).toContain('p_expected_on => $2::date')
+    expect(calls[0][1]).toEqual([order, '2026-12-01', 120.5, 'GBP'])
+    expect(calls[1][1]).toEqual([instrument, null, null])
+    await expect(
+      executePipelineActions(
+        connection().conn,
+        { workspaceId, runId },
+        [
+          {
+            name: 'bad',
+            operation: 'mark_reagent_ordered',
+            arguments: { p_order_id: order, p_expected_on: 'tomorrow' },
+          },
+        ],
+        context,
+      ),
+    ).rejects.toThrow('Invalid p_expected_on')
+  })
 })

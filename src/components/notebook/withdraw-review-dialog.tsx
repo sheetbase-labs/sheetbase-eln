@@ -101,14 +101,14 @@ export function WithdrawReviewDialog({
           </ConfirmDialogDescription>
         </ConfirmDialogHeader>
         <Textarea
-          className="min-h-[70px]"
+          className="mx-5 my-3 box-border min-h-[70px] w-[calc(100%-2.5rem)]"
           placeholder={t('notebook.withdrawReviewDialog.placeholder')}
           value={note}
           onChange={(event) => setNote(event.target.value)}
           aria-label={t('notebook.withdrawReviewDialog.ariaLabel')}
         />
         {error ? (
-          <p role="alert" className="m-0 text-label text-danger-text">
+          <p role="alert" className="m-0 px-5 text-label text-danger-text">
             {error}
           </p>
         ) : null}

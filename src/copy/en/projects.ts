@@ -919,8 +919,7 @@ export const projects = {
       },
       done: 'Done',
       notStarted: 'Not started',
-      noProgress:
-        'No step progress is recorded yet: this experiment has no procedure steps carrying a completed state.',
+      noProgress: 'Steps appear here as you work through the protocol.',
     },
     readiness: {
       title: 'Open before submission',
@@ -1890,6 +1889,7 @@ export const projects = {
     signedAt: 'Frozen evidence {revision}',
     readOnly: 'Read-only',
     readOnlyAt: 'Read-only · {revision}',
+    readOnlyInReview: 'Read-only · in review',
     workspace: 'Workspace',
   },
   experimentsList: {
@@ -2320,8 +2320,6 @@ export const projects = {
     model: 'Model',
     rows: 'Rows',
     validation: 'Validation',
-    valid: 'Valid',
-    issues: { one: '{count} issue', other: '{count} issues' },
     notRecorded: 'Not recorded',
     record: 'Record decision',
     change: 'Change decision',
@@ -3041,6 +3039,13 @@ export const projects = {
       integrity: 'Integrity',
       submitted: 'Submitted',
       reason: 'Reason',
+      reasons: {
+        submit: 'Submitted for review',
+        sign: 'Signed',
+        manual: 'Saved by hand',
+        validate: 'Checked',
+        amend: 'Amended after approval',
+      },
       workflow: 'Approval workflow',
       reviewers: 'Assigned reviewers',
       unknownMember: 'Unknown member',

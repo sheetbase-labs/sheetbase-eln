@@ -27,6 +27,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { rich, t } from '#/copy'
+
 import {
   CollaborationRoom,
   safeBuildRoomId,
@@ -194,6 +195,24 @@ import { reviewNextStep } from '#/lib/review-next-step'
 import { ReviewNextStepPanel } from '#/components/review/review-next-step'
 
 import type { WorkspaceSearch } from './-workspace-search'
+
+/** What a saved revision's recorded reason means to a scientist. */
+function revisionReasonLabel(reason: string): string {
+  switch (reason) {
+    case 'submit':
+      return t('projects.revisionPage.inspector.reasons.submit')
+    case 'sign':
+      return t('projects.revisionPage.inspector.reasons.sign')
+    case 'manual':
+      return t('projects.revisionPage.inspector.reasons.manual')
+    case 'validate':
+      return t('projects.revisionPage.inspector.reasons.validate')
+    case 'amend':
+      return t('projects.revisionPage.inspector.reasons.amend')
+    default:
+      return reason
+  }
+}
 
 /**
  * UI port (roadmap-4/ui-app3): the route renders inside app-3's shell, so the
@@ -1471,7 +1490,7 @@ function DiffPanel({
     for (const option of revisionOptions) {
       labels.set(
         option.id,
-        `${formatDate(option.created_at)} · ${option.reason}`,
+        `${formatDate(option.created_at)} · ${revisionReasonLabel(option.reason)}`,
       )
     }
     return labels
@@ -1515,7 +1534,8 @@ function DiffPanel({
             </option>
             {comparableOptions.map((option) => (
               <option key={option.id} value={option.id}>
-                {formatDate(option.created_at)} · {option.reason}
+                {formatDate(option.created_at)} ·{' '}
+                {revisionReasonLabel(option.reason)}
                 {option.superseded_by_revision_id
                   ? t('projects.revisionPage.diffPanel.superseded')
                   : ''}
@@ -1874,7 +1894,7 @@ function ReviewInspector({
             </span>
           </InspectorProp>
           <InspectorProp label={t('projects.revisionPage.inspector.reason')}>
-            {revision.reason}
+            {revisionReasonLabel(revision.reason)}
           </InspectorProp>
         </dl>
 

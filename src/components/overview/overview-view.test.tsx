@@ -251,7 +251,9 @@ describe('EXP-02.2 protocol progress', () => {
 
   it('says no progress is recorded rather than inventing steps', () => {
     render(<ExperimentOverview {...baseProps()} />)
-    expect(screen.getByText(/No step progress is recorded yet/)).toBeDefined()
+    expect(
+      screen.getByText('Steps appear here as you work through the protocol.'),
+    ).toBeDefined()
   })
 })
 
@@ -330,10 +332,15 @@ describe('EXP-02.4 ExperimentOverview', () => {
       />,
     )
 
-    // No reviewer / planned end / client recorded: said, not invented.
-    expect(screen.getAllByText('Not recorded').length).toBeGreaterThanOrEqual(3)
+    // No reviewer recorded: said, not invented. Optional facts nobody
+    // recorded (planned end, client, collaborators) get no row at all.
+    expect(screen.getAllByText('Not recorded').length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText('Planned end')).toBeNull()
+    expect(screen.queryByText('Client')).toBeNull()
     // Protocol step progress is not modelled, and the page says so.
-    expect(screen.getByText(/No step progress is recorded yet/)).toBeDefined()
+    expect(
+      screen.getByText('Steps appear here as you work through the protocol.'),
+    ).toBeDefined()
     // No signatures: the honest empty state, not an empty table.
     expect(screen.getByText('No signatures yet')).toBeDefined()
   })

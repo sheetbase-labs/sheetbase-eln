@@ -1,5 +1,5 @@
 /**
- * Instrument usage and recharge (migration 0097).
+ * Instrument usage and recharge (migration 0100).
  *
  * A booking is the record of who had an instrument, for what and for how long.
  * Usage adds those bookings up: hours booked against the hours an instrument

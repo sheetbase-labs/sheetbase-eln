@@ -41,7 +41,14 @@ const block = (version: number) => ({
 
 describe('canEditBlockOffline', () => {
   it('allows blocks edited in place and refuses ones that need the server', () => {
-    for (const type of ['rich_text', 'checklist', 'callout', 'metric']) {
+    for (const type of [
+      'rich_text',
+      'checklist',
+      'callout',
+      'metric',
+      'structure',
+      'reaction',
+    ]) {
       expect(canEditBlockOffline(type)).toBe(true)
     }
     for (const type of ['file', 'dataset_import', 'signature_request']) {

@@ -1,6 +1,7 @@
 import { ReactionPreview, StructurePreview } from './chemistry-block'
 import { t } from '#/copy'
 import * as React from 'react'
+import { useStepNumber } from '#/lib/step-numbers'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
@@ -514,10 +515,20 @@ function renderProcedureStep(
   payload: unknown,
   blockId?: string,
 ): React.ReactNode {
+  return <ProcedureStepView payload={payload} blockId={blockId} />
+}
+
+function ProcedureStepView({
+  payload,
+  blockId,
+}: {
+  payload: unknown
+  blockId?: string
+}): React.ReactNode {
   const obj = asObject(payload)
+  const number = useStepNumber(blockId, asNumber(obj?.stepNumber))
   if (!obj) return null
   const text = asString(obj.text) ?? ''
-  const number = asNumber(obj.stepNumber)
   const completed = obj.completed === true
   const note = asString(obj.note)
   const completedAt = asString(obj.completedAt)

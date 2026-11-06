@@ -14,6 +14,7 @@
  * `readOnly` disables editing (archived notebooks, etc.).
  */
 import { rich, t } from '#/copy'
+import { useStepNumber } from '#/lib/step-numbers'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { datasetOption } from '#/components/record-picker/entity-options'
 import { returnToHere } from '#/lib/return-to'
@@ -1859,6 +1860,10 @@ function ExecutionStepEditor(props: BlockEditorProps) {
     props.onStatusChange,
   )
   const durationSeconds = stepDurationSeconds(payload)
+  const stepNumber = useStepNumber(
+    block.id,
+    typeof payload.stepNumber === 'number' ? payload.stepNumber : null,
+  )
   return (
     <div className="space-y-3">
       <label className="flex cursor-pointer items-start gap-3">
@@ -1875,7 +1880,7 @@ function ExecutionStepEditor(props: BlockEditorProps) {
         <span>
           <span className="block text-xs font-medium text-fg-muted">
             {t('notebook.blockEditor.step', {
-              number: String(payload.stepNumber ?? ''),
+              number: String(stepNumber ?? ''),
             })}
           </span>
           <span

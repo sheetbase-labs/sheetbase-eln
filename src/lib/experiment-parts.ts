@@ -265,6 +265,17 @@ export function lastDayOffset(parts: readonly ExperimentPart[]): number | null {
   return Math.max(...parts.map((part) => part.dayOffset))
 }
 
+/** Whether a part's day has passed while it is not done. Its own day is not late. */
+export function partIsLate(
+  part: Pick<PartProgress, 'state' | 'dayOffset'>,
+  startedAt: string,
+  now: Date = new Date(),
+): boolean {
+  return (
+    part.state !== 'done' && daysSinceStart(startedAt, now) > part.dayOffset
+  )
+}
+
 /** Whether a part's day is today (or has passed) while it is not done. */
 export function partIsDue(
   part: PartProgress,

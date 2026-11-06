@@ -9,6 +9,7 @@
  * fact the design shows is not modelled (protocol step progress, reviewer,
  * planned end), the section names the gap rather than rendering a placeholder.
  */
+import { Fragment } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 
 import { SignaturesTable } from '#/components/review/signatures-table'
@@ -362,6 +363,24 @@ export function ExperimentOverview({
 }: ExperimentOverviewProps) {
   const navigate = useNavigate()
   const protocolSteps = protocolStepProgress(blocks)
+  // With parts, steps are numbered within their part, as the notebook numbers
+  // them, and grouped under it.
+  const numberInPart = new Map<string, number>()
+  const seenInPart = new Map<string | null, number>()
+  for (const step of protocolSteps) {
+    const next = (seenInPart.get(step.partId) ?? 0) + 1
+    seenInPart.set(step.partId, next)
+    numberInPart.set(step.blockId, next)
+  }
+  const partHeading = (partId: string | null) => {
+    const part = parts.find((candidate) => candidate.partId === partId)
+    return part
+      ? t('projects.overview.parts.partHeading', {
+          number: String(part.number),
+          title: part.title,
+        })
+      : t('projects.overview.parts.noPart')
+  }
   // Status comes from the evidence: a step with a note or a result is in progress.
   const stepStatus = new Map(
     stepProgress(blocks).map((step) => [step.blockId, step.status]),
@@ -482,43 +501,58 @@ export function ExperimentOverview({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {protocolSteps.map((step) => (
-                    <TableRow key={step.blockId}>
-                      <TableCell className="text-fg-muted">
-                        {step.stepNumber ?? '·'}
-                      </TableCell>
-                      <TableCell>{step.text}</TableCell>
-                      <TableCell>
-                        {step.completed ? (
-                          <Status tone="ok">
-                            {t('projects.overview.protocol.done')}
-                          </Status>
-                        ) : stepStatus.get(step.blockId) === 'in_progress' ? (
-                          <Status tone="progress">
-                            {t('projects.overview.protocol.inProgress')}
-                          </Status>
-                        ) : (
-                          <Status tone="none">
-                            {t('projects.overview.protocol.notStarted')}
-                          </Status>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {step.completed
-                          ? step.completedByUserId
-                            ? userLabel(step.completedByUserId)
-                            : t('projects.overview.notRecorded')
-                          : '—'}
-                      </TableCell>
-                      <TableCell className="text-fg-muted">
-                        {step.completed && step.completedAt
-                          ? formatNotebookDateTime(step.completedAt)
-                          : '—'}
-                      </TableCell>
-                      <TableCell className="text-fg-muted">
-                        {step.note || '—'}
-                      </TableCell>
-                    </TableRow>
+                  {protocolSteps.map((step, index) => (
+                    <Fragment key={step.blockId}>
+                      {parts.length > 0 &&
+                      step.partId !== protocolSteps[index - 1]?.partId ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={6}
+                            className="bg-surface-sunken text-label font-semibold text-fg-muted"
+                          >
+                            {partHeading(step.partId)}
+                          </TableCell>
+                        </TableRow>
+                      ) : null}
+                      <TableRow>
+                        <TableCell className="text-fg-muted">
+                          {parts.length > 0
+                            ? (numberInPart.get(step.blockId) ?? '·')
+                            : (step.stepNumber ?? '·')}
+                        </TableCell>
+                        <TableCell>{step.text}</TableCell>
+                        <TableCell>
+                          {step.completed ? (
+                            <Status tone="ok">
+                              {t('projects.overview.protocol.done')}
+                            </Status>
+                          ) : stepStatus.get(step.blockId) === 'in_progress' ? (
+                            <Status tone="progress">
+                              {t('projects.overview.protocol.inProgress')}
+                            </Status>
+                          ) : (
+                            <Status tone="none">
+                              {t('projects.overview.protocol.notStarted')}
+                            </Status>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {step.completed
+                            ? step.completedByUserId
+                              ? userLabel(step.completedByUserId)
+                              : t('projects.overview.notRecorded')
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="text-fg-muted">
+                          {step.completed && step.completedAt
+                            ? formatNotebookDateTime(step.completedAt)
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="text-fg-muted">
+                          {step.note || '—'}
+                        </TableCell>
+                      </TableRow>
+                    </Fragment>
                   ))}
                 </TableBody>
               </Table>

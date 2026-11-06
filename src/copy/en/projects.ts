@@ -920,6 +920,8 @@ export const projects = {
         results: 'Results',
       },
       stepsOf: '{done} of {total}',
+      partHeading: 'Part {number} · {title}',
+      noPart: 'Not in a part',
     },
     protocol: {
       title: 'Protocol progress',

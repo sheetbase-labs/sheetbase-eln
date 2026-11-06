@@ -20,6 +20,8 @@ export interface ReadinessBlock {
   id: string
   /** Present on domain blocks; the readiness adapter only needs id and payload. */
   type?: string
+  /** The part of the experiment the block is in, when it has parts. */
+  partId?: string | null
   payload: Record<string, unknown>
 }
 
@@ -35,6 +37,7 @@ export interface ReadinessBlock {
  */
 export interface ProtocolStepProgress {
   blockId: string
+  partId: string | null
   stepNumber: number | null
   text: string
   completed: boolean
@@ -56,6 +59,7 @@ export function protocolStepProgress(
     if (!text) continue
     steps.push({
       blockId: block.id,
+      partId: block.partId ?? null,
       stepNumber:
         typeof payload.stepNumber === 'number' ? payload.stepNumber : null,
       text,

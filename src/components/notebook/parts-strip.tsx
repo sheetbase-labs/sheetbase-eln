@@ -13,6 +13,7 @@ import {
   daysSinceStart,
   formatPartDate,
   partDate,
+  partIsLate,
 } from '#/lib/experiment-parts'
 import type { PartProgress } from '#/lib/experiment-parts'
 import { notebookOutline } from '#/lib/notebook-outline'
@@ -37,6 +38,23 @@ export function partDayLine(
     day,
     date: formatPartDate(partDate(startedAt, part.dayOffset)),
   })
+}
+
+/** A quiet "Late" beside the date of a part whose day has passed. */
+function LateMark({
+  part,
+  startedAt,
+}: {
+  part: Pick<PartProgress, 'state' | 'dayOffset'>
+  startedAt: string
+}) {
+  if (!partIsLate(part, startedAt)) return null
+  return (
+    <span title={t('notebook.parts.lateTitle')}>
+      {' · '}
+      {t('notebook.parts.late')}
+    </span>
+  )
 }
 
 function PartMark({ state }: { state: PartProgress['state'] }) {
@@ -177,6 +195,7 @@ function DesktopStrip({
               </span>
               <span className="truncate text-label text-fg-muted">
                 {partDayLine(part, startedAt)}
+                <LateMark part={part} startedAt={startedAt} />
               </span>
             </Link>
           )
@@ -280,6 +299,7 @@ function PhonePicker({
                     </span>
                     <span className="text-label text-fg-muted">
                       {partDayLine(part, startedAt)}
+                      <LateMark part={part} startedAt={startedAt} />
                       {part.stepCount > 0
                         ? ` · ${t('notebook.parts.stepsOf', {
                             done: String(part.stepsDone),

@@ -977,6 +977,18 @@
       "typescript": "resource"
     },
     {
+      "name": "query_storage_readings",
+      "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "record_storage_readings",
+      "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
       "name": "run_saved_search",
       "resource": "search",
       "python": "resource",

@@ -344,6 +344,13 @@ function readToolArgs(
         p_query: data.query,
         p_limit: data.limit ?? 20,
       }
+    case 'sheetbase.storage.readings':
+      return {
+        p_unit_id: data.storageUnitId ?? null,
+        p_room_id: data.storageRoomId ?? null,
+        p_out_of_range_only: data.outOfRangeOnly ?? false,
+        p_limit: data.limit ?? 100,
+      }
     default:
       throw new JsonRpcError(
         JSON_RPC_ERRORS.invalidParams,

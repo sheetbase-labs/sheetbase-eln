@@ -1440,6 +1440,77 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
     properties: { p_id: uuid('Saved search UUID.') },
     result: { type: 'null', nullable: true, description: 'No content.' },
   },
+  query_storage_readings: {
+    summary: 'Read freezer and room readings',
+    description:
+      'Returns the readings kept for storage: one entry per measurement on a freezer, fridge, incubator or room, with its latest value, alarm limits and whether it is inside them (`state` is `ok`, `low` or `high`). Name `p_unit_id` or `p_room_id` to look at one place, or leave both out for all of them. `p_out_of_range_only` keeps only those outside their limits. `p_limit` is clamped to 1–500 (default 100).',
+    required: [],
+    properties: {
+      p_unit_id: uuid('Storage unit (freezer, fridge, incubator) UUID.'),
+      p_room_id: uuid('Storage room UUID.'),
+      p_out_of_range_only: bool('Only measurements outside their limits.'),
+      p_limit: int('Page size, clamped 1–500.', {
+        minimum: 1,
+        maximum: 500,
+        default: 100,
+      }),
+    },
+    result: {
+      type: 'array',
+      items: obj(
+        {
+          feedId: UUID,
+          feed: TEXT,
+          unit: { ...TEXT, nullable: true },
+          storageUnitId: { ...UUID, nullable: true },
+          storageRoomId: { ...UUID, nullable: true },
+          lastValue: { type: 'number', nullable: true },
+          lastAt: { ...TIMESTAMPTZ, nullable: true },
+          lowLimit: { type: 'number', nullable: true },
+          highLimit: { type: 'number', nullable: true },
+          state: { type: 'string', enum: ['ok', 'low', 'high'] },
+          outOfRangeSince: { ...TIMESTAMPTZ, nullable: true },
+          readingCount: BIGINT,
+        },
+        ['feedId', 'feed', 'state'],
+      ),
+    },
+  },
+  record_storage_readings: {
+    summary: 'Send readings for a freezer or room',
+    description:
+      'Stores readings against one storage unit or one room (name exactly one of `p_unit_id` and `p_room_id`). Each reading is `{"feed": "Temperature", "value": -80.4, "unit": "°C", "at": "2026-11-05T09:00:00Z"}`; `unit` and `at` are optional. A measurement that does not exist yet is created, and a `Temperature` on a unit or room starts with that place\'s own range as its limits. Going outside the limits, or coming back, tells the people who manage storage and sends `storage.alarm.raised` or `storage.alarm.cleared` to webhooks. Returns how many readings were stored.',
+    required: ['p_readings'],
+    properties: {
+      p_unit_id: uuid('Storage unit UUID.'),
+      p_room_id: uuid('Storage room UUID.'),
+      p_readings: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 2000,
+        items: obj(
+          {
+            feed: text('What was measured, such as `Temperature`.'),
+            value: { type: 'number', description: 'The number read.' },
+            unit: text('Unit, such as `°C`.'),
+            at: {
+              ...TIMESTAMPTZ,
+              description: 'When it was read. Defaults to now.',
+            },
+          },
+          ['feed', 'value'],
+        ),
+      },
+    },
+    result: obj(
+      {
+        stored: INT,
+        feeds: INT,
+      },
+      ['stored'],
+      'How many readings were stored, and across how many measurements.',
+    ),
+  },
   search_sheet_records: {
     summary: 'Search Model records for Sheet write-back',
     description:

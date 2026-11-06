@@ -29,6 +29,11 @@ const deploymentInputSchema = z.object({
   OIDC_ISSUER_URL: z.string().url().optional(),
   OIDC_CLIENT_ID: z.string().min(1).optional(),
   OIDC_CLIENT_SECRET: z.string().min(1).optional(),
+  SAML_IDP_METADATA: z.string().optional(),
+  SAML_IDP_ENTITY_ID: z.string().optional(),
+  SAML_IDP_SSO_URL: z.string().optional(),
+  SAML_IDP_CERT: z.string().optional(),
+  SAML_EMAIL_DOMAINS: z.string().optional(),
   /** Email sign-in links: a complete sign-in method when SMTP can deliver them. */
   EMAIL_LOGIN_ENABLED: z.enum(['true', 'false']).optional(),
   EMAIL_LOGIN_ALLOWED_DOMAINS: z.string().optional(),
@@ -111,13 +116,31 @@ export function validateDeploymentConfig(
         `${parsed.SHEETBASE_ENV} requires OIDC_ISSUER_URL, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET together`,
       )
     }
+    const samlPartial = Boolean(
+      parsed.SAML_IDP_METADATA ||
+      parsed.SAML_IDP_ENTITY_ID ||
+      parsed.SAML_IDP_SSO_URL ||
+      parsed.SAML_IDP_CERT,
+    )
+    const saml = Boolean(
+      (parsed.SAML_IDP_METADATA ||
+        (parsed.SAML_IDP_ENTITY_ID &&
+          parsed.SAML_IDP_SSO_URL &&
+          parsed.SAML_IDP_CERT)) &&
+      parseAllowedDomains(parsed.SAML_EMAIL_DOMAINS).length > 0,
+    )
+    if (samlPartial && !saml) {
+      throw new Error(
+        `${parsed.SHEETBASE_ENV} SAML needs SAML_IDP_METADATA (or SAML_IDP_ENTITY_ID, SAML_IDP_SSO_URL and SAML_IDP_CERT) together with SAML_EMAIL_DOMAINS`,
+      )
+    }
     // Email links need a mail server to send them from; without one the
     // button is not offered (see readAuthMethods), so it cannot count here.
     const emailLink =
       parsed.EMAIL_LOGIN_ENABLED === 'true' && Boolean(parsed.SMTP_HOST)
-    if (!github && !oidc && !emailLink) {
+    if (!github && !oidc && !saml && !emailLink) {
       throw new Error(
-        `${parsed.SHEETBASE_ENV} requires a way to sign in: GitHub OAuth, OIDC, or email links (EMAIL_LOGIN_ENABLED=true with SMTP_HOST)`,
+        `${parsed.SHEETBASE_ENV} requires a way to sign in: GitHub OAuth, OIDC, SAML, or email links (EMAIL_LOGIN_ENABLED=true with SMTP_HOST)`,
       )
     }
     // A new address may only join from an allowed domain, so email links on
@@ -126,6 +149,7 @@ export function validateDeploymentConfig(
       emailLink &&
       !github &&
       !oidc &&
+      !saml &&
       parseAllowedDomains(parsed.EMAIL_LOGIN_ALLOWED_DOMAINS).length === 0
     ) {
       throw new Error(

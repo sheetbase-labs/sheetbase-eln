@@ -70,6 +70,7 @@ export async function readGoLive(
   const names = [
     ...(methods.github ? ['GitHub'] : []),
     ...(methods.oidc ? [methods.oidc.name] : []),
+    ...(methods.saml ? [methods.saml.name] : []),
     ...(methods.emailLink ? ['Email link'] : []),
   ]
   return {

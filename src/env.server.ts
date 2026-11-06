@@ -41,6 +41,21 @@ export const env = createEnv({
     // (Okta and Keycloak ask for `groups`; Entra ID sends it as a claim).
     OIDC_GROUPS_CLAIM: z.string().min(1).optional(),
     OIDC_EXTRA_SCOPES: z.string().optional(),
+    // Company single sign-on over SAML 2.0 (docs/operations/authentication.md).
+    // Give the provider's metadata (SAML_IDP_METADATA, the XML), or its entity
+    // id, sign-in URL and signing certificate, plus the email domains it
+    // speaks for. The groups attribute feeds sign-in groups.
+    SAML_PROVIDER_NAME: z.string().min(1).default('Company SSO'),
+    SAML_IDP_METADATA: z.string().optional(),
+    SAML_IDP_ENTITY_ID: z.string().optional(),
+    SAML_IDP_SSO_URL: z.string().url().optional(),
+    SAML_IDP_CERT: z.string().optional(),
+    SAML_EMAIL_DOMAINS: z.string().optional(),
+    SAML_SP_ENTITY_ID: z.string().optional(),
+    SAML_EMAIL_ATTRIBUTE: z.string().optional(),
+    SAML_NAME_ATTRIBUTE: z.string().optional(),
+    SAML_GROUPS_ATTRIBUTE: z.string().optional(),
+    SAML_ALLOW_UNSIGNED_ASSERTIONS: z.enum(['true', 'false']).optional(),
     // Email sign-in by one-time link. Needs SMTP_HOST (email delivery). Only
     // people who already have an account can use it, plus anyone whose
     // address is in EMAIL_LOGIN_ALLOWED_DOMAINS (comma-separated).

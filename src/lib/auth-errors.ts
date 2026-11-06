@@ -21,6 +21,13 @@ export function describeSignInError(error: string | undefined): string | null {
       return 'That sign-in link has expired or was already used. Ask for a new one.'
     case 'oidc_not_configured':
       return 'Company sign-in is not configured for this environment yet.'
+    case 'saml_domain_not_allowed':
+      return 'That address is not one this company sign-in covers. Ask the workspace owner to add you.'
+    case 'account_not_linked':
+      return 'An account for that address already exists and could not be linked. Ask the workspace owner to check how you were added.'
+    case 'replay_detected':
+    case 'invalid_request':
+      return 'That sign-in response could not be used. Start the sign-in again from here.'
     case 'github_not_configured':
       return 'GitHub sign-in is not configured for this environment yet.'
     default:

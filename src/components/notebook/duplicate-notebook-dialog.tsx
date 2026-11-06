@@ -13,6 +13,11 @@ import {
   DialogFooter,
   DialogHeader,
 } from '#/components/ui/dialog'
+import {
+  SeriesOffer,
+  useJoinSeries,
+} from '#/components/experiments/series-offer'
+import { useSeriesMembership } from '#/lib/experiment-series'
 import { DataClientError } from '#/lib/data-client'
 import { duplicateExperiment } from '#/lib/notebook-experience'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -36,6 +41,11 @@ export function DuplicateNotebookDialog({
     title: source.title,
   })
   const [title, setTitle] = useState(defaultTitle)
+  const [joinSeries, setJoinSeries] = useState(false)
+  const membership = useSeriesMembership(
+    source.kind === 'experiment' ? source.id : undefined,
+  )
+  const join = useJoinSeries()
 
   useEffect(() => {
     if (open)
@@ -53,7 +63,8 @@ export function DuplicateNotebookDialog({
         blocks,
         title,
       }),
-    onSuccess: ({ record }) => {
+    onSuccess: async ({ record }) => {
+      if (joinSeries) await join(membership.data, record.id)
       onOpenChange(false)
       onDuplicated(record)
     },
@@ -87,6 +98,13 @@ export function DuplicateNotebookDialog({
                 aria-label={t('notebook.duplicateNotebookDialog.ariaLabel')}
               />
             </Field>
+            {source.kind === 'experiment' ? (
+              <SeriesOffer
+                sourceId={source.id}
+                checked={joinSeries}
+                onChange={setJoinSeries}
+              />
+            ) : null}
             {errorMessage ? <Notice tone="bad">{errorMessage}</Notice> : null}
           </DialogBody>
           <DialogFooter>

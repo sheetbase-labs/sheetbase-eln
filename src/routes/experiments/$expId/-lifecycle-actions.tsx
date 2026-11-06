@@ -52,6 +52,17 @@ import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
 import { experimentQueryKeys } from '../$expId'
 import type { useExperimentRecord } from '../$expId'
 import { SubmitLabel } from '#/components/experiments/submit-label'
+import {
+  SeriesOffer,
+  useJoinSeries,
+} from '#/components/experiments/series-offer'
+import {
+  dissolveSeries,
+  seriesQueryKeys,
+  startSeries,
+  useIsSeriesHead,
+  useSeriesMembership,
+} from '#/lib/experiment-series'
 import { t } from '#/copy'
 
 type ExperimentRow = NonNullable<ReturnType<typeof useExperimentRecord>['data']>
@@ -72,7 +83,15 @@ function groupOfOffered(action: RecordAction): 'do' | 'share' | 'manage' {
 }
 
 type DialogKind =
-  'hold' | 'move' | 'run' | 'template' | 'archive' | 'delete' | 'share' | null
+  | 'hold'
+  | 'move'
+  | 'run'
+  | 'template'
+  | 'archive'
+  | 'delete'
+  | 'share'
+  | 'dissolve'
+  | null
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : t('projects.lifecycle.failed')
@@ -114,6 +133,10 @@ export function ExperimentLifecycleActions({
     t('projects.lifecycle.runTitle', { title: e.title }),
   )
   const [moveTo, setMoveTo] = useState('')
+  const membership = useSeriesMembership(e.id)
+  const seriesHead = useIsSeriesHead(e.id)
+  const joinSeries = useJoinSeries()
+  const [joinOnRun, setJoinOnRun] = useState(false)
 
   const projects = useQuery({
     queryKey: ['ui-port', 'experiment-move-projects'],
@@ -196,10 +219,36 @@ export function ExperimentLifecycleActions({
       }),
     onSuccess: async (record) => {
       close()
+      if (joinOnRun) await joinSeries(membership.data, record.id)
       toast(t('projects.lifecycle.created', { identifier: record.identifier }))
       await navigate({
         to: '/experiments/$expId/notebook',
         params: { expId: record.id },
+      })
+    },
+    onError: (error) => toast.error(errorText(error)),
+  })
+  const makeSeries = useMutation({
+    mutationFn: () => startSeries(notebookDataClient, e.id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: seriesQueryKeys.all })
+      toast(t('projects.series.start.done'))
+      await navigate({
+        to: '/experiments/$expId/series',
+        params: { expId: e.id },
+      })
+    },
+    onError: (error) => toast.error(errorText(error)),
+  })
+  const endSeries = useMutation({
+    mutationFn: () => dissolveSeries(notebookDataClient, e.id),
+    onSuccess: async () => {
+      close()
+      await queryClient.invalidateQueries({ queryKey: seriesQueryKeys.all })
+      toast(t('projects.series.dissolve.done'))
+      await navigate({
+        to: '/experiments/$expId/notebook',
+        params: { expId: e.id },
       })
     },
     onError: (error) => toast.error(errorText(error)),
@@ -432,6 +481,23 @@ export function ExperimentLifecycleActions({
                 : t('projects.favouriteToggle.add')}
             </DropdownMenuItem>
             <RecordActionItems actions={items('manage')} />
+            {author && !locked && !membership.data && !seriesHead.data ? (
+              <DropdownMenuItem
+                icon="link"
+                disabled={makeSeries.isPending}
+                onClick={() => makeSeries.mutate()}
+              >
+                {t('projects.series.start.action')}
+              </DropdownMenuItem>
+            ) : null}
+            {author && !locked && seriesHead.data ? (
+              <DropdownMenuItem
+                icon="link"
+                onClick={() => setDialog('dissolve')}
+              >
+                {t('projects.series.dissolve.action')}
+              </DropdownMenuItem>
+            ) : null}
             {author ? (
               <>
                 <DropdownMenuItem
@@ -530,6 +596,11 @@ export function ExperimentLifecycleActions({
                 onChange={(event) => setRunTitle(event.target.value)}
               />
             </Field>
+            <SeriesOffer
+              sourceId={e.id}
+              checked={joinOnRun}
+              onChange={setJoinOnRun}
+            />
           </DialogBody>
           <DialogFooter>
             <DialogClose
@@ -541,6 +612,32 @@ export function ExperimentLifecycleActions({
               onClick={() => run.mutate()}
             >
               {t('projects.lifecycle.runDialog.submit')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={dialog === 'dissolve'}
+        onOpenChange={(open) => (open ? null : close())}
+      >
+        <DialogContent>
+          <DialogHeader
+            title={t('projects.series.dissolve.title', {
+              identifier: e.identifier,
+            })}
+            description={t('projects.series.dissolve.body')}
+          />
+          <DialogFooter>
+            <DialogClose
+              render={<Button>{t('common.actions.cancel')}</Button>}
+            />
+            <Button
+              variant="primary"
+              disabled={endSeries.isPending}
+              onClick={() => endSeries.mutate()}
+            >
+              {t('projects.series.dissolve.submit')}
             </Button>
           </DialogFooter>
         </DialogContent>

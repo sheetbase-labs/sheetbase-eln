@@ -34,8 +34,8 @@ CREATE UNIQUE INDEX uq_instrument_feeds_room_name ON api.instrument_feeds (stora
 ALTER TABLE api.instrument_readings ALTER COLUMN instrument_id DROP NOT NULL;
 --> statement-breakpoint
 
-INSERT INTO api.notification_events (event_type, source, inbox_kinds, default_email)
-VALUES ('storage_alarm', 'notification', '{}', true);
+INSERT INTO api.notification_events (event_type, source, inbox_kinds, default_email, default_push)
+VALUES ('storage_alarm', 'notification', '{}', true, true);
 --> statement-breakpoint
 
 -- Tell the people who manage storage a freezer or room has gone out of range, or

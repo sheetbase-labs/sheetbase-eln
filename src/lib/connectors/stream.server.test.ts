@@ -81,6 +81,47 @@ describe('parseStreamBody', () => {
   })
 })
 
+describe('readings for a freezer or room', () => {
+  const UNIT = '3b7e1d0a-5a3c-4c52-8d8f-0a7a0c1d2e3f'
+  const reading = { feed: 'Temperature', value: -80.1 }
+
+  it('goes to the storage readings call', async () => {
+    const { deps, calls } = setup()
+    const unit = await handleStream(
+      post({ storageUnitId: UNIT, readings: [reading] }),
+      deps,
+    )
+    expect(unit.status).toBe(201)
+    const room = await handleStream(
+      post({ storageRoomId: UNIT, readings: [reading] }),
+      deps,
+    )
+    expect(room.status).toBe(201)
+    expect(
+      calls.map((c) => [c.name, c.args['p_unit_id'], c.args['p_room_id']]),
+    ).toEqual([
+      ['record_storage_readings', UNIT, null],
+      ['record_storage_readings', null, UNIT],
+    ])
+  })
+
+  it('wants exactly one place named', () => {
+    expect(() =>
+      parseStreamBody({
+        instrumentId: INSTRUMENT,
+        storageUnitId: UNIT,
+        readings: [reading],
+      }),
+    ).toThrow(/Name one place/)
+    expect(() => parseStreamBody({ readings: [reading] })).toThrow(
+      /Name one place/,
+    )
+    expect(() =>
+      parseStreamBody({ storageRoomId: 'nope', readings: [reading] }),
+    ).toThrow(/storageRoomId must be the id of the room/)
+  })
+})
+
 describe('handleStream', () => {
   it('hands a batch to the database as the token’s owner', async () => {
     const { deps, calls } = setup()

@@ -142,6 +142,15 @@ export const NOTIFICATION_EVENTS = [
     defaultPush: false,
   },
   {
+    key: 'storage_alarm',
+    label:
+      'A freezer or room goes outside its temperature limits (storage managers)',
+    group: GROUP_LAB,
+    source: 'notification',
+    defaultEmail: true,
+    defaultPush: true,
+  },
+  {
     key: 'calibration_overdue',
     label: 'An instrument is overdue for calibration',
     group: GROUP_LAB,

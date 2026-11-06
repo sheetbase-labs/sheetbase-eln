@@ -91,10 +91,10 @@ function sendUnit(client: Client, readings: unknown, id = unitId) {
 }
 
 function sendRoom(client: Client, readings: unknown) {
-  return client.query('select * from api.record_storage_readings(null,$1,$2::jsonb)', [
-    roomId,
-    JSON.stringify(readings),
-  ])
+  return client.query(
+    'select * from api.record_storage_readings(null,$1,$2::jsonb)',
+    [roomId, JSON.stringify(readings)],
+  )
 }
 
 async function unitFeed(name: string) {
@@ -154,9 +154,7 @@ describe('sending readings for a freezer or room', () => {
       high_limit: -70,
       limit_state: 'ok',
     })
-    await sendRoom(await actor(SCIENTIST), [
-      { feed: 'Temperature', value: 5 },
-    ])
+    await sendRoom(await actor(SCIENTIST), [{ feed: 'Temperature', value: 5 }])
     const { rows } = await migrator.query(
       `select low_limit, high_limit from api.instrument_feeds where storage_room_id = $1`,
       [roomId],
@@ -211,10 +209,13 @@ describe('limits', () => {
       ),
       '42501',
     )
-    const { rows } = await (await actor(STEWARD)).query(
-      'select * from api.set_instrument_feed_limits($1,$2,$3)',
-      [feed.id, -85, -75],
-    )
+    const { rows } = await (
+      await actor(STEWARD)
+    ).query('select * from api.set_instrument_feed_limits($1,$2,$3)', [
+      feed.id,
+      -85,
+      -75,
+    ])
     expect(rows[0]).toMatchObject({ low_limit: -85, high_limit: -75 })
   })
 
@@ -226,9 +227,9 @@ describe('limits', () => {
       ]),
       '42501',
     )
-    await (await actor(OWNER)).query('select api.remove_instrument_feed($1)', [
-      feed.id,
-    ])
+    await (
+      await actor(OWNER)
+    ).query('select api.remove_instrument_feed($1)', [feed.id])
     const { rows } = await migrator.query(
       `select count(*)::int as n from api.instrument_readings where feed_id = $1`,
       [feed.id],

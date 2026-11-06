@@ -85,8 +85,7 @@ or `instrument.manage` for the usage report.
 
 ## Events
 
-Webhooks, live updates and pipeline triggers carry `order.requested`,
-`order.placed`, `order.received`, `order.cancelled`, `order.priced`,
+Webhooks, live updates and pipeline triggers carry `order.priced`,
 `order.price_removed`, `instrument.rate_set`, `instrument.rate_removed`,
 `report.schedule.created`, `report.schedule.updated` and
 `report.schedule.deleted`. See the [event catalogue](event-catalogue.md). An

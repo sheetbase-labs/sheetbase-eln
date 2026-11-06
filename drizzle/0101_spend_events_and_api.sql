@@ -1,7 +1,6 @@
 -- Spend and facility use on the change feed and the external API.
 --
--- Webhooks, live updates and pipeline triggers hear about orders as they move
--- (requested, placed, received, cancelled), about a price being set or
+-- Webhooks, live updates and pipeline triggers hear about a price being set or
 -- removed, about an instrument's recharge rate, and about scheduled reports.
 -- Event bodies are summaries: they never carry a price or a rate amount, so
 -- someone who may hear that an order was priced still has to be allowed to
@@ -22,7 +21,7 @@ BEGIN
   v_def := replace(
     v_def,
     '::text]',
-    '::text, ''reagent_order''::text, ''reagent_order_price''::text, ''instrument_rate''::text, ''scheduled_report''::text]'
+    '::text, ''reagent_order_price''::text, ''instrument_rate''::text, ''scheduled_report''::text]'
   );
   EXECUTE 'ALTER TABLE api.change_events DROP CONSTRAINT chk_change_events_entity_type';
   EXECUTE 'ALTER TABLE api.change_events ADD CONSTRAINT chk_change_events_entity_type ' || v_def;
@@ -30,42 +29,9 @@ END $$;
 --> statement-breakpoint
 
 INSERT INTO internal.webhook_event_names (name) VALUES
-  ('order.requested'), ('order.placed'), ('order.received'), ('order.cancelled'),
   ('order.priced'), ('order.price_removed'),
   ('instrument.rate_set'), ('instrument.rate_removed'),
   ('report.schedule.created'), ('report.schedule.updated'), ('report.schedule.deleted');
---> statement-breakpoint
-
-CREATE FUNCTION internal.trg_change_event_reagent_order() RETURNS trigger
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO ''
-    AS $$
-BEGIN
-  IF TG_OP = 'UPDATE' AND NEW.status IS NOT DISTINCT FROM OLD.status THEN
-    RETURN NULL;
-  END IF;
-  PERFORM internal.emit_change_event(
-    NEW.workspace_id,
-    'reagent_order',
-    NEW.id,
-    CASE TG_OP WHEN 'INSERT' THEN 'create' ELSE 'update' END,
-    NULL,
-    NEW.project_id,
-    jsonb_build_object(
-      'number', NEW.number,
-      'status', NEW.status,
-      'materialRecordId', NEW.material_record_id,
-      'supplierRecordId', NEW.supplier_record_id
-    )
-  );
-  RETURN NULL;
-END;
-$$;
---> statement-breakpoint
-ALTER FUNCTION internal.trg_change_event_reagent_order() OWNER TO migrator;
---> statement-breakpoint
-CREATE TRIGGER change_event_reagent_orders AFTER INSERT OR UPDATE ON api.reagent_orders
-  FOR EACH ROW EXECUTE FUNCTION internal.trg_change_event_reagent_order();
 --> statement-breakpoint
 
 CREATE FUNCTION internal.trg_change_event_reagent_order_price() RETURNS trigger

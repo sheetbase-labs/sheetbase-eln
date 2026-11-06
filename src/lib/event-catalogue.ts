@@ -1617,6 +1617,34 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     notes:
       'Payload carries blockId (the step), resultBlockId, label, recordId, identifier, title, stepNumber and step.',
   },
+  {
+    name: 'experiment.series_member_added',
+    family: 'record',
+    summary: 'An experiment was added to a series of experiments.',
+    producer: {
+      entityType: 'experiment_series_member',
+      operation: 'create',
+    },
+    wireName: 'experiment.series_member_added',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'The event belongs to the series. Payload carries seriesRecordId, seriesIdentifier, seriesTitle, memberRecordId, memberIdentifier, memberTitle and position. It fires however the member was added: on the page, by the assistant, over the API or from a pipeline.',
+  },
+  {
+    name: 'experiment.series_member_removed',
+    family: 'record',
+    summary: 'An experiment was taken out of a series of experiments.',
+    producer: {
+      entityType: 'experiment_series_member',
+      operation: 'delete',
+    },
+    wireName: 'experiment.series_member_removed',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+  },
 ])
 
 /**
@@ -1792,6 +1820,8 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
   'step.completed': 'A protocol step is finished',
   'step.reopened': 'A protocol step is reopened',
   'step.result_added': 'A result is added to a protocol step',
+  'experiment.series_member_added': 'An experiment is added to a series',
+  'experiment.series_member_removed': 'An experiment is taken out of a series',
 })
 
 /**

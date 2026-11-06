@@ -133,6 +133,8 @@ export const EVENT_NAMES = [
   "step.completed",
   "step.reopened",
   "step.result_added",
+  "experiment.series_member_added",
+  "experiment.series_member_removed",
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];

@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 __all__ = [
     "AddRecordsToLegalHoldParams",
     "AddRegistryParentParams",
+    "AddSeriesMemberParams",
     "AddStepResultParams",
     "AdoptGroupRolesParams",
     "AdvanceAgentWorkflowParams",
@@ -104,11 +105,14 @@ __all__ = [
     "DeleteSavedSearchParams",
     "DeleteScheduledReportParams",
     "DeleteWebhookSubscriptionParams",
+    "DissolveExperimentSeriesParams",
     "DuplicateSheetInstanceBlockParams",
     "DuplicateSheetInstanceParams",
     "EndRecurringScheduleParams",
     "EndStepTimerParams",
     "EnrolSampleInWorkflowParams",
+    "ExperimentSeriesMembersRow",
+    "ExperimentSeriesRow",
     "FieldCategory",
     "FieldCategoryEmbedded",
     "FieldCategoryVocabulary",
@@ -156,6 +160,7 @@ __all__ = [
     "MemberAbsencesRow",
     "ModelIncidentLogsRow",
     "MoveBlockParams",
+    "MoveSeriesMemberParams",
     "MutateSheetInstanceCalculationsParams",
     "MutateSheetInstanceLocalStateParams",
     "MyInstrumentTrainingGapsParams",
@@ -206,6 +211,7 @@ __all__ = [
     "RecordLinksRowInsert",
     "RecordLinksRowPatch",
     "RecordModelsRow",
+    "RecordSeriesParams",
     "RecordSpecResultsRow",
     "RecordStepsParams",
     "RecordStocktakeScanParams",
@@ -220,6 +226,7 @@ __all__ = [
     "RemoveIdpGroupMappingParams",
     "RemoveInstrumentFeedParams",
     "RemoveRegistryParentParams",
+    "RemoveSeriesMemberParams",
     "ReplayWebhookDeliveriesParams",
     "ReplayWebhookDeliveryParams",
     "ReportAgentWorkflowUsageParams",
@@ -253,6 +260,8 @@ __all__ = [
     "SearchParams",
     "SearchSheetRecordsParams",
     "SendScheduledReportNowParams",
+    "SeriesMembersParams",
+    "SeriesRollupParams",
     "SetFieldSpecLimitsParams",
     "SetIdpGroupMappingParams",
     "SetInstrumentBookingRulesParams",
@@ -267,6 +276,7 @@ __all__ = [
     "SetRecurringSchedulePausedParams",
     "SetSampleWorkflowStatusParams",
     "SetScheduledReportActiveParams",
+    "SetSeriesMemberDayParams",
     "SetStepDoneParams",
     "SheetCalculation",
     "SheetCalculationChange",
@@ -314,6 +324,7 @@ __all__ = [
     "ShipmentItemsRow",
     "ShipmentsRow",
     "SnapshotDatasetParams",
+    "StartExperimentSeriesParams",
     "StartStepTimerParams",
     "StartStocktakeParams",
     "StepTimersRow",
@@ -1011,6 +1022,29 @@ class _DatasetsRowInsertRequired(TypedDict):
 class DatasetsRowInsert(_DatasetsRowInsertRequired, total=False):
     primary_project_id: Optional[str]
     description: Optional[str]
+
+
+class _ExperimentSeriesMembersRowRequired(TypedDict):
+    id: str
+    series_record_id: str
+    member_record_id: str
+    workspace_id: str
+    position: float
+    created_at: str
+    created_by_user_id: str
+
+
+class ExperimentSeriesMembersRow(_ExperimentSeriesMembersRowRequired, total=False):
+    """`api.experiment_series_members` row (snake_case). An experiment in a series, with where it sits and the day it is planned. An experiment is in one series at most."""
+    planned_on: Optional[str]
+
+
+class ExperimentSeriesRow(TypedDict):
+    """`api.experiment_series` row (snake_case). An experiment that heads a series: it groups other experiments that run as separate pieces of one piece of work."""
+    record_id: str
+    workspace_id: str
+    created_at: str
+    created_by_user_id: str
 
 
 class FieldCategoryEmbedded(TypedDict):
@@ -2734,6 +2768,16 @@ class AddRegistryParentParams(_AddRegistryParentParamsRequired, total=False):
     p_role: str
 
 
+class _AddSeriesMemberParamsRequired(TypedDict):
+    p_series_record_id: str
+    p_member_record_id: str
+
+
+class AddSeriesMemberParams(_AddSeriesMemberParamsRequired, total=False):
+    p_position: float
+    p_planned_on: str
+
+
 class _AddStepResultParamsRequired(TypedDict):
     p_block_id: str
     p_label: str
@@ -3034,6 +3078,10 @@ class DeleteWebhookSubscriptionParams(TypedDict):
     p_subscription_id: str
 
 
+class DissolveExperimentSeriesParams(TypedDict):
+    p_record_id: str
+
+
 class DuplicateSheetInstanceParams(TypedDict):
     p_instance_id: str
     p_expected_revision: int
@@ -3202,6 +3250,11 @@ class MoveBlockParams(TypedDict):
     p_before_block_id: Optional[str]
 
 
+class MoveSeriesMemberParams(TypedDict):
+    p_member_record_id: str
+    p_position: float
+
+
 class MutateSheetInstanceCalculationsParams(TypedDict):
     p_instance_id: str
     p_expected_revision: int
@@ -3363,6 +3416,10 @@ class RecordInstrumentReadingsParams(TypedDict):
     p_readings: Dict[str, "JsonValue"]
 
 
+class RecordSeriesParams(TypedDict):
+    p_record_id: str
+
+
 class RecordStepsParams(TypedDict):
     p_record_id: str
 
@@ -3418,6 +3475,10 @@ class RemoveInstrumentFeedParams(TypedDict):
 class RemoveRegistryParentParams(TypedDict):
     p_entry_id: str
     p_parent_id: str
+
+
+class RemoveSeriesMemberParams(TypedDict):
+    p_member_record_id: str
 
 
 class _ReplayWebhookDeliveriesParamsRequired(TypedDict):
@@ -3588,6 +3649,14 @@ class SendScheduledReportNowParams(TypedDict):
     p_id: str
 
 
+class SeriesMembersParams(TypedDict):
+    p_series_record_id: str
+
+
+class SeriesRollupParams(TypedDict):
+    p_series_record_id: str
+
+
 class _SetFieldSpecLimitsParamsRequired(TypedDict):
     p_kind: str
     p_field_name: str
@@ -3705,6 +3774,14 @@ class SetScheduledReportActiveParams(TypedDict):
     p_active: bool
 
 
+class _SetSeriesMemberDayParamsRequired(TypedDict):
+    p_member_record_id: str
+
+
+class SetSeriesMemberDayParams(_SetSeriesMemberDayParamsRequired, total=False):
+    p_planned_on: str
+
+
 class _SetStepDoneParamsRequired(TypedDict):
     p_block_id: str
 
@@ -3718,6 +3795,10 @@ class SnapshotDatasetParams(TypedDict):
     p_dataset_id: str
     p_expected_dataset_revision: int
     p_label: str
+
+
+class StartExperimentSeriesParams(TypedDict):
+    p_record_id: str
 
 
 class _StartStepTimerParamsRequired(TypedDict):

@@ -40,8 +40,7 @@ async function asAuthenticated(userId: string): Promise<Client> {
   return client
 }
 
-const sha = (value: string) =>
-  createHash('sha256').update(value).digest('hex')
+const sha = (value: string) => createHash('sha256').update(value).digest('hex')
 
 async function call<T = Record<string, unknown>>(
   sql: string,
@@ -79,7 +78,9 @@ async function roleOf(email: string): Promise<string> {
   return rows[0]?.role
 }
 
-async function events(type: string): Promise<{ operation: string; payload: any }[]> {
+async function events(
+  type: string,
+): Promise<{ operation: string; payload: any }[]> {
   const { rows } = await migrator.query(
     `SELECT operation, payload FROM api.change_events
       WHERE workspace_id = $1 AND entity_type = $2 ORDER BY sequence`,
@@ -139,7 +140,9 @@ describe('tokens', () => {
       [tokenId],
     )
     expect(stored.rows[0].secret_hash).toBe(sha(secret))
-    expect((await events('scim_token'))[0]).toMatchObject({ operation: 'create' })
+    expect((await events('scim_token'))[0]).toMatchObject({
+      operation: 'create',
+    })
   })
 
   it('refuses everyone without members access', async () => {
@@ -168,16 +171,17 @@ describe('tokens', () => {
     )
     expect(none.rows).toHaveLength(0)
 
-    const second = await (await asAuthenticated(OWNER)).query(
-      `SELECT api.create_scim_token($1::uuid, 'Entra') AS made`,
-      [WS],
-    )
+    const second = await (
+      await asAuthenticated(OWNER)
+    ).query(`SELECT api.create_scim_token($1::uuid, 'Entra') AS made`, [WS])
     const spare = second.rows[0].made as {
       token: { id: string }
       secret: string
     }
     const owner = await asAuthenticated(OWNER)
-    await owner.query(`SELECT api.revoke_scim_token($1::uuid)`, [spare.token.id])
+    await owner.query(`SELECT api.revoke_scim_token($1::uuid)`, [
+      spare.token.id,
+    ])
     const revoked = await migrator.query(
       `SELECT * FROM internal.scim_authenticate($1)`,
       [sha(spare.secret)],
@@ -345,7 +349,10 @@ describe('groups decide roles', () => {
     const changed = (await events('idp_group_mapping')).filter(
       (e) => e.payload.action === 'role-from-groups',
     )
-    expect(changed.at(-1)?.payload).toMatchObject({ from: 'viewer', to: 'admin' })
+    expect(changed.at(-1)?.payload).toMatchObject({
+      from: 'viewer',
+      to: 'admin',
+    })
   })
 
   it('lets the highest role among a person’s groups win', async () => {
@@ -390,7 +397,14 @@ describe('groups decide roles', () => {
     expect(await roleOf('grouped@lab.test')).toBe('admin')
     await migrator.query(
       `SELECT internal.apply_idp_groups($1, ARRAY['scientists'])`,
-      [(await migrator.query(`SELECT user_id FROM api.workspace_memberships WHERE id = $1`, [personId])).rows[0].user_id],
+      [
+        (
+          await migrator.query(
+            `SELECT user_id FROM api.workspace_memberships WHERE id = $1`,
+            [personId],
+          )
+        ).rows[0].user_id,
+      ],
     )
     expect(await roleOf('grouped@lab.test')).toBe('admin')
   })

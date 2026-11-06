@@ -27,13 +27,7 @@ import {
   toScimUser,
   userChangesFromPatch,
 } from './scim'
-import type {
-  GroupChanges,
-  GroupDoc,
-  Page,
-  UserChanges,
-  UserDoc,
-} from './scim'
+import type { GroupChanges, GroupDoc, Page, UserChanges, UserDoc } from './scim'
 
 export interface ScimPrincipal {
   tokenId: string
@@ -111,10 +105,7 @@ async function withDatabase<T>(
   }
 }
 
-async function one<T>(
-  sql: string,
-  values: unknown[],
-): Promise<T | null> {
+async function one<T>(sql: string, values: unknown[]): Promise<T | null> {
   return withDatabase(async (query) => {
     const { rows } = await query(sql, values)
     return (rows[0]?.doc ?? null) as T | null
@@ -129,7 +120,11 @@ export const databaseScimStore: ScimStore = {
         [secretHash],
       )
       const row = rows[0] as
-        | { token_id: string; workspace_id: string; actor_user_id: string | null }
+        | {
+            token_id: string
+            workspace_id: string
+            actor_user_id: string | null
+          }
         | undefined
       return row
         ? {
@@ -143,7 +138,13 @@ export const databaseScimStore: ScimStore = {
   async listUsers(p, filter, start, count) {
     const page = await one<Page<UserDoc>>(
       'SELECT internal.scim_list_users($1::uuid, $2, $3, $4, $5) AS doc',
-      [p.workspaceId, filter.userName ?? null, filter.externalId ?? null, start, count],
+      [
+        p.workspaceId,
+        filter.userName ?? null,
+        filter.externalId ?? null,
+        start,
+        count,
+      ],
     )
     return page ?? { total: 0, rows: [] }
   },
@@ -169,11 +170,10 @@ export const databaseScimStore: ScimStore = {
     return doc
   },
   async deleteUser(p, id) {
-    await one('SELECT internal.scim_delete_user($1::uuid, $2, $3::uuid) AS doc', [
-      p.workspaceId,
-      p.actorUserId,
-      id,
-    ])
+    await one(
+      'SELECT internal.scim_delete_user($1::uuid, $2, $3::uuid) AS doc',
+      [p.workspaceId, p.actorUserId, id],
+    )
   },
   async listGroups(p, filter, start, count) {
     const page = await one<Page<GroupDoc>>(
@@ -196,11 +196,10 @@ export const databaseScimStore: ScimStore = {
     return doc
   },
   async deleteGroup(p, id) {
-    await one('SELECT internal.scim_delete_group($1::uuid, $2, $3::uuid) AS doc', [
-      p.workspaceId,
-      p.actorUserId,
-      id,
-    ])
+    await one(
+      'SELECT internal.scim_delete_group($1::uuid, $2, $3::uuid) AS doc',
+      [p.workspaceId, p.actorUserId, id],
+    )
   },
 }
 
@@ -271,7 +270,10 @@ export async function handleScimRequest(
   const presented = /^Bearer (\S+)$/i.exec(
     request.headers.get('authorization') ?? '',
   )?.[1]
-  annotateRequest({ auth: 'scim_token', scim: { method: request.method, path } })
+  annotateRequest({
+    auth: 'scim_token',
+    scim: { method: request.method, path },
+  })
   const challenge = { 'WWW-Authenticate': 'Bearer realm="scim"' }
   if (!presented) {
     return failure(
@@ -302,7 +304,9 @@ export async function handleScimRequest(
   } catch (error) {
     if (error instanceof ScimError) return failure(error)
     annotateRequest({ error })
-    return failure(new ScimError(500, null, 'The identity provider call failed.'))
+    return failure(
+      new ScimError(500, null, 'The identity provider call failed.'),
+    )
   }
 }
 
@@ -399,7 +403,9 @@ async function users(
         Location: `${base}/Users/${doc.id}`,
       })
     }
-    return failure(new ScimError(405, null, 'That method is not supported here.'))
+    return failure(
+      new ScimError(405, null, 'That method is not supported here.'),
+    )
   }
   checkId(id)
   if (method === 'GET') {
@@ -440,7 +446,9 @@ async function groups(
   const method = request.method
   if (!id) {
     if (method === 'GET') {
-      const filter = parseFilter(url.searchParams.get('filter'), ['displayName'])
+      const filter = parseFilter(url.searchParams.get('filter'), [
+        'displayName',
+      ])
       const { start, count } = parsePaging(url.searchParams)
       const page = await store.listGroups(
         principal,
@@ -463,7 +471,9 @@ async function groups(
         Location: `${base}/Groups/${doc.id}`,
       })
     }
-    return failure(new ScimError(405, null, 'That method is not supported here.'))
+    return failure(
+      new ScimError(405, null, 'That method is not supported here.'),
+    )
   }
   checkId(id)
   if (method === 'GET') {

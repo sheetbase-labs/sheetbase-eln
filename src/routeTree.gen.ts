@@ -119,6 +119,8 @@ import { Route as ApiPipelinesRuntimeRouteImport } from './routes/api/pipelines/
 import { Route as ApiPipelinesTryDraftRouteImport } from './routes/api/pipelines/try-draft'
 import { Route as ApiSignaturesStepUpRouteImport } from './routes/api/signatures/step-up'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
+import { Route as ApiValidationPackRouteImport } from './routes/api/validation/pack'
+import { Route as ApiValidationRunRouteImport } from './routes/api/validation/run'
 import { Route as DatasetsDatasetIdIndexRouteImport } from './routes/datasets/$datasetId/index'
 import { Route as DatasetsDatasetIdCompareRouteImport } from './routes/datasets/$datasetId/compare'
 import { Route as DatasetsDatasetIdRowsRouteImport } from './routes/datasets/$datasetId/rows'
@@ -778,6 +780,16 @@ const ApiSignaturesStepUpRoute = ApiSignaturesStepUpRouteImport.update({
 const ApiTokenIndexRoute = ApiTokenIndexRouteImport.update({
   id: '/api/token/',
   path: '/api/token/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiValidationPackRoute = ApiValidationPackRouteImport.update({
+  id: '/api/validation/pack',
+  path: '/api/validation/pack',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiValidationRunRoute = ApiValidationRunRouteImport.update({
+  id: '/api/validation/run',
+  path: '/api/validation/run',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DatasetsDatasetIdIndexRoute = DatasetsDatasetIdIndexRouteImport.update({
@@ -1483,6 +1495,8 @@ export interface FileRoutesByFullPath {
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/api/pipelines/try-draft': typeof ApiPipelinesTryDraftRoute
   '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
+  '/api/validation/pack': typeof ApiValidationPackRoute
+  '/api/validation/run': typeof ApiValidationRunRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
   '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
   '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
@@ -1691,6 +1705,8 @@ export interface FileRoutesByTo {
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/api/pipelines/try-draft': typeof ApiPipelinesTryDraftRoute
   '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
+  '/api/validation/pack': typeof ApiValidationPackRoute
+  '/api/validation/run': typeof ApiValidationRunRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
   '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
   '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
@@ -1909,6 +1925,8 @@ export interface FileRoutesById {
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/api/pipelines/try-draft': typeof ApiPipelinesTryDraftRoute
   '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
+  '/api/validation/pack': typeof ApiValidationPackRoute
+  '/api/validation/run': typeof ApiValidationRunRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
   '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
   '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
@@ -2131,6 +2149,8 @@ export interface FileRouteTypes {
     | '/api/pipelines/runtime'
     | '/api/pipelines/try-draft'
     | '/api/signatures/step-up'
+    | '/api/validation/pack'
+    | '/api/validation/run'
     | '/datasets/$datasetId/compare'
     | '/datasets/$datasetId/rows'
     | '/datasets/$datasetId/snapshots'
@@ -2339,6 +2359,8 @@ export interface FileRouteTypes {
     | '/api/pipelines/runtime'
     | '/api/pipelines/try-draft'
     | '/api/signatures/step-up'
+    | '/api/validation/pack'
+    | '/api/validation/run'
     | '/datasets/$datasetId/compare'
     | '/datasets/$datasetId/rows'
     | '/datasets/$datasetId/snapshots'
@@ -2556,6 +2578,8 @@ export interface FileRouteTypes {
     | '/api/pipelines/runtime'
     | '/api/pipelines/try-draft'
     | '/api/signatures/step-up'
+    | '/api/validation/pack'
+    | '/api/validation/run'
     | '/datasets/$datasetId/compare'
     | '/datasets/$datasetId/rows'
     | '/datasets/$datasetId/snapshots'
@@ -2755,6 +2779,8 @@ export interface RootRouteChildren {
   ApiPipelinesRuntimeRoute: typeof ApiPipelinesRuntimeRoute
   ApiPipelinesTryDraftRoute: typeof ApiPipelinesTryDraftRoute
   ApiSignaturesStepUpRoute: typeof ApiSignaturesStepUpRoute
+  ApiValidationPackRoute: typeof ApiValidationPackRoute
+  ApiValidationRunRoute: typeof ApiValidationRunRoute
   ApiTokenIndexRoute: typeof ApiTokenIndexRoute
   ApiCalendarFeedTokenRoute: typeof ApiCalendarFeedTokenRoute
   ApiCollaborationResolveRoomsRoute: typeof ApiCollaborationResolveRoomsRoute
@@ -3548,6 +3574,20 @@ declare module '@tanstack/react-router' {
       path: '/api/token'
       fullPath: '/api/token/'
       preLoaderRoute: typeof ApiTokenIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/validation/pack': {
+      id: '/api/validation/pack'
+      path: '/api/validation/pack'
+      fullPath: '/api/validation/pack'
+      preLoaderRoute: typeof ApiValidationPackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/validation/run': {
+      id: '/api/validation/run'
+      path: '/api/validation/run'
+      fullPath: '/api/validation/run'
+      preLoaderRoute: typeof ApiValidationRunRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/datasets/$datasetId/': {
@@ -4893,6 +4933,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPipelinesRuntimeRoute: ApiPipelinesRuntimeRoute,
   ApiPipelinesTryDraftRoute: ApiPipelinesTryDraftRoute,
   ApiSignaturesStepUpRoute: ApiSignaturesStepUpRoute,
+  ApiValidationPackRoute: ApiValidationPackRoute,
+  ApiValidationRunRoute: ApiValidationRunRoute,
   ApiTokenIndexRoute: ApiTokenIndexRoute,
   ApiCalendarFeedTokenRoute: ApiCalendarFeedTokenRoute,
   ApiCollaborationResolveRoomsRoute: ApiCollaborationResolveRoomsRoute,

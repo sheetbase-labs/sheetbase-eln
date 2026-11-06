@@ -12,7 +12,13 @@ import {
 import { BoxOccupancy } from '#/components/settings/box-occupancy'
 import { DataAccessRoles } from '#/components/settings/data-access-roles'
 import { InstrumentParserTable } from '#/components/settings/instrument-parser-table'
+import { HandoverDialog } from '#/components/settings/handover-dialog'
 import { JoinDomainsSection } from '#/components/settings/join-domains'
+import { SignInGroupsSection } from '#/components/settings/sign-in-groups'
+import {
+  SettingsPasskeys,
+  passkeysQueryKey,
+} from '#/components/settings/settings-passkeys'
 import { MemberSessionsDialog } from '#/components/settings/member-sessions-dialog'
 import { MemberUsernameDialog } from '#/components/settings/member-username-dialog'
 import { ParserVersions } from '#/components/settings/parser-versions'
@@ -26,6 +32,8 @@ import { SqlLogins } from '#/components/settings/sql-logins'
 import { WorkspaceAdminsLine } from '#/components/settings/workspace-admins-line'
 import { auditVerificationKeys } from '#/lib/audit-verification-status'
 import { dataAccessKeys } from '#/lib/data-access'
+import { groupRoleKeys } from '#/lib/group-roles'
+import { handoverKeys } from '#/lib/handover'
 import { joinDomainKeys } from '#/lib/join-domains'
 import type { ParserSettingsRow } from '#/lib/parser-settings'
 import { pushQueryKeys } from '#/lib/push-client'
@@ -581,4 +589,76 @@ export const AdminsLine: Story = {
     ]),
   ],
   render: () => <WorkspaceAdminsLine workspaceId={WS} className="text-body" />,
+}
+
+/** "Sign-in groups": which identity-provider group gives which role. */
+export const SignInGroups: Story = {
+  decorators: [
+    provider([
+      {
+        key: groupRoleKeys.all(WS),
+        value: [
+          { id: 'g-1', groupName: 'lab-admins', role: 'admin' },
+          { id: 'g-2', groupName: 'lab-scientists', role: 'scientist' },
+          { id: 'g-3', groupName: 'lab-guests', role: 'viewer' },
+        ],
+      },
+    ]),
+  ],
+  render: () => <SignInGroupsSection workspaceId={WS} canManage />,
+}
+
+/** Passkeys on the profile page: one synced, one kept on a single device. */
+export const Passkeys: Story = {
+  decorators: [
+    provider([
+      {
+        key: passkeysQueryKey,
+        value: [
+          {
+            id: 'pk-1',
+            name: 'Work laptop',
+            backedUp: true,
+            createdAt: '2026-11-01T09:00:00Z',
+          },
+          {
+            id: 'pk-2',
+            name: 'Security key',
+            backedUp: false,
+            createdAt: '2026-11-03T14:30:00Z',
+          },
+        ],
+      },
+    ]),
+  ],
+  render: () => <SettingsPasskeys />,
+}
+
+/** Handing a leaver's open work to a colleague. */
+export const HandOverWork: Story = {
+  decorators: [
+    provider([
+      {
+        key: handoverKeys.preview(WS, 'u-2'),
+        value: [
+          {
+            key: 'record:experiment',
+            label: 'Assigned: experiments',
+            count: 3,
+          },
+          { key: 'task', label: 'Open tasks', count: 5 },
+          { key: 'review', label: 'Reviews waiting on them', count: 1 },
+        ],
+      },
+    ]),
+  ],
+  render: () => (
+    <HandoverDialog
+      workspaceId={WS}
+      userId="u-2"
+      name="Tom Okafor"
+      candidates={[{ id: 'u-1', label: 'Priya Raman' }]}
+      onClose={() => undefined}
+    />
+  ),
 }

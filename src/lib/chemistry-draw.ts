@@ -151,6 +151,7 @@ function pictureOf(molecule: Molecule, height: number): Picture {
     molecule.toSVG(height * 2, height, undefined, {
       autoCrop: true,
       autoCropMargin: 4,
+      suppressChiralText: true,
     }),
   )
   const width = Number(/width="([\d.]+)px"/.exec(markup)?.[1] ?? height)

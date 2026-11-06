@@ -1,5 +1,5 @@
 /**
- * Scheduled reports (migration 0096): a report that is emailed to chosen people
+ * Scheduled reports (migration 0097): a report that is emailed to chosen people
  * on a daily, weekly or monthly rhythm. The schedule lives in the database; the
  * email worker builds each report when it falls due (see
  * `scheduled-reports.server.ts`) and queues one email per person, with the

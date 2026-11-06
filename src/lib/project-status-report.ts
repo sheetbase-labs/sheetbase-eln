@@ -1,5 +1,5 @@
 /**
- * Project status (migration 0096): where each project stands, for the weekly
+ * Project status (migration 0097): where each project stands, for the weekly
  * status email. Experiments are counted by state; "late" is an experiment still
  * open past its planned end; "finished" and "started" count the period.
  */

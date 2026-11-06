@@ -265,10 +265,14 @@ describe('queueing an alert', () => {
     )
     const { rows } = await queued(ANN)
     expect(rows).toHaveLength(2)
-    expect(rows[0]!.payload).toMatchObject({
-      title: 'Timer finished',
-      tag: `step-timer-${timer.rows[0]!.id}`,
-    })
+    // Both alerts are queued in one transaction, so they share created_at and
+    // their order is the random id's: look for the tag, not a position.
+    expect(rows.map((row) => row.payload)).toContainEqual(
+      expect.objectContaining({
+        title: 'Timer finished',
+        tag: `step-timer-${timer.rows[0]!.id}`,
+      }),
+    )
   })
 })
 

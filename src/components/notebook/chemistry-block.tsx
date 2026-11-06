@@ -32,6 +32,10 @@ import { TableBox } from '#/components/ui/table'
 import { CopyButton } from '#/components/ui/copy-button'
 import { ConflictBanner } from './conflict-banner'
 import { useAutosave } from './use-autosave'
+import {
+  canEditBlockOffline,
+  useOfflineEdits,
+} from '#/components/offline/offline-edits'
 import type { BlockEditorProps } from './block-editor'
 import { t } from '#/copy'
 import { validateBlock } from '#/lib/blocks'
@@ -646,6 +650,11 @@ function useChemistryAutosave<T extends object>(
   { block, save, offline, onStatusChange }: BlockEditorProps,
   initial: T,
 ) {
+  // Edited in place like the other blocks: while offline the page's save keeps
+  // the payload on the device and sends it on reconnect.
+  const { canQueue } = useOfflineEdits()
+  const holdOffline =
+    (offline ?? false) && !(canQueue && canEditBlockOffline(type))
   const autosave = useAutosave<T>({
     initialValue: initial,
     validate: (value) => {
@@ -662,7 +671,7 @@ function useChemistryAutosave<T extends object>(
       )) as unknown as Awaited<
         ReturnType<Parameters<typeof useAutosave<T>>[0]['save']>
       >,
-    offline,
+    offline: holdOffline,
     touched: true,
   })
   useLayoutEffect(() => {

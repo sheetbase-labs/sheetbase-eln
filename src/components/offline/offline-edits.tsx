@@ -253,6 +253,9 @@ export const OFFLINE_EDITABLE_BLOCK_TYPES: ReadonlySet<string> = new Set([
   'materials',
   'plate_map',
   'corrective_actions',
+  // The drawing needs the editor, which loads on demand; the rest is typed.
+  'structure',
+  'reaction',
 ])
 
 export function canEditBlockOffline(type: string): boolean {

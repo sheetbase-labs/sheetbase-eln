@@ -166,6 +166,12 @@ function shortDay(iso: string | null): string {
 }
 
 /** "2 of 6 units": what is left of what was received. */
+/** Hidden when the pane is narrow (see workspace.css), so the last column is never cut off. */
+const NARROW_HIDE = {
+  headerClassName: 'hide-in-narrow-pane',
+  cellClassName: 'hide-in-narrow-pane',
+}
+
 export function stockOfTotal(row: MaterialListRow): string {
   const unit = row.unit ? ` ${row.unit}` : ''
   const current = row.stock
@@ -340,8 +346,25 @@ function MaterialsList() {
           />
         ),
       },
-      { id: 'material', header: 'Material', accessorFn: (m) => m.name },
-      { id: 'supplier', header: 'Supplier', accessorFn: (m) => m.supplier },
+      {
+        id: 'material',
+        header: 'Material',
+        accessorFn: (m) => m.name,
+        cell: ({ row }) => (
+          <span
+            className="block max-w-[9.5rem] truncate"
+            title={row.original.name}
+          >
+            {row.original.name}
+          </span>
+        ),
+      },
+      {
+        id: 'supplier',
+        header: 'Supplier',
+        accessorFn: (m) => m.supplier,
+        meta: NARROW_HIDE,
+      },
       { id: 'lot', header: 'Lot', accessorFn: (m) => m.lot },
       {
         id: 'stock',
@@ -350,7 +373,19 @@ function MaterialsList() {
         enableSorting: false,
         meta: rightAligned<MaterialListRow>().meta,
       },
-      { id: 'location', header: 'Location', accessorFn: (m) => m.location },
+      {
+        id: 'location',
+        header: 'Location',
+        accessorFn: (m) => m.location,
+        cell: ({ row }) => (
+          <span
+            className="block max-w-[7rem] truncate"
+            title={row.original.location}
+          >
+            {row.original.location}
+          </span>
+        ),
+      },
       {
         id: 'expiry',
         header: t('library.materials.page.expiry'),
@@ -367,6 +402,7 @@ function MaterialsList() {
         id: 'hazards',
         header: t('safety.badge.column'),
         enableSorting: false,
+        meta: NARROW_HIDE,
         cell: ({ row }) => (
           <HazardPictograms
             pictograms={safetyMap?.get(row.original.uuid)?.pictograms ?? []}

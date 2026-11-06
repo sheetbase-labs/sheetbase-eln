@@ -31,6 +31,9 @@ import {
   buildPlanningProposal,
   inboxToolDefs,
   stepsToolDefs,
+  seriesToolDefs,
+  isSeriesReadTool,
+  readSeries,
   isInboxReadTool,
   isStepsReadTool,
   isPlanningProposalTool,
@@ -141,7 +144,7 @@ function clip(text: string): string {
  */
 const CHAT_RULES = [
   'You are talking to a scientist in the app, not to a program. Name things the way the app shows them: a name, or an identifier such as EXP-12 or INS-0003. Never show an id like a UUID in your answer and never ask the person for one. When they name something, find it yourself with search or a list, and ask which one only if several really fit, naming the choices.',
-  'Sheetbase has a schedule with instrument booking and repeating bookings, sample logging, moving and splitting, starting experiments from templates, handing records to people and asking them about a record, requests to the lab, sample shipments, an incident log, a registry, sample workflows, result limits, reagent orders, recurring work, stocktakes, label printing, retention, legal holds, step timers, the steps of an experiment (finishing one or recording a result against it), live instrument readings and chemical safety information. Before saying you cannot do something, check your tools. If no tool does it but the app does, say where in the app it is done and offer to open that page; never say Sheetbase cannot do it.',
+  'Sheetbase has a schedule with instrument booking and repeating bookings, sample logging, moving and splitting, starting experiments from templates, handing records to people and asking them about a record, requests to the lab, sample shipments, an incident log, a registry, sample workflows, result limits, reagent orders, recurring work, stocktakes, label printing, retention, legal holds, step timers, the steps of an experiment (finishing one or recording a result against it), series of experiments (a cell assay run as several linked experiments: reading how the series is going, adding an experiment to it or taking it out), live instrument readings and chemical safety information. Before saying you cannot do something, check your tools. If no tool does it but the app does, say where in the app it is done and offer to open that page; never say Sheetbase cannot do it.',
 ]
 
 function clockLine(timeZone: string, now: Date): string {
@@ -255,6 +258,7 @@ export async function createAssistantToolkit(deps: {
     ...labToolDefs(),
     ...inboxToolDefs(),
     ...stepsToolDefs(),
+    ...seriesToolDefs(),
   )
   // Proposals are cards the person applies; offered only when agents may draft.
   if (deps.flags.mcp_draft) {
@@ -332,6 +336,11 @@ export async function createAssistantToolkit(deps: {
 
       if (isStepsReadTool(name)) {
         const result = await readSteps(args, labContext)
+        return { text: clip(result.text), isError: result.isError }
+      }
+
+      if (isSeriesReadTool(name)) {
+        const result = await readSeries(args, labContext)
         return { text: clip(result.text), isError: result.isError }
       }
 

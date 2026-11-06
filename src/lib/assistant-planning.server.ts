@@ -7,6 +7,9 @@ import {
   PLANNING_PROPOSE_TOOL_NAMES,
   RECORD_ASK_TOOL,
   RECORD_ASSIGN_TOOL,
+  SERIES_ADD_TOOL,
+  SERIES_READ_TOOL,
+  SERIES_REMOVE_TOOL,
   SHIPMENT_RECEIVE_TOOL,
   SHIPMENT_SEND_TOOL,
   STEPS_READ_TOOL,
@@ -18,12 +21,15 @@ import {
   proposeExperimentStartSchema,
   proposeRecordAskSchema,
   proposeRecordAssignSchema,
+  proposeSeriesAddSchema,
+  proposeSeriesRemoveSchema,
   proposeShipmentReceiveSchema,
   proposeShipmentSendSchema,
   proposeStepDoneSchema,
   proposeStepResultSchema,
   proposeTimerStartSchema,
   repeatDates,
+  seriesReadSchema,
   stepsReadSchema,
 } from './assistant-planning'
 import type { PlanningProposeToolName } from './assistant-planning'
@@ -69,6 +75,10 @@ export function isStepsReadTool(name: string): boolean {
   return name === STEPS_READ_TOOL
 }
 
+export function isSeriesReadTool(name: string): boolean {
+  return name === SERIES_READ_TOOL
+}
+
 export function isPlanningProposalTool(
   name: string,
 ): name is PlanningProposeToolName {
@@ -102,6 +112,16 @@ export function stepsToolDefs(): ProviderToolDef[] {
       STEPS_READ_TOOL,
       'Read the protocol steps of an experiment in order: each step’s status (done, in progress or not started, from the notes, results and timers on the page), who finished it and when, and which one is current. Use it for "where am I in EXP-12" or "what is the next step".',
       stepsReadSchema,
+    ),
+  ]
+}
+
+export function seriesToolDefs(): ProviderToolDef[] {
+  return [
+    toolDef(
+      SERIES_READ_TOOL,
+      'Read a series of experiments: its members in order with each one’s status, owner, planned day and steps done, how many are approved, which is next due and how many samples there are across them. Give the series or any experiment in it. Use it for "how is the cell assay series going" or "which series is EXP-0145 in".',
+      seriesReadSchema,
     ),
   ]
 }
@@ -144,6 +164,16 @@ export function planningProposalDefs(): ProviderToolDef[] {
       STEP_RESULT_TOOL,
       `Propose recording a result, such as a measurement, against a protocol step of an experiment. With no step named it is the current step. ${note}`,
       proposeStepResultSchema,
+    ),
+    toolDef(
+      SERIES_ADD_TOOL,
+      `Propose adding an experiment to a series of experiments, so they read as one piece of work. The series is made if it is not one yet. The experiment itself is not changed. ${note}`,
+      proposeSeriesAddSchema,
+    ),
+    toolDef(
+      SERIES_REMOVE_TOOL,
+      `Propose taking an experiment out of the series it is in. The experiment itself is not changed. ${note}`,
+      proposeSeriesRemoveSchema,
     ),
     toolDef(
       SHIPMENT_SEND_TOOL,
@@ -317,6 +347,103 @@ export async function readSteps(
           : 'Status comes from what is on the page: done when ticked, in progress when it has a note, a result or a running timer.',
     }),
     isError: false,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// A series of experiments.
+// ---------------------------------------------------------------------------
+
+interface SeriesMemberRow {
+  member_record_id: string
+  member_number: number
+  identifier: string
+  title: string
+  status: string
+  owner_user_id: string
+  reviewer_user_id: string | null
+  planned_on: string | null
+  day_offset: number | null
+  steps_total: number
+  steps_done: number
+  sample_count: number
+}
+
+interface RecordSeriesRow {
+  series_record_id: string
+  series_identifier: string
+  series_title: string
+  member_number: number
+  member_total: number
+}
+
+export async function readSeries(
+  args: unknown,
+  context: LabToolContext,
+): Promise<{ text: string; isError: boolean }> {
+  const parsed = seriesReadSchema.safeParse(args)
+  if (!parsed.success) return { text: invalid(parsed.error), isError: true }
+  const { client } = context
+  const record = await findRecord(client, parsed.data.record, ['experiment'])
+  if (!record.ok) return { text: record.message, isError: true }
+  try {
+    const membership = (
+      await client.rpc<RecordSeriesRow[]>('record_series', {
+        p_record_id: record.value.id,
+      })
+    ).at(0)
+    const head = membership
+      ? {
+          id: membership.series_record_id,
+          identifier: membership.series_identifier,
+          title: membership.series_title,
+        }
+      : record.value
+    const members = await client.rpc<SeriesMemberRow[]>('series_members', {
+      p_series_record_id: head.id,
+    })
+    if (!membership && members.length === 0) {
+      return {
+        text: `${recordTarget(record.value)} is not in a series and does not head one. Say so, and offer to add it to a series.`,
+        isError: false,
+      }
+    }
+    const rollup = await client.rpc<Record<string, unknown>>('series_rollup', {
+      p_series_record_id: head.id,
+    })
+    const names = await memberNames(client).catch(
+      () => new Map<string, string>(),
+    )
+    return {
+      text: JSON.stringify({
+        series: `${head.identifier} · ${head.title}`,
+        askedAbout: recordTarget(record.value),
+        position: membership
+          ? `${membership.member_number} of ${membership.member_total}`
+          : null,
+        rollup,
+        members: members.map((row) => ({
+          number: row.member_number,
+          experiment: `${row.identifier} · ${row.title}`,
+          status: row.status.replaceAll('_', ' '),
+          owner: names.get(row.owner_user_id) ?? null,
+          reviewer: row.reviewer_user_id
+            ? (names.get(row.reviewer_user_id) ?? null)
+            : null,
+          plannedOn: row.planned_on,
+          day: row.day_offset,
+          stepsDone: row.steps_done,
+          stepCount: row.steps_total,
+          samples: row.sample_count,
+          open: recordLink(row.member_record_id),
+        })),
+        open: `/experiments/${head.id}/series`,
+        note: 'Experiments you cannot read are left out of the list.',
+      }),
+      isError: false,
+    }
+  } catch {
+    return { text: 'The series could not be read just now.', isError: true }
   }
 }
 
@@ -900,6 +1027,97 @@ export async function buildPlanningProposal(
             value,
             unit: input.unit ?? null,
           },
+        },
+      }
+    }
+    case SERIES_ADD_TOOL: {
+      const parsed = proposeSeriesAddSchema.safeParse(args)
+      if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
+      const input = parsed.data
+      const series = await findRecord(client, input.series, ['experiment'])
+      if (!series.ok) return series
+      const member = await findRecord(client, input.experiment, ['experiment'])
+      if (!member.ok) return member
+      if (series.value.id === member.value.id) {
+        return {
+          ok: false,
+          message:
+            'An experiment cannot be in its own series. Ask the person which experiment to add.',
+        }
+      }
+      const already = (
+        await client.rpc<RecordSeriesRow[]>('record_series', {
+          p_record_id: member.value.id,
+        })
+      ).at(0)
+      if (already) {
+        return {
+          ok: false,
+          message: `${recordTarget(member.value)} is already in ${already.series_identifier}. An experiment is in one series at most; offer to take it out of that one first.`,
+        }
+      }
+      const changes = [
+        { label: 'Series', before: null, after: recordTarget(series.value) },
+        { label: 'Add', before: null, after: recordTarget(member.value) },
+      ]
+      if (input.plannedOn) {
+        changes.push({
+          label: 'Planned for',
+          before: null,
+          after: input.plannedOn,
+        })
+      }
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: recordTarget(series.value),
+          deepLink: `/experiments/${series.value.id}/series`,
+          changes,
+          action: {
+            kind: 'series.add',
+            seriesRecordId: series.value.id,
+            memberRecordId: member.value.id,
+            plannedOn: input.plannedOn ?? null,
+          },
+        },
+      }
+    }
+    case SERIES_REMOVE_TOOL: {
+      const parsed = proposeSeriesRemoveSchema.safeParse(args)
+      if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
+      const input = parsed.data
+      const member = await findRecord(client, input.experiment, ['experiment'])
+      if (!member.ok) return member
+      const membership = (
+        await client.rpc<RecordSeriesRow[]>('record_series', {
+          p_record_id: member.value.id,
+        })
+      ).at(0)
+      if (!membership) {
+        return {
+          ok: false,
+          message: `${recordTarget(member.value)} is not in a series. Tell the person.`,
+        }
+      }
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: recordTarget(member.value),
+          deepLink: `/experiments/${membership.series_record_id}/series`,
+          changes: [
+            {
+              label: 'Series',
+              before: `${membership.series_identifier} · ${membership.series_title}`,
+              after: 'Not in a series',
+            },
+          ],
+          action: { kind: 'series.remove', memberRecordId: member.value.id },
         },
       }
     }

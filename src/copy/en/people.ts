@@ -27,17 +27,17 @@ export const people = {
     submitting: 'Handing over…',
     done: 'Done',
     handedOver: {
-      one: 'Handed over 1 item to {name}',
+      one: 'Handed over {count} item to {name}',
       other: 'Handed over {count} items to {name}',
     },
     keptNote: {
-      one: '1 item stayed because {name} can’t take it, for example work in a project they can’t open or a review they wrote.',
+      one: '{count} item stayed because {name} can’t take it, for example work in a project they can’t open or a review they wrote.',
       other:
         '{count} items stayed because {name} can’t take them, for example work in a project they can’t open or a review they wrote.',
     },
     couldNot: 'Couldn’t hand over the work',
     stillHasWork: {
-      one: '{name} still has 1 open item.',
+      one: '{name} still has {count} open item.',
       other: '{name} still has {count} open items.',
     },
     handOverFirst: 'Hand over first',
@@ -95,7 +95,7 @@ export const people = {
     remove: 'Remove',
     adopt: 'Let groups decide',
     adopted: {
-      one: 'Groups now decide 1 person’s role',
+      one: 'Groups now decide {count} person’s role',
       other: 'Groups now decide {count} people’s roles',
     },
     saved: 'Group saved',

@@ -8,6 +8,7 @@
  * the locked revision and unlocks the record. The timeline and evidence
  * export RPCs expose the complete, ordered, machine-readable history.
  */
+// @requirement VAL-SIG-03
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { createHmac } from 'node:crypto'
 import type { Client } from 'pg'

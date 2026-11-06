@@ -5,6 +5,7 @@
  * reminder for the members who must read that exact version. Acknowledging first
  * means no reminder, and the two trigger points never duplicate one.
  */
+// @requirement VAL-PRT-01
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 

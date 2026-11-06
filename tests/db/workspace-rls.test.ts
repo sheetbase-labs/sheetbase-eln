@@ -5,6 +5,7 @@
  * `authenticated` role with real claim GUCs, plus the missing-claim and anon
  * failure paths.
  */
+// @requirement VAL-ACC-01
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 

@@ -6,6 +6,7 @@
  * verification recomputes the chain and reports the first entry that does not
  * match, which is what the nightly job (REV-05.2) will call.
  */
+// @requirement VAL-AUD-01, VAL-AUD-02
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 

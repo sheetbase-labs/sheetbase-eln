@@ -3,6 +3,7 @@
  * only administrator certify their own signing identity and lets an
  * experiment finish without review; a regulated lab keeps today's rules.
  */
+// @requirement VAL-SIG-02, VAL-CHG-01, VAL-ID-01
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { createHmac } from 'node:crypto'
 import type { Client } from 'pg'

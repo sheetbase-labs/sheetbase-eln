@@ -4,6 +4,7 @@
  * sessions are established directly in the identity tables, which is exactly
  * what the OAuth callback does after provider consent.
  */
+// @requirement VAL-ID-01
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { eq } from 'drizzle-orm'
 import { createHmac } from 'node:crypto'

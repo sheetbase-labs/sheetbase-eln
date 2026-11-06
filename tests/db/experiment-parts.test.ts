@@ -728,3 +728,57 @@ describe('templates with parts', () => {
     expect(rows[0].status).toBe('now')
   })
 })
+
+describe('links belong to a part', () => {
+  async function link(recordId: string, identifier: string) {
+    const { rows } = await migrator.query(
+      `insert into api.record_links(source_record_id,target_kind,target_identifier,link_type,created_by_user_id)
+       values($1,'sample',$2,'sample',$3) returning id, part_id`,
+      [recordId, identifier, OWNER],
+    )
+    return rows[0] as { id: string; part_id: string | null }
+  }
+  async function partOf(linkId: string) {
+    const { rows } = await migrator.query(
+      `select part_id from api.record_links where id=$1`,
+      [linkId],
+    )
+    return rows[0].part_id as string | null
+  }
+
+  it('goes to the current part, and existing links join the first part', async () => {
+    const { recordId } = await experiment('Links', ['x'])
+    const before = await link(recordId, 'S-1')
+    expect(before.part_id).toBeNull()
+    const one = await addPart(recordId, 'Day one', 0)
+    expect(await partOf(before.id)).toBe(one.id)
+    const two = await addPart(recordId, 'Day two', 1)
+    const fresh = await link(recordId, 'S-2')
+    expect(fresh.part_id).toBe(one.id)
+    await migrator.query(
+      `update api.experiment_parts set completed_at=now() where id=$1`,
+      [one.id],
+    )
+    expect((await link(recordId, 'S-3')).part_id).toBe(two.id)
+  })
+
+  it('can be moved to another part of the same experiment only', async () => {
+    const { recordId } = await experiment('Move links', ['x'])
+    const one = await addPart(recordId, 'A', 0)
+    const two = await addPart(recordId, 'B', 1)
+    const { id } = await link(recordId, 'S-9')
+    await owner.query(`select api.set_link_part($1,$2)`, [id, two.id])
+    expect(await partOf(id)).toBe(two.id)
+    const other = await experiment('Elsewhere', ['x'])
+    const stray = await addPart(other.recordId, 'Z', 0)
+    await expect(
+      owner.query(`select api.set_link_part($1,$2)`, [id, stray.id]),
+    ).rejects.toThrow(/not in this experiment/)
+    // Deleting a part hands its links to the part that takes its blocks.
+    await owner.query(`select api.delete_experiment_part($1,$2)`, [
+      two.id,
+      one.id,
+    ])
+    expect(await partOf(id)).toBe(one.id)
+  })
+})

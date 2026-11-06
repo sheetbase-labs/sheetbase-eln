@@ -559,6 +559,17 @@ Scope: `lab:write`.
 | `p_block_id` * | uuid | The block.                  |
 | `p_part_id` *  | uuid | The part of the experiment. |
 
+### `set_link_part`
+
+Move a sample, dataset or other link to another part. Links made from an experiment that has parts land in the part being worked on. This moves one to another part of the same experiment. Returns the link and its part.
+
+Scope: `lab:write`.
+
+| Argument      | Type | Notes                         |
+| ------------- | ---- | ----------------------------- |
+| `p_link_id` * | uuid | The link between two records. |
+| `p_part_id` * | uuid | The part of the experiment.   |
+
 ### `split_record_into_parts`
 
 Split an experiment into parts. Divides a notebook that has no parts at the blocks you name. Returns the parts.

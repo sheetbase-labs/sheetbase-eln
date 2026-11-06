@@ -288,6 +288,7 @@ __all__ = [
     "SetInstrumentFeedLimitsParams",
     "SetInstrumentOutOfServiceParams",
     "SetInstrumentRateParams",
+    "SetLinkPartParams",
     "SetMaterialSafetyParams",
     "SetMemberAbsenceParams",
     "SetModelSupplierListParams",
@@ -4014,6 +4015,11 @@ class _SetInstrumentRateParamsRequired(TypedDict):
 
 class SetInstrumentRateParams(_SetInstrumentRateParamsRequired, total=False):
     p_currency: Optional[str]
+
+
+class SetLinkPartParams(TypedDict):
+    p_link_id: str
+    p_part_id: str
 
 
 class _SetMaterialSafetyParamsRequired(TypedDict):

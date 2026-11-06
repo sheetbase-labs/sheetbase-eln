@@ -5,6 +5,8 @@ import { expect, screen, userEvent } from 'storybook/test'
 
 import { SavedTrails } from '#/components/audit/saved-trails'
 import { ResultsWorkspace } from '#/components/experiments/results-workspace'
+import { ReviewerBand } from '#/components/experiments/reviewer-band'
+import { SubmitLabel } from '#/components/experiments/submit-label'
 import { SaveAsTemplateDialog } from '#/components/experiments/save-as-template-dialog'
 import { Button } from '#/components/ui/button'
 import { analysisStudioQueryKeys } from '#/lib/analysis-studio-data'
@@ -32,6 +34,7 @@ const meta = {
           '/schedule',
           '/analysis/new',
           '/templates/$templateId',
+          '/review/$revisionId',
         ]),
         path: '/experiments/$expId/results',
         params: { expId: EXP_ID },
@@ -52,6 +55,33 @@ function inside(queryClient: QueryClient, width = 960) {
   )
 }
 const seeded = (data: ReadSeed[]) => screenQueryClient({ data })
+
+// --- Reviewer band and Submit label ------------------------------------------
+
+export const WaitingForYourReview: Story = {
+  render: () => (
+    <ReviewerBand
+      ownerName="Gareth P."
+      submittedAt="2026-11-04T16:46:00Z"
+      revisionId="0198d970-e266-4000-8000-000000000e02"
+    />
+  ),
+  decorators: [inside(seeded([]), 960)],
+}
+
+export const SubmitButtonLabels: Story = {
+  render: () => (
+    <div className="flex gap-3">
+      <Button variant="primary">
+        <SubmitLabel status="in_progress" />
+      </Button>
+      <Button variant="primary">
+        <SubmitLabel status="returned" />
+      </Button>
+    </div>
+  ),
+  decorators: [inside(seeded([]), 480)],
+}
 
 // --- Save as template -------------------------------------------------------
 

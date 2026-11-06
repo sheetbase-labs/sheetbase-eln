@@ -120,6 +120,11 @@ export const LAB_AREAS = {
   label_templates: 'Label templates for printing',
   legal_holds: 'Legal holds keeping records from deletion',
   retention_rules: 'How long each kind of record is kept',
+  timers: 'The person’s running step timers, with when each ends',
+  readings:
+    'Instrument live feeds (temperature, CO2 and so on): latest reading and whether it is inside its limits (openOnly: only those outside)',
+  safety:
+    'Chemical safety information on materials: hazard pictograms, signal word and hazard statements',
 } as const
 
 export type LabArea = keyof typeof LAB_AREAS
@@ -575,6 +580,7 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   stocktakes: 'status=eq.open',
   legal_holds: 'released_at=is.null',
   recurring_work: 'status=eq.active',
+  readings: 'limit_state=neq.ok',
   sample_workflows: 'status=eq.active',
 }
 
@@ -660,6 +666,29 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'created_at.desc',
     search: ['name', 'reason'],
     page: '/settings/lab/retention',
+  },
+  timers: {
+    table: 'my_step_timers',
+    select: 'id,record_id,label,duration_seconds,started_at,ends_at',
+    order: 'ends_at.asc',
+    search: ['label'],
+    page: '/schedule',
+  },
+  readings: {
+    table: 'instrument_feeds',
+    select:
+      'id,name,unit,low_limit,high_limit,limit_state,last_value,last_at,instrument:instruments(name,display_id)',
+    order: 'name.asc',
+    search: ['name'],
+    page: '/instruments',
+  },
+  safety: {
+    table: 'material_safety',
+    select:
+      'record_id,pictograms,signal_word,hazard_statements,updated_at,material:records!material_safety_record_fk(identifier,title)',
+    order: 'updated_at.desc',
+    search: [],
+    page: '/materials',
   },
   retention_rules: {
     table: 'retention_rules',
@@ -755,9 +784,9 @@ async function listLabArea(
   const params = [
     `select=${spec.select}`,
     `order=${spec.order}`,
-    `limit=${limit}`,
+    `limit=${input.query && spec.search.length === 0 ? 200 : limit}`,
   ]
-  if (input.query) {
+  if (input.query && spec.search.length > 0) {
     const like = likeValue(input.query)
     params.push(
       `or=(${spec.search.map((column) => `${column}.ilike.${like}`).join(',')})`,
@@ -768,10 +797,24 @@ async function listLabArea(
   if (input.area === 'instruments' && input.openOnly) {
     params.push('retired_at=is.null')
   }
-  const rows = await client.list<Record<string, unknown>>(
+  const found = await client.list<Record<string, unknown>>(
     spec.table,
     `?${params.join('&')}`,
   )
+  // An area with no searchable column (safety) is narrowed by its text here.
+  const words =
+    input.query && spec.search.length === 0
+      ? input.query.toLowerCase().split(/\s+/).filter(Boolean)
+      : []
+  const rows =
+    words.length > 0
+      ? found
+          .filter((row) => {
+            const text = JSON.stringify(row).toLowerCase()
+            return words.every((word) => text.includes(word))
+          })
+          .slice(0, limit)
+      : found
   return JSON.stringify({
     area: input.area,
     items: rows,

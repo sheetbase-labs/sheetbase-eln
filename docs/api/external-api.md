@@ -57,19 +57,44 @@ exchange and rotation.
 
 ### Currently effective
 
-| Scope                                              | Allows                                                                                                                          |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `projects:read` / `projects:write`                 | Project-domain tables and RPCs                                                                                                  |
-| `datasets:read` / `datasets:write`                 | Dataset query, commit, snapshot, archive. Not schema stewardship                                                                |
-| `sheets:read` / `sheets:write`                     | Sheet Instance reads and mutations. Does not author Sheet Definitions                                                           |
-| `models:read` / `models:write`                     | `search_sheet_records`, custom-field writes, Sheet→Record write-back                                                            |
-| `templates:read` / `templates:write`               | Template catalogue reads and instantiation                                                                                      |
-| `reviews:read`                                     | Preview a submission digest. Does not run revision checks                                                                       |
-| `reviews:write`                                    | Mintable. Does not submit, sign or amend                                                                                        |
-| `schema:read`                                      | Catalogue GET only                                                                                                              |
-| `webhooks:read` / `webhooks:write`                 | Subscriptions and delivery history (stable event names in [`event-catalogue.md`](event-catalogue.md))                           |
-| `pipelines:read` / `pipelines:write`               | Read pipelines, versions, runs, logs and outputs; save draft versions (personal tokens only). Does not publish, run or schedule |
-| `agent_operations:read` / `agent_operations:write` | Inspect and submit typed proposals and workflows. Does not approve, execute, resume, or create policies                         |
+| Scope                                              | Allows                                                                                                                            |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `projects:read` / `projects:write`                 | Project-domain tables and RPCs                                                                                                    |
+| `datasets:read` / `datasets:write`                 | Dataset query, commit, snapshot, archive. Not schema stewardship                                                                  |
+| `sheets:read` / `sheets:write`                     | Sheet Instance reads and mutations. Does not author Sheet Definitions                                                             |
+| `models:read` / `models:write`                     | `search_sheet_records`, custom-field writes, Sheet→Record write-back                                                              |
+| `templates:read` / `templates:write`               | Template catalogue reads and instantiation                                                                                        |
+| `reviews:read`                                     | Preview a submission digest. Does not run revision checks                                                                         |
+| `reviews:write`                                    | Mintable. Does not submit, sign or amend                                                                                          |
+| `schema:read`                                      | Catalogue GET only                                                                                                                |
+| `webhooks:read` / `webhooks:write`                 | Subscriptions and delivery history (stable event names in [`event-catalogue.md`](event-catalogue.md))                             |
+| `pipelines:read` / `pipelines:write`               | Read pipelines, versions, runs, logs and outputs; save draft versions (personal tokens only). Does not publish, run or schedule   |
+| `agent_operations:read` / `agent_operations:write` | Inspect and submit typed proposals and workflows. Does not approve, execute, resume, or create policies                           |
+| `people:read` / `people:write`                     | Personal tokens only. Hand over work, out of office, sign-in group roles. Acts as the token's member, whose own permissions apply |
+
+### People and continuity from a script
+
+A personal token with `people:write` can set and cancel its own out of office,
+which is the inbound route for a calendar or HR integration run by the person
+(or by a members administrator for others):
+
+```http
+POST /api/db/rpc/set_member_absence
+{"p_workspace_id":"<uuid>","p_starts_on":"2026-11-10","p_ends_on":"2026-11-14",
+ "p_delegate_user_id":"<colleague user id>","p_note":"Conference"}
+```
+
+Reviews waiting on the person also go to the delegate for the dates, who
+decides and signs as themselves. `p_user_id` sets someone else's absence and
+needs members access; a service credential cannot hold `people:*`, so nothing
+acts for a person without that person's token. The same scope covers
+`preview_member_handover` / `hand_over_member_work` (members access, or the
+person for themselves), `set_idp_group_mapping` / `remove_idp_group_mapping` /
+`adopt_group_roles` (members access), and reads of `member_absences` and
+`idp_group_mappings`. Passkeys are deliberately not on the API: a passkey must
+be created on the person's own device, so only the sign-in page and Profile
+can add one. Their events are webhook events (see
+[`event-catalogue.md`](event-catalogue.md)).
 
 ### Still fail-closed
 

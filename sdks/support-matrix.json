@@ -223,6 +223,18 @@
       "methods": ["GET", "HEAD"],
       "python": "generic",
       "typescript": "generic"
+    },
+    {
+      "resource": "member_absences",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "idp_group_mappings",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
     }
   ],
   "rpcs": [
@@ -631,6 +643,48 @@
     {
       "name": "validate_sheet_record_batch",
       "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "preview_member_handover",
+      "resource": "people",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "hand_over_member_work",
+      "resource": "people",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "set_member_absence",
+      "resource": "people",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "cancel_member_absence",
+      "resource": "people",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "set_idp_group_mapping",
+      "resource": "people",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "remove_idp_group_mapping",
+      "resource": "people",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "adopt_group_roles",
+      "resource": "people",
       "python": "resource",
       "typescript": "resource"
     }

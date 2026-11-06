@@ -650,6 +650,13 @@
       "when": 1801404957830,
       "tag": "0094_people_events",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1801405017830,
+      "tag": "0095_people_scopes",
+      "breakpoints": true
     }
   ]
 }

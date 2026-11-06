@@ -2208,6 +2208,9 @@ export const settings = {
     readPipelineDefinitionsDescription:
       'Read pipelines, versions, runs, logs and outputs, and save a draft version (personal tokens only). Publishing a version and starting a run stay with people.',
     administrationMcp: 'Administration (MCP)',
+    people: 'People and continuity',
+    peopleDescription:
+      'Hand over work, set out of office and map sign-in groups to roles. Acts as the person who made the token, so their own permissions apply.',
     personalTokenScopesDescription:
       'Personal-token scopes to read administration data and propose changes for approval. Every read is also checked against the caller’s workspace role.',
   },

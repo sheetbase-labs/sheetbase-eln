@@ -34,6 +34,7 @@ import {
   SearchResource,
   CataloguesResource,
   WebhooksResource,
+  PeopleResource,
   PipelinesResource,
 } from "./resources/index.js";
 
@@ -57,6 +58,7 @@ export class SheetbaseClient {
   readonly agentOperations: AgentOperationsResource;
   readonly webhooks: WebhooksResource;
   readonly pipelines: PipelinesResource;
+  readonly people: PeopleResource;
 
   constructor(options: SheetbaseClientOptions) {
     this.transport = new HttpTransport(
@@ -78,6 +80,7 @@ export class SheetbaseClient {
     this.agentOperations = new AgentOperationsResource(this.transport);
     this.webhooks = new WebhooksResource(this.transport);
     this.pipelines = new PipelinesResource(this.transport);
+    this.people = new PeopleResource(this.transport);
   }
 
   // ── raw access ──────────────────────────────────────────────────────

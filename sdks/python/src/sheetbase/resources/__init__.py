@@ -7,6 +7,7 @@ from sheetbase.resources.search import SearchResource
 from sheetbase.resources.catalogues import CataloguesResource
 from sheetbase.resources.agent_operations import AgentOperationsResource
 from sheetbase.resources.webhooks import WebhooksResource
+from sheetbase.resources.people import PeopleResource
 from sheetbase.resources.pipelines import PipelinesResource
 from sheetbase.resources.events import (
     EVENT_ALIASES,
@@ -27,6 +28,7 @@ __all__ = [
     "CataloguesResource",
     "AgentOperationsResource",
     "WebhooksResource",
+    "PeopleResource",
     "PipelinesResource",
     "EVENT_ALIASES",
     "EVENT_NAMES",

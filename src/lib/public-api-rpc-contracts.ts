@@ -257,6 +257,8 @@ const revisionRow = ref('RevisionsRow')
 const webhookSubscriptionRow = ref('WebhookSubscriptionsRow')
 const webhookDeliveryRow = ref('WebhookDeliveriesRow')
 const pipelineVersionRow = ref('PipelineDefinitionVersionsRow')
+const memberAbsenceRow = ref('MemberAbsencesRow')
+const groupMappingRow = ref('IdpGroupMappingsRow')
 
 const pgrstRow = (row: JsonSchema, description: string): JsonSchema => ({
   description: `${description} PostgREST returns a JSON array of composite rows by default.`,
@@ -321,6 +323,126 @@ const addressedRow: JsonSchema = {
 }
 
 export const RPC_CONTRACTS: Record<string, RpcContract> = {
+  preview_member_handover: {
+    summary: 'Preview the open work that could be handed over',
+    description:
+      'Counts what a member still has open: assigned records by kind, reviewer names, tasks, reviews waiting, instruments and default project reviews. Allowed for members access, or for the person themselves.',
+    required: ['p_workspace_id', 'p_user_id'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_user_id: text('The member whose open work to count.'),
+    },
+    result: {
+      type: 'array',
+      items: obj(
+        {
+          category: text(
+            '`record`, `record_reviewer`, `task`, `review`, `instrument` or `project_reviewer`.',
+          ),
+          record_kind: { ...TEXT, nullable: true },
+          n: int('How many are open.'),
+        },
+        ['category', 'n'],
+      ),
+    },
+  },
+  hand_over_member_work: {
+    summary: 'Hand a member’s open work to a colleague',
+    description:
+      'Moves the chosen open work and reports `moved` and `kept` counts. Signed, locked, archived and finished work stays, as does anything the colleague cannot see or review. Selection names: `record:<kind>`, `record_reviewer`, `task`, `review`, `instrument`, `project_reviewer`.',
+    required: [
+      'p_workspace_id',
+      'p_from_user_id',
+      'p_to_user_id',
+      'p_selection',
+    ],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_from_user_id: text('The member whose work moves.'),
+      p_to_user_id: text('The colleague who takes over.'),
+      p_selection: { ...TEXT_ARRAY, description: 'What to move.' },
+    },
+    result: obj(
+      {
+        moved: jsonMap('Counts moved, by selection name.'),
+        kept: jsonMap('Counts that had to stay, by selection name.'),
+      },
+      ['moved', 'kept'],
+    ),
+  },
+  set_member_absence: {
+    summary: 'Set an out of office',
+    description:
+      'Names the days a member is away and, optionally, the colleague who covers reviews waiting on them. Replaces any absence that overlaps. Omit `p_user_id` to set your own; setting someone else’s needs members access.',
+    required: [
+      'p_workspace_id',
+      'p_starts_on',
+      'p_ends_on',
+      'p_delegate_user_id',
+    ],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_starts_on: {
+        type: 'string',
+        format: 'date',
+        description: 'First day away.',
+      },
+      p_ends_on: {
+        type: 'string',
+        format: 'date',
+        description: 'Last day away.',
+      },
+      p_delegate_user_id: {
+        ...TEXT,
+        nullable: true,
+        description: 'The covering colleague, or null for none.',
+      },
+      p_note: { ...TEXT, nullable: true, description: 'Shown to colleagues.' },
+      p_user_id: {
+        ...TEXT,
+        nullable: true,
+        description: 'Who is away. Defaults to the caller.',
+      },
+    },
+    result: pgrstRow(memberAbsenceRow, 'The absence.'),
+  },
+  cancel_member_absence: {
+    summary: 'Cancel an out of office',
+    description: 'Ends the absence and withdraws the cover it added.',
+    required: ['p_absence_id'],
+    properties: { p_absence_id: uuid('Absence UUID.') },
+    result: pgrstRow(memberAbsenceRow, 'The cancelled absence.'),
+  },
+  set_idp_group_mapping: {
+    summary: 'Map a sign-in group to a role',
+    description:
+      'Needs members access. People in the group get the role the next time they sign in through the identity provider; the highest mapped role wins and anyone in no mapped group becomes a viewer.',
+    required: ['p_workspace_id', 'p_group_name', 'p_role'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_group_name: text('The group as the identity provider spells it.'),
+      p_role: text(
+        '`admin`, `steward`, `scientist`, `analyst`, `reviewer` or `viewer`.',
+      ),
+    },
+    result: pgrstRow(groupMappingRow, 'The mapping.'),
+  },
+  remove_idp_group_mapping: {
+    summary: 'Remove a sign-in group mapping',
+    description: 'Needs members access.',
+    required: ['p_id'],
+    properties: { p_id: uuid('Mapping UUID.') },
+    result: { description: 'No content.', type: 'null' },
+  },
+  adopt_group_roles: {
+    summary: 'Let sign-in groups decide roles',
+    description:
+      'Needs members access. Hands everyone except owners and client accounts over to group control and returns how many people changed.',
+    required: ['p_workspace_id'],
+    properties: { p_workspace_id: uuid('Workspace UUID.') },
+    result: { type: 'integer', description: 'People now decided by groups.' },
+  },
+
   create_project: {
     summary: 'Create a project',
     description:

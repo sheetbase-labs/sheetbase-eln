@@ -218,6 +218,8 @@ export interface MemberProgress {
   steps?: number
   /** The identifier of the experiment before it that is not yet approved. */
   waitingFor?: string
+  /** The title of that experiment. */
+  waitingTitle?: string
 }
 
 /**
@@ -245,7 +247,11 @@ export function memberProgress(
     previous &&
     previous.status !== 'approved'
   ) {
-    return { kind: 'waiting', waitingFor: previous.identifier }
+    return {
+      kind: 'waiting',
+      waitingFor: previous.identifier,
+      waitingTitle: previous.title,
+    }
   }
   return { kind: 'plain' }
 }

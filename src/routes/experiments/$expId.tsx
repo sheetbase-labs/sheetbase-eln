@@ -336,10 +336,19 @@ function ExperimentLayout() {
                         },
                       ]
                     : []),
-                  {
-                    label: t('projects.experimentPage.tabs.summary'),
-                    link: { to: '/experiments/$expId/summary', params },
-                  },
+                  // A series parent shows its Series tab where Summary would
+                  // be, so the row keeps five tabs and fits a phone.
+                  ...(seriesHead.data
+                    ? []
+                    : [
+                        {
+                          label: t('projects.experimentPage.tabs.summary'),
+                          link: {
+                            to: '/experiments/$expId/summary' as const,
+                            params,
+                          },
+                        },
+                      ]),
                   {
                     label: t('projects.experimentPage.tabs.samples'),
                     count: (

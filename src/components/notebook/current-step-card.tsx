@@ -17,6 +17,16 @@ import { toast } from '#/components/ui/sonner'
 import { useInstruments } from '#/components/instruments/instruments-data'
 import { useStepTimers } from '#/components/notebook/step-timer'
 import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
+import { useRecordPartsProgress } from '#/components/notebook/use-record-parts'
+import {
+  currentPart,
+  daysSinceStart,
+  formatPartDate,
+  partDate,
+  partQueryKeys,
+  setPartDone,
+} from '#/lib/experiment-parts'
+import type { PartProgress } from '#/lib/experiment-parts'
 import { currentStep, instrumentNamedBy, stepProgress } from '#/lib/step-status'
 import type { StepBlockLike, StepProgress } from '#/lib/step-status'
 import { stepTimerQueryKeys } from '#/lib/step-timers'
@@ -35,9 +45,13 @@ export function CurrentStepCard({
   canEdit,
   returned = false,
   renderSubmit,
+  startedAt,
 }: {
   recordId: string
+  /** Every block of the notebook, so the steps of all parts are counted. */
   blocks: readonly StepBlockLike[]
+  /** When the experiment started: the day its parts count from. */
+  startedAt?: string
   /** The notebook is open to changes: not locked, archived or an old revision. */
   canEdit: boolean
   /** The review came back, so submitting again is a resubmission. */
@@ -50,12 +64,14 @@ export function CurrentStepCard({
     () => new Set((timers.data ?? []).map((timer) => timer.blockId)),
     [timers.data],
   )
+  const { parts } = useRecordPartsProgress(recordId, blocks)
   const steps = React.useMemo(
-    () => stepProgress(blocks, timerBlockIds),
-    [blocks, timerBlockIds],
+    () => stepProgress(blocks, timerBlockIds, parts),
+    [blocks, timerBlockIds, parts],
   )
-  if (steps.length === 0) return null
+  if (steps.length === 0 && parts.length === 0) return null
   const current = currentStep(steps)
+  const nowPart = currentPart(parts)
   return (
     <section
       aria-label={t('notebook.currentStep.label')}
@@ -69,6 +85,16 @@ export function CurrentStepCard({
           total={steps.length}
           canEdit={canEdit}
           timerRunning={timerBlockIds.has(current.blockId)}
+          submit={renderSubmit?.('secondary')}
+          part={nowPart}
+          startedAt={startedAt}
+        />
+      ) : nowPart ? (
+        <RunningPart
+          recordId={recordId}
+          part={nowPart}
+          canEdit={canEdit}
+          startedAt={startedAt}
           submit={renderSubmit?.('secondary')}
         />
       ) : (
@@ -89,9 +115,90 @@ function useRefreshSteps(recordId: string) {
       queryClient.invalidateQueries({
         queryKey: notebookQueryKeys.blocks(recordId),
       }),
+      queryClient.invalidateQueries({
+        queryKey: partQueryKeys.forRecord(recordId),
+      }),
       queryClient.invalidateQueries({ queryKey: stepTimerQueryKeys.all }),
     ])
   }, [queryClient, recordId])
+}
+
+/** When the part is yet to come, say which day it falls on. */
+function partLaterLine(
+  part: PartProgress | null,
+  startedAt: string | undefined,
+): string | null {
+  if (!part || !startedAt) return null
+  if (daysSinceStart(startedAt) >= part.dayOffset) return null
+  return t('notebook.parts.partOpensLater', {
+    number: String(part.number),
+    date: formatPartDate(partDate(startedAt, part.dayOffset)),
+  })
+}
+
+/** The card for a part that has no steps: its own title, and the way to finish it. */
+function RunningPart({
+  recordId,
+  part,
+  canEdit,
+  startedAt,
+  submit,
+}: {
+  recordId: string
+  part: PartProgress
+  canEdit: boolean
+  startedAt?: string
+  submit?: React.ReactNode
+}) {
+  const queryClient = useQueryClient()
+  const done = useMutation({
+    mutationFn: () => setPartDone(notebookDataClient, part.id, true),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: partQueryKeys.forRecord(recordId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: notebookQueryKeys.blocks(recordId),
+        }),
+      ])
+      toast.success(
+        t('notebook.parts.partDone', { number: String(part.number) }),
+      )
+    },
+    onError: () => toast.error(t('notebook.parts.couldNotChange')),
+  })
+  const later = partLaterLine(part, startedAt)
+  return (
+    <>
+      <div className="flex flex-col gap-1">
+        <p className="m-0 text-label font-semibold uppercase tracking-[0.06em] text-fg-muted">
+          {t('notebook.parts.nowPartEyebrow', { part: String(part.number) })}
+        </p>
+        <h2 className="m-0 font-heading text-doc font-semibold leading-snug text-fg">
+          {part.title}
+        </h2>
+        <p className="m-0 text-body text-fg-muted">
+          {later ?? t('notebook.parts.noSteps')}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 max-md:[&>button]:flex-1">
+        {canEdit ? (
+          <Button
+            variant="primary"
+            icon="check"
+            disabled={done.isPending}
+            onClick={() => done.mutate()}
+          >
+            {t('notebook.parts.markPartDone')}
+          </Button>
+        ) : null}
+        {submit ? (
+          <span className="ml-auto max-md:w-full">{submit}</span>
+        ) : null}
+      </div>
+    </>
+  )
 }
 
 function RunningStep({
@@ -101,6 +208,8 @@ function RunningStep({
   canEdit,
   timerRunning,
   submit,
+  part,
+  startedAt,
 }: {
   recordId: string
   step: StepProgress
@@ -108,6 +217,8 @@ function RunningStep({
   canEdit: boolean
   timerRunning: boolean
   submit?: React.ReactNode
+  part: PartProgress | null
+  startedAt?: string
 }) {
   const refresh = useRefreshSteps(recordId)
   const [adding, setAdding] = React.useState(false)
@@ -127,15 +238,28 @@ function RunningStep({
     },
     onError: () => toast.error(t('notebook.currentStep.couldNotFinish')),
   })
-  const evidence = stepEvidence(step, timerRunning)
+  const evidence = [
+    stepEvidence(step, timerRunning),
+    partLaterLine(part, startedAt),
+  ]
+    .filter(Boolean)
+    .join(' · ')
   return (
     <>
       <div className="flex flex-col gap-1">
         <p className="m-0 text-label font-semibold uppercase tracking-[0.06em] text-fg-muted">
-          {t('notebook.currentStep.eyebrow', {
-            number: String(step.index),
-            total: String(total),
-          })}
+          {step.partNumber != null &&
+          step.partStepIndex != null &&
+          step.partStepCount != null
+            ? t('notebook.parts.nowEyebrow', {
+                part: String(step.partNumber),
+                number: String(step.partStepIndex),
+                total: String(step.partStepCount),
+              })
+            : t('notebook.currentStep.eyebrow', {
+                number: String(step.index),
+                total: String(total),
+              })}
         </p>
         <h2 className="m-0 font-heading text-doc font-semibold leading-snug text-fg">
           {step.text}

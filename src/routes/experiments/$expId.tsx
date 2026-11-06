@@ -13,6 +13,8 @@ import { ReviewerBand } from '#/components/experiments/reviewer-band'
 import { SeriesBar } from '#/components/experiments/series-bar'
 import { useIsSeriesHead } from '#/lib/experiment-series'
 import { useRegulatedLab } from '#/lib/regulated-lab'
+import { useRecordParts } from '#/components/notebook/use-record-parts'
+import { daysSinceStart, lastDayOffset } from '#/lib/experiment-parts'
 import {
   fetchNotebookReviewContext,
   notebookReviewRevisionId,
@@ -122,6 +124,7 @@ function ExperimentLayout() {
   const record = useExperimentRecord(expId)
   const links = useExperimentLinks(expId)
   const seriesHead = useIsSeriesHead(expId)
+  const partsQuery = useRecordParts(expId)
   const e = record.data
   const { userLabel } = useUserNames(
     [e?.created_by_user_id, e?.reviewer_user_id].filter((id): id is string =>
@@ -210,6 +213,18 @@ function ExperimentLayout() {
   const kindCount = (kind: string) =>
     rows.filter((l) => l.target_kind === kind).length
   const status = experimentStatusFor(e.status)
+  // "Day 3 of 10" while an experiment with parts is running: how far along the
+  // calendar it is, out of the day of its last part.
+  const lastDay = lastDayOffset(partsQuery.data ?? [])
+  const runningDay =
+    lastDay != null &&
+    lastDay > 0 &&
+    (e.status === 'in_progress' || e.status === 'returned')
+      ? t('notebook.parts.dayOfTotal', {
+          day: String(Math.min(daysSinceStart(e.created_at), lastDay)),
+          total: String(lastDay),
+        })
+      : null
   return (
     <RecordActionsProvider
       reviewing={nextStep.reviewing}
@@ -294,6 +309,7 @@ function ExperimentLayout() {
                   })}
                 </span>
               ) : null}
+              {runningDay ? <span>{runningDay}</span> : null}
               {e.planned_end ? (
                 <span>
                   {t('projects.experimentPage.due', {

@@ -7,9 +7,11 @@
  *   a timer of the person's running on it.
  * - not started: none of those.
  *
- * The current step is the first one that is not done. The database computes the
- * same thing for the API, the assistant and pipelines (`api.record_steps`, migration
- * 0103); keep the two in step.
+ * The current step is the first one that is not done. When the experiment is
+ * split into parts it is the first one that is not done in the current part
+ * (the first part that is not done), and steps are numbered within their part.
+ * The database computes the same thing for the API, the assistant and
+ * pipelines (`api.record_steps`, migrations 0103 and 0104); keep the two in step.
  */
 
 export type StepStatus = 'done' | 'in_progress' | 'not_started'
@@ -17,7 +19,16 @@ export type StepStatus = 'done' | 'in_progress' | 'not_started'
 export interface StepBlockLike {
   id: string
   type?: string
+  /** The part the block is in, when the experiment has parts. */
+  partId?: string | null
   payload: Record<string, unknown>
+}
+
+/** What stepProgress needs to know of the parts: their order and which is current. */
+export interface StepPartsLike {
+  id: string
+  number: number
+  state: 'done' | 'now' | 'later'
 }
 
 export interface StepProgress {
@@ -25,6 +36,11 @@ export interface StepProgress {
   /** Position among the steps, from 1. */
   index: number
   stepNumber: number | null
+  /** The part the step is in, and its place among that part's steps. */
+  partId: string | null
+  partNumber: number | null
+  partStepIndex: number | null
+  partStepCount: number | null
   text: string
   status: StepStatus
   current: boolean
@@ -49,7 +65,17 @@ function text(value: unknown): string {
 export function stepProgress(
   blocks: readonly StepBlockLike[],
   timerBlockIds: ReadonlySet<string> = new Set(),
+  parts: readonly StepPartsLike[] = [],
 ): StepProgress[] {
+  const partById = new Map(parts.map((part) => [part.id, part]))
+  const currentPartId = parts.find((part) => part.state === 'now')?.id ?? null
+  const inPart = new Map<string, number>()
+  for (const block of blocks) {
+    if (block.type === 'procedure_step' && block.partId) {
+      inPart.set(block.partId, (inPart.get(block.partId) ?? 0) + 1)
+    }
+  }
+  const placed = new Map<string, number>()
   const results = new Map<string, number>()
   for (const block of blocks) {
     if (block.type !== 'metric') continue
@@ -63,6 +89,9 @@ export function stepProgress(
     const payload = block.payload
     const label = text(payload.text).trim()
     if (!label) continue
+    const partId =
+      block.partId && partById.has(block.partId) ? block.partId : null
+    if (partId) placed.set(partId, (placed.get(partId) ?? 0) + 1)
     const done = payload.completed === true
     const note = text(payload.note).trim() || null
     const resultCount = results.get(block.id) ?? 0
@@ -71,13 +100,18 @@ export function stepProgress(
       : note || resultCount > 0 || timerBlockIds.has(block.id)
         ? 'in_progress'
         : 'not_started'
-    const current = !done && !currentTaken
+    const inCurrentPart = parts.length === 0 || partId === currentPartId
+    const current = !done && !currentTaken && inCurrentPart
     if (current) currentTaken = true
     steps.push({
       blockId: block.id,
       index: steps.length + 1,
       stepNumber:
         typeof payload.stepNumber === 'number' ? payload.stepNumber : null,
+      partId,
+      partNumber: partId ? partById.get(partId)!.number : null,
+      partStepIndex: partId ? (placed.get(partId) ?? null) : null,
+      partStepCount: partId ? (inPart.get(partId) ?? null) : null,
       text: label,
       status,
       current,

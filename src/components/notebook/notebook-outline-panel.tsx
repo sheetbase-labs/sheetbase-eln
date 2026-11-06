@@ -45,7 +45,10 @@ export function NotebookOutlinePanel({
   blocks,
   actionContext,
   requiredSections,
+  partsOutline,
 }: {
+  /** The experiment's parts, listed above its sections. */
+  partsOutline?: React.ReactNode
   entries: NotebookOutlineEntry[]
   /** Present when the document supports section collapse (live authoring). */
   controls?: NotebookOutlineControls
@@ -61,6 +64,7 @@ export function NotebookOutlinePanel({
   const requested = blocks ? requestedSignatureRows(blocks, actionContext) : []
   return (
     <div className="space-y-4" data-testid="notebook-outline">
+      {partsOutline}
       {controls ? (
         <div className="flex items-center justify-end gap-1 pb-1">
           <Button

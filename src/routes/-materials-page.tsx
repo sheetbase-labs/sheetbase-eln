@@ -1148,7 +1148,7 @@ function MaterialsList() {
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <Textarea
-            className="min-h-[70px]"
+            className="mx-5 my-3 box-border min-h-[70px] w-[calc(100%-2.5rem)]"
             placeholder={t('library.materials.page.whyIsThisLotHeld')}
             value={quarantineReason}
             onChange={(event) => setQuarantineReason(event.target.value)}

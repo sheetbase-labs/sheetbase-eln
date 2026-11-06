@@ -75,13 +75,14 @@ independent copies. The notebook design/QA pilot is defined in
 | Command                     | Purpose                                                                                                                     |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm db:migrate`           | Apply Drizzle migrations                                                                                                    |
-| `pnpm db:generate --custom` | Prepare a migration; write the SQL by hand (plain `db:generate` has no snapshot baseline and emits a full-schema migration) |
+| `pnpm db:new <name>`        | Create an empty timestamp-named migration in `drizzle/`; write the SQL by hand |
 | `pnpm db:seed:demo`         | Seed demo data                                                                                                              |
 | `pnpm db:seed:month`        | Seed month-scale data                                                                                                       |
 | `pnpm db:fresh`             | Reset + migrate + seed                                                                                                      |
 
-Migrations are in `drizzle/`, numbered in order after the squashed
-`0000_baseline.sql` (`drizzle/meta/_journal.json` is the authoritative list). Schema source:
+Migrations are in `drizzle/`: the numbered history `0000_baseline.sql` to
+`0108_*` (listed in the frozen `drizzle/meta/_journal.json`), then
+`<YYYYMMDDHHMMSS>_<name>.sql` files in name order with no journal entry. Schema source:
 `src/db/schema.ts`. Migration config: `drizzle.config.ts`. The migration
 connection uses `MIGRATION_DATABASE_URL` (dedicated `migrator` role), not the
 app `DATABASE_URL`.
@@ -192,10 +193,12 @@ For Amp orb-specific setup (system PostgreSQL, no Docker), see `docs/development
 - **Auth:** Better Auth with GitHub OAuth and database-backed sessions.
 - **Testing:** Vitest for unit/integration, Playwright for E2E, real PostgreSQL for DB tests.
 - **Phones:** `tests/browser/phone` opens the main pages, menus, popovers and sheets at iPhone size as the installed app, with safe areas and a simulated keyboard, and fails when anything lands off screen or under a system bar. Anything that floats keeps inside the visible area through `src/lib/visible-area.ts` (Base UI popups get it from the shared `Popover`, `DropdownMenu` and `Tooltip`; hand-placed ones use `useAnchoredPlacement`). Bottom sheets ride above the keyboard through `--kb-lift` and `--sheet-max-h`.
-- **Migrations:** use `pnpm db:generate --custom` and write the SQL by hand. Plain
-  `pnpm db:generate` has no committed snapshot baseline and emits a full-schema
-  migration, so it is not the schema-diff path here. Do not hand-edit SQL that a
-  generate produced; hand-written migrations are the normal case.
+- **Migrations:** create one with `pnpm db:new <name>` (a timestamp-named file, so
+  parallel branches never collide) and write the SQL by hand. Never number a
+  migration, never touch `_journal.json`, never run plain `pnpm db:generate` (no
+  snapshot baseline, so it emits a full-schema migration). CI fails a PR whose new
+  migration sorts before one already on main; after a rebase, rename the file
+  with a fresh `pnpm db:new` timestamp.
 - **Deployment:** image references are digest-pinned.
 
 ## Integrations: every feature, every surface

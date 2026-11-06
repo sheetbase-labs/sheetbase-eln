@@ -87,7 +87,7 @@ MinIO is there so you can try S3 file storage and backups locally (console at `h
 | Validate deployment plan   | `pnpm deploy:plan`       |
 | Run tests                  | `pnpm test`              |
 | Run DB tests               | `pnpm test:db`           |
-| Generate migration         | `pnpm db:generate`       |
+| New migration              | `pnpm db:new <name>`     |
 | Apply migrations           | `pnpm db:migrate`        |
 | Back up, then migrate      | `pnpm db:upgrade`        |
 | Seed demo data             | `pnpm db:seed:demo`      |

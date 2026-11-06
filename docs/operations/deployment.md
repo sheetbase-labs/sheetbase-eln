@@ -185,7 +185,7 @@ Load the non-secret release identifiers and inject secrets from the target
 environment's manager. Keep the selected application image available to the
 local Docker engine before planning. The planner reads the version, revision,
 and expected migration from that immutable image's OCI labels, compares the
-migration with the latest `when` value in `drizzle/meta/_journal.json`, and
+migration with the newest migration's `when` value (the frozen `drizzle/meta/_journal.json` plus the timestamp-named files, read by `scripts/lib/migrations.mjs`), and
 derives `SHEETBASE_ARTIFACT_DIGEST` from `SHEETBASE_APP_IMAGE`. Operators do not
 provide replacement version or migration values.
 

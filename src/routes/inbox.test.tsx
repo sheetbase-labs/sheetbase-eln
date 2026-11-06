@@ -301,6 +301,20 @@ describe('Inbox page activation', () => {
     expect(queryByLabelText('Item details')).toBeNull()
   })
 
+  it('opens an item in a pane below on Alt+Shift-click, not as a range select', () => {
+    items.push(witnessItem)
+    const open = vi.fn()
+    const { getByRole } = renderInbox({ open })
+    fireEvent.click(getByRole('button', { name: /Witness target/ }), {
+      altKey: true,
+      shiftKey: true,
+    })
+    expect(open).toHaveBeenCalledWith(
+      '/review/frozen-revision-2?signatureMeaning=witnessed',
+      { beside: true, below: true, title: 'Witness target' },
+    )
+  })
+
   it('preserves the exact live dataset row and field in a pane destination', () => {
     items.push({
       ...items[1],

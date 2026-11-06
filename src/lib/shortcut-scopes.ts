@@ -71,7 +71,8 @@ export const PANE_SHORTCUTS: ShortcutDefinition[] = [
     id: 'pane-open-beside',
     scope: 'panes',
     keys: ['alt+enter'],
-    description: 'Open a link beside (or Alt-click)',
+    description:
+      'Open a link beside (or Alt-click; Alt+Shift-click opens below)',
   },
   {
     id: 'workspace-new',

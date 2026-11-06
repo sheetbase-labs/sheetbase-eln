@@ -336,7 +336,8 @@ Every link, including a registry object or a scientific block's source link,
 opens its canonical page in the pane it was clicked in, not a summary-only
 inspector. Alt-click (⌥-click), `⌥↵` on a focused link, the peek card's Open
 beside and dragging a link to a pane edge open it in a new pane beside instead.
-Ctrl, Cmd, Shift and middle-click retain native link behaviour. Local tools such as snapshot retention, chart settings and material
+Alt+Shift-click (⌥⇧-click) opens it in a new pane below. Ctrl, Cmd, Shift and
+middle-click retain native link behaviour. Local tools such as snapshot retention, chart settings and material
 stock operations remain within their owning page.
 
 The shared `PaneLayout` owns docking, tabs, resizing and stable page hosts.
@@ -379,7 +380,7 @@ The visible language for panes, implemented as the Multiplex system (`src/compon
 - **Focus.** The focused pane gets a two-pixel accent top edge and a filled number. Dividers are 1px and drag or arrow-key resizable.
 - **Mode badge.** `Editing` for the primary pane, `Read-only` for the rest, plus an amber `Newer` badge when a page reports a newer revision (`usePaneMeta().reportNewer`).
 - **One editing pane.** Exactly one pane per workspace is primary. Other panes are read-only (`usePaneReadOnly()`; enforced today in notebooks and sheets). A click opens a record in the same pane, which keeps its role. Opening beside from a list makes the new pane primary; opening beside from a record keeps the current primary. `⌘⇧P` or the header action hands editing over.
-- **Open affordance.** Record links carry `data-record-link`. A click opens here, Space peeks, `⌥↵` or ⌥-click opens beside, and dragging a link onto a pane edge opens a pane there.
+- **Open affordance.** Record links carry `data-record-link`. A click opens here, Space peeks, `⌥↵` or ⌥-click opens beside, ⌥⇧-click opens below, and dragging a link onto a pane edge opens a pane there.
 - **Peek and shelf.** A 400px peek card (Open beside, Open here, Pin) and a 280px shelf of pinned records that can be dragged back out. The peek card shows the generic record card; record-specific essentials are not built.
 - **Linked panes.** `⌘L` links a pane with its neighbour as link A, B or C (cyan, violet, amber chips, never a blue header). The driver's scroll position is mirrored to followers. Selection following is not built.
 - **Trail.** Each pane keeps its own history with `⌘[` and `⌘]`. "Save trail as evidence" needs a backend and is not built.

@@ -2314,7 +2314,9 @@ function DataGridTableBodyRowCell<TData extends object>({
                 // cell, so no column is unreachable for ranges.
                 if (
                   rangeSelectionOn &&
-                  (event.shiftKey || event.metaKey || event.ctrlKey) &&
+                  ((event.shiftKey && !event.altKey) ||
+                    event.metaKey ||
+                    event.ctrlKey) &&
                   cell.getCanSelect()
                 ) {
                   event.preventDefault()

@@ -34,6 +34,26 @@ describe('openBesideOnAlt', () => {
     expect(event.preventDefault).toHaveBeenCalled()
   })
 
+  it('opens an Alt+Shift-click in a pane below', () => {
+    const open = vi.fn()
+    const event = click({ altKey: true, shiftKey: true })
+    expect(openBesideOnAlt({ open }, '/samples/S1', event, 'S1')).toBe(true)
+    expect(open).toHaveBeenCalledWith('/samples/S1', {
+      beside: true,
+      below: true,
+      title: 'S1',
+    })
+    expect(event.preventDefault).toHaveBeenCalled()
+  })
+
+  it('leaves a Shift-click without Alt to the browser', () => {
+    const open = vi.fn()
+    expect(openBesideOnAlt({ open }, '/x', click({ shiftKey: true }))).toBe(
+      false,
+    )
+    expect(open).not.toHaveBeenCalled()
+  })
+
   it('leaves a keyboard activation, which has no click event, to the caller', () => {
     const open = vi.fn()
     expect(openBesideOnAlt({ open }, '/samples/S1', undefined, 'S1')).toBe(
@@ -42,18 +62,16 @@ describe('openBesideOnAlt', () => {
     expect(open).not.toHaveBeenCalled()
   })
 
-  it.each([
-    { ctrlKey: true },
-    { metaKey: true },
-    { shiftKey: true },
-    { button: 1 },
-  ])('leaves %o to the browser, even with Alt', (init) => {
-    const open = vi.fn()
-    expect(
-      openBesideOnAlt({ open }, '/x', click({ ...init, altKey: true })),
-    ).toBe(false)
-    expect(open).not.toHaveBeenCalled()
-  })
+  it.each([{ ctrlKey: true }, { metaKey: true }, { button: 1 }])(
+    'leaves %o to the browser, even with Alt',
+    (init) => {
+      const open = vi.fn()
+      expect(
+        openBesideOnAlt({ open }, '/x', click({ ...init, altKey: true })),
+      ).toBe(false)
+      expect(open).not.toHaveBeenCalled()
+    },
+  )
 
   it('does nothing outside a workspace', () => {
     expect(openBesideOnAlt(null, '/x', click({ altKey: true }))).toBe(false)

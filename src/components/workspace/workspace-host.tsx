@@ -513,7 +513,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         event.button !== 0 ||
         event.metaKey ||
         event.ctrlKey ||
-        event.shiftKey
+        (event.shiftKey && !event.altKey)
       )
         return
       const raw = anchor.getAttribute('href')
@@ -525,6 +525,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         event.stopImmediatePropagation()
         open(target, {
           beside: true,
+          below: event.shiftKey,
           title: anchor.textContent.trim() || undefined,
         })
       } else if (!anchor.closest('[data-workspace-pane]')) {
@@ -1587,6 +1588,13 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
               {platform === 'mac' ? '⌥' : t('projects.workspaceHost.keyAlt')}
             </span>
             {t('projects.workspaceHost.clickBeside')}
+            <span className="mx-dotsep">·</span>
+            <span className="mx-kbd is-inv">
+              {platform === 'mac'
+                ? '⌥⇧'
+                : `${t('projects.workspaceHost.keyAlt')}+${t('projects.workspaceHost.keyShift')}`}
+            </span>
+            {t('projects.workspaceHost.clickBelow')}
           </div>
         ) : null}
         {links.peek ? (

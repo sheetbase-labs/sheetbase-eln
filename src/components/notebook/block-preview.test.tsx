@@ -132,6 +132,21 @@ describe('BlockPreview table (canonical string-array payload)', () => {
     expect(cells[0].textContent).toBe('')
     expect(cells[1].textContent).toBe('x')
   })
+
+  it('puts the table in a box that scrolls sideways on narrow screens', () => {
+    renderWithQuery(
+      <BlockPreview
+        block={block('table', {
+          columns: ['Condition', 'Peak cell density', 'Titre', 'Viability'],
+          rows: [['High glucose feed', 38.7, 5.7, 91.1]],
+        })}
+      />,
+    )
+    const box = screen.getByTestId('notebook-table-block')
+    expect(box.className).toContain('overflow-x-auto')
+    expect(box.className).not.toContain('overflow-hidden')
+    expect(box.querySelector('table')).toBeTruthy()
+  })
 })
 
 describe('BlockPreview sheet (read-only preview)', () => {

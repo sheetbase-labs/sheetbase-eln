@@ -160,6 +160,11 @@ export const notebook = {
         applying: 'Removing…',
         applied: 'Removed',
       },
+      revokeSync: {
+        apply: 'Switch off token',
+        applying: 'Switching off…',
+        applied: 'Switched off',
+      },
       cancelAway: {
         apply: 'Cancel out of office',
         applying: 'Cancelling…',

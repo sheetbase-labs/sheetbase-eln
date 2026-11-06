@@ -521,6 +521,24 @@ describe('people and continuity cards', () => {
     })
   })
 
+  it('switches off a directory sync token by its label', async () => {
+    const { ctx } = withPeople({
+      scim_tokens: [
+        { id: 't1', label: 'Okta', last_used_at: '2026-11-01T10:00:00Z' },
+      ],
+    })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.scim_token.revoke',
+        { ...base, token: 'Okta' },
+        ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: { action: { kind: 'scim_token.revoke', tokenId: 't1' } },
+    })
+  })
+
   it('runs the cards through the ordinary RPCs', async () => {
     const calls: Array<[string, Record<string, unknown>]> = []
     const client = {

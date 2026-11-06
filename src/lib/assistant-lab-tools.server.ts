@@ -140,6 +140,8 @@ export const LAB_AREAS = {
     'Worklists for liquid handlers made from plate runs, and whether they are done',
   safety:
     'Chemical safety information on materials: hazard pictograms, signal word and hazard statements',
+  directory_sync:
+    'Directory sync tokens: which identity-provider connections can add and suspend people, and when each was last used',
 } as const
 
 export type LabArea = keyof typeof LAB_AREAS
@@ -700,6 +702,7 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   plate_runs: 'status=neq.archived',
   worklists: 'status=eq.planned',
   sample_workflows: 'status=eq.active',
+  directory_sync: 'revoked_at=is.null',
 }
 
 interface PlainArea {
@@ -711,6 +714,13 @@ interface PlainArea {
 }
 
 const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
+  directory_sync: {
+    table: 'scim_tokens',
+    select: 'id,label,created_at,last_used_at,revoked_at',
+    order: 'created_at.desc',
+    search: ['label'],
+    page: '/settings/workspace/members',
+  },
   instruments: {
     table: 'instruments',
     select: INSTRUMENT_COLUMNS,

@@ -73,6 +73,7 @@ const ACTION_COPY = {
   'handover.run': 'handOver',
   'group_role.set': 'mapGroup',
   'group_role.remove': 'unmapGroup',
+  'scim_token.revoke': 'revokeSync',
   'notifications.read': 'markRead',
   'reagent.ordered': 'markOrdered',
   'reagent.cancel': 'cancelOrder',

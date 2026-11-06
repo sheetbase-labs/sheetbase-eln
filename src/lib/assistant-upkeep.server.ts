@@ -5,6 +5,7 @@ import {
   ABSENCE_SET_TOOL,
   FOLLOW_TOOL,
   GROUP_ROLE_REMOVE_TOOL,
+  SCIM_TOKEN_REVOKE_TOOL,
   GROUP_ROLE_SET_TOOL,
   HANDOVER_TOOL,
   INSTRUMENT_LOG_TOOL,
@@ -20,6 +21,7 @@ import {
   proposeAbsenceSetSchema,
   proposeFollowSchema,
   proposeGroupRoleRemoveSchema,
+  proposeScimTokenRevokeSchema,
   proposeGroupRoleSetSchema,
   proposeHandoverSchema,
   proposeInstrumentLogSchema,
@@ -138,6 +140,11 @@ export function upkeepProposalDefs(): ProviderToolDef[] {
       GROUP_ROLE_REMOVE_TOOL,
       `Propose removing a sign-in group's role mapping. ${NOTE}`,
       proposeGroupRoleRemoveSchema,
+    ),
+    toolDef(
+      SCIM_TOKEN_REVOKE_TOOL,
+      `Propose switching off a directory sync token, so the identity provider can no longer add, change or suspend people. For people who manage members. ${NOTE}`,
+      proposeScimTokenRevokeSchema,
     ),
   ]
 }
@@ -530,6 +537,43 @@ export async function buildUpkeepProposal(
           },
         ],
         action: { kind: 'group_role.remove', mappingId: found.value.id },
+      })
+    }
+
+    case SCIM_TOKEN_REVOKE_TOOL: {
+      const parsed = parse(proposeScimTokenRevokeSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const rows = await client.list<{
+        id: string
+        label: string
+        last_used_at: string | null
+      }>(
+        'scim_tokens',
+        `?workspace_id=eq.${encodeURIComponent(workspaceId)}&revoked_at=is.null&label=ilike.${likeValue(input.token)}&select=id,label,last_used_at&limit=6`,
+      )
+      const lower = input.token.trim().toLowerCase()
+      const found = pick(
+        rows,
+        input.token,
+        'directory sync token',
+        (row) => row.label,
+        (row) => row.label.toLowerCase() === lower,
+      )
+      if (!found.ok) return fail(found.message)
+      return card(name, input, {
+        target: found.value.label,
+        deepLink: '/settings/workspace/members',
+        changes: [
+          {
+            label: `Directory sync token ${found.value.label}`,
+            before: found.value.last_used_at
+              ? `Last used ${found.value.last_used_at.slice(0, 10)}`
+              : 'Never used',
+            after: 'Switched off',
+          },
+        ],
+        action: { kind: 'scim_token.revoke', tokenId: found.value.id },
       })
     }
 

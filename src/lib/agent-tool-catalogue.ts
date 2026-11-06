@@ -157,6 +157,7 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.handover.start',
   'sheetbase.group_role.set',
   'sheetbase.group_role.remove',
+  'sheetbase.scim_token.revoke',
   // Running the lab from a card: stocktakes, legal holds, retention, registry
   // entries, sample workflows, result limits, booking rules, timers, repeating
   // work, pooling, solution prep, saved searches, pins and the lab logo
@@ -1411,6 +1412,22 @@ const READ_TOOLS: AgentToolEntry[] = [
       })
       .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_STALE],
+  },
+  {
+    name: 'sheetbase.directory_sync.status',
+    mode: 'read',
+    description:
+      'Whether an identity provider keeps this workspace’s people and groups in step (SCIM): live tokens, when it last called, how many people and groups it manages, and how many groups give a role. Read-only; the token list is the `scim_tokens` table.',
+    rpc: 'directory_sync_status',
+    via: 'directory_sync_status',
+    capability: {
+      scopes: ['people:read'],
+      permission: 'members access',
+      actor: 'workspace_actor',
+      note: 'Ordinary canonical read; only people with members access see it.',
+    },
+    inputSchema: z.object({ workspaceId }).strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
   {
     name: 'sheetbase.spend.report',

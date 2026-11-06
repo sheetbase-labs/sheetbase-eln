@@ -197,3 +197,24 @@ For Amp orb-specific setup (system PostgreSQL, no Docker), see `docs/development
   migration, so it is not the schema-diff path here. Do not hand-edit SQL that a
   generate produced; hand-written migrations are the normal case.
 - **Deployment:** image references are digest-pinned.
+
+## Integrations: every feature, every surface
+
+A feature is not done when its screen works. Each one ships in the same PR with
+all four of these (Gareth, 2026-11-06), or a stated reason in the PR body:
+
+1. **API**: new `api` tables and RPCs go on the token allowlist (lab ones in
+   `src/lib/lab-api-surface.ts`, which also feeds OpenAPI and MCP), with a page
+   or section in `docs/api/`. `src/lib/integration-coverage.test.ts` fails when
+   a migration adds one that is neither allowlisted nor listed with a reason in
+   `src/lib/integration-exemptions.ts`.
+2. **MCP**: reads come free from the allowlist (`sheetbase.canonical.read`);
+   actions run through `sheetbase.lab.act` or a catalogue tool in
+   `src/lib/agent-tool-catalogue.ts`.
+3. **Assistant**: reads in `sheetbase.lab.list` (`LAB_AREAS`), writes as
+   confirm cards (`src/lib/assistant-*.ts`, tool names in the catalogue).
+4. **Webhooks**: each state change has an entry in `src/lib/event-catalogue.ts`
+   and emits a change event, documented in `docs/api/event-catalogue.md`.
+
+Pipeline actions too where they fit. Do not expose attestation (signing,
+approving, deciding), secrets, file uploads or schema authoring to tokens.

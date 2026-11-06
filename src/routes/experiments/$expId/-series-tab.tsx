@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/ui/button'
 import { today } from '#/lib/absences'
 import { Icon } from '#/components/icons'
+import { ObjectLink } from '#/components/ui/object-link'
 import { Tooltip } from '#/components/ui/tooltip'
 import {
   ConfirmDialog,
@@ -172,8 +173,14 @@ export function ExperimentSeries({
         <span className="font-medium">
           {row.original.member_number}. {row.original.title}
           {isPhone ? (
-            <span className="mono block text-label font-normal text-fg-muted">
-              {row.original.identifier}
+            <span className="block text-label font-normal text-fg-muted">
+              <ObjectLink
+                kind="experiment"
+                id={row.original.member_record_id}
+                identifier={row.original.identifier}
+              />
+              {' · '}
+              {userLabel(row.original.owner_user_id)}
             </span>
           ) : null}
         </span>
@@ -352,8 +359,23 @@ export function ExperimentSeries({
       meta: rightAligned<SeriesMember>().meta,
     },
   ]
+  // On a phone the ID and owner go under the title and the table is three
+  // columns, so it fits the screen and needs no sideways scroll.
+  const phoneWidths: Record<string, number> = {
+    experiment: 120,
+    status: 84,
+    actions: 40,
+  }
   const columns = isPhone
-    ? allColumns.filter((column) => column.id !== 'id' && column.id !== 'when')
+    ? allColumns
+        .filter(
+          (column) =>
+            column.id !== 'id' && column.id !== 'when' && column.id !== 'owner',
+        )
+        .map((column) => {
+          const width = phoneWidths[column.id ?? '']
+          return width ? { ...column, size: width, minSize: width } : column
+        })
     : allColumns
 
   const nextDue = rollup.data?.next

@@ -21,11 +21,19 @@
 export const PLATE_MAP_SPEC_VERSION = 1 as const
 
 /**
- * Approved plate formats. Initially 96-well (8×12). Extensible to 384-well
- * and other approved future formats by extending this union and updating the
- * DB trigger's format guard — no data migration required.
+ * Approved plate formats: the standard SBS microplates from 6 to 1536 wells.
+ * Adding a format means adding its dimensions here and in the DB format
+ * guards (migration 0104 holds the current list).
  */
-export const PLATE_FORMATS = ['96_well'] as const
+export const PLATE_FORMATS = [
+  '6_well',
+  '12_well',
+  '24_well',
+  '48_well',
+  '96_well',
+  '384_well',
+  '1536_well',
+] as const
 export type PlateFormat = (typeof PLATE_FORMATS)[number]
 
 /**
@@ -36,7 +44,28 @@ export const FORMAT_DIMENSIONS: Record<
   PlateFormat,
   { rows: number; cols: number }
 > = {
+  '6_well': { rows: 2, cols: 3 },
+  '12_well': { rows: 3, cols: 4 },
+  '24_well': { rows: 4, cols: 6 },
+  '48_well': { rows: 6, cols: 8 },
   '96_well': { rows: 8, cols: 12 },
+  '384_well': { rows: 16, cols: 24 },
+  '1536_well': { rows: 32, cols: 48 },
+}
+
+/** Number of wells in a format. */
+export function plateWellCount(format: PlateFormat): number {
+  const { rows, cols } = FORMAT_DIMENSIONS[format]
+  return rows * cols
+}
+
+/** The format whose dimensions match, or null for a non-standard plate. */
+export function plateFormatFor(rows: number, cols: number): PlateFormat | null {
+  return (
+    PLATE_FORMATS.find(
+      (f) => FORMAT_DIMENSIONS[f].rows === rows && FORMAT_DIMENSIONS[f].cols === cols,
+    ) ?? null
+  )
 }
 
 /**

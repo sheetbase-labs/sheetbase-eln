@@ -201,7 +201,7 @@ describe('validatePlateMapSpec — structural', () => {
 
   it('rejects an unsupported format', () => {
     const errors = validatePlateMapSpec(
-      validSpec({ format: '384_well' as unknown as PlateMapSpec['format'] }),
+      validSpec({ format: '7_well' as unknown as PlateMapSpec['format'] }),
     )
     expect(errors.some((e) => e.code === 'unsupported_format')).toBe(true)
   })

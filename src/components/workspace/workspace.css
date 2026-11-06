@@ -394,12 +394,12 @@
   min-width: 0;
   padding: 0 6px 0 10px;
   border-bottom: 1px solid var(--border);
-  background: var(--surface-muted);
+  background: var(--surface);
   font-size: 12px;
   white-space: nowrap;
 }
 .mx-pane[data-workspace-focused] .mx-ph {
-  /* Same tint as a hovered table row. */
+  /* Exactly the colour of a hovered table row; other panes' headers stay plain. */
   background: var(--row-hover);
 }
 .mx-num {

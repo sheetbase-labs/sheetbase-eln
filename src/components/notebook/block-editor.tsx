@@ -1369,6 +1369,8 @@ interface LinkedRecordDraft {
    * label alone never carries canonical identity.
    */
   targetId?: string
+  /** A part of the experiment, when the link is to one: "EXP-0142 › Part 3". */
+  partNumber?: number
   linkType: string
   label: string
 }
@@ -1384,6 +1386,8 @@ function LinkedRecordSearch({
     identifier: string
     label: string
     linkType?: string
+    /** The part of the experiment, when one was picked. */
+    part?: { number: number; title: string }
   }) => void
 }) {
   const [query, setQuery] = React.useState('')
@@ -1433,6 +1437,26 @@ function LinkedRecordSearch({
     },
   })
 
+  // An experiment with parts can be linked at one of them.
+  const experimentIds =
+    kind === 'experiment' ? (results.data ?? []).map((row) => row.id) : []
+  const partRows = useQuery({
+    queryKey: ['notebook-linked-parts', experimentIds],
+    enabled: experimentIds.length > 0,
+    queryFn: () =>
+      notebookDataClient.list<{
+        id: string
+        record_id: string
+        position: number
+        title: string
+      }>(
+        'experiment_parts',
+        `?record_id=in.(${experimentIds.join(',')})&order=position.asc,id.asc&select=id,record_id,position,title`,
+      ),
+  })
+  const partsOf = (recordId: string) =>
+    (partRows.data ?? []).filter((part) => part.record_id === recordId)
+
   return (
     <div className="space-y-1">
       <Input
@@ -1467,6 +1491,33 @@ function LinkedRecordSearch({
               <span className="font-mono text-xs">{row.identifier}</span>
               <span className="truncate text-fg-muted">{row.title}</span>
             </button>
+            {partsOf(row.id).map((part, index) => (
+              <button
+                key={part.id}
+                type="button"
+                className="ml-4 flex w-[calc(100%-1rem)] items-baseline gap-2 rounded-md px-2 py-1 text-left hover:bg-accent"
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  onPick({
+                    id: row.id,
+                    identifier: row.identifier,
+                    label: row.title,
+                    linkType: row.linkType,
+                    part: { number: index + 1, title: part.title },
+                  })
+                }}
+              >
+                <span className="font-mono text-xs text-fg-muted">
+                  {row.identifier} ›
+                </span>
+                <span className="truncate">
+                  {t('notebook.parts.partTitle', {
+                    number: String(index + 1),
+                    title: part.title,
+                  })}
+                </span>
+              </button>
+            ))}
           </li>
         ))}
       </ul>
@@ -1488,6 +1539,7 @@ function LinkedRecordEditor({
       targetKind?: string
       targetIdentifier?: string
       targetId?: string
+      partNumber?: number
       linkType?: string
       label?: string
     }
@@ -1495,6 +1547,9 @@ function LinkedRecordEditor({
       targetKind: initial.targetKind ?? 'experiment',
       targetIdentifier: initial.targetIdentifier ?? '',
       targetId: initial.targetId ?? undefined,
+      ...(typeof initial.partNumber === 'number'
+        ? { partNumber: initial.partNumber }
+        : {}),
       linkType: initial.linkType ?? 'general',
       label: initial.label ?? '',
     }
@@ -1505,7 +1560,9 @@ function LinkedRecordEditor({
     const openTo = a.draft.targetId
       ? a.draft.targetKind === 'dataset'
         ? datasetPath(a.draft.targetId)
-        : recordDestination(a.draft.targetKind, a.draft.targetId)
+        : a.draft.partNumber
+          ? `/experiments/${a.draft.targetId}/notebook/${a.draft.partNumber}`
+          : recordDestination(a.draft.targetKind, a.draft.targetId)
       : null
     return (
       <div
@@ -1518,6 +1575,9 @@ function LinkedRecordEditor({
         <span className="font-medium text-fg">
           {a.draft.targetKind}{' '}
           <span className="font-mono">{a.draft.targetIdentifier || '—'}</span>
+          {a.draft.partNumber
+            ? ` › ${t('notebook.parts.partNumber', { number: String(a.draft.partNumber) })}`
+            : ''}
         </span>
         {a.draft.label ? (
           <span className="text-fg-muted">— {a.draft.label}</span>
@@ -1624,8 +1684,10 @@ function LinkedRecordEditor({
         kind={a.draft.targetKind}
         onPick={(picked) => {
           a.setTouched(true)
+          const { partNumber: _previousPart, ...rest } = a.draft
           a.setDraft({
-            ...a.draft,
+            ...rest,
+            ...(picked.part ? { partNumber: picked.part.number } : {}),
             targetIdentifier: picked.identifier,
             targetId: picked.id,
             label: picked.label || a.draft.label,

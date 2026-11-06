@@ -11,6 +11,7 @@ import { common } from './common'
 import { data } from './data'
 import { library } from './library'
 import { notebook } from './notebook'
+import { people } from './people'
 import { projects } from './projects'
 import { pwa } from './pwa'
 import { quality } from './quality'
@@ -24,6 +25,7 @@ import { settings } from './settings'
 export const en = {
   common,
   account,
+  people,
   calculators,
   calendarFeed,
   notebook,

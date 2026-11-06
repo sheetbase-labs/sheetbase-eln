@@ -50,6 +50,10 @@ import { ChangeEmailDialog } from '#/components/settings/change-email-dialog'
 import { MemberUsernameDialog } from '#/components/settings/member-username-dialog'
 import { MemberSessionsDialog } from '#/components/settings/member-sessions-dialog'
 import {
+  HandoverDialog,
+  OpenWorkNotice,
+} from '#/components/settings/handover-dialog'
+import {
   fetchWorkspaceCertifications,
   isCurrentStatement,
   signatureCertificationQueryKeys,
@@ -159,6 +163,7 @@ function Members() {
     | { kind: 'username'; userId: string; name: string; username: string }
     | { kind: 'email'; userId: string; name: string }
     | { kind: 'suspend'; userId: string; name: string }
+    | { kind: 'handover'; userId: string; name: string }
     | { kind: 'reinstate'; userId: string; name: string }
     | { kind: 'revoke'; invitationId: string; email: string }
     | null
@@ -610,6 +615,17 @@ function Members() {
               >
                 {t('account.email.change')}
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  setDialog({
+                    kind: 'handover',
+                    userId: member.userId,
+                    name: names.userLabel(member.userId),
+                  })
+                }
+              >
+                {t('people.handover.menu')}
+              </DropdownMenuItem>
               {member.suspendedAt ? (
                 <DropdownMenuItem
                   onClick={() =>
@@ -932,6 +948,20 @@ function Members() {
               title={t('settings.members.remove', { name: dialog.name })}
               description={t('settings.members.accessEndsNowDescription')}
             />
+            <DialogBody>
+              <OpenWorkNotice
+                workspaceId={workspaceId}
+                userId={dialog.userId}
+                name={dialog.name}
+                onHandOver={() =>
+                  setDialog({
+                    kind: 'handover',
+                    userId: dialog.userId,
+                    name: dialog.name,
+                  })
+                }
+              />
+            </DialogBody>
             <DialogFooter>
               <DialogClose render={<Button />}>
                 {t('common.actions.cancel')}
@@ -952,11 +982,41 @@ function Members() {
         <MembershipConfirmDialog
           kind="suspend"
           name={dialog.name}
+          openWork={
+            <OpenWorkNotice
+              workspaceId={workspaceId}
+              userId={dialog.userId}
+              name={dialog.name}
+              onHandOver={() =>
+                setDialog({
+                  kind: 'handover',
+                  userId: dialog.userId,
+                  name: dialog.name,
+                })
+              }
+            />
+          }
           busy={act.isPending}
           onCancel={() => setDialog(null)}
           onConfirm={() =>
             act.mutate({ kind: 'suspend', userId: dialog.userId })
           }
+        />
+      ) : dialog?.kind === 'handover' ? (
+        <HandoverDialog
+          workspaceId={workspaceId}
+          userId={dialog.userId}
+          name={dialog.name}
+          candidates={rows
+            .filter(
+              (m) =>
+                m.userId !== dialog.userId &&
+                !m.suspendedAt &&
+                m.role !== 'viewer' &&
+                m.role !== 'client_viewer',
+            )
+            .map((m) => ({ id: m.userId, label: names.userLabel(m.userId) }))}
+          onClose={() => setDialog(null)}
         />
       ) : dialog?.kind === 'reinstate' ? (
         <MembershipConfirmDialog
@@ -1007,12 +1067,15 @@ function Members() {
 function MembershipConfirmDialog({
   kind,
   name,
+  openWork,
   busy,
   onCancel,
   onConfirm,
 }: {
   kind: 'suspend' | 'reinstate'
   name: string
+  /** A prompt about the work the person still holds, when suspending. */
+  openWork?: React.ReactNode
   busy: boolean
   onCancel: () => void
   onConfirm: () => void
@@ -1033,6 +1096,7 @@ function MembershipConfirmDialog({
               : t('settings.members.theyRegainAccess')}
           </ConfirmDialogDescription>
         </ConfirmDialogHeader>
+        {suspending ? openWork : null}
         <ConfirmDialogFooter>
           <ConfirmDialogCancel disabled={busy}>
             {t('common.actions.cancel')}

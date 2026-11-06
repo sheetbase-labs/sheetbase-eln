@@ -144,6 +144,7 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   projects: { read: 'projects:read', write: 'projects:write' },
   member_absences: { read: 'people:read' },
   idp_group_mappings: { read: 'people:read' },
+  review_cover: { read: 'people:read' },
   folders: { read: 'projects:read' },
   records: { read: 'projects:read', write: 'projects:write' },
   blocks: { read: 'projects:read', write: 'projects:write' },

@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { FavouriteToggle } from './favourite-toggle'
 import { DataClientError } from '#/lib/data-client'
+import { registerShellRefresh } from '#/lib/shell-refresh'
 import type { DataClient } from '#/lib/data-client'
 
 afterEach(() => {
@@ -123,4 +124,20 @@ describe('FavouriteToggle', () => {
       screen.getByRole('button', { name: 'Pin to the sidebar' }),
     ).toBeTruthy()
   })
+
+  it.each(['instrument', 'record', 'pipeline'] as const)(
+    'asks the sidebar to refresh after pinning a %s',
+    async (kind) => {
+      const refresh = vi.fn()
+      const stop = registerShellRefresh(refresh)
+      renderWithQuery(
+        <FavouriteToggle kind={kind} objectId="x-1" client={stubClient({})} />,
+      )
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Pin to the sidebar' }),
+      )
+      await waitFor(() => expect(refresh).toHaveBeenCalled())
+      stop()
+    },
+  )
 })

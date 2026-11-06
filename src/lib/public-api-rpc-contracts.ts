@@ -260,6 +260,7 @@ const webhookDeliveryRow = ref('WebhookDeliveriesRow')
 const pipelineVersionRow = ref('PipelineDefinitionVersionsRow')
 const memberAbsenceRow = ref('MemberAbsencesRow')
 const groupMappingRow = ref('IdpGroupMappingsRow')
+const scimTokenRow = ref('ScimTokensRow')
 
 const pgrstRow = (row: JsonSchema, description: string): JsonSchema => ({
   description: `${description} PostgREST returns a JSON array of composite rows by default.`,
@@ -442,6 +443,33 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
     required: ['p_workspace_id'],
     properties: { p_workspace_id: uuid('Workspace UUID.') },
     result: { type: 'integer', description: 'People now decided by groups.' },
+  },
+  directory_sync_status: {
+    summary: 'Directory sync status',
+    description:
+      'Needs members access. Whether an identity provider keeps people and groups in step through SCIM: live tokens, when it last called, people and groups it manages, and how many of those groups give a role.',
+    required: ['p_workspace_id'],
+    properties: { p_workspace_id: uuid('Workspace UUID.') },
+    result: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        active_tokens: { type: 'integer' },
+        last_called_at: { type: 'string', format: 'date-time', nullable: true },
+        people_managed: { type: 'integer' },
+        people_switched_off: { type: 'integer' },
+        groups: { type: 'integer' },
+        groups_giving_a_role: { type: 'integer' },
+      },
+    },
+  },
+  revoke_scim_token: {
+    summary: 'Revoke a directory sync token',
+    description:
+      'Needs members access. The identity provider that held the token can no longer call the SCIM endpoint. People it already created stay as they are. Making a token is done at the settings page, where the secret is shown once.',
+    required: ['p_id'],
+    properties: { p_id: uuid('Token UUID.') },
+    result: pgrstRow(scimTokenRow, 'The revoked token.'),
   },
 
   create_project: {

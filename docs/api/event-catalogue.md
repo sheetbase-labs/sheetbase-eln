@@ -198,6 +198,17 @@ person's groups), and `member.passkey_added` / `member.passkey_removed` (every
 workspace the person belongs to hears about it; the payload carries the
 passkey's name and id, never key material).
 
+### Directory sync (`stable`, webhook and SSE)
+
+When an identity provider keeps people and groups in step through SCIM
+(see [`scim.md`](scim.md)): `member.provisioned`, `member.directory_updated`,
+`member.reactivated` and `member.deprovisioned` (the person is suspended; the
+payload's `openWork` counts what is still in their name so a lead can hand it
+over), `workspace.scim_group.created` / `.updated` / `.deleted`, and
+`workspace.scim_token.created` / `.revoked` (the token's name only, never the
+secret). A role that changes because of the provider's groups is announced as
+`member.role_changed_by_groups`.
+
 ## Webhook delivery notes
 
 - Subscribe via `api.create_webhook_subscription`; filter with `event_types`

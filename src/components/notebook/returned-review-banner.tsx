@@ -76,11 +76,9 @@ export function ReturnedReviewBanner({
           ? ` ${t('notebook.returnedReviewBanner.byName', { name: returnedByName })}`
           : ''}
         {latestReturn ? ` · ${formatDate(latestReturn.created_at)}` : ''}
-        {open === null
+        {open === null || open === 0
           ? ''
-          : open === 0
-            ? t('notebook.returnedReviewBanner.noOpenComments')
-            : ` · ${t('notebook.returnedReviewBanner.openComments', { count: open })}`}
+          : ` · ${t('notebook.returnedReviewBanner.openComments', { count: open })}`}
         . {t('notebook.returnedReviewBanner.makeChanges')}
       </span>
       <span className="flex-1" />

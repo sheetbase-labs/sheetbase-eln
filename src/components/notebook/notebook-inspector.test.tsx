@@ -155,15 +155,11 @@ describe('NotebookInspector Properties', () => {
     )
 
     expect(screen.getByText('No value recorded')).toBeTruthy()
-    expect(
-      screen.getByText('No validation rule is recorded for this cell'),
-    ).toBeTruthy()
-    expect(
-      screen.getByText('No actions are available for this cell'),
-    ).toBeTruthy()
+    // No rule and no actions: the Validation section isn't shown at all.
+    expect(screen.queryByRole('heading', { name: 'Validation' })).toBeNull()
     expect(screen.getByText('This cell has no column definition.')).toBeTruthy()
-    // Dataset, Instrument, Captured, Entered by and Edited are all named.
-    expect(screen.getAllByText('Not available')).toHaveLength(5)
+    // Facts nobody recorded get no row, rather than a row of "Not available".
+    expect(screen.queryByText('Not available')).toBeNull()
   })
 
   it('names an absent provenance section when the cell is not composed', () => {

@@ -921,7 +921,7 @@ describe('NotebookInspector', () => {
     const live = vi
       .spyOn(commentsData, 'fetchCommentsForRecord')
       .mockResolvedValue([])
-    render(
+    renderWithQuery(
       <NotebookInspector
         record={record}
         links={[]}
@@ -1094,8 +1094,22 @@ describe('NotebookInspector', () => {
     expect(screen.getByText('Loading links…')).toBeTruthy()
   })
 
+  it('never names the viewer as the record author', () => {
+    renderWithQuery(
+      <NotebookInspector
+        record={record}
+        links={[]}
+        linksLoading={false}
+        currentUserId="viewer-1"
+        currentUserName="Viewer V."
+      />,
+    )
+    // The record was created by u1, not by whoever is looking at it.
+    expect(screen.queryByText('Viewer V.')).toBeNull()
+  })
+
   it('shows an activity feed from change events attributed to the current user', () => {
-    render(
+    renderWithQuery(
       <NotebookInspector
         record={record}
         links={[]}

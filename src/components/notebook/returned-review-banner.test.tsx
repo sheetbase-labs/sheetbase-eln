@@ -84,6 +84,14 @@ describe('ReturnedReviewBanner', () => {
     )
   })
 
+  it('does not say "no open comments" next to the comments button', async () => {
+    renderBanner()
+    await screen.findByRole('link', { name: 'Read the comments' })
+    expect(screen.getByRole('status').textContent).not.toMatch(
+      /no open comments/i,
+    )
+  })
+
   it('opens the review on its comments', async () => {
     renderBanner()
     const link = await screen.findByRole('link', { name: 'Read the comments' })

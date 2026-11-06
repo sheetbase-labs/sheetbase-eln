@@ -1,5 +1,8 @@
 import { rich, t } from '#/copy'
-import { useReportFrozen } from '#/components/workspace/workspace-navigation'
+import {
+  useReportFrozen,
+  useReportInReview,
+} from '#/components/workspace/workspace-navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
 import {
@@ -814,7 +817,6 @@ export function RecordNotebookPage({
                   : outlineControls
               }
               projectName={project?.title ?? null}
-              ownerName={context.user.name}
               currentUserId={context.user.id}
               currentUserName={context.user.name}
               workspaceId={context.workspace?.id}
@@ -1202,6 +1204,7 @@ export function StickyRecordHeader({
   useReportFrozen(Boolean(lockedAt))
   const lockedByRevisionId = liveLockedByRevisionId ?? record.lockedByRevisionId
   const reviewActivity = notebookReviewActivity(review)
+  useReportInReview(reviewActivity === 'submitted' && !lockedAt)
   // NOTE-04: defensive for the submit dialog's readiness checklist — the
   // dialog only opens from a submittable header, but an active review that
   // appears between render and confirm is surfaced honestly.
@@ -3204,28 +3207,36 @@ function activityItemsFromEvents(
   })
 }
 
-/** Derive unique contributors from activity events + the owner. */
+function initialsOf(name: string): string {
+  return name
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+}
+
+/**
+ * Derive unique contributors from activity events + the record's author.
+ * `nameOf` resolves a user id to a display name, or null when unknown.
+ */
 function contributorsFromActivity(
   activity: RecordActivityItem[],
-  ownerName: string | null | undefined,
+  authorUserId: string | null | undefined,
+  nameOf: (userId: string) => string | null,
   currentUserId: string | null | undefined,
 ): { id: string; name: string; initials?: string }[] {
   const seen = new Set<string>()
   const contributors: { id: string; name: string; initials?: string }[] = []
 
-  // Owner is the first contributor.
-  if (ownerName) {
-    const id = currentUserId ?? 'owner'
+  // The author is the first contributor.
+  const authorName = authorUserId ? nameOf(authorUserId) : null
+  if (authorUserId && authorName) {
     contributors.push({
-      id,
-      name: ownerName,
-      initials: ownerName
-        .split(' ')
-        .map((p) => p[0])
-        .join('')
-        .slice(0, 2),
+      id: authorUserId,
+      name: authorName,
+      initials: initialsOf(authorName),
     })
-    seen.add(id)
+    seen.add(authorUserId)
   }
 
   // Add unique actors from activity.
@@ -3234,12 +3245,13 @@ function contributorsFromActivity(
     if (seen.has(actorId)) continue
     seen.add(actorId)
     const isSelf = currentUserId != null && actorId === currentUserId
+    const actorName = nameOf(actorId)
     contributors.push({
       id: actorId,
       name: isSelf
         ? t('notebook.notebookPage.you')
-        : t('notebook.notebookPage.aCollaborator'),
-      initials: isSelf ? 'Y' : '••',
+        : (actorName ?? t('notebook.notebookPage.aCollaborator')),
+      initials: isSelf ? 'Y' : actorName ? initialsOf(actorName) : '••',
     })
   }
 
@@ -3402,7 +3414,6 @@ function NotebookTagsEditor({ record }: { record: NotebookRecord }) {
 export function NotebookInspector({
   record,
   projectName,
-  ownerName,
   currentUserId,
   currentUserName,
   workspaceId,
@@ -3431,7 +3442,6 @@ export function NotebookInspector({
 }: {
   record: NotebookRecord
   projectName?: string | null
-  ownerName?: string | null
   currentUserId?: string | null
   currentUserName?: string
   /** Names the people on comments and offers them for @mentions. */
@@ -3486,9 +3496,26 @@ export function NotebookInspector({
     includeDownloadHref: !isHistorical,
   })
   const activityItems = activityItemsFromEvents(evidenceActivity, currentUserId)
+  // The author comes from the record itself, never from whoever is looking.
+  const peopleIds = useMemo(
+    () => [
+      record.createdByUserId,
+      ...evidenceActivity.map((event) => event.actorUserId ?? ''),
+    ],
+    [record.createdByUserId, evidenceActivity],
+  )
+  const people = useUserNames(
+    peopleIds,
+    currentUserId && currentUserName
+      ? { id: currentUserId, name: currentUserName }
+      : undefined,
+  )
+  const nameOf = (userId: string) => people.names[userId] ?? null
+  const ownerName = nameOf(record.createdByUserId)
   const contributors = contributorsFromActivity(
     evidenceActivity,
-    ownerName,
+    record.createdByUserId,
+    nameOf,
     currentUserId,
   )
   const linkCounts = linkCountsByKind(evidenceLinks)

@@ -69,6 +69,7 @@ describe('updateBlockPayload', () => {
       payload: blockWire.payload,
       payloadSchemaVersion: 1,
       order: 1.5,
+      partId: null,
       version: 2,
     })
   })

@@ -16,173 +16,177 @@
  */
 
 export const EVENT_NAMES = [
-  "project.created",
-  "project.updated",
-  "project.deleted",
-  "project.archived",
-  "project.restored",
-  "record.created",
-  "record.updated",
-  "record.moved",
-  "record.deleted",
-  "record.archived",
-  "record.restored",
-  "record.amended",
-  "dataset.created",
-  "dataset.updated",
-  "dataset.archived",
-  "dataset.restored",
-  "dataset.versioned",
-  "sheet.created",
-  "sheet.updated",
-  "sheet.archived",
-  "sheet.restored",
-  "sheet.definition.created",
-  "sheet.definition.updated",
-  "sheet.definition.versioned",
-  "notebook.submitted",
-  "notebook.amended",
-  "review.decided",
-  "record.signed",
-  "notebook.template.created",
-  "notebook.template.updated",
-  "notebook.template.versioned",
-  "sample.received",
-  "sample.moved",
-  "sample.consumed",
-  "sample.released",
-  "sample.quarantined",
-  "sample.disposed",
-  "sample.hold_exceeded",
-  "booking.created",
-  "booking.updated",
-  "booking.cancelled",
-  "import.created",
-  "import.committed",
-  "import.failed",
-  "approval.requested",
-  "approval.approved",
-  "approval.returned",
-  "approval.withdrawn",
-  "order.priced",
-  "order.price_removed",
-  "instrument.rate_set",
-  "instrument.rate_removed",
-  "report.schedule.created",
-  "report.schedule.updated",
-  "report.schedule.deleted",
-  "validation.run_completed",
-  "signature.timestamped",
-  "signature.timestamp_failed",
-  "workspace.timestamping.updated",
-  "storage.placed",
-  "storage.moved",
-  "storage.removed",
-  "storage.alarm.raised",
-  "storage.alarm.cleared",
-  "instrument.run.created",
-  "instrument.run.completed",
-  "instrument.run.failed",
-  "pipeline.created",
-  "pipeline.updated",
-  "pipeline.deleted",
-  "pipeline.version.created",
-  "pipeline.version.updated",
-  "pipeline.run.created",
-  "pipeline.run.updated",
-  "pipeline.schedule.created",
-  "pipeline.schedule.updated",
-  "workspace.invitation.created",
-  "workspace.invitation.updated",
-  "workspace.invitation.deleted",
-  "workspace.settings.created",
-  "workspace.settings.updated",
-  "project.access.granted",
-  "project.access.updated",
-  "project.access.revoked",
-  "workspace.credential.created",
-  "workspace.credential.revoked",
-  "member.work_handed_over",
-  "member.absence_set",
-  "member.absence_cancelled",
-  "workspace.group_role.mapped",
-  "workspace.group_role.removed",
-  "workspace.group_role.adopted",
-  "member.role_changed_by_groups",
-  "member.passkey_added",
-  "member.passkey_removed",
+  'project.created',
+  'project.updated',
+  'project.deleted',
+  'project.archived',
+  'project.restored',
+  'record.created',
+  'record.updated',
+  'record.moved',
+  'record.deleted',
+  'record.archived',
+  'record.restored',
+  'record.amended',
+  'dataset.created',
+  'dataset.updated',
+  'dataset.archived',
+  'dataset.restored',
+  'dataset.versioned',
+  'sheet.created',
+  'sheet.updated',
+  'sheet.archived',
+  'sheet.restored',
+  'sheet.definition.created',
+  'sheet.definition.updated',
+  'sheet.definition.versioned',
+  'notebook.submitted',
+  'notebook.amended',
+  'review.decided',
+  'record.signed',
+  'notebook.template.created',
+  'notebook.template.updated',
+  'notebook.template.versioned',
+  'sample.received',
+  'sample.moved',
+  'sample.consumed',
+  'sample.released',
+  'sample.quarantined',
+  'sample.disposed',
+  'sample.hold_exceeded',
+  'booking.created',
+  'booking.updated',
+  'booking.cancelled',
+  'import.created',
+  'import.committed',
+  'import.failed',
+  'approval.requested',
+  'approval.approved',
+  'approval.returned',
+  'approval.withdrawn',
+  'order.priced',
+  'order.price_removed',
+  'instrument.rate_set',
+  'instrument.rate_removed',
+  'report.schedule.created',
+  'report.schedule.updated',
+  'report.schedule.deleted',
+  'validation.run_completed',
+  'signature.timestamped',
+  'signature.timestamp_failed',
+  'workspace.timestamping.updated',
+  'storage.placed',
+  'storage.moved',
+  'storage.removed',
+  'storage.alarm.raised',
+  'storage.alarm.cleared',
+  'instrument.run.created',
+  'instrument.run.completed',
+  'instrument.run.failed',
+  'pipeline.created',
+  'pipeline.updated',
+  'pipeline.deleted',
+  'pipeline.version.created',
+  'pipeline.version.updated',
+  'pipeline.run.created',
+  'pipeline.run.updated',
+  'pipeline.schedule.created',
+  'pipeline.schedule.updated',
+  'workspace.invitation.created',
+  'workspace.invitation.updated',
+  'workspace.invitation.deleted',
+  'workspace.settings.created',
+  'workspace.settings.updated',
+  'project.access.granted',
+  'project.access.updated',
+  'project.access.revoked',
+  'workspace.credential.created',
+  'workspace.credential.revoked',
+  'member.work_handed_over',
+  'member.absence_set',
+  'member.absence_cancelled',
+  'workspace.group_role.mapped',
+  'workspace.group_role.removed',
+  'workspace.group_role.adopted',
+  'member.role_changed_by_groups',
+  'member.passkey_added',
+  'member.passkey_removed',
   // Lab features: stock, shipping, requests, holds, workflows.
-  "reagent.order.requested",
-  "reagent.order.placed",
-  "reagent.order.received",
-  "reagent.order.cancelled",
-  "stocktake.completed",
-  "shipment.sent",
-  "shipment.in_transit",
-  "shipment.received",
-  "shipment.cancelled",
-  "request.submitted",
-  "request.decided",
-  "legal_hold.created",
-  "legal_hold.released",
-  "retention.applied",
-  "sample.workflow.advanced",
-  "sample.workflow.enrolled",
-  "sample.workflow.left",
-  "incident.reported",
-  "registry.entry.created",
-  "instrument.reading.out_of_limits",
-  "instrument.reading.back_in_range",
-  "record.assigned",
-  "step.completed",
-  "step.reopened",
-  "step.result_added",
-  "experiment.series_member_added",
-  "experiment.series_member_removed",
-  "plate_run.created",
-  "plate_run.analysed",
-  "plate_run.archived",
-  "plate_worklist.created",
-  "plate_worklist.completed",
-  "member.provisioned",
-  "member.directory_updated",
-  "member.deprovisioned",
-  "member.reactivated",
-  "workspace.scim_group.created",
-  "workspace.scim_group.updated",
-  "workspace.scim_group.deleted",
-  "workspace.scim_token.created",
-  "workspace.scim_token.revoked",
-] as const;
+  'reagent.order.requested',
+  'reagent.order.placed',
+  'reagent.order.received',
+  'reagent.order.cancelled',
+  'stocktake.completed',
+  'shipment.sent',
+  'shipment.in_transit',
+  'shipment.received',
+  'shipment.cancelled',
+  'request.submitted',
+  'request.decided',
+  'legal_hold.created',
+  'legal_hold.released',
+  'retention.applied',
+  'sample.workflow.advanced',
+  'sample.workflow.enrolled',
+  'sample.workflow.left',
+  'incident.reported',
+  'registry.entry.created',
+  'instrument.reading.out_of_limits',
+  'instrument.reading.back_in_range',
+  'record.assigned',
+  'step.completed',
+  'step.reopened',
+  'step.result_added',
+  'experiment.series_member_added',
+  'experiment.series_member_removed',
+  'plate_run.created',
+  'plate_run.analysed',
+  'plate_run.archived',
+  'plate_worklist.created',
+  'plate_worklist.completed',
+  'member.provisioned',
+  'member.directory_updated',
+  'member.deprovisioned',
+  'member.reactivated',
+  'workspace.scim_group.created',
+  'workspace.scim_group.updated',
+  'workspace.scim_group.deleted',
+  'workspace.scim_token.created',
+  'workspace.scim_token.revoked',
+  'experiment.part_created',
+  'experiment.part_opened',
+  'experiment.part_completed',
+  'experiment.part_reopened',
+] as const
 
-export type EventName = (typeof EVENT_NAMES)[number];
+export type EventName = (typeof EVENT_NAMES)[number]
 
 /**
  * Shipped wire aliases (table-name leaks kept for compatibility) mapped to
  * their canonical names. New subscriptions should use the canonical form.
  */
 export const EVENT_ALIASES: Record<string, EventName> = {
-  "sheet_instance.created": "sheet.created",
-  "sheet_instance.updated": "sheet.updated",
-  "sheet_instance.archived": "sheet.archived",
-  "sheet_instance.restored": "sheet.restored",
-  "sheet_definition.created": "sheet.definition.created",
-  "sheet_definition.updated": "sheet.definition.updated",
-  "sheet_definition.versioned": "sheet.definition.versioned",
-  "notebook_template.created": "notebook.template.created",
-  "notebook_template.updated": "notebook.template.updated",
-  "notebook_template.versioned": "notebook.template.versioned",
-  "notebook.signed": "record.signed",
-};
+  'sheet_instance.created': 'sheet.created',
+  'sheet_instance.updated': 'sheet.updated',
+  'sheet_instance.archived': 'sheet.archived',
+  'sheet_instance.restored': 'sheet.restored',
+  'sheet_definition.created': 'sheet.definition.created',
+  'sheet_definition.updated': 'sheet.definition.updated',
+  'sheet_definition.versioned': 'sheet.definition.versioned',
+  'notebook_template.created': 'notebook.template.created',
+  'notebook_template.updated': 'notebook.template.updated',
+  'notebook_template.versioned': 'notebook.template.versioned',
+  'notebook.signed': 'record.signed',
+}
 
 /** Resolve a wire alias (or canonical name) to its canonical event name. */
 export function resolveEventAlias(name: string): string {
-  return EVENT_ALIASES[name] ?? name;
+  return EVENT_ALIASES[name] ?? name
 }
 
 /** True when the value is a known canonical event name. */
 export function isEventName(value: string): value is EventName {
-  return (EVENT_NAMES as readonly string[]).includes(value);
+  return (EVENT_NAMES as readonly string[]).includes(value)
 }
 
 /**
@@ -192,32 +196,32 @@ export function isEventName(value: string): value is EventName {
  * `payload` is a lightweight summary — never the source of truth.
  */
 export interface WebhookEventPayload {
-  schemaVersion: "1";
+  schemaVersion: '1'
   /** Stable event type as emitted on the wire (canonical or alias). */
-  eventType: string;
+  eventType: string
   /** Globally unique event id (the `change_events` id). */
-  eventId: string;
+  eventId: string
   /** Per-workspace sequence number for ordering. */
-  sequence: number;
+  sequence: number
   /** Workspace the event belongs to. */
-  workspaceId: string;
+  workspaceId: string
   /** Entity uuid the event is about. */
-  entityUuid: string;
+  entityUuid: string
   /** Internal entity type for diagnostic purposes. */
-  entityType: string;
+  entityType: string
   /** Internal operation for diagnostic purposes. */
-  operation: string;
+  operation: string
   /** Record context when the event is record-scoped. */
-  recordId: string | null;
+  recordId: string | null
   /** Project context when the event is project-scoped. */
-  projectId: string | null;
+  projectId: string | null
   /** Actor attribution. */
-  actorUserId: string | null;
-  actorCredentialId: string | null;
+  actorUserId: string | null
+  actorCredentialId: string | null
   /** Lightweight event summary (never the full source of truth). */
-  payload: Record<string, unknown>;
+  payload: Record<string, unknown>
   /** Event creation timestamp (ISO 8601). */
-  createdAt: string;
+  createdAt: string
 }
 
 /**
@@ -230,29 +234,29 @@ export async function verifyWebhookSignature(
   secret: string,
   signature: string,
 ): Promise<boolean> {
-  const subtle = globalThis.crypto?.subtle;
+  const subtle = globalThis.crypto?.subtle
   if (!subtle) {
     throw new Error(
-      "Web Crypto (globalThis.crypto.subtle) is required to verify webhook signatures.",
-    );
+      'Web Crypto (globalThis.crypto.subtle) is required to verify webhook signatures.',
+    )
   }
-  const encoder = new TextEncoder();
+  const encoder = new TextEncoder()
   const key = await subtle.importKey(
-    "raw",
+    'raw',
     encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
+    { name: 'HMAC', hash: 'SHA-256' },
     false,
-    ["sign"],
-  );
-  const mac = await subtle.sign("HMAC", key, encoder.encode(body));
+    ['sign'],
+  )
+  const mac = await subtle.sign('HMAC', key, encoder.encode(body))
   const hex = Array.from(new Uint8Array(mac))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-  const expected = `sha256=${hex}`;
-  if (expected.length !== signature.length) return false;
-  let diff = 0;
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+  const expected = `sha256=${hex}`
+  if (expected.length !== signature.length) return false
+  let diff = 0
   for (let i = 0; i < expected.length; i++) {
-    diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+    diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i)
   }
-  return diff === 0;
+  return diff === 0
 }

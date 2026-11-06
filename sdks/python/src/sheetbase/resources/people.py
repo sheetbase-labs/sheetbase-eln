@@ -25,6 +25,28 @@ class PeopleResource:
     ) -> list[dict[str, Any]]:
         return self._transport.get("/api/db/idp_group_mappings", params=params)
 
+    def list_directory_sync_tokens(
+        self, *, params: Optional[dict[str, Any]] = None
+    ) -> list[dict[str, Any]]:
+        """Directory sync (SCIM) tokens; the secret is never returned."""
+        return self._transport.get("/api/db/scim_tokens", params=params)
+
+    def list_directory_sync_groups(
+        self, *, params: Optional[dict[str, Any]] = None
+    ) -> list[dict[str, Any]]:
+        return self._transport.get("/api/db/scim_groups", params=params)
+
+    def directory_sync_status(self, *, workspace_id: str) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/directory_sync_status",
+            json_body={"p_workspace_id": workspace_id},
+        )
+
+    def revoke_directory_sync_token(self, *, token_id: str) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/revoke_scim_token", json_body={"p_id": token_id}
+        )
+
     def preview_handover(self, *, workspace_id: str, user_id: str) -> Any:
         return self._transport.post(
             "/api/db/rpc/preview_member_handover",

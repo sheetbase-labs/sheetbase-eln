@@ -90,6 +90,9 @@ from sheetbase._generated.models import (
     SampleWorkflowsRow,
     SavedSearchesRow,
     ScheduledReportsRow,
+    ScimGroupMembersRow,
+    ScimGroupsRow,
+    ScimTokensRow,
     SheetDefinitionVersionsRow,
     SheetDefinitionsRow,
     SheetInstancesRow,
@@ -1258,6 +1261,60 @@ class AsyncScheduledReportsTable(AsyncReadableTable[ScheduledReportsRow]):
     name = "scheduled_reports"
 
 
+class ScimGroupMembersTable(ReadableTable[ScimGroupMembersRow]):
+    """
+    ``/api/db/scim_group_members`` (GET, HEAD).
+
+    Scopes: people:read.
+    """
+    name = "scim_group_members"
+
+
+class AsyncScimGroupMembersTable(AsyncReadableTable[ScimGroupMembersRow]):
+    """
+    ``/api/db/scim_group_members`` (GET, HEAD).
+
+    Scopes: people:read.
+    """
+    name = "scim_group_members"
+
+
+class ScimGroupsTable(ReadableTable[ScimGroupsRow]):
+    """
+    ``/api/db/scim_groups`` (GET, HEAD).
+
+    Scopes: people:read.
+    """
+    name = "scim_groups"
+
+
+class AsyncScimGroupsTable(AsyncReadableTable[ScimGroupsRow]):
+    """
+    ``/api/db/scim_groups`` (GET, HEAD).
+
+    Scopes: people:read.
+    """
+    name = "scim_groups"
+
+
+class ScimTokensTable(ReadableTable[ScimTokensRow]):
+    """
+    ``/api/db/scim_tokens`` (GET, HEAD).
+
+    Scopes: people:read.
+    """
+    name = "scim_tokens"
+
+
+class AsyncScimTokensTable(AsyncReadableTable[ScimTokensRow]):
+    """
+    ``/api/db/scim_tokens`` (GET, HEAD).
+
+    Scopes: people:read.
+    """
+    name = "scim_tokens"
+
+
 class SheetDefinitionVersionsTable(ReadableTable[SheetDefinitionVersionsRow]):
     """
     ``/api/db/sheet_definition_versions`` (GET, HEAD).
@@ -1522,6 +1579,9 @@ class Tables:
         "sample_workflows",
         "saved_searches",
         "scheduled_reports",
+        "scim_group_members",
+        "scim_groups",
+        "scim_tokens",
         "sheet_definition_versions",
         "sheet_definitions",
         "sheet_instances",
@@ -1598,6 +1658,9 @@ class Tables:
         self.sample_workflows = SampleWorkflowsTable(transport)
         self.saved_searches = SavedSearchesTable(transport)
         self.scheduled_reports = ScheduledReportsTable(transport)
+        self.scim_group_members = ScimGroupMembersTable(transport)
+        self.scim_groups = ScimGroupsTable(transport)
+        self.scim_tokens = ScimTokensTable(transport)
         self.sheet_definition_versions = SheetDefinitionVersionsTable(transport)
         self.sheet_definitions = SheetDefinitionsTable(transport)
         self.sheet_instances = SheetInstancesTable(transport)
@@ -1685,6 +1748,9 @@ class AsyncTables:
         "sample_workflows",
         "saved_searches",
         "scheduled_reports",
+        "scim_group_members",
+        "scim_groups",
+        "scim_tokens",
         "sheet_definition_versions",
         "sheet_definitions",
         "sheet_instances",
@@ -1761,6 +1827,9 @@ class AsyncTables:
         self.sample_workflows = AsyncSampleWorkflowsTable(transport)
         self.saved_searches = AsyncSavedSearchesTable(transport)
         self.scheduled_reports = AsyncScheduledReportsTable(transport)
+        self.scim_group_members = AsyncScimGroupMembersTable(transport)
+        self.scim_groups = AsyncScimGroupsTable(transport)
+        self.scim_tokens = AsyncScimTokensTable(transport)
         self.sheet_definition_versions = AsyncSheetDefinitionVersionsTable(transport)
         self.sheet_definitions = AsyncSheetDefinitionsTable(transport)
         self.sheet_instances = AsyncSheetInstancesTable(transport)

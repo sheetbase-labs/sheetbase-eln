@@ -176,19 +176,27 @@ export function usePaneReadOnly() {
 const BESIDE_EVENT = 'sheetbase:workspace-open-beside'
 
 /** For surfaces outside the workspace (the search palette): open a pane beside. */
-export function requestOpenBeside(href: string, title?: string) {
+export function requestOpenBeside(
+  href: string,
+  title?: string,
+  below?: boolean,
+) {
   window.dispatchEvent(
-    new CustomEvent(BESIDE_EVENT, { detail: { href, title } }),
+    new CustomEvent(BESIDE_EVENT, { detail: { href, title, below } }),
   )
 }
 
 export function registerOpenBeside(
-  open: (href: string, title?: string) => void,
+  open: (href: string, title?: string, below?: boolean) => void,
 ) {
   const listener = (event: Event) => {
     if (!(event instanceof CustomEvent)) return
-    const { href, title } = event.detail as { href: string; title?: string }
-    open(href, title)
+    const { href, title, below } = event.detail as {
+      href: string
+      title?: string
+      below?: boolean
+    }
+    open(href, title, below)
   }
   window.addEventListener(BESIDE_EVENT, listener)
   return () => window.removeEventListener(BESIDE_EVENT, listener)

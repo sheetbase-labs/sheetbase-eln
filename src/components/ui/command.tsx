@@ -26,7 +26,7 @@ import { t } from '#/copy'
 //     </CommandList>
 //   </Command>
 // Items filter themselves against the query (value + keywords) unless `shouldFilter={false}` (server search).
-// ↑ ↓ move, Home/End jump, ↵ selects, ⌘/Ctrl+↵ selects with `newTab`, ⌥↵ with `beside`, the pointer follows the mouse.
+// ↑ ↓ move, Home/End jump, ↵ selects, ⌘/Ctrl+↵ selects with `newTab`, ⌥↵ with `beside`, ⌥⇧↵ with `beside` and `below`, the pointer follows the mouse.
 // Groups with no visible items hide themselves. `loading` on the root (or <CommandLoading>) marks the
 // list busy and holds CommandEmpty back; <CommandInput> may carry the row's `trailing` controls.
 
@@ -46,6 +46,7 @@ type Ctx = {
   /** The ⌘/Ctrl state of the key press that activated the item (⌘↵ is a new tab). */
   modified: React.RefObject<boolean>
   beside: React.RefObject<boolean>
+  below: React.RefObject<boolean>
 }
 const CommandContext = createContext<Ctx | null>(null)
 const useCommand = () => {
@@ -100,6 +101,7 @@ export function Command({
   const root = useRef<HTMLDivElement>(null)
   const modified = useRef(false)
   const beside = useRef(false)
+  const below = useRef(false)
 
   const items = () => [
     ...(root.current?.querySelectorAll<HTMLElement>(
@@ -152,9 +154,11 @@ export function Command({
         // ⌘/Ctrl+↵ asks for a new tab: the item reads that as it activates.
         modified.current = e.metaKey || e.ctrlKey
         beside.current = e.altKey && !modified.current
+        below.current = beside.current && e.shiftKey
         els[i].click()
         modified.current = false
         beside.current = false
+        below.current = false
       }
     }
   }
@@ -174,6 +178,7 @@ export function Command({
         setList,
         modified,
         beside,
+        below,
       }}
     >
       <div
@@ -312,8 +317,13 @@ export function CommandItem({
   value: string
   keywords?: string[]
   disabled?: boolean
-  /** `newTab` is true for ⌘/Ctrl+↵; `beside` is true for ⌥↵. */
-  onSelect?: (value: string, newTab: boolean, beside: boolean) => void
+  /** `newTab` is true for ⌘/Ctrl+↵; `beside` is true for ⌥↵, and `below` as well for ⌥⇧↵. */
+  onSelect?: (
+    value: string,
+    newTab: boolean,
+    beside: boolean,
+    below: boolean,
+  ) => void
 }) {
   const c = useCommand()
   if (c.shouldFilter && !matches(c.query, [value, ...keywords])) return null
@@ -331,7 +341,13 @@ export function CommandItem({
       }}
       onMouseDown={(e) => e.preventDefault()}
       onClick={() => {
-        if (!disabled) onSelect?.(value, c.modified.current, c.beside.current)
+        if (!disabled)
+          onSelect?.(
+            value,
+            c.modified.current,
+            c.beside.current,
+            c.below.current,
+          )
       }}
       className={cn(
         'mx-1 flex min-h-8 cursor-pointer select-none items-center gap-2.5 rounded-md px-2.5 py-1.5 text-body text-fg max-md:min-h-11 aria-disabled:cursor-default aria-disabled:text-fg-faint aria-selected:bg-selection [&_svg]:text-fg-muted',

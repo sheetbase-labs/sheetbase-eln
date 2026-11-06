@@ -461,7 +461,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
 
   useEffect(
     () =>
-      registerOpenBeside((href, title) => open(href, { beside: true, title })),
+      registerOpenBeside((href, title, below) =>
+        open(href, { beside: true, ...(below ? { below } : {}), title }),
+      ),
     [open],
   )
 
@@ -886,6 +888,19 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
             if (anchor && target)
               open(target, {
                 beside: true,
+                title: anchor.textContent.trim() || undefined,
+              })
+          },
+        },
+        'pane-open-below': {
+          when: () => !!focusedLinkAnchor(),
+          handler: () => {
+            const anchor = focusedLinkAnchor()
+            const target = anchor && workspaceHref(anchor.href, location.origin)
+            if (anchor && target)
+              open(target, {
+                beside: true,
+                below: true,
                 title: anchor.textContent.trim() || undefined,
               })
           },

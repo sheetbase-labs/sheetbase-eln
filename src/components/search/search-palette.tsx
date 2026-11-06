@@ -389,10 +389,15 @@ export function SearchPalette({
       </CommandGroup>
     ) : null
 
-  const go = (result: SearchResult, newTab = false, beside = false) => {
+  const go = (
+    result: SearchResult,
+    newTab = false,
+    beside = false,
+    below = false,
+  ) => {
     if (beside) {
       setOpen(false)
-      requestOpenBeside(result.deepLink, result.title)
+      requestOpenBeside(result.deepLink, result.title, below)
       return
     }
     if (newTab) {
@@ -429,9 +434,10 @@ export function SearchPalette({
     entry: PaletteEntry | undefined,
     newTab = false,
     beside = false,
+    below = false,
   ) => {
     if (!entry) return
-    if (entry.type === 'result') go(entry.result, newTab, beside)
+    if (entry.type === 'result') go(entry.result, newTab, beside, below)
     else runAction(entry.action, newTab)
   }
 
@@ -705,8 +711,13 @@ export function SearchPalette({
                     <CommandItem
                       key={resultKey(result)}
                       value={resultKey(result)}
-                      onSelect={(_value, newTab, beside) =>
-                        activate({ type: 'result', result }, newTab, beside)
+                      onSelect={(_value, newTab, beside, below) =>
+                        activate(
+                          { type: 'result', result },
+                          newTab,
+                          beside,
+                          below,
+                        )
                       }
                       className={optionRow}
                     >
@@ -793,6 +804,10 @@ export function SearchPalette({
           <span className="max-md:hidden">
             <Kbd>{formatShortcut('alt+enter', platform)}</Kbd>{' '}
             {t('projects.searchPalette.hints.beside')}
+          </span>
+          <span className="max-md:hidden">
+            <Kbd>{formatShortcut('alt+shift+enter', platform)}</Kbd>{' '}
+            {t('projects.searchPalette.hints.below')}
           </span>
           <span className="max-md:hidden">
             <Kbd>{formatShortcut('mod+enter', platform)}</Kbd>{' '}

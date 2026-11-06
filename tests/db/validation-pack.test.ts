@@ -1,5 +1,5 @@
 /**
- * The validation pack (migration 0106): the checks, the run record and the
+ * The validation pack (migration 0108): the checks, the run record and the
  * exported pack.
  *
  * Proves, against a freshly migrated database:

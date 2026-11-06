@@ -1,5 +1,5 @@
 /**
- * Directory sync (SCIM 2.0, migration 0105).
+ * Directory sync (SCIM 2.0, migration 0106).
  *
  * Proves, against a freshly migrated database:
  *  - tokens: a members manager makes one (the secret is shown once and only a

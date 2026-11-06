@@ -49,6 +49,7 @@ export interface WorkspaceMemberWire {
   client_id?: string | null
   suspended_at: string | null
   username?: string | null
+  role_source?: string
   created_at: string
   updated_at: string
 }
@@ -119,6 +120,8 @@ export interface WorkspaceMember {
   clientId?: string | null
   suspendedAt: string | null
   username?: string | null
+  /** 'idp' when the person's sign-in groups decide their role. */
+  roleSource?: string
   createdAt: string
   updatedAt: string
 }
@@ -188,6 +191,7 @@ export const toWorkspaceMember = (w: WorkspaceMemberWire): WorkspaceMember => ({
   clientId: w.client_id ?? null,
   suspendedAt: w.suspended_at,
   username: w.username ?? null,
+  roleSource: w.role_source ?? 'manual',
   createdAt: w.created_at,
   updatedAt: w.updated_at,
 })
@@ -274,7 +278,7 @@ export async function fetchWorkspaceMembers(
 ): Promise<WorkspaceMember[]> {
   const rows = await c.list<WorkspaceMemberWire>(
     'workspace_memberships',
-    `${filter('workspace_id', workspaceId, 'created_at.asc')}&select=id,workspace_id,user_id,role,client_id,suspended_at,username,created_at,updated_at`,
+    `${filter('workspace_id', workspaceId, 'created_at.asc')}&select=id,workspace_id,user_id,role,client_id,suspended_at,username,role_source,created_at,updated_at`,
   )
   return rows.map(toWorkspaceMember)
 }

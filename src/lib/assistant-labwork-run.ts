@@ -8,6 +8,7 @@ import {
   saveRetentionRule,
 } from './result-quality'
 import { createRegistryEntry } from './bio-registry'
+import { addCompoundLot, registerCompound } from './compound-registry'
 import { setBookingRules } from './booking-rules'
 import { endRepeat, setRepeatPaused } from './recurring'
 import { poolSamples } from './samples'
@@ -98,6 +99,25 @@ export async function runLabworkAction(
         title: action.title,
         customFields: action.customFields,
         allowDuplicate: false,
+      })
+      return { openHref: made?.id ? `/records/${made.id}` : '/registry' }
+    }
+    case 'compound.register': {
+      const made = await registerCompound<{ id: string } | null>(client, {
+        projectId: action.projectId,
+        kind: action.recordKind,
+        title: action.title,
+        customFields: action.customFields,
+        descriptor: action.structure,
+        allowDuplicate: false,
+      })
+      return { openHref: made?.id ? `/records/${made.id}` : '/registry' }
+    }
+    case 'compound.lot': {
+      const made = await addCompoundLot<{ id: string } | null>(client, {
+        compoundId: action.compoundId,
+        title: action.title,
+        customFields: action.customFields,
       })
       return { openHref: made?.id ? `/records/${made.id}` : '/registry' }
     }

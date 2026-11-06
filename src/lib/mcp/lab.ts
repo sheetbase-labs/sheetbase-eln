@@ -4,6 +4,7 @@ import type { Scope } from '../api-credential-scopes'
 import type { DataClient } from '../data-client'
 import { LAB_RPCS } from '../lab-api-surface'
 import type { LabRpc, LabType } from '../lab-api-surface'
+import { prepareStructureArguments } from './compounds'
 
 /**
  * MCP lab actions.
@@ -130,10 +131,10 @@ interface Checked {
   args: Record<string, unknown>
 }
 
-function checkLabAct(
+async function checkLabAct(
   input: unknown,
   scopes: readonly Scope[],
-): Checked | Extract<LabActOutcome, { ok: false }> {
+): Promise<Checked | Extract<LabActOutcome, { ok: false }>> {
   const parsed = labActSchema.safeParse(input)
   if (!parsed.success) {
     return {
@@ -150,7 +151,14 @@ function checkLabAct(
       message: `This credential lacks the ${rpc.scope} scope required for ${action}.`,
     }
   }
-  const args = argumentSchema(rpc).safeParse(parsed.data.arguments)
+  const prepared = await prepareStructureArguments(
+    action,
+    parsed.data.arguments,
+  )
+  if (!prepared.ok) {
+    return { ok: false, message: prepared.message, code: 'invalid_arguments' }
+  }
+  const args = argumentSchema(rpc).safeParse(prepared.args)
   if (!args.success) {
     const first = args.error.issues[0]
     const where = first.path.join('.') || 'arguments'
@@ -172,7 +180,7 @@ export async function runLabAct(
   scopes: readonly Scope[],
   client: DataClient,
 ): Promise<LabActOutcome> {
-  const checked = checkLabAct(input, scopes)
+  const checked = await checkLabAct(input, scopes)
   if ('ok' in checked) return checked
   const result = await client.rpc<unknown>(checked.action, checked.args)
   return { ok: true, action: checked.action, result }
@@ -196,7 +204,7 @@ export async function runGuardedLabAct(
   input: unknown,
   context: GuardedLabActContext,
 ): Promise<LabActOutcome> {
-  const checked = checkLabAct(input, context.scopes)
+  const checked = await checkLabAct(input, context.scopes)
   if ('ok' in checked) return checked
   const { action, rpc, args } = checked
   if (

@@ -46,6 +46,7 @@ from sheetbase.resources import (
     CataloguesResource,
     DatasetsResource,
     PeopleResource,
+    StructuresResource,
     FacilityResource,
     PipelinesResource,
     ProjectsResource,
@@ -97,6 +98,7 @@ class SheetbaseClient:
         self.facility = FacilityResource(self._transport)
         self.pipelines = PipelinesResource(self._transport)
         self.people = PeopleResource(self._transport)
+        self.structures = StructuresResource(self._transport)
 
         #: Every public table, typed from the OpenAPI contract:
         #: ``client.tables.projects.list(where={"status": "active"})``.

@@ -52,6 +52,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 
 | Table                          | What it holds                                                                                                                                                                |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `record_structures`            | The structure of a compound in a registry that takes structures: parent (salts and solvents set aside), formula, mass and salts. Searched with `query_structures`.           |
 | `reagent_orders`               | A reagent order: requested from a material that is running low, placed with the supplier, then received as a new lot. `status` is requested, ordered, received or cancelled. |
 | `recurring_schedules`          | A recurring experiment or booking. `kind` is `booking` or `experiment`; `status` is active, paused or ended.                                                                 |
 | `recurring_occurrences`        | One planned run of a recurring schedule and what became of it (`outcome`).                                                                                                   |
@@ -789,3 +790,82 @@ Scope: `lab:write`.
 | `p_object_kind` * | text | `instrument`, `pipeline`, `analysis`, `record` and the other pinnable kinds. |
 | `p_object_id` *   | uuid | Id of the object.                                                            |
 | `p_favourite` *   | bool | `true` to pin, `false` to unpin.                                             |
+
+### `register_compound`
+
+Register a compound by its structure. Adds an entry to a registry that takes structures and checks it against the compounds already there. Two structures with the same parent (salts and solvents set aside) are the same compound, and a repeat is refused unless `p_allow_duplicate` is true. `p_structure` is the description of the drawing: get it from `POST /api/structures/describe` (or pass `{"smiles": "…"}` through MCP). Returns the new entry.
+
+Scope: `lab:write`.
+
+| Argument            | Type |                                         |
+| ------------------- | ---- | --------------------------------------- |
+| `p_project_id` *    | uuid | Project the entry belongs to.           |
+| `p_kind` *          | text | Key of the registry.                    |
+| `p_title` *         | text | Name of the compound.                   |
+| `p_custom_fields`   | json | Values for the registry’s other fields. |
+| `p_structure` *     | json | The description of the drawing.         |
+| `p_allow_duplicate` | bool | `true` to register a repeat on purpose. |
+
+### `set_record_structure`
+
+Change the structure of a compound. Replaces the drawn structure of an entry. The entry must be at the `metadata_version` you read, and the new parent must not already be registered. `p_structure` is described as for `register_compound`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                      |
+| ------------------------------- | ---- | ------------------------------------ |
+| `p_record_id` *                 | uuid | The compound entry.                  |
+| `p_expected_metadata_version` * | int  | The version you read.                |
+| `p_structure` *                 | json | The description of the new drawing.  |
+| `p_allow_duplicate`             | bool | `true` to allow a repeat on purpose. |
+
+### `find_structure_duplicates`
+
+Check whether a compound is registered. Lists the entries of a registry that already hold this parent structure, and whether each is the same salt form.
+
+Scope: `lab:read`.
+
+| Argument          | Type |                                 |
+| ----------------- | ---- | ------------------------------- |
+| `p_kind` *        | text | Key of the registry.            |
+| `p_parent_code` * | text | Code of the parent structure.   |
+| `p_drawn_code`    | text | Code of the structure as drawn. |
+| `p_exclude_id`    | uuid | An entry to leave out.          |
+
+### `query_structures`
+
+Find compounds by fingerprint. Narrows compounds by a 512-bit structure fingerprint. `p_mode` `substructure` keeps those whose fingerprint includes the query’s (candidates only: confirm them atom by atom), `similarity` keeps those at least `p_min_similarity` alike (0 to 1). Most callers want `POST /api/structures/search`, which does both steps from a SMILES line.
+
+Scope: `lab:read`.
+
+| Argument             | Type |                                     |
+| -------------------- | ---- | ----------------------------------- |
+| `p_fingerprint` *    | text | 128 hex digits.                     |
+| `p_mode`             | text | `substructure` or `similarity`.     |
+| `p_kind`             | text | Limit to one registry.              |
+| `p_min_similarity`   | num  | 0 to 1.                             |
+| `p_include_archived` | bool | `true` to include archived entries. |
+| `p_limit`            | int  | Most rows to return.                |
+
+### `add_compound_lot`
+
+Add a lot to a compound. Makes a record of the registry’s lot model, linked to the compound, in the compound’s project unless `p_project_id` names another. Sends `compound.lot_added` to webhooks. Returns the lot.
+
+Scope: `lab:write`.
+
+| Argument          | Type |                              |
+| ----------------- | ---- | ---------------------------- |
+| `p_compound_id` * | uuid | The compound entry.          |
+| `p_project_id`    | uuid | Another project for the lot. |
+| `p_title`         | text | Name of the lot.             |
+| `p_custom_fields` | json | Values for the lot’s fields. |
+
+### `list_compound_lots`
+
+List the lots of a compound. The lots made for a compound, oldest first.
+
+Scope: `lab:read`.
+
+| Argument          | Type |                     |
+| ----------------- | ---- | ------------------- |
+| `p_compound_id` * | uuid | The compound entry. |

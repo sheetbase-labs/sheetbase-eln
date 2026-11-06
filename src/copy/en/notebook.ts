@@ -230,6 +230,16 @@ export const notebook = {
         applying: 'Adding…',
         applied: 'Added',
       },
+      registerCompound: {
+        apply: 'Register compound',
+        applying: 'Registering…',
+        applied: 'Registered',
+      },
+      addCompoundLot: {
+        apply: 'Add lot',
+        applying: 'Adding…',
+        applied: 'Added',
+      },
       enrolWorkflow: {
         apply: 'Add to workflow',
         applying: 'Adding…',

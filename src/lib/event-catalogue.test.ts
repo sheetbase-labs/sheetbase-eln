@@ -459,6 +459,24 @@ const LAB_EVENTS: ReadonlyArray<{
     operation: 'create',
     payload: {},
   },
+  {
+    name: 'compound.registered',
+    entityType: 'compound',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'compound.structure_changed',
+    entityType: 'compound',
+    operation: 'update',
+    payload: {},
+  },
+  {
+    name: 'compound.lot_added',
+    entityType: 'compound_lot',
+    operation: 'create',
+    payload: {},
+  },
 ]
 
 describe('lab feature events', () => {

@@ -2899,6 +2899,9 @@ export const data = {
     addStepResult: 'Record a result on a step',
     addStepResultDescription:
       'Add a measurement to the notebook against a protocol step.',
+    addCompoundLot: 'Add a lot to a compound',
+    addCompoundLotDescription:
+      'Make a new lot of a registered compound, linked to it, in the same project.',
     createProject: 'Create project',
     createProjectRunWorkspace: 'Create a project in the run workspace.',
     createRecord: 'Create record',

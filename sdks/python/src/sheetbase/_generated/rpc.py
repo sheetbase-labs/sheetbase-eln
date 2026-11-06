@@ -82,6 +82,7 @@ class Rpc:
     """
 
     NAMES = (
+        "add_compound_lot",
         "add_records_to_legal_hold",
         "add_registry_parent",
         "add_step_result",
@@ -127,6 +128,7 @@ class Rpc:
         "end_recurring_schedule",
         "end_step_timer",
         "enrol_sample_in_workflow",
+        "find_structure_duplicates",
         "follow_project",
         "get_webhook_endpoint_health",
         "hand_over_member_work",
@@ -136,6 +138,7 @@ class Rpc:
         "instantiate_template",
         "is_record_on_hold",
         "leave_sample_workflow",
+        "list_compound_lots",
         "list_instrument_feed_series",
         "list_webhook_deliveries",
         "log_instrument_service",
@@ -161,6 +164,7 @@ class Rpc:
         "query_dataset_version_transfer",
         "query_sheet_instance_rows",
         "query_storage_readings",
+        "query_structures",
         "read_sheet_instance_calculation_results",
         "receive_reagent_order",
         "receive_shipment",
@@ -168,6 +172,7 @@ class Rpc:
         "record_steps",
         "record_stocktake_scan",
         "record_storage_readings",
+        "register_compound",
         "register_replacement_lot",
         "registry_find_duplicates",
         "remove_idp_group_mapping",
@@ -205,6 +210,7 @@ class Rpc:
         "set_model_supplier_list",
         "set_reagent_order_price",
         "set_record_favourite",
+        "set_record_structure",
         "set_recurring_schedule_paused",
         "set_sample_workflow_status",
         "set_scheduled_report_active",
@@ -234,6 +240,33 @@ class Rpc:
 
     def _call(self, name: str, body: Dict[str, Any]) -> Any:
         return self._transport.post(f"/api/db/rpc/{name}", json_body=body)
+
+    def add_compound_lot(
+        self,
+        *,
+        compound_id: str,
+        project_id: Union[str, Unset] = UNSET,
+        title: Union[str, Unset] = UNSET,
+        custom_fields: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Union["RecordsRow", List["RecordsRow"]]:
+        """
+        Add a lot to a compound
+
+        Makes a record of the registry’s lot model, linked to the compound, in the compound’s project unless `p_project_id` names another. Sends `compound.lot_added` to webhooks. Returns the lot.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/add_compound_lot``
+        """
+        body: Dict[str, Any] = {}
+        body["p_compound_id"] = compound_id
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        if not isinstance(title, Unset):
+            body["p_title"] = title
+        if not isinstance(custom_fields, Unset):
+            body["p_custom_fields"] = custom_fields
+        return self._call("add_compound_lot", body)  # type: ignore[no-any-return]
 
     def add_records_to_legal_hold(self, *, hold_id: str, record_ids: List[str]) -> int:
         """
@@ -1321,6 +1354,32 @@ class Rpc:
         body["p_workflow_id"] = workflow_id
         return self._call("enrol_sample_in_workflow", body)  # type: ignore[no-any-return]
 
+    def find_structure_duplicates(
+        self,
+        *,
+        kind: str,
+        parent_code: str,
+        drawn_code: Union[str, Unset] = UNSET,
+        exclude_id: Union[str, Unset] = UNSET,
+    ) -> List[Dict[str, Any]]:
+        """
+        Check whether a compound is registered
+
+        Lists the entries of a registry with the same parent structure as the one described. `same_form` is false when the entry is the same compound as a different salt or solvate, which belongs in as a lot. Takes `parentCode` and `drawnCode` from `POST /api/structures/describe`.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/find_structure_duplicates``
+        """
+        body: Dict[str, Any] = {}
+        body["p_kind"] = kind
+        body["p_parent_code"] = parent_code
+        if not isinstance(drawn_code, Unset):
+            body["p_drawn_code"] = drawn_code
+        if not isinstance(exclude_id, Unset):
+            body["p_exclude_id"] = exclude_id
+        return self._call("find_structure_duplicates", body)  # type: ignore[no-any-return]
+
     def follow_project(self, *, project_id: str) -> str:
         """
         Follow a project
@@ -1518,6 +1577,20 @@ class Rpc:
         if not isinstance(notes, Unset):
             body["p_notes"] = notes
         return self._call("leave_sample_workflow", body)  # type: ignore[no-any-return]
+
+    def list_compound_lots(self, *, compound_id: str) -> List[Dict[str, Any]]:
+        """
+        List the lots of a compound
+
+        The lots made for a compound, oldest first.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/list_compound_lots``
+        """
+        body: Dict[str, Any] = {}
+        body["p_compound_id"] = compound_id
+        return self._call("list_compound_lots", body)  # type: ignore[no-any-return]
 
     def list_instrument_feed_series(
         self,
@@ -2146,6 +2219,39 @@ class Rpc:
             body["p_limit"] = limit
         return self._call("query_storage_readings", body)  # type: ignore[no-any-return]
 
+    def query_structures(
+        self,
+        *,
+        fingerprint: str,
+        mode: Union[str, Unset] = UNSET,
+        kind: Union[str, Unset] = UNSET,
+        min_similarity: Union[float, Unset] = UNSET,
+        include_archived: Union[bool, Unset] = UNSET,
+        limit: Union[int, Unset] = UNSET,
+    ) -> List[Dict[str, Any]]:
+        """
+        Find compounds by fingerprint
+
+        Narrows compounds by a 512-bit structure fingerprint. `p_mode` `substructure` keeps those whose fingerprint includes the query’s (candidates only: confirm them atom by atom), `similarity` keeps those at least `p_min_similarity` alike (0 to 1). Most callers want `POST /api/structures/search`, which does both steps from a SMILES line.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/query_structures``
+        """
+        body: Dict[str, Any] = {}
+        body["p_fingerprint"] = fingerprint
+        if not isinstance(mode, Unset):
+            body["p_mode"] = mode
+        if not isinstance(kind, Unset):
+            body["p_kind"] = kind
+        if not isinstance(min_similarity, Unset):
+            body["p_min_similarity"] = min_similarity
+        if not isinstance(include_archived, Unset):
+            body["p_include_archived"] = include_archived
+        if not isinstance(limit, Unset):
+            body["p_limit"] = limit
+        return self._call("query_structures", body)  # type: ignore[no-any-return]
+
     def read_sheet_instance_calculation_results(
         self,
         *,
@@ -2295,6 +2401,36 @@ class Rpc:
         if not isinstance(room_id, Unset):
             body["p_room_id"] = room_id
         return self._call("record_storage_readings", body)  # type: ignore[no-any-return]
+
+    def register_compound(
+        self,
+        *,
+        project_id: str,
+        kind: str,
+        title: str,
+        structure: Dict[str, "JsonValue"],
+        custom_fields: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        allow_duplicate: Union[bool, Unset] = UNSET,
+    ) -> Union["RecordsRow", List["RecordsRow"]]:
+        """
+        Register a compound by its structure
+
+        Adds an entry to a registry that takes structures and checks it against the compounds already there. Two structures with the same parent (salts and solvents set aside) are the same compound, and a repeat is refused unless `p_allow_duplicate` is true. `p_structure` is the description of the drawing: get it from `POST /api/structures/describe` (or pass `{"smiles": "…"}` through MCP). Returns the new entry.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/register_compound``
+        """
+        body: Dict[str, Any] = {}
+        body["p_project_id"] = project_id
+        body["p_kind"] = kind
+        body["p_title"] = title
+        body["p_structure"] = structure
+        if not isinstance(custom_fields, Unset):
+            body["p_custom_fields"] = custom_fields
+        if not isinstance(allow_duplicate, Unset):
+            body["p_allow_duplicate"] = allow_duplicate
+        return self._call("register_compound", body)  # type: ignore[no-any-return]
 
     def register_replacement_lot(
         self,
@@ -3193,6 +3329,31 @@ class Rpc:
         body["p_favourite"] = favourite
         return self._call("set_record_favourite", body)  # type: ignore[no-any-return]
 
+    def set_record_structure(
+        self,
+        *,
+        record_id: str,
+        expected_metadata_version: int,
+        structure: Dict[str, "JsonValue"],
+        allow_duplicate: Union[bool, Unset] = UNSET,
+    ) -> Union["RecordsRow", List["RecordsRow"]]:
+        """
+        Change the structure of a compound
+
+        Replaces the drawn structure of an entry. The entry must be at the `metadata_version` you read, and the new parent must not already be registered. `p_structure` is described as for `register_compound`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_record_structure``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        body["p_expected_metadata_version"] = expected_metadata_version
+        body["p_structure"] = structure
+        if not isinstance(allow_duplicate, Unset):
+            body["p_allow_duplicate"] = allow_duplicate
+        return self._call("set_record_structure", body)  # type: ignore[no-any-return]
+
     def set_recurring_schedule_paused(
         self,
         *,
@@ -3640,6 +3801,7 @@ class AsyncRpc:
     """Async counterpart of :class:`Rpc`."""
 
     NAMES = (
+        "add_compound_lot",
         "add_records_to_legal_hold",
         "add_registry_parent",
         "add_step_result",
@@ -3685,6 +3847,7 @@ class AsyncRpc:
         "end_recurring_schedule",
         "end_step_timer",
         "enrol_sample_in_workflow",
+        "find_structure_duplicates",
         "follow_project",
         "get_webhook_endpoint_health",
         "hand_over_member_work",
@@ -3694,6 +3857,7 @@ class AsyncRpc:
         "instantiate_template",
         "is_record_on_hold",
         "leave_sample_workflow",
+        "list_compound_lots",
         "list_instrument_feed_series",
         "list_webhook_deliveries",
         "log_instrument_service",
@@ -3719,6 +3883,7 @@ class AsyncRpc:
         "query_dataset_version_transfer",
         "query_sheet_instance_rows",
         "query_storage_readings",
+        "query_structures",
         "read_sheet_instance_calculation_results",
         "receive_reagent_order",
         "receive_shipment",
@@ -3726,6 +3891,7 @@ class AsyncRpc:
         "record_steps",
         "record_stocktake_scan",
         "record_storage_readings",
+        "register_compound",
         "register_replacement_lot",
         "registry_find_duplicates",
         "remove_idp_group_mapping",
@@ -3763,6 +3929,7 @@ class AsyncRpc:
         "set_model_supplier_list",
         "set_reagent_order_price",
         "set_record_favourite",
+        "set_record_structure",
         "set_recurring_schedule_paused",
         "set_sample_workflow_status",
         "set_scheduled_report_active",
@@ -3792,6 +3959,33 @@ class AsyncRpc:
 
     async def _call(self, name: str, body: Dict[str, Any]) -> Any:
         return await self._transport.post(f"/api/db/rpc/{name}", json_body=body)
+
+    async def add_compound_lot(
+        self,
+        *,
+        compound_id: str,
+        project_id: Union[str, Unset] = UNSET,
+        title: Union[str, Unset] = UNSET,
+        custom_fields: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Union["RecordsRow", List["RecordsRow"]]:
+        """
+        Add a lot to a compound
+
+        Makes a record of the registry’s lot model, linked to the compound, in the compound’s project unless `p_project_id` names another. Sends `compound.lot_added` to webhooks. Returns the lot.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/add_compound_lot``
+        """
+        body: Dict[str, Any] = {}
+        body["p_compound_id"] = compound_id
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        if not isinstance(title, Unset):
+            body["p_title"] = title
+        if not isinstance(custom_fields, Unset):
+            body["p_custom_fields"] = custom_fields
+        return await self._call("add_compound_lot", body)  # type: ignore[no-any-return]
 
     async def add_records_to_legal_hold(self, *, hold_id: str, record_ids: List[str]) -> int:
         """
@@ -4879,6 +5073,32 @@ class AsyncRpc:
         body["p_workflow_id"] = workflow_id
         return await self._call("enrol_sample_in_workflow", body)  # type: ignore[no-any-return]
 
+    async def find_structure_duplicates(
+        self,
+        *,
+        kind: str,
+        parent_code: str,
+        drawn_code: Union[str, Unset] = UNSET,
+        exclude_id: Union[str, Unset] = UNSET,
+    ) -> List[Dict[str, Any]]:
+        """
+        Check whether a compound is registered
+
+        Lists the entries of a registry with the same parent structure as the one described. `same_form` is false when the entry is the same compound as a different salt or solvate, which belongs in as a lot. Takes `parentCode` and `drawnCode` from `POST /api/structures/describe`.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/find_structure_duplicates``
+        """
+        body: Dict[str, Any] = {}
+        body["p_kind"] = kind
+        body["p_parent_code"] = parent_code
+        if not isinstance(drawn_code, Unset):
+            body["p_drawn_code"] = drawn_code
+        if not isinstance(exclude_id, Unset):
+            body["p_exclude_id"] = exclude_id
+        return await self._call("find_structure_duplicates", body)  # type: ignore[no-any-return]
+
     async def follow_project(self, *, project_id: str) -> str:
         """
         Follow a project
@@ -5076,6 +5296,20 @@ class AsyncRpc:
         if not isinstance(notes, Unset):
             body["p_notes"] = notes
         return await self._call("leave_sample_workflow", body)  # type: ignore[no-any-return]
+
+    async def list_compound_lots(self, *, compound_id: str) -> List[Dict[str, Any]]:
+        """
+        List the lots of a compound
+
+        The lots made for a compound, oldest first.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/list_compound_lots``
+        """
+        body: Dict[str, Any] = {}
+        body["p_compound_id"] = compound_id
+        return await self._call("list_compound_lots", body)  # type: ignore[no-any-return]
 
     async def list_instrument_feed_series(
         self,
@@ -5704,6 +5938,39 @@ class AsyncRpc:
             body["p_limit"] = limit
         return await self._call("query_storage_readings", body)  # type: ignore[no-any-return]
 
+    async def query_structures(
+        self,
+        *,
+        fingerprint: str,
+        mode: Union[str, Unset] = UNSET,
+        kind: Union[str, Unset] = UNSET,
+        min_similarity: Union[float, Unset] = UNSET,
+        include_archived: Union[bool, Unset] = UNSET,
+        limit: Union[int, Unset] = UNSET,
+    ) -> List[Dict[str, Any]]:
+        """
+        Find compounds by fingerprint
+
+        Narrows compounds by a 512-bit structure fingerprint. `p_mode` `substructure` keeps those whose fingerprint includes the query’s (candidates only: confirm them atom by atom), `similarity` keeps those at least `p_min_similarity` alike (0 to 1). Most callers want `POST /api/structures/search`, which does both steps from a SMILES line.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/query_structures``
+        """
+        body: Dict[str, Any] = {}
+        body["p_fingerprint"] = fingerprint
+        if not isinstance(mode, Unset):
+            body["p_mode"] = mode
+        if not isinstance(kind, Unset):
+            body["p_kind"] = kind
+        if not isinstance(min_similarity, Unset):
+            body["p_min_similarity"] = min_similarity
+        if not isinstance(include_archived, Unset):
+            body["p_include_archived"] = include_archived
+        if not isinstance(limit, Unset):
+            body["p_limit"] = limit
+        return await self._call("query_structures", body)  # type: ignore[no-any-return]
+
     async def read_sheet_instance_calculation_results(
         self,
         *,
@@ -5853,6 +6120,36 @@ class AsyncRpc:
         if not isinstance(room_id, Unset):
             body["p_room_id"] = room_id
         return await self._call("record_storage_readings", body)  # type: ignore[no-any-return]
+
+    async def register_compound(
+        self,
+        *,
+        project_id: str,
+        kind: str,
+        title: str,
+        structure: Dict[str, "JsonValue"],
+        custom_fields: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        allow_duplicate: Union[bool, Unset] = UNSET,
+    ) -> Union["RecordsRow", List["RecordsRow"]]:
+        """
+        Register a compound by its structure
+
+        Adds an entry to a registry that takes structures and checks it against the compounds already there. Two structures with the same parent (salts and solvents set aside) are the same compound, and a repeat is refused unless `p_allow_duplicate` is true. `p_structure` is the description of the drawing: get it from `POST /api/structures/describe` (or pass `{"smiles": "…"}` through MCP). Returns the new entry.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/register_compound``
+        """
+        body: Dict[str, Any] = {}
+        body["p_project_id"] = project_id
+        body["p_kind"] = kind
+        body["p_title"] = title
+        body["p_structure"] = structure
+        if not isinstance(custom_fields, Unset):
+            body["p_custom_fields"] = custom_fields
+        if not isinstance(allow_duplicate, Unset):
+            body["p_allow_duplicate"] = allow_duplicate
+        return await self._call("register_compound", body)  # type: ignore[no-any-return]
 
     async def register_replacement_lot(
         self,
@@ -6750,6 +7047,31 @@ class AsyncRpc:
         body["p_object_id"] = object_id
         body["p_favourite"] = favourite
         return await self._call("set_record_favourite", body)  # type: ignore[no-any-return]
+
+    async def set_record_structure(
+        self,
+        *,
+        record_id: str,
+        expected_metadata_version: int,
+        structure: Dict[str, "JsonValue"],
+        allow_duplicate: Union[bool, Unset] = UNSET,
+    ) -> Union["RecordsRow", List["RecordsRow"]]:
+        """
+        Change the structure of a compound
+
+        Replaces the drawn structure of an entry. The entry must be at the `metadata_version` you read, and the new parent must not already be registered. `p_structure` is described as for `register_compound`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_record_structure``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        body["p_expected_metadata_version"] = expected_metadata_version
+        body["p_structure"] = structure
+        if not isinstance(allow_duplicate, Unset):
+            body["p_allow_duplicate"] = allow_duplicate
+        return await self._call("set_record_structure", body)  # type: ignore[no-any-return]
 
     async def set_recurring_schedule_paused(
         self,

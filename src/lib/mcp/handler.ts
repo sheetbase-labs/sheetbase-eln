@@ -18,6 +18,7 @@ import type { DataClient } from '../data-client'
 import { DataClientError } from '../data-client'
 import { logger, redact } from '../logger'
 import { LAB_ACT_TOOL_NAME, hasLabActScope, labActTool, runLabAct } from './lab'
+import { callCompoundRead, isCompoundReadTool } from './compounds'
 import type { AiFeatureFlagKey, AiFeatureFlags } from '../ai-feature-flags'
 import {
   ADMIN_READ_TOOL_NAME,
@@ -457,6 +458,9 @@ async function callCatalogueTool(
   context: McpContext,
   meta: Record<string, unknown> | undefined,
 ): Promise<McpToolResult> {
+  if (entry.mode === 'read' && isCompoundReadTool(entry.name)) {
+    return textResult(await callCompoundRead(entry.name, args, context.client))
+  }
   if (entry.mode === 'read') {
     const result = await context.client.rpc<unknown>(
       entry.rpc,

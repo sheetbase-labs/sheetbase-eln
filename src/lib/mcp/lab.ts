@@ -4,6 +4,7 @@ import type { Scope } from '../api-credential-scopes'
 import type { DataClient } from '../data-client'
 import { LAB_RPCS } from '../lab-api-surface'
 import type { LabRpc, LabType } from '../lab-api-surface'
+import { prepareStructureArguments } from './compounds'
 
 /**
  * MCP lab actions.
@@ -130,7 +131,14 @@ export async function runLabAct(
       message: `This credential lacks the ${rpc.scope} scope required for ${action}.`,
     }
   }
-  const args = argumentSchema(rpc).safeParse(parsed.data.arguments)
+  const prepared = await prepareStructureArguments(
+    action,
+    parsed.data.arguments,
+  )
+  if (!prepared.ok) {
+    return { ok: false, message: prepared.message, code: 'invalid_arguments' }
+  }
+  const args = argumentSchema(rpc).safeParse(prepared.args)
   if (!args.success) {
     const first = args.error.issues[0]
     const where = first.path.join('.') || 'arguments'

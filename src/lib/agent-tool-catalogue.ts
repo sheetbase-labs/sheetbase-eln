@@ -61,6 +61,8 @@ export const ASSISTANT_READ_TOOL_NAMES = [
   'sheetbase.canonical.read',
   'sheetbase.search',
   'sheetbase.storage.readings',
+  'sheetbase.compound.search',
+  'sheetbase.compound.check',
   'sheetbase.dataset_rows.query',
   'sheetbase.dataset_version_rows.query',
   'sheetbase.sheet_instance_rows.query',
@@ -160,6 +162,8 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.retention.set',
   'sheetbase.retention.apply',
   'sheetbase.registry.add',
+  'sheetbase.compound.register',
+  'sheetbase.compound.add_lot',
   'sheetbase.workflow.enrol',
   'sheetbase.workflow.leave',
   'sheetbase.spec_limits.set',
@@ -1488,6 +1492,52 @@ const READ_TOOLS: AgentToolEntry[] = [
         storageRoomId: uuid.nullish(),
         outOfRangeOnly: z.boolean().nullish(),
         limit: z.number().int().min(1).max(500).nullish(),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
+  },
+  {
+    name: 'sheetbase.compound.search',
+    mode: 'read',
+    description:
+      'Find registered compounds by structure. Give a SMILES line (or a molfile): mode `substructure` lists compounds that contain it, `similarity` lists the closest ones with a 0 to 1 score. Searches every registry that takes structures, or just the one named. Read-only.',
+    rpc: 'query_structures',
+    via: 'query_structures',
+    capability: {
+      scopes: ['lab:read'],
+      permission: 'lab read',
+      actor: 'workspace_actor',
+      note: 'Ordinary canonical read; same RLS as normal clients.',
+    },
+    inputSchema: z
+      .object({
+        structure: z.string().min(1).max(20_000),
+        mode: z.enum(['substructure', 'similarity']).nullish(),
+        registry: z.string().min(1).max(60).nullish(),
+        minSimilarity: z.number().min(0).max(1).nullish(),
+        includeRetired: z.boolean().nullish(),
+        limit: z.number().int().min(1).max(200).nullish(),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
+  },
+  {
+    name: 'sheetbase.compound.check',
+    mode: 'read',
+    description:
+      'Check whether a structure (a SMILES line or molfile) is already registered. Salts and solvents are set aside first, so a salt form of a registered compound is reported as the same compound in a different form. Returns the parent structure, formula, mass and any matching entries. Read-only.',
+    rpc: 'find_structure_duplicates',
+    via: 'find_structure_duplicates',
+    capability: {
+      scopes: ['lab:read'],
+      permission: 'lab read',
+      actor: 'workspace_actor',
+      note: 'Ordinary canonical read; same RLS as normal clients.',
+    },
+    inputSchema: z
+      .object({
+        structure: z.string().min(1).max(20_000),
+        registry: z.string().min(1).max(60),
       })
       .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],

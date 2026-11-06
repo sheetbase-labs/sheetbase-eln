@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 
 __all__ = [
+    "AddCompoundLotParams",
     "AddRecordsToLegalHoldParams",
     "AddRegistryParentParams",
     "AddStepResultParams",
@@ -116,6 +117,7 @@ __all__ = [
     "FieldRelationship",
     "FieldSpecLimitsRow",
     "FieldValidation",
+    "FindStructureDuplicatesParams",
     "FoldersRow",
     "FollowProjectParams",
     "GetWebhookEndpointHealthParams",
@@ -141,6 +143,7 @@ __all__ = [
     "LeaveSampleWorkflowParams",
     "LegalHoldRecordsRow",
     "LegalHoldsRow",
+    "ListCompoundLotsParams",
     "ListInstrumentFeedSeriesParams",
     "ListWebhookDeliveriesParams",
     "LogInstrumentServiceParams",
@@ -195,6 +198,7 @@ __all__ = [
     "QuerySheetInstanceRowsParams",
     "QuerySheetInstanceRowsResult",
     "QueryStorageReadingsParams",
+    "QueryStructuresParams",
     "ReadSheetInstanceCalculationResultsParams",
     "ReagentOrderPricesRow",
     "ReagentOrdersRow",
@@ -210,11 +214,13 @@ __all__ = [
     "RecordStepsParams",
     "RecordStocktakeScanParams",
     "RecordStorageReadingsParams",
+    "RecordStructuresRow",
     "RecordsRow",
     "RecordsRowInsert",
     "RecordsRowPatch",
     "RecurringOccurrencesRow",
     "RecurringSchedulesRow",
+    "RegisterCompoundParams",
     "RegisterReplacementLotParams",
     "RegistryFindDuplicatesParams",
     "RemoveIdpGroupMappingParams",
@@ -264,6 +270,7 @@ __all__ = [
     "SetModelSupplierListParams",
     "SetReagentOrderPriceParams",
     "SetRecordFavouriteParams",
+    "SetRecordStructureParams",
     "SetRecurringSchedulePausedParams",
     "SetSampleWorkflowStatusParams",
     "SetScheduledReportActiveParams",
@@ -1789,6 +1796,23 @@ class RecordSpecResultsRow(TypedDict, total=False):
     verdict: Optional[str]
 
 
+class _RecordStructuresRowRequired(TypedDict):
+    record_id: str
+    workspace_id: str
+    kind: str
+    parent_code: str
+    drawn_code: str
+    salts: List[str]
+    created_at: str
+    updated_at: str
+
+
+class RecordStructuresRow(_RecordStructuresRowRequired, total=False):
+    """`api.record_structures` row (snake_case). The structure of a compound in a registry that takes structures: its parent (salts and solvents set aside), formula and mass. The drawing itself is in the entry’s structure field."""
+    formula: Optional[str]
+    mass: Optional[float]
+
+
 class _RecordsRowRequired(TypedDict):
     id: str
     workspace_id: str
@@ -2720,6 +2744,16 @@ class WebhookSubscriptionsRow(_WebhookSubscriptionsRowRequired, total=False):
     updated_by_credential_id: Optional[str]
 
 
+class _AddCompoundLotParamsRequired(TypedDict):
+    p_compound_id: str
+
+
+class AddCompoundLotParams(_AddCompoundLotParamsRequired, total=False):
+    p_project_id: str
+    p_title: str
+    p_custom_fields: Dict[str, "JsonValue"]
+
+
 class AddRecordsToLegalHoldParams(TypedDict):
     p_hold_id: str
     p_record_ids: List[str]
@@ -3062,6 +3096,16 @@ class EnrolSampleInWorkflowParams(TypedDict):
     p_workflow_id: str
 
 
+class _FindStructureDuplicatesParamsRequired(TypedDict):
+    p_kind: str
+    p_parent_code: str
+
+
+class FindStructureDuplicatesParams(_FindStructureDuplicatesParamsRequired, total=False):
+    p_drawn_code: str
+    p_exclude_id: str
+
+
 class FollowProjectParams(TypedDict):
     p_project_id: str
 
@@ -3123,6 +3167,10 @@ class _LeaveSampleWorkflowParamsRequired(TypedDict):
 
 class LeaveSampleWorkflowParams(_LeaveSampleWorkflowParamsRequired, total=False):
     p_notes: str
+
+
+class ListCompoundLotsParams(TypedDict):
+    p_compound_id: str
 
 
 class _ListInstrumentFeedSeriesParamsRequired(TypedDict):
@@ -3334,6 +3382,18 @@ class QueryStorageReadingsParams(TypedDict, total=False):
     p_limit: int
 
 
+class _QueryStructuresParamsRequired(TypedDict):
+    p_fingerprint: str
+
+
+class QueryStructuresParams(_QueryStructuresParamsRequired, total=False):
+    p_mode: str
+    p_kind: str
+    p_min_similarity: float
+    p_include_archived: bool
+    p_limit: int
+
+
 class ReadSheetInstanceCalculationResultsParams(TypedDict):
     p_instance_id: str
     p_row_keys: List[str]
@@ -3383,6 +3443,18 @@ class _RecordStorageReadingsParamsRequired(TypedDict):
 class RecordStorageReadingsParams(_RecordStorageReadingsParamsRequired, total=False):
     p_unit_id: str
     p_room_id: str
+
+
+class _RegisterCompoundParamsRequired(TypedDict):
+    p_project_id: str
+    p_kind: str
+    p_title: str
+    p_structure: Dict[str, "JsonValue"]
+
+
+class RegisterCompoundParams(_RegisterCompoundParamsRequired, total=False):
+    p_custom_fields: Dict[str, "JsonValue"]
+    p_allow_duplicate: bool
 
 
 class _RegisterReplacementLotParamsRequired(TypedDict):
@@ -3688,6 +3760,16 @@ class SetRecordFavouriteParams(TypedDict):
     p_object_kind: str
     p_object_id: str
     p_favourite: bool
+
+
+class _SetRecordStructureParamsRequired(TypedDict):
+    p_record_id: str
+    p_expected_metadata_version: int
+    p_structure: Dict[str, "JsonValue"]
+
+
+class SetRecordStructureParams(_SetRecordStructureParamsRequired, total=False):
+    p_allow_duplicate: bool
 
 
 class SetRecurringSchedulePausedParams(TypedDict):

@@ -69,6 +69,7 @@ from sheetbase._generated.models import (
     RecordLinksRowPatch,
     RecordModelsRow,
     RecordSpecResultsRow,
+    RecordStructuresRow,
     RecordsRow,
     RecordsRowInsert,
     RecordsRowPatch,
@@ -904,6 +905,24 @@ class AsyncRecordSpecResultsTable(AsyncReadableTable[RecordSpecResultsRow]):
     name = "record_spec_results"
 
 
+class RecordStructuresTable(ReadableTable[RecordStructuresRow]):
+    """
+    ``/api/db/record_structures`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "record_structures"
+
+
+class AsyncRecordStructuresTable(AsyncReadableTable[RecordStructuresRow]):
+    """
+    ``/api/db/record_structures`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "record_structures"
+
+
 class RecordsTable(
     ReadableTable[RecordsRow],
     InsertableTable[RecordsRow, RecordsRowInsert],
@@ -1427,6 +1446,7 @@ class Tables:
         "record_links",
         "record_models",
         "record_spec_results",
+        "record_structures",
         "records",
         "recurring_occurrences",
         "recurring_schedules",
@@ -1499,6 +1519,7 @@ class Tables:
         self.record_links = RecordLinksTable(transport)
         self.record_models = RecordModelsTable(transport)
         self.record_spec_results = RecordSpecResultsTable(transport)
+        self.record_structures = RecordStructuresTable(transport)
         self.records = RecordsTable(transport)
         self.recurring_occurrences = RecurringOccurrencesTable(transport)
         self.recurring_schedules = RecurringSchedulesTable(transport)
@@ -1582,6 +1603,7 @@ class AsyncTables:
         "record_links",
         "record_models",
         "record_spec_results",
+        "record_structures",
         "records",
         "recurring_occurrences",
         "recurring_schedules",
@@ -1654,6 +1676,7 @@ class AsyncTables:
         self.record_links = AsyncRecordLinksTable(transport)
         self.record_models = AsyncRecordModelsTable(transport)
         self.record_spec_results = AsyncRecordSpecResultsTable(transport)
+        self.record_structures = AsyncRecordStructuresTable(transport)
         self.records = AsyncRecordsTable(transport)
         self.recurring_occurrences = AsyncRecurringOccurrencesTable(transport)
         self.recurring_schedules = AsyncRecurringSchedulesTable(transport)

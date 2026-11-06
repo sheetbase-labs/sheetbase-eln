@@ -120,7 +120,7 @@ describe('PIPELINE_TRIGGER_EVENTS', () => {
           entry.name.startsWith('storage.alarm.')),
     ).map((entry) => entry.name)
     expect([...PIPELINE_TRIGGER_EVENTS].sort()).toEqual(expected.sort())
-    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(34)
+    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(37)
   })
 
   it('normalizes every triggerable name to itself', () => {

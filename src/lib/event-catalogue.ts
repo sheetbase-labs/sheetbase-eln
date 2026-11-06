@@ -1617,6 +1617,51 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     notes:
       'Payload carries blockId (the step), resultBlockId, label, recordId, identifier, title, stepNumber and step.',
   },
+  {
+    name: 'compound.registered',
+    family: 'record',
+    summary: 'A compound was registered by its structure.',
+    producer: {
+      entityType: 'compound',
+      operation: 'create',
+    },
+    wireName: 'compound.registered',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries recordId, identifier, kind, title, formula, mass, parentCode and salts.',
+  },
+  {
+    name: 'compound.structure_changed',
+    family: 'record',
+    summary: 'The structure of a registered compound was changed.',
+    producer: {
+      entityType: 'compound',
+      operation: 'update',
+    },
+    wireName: 'compound.structure_changed',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries recordId, identifier, kind, title, formula, mass, parentCode and salts.',
+  },
+  {
+    name: 'compound.lot_added',
+    family: 'record',
+    summary: 'A lot was added to a compound.',
+    producer: {
+      entityType: 'compound_lot',
+      operation: 'create',
+    },
+    wireName: 'compound.lot_added',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries recordId (the lot), identifier, compoundId, compound, title and kind.',
+  },
 ])
 
 /**
@@ -1792,6 +1837,9 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
   'step.completed': 'A protocol step is finished',
   'step.reopened': 'A protocol step is reopened',
   'step.result_added': 'A result is added to a protocol step',
+  'compound.registered': 'A compound is registered',
+  'compound.structure_changed': 'A compound’s structure is changed',
+  'compound.lot_added': 'A lot is added to a compound',
 })
 
 /**

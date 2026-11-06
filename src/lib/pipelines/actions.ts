@@ -268,6 +268,17 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
     ],
   ),
   definition(
+    'add_compound_lot',
+    t('data.pipelineActions.addCompoundLot'),
+    t('data.pipelineActions.addCompoundLotDescription'),
+    [
+      arg('p_compound_id', 'uuid'),
+      arg('p_project_id', 'uuid', false, true),
+      arg('p_title', 'text', false, true),
+      arg('p_custom_fields', 'jsonb', false, true),
+    ],
+  ),
+  definition(
     'commit_dataset_row_batch',
     t('data.pipelineActions.commitDatasetRows'),
     t('data.pipelineActions.commitValidatedRowBatch'),

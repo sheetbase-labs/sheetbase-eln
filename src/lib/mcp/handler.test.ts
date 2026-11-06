@@ -1268,3 +1268,90 @@ describe('MCP spend and usage reports', () => {
     })
   })
 })
+
+describe('MCP money proposals', () => {
+  const ORDER_ID = '00000000-0000-4000-8000-0000000000a1'
+  const INSTRUMENT_ID = '00000000-0000-4000-8000-0000000000a2'
+
+  it('offers the money proposals only with the facility write scope', async () => {
+    const names = async (scopes: Parameters<typeof context>[0]) =>
+      (
+        (await request('tools/list', {}, context(scopes)))?.result as {
+          tools: Array<{ name: string }>
+        }
+      ).tools.map((tool) => tool.name)
+    expect(await names(['agent_operations:write'])).not.toContain(
+      'sheetbase.reagent_order.mark_ordered',
+    )
+    expect(await names(['agent_operations:write', 'facility:write'])).toEqual(
+      expect.arrayContaining([
+        'sheetbase.reagent_order.mark_ordered',
+        'sheetbase.reagent_order.set_price',
+        'sheetbase.instrument_rate.set',
+      ]),
+    )
+  })
+
+  it('refuses a money proposal without the facility write scope', async () => {
+    const rpc = vi.fn(async () => ({})) as unknown as DataClient['rpc']
+    const response = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.reagent_order.set_price',
+        arguments: {
+          kind: 'reagent_order.set_price',
+          orderId: ORDER_ID,
+          totalPrice: null,
+        },
+      },
+      context(['agent_operations:write'], fakeClient({ rpc })),
+    )
+    expect(rpc).not.toHaveBeenCalled()
+    expect(response?.result).toMatchObject({ isError: true })
+  })
+
+  it('wraps a price and a rate in a proposal that a person approves', async () => {
+    const proposal = { id: 'proposal-money', approval_policy: 'human_required' }
+    const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
+    const ctx = context(
+      ['agent_operations:write', 'facility:write'],
+      fakeClient({ rpc }),
+    )
+    const priced = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.reagent_order.mark_ordered',
+        arguments: {
+          kind: 'reagent_order.mark_ordered',
+          orderId: ORDER_ID,
+          totalPrice: 64.5,
+          currency: 'GBP',
+        },
+      },
+      ctx,
+    )
+    expect(priced?.result).toMatchObject({ structuredContent: proposal })
+    const rated = await request(
+      'tools/call',
+      {
+        name: 'sheetbase.instrument_rate.set',
+        arguments: {
+          kind: 'instrument_rate.set',
+          instrumentId: INSTRUMENT_ID,
+          ratePerHour: null,
+        },
+      },
+      ctx,
+    )
+    expect(rated?.result).toMatchObject({ structuredContent: proposal })
+    expect(rpc).toHaveBeenCalledWith(
+      'propose_agent_operation',
+      expect.objectContaining({
+        p_operation: expect.objectContaining({
+          kind: 'reagent_order.mark_ordered',
+          currency: 'GBP',
+        }),
+      }),
+    )
+  })
+})

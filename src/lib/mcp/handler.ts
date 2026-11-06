@@ -134,6 +134,9 @@ const OPERATION_WRITE_SCOPE = {
   'model_field.create': 'models:write',
   'model_field.update': 'models:write',
   'model_field.activate': 'models:write',
+  'reagent_order.mark_ordered': 'facility:write',
+  'reagent_order.set_price': 'facility:write',
+  'instrument_rate.set': 'facility:write',
   'workspace_ai_settings.update': 'admin:write',
 } satisfies Record<AgentOperation['kind'], Scope>
 

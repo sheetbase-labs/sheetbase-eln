@@ -18,6 +18,7 @@ __all__ = [
     "AgentOperationDatasetRowsCommit",
     "AgentOperationDatasetSchemaCreate",
     "AgentOperationEventsRow",
+    "AgentOperationInstrumentRateSet",
     "AgentOperationModelFieldActivate",
     "AgentOperationModelFieldCreate",
     "AgentOperationModelFieldUpdate",
@@ -29,6 +30,8 @@ __all__ = [
     "AgentOperationPipelineDefinitionCreateVersion",
     "AgentOperationPipelineDefinitionUpdateDraft",
     "AgentOperationProposalsRow",
+    "AgentOperationReagentOrderMarkOrdered",
+    "AgentOperationReagentOrderSetPrice",
     "AgentOperationRecordCommentCreate",
     "AgentOperationRecordCreate",
     "AgentOperationRecordCustomFieldsUpdate",
@@ -589,6 +592,40 @@ class AgentOperationModelFieldActivate(TypedDict):
     definitionId: str
 
 
+class _AgentOperationReagentOrderMarkOrderedRequired(TypedDict):
+    kind: Literal["reagent_order.mark_ordered"]
+    orderId: str
+
+
+class AgentOperationReagentOrderMarkOrdered(_AgentOperationReagentOrderMarkOrderedRequired, total=False):
+    orderReference: str
+    expectedOn: str
+    supplier: str
+    supplierRecordId: str
+    totalPrice: float
+    currency: str
+
+
+class _AgentOperationReagentOrderSetPriceRequired(TypedDict):
+    kind: Literal["reagent_order.set_price"]
+    orderId: str
+    totalPrice: Optional[float]
+
+
+class AgentOperationReagentOrderSetPrice(_AgentOperationReagentOrderSetPriceRequired, total=False):
+    currency: str
+
+
+class _AgentOperationInstrumentRateSetRequired(TypedDict):
+    kind: Literal["instrument_rate.set"]
+    instrumentId: str
+    ratePerHour: Optional[float]
+
+
+class AgentOperationInstrumentRateSet(_AgentOperationInstrumentRateSetRequired, total=False):
+    currency: str
+
+
 class _AgentOperationSheetInstanceMaterializeRequired(TypedDict):
     kind: Literal["sheet_instance.materialize"]
     instanceId: str
@@ -616,7 +653,7 @@ class AgentOperationWorkspaceAiSettingsUpdate(_AgentOperationWorkspaceAiSettings
 
 
 # One bounded canonical operation. The server validates the complete operation and target before creating a proposal.
-AgentOperation = Union["AgentOperationDatasetSchemaCreate", "AgentOperationSheetDefinitionCreate", "AgentOperationSheetDefinitionUpdateDraft", "AgentOperationPipelineDefinitionCreate", "AgentOperationPipelineDefinitionCreateVersion", "AgentOperationPipelineDefinitionUpdateDraft", "AgentOperationDatasetRowsCommit", "AgentOperationNotebookBlockInsert", "AgentOperationNotebookBlockUpdate", "AgentOperationNotebookBlockMove", "AgentOperationNotebookBlockDelete", "AgentOperationRecordCreate", "AgentOperationRecordCustomFieldsUpdate", "AgentOperationSheetInstanceCreate", "AgentOperationSheetInstanceUpdate", "AgentOperationSheetInstanceArchive", "AgentOperationSheetInstanceRestore", "AgentOperationTemplateInstantiate", "AgentOperationTemplateUpgrade", "AgentOperationRecordCommentCreate", "AgentOperationModelFieldCreate", "AgentOperationModelFieldUpdate", "AgentOperationModelFieldActivate", "AgentOperationSheetInstanceMaterialize", "AgentOperationWorkspaceAiSettingsUpdate"]
+AgentOperation = Union["AgentOperationDatasetSchemaCreate", "AgentOperationSheetDefinitionCreate", "AgentOperationSheetDefinitionUpdateDraft", "AgentOperationPipelineDefinitionCreate", "AgentOperationPipelineDefinitionCreateVersion", "AgentOperationPipelineDefinitionUpdateDraft", "AgentOperationDatasetRowsCommit", "AgentOperationNotebookBlockInsert", "AgentOperationNotebookBlockUpdate", "AgentOperationNotebookBlockMove", "AgentOperationNotebookBlockDelete", "AgentOperationRecordCreate", "AgentOperationRecordCustomFieldsUpdate", "AgentOperationSheetInstanceCreate", "AgentOperationSheetInstanceUpdate", "AgentOperationSheetInstanceArchive", "AgentOperationSheetInstanceRestore", "AgentOperationTemplateInstantiate", "AgentOperationTemplateUpgrade", "AgentOperationRecordCommentCreate", "AgentOperationModelFieldCreate", "AgentOperationModelFieldUpdate", "AgentOperationModelFieldActivate", "AgentOperationReagentOrderMarkOrdered", "AgentOperationReagentOrderSetPrice", "AgentOperationInstrumentRateSet", "AgentOperationSheetInstanceMaterialize", "AgentOperationWorkspaceAiSettingsUpdate"]
 
 
 class _AgentOperationEventsRowRequired(TypedDict):
@@ -640,7 +677,7 @@ class _AgentOperationProposalsRowRequired(TypedDict):
     workspace_id: str
     title: str
     summary: str
-    operation_kind: Literal["dataset_schema.create", "sheet_definition.create", "sheet_definition.update_draft", "pipeline_definition.create", "pipeline_definition.create_version", "pipeline_definition.update_draft", "dataset_rows.commit", "notebook_block.insert", "notebook_block.update", "notebook_block.move", "notebook_block.delete", "record.create", "record.custom_fields.update", "sheet_instance.create", "sheet_instance.update", "sheet_instance.archive", "sheet_instance.restore", "template.instantiate", "template.upgrade", "record.comment.create", "model_field.create", "model_field.update", "model_field.activate", "sheet_instance.materialize", "workspace_ai_settings.update"]
+    operation_kind: Literal["dataset_schema.create", "sheet_definition.create", "sheet_definition.update_draft", "pipeline_definition.create", "pipeline_definition.create_version", "pipeline_definition.update_draft", "dataset_rows.commit", "notebook_block.insert", "notebook_block.update", "notebook_block.move", "notebook_block.delete", "record.create", "record.custom_fields.update", "sheet_instance.create", "sheet_instance.update", "sheet_instance.archive", "sheet_instance.restore", "template.instantiate", "template.upgrade", "record.comment.create", "model_field.create", "model_field.update", "model_field.activate", "reagent_order.mark_ordered", "reagent_order.set_price", "instrument_rate.set", "sheet_instance.materialize", "workspace_ai_settings.update"]
     operation: "AgentOperation"
     preview: Dict[str, "JsonValue"]
     impact: Dict[str, "JsonValue"]

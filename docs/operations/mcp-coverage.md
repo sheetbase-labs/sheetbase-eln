@@ -50,17 +50,18 @@ out of the response.
 
 ## Change coverage
 
-| Family             | What an agent can propose                                                                              | Still human                                                |
-| ------------------ | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| Records            | Create a record; update custom fields                                                                  | Archive/restore, transition status, lock                   |
-| Datasets           | Schema draft, row commit                                                                               | Publish a schema, archive/restore                          |
-| Sheets             | Sheet Definition draft/update; create, update, archive or restore an Instance; materialise an Instance | Publish, upgrade                                           |
-| Pipelines          | Definition draft, version draft, draft update                                                          | Start, retry, cancel, publish                              |
-| Notebooks          | Insert, update, move or delete one block (always human approval)                                       | Submit, sign, amend                                        |
-| Templates          | Instantiate an active protocol template; upgrade a notebook                                            | Create, instantiate a notebook template version            |
-| Models             | Update custom fields; create/update/activate model fields                                              | Publish model-field changes, retire                        |
-| Administration     | Workspace AI settings only                                                                             | Members/invites, connectors, schedules, credentials, flags |
-| Signing and review | Nothing                                                                                                | Submit, sign, review decision, publication                 |
+| Family             | What an agent can propose                                                                                    | Still human                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| Records            | Create a record; update custom fields                                                                        | Archive/restore, transition status, lock                   |
+| Datasets           | Schema draft, row commit                                                                                     | Publish a schema, archive/restore                          |
+| Sheets             | Sheet Definition draft/update; create, update, archive or restore an Instance; materialise an Instance       | Publish, upgrade                                           |
+| Pipelines          | Definition draft, version draft, draft update                                                                | Start, retry, cancel, publish                              |
+| Notebooks          | Insert, update, move or delete one block (always human approval)                                             | Submit, sign, amend                                        |
+| Templates          | Instantiate an active protocol template; upgrade a notebook                                                  | Create, instantiate a notebook template version            |
+| Models             | Update custom fields; create/update/activate model fields                                                    | Publish model-field changes, retire                        |
+| Money              | Mark a reagent order placed; set or clear an order price; set or clear an instrument rate (`facility:write`) | Spend and usage reports are read-only tools                |
+| Administration     | Workspace AI settings only                                                                                   | Members/invites, connectors, schedules, credentials, flags |
+| Signing and review | Nothing                                                                                                      | Submit, sign, review decision, publication                 |
 
 `sheetbase.notebook_block.insert` inserts through the canonical `api.insert_block`
 RPC and records the record's `structureVersion` as the expected revision. The
@@ -77,6 +78,12 @@ RPCs. They are always `human_required`; no delegation policy is offered for
 them yet. Materialisation requires the digest from
 `sheetbase.sheet_instance.materialization_preview`; the contract recomputes it,
 so the approval is bound to the composition the agent saw.
+
+`sheetbase.reagent_order.mark_ordered`, `.set_price` and `sheetbase.instrument_rate.set`
+delegate to `api.mark_reagent_ordered`, `api.set_reagent_order_price` and
+`api.set_instrument_rate`. They are always `human_required`. MCP needs
+`facility:write` as well as `agent_operations:write`, and the preview shows the
+price on file only to someone who may see prices.
 
 `sheetbase.workspace_ai_settings.update` is always `human_required`; approval
 and execution need a live owner browser session.

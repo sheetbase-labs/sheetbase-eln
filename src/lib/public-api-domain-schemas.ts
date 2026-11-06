@@ -2172,6 +2172,43 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
       },
       {
         type: 'object',
+        required: ['kind', 'orderId'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'reagent_order.mark_ordered' },
+          orderId: UUID,
+          orderReference: TEXT,
+          expectedOn: { ...TEXT, format: 'date' },
+          supplier: TEXT,
+          supplierRecordId: UUID,
+          totalPrice: { type: 'number', minimum: 0 },
+          currency: { ...TEXT, pattern: '^[A-Z]{3}$' },
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'orderId', 'totalPrice'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'reagent_order.set_price' },
+          orderId: UUID,
+          totalPrice: { type: 'number', minimum: 0, nullable: true },
+          currency: { ...TEXT, pattern: '^[A-Z]{3}$' },
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'instrumentId', 'ratePerHour'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'instrument_rate.set' },
+          instrumentId: UUID,
+          ratePerHour: { type: 'number', minimum: 0, nullable: true },
+          currency: { ...TEXT, pattern: '^[A-Z]{3}$' },
+        },
+      },
+      {
+        type: 'object',
         required: [
           'kind',
           'instanceId',

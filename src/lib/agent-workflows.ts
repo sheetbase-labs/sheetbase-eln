@@ -292,7 +292,10 @@ export function workflowStepRiskClass(step: {
     step.operation.kind === 'record.comment.create' ||
     step.operation.kind === 'model_field.create' ||
     step.operation.kind === 'model_field.update' ||
-    step.operation.kind === 'model_field.activate'
+    step.operation.kind === 'model_field.activate' ||
+    step.operation.kind === 'reagent_order.mark_ordered' ||
+    step.operation.kind === 'reagent_order.set_price' ||
+    step.operation.kind === 'instrument_rate.set'
     ? 'consequential_write'
     : 'safe_draft'
 }

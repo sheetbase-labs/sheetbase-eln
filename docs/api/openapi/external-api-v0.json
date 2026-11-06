@@ -47951,6 +47951,91 @@
           },
           {
             "type": "object",
+            "required": ["kind", "orderId"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "reagent_order.mark_ordered"
+              },
+              "orderId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "orderReference": {
+                "type": "string"
+              },
+              "expectedOn": {
+                "type": "string",
+                "format": "date"
+              },
+              "supplier": {
+                "type": "string"
+              },
+              "supplierRecordId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "totalPrice": {
+                "type": "number",
+                "minimum": 0
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "orderId", "totalPrice"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "reagent_order.set_price"
+              },
+              "orderId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "totalPrice": {
+                "type": "number",
+                "minimum": 0,
+                "nullable": true
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "instrumentId", "ratePerHour"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "instrument_rate.set"
+              },
+              "instrumentId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "ratePerHour": {
+                "type": "number",
+                "minimum": 0,
+                "nullable": true
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              }
+            }
+          },
+          {
+            "type": "object",
             "required": [
               "kind",
               "instanceId",
@@ -49925,6 +50010,9 @@
               "model_field.create",
               "model_field.update",
               "model_field.activate",
+              "reagent_order.mark_ordered",
+              "reagent_order.set_price",
+              "instrument_rate.set",
               "sheet_instance.materialize",
               "workspace_ai_settings.update"
             ]

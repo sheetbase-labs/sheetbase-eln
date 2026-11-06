@@ -204,6 +204,9 @@ export const MCP_ONLY_OPERATION_TOOL_NAMES = [
   'sheetbase.model_field.create',
   'sheetbase.model_field.update',
   'sheetbase.model_field.activate',
+  'sheetbase.reagent_order.mark_ordered',
+  'sheetbase.reagent_order.set_price',
+  'sheetbase.instrument_rate.set',
   'sheetbase.workspace_ai_settings.update',
 ] as const
 
@@ -1064,6 +1067,94 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       .object({
         kind: z.literal('model_field.activate'),
         definitionId: uuid,
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
+  }),
+  operationEntry({
+    name: 'sheetbase.reagent_order.mark_ordered',
+    mode: 'draft',
+    description:
+      'Mark one requested reagent order as placed with a supplier, with an optional price and currency, via proposal. Money write: always requires human approval. Money is per currency; a price needs its currency.',
+    operationKind: 'reagent_order.mark_ordered',
+    rpc: 'mark_reagent_ordered',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'schema.edit',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires facility:write. The canonical RPC needs the standing to place orders.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('reagent_order.mark_ordered'),
+        orderId: uuid,
+        orderReference: z.string().min(1).max(200).optional(),
+        expectedOn: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
+        supplier: z.string().min(1).max(200).optional(),
+        supplierRecordId: uuid.optional(),
+        totalPrice: z.number().min(0).optional(),
+        currency: z
+          .string()
+          .regex(/^[A-Z]{3}$/)
+          .optional(),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
+  }),
+  operationEntry({
+    name: 'sheetbase.reagent_order.set_price',
+    mode: 'draft',
+    description:
+      'Set or clear the price of one reagent order via proposal (a null totalPrice clears it). Money write: always requires human approval. The price on file is shown only to people who may see prices.',
+    operationKind: 'reagent_order.set_price',
+    rpc: 'set_reagent_order_price',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'schema.edit',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires facility:write. The canonical RPC needs the standing to place orders.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('reagent_order.set_price'),
+        orderId: uuid,
+        totalPrice: z.number().min(0).nullable(),
+        currency: z
+          .string()
+          .regex(/^[A-Z]{3}$/)
+          .optional(),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
+  }),
+  operationEntry({
+    name: 'sheetbase.instrument_rate.set',
+    mode: 'draft',
+    description:
+      'Set or clear the recharge rate per hour of one instrument via proposal (a null ratePerHour clears it). Money write: always requires human approval.',
+    operationKind: 'instrument_rate.set',
+    rpc: 'set_instrument_rate',
+    via: 'propose_agent_operation',
+    capability: {
+      scopes: ['agent_operations:write'],
+      permission: 'instrument.manage',
+      actor: 'workspace_write_actor',
+      note: 'Proposing needs agent_operations:write; MCP additionally requires facility:write. The canonical RPC needs the standing to manage instruments.',
+    },
+    inputSchema: z
+      .object({
+        kind: z.literal('instrument_rate.set'),
+        instrumentId: uuid,
+        ratePerHour: z.number().min(0).nullable(),
+        currency: z
+          .string()
+          .regex(/^[A-Z]{3}$/)
+          .optional(),
       })
       .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],

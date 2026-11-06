@@ -65,6 +65,20 @@ export async function runPlanningAction(
         ...(action.unit !== null ? { p_unit: action.unit } : {}),
       })
       return undefined
+    case 'series.add':
+      await client.rpc('add_series_member', {
+        p_series_record_id: action.seriesRecordId,
+        p_member_record_id: action.memberRecordId,
+        ...(action.plannedOn !== null
+          ? { p_planned_on: action.plannedOn }
+          : {}),
+      })
+      return { openHref: `/experiments/${action.seriesRecordId}/series` }
+    case 'series.remove':
+      await client.rpc('remove_series_member', {
+        p_member_record_id: action.memberRecordId,
+      })
+      return undefined
     case 'shipment.create': {
       const made = await createShipment(client, action.input)
       if (action.markSent) {

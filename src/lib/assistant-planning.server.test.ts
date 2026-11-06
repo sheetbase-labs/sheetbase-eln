@@ -4,6 +4,7 @@ import { instantFromLocal } from './assistant-booking'
 import {
   buildPlanningProposal,
   readInbox,
+  readSeries,
   readSteps,
 } from './assistant-planning.server'
 import type { LabToolContext } from './assistant-lab-tools.server'
@@ -44,6 +45,8 @@ function fakeClient(
     shipments?: Array<Record<string, unknown>>
     shipmentItems?: Array<Record<string, unknown>>
     steps?: Array<Record<string, unknown>>
+    membership?: Record<string, Record<string, unknown>>
+    seriesMembers?: Array<Record<string, unknown>>
   } = {},
 ) {
   const client = {
@@ -85,8 +88,17 @@ function fakeClient(
           return Promise.resolve([])
       }
     },
-    rpc: (name: string) => {
+    rpc: (name: string, args?: Record<string, unknown>) => {
       if (name === 'record_steps') return Promise.resolve(data.steps ?? [])
+      if (name === 'record_series') {
+        const row = data.membership?.[String(args?.p_record_id)]
+        return Promise.resolve(row ? [row] : [])
+      }
+      if (name === 'series_members')
+        return Promise.resolve(data.seriesMembers ?? [])
+      if (name === 'series_rollup') {
+        return Promise.resolve({ total: 2, approved: 1, samples: 3 })
+      }
       if (name === 'workspace_members_list') {
         return Promise.resolve([
           { user_id: 'user-me', name: 'Gareth P' },
@@ -576,5 +588,129 @@ describe('steps', () => {
       context(fakeClient({ steps: [] })),
     )
     expect(!empty.ok && empty.message).toContain('no protocol steps')
+  })
+})
+
+describe('a series of experiments', () => {
+  const head = {
+    ...experiment,
+    id: 'exp-0142',
+    identifier: 'EXP-0142',
+    title: 'Cell viability assay',
+  }
+  const run = {
+    ...experiment,
+    id: 'exp-0145',
+    identifier: 'EXP-0145',
+    title: 'Dose',
+  }
+  const membership = {
+    series_record_id: 'exp-0142',
+    series_identifier: 'EXP-0142',
+    series_title: 'Cell viability assay',
+    member_number: 3,
+    member_total: 5,
+  }
+  const seriesMembers = [
+    {
+      member_record_id: 'exp-0143',
+      member_number: 1,
+      identifier: 'EXP-0143',
+      title: 'Seed cells',
+      status: 'approved',
+      owner_user_id: 'user-me',
+      reviewer_user_id: null,
+      planned_on: '2026-11-02',
+      day_offset: 0,
+      steps_total: 3,
+      steps_done: 3,
+      sample_count: 12,
+    },
+  ]
+
+  it('reads where an experiment sits and the members in order', async () => {
+    const read = await readSeries(
+      { record: 'EXP-0145' },
+      context(
+        fakeClient({
+          records: [head, run],
+          membership: { 'exp-0145': membership },
+          seriesMembers,
+        }),
+      ),
+    )
+    expect(read.isError).toBe(false)
+    const body = JSON.parse(read.text)
+    expect(body).toMatchObject({
+      series: 'EXP-0142 · Cell viability assay',
+      position: '3 of 5',
+      open: '/experiments/exp-0142/series',
+    })
+    expect(body.members[0]).toMatchObject({
+      number: 1,
+      status: 'approved',
+      owner: 'Gareth P',
+      stepsDone: 3,
+    })
+  })
+
+  it('says so when an experiment is in no series', async () => {
+    const read = await readSeries({ record: 'EXP-12' }, context(fakeClient()))
+    expect(read.isError).toBe(false)
+    expect(read.text).toContain('not in a series')
+  })
+
+  it('proposes adding an experiment, and refuses one already in a series', async () => {
+    const built = await buildPlanningProposal(
+      'sheetbase.series.add_member',
+      {
+        title: 'Add Dose to the assay',
+        summary: 's',
+        series: 'EXP-0142',
+        experiment: 'EXP-0145',
+        plannedOn: '2026-11-05',
+      },
+      context(fakeClient({ records: [head, run] })),
+    )
+    expect(built.ok && built.proposal.action).toEqual({
+      kind: 'series.add',
+      seriesRecordId: 'exp-0142',
+      memberRecordId: 'exp-0145',
+      plannedOn: '2026-11-05',
+    })
+    const taken = await buildPlanningProposal(
+      'sheetbase.series.add_member',
+      { title: 't', summary: 's', series: 'EXP-0142', experiment: 'EXP-0145' },
+      context(
+        fakeClient({
+          records: [head, run],
+          membership: { 'exp-0145': membership },
+        }),
+      ),
+    )
+    expect(!taken.ok && taken.message).toContain('already in EXP-0142')
+  })
+
+  it('proposes taking an experiment out, and says when it is in none', async () => {
+    const built = await buildPlanningProposal(
+      'sheetbase.series.remove_member',
+      { title: 'Take Dose out', summary: 's', experiment: 'EXP-0145' },
+      context(
+        fakeClient({
+          records: [head, run],
+          membership: { 'exp-0145': membership },
+        }),
+      ),
+    )
+    expect(built.ok && built.proposal.action).toEqual({
+      kind: 'series.remove',
+      memberRecordId: 'exp-0145',
+    })
+    const none = await buildPlanningProposal(
+      'sheetbase.series.remove_member',
+      { title: 't', summary: 's', experiment: 'EXP-0145' },
+      context(fakeClient({ records: [head, run] })),
+    )
+    expect(!none.ok && none.message).toContain('not in a series')
   })
 })

@@ -127,6 +127,16 @@ export const notebook = {
         applying: 'Adding…',
         applied: 'Result added',
       },
+      addToSeries: {
+        apply: 'Add to series',
+        applying: 'Adding…',
+        applied: 'Added to series',
+      },
+      removeFromSeries: {
+        apply: 'Take out',
+        applying: 'Removing…',
+        applied: 'Taken out of series',
+      },
       sendShipment: { apply: 'Send', applying: 'Sending…', applied: 'Sent' },
       createProject: {
         apply: 'Create project',

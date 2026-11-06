@@ -194,6 +194,9 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   instrument_rates: { read: 'facility:read' },
   reagent_order_prices: { read: 'facility:read' },
   scheduled_reports: { read: 'facility:read' },
+  // Trusted timestamps kept beside signatures. Read only; stamping is the
+  // server's job.
+  signature_timestamps: { read: 'reviews:read' },
 }
 
 /**
@@ -216,6 +219,13 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
   // secret must reach a human, once), so only revoking is on the API.
   revoke_scim_token: ['people:write'],
   directory_sync_status: ['people:read'],
+
+  // Trusted timestamps. Choosing the service changes where fingerprints are
+  // sent, so it needs an admin's personal token; a credential can read.
+  timestamp_settings: ['admin:read'],
+  set_timestamp_settings: ['admin:write'],
+  request_signature_timestamp: ['reviews:write'],
+  workspace_signing_key: ['reviews:read'],
 
   create_project: ['projects:write'],
   create_record: ['projects:write'],

@@ -138,6 +138,8 @@ export const LAB_AREAS = {
     'Plate runs: readings checked against their own controls, with quality (Z-prime), hits and status',
   worklists:
     'Worklists for liquid handlers made from plate runs, and whether they are done',
+  timestamps:
+    'Trusted timestamps on signatures: which are stamped, waiting or gave up (openOnly: only those not yet stamped)',
   safety:
     'Chemical safety information on materials: hazard pictograms, signal word and hazard statements',
   directory_sync:
@@ -701,6 +703,7 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   readings: 'limit_state=neq.ok',
   plate_runs: 'status=neq.archived',
   worklists: 'status=eq.planned',
+  timestamps: 'status=neq.stamped',
   sample_workflows: 'status=eq.active',
   directory_sync: 'revoked_at=is.null',
 }
@@ -833,6 +836,14 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'updated_at.desc',
     search: [],
     page: '/materials',
+  },
+  timestamps: {
+    table: 'signature_timestamps',
+    select:
+      'id,signature_id,revision_id,status,authority_name,gen_time,attempts,last_error,created_at',
+    order: 'created_at.desc',
+    search: ['authority_name'],
+    page: '/settings/workspace/audit',
   },
   retention_rules: {
     table: 'retention_rules',

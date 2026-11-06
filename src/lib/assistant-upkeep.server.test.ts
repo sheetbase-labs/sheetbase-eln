@@ -575,3 +575,114 @@ describe('people and continuity cards', () => {
     ])
   })
 })
+
+describe('trusted timestamp cards', () => {
+  const withSettings = (rows: Rows, settings: unknown) => {
+    const made = context(rows)
+    ;(made.ctx.client as unknown as { rpc: unknown }).rpc = () =>
+      Promise.resolve(settings)
+    return made
+  }
+
+  it('proposes choosing a service and turning it off, and asks a custom one for its address', async () => {
+    const { ctx } = withSettings(
+      {},
+      { enabled: false, authority: null, url: null },
+    )
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.timestamps.set',
+        { ...base, service: 'dfn' },
+        ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: {
+        action: { kind: 'timestamps.set', service: 'dfn', address: null },
+        changes: [{ before: 'Off', after: 'DFN-Verein' }],
+      },
+    })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.timestamps.set',
+        { ...base, service: 'custom' },
+        ctx,
+      ),
+    ).toMatchObject({ ok: false })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.timestamps.set',
+        { ...base, service: 'custom', address: 'https://tsa.lab.test/tsr' },
+        ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: {
+        action: { service: 'custom', address: 'https://tsa.lab.test/tsr' },
+      },
+    })
+  })
+
+  it('proposes trying again only for a signature that has not been stamped', async () => {
+    const sig = '44444444-4444-4444-8444-444444444444'
+    const gaveUp = context({
+      signature_timestamps: [
+        { signature_id: sig, status: 'failed', attempts: 6 },
+      ],
+    })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.timestamps.retry',
+        { ...base, signatureId: sig },
+        gaveUp.ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: { action: { kind: 'timestamps.retry', signatureId: sig } },
+    })
+    const stamped = context({
+      signature_timestamps: [
+        { signature_id: sig, status: 'stamped', attempts: 1 },
+      ],
+    })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.timestamps.retry',
+        { ...base, signatureId: sig },
+        stamped.ctx,
+      ),
+    ).toMatchObject({ ok: false })
+  })
+
+  it('runs the cards through the ordinary RPCs', async () => {
+    const calls: Array<[string, Record<string, unknown>]> = []
+    const client = {
+      rpc: (name: string, args: Record<string, unknown>) => {
+        calls.push([name, args])
+        return Promise.resolve({})
+      },
+    } as unknown as DataClient
+    await runUpkeepAction(client, {
+      kind: 'timestamps.set',
+      workspaceId: WS,
+      service: 'off',
+      address: null,
+    })
+    await runUpkeepAction(client, {
+      kind: 'timestamps.retry',
+      signatureId: 'sig',
+    })
+    expect(calls).toEqual([
+      [
+        'set_timestamp_settings',
+        {
+          p_workspace_id: WS,
+          p_enabled: false,
+          p_authority: null,
+          p_url: null,
+        },
+      ],
+      ['request_signature_timestamp', { p_signature_id: 'sig' }],
+    ])
+  })
+})

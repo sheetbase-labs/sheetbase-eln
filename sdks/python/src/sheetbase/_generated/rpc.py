@@ -59,6 +59,7 @@ from sheetbase._generated.models import (
     SheetRecordBatchValidateResult,
     SheetRecordWriteTarget,
     ShipmentsRow,
+    SignatureTimestampsRow,
     StepTimersRow,
     StocktakeItemsRow,
     StocktakesRow,
@@ -192,6 +193,7 @@ class Rpc:
         "report_spend_lines",
         "report_usage_lines",
         "request_reagent_order",
+        "request_signature_timestamp",
         "resolve_sheet_instance_row_identity",
         "resolve_stocktake_item",
         "restore_dataset",
@@ -225,11 +227,13 @@ class Rpc:
         "set_scheduled_report_active",
         "set_series_member_day",
         "set_step_done",
+        "set_timestamp_settings",
         "snapshot_dataset",
         "start_experiment_series",
         "start_step_timer",
         "start_stocktake",
         "submit_request",
+        "timestamp_settings",
         "transition_record_status",
         "unfollow_project",
         "update_block_payload",
@@ -242,6 +246,7 @@ class Rpc:
         "update_webhook_subscription",
         "validate_dataset_row_batch",
         "validate_sheet_record_batch",
+        "workspace_signing_key",
     )
 
     def __init__(self, transport: HttpTransport) -> None:
@@ -2814,6 +2819,24 @@ class Rpc:
             body["p_note"] = note
         return self._call("request_reagent_order", body)  # type: ignore[no-any-return]
 
+    def request_signature_timestamp(
+        self,
+        *,
+        signature_id: str,
+    ) -> Union["SignatureTimestampsRow", List["SignatureTimestampsRow"]]:
+        """
+        Ask for a signature to be timestamped again
+
+        Needs audit access. Queues a signature whose timestamp is missing or gave up; the server asks the service within a minute. A signature already stamped is left as it is.
+
+        Scopes: reviews:write.
+
+        ``POST /api/db/rpc/request_signature_timestamp``
+        """
+        body: Dict[str, Any] = {}
+        body["p_signature_id"] = signature_id
+        return self._call("request_signature_timestamp", body)  # type: ignore[no-any-return]
+
     def resolve_sheet_instance_row_identity(
         self,
         *,
@@ -3588,6 +3611,32 @@ class Rpc:
             body["p_note"] = note
         return self._call("set_step_done", body)  # type: ignore[no-any-return]
 
+    def set_timestamp_settings(
+        self,
+        *,
+        workspace_id: str,
+        enabled: bool,
+        authority: Union[Optional[str], Unset] = UNSET,
+        url: Union[Optional[str], Unset] = UNSET,
+    ) -> Dict[str, Any]:
+        """
+        Choose the time-stamping service
+
+        Needs audit access and a personal token. `dfn` and `digicert` use the services named; `custom` needs the address of an RFC 3161 service. Turning it on sends a fingerprint of each new signature to that service.
+
+        Scopes: admin:write.
+
+        ``POST /api/db/rpc/set_timestamp_settings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_enabled"] = enabled
+        if not isinstance(authority, Unset):
+            body["p_authority"] = authority
+        if not isinstance(url, Unset):
+            body["p_url"] = url
+        return self._call("set_timestamp_settings", body)  # type: ignore[no-any-return]
+
     def snapshot_dataset(
         self,
         *,
@@ -3696,6 +3745,20 @@ class Rpc:
         if not isinstance(note, Unset):
             body["p_note"] = note
         return self._call("submit_request", body)  # type: ignore[no-any-return]
+
+    def timestamp_settings(self, *, workspace_id: str) -> Dict[str, Any]:
+        """
+        Read the time-stamping service
+
+        Which independent time-stamping service signatures are sent to for a trusted timestamp, if any. Only a SHA-256 fingerprint of each signature record is sent.
+
+        Scopes: admin:read.
+
+        ``POST /api/db/rpc/timestamp_settings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return self._call("timestamp_settings", body)  # type: ignore[no-any-return]
 
     def transition_record_status(
         self,
@@ -4003,6 +4066,20 @@ class Rpc:
         body["p_rows"] = rows
         return self._call("validate_sheet_record_batch", body)  # type: ignore[no-any-return]
 
+    def workspace_signing_key(self, *, workspace_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Read the key that signs export bundles
+
+        The public half of the workspace’s Ed25519 export key and its fingerprint, or null before the first signed bundle is downloaded. Compare the fingerprint with the one inside a bundle.
+
+        Scopes: reviews:read.
+
+        ``POST /api/db/rpc/workspace_signing_key``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return self._call("workspace_signing_key", body)  # type: ignore[no-any-return]
+
 
 class AsyncRpc:
     """Async counterpart of :class:`Rpc`."""
@@ -4116,6 +4193,7 @@ class AsyncRpc:
         "report_spend_lines",
         "report_usage_lines",
         "request_reagent_order",
+        "request_signature_timestamp",
         "resolve_sheet_instance_row_identity",
         "resolve_stocktake_item",
         "restore_dataset",
@@ -4149,11 +4227,13 @@ class AsyncRpc:
         "set_scheduled_report_active",
         "set_series_member_day",
         "set_step_done",
+        "set_timestamp_settings",
         "snapshot_dataset",
         "start_experiment_series",
         "start_step_timer",
         "start_stocktake",
         "submit_request",
+        "timestamp_settings",
         "transition_record_status",
         "unfollow_project",
         "update_block_payload",
@@ -4166,6 +4246,7 @@ class AsyncRpc:
         "update_webhook_subscription",
         "validate_dataset_row_batch",
         "validate_sheet_record_batch",
+        "workspace_signing_key",
     )
 
     def __init__(self, transport: AsyncHttpTransport) -> None:
@@ -6738,6 +6819,24 @@ class AsyncRpc:
             body["p_note"] = note
         return await self._call("request_reagent_order", body)  # type: ignore[no-any-return]
 
+    async def request_signature_timestamp(
+        self,
+        *,
+        signature_id: str,
+    ) -> Union["SignatureTimestampsRow", List["SignatureTimestampsRow"]]:
+        """
+        Ask for a signature to be timestamped again
+
+        Needs audit access. Queues a signature whose timestamp is missing or gave up; the server asks the service within a minute. A signature already stamped is left as it is.
+
+        Scopes: reviews:write.
+
+        ``POST /api/db/rpc/request_signature_timestamp``
+        """
+        body: Dict[str, Any] = {}
+        body["p_signature_id"] = signature_id
+        return await self._call("request_signature_timestamp", body)  # type: ignore[no-any-return]
+
     async def resolve_sheet_instance_row_identity(
         self,
         *,
@@ -7512,6 +7611,32 @@ class AsyncRpc:
             body["p_note"] = note
         return await self._call("set_step_done", body)  # type: ignore[no-any-return]
 
+    async def set_timestamp_settings(
+        self,
+        *,
+        workspace_id: str,
+        enabled: bool,
+        authority: Union[Optional[str], Unset] = UNSET,
+        url: Union[Optional[str], Unset] = UNSET,
+    ) -> Dict[str, Any]:
+        """
+        Choose the time-stamping service
+
+        Needs audit access and a personal token. `dfn` and `digicert` use the services named; `custom` needs the address of an RFC 3161 service. Turning it on sends a fingerprint of each new signature to that service.
+
+        Scopes: admin:write.
+
+        ``POST /api/db/rpc/set_timestamp_settings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_enabled"] = enabled
+        if not isinstance(authority, Unset):
+            body["p_authority"] = authority
+        if not isinstance(url, Unset):
+            body["p_url"] = url
+        return await self._call("set_timestamp_settings", body)  # type: ignore[no-any-return]
+
     async def snapshot_dataset(
         self,
         *,
@@ -7620,6 +7745,20 @@ class AsyncRpc:
         if not isinstance(note, Unset):
             body["p_note"] = note
         return await self._call("submit_request", body)  # type: ignore[no-any-return]
+
+    async def timestamp_settings(self, *, workspace_id: str) -> Dict[str, Any]:
+        """
+        Read the time-stamping service
+
+        Which independent time-stamping service signatures are sent to for a trusted timestamp, if any. Only a SHA-256 fingerprint of each signature record is sent.
+
+        Scopes: admin:read.
+
+        ``POST /api/db/rpc/timestamp_settings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return await self._call("timestamp_settings", body)  # type: ignore[no-any-return]
 
     async def transition_record_status(
         self,
@@ -7926,3 +8065,17 @@ class AsyncRpc:
         body["p_model_key"] = model_key
         body["p_rows"] = rows
         return await self._call("validate_sheet_record_batch", body)  # type: ignore[no-any-return]
+
+    async def workspace_signing_key(self, *, workspace_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Read the key that signs export bundles
+
+        The public half of the workspace’s Ed25519 export key and its fingerprint, or null before the first signed bundle is downloaded. Compare the fingerprint with the one inside a bundle.
+
+        Scopes: reviews:read.
+
+        ``POST /api/db/rpc/workspace_signing_key``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return await self._call("workspace_signing_key", body)  # type: ignore[no-any-return]

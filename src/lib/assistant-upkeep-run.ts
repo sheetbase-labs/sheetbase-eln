@@ -13,6 +13,10 @@ import {
 } from './samples'
 import { cancelShipment } from './shipments'
 import { logInstrumentService } from '../components/instruments/instruments-data'
+import {
+  requestSignatureTimestamp,
+  setTimestampSettings,
+} from './timestamps/client'
 import type { UpkeepAction, UpkeepActionResult } from './assistant-upkeep'
 
 /** Runs an upkeep card's action. Loaded only in the browser, when a button is pressed. */
@@ -73,6 +77,17 @@ export async function runUpkeepAction(
     case 'scim_token.revoke':
       await client.rpc('revoke_scim_token', { p_id: action.tokenId })
       return { openHref: '/settings/workspace/members' }
+    case 'timestamps.set':
+      await setTimestampSettings(client, {
+        workspaceId: action.workspaceId,
+        enabled: action.service !== 'off',
+        authority: action.service === 'off' ? null : action.service,
+        url: action.address,
+      })
+      return { openHref: '/settings/workspace/audit' }
+    case 'timestamps.retry':
+      await requestSignatureTimestamp(client, action.signatureId)
+      return { openHref: '/settings/workspace/audit' }
     case 'absence.cancel':
       await cancelAbsence(client, action.absenceId)
       return { openHref: '/settings/account/away' }

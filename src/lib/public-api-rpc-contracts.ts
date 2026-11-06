@@ -261,6 +261,20 @@ const pipelineVersionRow = ref('PipelineDefinitionVersionsRow')
 const memberAbsenceRow = ref('MemberAbsencesRow')
 const groupMappingRow = ref('IdpGroupMappingsRow')
 const scimTokenRow = ref('ScimTokensRow')
+const signatureTimestampRow = ref('SignatureTimestampsRow')
+
+const timestampSettingsResult: JsonSchema = obj(
+  {
+    enabled: bool('Whether signatures are sent for timestamping.'),
+    authority: {
+      type: ['string', 'null'],
+      enum: ['dfn', 'digicert', 'custom', null],
+    },
+    url: { type: ['string', 'null'], description: 'The service address.' },
+  },
+  ['enabled'],
+  'Which time-stamping service the workspace uses.',
+)
 
 const pgrstRow = (row: JsonSchema, description: string): JsonSchema => ({
   description: `${description} PostgREST returns a JSON array of composite rows by default.`,
@@ -470,6 +484,53 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
     required: ['p_id'],
     properties: { p_id: uuid('Token UUID.') },
     result: pgrstRow(scimTokenRow, 'The revoked token.'),
+  },
+
+  timestamp_settings: {
+    summary: 'Read the time-stamping service',
+    description:
+      'Which independent time-stamping service signatures are sent to for a trusted timestamp, if any. Only a SHA-256 fingerprint of each signature record is sent.',
+    required: ['p_workspace_id'],
+    properties: { p_workspace_id: uuid('Workspace UUID.') },
+    result: timestampSettingsResult,
+  },
+  set_timestamp_settings: {
+    summary: 'Choose the time-stamping service',
+    description:
+      'Needs audit access and a personal token. `dfn` and `digicert` use the services named; `custom` needs the address of an RFC 3161 service. Turning it on sends a fingerprint of each new signature to that service.',
+    required: ['p_workspace_id', 'p_enabled'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_enabled: bool('false stops sending signatures for timestamping.'),
+      p_authority: text('`dfn`, `digicert` or `custom`.', { nullable: true }),
+      p_url: text('The service address, for `custom`.', { nullable: true }),
+    },
+    result: timestampSettingsResult,
+  },
+  request_signature_timestamp: {
+    summary: 'Ask for a signature to be timestamped again',
+    description:
+      'Needs audit access. Queues a signature whose timestamp is missing or gave up; the server asks the service within a minute. A signature already stamped is left as it is.',
+    required: ['p_signature_id'],
+    properties: { p_signature_id: uuid('Signature UUID.') },
+    result: pgrstRow(signatureTimestampRow, 'The timestamp record.'),
+  },
+  workspace_signing_key: {
+    summary: 'Read the key that signs export bundles',
+    description:
+      'The public half of the workspace’s Ed25519 export key and its fingerprint, or null before the first signed bundle is downloaded. Compare the fingerprint with the one inside a bundle.',
+    required: ['p_workspace_id'],
+    properties: { p_workspace_id: uuid('Workspace UUID.') },
+    result: {
+      description: 'The key, or null.',
+      type: ['object', 'null'],
+      properties: {
+        algorithm: { type: 'string', const: 'ed25519' },
+        publicKeyPem: { type: 'string' },
+        fingerprint: { type: 'string' },
+        createdAt: { type: 'string', format: 'date-time' },
+      },
+    },
   },
 
   create_project: {

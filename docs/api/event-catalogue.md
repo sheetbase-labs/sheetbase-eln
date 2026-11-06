@@ -158,6 +158,17 @@ the amount: the amount is read with the calls in
 [`spend-and-usage-api.md`](spend-and-usage-api.md), which needs the right to
 see it. A schedule's own bookkeeping (next run, last result) does not emit.
 
+### Trusted timestamps (`stable`, webhook and SSE)
+
+| Event                            | Produced by                                                           | Payload highlights                                                             |
+| -------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `signature.timestamped`          | `signature_timestamp` + `create`                                      | `signatureId`, `revisionId`, `authority`, `genTime`. `recordId` is the record. |
+| `signature.timestamp_failed`     | `signature_timestamp` + `update`, when `action` is `timestamp-failed` | `signatureId`, `revisionId`, `error`. Sent once, after the sixth failed try.   |
+| `workspace.timestamping.updated` | `signature_timestamp` + `update`, when `action` is `timestamping-set` | `enabled`, `authority` (`dfn`, `digicert`, `custom` or null)                   |
+
+The token itself is on the `signature_timestamps` resource; see
+[`trusted-timestamps-api.md`](trusted-timestamps-api.md).
+
 ### Pipeline (`provisional`, SSE only)
 
 `pipeline.created` / `pipeline.updated` / `pipeline.deleted`

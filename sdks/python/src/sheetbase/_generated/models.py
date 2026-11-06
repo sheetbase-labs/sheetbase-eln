@@ -243,6 +243,7 @@ __all__ = [
     "RequestDetailsRow",
     "RequestFormsRow",
     "RequestReagentOrderParams",
+    "RequestSignatureTimestampParams",
     "ResolveSheetInstanceRowIdentityParams",
     "ResolveStocktakeItemParams",
     "RestoreDatasetParams",
@@ -286,6 +287,7 @@ __all__ = [
     "SetScheduledReportActiveParams",
     "SetSeriesMemberDayParams",
     "SetStepDoneParams",
+    "SetTimestampSettingsParams",
     "SheetCalculation",
     "SheetCalculationChange",
     "SheetCalculationChangeRetire",
@@ -331,6 +333,7 @@ __all__ = [
     "SheetRecordWriteTargetModel",
     "ShipmentItemsRow",
     "ShipmentsRow",
+    "SignatureTimestampsRow",
     "SnapshotDatasetParams",
     "StartExperimentSeriesParams",
     "StartStepTimerParams",
@@ -341,6 +344,7 @@ __all__ = [
     "SubmitRequestParams",
     "SupplierModelsRow",
     "TemplateParameter",
+    "TimestampSettingsParams",
     "TokenError",
     "TokenExchangeRequest",
     "TokenExchangeResponse",
@@ -363,6 +367,7 @@ __all__ = [
     "WebhookSecretRotationResult",
     "WebhookSubscriptionResult",
     "WebhookSubscriptionsRow",
+    "WorkspaceSigningKeyParams",
 ]
 
 
@@ -2642,6 +2647,31 @@ class ShipmentsRow(_ShipmentsRowRequired, total=False):
     cancelled_at: Optional[str]
 
 
+class _SignatureTimestampsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    signature_id: str
+    revision_id: str
+    status: Literal["pending", "stamped", "failed"]
+    attempts: int
+    next_attempt_at: str
+    created_at: str
+    updated_at: str
+
+
+class SignatureTimestampsRow(_SignatureTimestampsRowRequired, total=False):
+    """`api.signature_timestamps` row (snake_case). The RFC 3161 timestamp an independent time-stamping service issued for a signature. `response_b64` is the service’s answer, which can be checked with openssl without Sheetbase."""
+    signed_data: Optional[str]
+    imprint_sha256: Optional[str]
+    authority_name: Optional[str]
+    authority_url: Optional[str]
+    response_b64: Optional[str]
+    gen_time: Optional[str]
+    serial: Optional[str]
+    signer: Optional[str]
+    last_error: Optional[str]
+
+
 class _StepTimersRowRequired(TypedDict):
     id: str
     workspace_id: str
@@ -3653,6 +3683,10 @@ class RequestReagentOrderParams(_RequestReagentOrderParamsRequired, total=False)
     p_note: str
 
 
+class RequestSignatureTimestampParams(TypedDict):
+    p_signature_id: str
+
+
 class ResolveSheetInstanceRowIdentityParams(TypedDict):
     p_instance_id: str
     p_expected_revision: int
@@ -3917,6 +3951,16 @@ class SetStepDoneParams(_SetStepDoneParamsRequired, total=False):
     p_note: str
 
 
+class _SetTimestampSettingsParamsRequired(TypedDict):
+    p_workspace_id: str
+    p_enabled: bool
+
+
+class SetTimestampSettingsParams(_SetTimestampSettingsParamsRequired, total=False):
+    p_authority: Optional[str]
+    p_url: Optional[str]
+
+
 class SnapshotDatasetParams(TypedDict):
     p_dataset_id: str
     p_expected_dataset_revision: int
@@ -3953,6 +3997,10 @@ class SubmitRequestParams(_SubmitRequestParamsRequired, total=False):
     p_custom_fields: Dict[str, "JsonValue"]
     p_project_id: str
     p_note: str
+
+
+class TimestampSettingsParams(TypedDict):
+    p_workspace_id: str
 
 
 class TransitionRecordStatusParams(TypedDict):
@@ -4050,3 +4098,7 @@ class ValidateSheetRecordBatchParams(TypedDict):
     p_project_id: str
     p_model_key: str
     p_rows: List["SheetRecordBatchRow"]
+
+
+class WorkspaceSigningKeyParams(TypedDict):
+    p_workspace_id: str

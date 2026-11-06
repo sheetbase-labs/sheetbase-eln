@@ -7,6 +7,10 @@ import {
   GROUP_ROLE_REMOVE_TOOL,
   SCIM_TOKEN_REVOKE_TOOL,
   GROUP_ROLE_SET_TOOL,
+  TIMESTAMPS_RETRY_TOOL,
+  TIMESTAMPS_SET_TOOL,
+  proposeTimestampsRetrySchema,
+  proposeTimestampsSetSchema,
   HANDOVER_TOOL,
   INSTRUMENT_LOG_TOOL,
   NOTIFICATIONS_READ_TOOL,
@@ -45,6 +49,7 @@ import {
 import type { LabToolContext } from './assistant-lab-tools.server'
 import type { AssistantProposal, ProposalChange } from './assistant-proposals'
 import type { DataClient } from './data-client'
+import { fetchTimestampSettings } from './timestamps/client'
 import { shipmentReference } from './shipments'
 import { toHandoverItems } from './handover'
 import type { HandoverItemWire } from './handover'
@@ -145,6 +150,16 @@ export function upkeepProposalDefs(): ProviderToolDef[] {
       SCIM_TOKEN_REVOKE_TOOL,
       `Propose switching off a directory sync token, so the identity provider can no longer add, change or suspend people. For people who manage members. ${NOTE}`,
       proposeScimTokenRevokeSchema,
+    ),
+    toolDef(
+      TIMESTAMPS_SET_TOOL,
+      `Propose choosing the independent time-stamping service that confirms when signatures were made, or turning it off. Only a fingerprint of each signature record is sent to the service. For people who manage the audit settings. ${NOTE}`,
+      proposeTimestampsSetSchema,
+    ),
+    toolDef(
+      TIMESTAMPS_RETRY_TOOL,
+      `Propose asking again for a timestamp on a signature whose timestamp gave up. List the timestamps area first for its id. ${NOTE}`,
+      proposeTimestampsRetrySchema,
     ),
   ]
 }
@@ -501,6 +516,82 @@ export async function buildUpkeepProposal(
           workspaceId,
           groupName: input.group.trim(),
           role: input.role,
+        },
+      })
+    }
+
+    case TIMESTAMPS_SET_TOOL: {
+      const parsed = parse(proposeTimestampsSetSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      if (
+        input.service === 'custom' &&
+        !/^https?:\/\/\S+$/.test(input.address ?? '')
+      ) {
+        return fail(
+          'A time-stamping service of your own needs its address, starting with http:// or https://.',
+        )
+      }
+      const current = await fetchTimestampSettings(client, workspaceId)
+      const nameOf = (service: string | null) =>
+        service === 'dfn'
+          ? 'DFN-Verein'
+          : service === 'digicert'
+            ? 'DigiCert'
+            : service === 'custom'
+              ? 'Their own service'
+              : 'Off'
+      return card(name, input, {
+        target: 'Trusted timestamps',
+        deepLink: '/settings/workspace/audit',
+        changes: [
+          {
+            label: 'Time-stamping service',
+            before: nameOf(current.enabled ? current.authority : null),
+            after:
+              input.service === 'custom'
+                ? `Their own service (${input.address})`
+                : nameOf(input.service === 'off' ? null : input.service),
+          },
+        ],
+        action: {
+          kind: 'timestamps.set',
+          workspaceId,
+          service: input.service,
+          address: input.service === 'custom' ? (input.address ?? null) : null,
+        },
+      })
+    }
+
+    case TIMESTAMPS_RETRY_TOOL: {
+      const parsed = parse(proposeTimestampsRetrySchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const rows = await client.list<{
+        signature_id: string
+        status: string
+        attempts: number
+      }>(
+        'signature_timestamps',
+        `?signature_id=eq.${encodeURIComponent(input.signatureId)}&select=signature_id,status,attempts&limit=1`,
+      )
+      if (!rows[0]) return fail('That signature has no timestamp to retry.')
+      if (rows[0].status === 'stamped') {
+        return fail('That signature is already timestamped.')
+      }
+      return card(name, input, {
+        target: 'Signature timestamp',
+        deepLink: '/settings/workspace/audit',
+        changes: [
+          {
+            label: 'Timestamp',
+            before: `Gave up after ${rows[0].attempts} tries`,
+            after: 'Asked for again',
+          },
+        ],
+        action: {
+          kind: 'timestamps.retry',
+          signatureId: input.signatureId,
         },
       })
     }

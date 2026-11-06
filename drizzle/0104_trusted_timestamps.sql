@@ -31,7 +31,7 @@ END $$;
 
 INSERT INTO internal.webhook_event_names (name) VALUES
   ('signature.timestamped'), ('signature.timestamp_failed'),
-  ('workspace.timestamping.updated'), ('revision.bundle_exported')
+  ('workspace.timestamping.updated')
 ON CONFLICT DO NOTHING;
 --> statement-breakpoint
 

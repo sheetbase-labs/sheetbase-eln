@@ -114,6 +114,7 @@ import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import {
   RecordActionsMenu,
+  RecordMainActions,
   useOfferRecordActions,
 } from '#/components/notebook/record-actions'
 import type { RecordAction } from '#/components/notebook/record-actions'
@@ -1522,24 +1523,26 @@ export function StickyRecordHeader({
             </span>
           )}
           {offered ? null : <RecordActionsMenu actions={recordActions} />}
-          {showSubmit && !stepCardOn ? submitButton('primary') : null}
-          {canSign ? (
-            <ConnectionRequired
-              online={online}
-              reason={CONNECTION_REQUIRED_REASONS.sign}
-            >
-              {({ disabled, describedBy }) => (
-                <Button
-                  type="button"
-                  disabled={disabled}
-                  aria-describedby={describedBy}
-                  onClick={() => setSignOpen(true)}
-                >
-                  {t('notebook.notebookPage.sign')}
-                </Button>
-              )}
-            </ConnectionRequired>
-          ) : null}
+          <RecordMainActions enabled={embedded}>
+            {showSubmit ? submitButton('primary') : null}
+            {canSign ? (
+              <ConnectionRequired
+                online={online}
+                reason={CONNECTION_REQUIRED_REASONS.sign}
+              >
+                {({ disabled, describedBy }) => (
+                  <Button
+                    type="button"
+                    disabled={disabled}
+                    aria-describedby={describedBy}
+                    onClick={() => setSignOpen(true)}
+                  >
+                    {t('notebook.notebookPage.sign')}
+                  </Button>
+                )}
+              </ConnectionRequired>
+            ) : null}
+          </RecordMainActions>
           {/* EXT-02: enabled extensions' object-actions. Ghost buttons match
               the surrounding utility controls; nothing renders while empty
               (the slot hides contributions the caller could never invoke). */}

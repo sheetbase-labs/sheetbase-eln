@@ -3239,6 +3239,8 @@ export const projects = {
     analysis: 'Analysis',
     pipelineOutput: 'Pipeline output',
     plateMap: 'Plate map',
+    structure: 'Structure',
+    reaction: 'Reaction',
     file: 'File',
     linkedRecord: 'Linked record',
     protocolReference: 'Protocol reference',

@@ -118,6 +118,8 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
   analysis: t('projects.revisionDocument.analysis'),
   pipeline_output: t('projects.revisionDocument.pipelineOutput'),
   plate_map: t('projects.revisionDocument.plateMap'),
+  structure: t('projects.revisionDocument.structure'),
+  reaction: t('projects.revisionDocument.reaction'),
   file: t('projects.revisionDocument.file'),
   linked_record: t('projects.revisionDocument.linkedRecord'),
   protocol_reference: t('projects.revisionDocument.protocolReference'),

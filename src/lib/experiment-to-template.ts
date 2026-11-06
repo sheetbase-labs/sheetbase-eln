@@ -41,6 +41,8 @@ const LEFT_OUT_LABEL: Record<string, string> = {
   file: 'file',
   metric: 'metric',
   plate_map: 'plate map',
+  structure: 'structure drawing',
+  reaction: 'reaction',
   table: 'table',
   materials: 'materials list',
   linked_record: 'linked record',

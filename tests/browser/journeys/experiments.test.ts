@@ -161,13 +161,14 @@ test('EXP-16 a decision recorded on Results shows on the overview', async ({
   await expect(page.getByText(/supported/i).first()).toBeVisible()
 })
 
-test('EXP-17 an instrument is booked for the experiment from its header', async ({
+test('EXP-17 an instrument is booked for the experiment from its menu', async ({
   page,
 }) => {
   const path = await createProject(page, uniqueName('Book'))
   const id = await createExperiment(page, path, uniqueName('Needs a reader'))
   await open(page, `/experiments/${id}/overview`)
-  await action(page, 'Book instrument').click()
+  await page.getByRole('button', { name: 'More experiment actions' }).click()
+  await page.getByRole('menuitem', { name: 'Book instrument' }).click()
   await expect(page).toHaveURL(/\/schedule\?.*experiment=/)
 })
 

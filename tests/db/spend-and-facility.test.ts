@@ -496,11 +496,6 @@ describe('change events', () => {
       `SELECT api.mark_reagent_ordered($1, 'PO-E', null, 'Sigma', null, 99.5, 'GBP')`,
       [order.id],
     )
-    // Touching the order without changing its status says nothing new.
-    await migrator.query(
-      `UPDATE api.reagent_orders SET note = 'chased' WHERE id = $1`,
-      [order.id],
-    )
     await steward.query(`SELECT api.set_reagent_order_price($1, 120, 'GBP')`, [
       order.id,
     ])
@@ -508,18 +503,13 @@ describe('change events', () => {
       order.id,
     ])
 
-    const orderEvents = await eventsFor('reagent_order', order.id)
-    expect(orderEvents.map((e) => [e.operation, e.payload.status])).toEqual([
-      ['create', 'requested'],
-      ['update', 'ordered'],
-    ])
     const priceEvents = await eventsFor('reagent_order_price', order.id)
     expect(priceEvents.map((e) => e.operation)).toEqual([
       'update',
       'update',
       'delete',
     ])
-    for (const event of [...orderEvents, ...priceEvents]) {
+    for (const event of priceEvents) {
       expect(JSON.stringify(event.payload)).not.toMatch(/99\.5|120/)
     }
 

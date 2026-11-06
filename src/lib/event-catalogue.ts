@@ -591,61 +591,6 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     consumers: webhookSse,
   },
   {
-    name: 'order.requested',
-    family: 'order',
-    summary: 'A reagent order was requested.',
-    producer: {
-      entityType: 'reagent_order',
-      operation: 'create',
-    },
-    wireName: 'order.requested',
-    status: 'stable',
-    introducedIn: 'spend-01',
-    consumers: webhookSse,
-  },
-  {
-    name: 'order.placed',
-    family: 'order',
-    summary: 'A reagent order was placed with a supplier.',
-    producer: {
-      entityType: 'reagent_order',
-      operation: 'update',
-      when: { key: 'status', equals: 'ordered' },
-    },
-    wireName: 'order.placed',
-    status: 'stable',
-    introducedIn: 'spend-01',
-    consumers: webhookSse,
-  },
-  {
-    name: 'order.received',
-    family: 'order',
-    summary: 'A reagent order arrived and was received.',
-    producer: {
-      entityType: 'reagent_order',
-      operation: 'update',
-      when: { key: 'status', equals: 'received' },
-    },
-    wireName: 'order.received',
-    status: 'stable',
-    introducedIn: 'spend-01',
-    consumers: webhookSse,
-  },
-  {
-    name: 'order.cancelled',
-    family: 'order',
-    summary: 'A reagent order was cancelled.',
-    producer: {
-      entityType: 'reagent_order',
-      operation: 'update',
-      when: { key: 'status', equals: 'cancelled' },
-    },
-    wireName: 'order.cancelled',
-    status: 'stable',
-    introducedIn: 'spend-01',
-    consumers: webhookSse,
-  },
-  {
     name: 'order.priced',
     family: 'order',
     summary:
@@ -1714,10 +1659,6 @@ export const INTENTIONALLY_EXCLUDED: readonly ExcludedProducer[] =
  * and pipeline pickers. An event not listed is spelled out from its name.
  */
 const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
-  'order.requested': 'A reagent order is requested',
-  'order.placed': 'A reagent order is placed',
-  'order.received': 'A reagent order is received',
-  'order.cancelled': 'A reagent order is cancelled',
   'order.priced': 'An order’s price is set',
   'order.price_removed': 'An order’s price is removed',
   'instrument.rate_set': 'An instrument’s rate is set',

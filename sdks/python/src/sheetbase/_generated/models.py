@@ -1456,18 +1456,26 @@ class MyWorkItemsRow(TypedDict, total=False):
     field_id: Optional[str]
 
 
-class NotebookTemplateConfiguration(TypedDict):
+class _NotebookTemplateConfigurationRequired(TypedDict):
     formatVersion: Literal[1]
     parameters: List["TemplateParameter"]
     placements: List["NotebookTemplatePlacement"]
 
 
-class NotebookTemplatePlacementNarrative(TypedDict):
+class NotebookTemplateConfiguration(_NotebookTemplateConfigurationRequired, total=False):
+    parts: List[Dict[str, Any]]
+
+
+class _NotebookTemplatePlacementNarrativeRequired(TypedDict):
     id: str
     kind: Literal["narrative"]
     order: int
     blockType: str
     payload: Dict[str, "JsonValue"]
+
+
+class NotebookTemplatePlacementNarrative(_NotebookTemplatePlacementNarrativeRequired, total=False):
+    partId: str
 
 
 class _NotebookTemplatePlacementSheetRequired(TypedDict):
@@ -1479,6 +1487,7 @@ class _NotebookTemplatePlacementSheetRequired(TypedDict):
 
 
 class NotebookTemplatePlacementSheet(_NotebookTemplatePlacementSheetRequired, total=False):
+    partId: str
     title: str
 
 

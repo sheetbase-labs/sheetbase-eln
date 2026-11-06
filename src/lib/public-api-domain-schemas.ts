@@ -142,6 +142,7 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
         properties: {
           id: UUID,
           kind: { type: 'string', const: 'narrative' },
+          partId: UUID,
           order: INT,
           blockType: { type: 'string' },
           payload: jsonMap('Narrative block payload.'),
@@ -160,6 +161,7 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
         properties: {
           id: UUID,
           kind: { type: 'string', const: 'sheet' },
+          partId: UUID,
           order: INT,
           definitionVersionId: UUID,
           title: TEXT,
@@ -202,6 +204,20 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
         type: 'array',
         maxItems: 64,
         items: { $ref: '#/components/schemas/TemplateParameter' },
+      },
+      parts: {
+        type: 'array',
+        maxItems: 60,
+        items: {
+          type: 'object',
+          required: ['id', 'title', 'dayOffset'],
+          additionalProperties: false,
+          properties: {
+            id: UUID,
+            title: TEXT,
+            dayOffset: INT,
+          },
+        },
       },
       placements: {
         type: 'array',

@@ -84,6 +84,17 @@ decide". People who join by their email domain start under group control.
 SAML is not built. Providers that only speak SAML can usually front it with an
 OIDC broker (Keycloak, Entra ID app registrations and Okta all offer one).
 
+## Passkeys
+
+Anyone signed in can add a passkey under Account > Profile > Passkeys, and then
+use "Sign in with a passkey" on the sign-in page instead of waiting for a link.
+Passkeys are tied to the address people reach the app on: the host of
+`BETTER_AUTH_URL` is the relying party, so changing that address means people
+add their passkeys again. A passkey already proves who someone is with their
+device lock, so it does not ask for a two-factor code. Passkeys are for signing
+in only; signing a record still asks for the signing credential. The button
+shows once at least one other sign-in method is configured.
+
 ## Emailed sign-in link
 
 Set `EMAIL_LOGIN_ENABLED=true` and configure SMTP (see `.env.example`); without

@@ -12,6 +12,8 @@ import {
 import { Button, buttonVariants } from '#/components/ui/button'
 import { Notice } from '#/components/ui/alert'
 import { Icon } from '#/components/icons'
+import { usePasskeysSupported } from '#/components/settings/settings-passkeys'
+import { authClient } from '#/lib/auth-client'
 import { cn } from '#/lib/utils'
 import { safeNextPath } from '#/lib/sign-in-redirect'
 import { useHelp } from '#/lib/help'
@@ -130,6 +132,8 @@ export function SignInSurface({
 }: SignInSurfaceProps) {
   const [redirecting, setRedirecting] = useState<'github' | 'oidc' | null>(null)
   const [ssoError, setSsoError] = useState<string | null>(null)
+  const [passkeyBusy, setPasskeyBusy] = useState(false)
+  const passkeysSupported = usePasskeysSupported()
   const [email, setEmail] = useState('')
   const [linkState, setLinkState] = useState<'idle' | 'sending' | 'sent'>(
     'idle',
@@ -170,6 +174,18 @@ export function SignInSurface({
       setSsoError(t('settings.signIn.couldReachStart', { provider }))
     }
     setRedirecting(null)
+  }
+
+  async function signInWithPasskey() {
+    setPasskeyBusy(true)
+    setSsoError(null)
+    const { error: failure } = await authClient.signIn.passkey()
+    if (failure) {
+      setSsoError(t('people.passkeys.signInFailed'))
+      setPasskeyBusy(false)
+      return
+    }
+    window.location.href = safeNextPath(next) ?? '/'
   }
 
   async function sendLink(event: FormEvent) {
@@ -297,6 +313,20 @@ export function SignInSurface({
                       {redirecting === 'github'
                         ? t('settings.signIn.redirectingGithub')
                         : t('settings.signIn.continueGithub')}
+                    </Button>
+                  ) : null}
+                  {passkeysSupported ? (
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      className="w-full"
+                      disabled={redirecting !== null || passkeyBusy}
+                      onClick={() => void signInWithPasskey()}
+                    >
+                      <Icon name="key" size={16} />
+                      {passkeyBusy
+                        ? t('people.passkeys.signingIn')
+                        : t('people.passkeys.signIn')}
                     </Button>
                   ) : null}
                   {githubEnabled || oidcName !== null ? (

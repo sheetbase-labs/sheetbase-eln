@@ -12,6 +12,7 @@ import { ProfilePhoto } from '#/components/settings/profile-photo'
 import { ChangeEmailDialog } from '#/components/settings/change-email-dialog'
 import { LeaveWorkspace } from '#/components/settings/leave-workspace'
 import { SettingsSessions } from '#/components/settings/settings-sessions'
+import { SettingsPasskeys } from '#/components/settings/settings-passkeys'
 import { SettingsTwoFactor } from '#/components/settings/settings-two-factor'
 import {
   SettingsBody,
@@ -398,6 +399,8 @@ function Profile() {
             onClose={() => setChangingEmail(false)}
           />
         ) : null}
+
+        <SettingsPasskeys />
 
         <SettingsTwoFactor />
 

@@ -11,6 +11,7 @@
 import { authOutcome } from './auth-outcome'
 import { logger } from './logger'
 import { annotateRequest } from './request-log'
+import { passkey as passkeyPlugin } from '@better-auth/passkey'
 import { betterAuth } from 'better-auth'
 import type { BetterAuthPlugin } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
@@ -22,7 +23,14 @@ import { eq, sql } from 'drizzle-orm'
 import { AsyncLocalStorage } from 'node:async_hooks'
 
 import { db } from '#/db/client.server'
-import { account, session, twoFactor, user, verification } from '#/db/schema'
+import {
+  account,
+  passkey,
+  session,
+  twoFactor,
+  user,
+  verification,
+} from '#/db/schema'
 import { env } from '#/env.server'
 import type { OidcConfig } from '#/lib/auth-methods'
 import {
@@ -55,7 +63,14 @@ import {
 import { getDevSession, isDevAuthFreeEnabled } from '#/lib/dev-auth'
 import type { AppSession } from '#/lib/dev-auth'
 
-const authSchema = { user, session, account, verification, twoFactor }
+const authSchema = {
+  user,
+  session,
+  account,
+  verification,
+  twoFactor,
+  passkey,
+}
 
 // Only a spent independent authorization can establish this server-only scope.
 // Better Auth generates and consumes its own reset token; no token reaches HTTP,
@@ -154,7 +169,16 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
     parseAllowedDomains(env.EMAIL_LOGIN_ALLOWED_DOMAINS)
   const sendEmail = deps.sendEmail ?? sendConfiguredEmail
 
-  const plugins: BetterAuthPlugin[] = [twoFactorWithEmailLink()]
+  const plugins: BetterAuthPlugin[] = [
+    twoFactorWithEmailLink(),
+    // Passkeys belong to the address people reach the app on, so the relying
+    // party is that address's host and the only accepted origin is its origin.
+    passkeyPlugin({
+      rpID: new URL(env.BETTER_AUTH_URL).hostname,
+      rpName: 'Sheetbase',
+      origin: new URL(env.BETTER_AUTH_URL).origin,
+    }),
+  ]
   if (oidc) {
     plugins.push(
       genericOAuth({

@@ -23,6 +23,7 @@ import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { toast } from '#/components/ui/sonner'
 import { ObjectLink } from '#/components/ui/object-link'
 import { useExperimentLinks } from '../$expId'
+import { datasetValidation } from '#/components/datasets/datasets-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
 import { ResultsWorkspace } from '#/components/experiments/results-workspace'
@@ -41,6 +42,8 @@ interface DatasetSummaryWire {
   model: string | null
   row_count: number | string
   issue_count: number | string
+  out_of_range_count: number | string
+  missing_unit_count: number | string
 }
 
 type AnalysisSummaryWire = AnalysisViewWire
@@ -96,7 +99,9 @@ function ResultsTab() {
         'rpc/dataset_list_summary',
         `?display_id=in.(${datasetIds
           .map(encodeURIComponent)
-          .join(',')})&select=id,display_id,name,model,row_count,issue_count`,
+          .join(
+            ',',
+          )})&select=id,display_id,name,model,row_count,issue_count,out_of_range_count,missing_unit_count`,
       ),
   })
 
@@ -156,14 +161,14 @@ function ResultsTab() {
       id: 'validation',
       header: t('projects.expResults.validation'),
       cell: ({ row }) => {
-        const issues = Number(row.original.issue_count)
-        return issues === 0 ? (
-          <Status tone="ok">{t('projects.expResults.valid')}</Status>
-        ) : (
-          <Status tone="bad">
-            {t('projects.expResults.issues', { count: issues })}
-          </Status>
-        )
+        // The same wording as the Datasets tab, so one dataset reads one way.
+        const validation = datasetValidation({
+          issues: Number(row.original.issue_count),
+          outOfRange: Number(row.original.out_of_range_count),
+          missingUnit: Number(row.original.missing_unit_count),
+          reviewState: null,
+        })
+        return <Status tone={validation.tone}>{validation.label}</Status>
       },
     },
     {

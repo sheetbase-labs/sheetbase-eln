@@ -33,6 +33,7 @@ import {
 import { ObjectLink } from '#/components/ui/object-link'
 import { experimentStatus } from '#/components/experiments/experiments-data'
 import type { SignatureWire } from '#/lib/signatures'
+import { formatDate } from '#/lib/format-date'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { withReopen } from '#/lib/return-to'
 import { t } from '#/copy'
@@ -389,9 +390,9 @@ export function ExperimentOverview({
                 </TableBody>
               </Table>
             </TableBox>
-          ) : (
+          ) : protocolLinks.length ? (
             <Muted>{t('projects.overview.protocol.noProgress')}</Muted>
-          )}
+          ) : null}
         </Section>
 
         <Section
@@ -528,12 +529,14 @@ export function ExperimentOverview({
                 t('projects.overview.properties.owner'),
                 userLabel(record.createdByUserId),
               ],
-              [
-                t('projects.overview.properties.collaborators'),
-                collaboratorIds.length
-                  ? collaboratorIds.map(userLabel).join(', ')
-                  : t('projects.overview.notRecorded'),
-              ],
+              ...(collaboratorIds.length
+                ? ([
+                    [
+                      t('projects.overview.properties.collaborators'),
+                      collaboratorIds.map(userLabel).join(', '),
+                    ],
+                  ] as [React.ReactNode, React.ReactNode][])
+                : []),
               [
                 t('projects.overview.properties.reviewer'),
                 reviewerNames.length
@@ -551,10 +554,12 @@ export function ExperimentOverview({
                   t('projects.overview.notRecorded')
                 ),
               ],
-              [
-                t('projects.overview.properties.client'),
-                clientId ?? t('projects.overview.notRecorded'),
-              ],
+              ...(clientId
+                ? ([[t('projects.overview.properties.client'), clientId]] as [
+                    React.ReactNode,
+                    React.ReactNode,
+                  ][])
+                : []),
               [
                 t('projects.overview.properties.protocol'),
                 protocolLinks.length ? (
@@ -575,16 +580,22 @@ export function ExperimentOverview({
                 t('projects.overview.properties.started'),
                 formatNotebookDateTime(record.createdAt),
               ],
-              [
-                t('projects.overview.properties.plannedEnd'),
-                plannedEnd ?? t('projects.overview.notRecorded'),
-              ],
-              [
-                t('projects.overview.properties.decision'),
-                decision
-                  ? `${decision.charAt(0).toUpperCase()}${decision.slice(1)}${decisionNotes ? ` · ${decisionNotes}` : ''}`
-                  : t('projects.overview.notRecorded'),
-              ],
+              ...(plannedEnd
+                ? ([
+                    [
+                      t('projects.overview.properties.plannedEnd'),
+                      formatDate(plannedEnd),
+                    ],
+                  ] as [React.ReactNode, React.ReactNode][])
+                : []),
+              ...(decision
+                ? ([
+                    [
+                      t('projects.overview.properties.decision'),
+                      `${decision.charAt(0).toUpperCase()}${decision.slice(1)}${decisionNotes ? ` · ${decisionNotes}` : ''}`,
+                    ],
+                  ] as [React.ReactNode, React.ReactNode][])
+                : []),
             ]}
           />
         </InspectorSection>

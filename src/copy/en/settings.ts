@@ -2240,6 +2240,41 @@ export const settings = {
     personalOwnerTokenDescription:
       'A personal owner token can propose changes to workspace AI policy. A live owner session must still approve and run them.',
   },
+  timestamps: {
+    button: 'Trusted timestamps',
+    title: 'Trusted timestamps',
+    description:
+      'An independent time-stamping service confirms when each signature was made, so the date can be checked without trusting this install.',
+    privacy:
+      'Only a fingerprint of each signature record is sent to the service, never the record or any data. Nothing is sent until you switch this on.',
+    authority: 'Time-stamping service',
+    off: 'Off',
+    dfn: 'DFN-Verein',
+    digicert: 'DigiCert',
+    custom: 'My own service',
+    address: 'Service address',
+    addressHint: 'The address of an RFC 3161 time-stamping service.',
+    save: 'Save',
+    saved: 'Trusted timestamps saved',
+    stamped: '{count} stamped',
+    waiting: '{count} waiting',
+    failed: '{count} gave up',
+    none: 'No signatures yet.',
+    signature: 'Signature',
+    status: 'Status',
+    service: 'Service',
+    time: 'Time confirmed',
+    statusStamped: 'Stamped',
+    statusPending: 'Waiting',
+    statusFailed: 'Gave up',
+    tryAgain: 'Try again',
+    tryAgainQueued: 'Queued. It will be stamped within a minute.',
+    exportKey: 'Export signing key',
+    exportKeyHint:
+      'Signed bundles are signed with this key. Compare this fingerprint with the one in a bundle before trusting it.',
+    exportKeyNone: 'Made the first time a signed bundle is downloaded.',
+    viewOnly: 'Only people who manage the audit settings can change this.',
+  },
   auditRetention: {
     retentionPolicy: 'Retention policy',
     howLongAuditDescription:

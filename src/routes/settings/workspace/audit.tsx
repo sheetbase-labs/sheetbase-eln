@@ -25,6 +25,7 @@ import {
   CheckNowButton,
   RetentionDialog,
 } from '#/components/settings/audit-retention'
+import { TimestampsDialog } from '#/components/settings/audit-timestamps'
 import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
 import { canManageSettings } from '#/lib/settings-access'
 import { useUserNames } from '#/lib/user-names'
@@ -92,6 +93,7 @@ function Audit() {
   const [actorUserId, setActorUserId] = useState('')
   const [projectId, setProjectId] = useState('')
   const [retentionOpen, setRetentionOpen] = useState(false)
+  const [timestampsOpen, setTimestampsOpen] = useState(false)
   const canManage = canManageSettings(context.workspace, 'audit')
   const [exporting, setExporting] = useState(false)
   // The box holds the typed term and the grid reads the settled one.
@@ -377,6 +379,9 @@ function Audit() {
             <Button onClick={() => setRetentionOpen(true)}>
               {t('settings.audit.retentionPolicy')}
             </Button>
+            <Button onClick={() => setTimestampsOpen(true)}>
+              {t('settings.timestamps.button')}
+            </Button>
             {canManage ? <CheckNowButton workspaceId={workspaceId} /> : null}
             <Button onClick={() => void activity.refetch()}>
               {t('common.actions.refresh')}
@@ -539,6 +544,13 @@ function Audit() {
           </div>
         ) : null}
       </div>
+      {timestampsOpen ? (
+        <TimestampsDialog
+          workspaceId={workspaceId}
+          canManage={canManage}
+          onClose={() => setTimestampsOpen(false)}
+        />
+      ) : null}
       {retentionOpen ? (
         <RetentionDialog
           workspaceId={workspaceId}

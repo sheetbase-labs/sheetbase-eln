@@ -185,6 +185,7 @@ import { Route as SettingsWorkspaceMembersRouteImport } from './routes/settings/
 import { Route as SettingsWorkspaceRolesRouteImport } from './routes/settings/workspace/roles'
 import { Route as SettingsWorkspaceSignaturesRouteImport } from './routes/settings/workspace/signatures'
 import { Route as SettingsWorkspaceUsageRouteImport } from './routes/settings/workspace/usage'
+import { Route as SettingsWorkspaceValidationRouteImport } from './routes/settings/workspace/validation'
 import { Route as TemplatesTemplateIdIndexRouteImport } from './routes/templates/$templateId/index'
 import { Route as TemplatesTemplateIdInUseRouteImport } from './routes/templates/$templateId/in-use'
 import { Route as TemplatesTemplateIdUpdateRouteImport } from './routes/templates/$templateId/update'
@@ -1133,6 +1134,12 @@ const SettingsWorkspaceUsageRoute = SettingsWorkspaceUsageRouteImport.update({
   path: '/workspace/usage',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsWorkspaceValidationRoute =
+  SettingsWorkspaceValidationRouteImport.update({
+    id: '/workspace/validation',
+    path: '/workspace/validation',
+    getParentRoute: () => SettingsRoute,
+  } as any)
 const TemplatesTemplateIdIndexRoute =
   TemplatesTemplateIdIndexRouteImport.update({
     id: '/',
@@ -1553,6 +1560,7 @@ export interface FileRoutesByFullPath {
   '/settings/workspace/roles': typeof SettingsWorkspaceRolesRoute
   '/settings/workspace/signatures': typeof SettingsWorkspaceSignaturesRoute
   '/settings/workspace/usage': typeof SettingsWorkspaceUsageRoute
+  '/settings/workspace/validation': typeof SettingsWorkspaceValidationRoute
   '/templates/$templateId/in-use': typeof TemplatesTemplateIdInUseRoute
   '/templates/$templateId/update': typeof TemplatesTemplateIdUpdateRoute
   '/templates/$templateId/versions': typeof TemplatesTemplateIdVersionsRoute
@@ -1760,6 +1768,7 @@ export interface FileRoutesByTo {
   '/settings/workspace/roles': typeof SettingsWorkspaceRolesRoute
   '/settings/workspace/signatures': typeof SettingsWorkspaceSignaturesRoute
   '/settings/workspace/usage': typeof SettingsWorkspaceUsageRoute
+  '/settings/workspace/validation': typeof SettingsWorkspaceValidationRoute
   '/templates/$templateId/in-use': typeof TemplatesTemplateIdInUseRoute
   '/templates/$templateId/update': typeof TemplatesTemplateIdUpdateRoute
   '/templates/$templateId/versions': typeof TemplatesTemplateIdVersionsRoute
@@ -1983,6 +1992,7 @@ export interface FileRoutesById {
   '/settings/workspace/roles': typeof SettingsWorkspaceRolesRoute
   '/settings/workspace/signatures': typeof SettingsWorkspaceSignaturesRoute
   '/settings/workspace/usage': typeof SettingsWorkspaceUsageRoute
+  '/settings/workspace/validation': typeof SettingsWorkspaceValidationRoute
   '/templates/$templateId/in-use': typeof TemplatesTemplateIdInUseRoute
   '/templates/$templateId/update': typeof TemplatesTemplateIdUpdateRoute
   '/templates/$templateId/versions': typeof TemplatesTemplateIdVersionsRoute
@@ -2207,6 +2217,7 @@ export interface FileRouteTypes {
     | '/settings/workspace/roles'
     | '/settings/workspace/signatures'
     | '/settings/workspace/usage'
+    | '/settings/workspace/validation'
     | '/templates/$templateId/in-use'
     | '/templates/$templateId/update'
     | '/templates/$templateId/versions'
@@ -2414,6 +2425,7 @@ export interface FileRouteTypes {
     | '/settings/workspace/roles'
     | '/settings/workspace/signatures'
     | '/settings/workspace/usage'
+    | '/settings/workspace/validation'
     | '/templates/$templateId/in-use'
     | '/templates/$templateId/update'
     | '/templates/$templateId/versions'
@@ -2636,6 +2648,7 @@ export interface FileRouteTypes {
     | '/settings/workspace/roles'
     | '/settings/workspace/signatures'
     | '/settings/workspace/usage'
+    | '/settings/workspace/validation'
     | '/templates/$templateId/in-use'
     | '/templates/$templateId/update'
     | '/templates/$templateId/versions'
@@ -4038,6 +4051,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsWorkspaceUsageRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/workspace/validation': {
+      id: '/settings/workspace/validation'
+      path: '/workspace/validation'
+      fullPath: '/settings/workspace/validation'
+      preLoaderRoute: typeof SettingsWorkspaceValidationRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/templates/$templateId/': {
       id: '/templates/$templateId/'
       path: '/'
@@ -4749,6 +4769,7 @@ interface SettingsRouteChildren {
   SettingsWorkspaceRolesRoute: typeof SettingsWorkspaceRolesRoute
   SettingsWorkspaceSignaturesRoute: typeof SettingsWorkspaceSignaturesRoute
   SettingsWorkspaceUsageRoute: typeof SettingsWorkspaceUsageRoute
+  SettingsWorkspaceValidationRoute: typeof SettingsWorkspaceValidationRoute
   SettingsWorkspaceIndexRoute: typeof SettingsWorkspaceIndexRoute
 }
 
@@ -4779,6 +4800,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsWorkspaceRolesRoute: SettingsWorkspaceRolesRoute,
   SettingsWorkspaceSignaturesRoute: SettingsWorkspaceSignaturesRoute,
   SettingsWorkspaceUsageRoute: SettingsWorkspaceUsageRoute,
+  SettingsWorkspaceValidationRoute: SettingsWorkspaceValidationRoute,
   SettingsWorkspaceIndexRoute: SettingsWorkspaceIndexRoute,
 }
 

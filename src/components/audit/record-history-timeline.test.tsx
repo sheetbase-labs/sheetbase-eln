@@ -1,4 +1,6 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render as plainRender, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactElement } from 'react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -8,6 +10,15 @@ import {
 import type { TimelineEventWire } from '#/lib/sign-002'
 
 afterEach(() => cleanup())
+
+function render(ui: ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return plainRender(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  )
+}
 beforeAll(() => {
   globalThis.ResizeObserver = class {
     observe() {}
@@ -129,6 +140,27 @@ describe('mapTimelineEvents', () => {
     expect(mapped.map((e) => e.id)).toEqual(
       baseEvents.map((e) => `${e.type}-${e.id}`),
     )
+  })
+})
+
+describe('mapTimelineEvents names', () => {
+  it('uses a resolved name for another person instead of a short id', () => {
+    const [event] = mapTimelineEvents(
+      [
+        {
+          type: 'signature',
+          id: 'e1',
+          ts: '2026-01-01T00:00:00Z',
+          title: 'Signed',
+          actorUserId: 'abcdef0123456789',
+        } as TimelineEventWire,
+      ],
+      'me',
+      'Me',
+      (id) => (id === 'abcdef0123456789' ? 'Mei L.' : undefined),
+    )
+    expect(event.actor?.name).toBe('Mei L.')
+    expect(event.actor?.userId).toBe('abcdef0123456789')
   })
 })
 

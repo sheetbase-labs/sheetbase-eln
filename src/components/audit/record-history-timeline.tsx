@@ -1,3 +1,6 @@
+import { useMemo } from 'react'
+
+import { useUserNames } from '#/lib/user-names'
 import { AuditTrail } from './audit-trail'
 import type { AuditEvent } from './audit-trail'
 import { AUDIT_DECISION_ICONS, AUDIT_OPERATION_ICONS } from './history-timeline'
@@ -36,12 +39,13 @@ function actorLabel(
   actorUserId: string | null | undefined,
   currentUserId?: string,
   currentUserName?: string,
+  nameOf?: (userId: string) => string | undefined,
 ): string {
   if (!actorUserId) return t('projects.recordHistory.system')
   if (currentUserId && actorUserId === currentUserId && currentUserName) {
     return currentUserName
   }
-  return actorUserId.slice(0, 8)
+  return nameOf?.(actorUserId) ?? actorUserId.slice(0, 8)
 }
 
 function pickIcon(event: TimelineEventWire) {
@@ -118,13 +122,19 @@ export function mapTimelineEvents(
   events: TimelineEventWire[],
   currentUserId?: string,
   currentUserName?: string,
+  nameOf?: (userId: string) => string | undefined,
 ): AuditEvent[] {
   return events.map((event) => ({
     id: `${event.type}-${event.id}`,
     type: event.type,
     title: event.title,
     actor: {
-      name: actorLabel(event.actorUserId, currentUserId, currentUserName),
+      name: actorLabel(
+        event.actorUserId,
+        currentUserId,
+        currentUserName,
+        nameOf,
+      ),
       userId: event.actorUserId,
     },
     timestamp: formatRelativeTime(event.ts),
@@ -144,7 +154,23 @@ export function RecordHistoryTimeline({
   onRefresh,
   refreshing = false,
 }: RecordHistoryTimelineProps) {
-  const mapped = mapTimelineEvents(events, currentUserId, currentUserName)
+  const actorIds = useMemo(
+    () =>
+      events.flatMap((event) => (event.actorUserId ? [event.actorUserId] : [])),
+    [events],
+  )
+  const { names } = useUserNames(
+    actorIds,
+    currentUserId && currentUserName
+      ? { id: currentUserId, name: currentUserName }
+      : undefined,
+  )
+  const mapped = mapTimelineEvents(
+    events,
+    currentUserId,
+    currentUserName,
+    (userId) => names[userId],
+  )
 
   return (
     <section

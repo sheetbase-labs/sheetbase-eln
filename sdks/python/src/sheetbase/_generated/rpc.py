@@ -2829,7 +2829,7 @@ class Rpc:
 
         Needs audit access. Queues a signature whose timestamp is missing or gave up; the server asks the service within a minute. A signature already stamped is left as it is.
 
-        Scopes: reviews:write.
+        Scopes: admin:write.
 
         ``POST /api/db/rpc/request_signature_timestamp``
         """
@@ -6829,7 +6829,7 @@ class AsyncRpc:
 
         Needs audit access. Queues a signature whose timestamp is missing or gave up; the server asks the service within a minute. A signature already stamped is left as it is.
 
-        Scopes: reviews:write.
+        Scopes: admin:write.
 
         ``POST /api/db/rpc/request_signature_timestamp``
         """

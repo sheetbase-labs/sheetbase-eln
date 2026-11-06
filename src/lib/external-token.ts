@@ -224,7 +224,7 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
   // sent, so it needs an admin's personal token; a credential can read.
   timestamp_settings: ['admin:read'],
   set_timestamp_settings: ['admin:write'],
-  request_signature_timestamp: ['reviews:write'],
+  request_signature_timestamp: ['admin:write'],
   workspace_signing_key: ['reviews:read'],
 
   create_project: ['projects:write'],

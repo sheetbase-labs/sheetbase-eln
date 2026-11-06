@@ -179,14 +179,58 @@ const resourceFiles: Partial<
   },
 }
 
+// The Python SDK's typed layer is generated from the contract
+// (`pnpm sdk:generate`, checked in CI). Operations without a hand-written
+// matrix decision are covered there and by both SDKs' generic table/RPC
+// methods, so a new public endpoint never needs a matrix row to ship.
+const generatedTables = readFileSync(
+  'sdks/python/src/sheetbase/_generated/tables.py',
+  'utf8',
+)
+const generatedRpc = readFileSync(
+  'sdks/python/src/sheetbase/_generated/rpc.py',
+  'utf8',
+)
+
+function inGeneratedLayer(operation: string): boolean {
+  const [, path] = operation.split(' ')
+  const rpc = path.match(/^\/api\/db\/rpc\/([a-z_0-9]+)$/)
+  if (rpc) return generatedRpc.includes(`    def ${rpc[1]}(`)
+  const table = path.match(/^\/api\/db\/([a-z_0-9]+)$/)
+  if (table) return generatedTables.includes(`    name = "${table[1]}"`)
+  return false
+}
+
 describe('SDK-01 public-contract support matrix', () => {
-  it('covers the generated contract exactly once', () => {
+  it('only lists contract operations, each once', () => {
     const operations = matrixOperations()
-    expect(operations).toEqual(openApiOperations())
+    const contract = new Set(openApiOperations())
+    for (const operation of operations) {
+      expect(contract.has(operation), `${operation} is in the contract`).toBe(
+        true,
+      )
+    }
     expect(new Set(operations).size).toBe(operations.length)
     expect(matrix.contract.apiVersion).toBe(spec.info.version)
     expect(matrix.contract.basePath).toBe('/api/db')
     expect(matrix.contract.source).toBe('docs/api/openapi/external-api-v0.json')
+  })
+
+  it('covers every other contract operation in the generated Python layer', () => {
+    const listed = new Set(matrixOperations())
+    const unlisted = openApiOperations().filter(
+      (operation) => !listed.has(operation),
+    )
+    for (const operation of unlisted) {
+      expect(
+        inGeneratedLayer(operation),
+        `${operation} is missing from the Python SDK: run pnpm sdk:generate`,
+      ).toBe(true)
+    }
+    for (const operation of openApiOperations()) {
+      if (operation.startsWith('POST /api/token')) continue
+      expect(inGeneratedLayer(operation), operation).toBe(true)
+    }
   })
 
   it('keeps version and error semantics aligned with the server contract', () => {

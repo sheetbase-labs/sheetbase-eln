@@ -90,6 +90,41 @@ jobs:
         if: always()
         run: docker compose --env-file .env.ci-compose down -v
 
+  # The Python SDK's typed layer is generated from the OpenAPI contract, which
+  # is itself generated from src/lib/public-api-*. Regenerate both and fail on
+  # any difference, so a new public endpoint always reaches the SDK.
+  python-sdk:
+    name: Python SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/install
+      - uses: astral-sh/setup-uv@v6
+      - name: OpenAPI contract and Python SDK are up to date
+        run: |
+          pnpm openapi:generate
+          git diff --exit-code -- docs/api/openapi sdks/python/src/sheetbase/_generated || {
+            echo "::error::Run pnpm openapi:generate and commit the OpenAPI file and the regenerated Python SDK."
+            exit 1
+          }
+      - name: Tests (Python 3.10)
+        working-directory: sdks/python
+        run: >-
+          uv run --python 3.10 --with pandas,httpx,pytest,respx,pytest-asyncio
+          --with-editable . python -m pytest -q
+      - name: Tests (Python 3.13)
+        working-directory: sdks/python
+        run: >-
+          uv run --python 3.13 --with pandas,httpx,pytest,respx,pytest-asyncio
+          --with-editable . python -m pytest -q
+      - name: Types of the generated layer
+        working-directory: sdks/python
+        run: >-
+          uv run --python 3.12 --with pandas,httpx,mypy
+          --with-editable . mypy --strict
+          src/sheetbase/_generated src/sheetbase/_tables.py src/sheetbase/_unset.py
+
   acceptance:
     name: Browser journeys (${{ matrix.name }})
     runs-on: ubuntu-latest

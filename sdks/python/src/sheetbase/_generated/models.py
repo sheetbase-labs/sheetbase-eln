@@ -14,6 +14,8 @@ __all__ = [
     "AdoptGroupRolesParams",
     "AdvanceAgentWorkflowParams",
     "AdvanceSampleWorkflowParams",
+    "AgentActionPoliciesRow",
+    "AgentActionRequestsRow",
     "AgentDatasetCommitRow",
     "AgentDatasetSchemaField",
     "AgentOperation",
@@ -58,6 +60,8 @@ __all__ = [
     "AgentWorkflowStepsRow",
     "AgentWorkflowUsage",
     "AgentWorkflowsRow",
+    "AiEvalResultsRow",
+    "AiEvalRunsRow",
     "ApplyNotebookTemplateUpgradeParams",
     "ApplySheetInstanceCompositionAdoptionParams",
     "ApplySheetInstanceDefinitionUpgradeParams",
@@ -129,6 +133,7 @@ __all__ = [
     "FieldRelationship",
     "FieldSpecLimitsRow",
     "FieldValidation",
+    "FinishAgentActionParams",
     "FoldersRow",
     "FollowProjectParams",
     "GetWebhookEndpointHealthParams",
@@ -151,6 +156,8 @@ __all__ = [
     "JsonObjectMap",
     "JsonScalar",
     "JsonValue",
+    "LabWatcherFindingsRow",
+    "LabWatchersRow",
     "LeaveSampleWorkflowParams",
     "LegalHoldRecordsRow",
     "LegalHoldsRow",
@@ -247,10 +254,12 @@ __all__ = [
     "ReportProjectStatusParams",
     "ReportSpendLinesParams",
     "ReportUsageLinesParams",
+    "RequestAgentActionParams",
     "RequestDetailsRow",
     "RequestFormsRow",
     "RequestReagentOrderParams",
     "RequestSignatureTimestampParams",
+    "ResolveAgentActionLevelParams",
     "ResolveSheetInstanceRowIdentityParams",
     "ResolveStocktakeItemParams",
     "RestoreDatasetParams",
@@ -262,6 +271,7 @@ __all__ = [
     "RevisionsRow",
     "RevokeScimTokenParams",
     "RotateWebhookSecretParams",
+    "RunLabWatcherParams",
     "RunSavedSearchParams",
     "SampleWorkflowEventsRow",
     "SampleWorkflowRunsRow",
@@ -289,6 +299,7 @@ __all__ = [
     "SetInstrumentFeedLimitsParams",
     "SetInstrumentOutOfServiceParams",
     "SetInstrumentRateParams",
+    "SetLabWatcherParams",
     "SetLinkPartParams",
     "SetMaterialSafetyParams",
     "SetMemberAbsenceParams",
@@ -302,6 +313,7 @@ __all__ = [
     "SetSeriesMemberDayParams",
     "SetStepDoneParams",
     "SetTimestampSettingsParams",
+    "SetWatcherFindingStatusParams",
     "SheetCalculation",
     "SheetCalculationChange",
     "SheetCalculationChangeRetire",
@@ -386,6 +398,47 @@ __all__ = [
     "WebhookSubscriptionsRow",
     "WorkspaceSigningKeyParams",
 ]
+
+
+class _AgentActionPoliciesRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    action_key: str
+    subject_kind: Literal["everyone", "role", "credential"]
+    level: Literal["auto", "ask", "never"]
+    created_at: str
+    updated_at: str
+
+
+class AgentActionPoliciesRow(_AgentActionPoliciesRowRequired, total=False):
+    """`api.agent_action_policies` row (snake_case). What an admin allowed an agent to do with a lab action: `level` is auto, ask or never, for everyone, for one role or for one service credential. The most specific setting wins; with none the answer is ask."""
+    role: Optional[str]
+    credential_id: Optional[str]
+    updated_by_user_id: Optional[str]
+
+
+class _AgentActionRequestsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    action_key: str
+    arguments: Dict[str, "JsonValue"]
+    summary: str
+    level: str
+    status: str
+    created_at: str
+    updated_at: str
+
+
+class AgentActionRequestsRow(_AgentActionRequestsRowRequired, total=False):
+    """`api.agent_action_requests` row (snake_case). An action an agent asked to take. `level` is what the workspace had set for it (auto, ask or never); `status` is pending (waiting for a person), approved, rejected, succeeded, failed or refused. A token sees only its own requests."""
+    requested_by_user_id: Optional[str]
+    requested_by_credential_id: Optional[str]
+    decided_by_user_id: Optional[str]
+    decided_at: Optional[str]
+    decision_reason: Optional[str]
+    executed_at: Optional[str]
+    result: Optional[Dict[str, "JsonValue"]]
+    error: Optional[str]
 
 
 class _AgentDatasetCommitRowRequired(TypedDict):
@@ -882,6 +935,47 @@ class AgentWorkflowsRow(_AgentWorkflowsRowRequired, total=False):
     completed_at: Optional[str]
 
 
+class _AiEvalResultsRowRequired(TypedDict):
+    id: str
+    run_id: str
+    workspace_id: str
+    task_key: str
+    area: str
+    title: str
+    status: Literal["passed", "failed", "skipped"]
+    duration_ms: int
+
+
+class AiEvalResultsRow(_AiEvalResultsRowRequired, total=False):
+    """`api.ai_eval_results` row (snake_case). One check in an assistant checks run, with what was expected and what happened. A result cannot be changed."""
+    expected: Optional[str]
+    actual: Optional[str]
+    detail: Optional[str]
+
+
+class _AiEvalRunsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    mode: Literal["tools", "model"]
+    trigger: Literal["manual", "profile_change"]
+    status: Literal["passed", "failed", "skipped"]
+    total: int
+    passed: int
+    failed: int
+    skipped: int
+    started_at: str
+    finished_at: str
+
+
+class AiEvalRunsRow(_AiEvalRunsRowRequired, total=False):
+    """`api.ai_eval_runs` row (snake_case). One run of the built-in assistant checks. `mode` is tools (no model) or model (the connected provider); `status` is passed, failed or skipped."""
+    provider_profile: Optional[str]
+    model: Optional[str]
+    score: Optional[float]
+    message: Optional[str]
+    started_by_user_id: Optional[str]
+
+
 class _BlocksRowRequired(TypedDict):
     id: str
     record_id: str
@@ -1310,6 +1404,48 @@ JsonScalar = Optional[Union[str, float, bool]]
 
 
 JsonValue = Union["JsonScalar", List["JsonValue"], Dict[str, "JsonValue"]]
+
+
+class _LabWatcherFindingsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    watcher_id: str
+    kind: str
+    object_kind: str
+    title: str
+    summary: str
+    status: str
+    created_at: str
+    updated_at: str
+
+
+class LabWatcherFindingsRow(_LabWatcherFindingsRowRequired, total=False):
+    """`api.lab_watcher_findings` row (snake_case). Something a watcher found, with the record it is about and, where one makes sense, a suggested action. `status` is open, snoozed, dismissed or resolved (no longer true)."""
+    object_id: Optional[str]
+    project_id: Optional[str]
+    suggested_action: Optional[Dict[str, "JsonValue"]]
+    snoozed_until: Optional[str]
+    resolved_at: Optional[str]
+
+
+class _LabWatchersRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    kind: str
+    enabled: bool
+    schedule: str
+    params: Dict[str, "JsonValue"]
+    owner_user_id: str
+    next_run_at: str
+    created_at: str
+    updated_at: str
+
+
+class LabWatchersRow(_LabWatchersRowRequired, total=False):
+    """`api.lab_watchers` row (snake_case). A scheduled review the lab turned on. `kind` is stock_expiring, stock_low, work_overdue, data_missing or results_off; `schedule` is hourly, daily or weekly."""
+    project_id: Optional[str]
+    last_run_at: Optional[str]
+    last_found: Optional[int]
 
 
 class LegalHoldRecordsRow(TypedDict):
@@ -3377,6 +3513,16 @@ class EnrolSampleInWorkflowParams(TypedDict):
     p_workflow_id: str
 
 
+class _FinishAgentActionParamsRequired(TypedDict):
+    p_request_id: str
+    p_ok: bool
+
+
+class FinishAgentActionParams(_FinishAgentActionParamsRequired, total=False):
+    p_result: Dict[str, "JsonValue"]
+    p_error: str
+
+
 class FollowProjectParams(TypedDict):
     p_project_id: str
 
@@ -3811,6 +3957,15 @@ class ReportUsageLinesParams(TypedDict):
     p_to: str
 
 
+class RequestAgentActionParams(TypedDict):
+    p_workspace_id: str
+    p_action_key: str
+    p_arguments: Dict[str, "JsonValue"]
+    p_summary: str
+    p_provenance: Dict[str, "JsonValue"]
+    p_idempotency_key: str
+
+
 class _RequestReagentOrderParamsRequired(TypedDict):
     p_material_record_id: str
     p_quantity: float
@@ -3823,6 +3978,15 @@ class RequestReagentOrderParams(_RequestReagentOrderParamsRequired, total=False)
 
 class RequestSignatureTimestampParams(TypedDict):
     p_signature_id: str
+
+
+class _ResolveAgentActionLevelParamsRequired(TypedDict):
+    p_workspace_id: str
+    p_action_key: str
+
+
+class ResolveAgentActionLevelParams(_ResolveAgentActionLevelParamsRequired, total=False):
+    p_credential_id: str
 
 
 class ResolveSheetInstanceRowIdentityParams(TypedDict):
@@ -3869,6 +4033,10 @@ class _RotateWebhookSecretParamsRequired(TypedDict):
 
 class RotateWebhookSecretParams(_RotateWebhookSecretParamsRequired, total=False):
     p_new_secret: str
+
+
+class RunLabWatcherParams(TypedDict):
+    p_watcher_id: str
 
 
 class _RunSavedSearchParamsRequired(TypedDict):
@@ -4023,6 +4191,18 @@ class SetInstrumentRateParams(_SetInstrumentRateParamsRequired, total=False):
     p_currency: Optional[str]
 
 
+class _SetLabWatcherParamsRequired(TypedDict):
+    p_workspace_id: str
+    p_kind: str
+    p_enabled: bool
+
+
+class SetLabWatcherParams(_SetLabWatcherParamsRequired, total=False):
+    p_schedule: str
+    p_project_id: str
+    p_params: Dict[str, "JsonValue"]
+
+
 class SetLinkPartParams(TypedDict):
     p_link_id: str
     p_part_id: str
@@ -4116,6 +4296,15 @@ class _SetTimestampSettingsParamsRequired(TypedDict):
 class SetTimestampSettingsParams(_SetTimestampSettingsParamsRequired, total=False):
     p_authority: Optional[str]
     p_url: Optional[str]
+
+
+class _SetWatcherFindingStatusParamsRequired(TypedDict):
+    p_finding_id: str
+    p_action: str
+
+
+class SetWatcherFindingStatusParams(_SetWatcherFindingStatusParamsRequired, total=False):
+    p_until: str
 
 
 class SnapshotDatasetParams(TypedDict):

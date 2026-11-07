@@ -9,7 +9,9 @@ const compose = parse(composeRaw) as {
 
 describe('compose.yaml service contract', () => {
   it('pins the PostgreSQL image', () => {
-    expect(compose.services.postgres.image).toMatch(/^postgres:\d+/)
+    expect(compose.services.postgres.image).toMatch(
+      /^(sheetbase-)?postgres:\d+/,
+    )
   })
 
   it('pins the PostgREST version', () => {

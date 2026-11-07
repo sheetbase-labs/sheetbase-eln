@@ -162,6 +162,23 @@ function detailPhrase(event: TimelineEventWire): string {
   }
 }
 
+/**
+ * A record made from a model is logged twice: once as the model's own entry
+ * ("Incident created") and once as the generic "Record created". Said once is
+ * enough, so the generic one goes when a specific one is there.
+ */
+function withoutGenericCreate(
+  events: TimelineEventWire[],
+): TimelineEventWire[] {
+  const isCreate = (event: TimelineEventWire, generic: boolean) =>
+    event.type === 'change_event' &&
+    event.operation === 'create' &&
+    (event.eventType === 'record') === generic
+  // Every event here already belongs to the one record.
+  if (!events.some((event) => isCreate(event, false))) return events
+  return events.filter((event) => !isCreate(event, true))
+}
+
 /** Map RPC timeline events to the presentational AuditTrail events. */
 export function mapTimelineEvents(
   events: TimelineEventWire[],
@@ -169,7 +186,7 @@ export function mapTimelineEvents(
   currentUserName?: string,
   nameOf?: (userId: string) => string | undefined,
 ): AuditEvent[] {
-  return events.map((event) => ({
+  return withoutGenericCreate(events).map((event) => ({
     id: `${event.type}-${event.id}`,
     type: event.type,
     title: friendlyTitle(event),

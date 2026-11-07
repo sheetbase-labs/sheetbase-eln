@@ -249,6 +249,12 @@ export const settingsAccountNav: SettingsNavItem[] = [
   },
   {
     place: 'account',
+    label: 'Lab watchers',
+    link: { to: '/settings/account/watchers' },
+    match: (p) => p.startsWith('/settings/account/watchers'),
+  },
+  {
+    place: 'account',
     label: 'Notifications',
     link: { to: '/settings/account/notifications' },
     match: (p) => p.startsWith('/settings/account/notifications'),

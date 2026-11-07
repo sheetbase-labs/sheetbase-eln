@@ -10,6 +10,7 @@ import {
   AgentPoliciesPanel,
   AgentWorkflowsPanel,
 } from '#/components/pipelines/agents/agent-surface'
+import { ActionRequestsBoard } from '#/components/pipelines/agents/action-requests-board'
 import { AgentPoliciesBoard } from '#/components/pipelines/agents/policies-board'
 import {
   AgentProposalsBoard,
@@ -66,12 +67,14 @@ export const Route = createFileRoute('/pipelines/agents')({
   validateSearch: (
     search: Record<string, unknown>,
   ): {
-    view?: 'workflows' | 'proposals' | 'policies'
+    view?: 'workflows' | 'proposals' | 'policies' | 'actions'
     proposal?: string
     workflow?: string
   } => ({
     view:
-      search.view === 'proposals' || search.view === 'policies'
+      search.view === 'proposals' ||
+      search.view === 'policies' ||
+      search.view === 'actions'
         ? search.view
         : search.view === 'workflows'
           ? 'workflows'
@@ -470,6 +473,11 @@ function AgentsRoute() {
                 },
               },
               {
+                key: 'actions',
+                label: t('agentRequests.tab'),
+                link: { to: '/pipelines/agents', search: { view: 'actions' } },
+              },
+              {
                 key: 'policies',
                 label: t('data.pipelinesAgents.policies'),
                 link: { to: '/pipelines/agents', search: { view: 'policies' } },
@@ -512,6 +520,8 @@ function AgentsRoute() {
             pendingAction={pendingAction}
             error={proposalError}
           />
+        ) : view === 'actions' ? (
+          <ActionRequestsBoard nameOf={(id) => nameOf(id) ?? ''} />
         ) : view === 'policies' ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-auto">
             <AgentPoliciesBoard

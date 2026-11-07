@@ -104,6 +104,17 @@ describe('itemLink', () => {
     })
   })
 
+  it('opens an agent action request on the lab actions, and a finding on the watchers', () => {
+    expect(
+      itemLink(
+        item('agent_action_request', { recordId: null, sourceId: 'r1' }),
+      ),
+    ).toEqual({ to: '/pipelines/agents', search: { view: 'actions' } })
+    expect(
+      itemLink(item('watcher_finding', { recordId: null, sourceId: 'f1' })),
+    ).toEqual({ to: '/settings/account/watchers' })
+  })
+
   it('opens identity verification, on either side, on the signature settings', () => {
     expect(
       itemLink(item('verification_requested', { recordId: null })),

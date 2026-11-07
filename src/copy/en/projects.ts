@@ -2071,6 +2071,8 @@ export const projects = {
       access_requested: 'Access request',
       access_decided: 'Access decided',
       agent_proposal: 'Agent proposal',
+      agent_action_request: 'Agent action',
+      watcher_finding: 'Watcher finding',
       invitation_accepted: 'Joined',
       verification_requested: 'Verify identity',
       verification_granted: 'Verified',

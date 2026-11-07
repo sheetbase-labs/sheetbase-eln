@@ -5,6 +5,7 @@
  * language must match.
  */
 import { account } from './account'
+import { agentRequests, agents } from './agents'
 import { calculators } from './calculators'
 import { calendarFeed } from './calendar-feed'
 import { common } from './common'
@@ -27,6 +28,8 @@ import { spend } from './spend'
 export const en = {
   common,
   account,
+  agents,
+  agentRequests,
   people,
   calculators,
   calendarFeed,

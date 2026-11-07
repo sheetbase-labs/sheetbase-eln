@@ -225,6 +225,16 @@ export const notebook = {
         applying: 'Making…',
         applied: 'Made',
       },
+      setQcBaseline: {
+        apply: 'Set limits',
+        applying: 'Setting…',
+        applied: 'Limits set',
+      },
+      acknowledgeQc: {
+        apply: 'Acknowledge',
+        applying: 'Acknowledging…',
+        applied: 'Acknowledged',
+      },
       cancelShipment: {
         apply: 'Cancel shipment',
         applying: 'Cancelling…',

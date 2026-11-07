@@ -154,6 +154,10 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   // (assistant-plates.ts).
   'sheetbase.plate.analyse',
   'sheetbase.worklist.create',
+  // Quality control: set a series' limits, acknowledge breaches
+  // (assistant-qc.ts).
+  'sheetbase.qc.set_baseline',
+  'sheetbase.qc.acknowledge',
   // The person's own out of office, set or cancelled from a card.
   'sheetbase.absence.set',
   'sheetbase.absence.cancel',

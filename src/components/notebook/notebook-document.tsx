@@ -1561,6 +1561,7 @@ function blockLabel(block: NotebookBlockData): string {
     materials: t('notebook.notebookDocument.materials'),
     analysis: t('notebook.notebookDocument.analysis'),
     pipeline_output: t('notebook.notebookDocument.pipelineOutput'),
+    code_cell: t('notebook.notebookDocument.codeCell'),
     signature_request: t('notebook.notebookDocument.signatureRequest'),
     corrective_actions: t('notebook.notebookDocument.correctiveActions'),
     conclusion: t('notebook.notebookDocument.conclusion'),

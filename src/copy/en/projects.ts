@@ -3413,6 +3413,7 @@ export const projects = {
     plateMap: 'Plate map',
     structure: 'Structure',
     reaction: 'Reaction',
+    codeCell: 'Code cell',
     file: 'File',
     linkedRecord: 'Linked record',
     protocolReference: 'Protocol reference',

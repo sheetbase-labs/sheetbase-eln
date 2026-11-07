@@ -68,6 +68,7 @@ export const BLOCK_SECTION_MAP: Record<string, SectionId> = {
   plate_map: 'visualizations',
   structure: 'visualizations',
   reaction: 'visualizations',
+  code_cell: 'visualizations',
   metric: 'metrics',
   file: 'files',
   linked_record: 'links',

@@ -94,6 +94,7 @@ import { Route as ApiAvatarsMeRouteImport } from './routes/api/avatars/me'
 import { Route as ApiCollaborationTicketRouteImport } from './routes/api/collaboration/ticket'
 import { Route as ApiConnectorsAgentRouteImport } from './routes/api/connectors.agent'
 import { Route as ApiConnectorsIntakeRouteImport } from './routes/api/connectors.intake'
+import { Route as ApiConnectorsJobsRouteImport } from './routes/api/connectors.jobs'
 import { Route as ApiConnectorsPickupRouteImport } from './routes/api/connectors.pickup'
 import { Route as ApiConnectorsSourceRouteImport } from './routes/api/connectors.source'
 import { Route as ApiConnectorsStreamRouteImport } from './routes/api/connectors.stream'
@@ -108,6 +109,7 @@ import { Route as ApiImportCommitRouteImport } from './routes/api/import/commit'
 import { Route as ApiImportElnRouteImport } from './routes/api/import/eln'
 import { Route as ApiImportFilesRouteImport } from './routes/api/import/files'
 import { Route as ApiImportReviewRouteImport } from './routes/api/import/review'
+import { Route as ApiNotebookCodeCellRouteImport } from './routes/api/notebook.code-cell'
 import { Route as ApiOfficeEditorSessionRouteImport } from './routes/api/office-editor/session'
 import { Route as ApiOfficeEditorStatusRouteImport } from './routes/api/office-editor/status'
 import { Route as ApiParsersConverterRouteImport } from './routes/api/parsers/converter'
@@ -660,6 +662,11 @@ const ApiConnectorsIntakeRoute = ApiConnectorsIntakeRouteImport.update({
   path: '/api/connectors/intake',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiConnectorsJobsRoute = ApiConnectorsJobsRouteImport.update({
+  id: '/api/connectors/jobs',
+  path: '/api/connectors/jobs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiConnectorsPickupRoute = ApiConnectorsPickupRouteImport.update({
   id: '/api/connectors/pickup',
   path: '/api/connectors/pickup',
@@ -728,6 +735,11 @@ const ApiImportFilesRoute = ApiImportFilesRouteImport.update({
 const ApiImportReviewRoute = ApiImportReviewRouteImport.update({
   id: '/api/import/review',
   path: '/api/import/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNotebookCodeCellRoute = ApiNotebookCodeCellRouteImport.update({
+  id: '/api/notebook/code-cell',
+  path: '/api/notebook/code-cell',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiOfficeEditorSessionRoute = ApiOfficeEditorSessionRouteImport.update({
@@ -1494,6 +1506,7 @@ export interface FileRoutesByFullPath {
   '/api/collaboration/ticket': typeof ApiCollaborationTicketRoute
   '/api/connectors/agent': typeof ApiConnectorsAgentRoute
   '/api/connectors/intake': typeof ApiConnectorsIntakeRoute
+  '/api/connectors/jobs': typeof ApiConnectorsJobsRoute
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/connectors/stream': typeof ApiConnectorsStreamRoute
@@ -1508,6 +1521,7 @@ export interface FileRoutesByFullPath {
   '/api/import/eln': typeof ApiImportElnRoute
   '/api/import/files': typeof ApiImportFilesRoute
   '/api/import/review': typeof ApiImportReviewRoute
+  '/api/notebook/code-cell': typeof ApiNotebookCodeCellRoute
   '/api/office-editor/session': typeof ApiOfficeEditorSessionRoute
   '/api/office-editor/status': typeof ApiOfficeEditorStatusRoute
   '/api/parsers/converter': typeof ApiParsersConverterRoute
@@ -1708,6 +1722,7 @@ export interface FileRoutesByTo {
   '/api/collaboration/ticket': typeof ApiCollaborationTicketRoute
   '/api/connectors/agent': typeof ApiConnectorsAgentRoute
   '/api/connectors/intake': typeof ApiConnectorsIntakeRoute
+  '/api/connectors/jobs': typeof ApiConnectorsJobsRoute
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/connectors/stream': typeof ApiConnectorsStreamRoute
@@ -1722,6 +1737,7 @@ export interface FileRoutesByTo {
   '/api/import/eln': typeof ApiImportElnRoute
   '/api/import/files': typeof ApiImportFilesRoute
   '/api/import/review': typeof ApiImportReviewRoute
+  '/api/notebook/code-cell': typeof ApiNotebookCodeCellRoute
   '/api/office-editor/session': typeof ApiOfficeEditorSessionRoute
   '/api/office-editor/status': typeof ApiOfficeEditorStatusRoute
   '/api/parsers/converter': typeof ApiParsersConverterRoute
@@ -1932,6 +1948,7 @@ export interface FileRoutesById {
   '/api/collaboration/ticket': typeof ApiCollaborationTicketRoute
   '/api/connectors/agent': typeof ApiConnectorsAgentRoute
   '/api/connectors/intake': typeof ApiConnectorsIntakeRoute
+  '/api/connectors/jobs': typeof ApiConnectorsJobsRoute
   '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/connectors/stream': typeof ApiConnectorsStreamRoute
@@ -1946,6 +1963,7 @@ export interface FileRoutesById {
   '/api/import/eln': typeof ApiImportElnRoute
   '/api/import/files': typeof ApiImportFilesRoute
   '/api/import/review': typeof ApiImportReviewRoute
+  '/api/notebook/code-cell': typeof ApiNotebookCodeCellRoute
   '/api/office-editor/session': typeof ApiOfficeEditorSessionRoute
   '/api/office-editor/status': typeof ApiOfficeEditorStatusRoute
   '/api/parsers/converter': typeof ApiParsersConverterRoute
@@ -2160,6 +2178,7 @@ export interface FileRouteTypes {
     | '/api/collaboration/ticket'
     | '/api/connectors/agent'
     | '/api/connectors/intake'
+    | '/api/connectors/jobs'
     | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/connectors/stream'
@@ -2174,6 +2193,7 @@ export interface FileRouteTypes {
     | '/api/import/eln'
     | '/api/import/files'
     | '/api/import/review'
+    | '/api/notebook/code-cell'
     | '/api/office-editor/session'
     | '/api/office-editor/status'
     | '/api/parsers/converter'
@@ -2374,6 +2394,7 @@ export interface FileRouteTypes {
     | '/api/collaboration/ticket'
     | '/api/connectors/agent'
     | '/api/connectors/intake'
+    | '/api/connectors/jobs'
     | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/connectors/stream'
@@ -2388,6 +2409,7 @@ export interface FileRouteTypes {
     | '/api/import/eln'
     | '/api/import/files'
     | '/api/import/review'
+    | '/api/notebook/code-cell'
     | '/api/office-editor/session'
     | '/api/office-editor/status'
     | '/api/parsers/converter'
@@ -2597,6 +2619,7 @@ export interface FileRouteTypes {
     | '/api/collaboration/ticket'
     | '/api/connectors/agent'
     | '/api/connectors/intake'
+    | '/api/connectors/jobs'
     | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/connectors/stream'
@@ -2611,6 +2634,7 @@ export interface FileRouteTypes {
     | '/api/import/eln'
     | '/api/import/files'
     | '/api/import/review'
+    | '/api/notebook/code-cell'
     | '/api/office-editor/session'
     | '/api/office-editor/status'
     | '/api/parsers/converter'
@@ -2802,6 +2826,7 @@ export interface RootRouteChildren {
   ApiCollaborationTicketRoute: typeof ApiCollaborationTicketRoute
   ApiConnectorsAgentRoute: typeof ApiConnectorsAgentRoute
   ApiConnectorsIntakeRoute: typeof ApiConnectorsIntakeRoute
+  ApiConnectorsJobsRoute: typeof ApiConnectorsJobsRoute
   ApiConnectorsPickupRoute: typeof ApiConnectorsPickupRoute
   ApiConnectorsSourceRoute: typeof ApiConnectorsSourceRoute
   ApiConnectorsStreamRoute: typeof ApiConnectorsStreamRoute
@@ -2816,6 +2841,7 @@ export interface RootRouteChildren {
   ApiImportElnRoute: typeof ApiImportElnRoute
   ApiImportFilesRoute: typeof ApiImportFilesRoute
   ApiImportReviewRoute: typeof ApiImportReviewRoute
+  ApiNotebookCodeCellRoute: typeof ApiNotebookCodeCellRoute
   ApiOfficeEditorSessionRoute: typeof ApiOfficeEditorSessionRoute
   ApiOfficeEditorStatusRoute: typeof ApiOfficeEditorStatusRoute
   ApiParsersConverterRoute: typeof ApiParsersConverterRoute
@@ -3449,6 +3475,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiConnectorsIntakeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/connectors/jobs': {
+      id: '/api/connectors/jobs'
+      path: '/api/connectors/jobs'
+      fullPath: '/api/connectors/jobs'
+      preLoaderRoute: typeof ApiConnectorsJobsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/connectors/pickup': {
       id: '/api/connectors/pickup'
       path: '/api/connectors/pickup'
@@ -3545,6 +3578,13 @@ declare module '@tanstack/react-router' {
       path: '/api/import/review'
       fullPath: '/api/import/review'
       preLoaderRoute: typeof ApiImportReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/notebook/code-cell': {
+      id: '/api/notebook/code-cell'
+      path: '/api/notebook/code-cell'
+      fullPath: '/api/notebook/code-cell'
+      preLoaderRoute: typeof ApiNotebookCodeCellRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/office-editor/session': {
@@ -4991,6 +5031,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCollaborationTicketRoute: ApiCollaborationTicketRoute,
   ApiConnectorsAgentRoute: ApiConnectorsAgentRoute,
   ApiConnectorsIntakeRoute: ApiConnectorsIntakeRoute,
+  ApiConnectorsJobsRoute: ApiConnectorsJobsRoute,
   ApiConnectorsPickupRoute: ApiConnectorsPickupRoute,
   ApiConnectorsSourceRoute: ApiConnectorsSourceRoute,
   ApiConnectorsStreamRoute: ApiConnectorsStreamRoute,
@@ -5005,6 +5046,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiImportElnRoute: ApiImportElnRoute,
   ApiImportFilesRoute: ApiImportFilesRoute,
   ApiImportReviewRoute: ApiImportReviewRoute,
+  ApiNotebookCodeCellRoute: ApiNotebookCodeCellRoute,
   ApiOfficeEditorSessionRoute: ApiOfficeEditorSessionRoute,
   ApiOfficeEditorStatusRoute: ApiOfficeEditorStatusRoute,
   ApiParsersConverterRoute: ApiParsersConverterRoute,

@@ -1145,6 +1145,7 @@ export const notebook = {
     materials: 'Materials',
     analysis: 'Analysis',
     pipelineOutput: 'Pipeline output',
+    codeCell: 'Code cell',
     signatureRequest: 'Signature request',
     correctiveActions: 'Corrective actions',
     conclusion: 'Conclusion',
@@ -2857,6 +2858,9 @@ export const notebook = {
       one: '{title} — {count} row',
       other: '{title} — {count} rows',
     },
+    codeCellLabel: 'Code cell',
+    codeCellDescription:
+      'Run Python or SQL on dataset versions. The code, its output and the runtime it ran in stay with the notebook, and a signed result can be run again.',
     pipelineOutputLabel: 'Pipeline output',
     referenceAPipelineRunDescription:
       'Reference a pipeline run and pin the dataset version it produced into the notebook.',

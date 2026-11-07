@@ -16,7 +16,7 @@ const DRIZZLE = join(__dirname, '../../../drizzle')
 /** The body of `internal.block_search_text` in the latest migration defining it. */
 function latestBlockSearchText(): string {
   const files = readdirSync(DRIZZLE)
-    .filter((name) => /^\d{4}_.*\.sql$/.test(name))
+    .filter((name) => /^(\d{4}|\d{14})_.*\.sql$/.test(name))
     .sort()
     .reverse()
   for (const name of files) {

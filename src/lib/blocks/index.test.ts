@@ -299,6 +299,16 @@ describe('block payload validation (ELN-002)', () => {
       },
       checklist: { items: [{ text: 'x', checked: true }] },
       structure: { molfile: '', title: 'Aspirin', formula: 'C9H8O4' },
+      code_cell: {
+        language: 'sql',
+        source: 'select 1',
+        inputs: [
+          {
+            alias: 'samples',
+            datasetVersionId: '11111111-1111-4111-8111-111111111111',
+          },
+        ],
+      },
       reaction: {
         drawing: '',
         rows: [
@@ -592,5 +602,33 @@ describe('empty rich text', () => {
       }),
     ).toBe(false)
     expect(isEmptyRichText(null)).toBe(false)
+  })
+})
+
+describe('code cell payloads', () => {
+  const version = '11111111-1111-4111-8111-111111111111'
+  it('accepts an empty draft and refuses what the cell cannot run', () => {
+    expect(validateBlock({ type: 'code_cell', payload: {} }).ok).toBe(true)
+    const bad = (payload: Record<string, unknown>) =>
+      validateBlock({ type: 'code_cell', payload }).ok
+    expect(bad({ language: 'ruby' })).toBe(false)
+    expect(bad({ source: 'x'.repeat(50_001) })).toBe(false)
+    expect(
+      bad({ inputs: [{ alias: '1bad', datasetVersionId: version }] }),
+    ).toBe(false)
+    expect(
+      bad({
+        inputs: [
+          { alias: 'a', datasetVersionId: version },
+          { alias: 'a', datasetVersionId: version },
+        ],
+      }),
+    ).toBe(false)
+    expect(bad({ inputs: [{ alias: 'a', datasetVersionId: 'nope' }] })).toBe(
+      false,
+    )
+    expect(bad({ output: { runId: 'x', rows: new Array(101).fill({}) } })).toBe(
+      false,
+    )
   })
 })

@@ -72,6 +72,7 @@ import {
   sheetPath,
 } from '#/lib/navigation'
 import { PipelineOutputBlockPreview } from './pipeline-output-block-preview'
+import { CodeCellBlockPreview } from './code-cell-block'
 import { DatasetImportBlockPreview } from './dataset-import-block'
 import {
   CorrectiveActionsPreview,
@@ -289,6 +290,8 @@ function renderPayload(
       return <AnalysisBlockPreview payload={payload} />
     case 'pipeline_output':
       return <PipelineOutputBlockPreview payload={payload} />
+    case 'code_cell':
+      return <CodeCellBlockPreview payload={payload} recordId={recordId} />
     case 'dataset_import':
       return <DatasetImportBlockPreview payload={payload} recordId={recordId} />
     case 'plate_map':

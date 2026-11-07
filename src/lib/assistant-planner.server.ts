@@ -3,12 +3,14 @@ import {
   CAMPAIGN_RESULTS_TOOL,
   CAMPAIGN_ROUND_TOOL,
   CAMPAIGN_START_TOOL,
+  MODEL_FEATURE_TOOL,
   PLANNER_PROPOSE_TOOL_NAMES,
   PLAN_TOOL,
   campaignApproveSchema,
   campaignResultsSchema,
   campaignRoundSchema,
   campaignStartSchema,
+  modelFeatureSchema,
   proposePlanSchema,
 } from './assistant-planner'
 import type { PlannerProposeToolName } from './assistant-planner'
@@ -25,6 +27,7 @@ import type { AssistantProposal, ProposalChange } from './assistant-proposals'
 import type { ProviderToolDef } from './ai-providers/types'
 import { fetchCampaignModels } from './campaigns/data'
 import type { CampaignRoundRow, CampaignRow } from './campaigns/campaign'
+import { MODEL_FEATURES } from './features/registry'
 import { parsePlanAnswer, plateCounts } from './planner/plan'
 import type { PlannerContext } from './planner/plan'
 
@@ -53,6 +56,11 @@ export function plannerProposalDefs(): ProviderToolDef[] {
       PLAN_TOOL,
       `Propose a plan for an experiment from a goal: the protocol to start from, its parts, a plate layout, a worklist for a liquid handler, samples to set aside and a request for a schedule. Name protocols, instruments and samples as the person does and use only ones that exist. Plan only what the goal asks for and say in warnings what you assumed. Pressing the button creates all of it together; nothing is booked until the person accepts the schedule. ${NOTE}`,
       proposePlanSchema,
+    ),
+    toolDef(
+      MODEL_FEATURE_TOOL,
+      `Propose switching a feature on or off for a record model, such as Campaigns, which lets records of that model be optimisation campaigns. Name the model as the person does. Needs permission to edit models. ${NOTE}`,
+      modelFeatureSchema,
     ),
     toolDef(
       CAMPAIGN_START_TOOL,
@@ -124,7 +132,7 @@ async function findCampaign(
     return {
       ok: false,
       message:
-        'No record model is ticked as a campaign list yet. Say that it is set up on the Campaigns page, and offer to open it.',
+        'No record model has the Campaigns feature yet. Say that it is switched on for a model under Models, Features, and offer to switch it on for the model they name.',
     }
   const like = likeValue(text)
   const kinds = models.map((m) => encodeURIComponent(m.key)).join(',')
@@ -190,6 +198,66 @@ export async function buildPlannerProposal(
   context: LabToolContext,
 ): Promise<PlannerOutcome> {
   switch (name) {
+    case MODEL_FEATURE_TOOL: {
+      const parsed = modelFeatureSchema.safeParse(args)
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const wanted = parsed.data.feature.trim().toLowerCase()
+      const feature = MODEL_FEATURES.find(
+        (f) => f.key === wanted || f.label().toLowerCase() === wanted,
+      )
+      if (!feature)
+        return fail(
+          `There is no feature called "${parsed.data.feature}". The features are: ${MODEL_FEATURES.map((f) => f.label()).join(', ')}.`,
+        )
+      const like = likeValue(parsed.data.model)
+      const models = await context.client.list<{ key: string; name: string }>(
+        'record_models',
+        `?or=(key.ilike.${like},name.ilike.${like})&select=key,name&order=name.asc&limit=6`,
+      )
+      const lowerModel = parsed.data.model.trim().toLowerCase()
+      const found = pick(
+        models,
+        parsed.data.model,
+        'record model',
+        (m) => m.name,
+        (m) =>
+          m.key.toLowerCase() === lowerModel ||
+          m.name.toLowerCase() === lowerModel,
+      )
+      if (!found.ok) return fail(found.message)
+      const have = await context.client.list<{ capability: string }>(
+        'model_capabilities',
+        `?model_key=eq.${encodeURIComponent(found.value.key)}&capability=eq.${feature.key}&select=capability&limit=1`,
+      )
+      const isOn = have.length > 0
+      if (isOn === parsed.data.enabled)
+        return fail(
+          `${feature.label()} is already switched ${isOn ? 'on' : 'off'} for ${found.value.name}. Nothing to change.`,
+        )
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: parsed.data.title,
+          summary: parsed.data.summary,
+          target: `${found.value.name} · Model`,
+          deepLink: '/models',
+          changes: [
+            {
+              label: feature.label(),
+              before: isOn ? 'On' : 'Off',
+              after: parsed.data.enabled ? 'On' : 'Off',
+            },
+          ],
+          action: {
+            kind: 'model.feature',
+            modelKey: found.value.key,
+            feature: feature.key,
+            enabled: parsed.data.enabled,
+          },
+        },
+      }
+    }
     case PLAN_TOOL: {
       const parsed = proposePlanSchema.safeParse(args)
       if (!parsed.success) return fail(invalid(parsed.error))

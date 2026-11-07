@@ -207,6 +207,8 @@ export const EVENT_NAMES = [
   'campaign.round.approved',
   'campaign.round.rejected',
   'campaign.round.completed',
+  'model.feature.enabled',
+  'model.feature.disabled',
   'pipeline.run.reproduced',
   'lineage.endpoint.created',
   'lineage.endpoint.updated',

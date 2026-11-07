@@ -2805,6 +2805,37 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     notes:
       'Payload carries roundId, campaignId, number, status, trials, engine, experimentId, plateRunId and best (the best result so far).',
   },
+  {
+    name: 'model.feature.enabled',
+    family: 'administration',
+    summary:
+      'A feature, such as Campaigns, was switched on for a record model.',
+    producer: {
+      entityType: 'model_capability',
+      operation: 'update',
+      when: { key: 'change', equals: 'enabled' },
+    },
+    wireName: 'model.feature.enabled',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes: 'Payload carries modelKey and feature.',
+  },
+  {
+    name: 'model.feature.disabled',
+    family: 'administration',
+    summary: 'A feature was switched off for a record model.',
+    producer: {
+      entityType: 'model_capability',
+      operation: 'update',
+      when: { key: 'change', equals: 'disabled' },
+    },
+    wireName: 'model.feature.disabled',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes: 'Payload carries modelKey and feature.',
+  },
 ])
 
 /**
@@ -3053,6 +3084,8 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
   'campaign.round.approved': 'A campaign round is approved',
   'campaign.round.rejected': 'A campaign round is rejected',
   'campaign.round.completed': 'A campaign round is completed',
+  'model.feature.enabled': 'A feature is switched on for a model',
+  'model.feature.disabled': 'A feature is switched off for a model',
 })
 
 /**

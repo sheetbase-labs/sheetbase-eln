@@ -16,9 +16,11 @@ export const CAMPAIGN_START_TOOL = 'sheetbase.campaign.start'
 export const CAMPAIGN_ROUND_TOOL = 'sheetbase.campaign.request_round'
 export const CAMPAIGN_APPROVE_TOOL = 'sheetbase.campaign.approve_round'
 export const CAMPAIGN_RESULTS_TOOL = 'sheetbase.campaign.enter_results'
+export const MODEL_FEATURE_TOOL = 'sheetbase.model.set_feature'
 
 export const PLANNER_PROPOSE_TOOL_NAMES = [
   PLAN_TOOL,
+  MODEL_FEATURE_TOOL,
   CAMPAIGN_START_TOOL,
   CAMPAIGN_ROUND_TOOL,
   CAMPAIGN_APPROVE_TOOL,
@@ -125,6 +127,28 @@ export const proposePlanSchema = z
   })
   .strict()
 
+export const modelFeatureSchema = z
+  .object({
+    title,
+    summary,
+    model: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('The record model, by name or key.'),
+    feature: z
+      .string()
+      .min(1)
+      .max(80)
+      .describe(
+        'The feature by name, such as Campaigns. Only features listed for the lab exist.',
+      ),
+    enabled: z
+      .boolean()
+      .describe('True to switch it on, false to switch it off.'),
+  })
+  .strict()
+
 export const campaignStartSchema = z
   .object({ title, summary, campaign })
   .strict()
@@ -195,6 +219,12 @@ export type PlannerAction =
       goal: string
       plan: ExperimentPlan
     }
+  | {
+      kind: 'model.feature'
+      modelKey: string
+      feature: string
+      enabled: boolean
+    }
   | { kind: 'campaign.start'; recordId: string }
   | { kind: 'campaign.round'; recordId: string }
   | { kind: 'campaign.approve'; roundId: string; recordId: string }
@@ -209,6 +239,7 @@ export type PlannerActionKind = PlannerAction['kind']
 
 const KINDS: readonly string[] = [
   'plan.apply',
+  'model.feature',
   'campaign.start',
   'campaign.round',
   'campaign.approve',

@@ -230,7 +230,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `schedule_proposals`           | A proposed schedule for an experiment’s parts. `status` is requested, planning, proposed, accepted, dismissed, superseded or failed. `items` lists each slot with its instrument, person, times and what stands in its way. Nothing is booked until `accept_schedule_proposal`.                                        |
 | `code_cell_runs`               | Every run of a notebook code cell, kept with its code, the digests of the dataset versions it read, the first rows of the output and its digest, and the runtime it ran in (an image digest for Python). A run that reproduces another has `reproduces_run_id` and says whether the output `matches`.                  |
 | `experiment_plans`             | An experiment drawn up from a goal, ready to read and apply. `status` is proposed (waiting for a person), applied, dismissed or superseded. `plan` holds the protocol, parts, plate, worklist, samples and schedule request; `result` says what applying created. Nothing exists until `apply_experiment_plan`.        |
-| `model_campaign_lists`         | The record models ticked as campaign lists: their records can be optimised round by round.                                                                                                                                                                                                                             |
+| `model_capabilities`           | The features switched on for each record model, such as `campaigns` (records of the model can be optimised round by round). One row per model and feature; `settings` holds what the feature keeps for that model.                                                                                                     |
 | `campaigns`                    | An optimisation campaign: what it varies (`factors`), what counts as better (`objectives`), its budget and how each round is laid out on a plate. `status` is draft, active, paused or finished. Each round’s experiment joins the series headed by `series_record_id`.                                                |
 | `campaign_rounds`              | One round of a campaign. `status` is requested, proposing, proposed (waiting for a person to approve), approved (waiting for results), completed, rejected or failed. `trials` lists each condition with its wells and results; `engine`, `engine_version` and `image_digest` say what chose them and `rationale` why. |
 
@@ -1845,16 +1845,18 @@ Scope: `lab:write`.
 | ------------- | ---- | -------- |
 | `p_plan_id` * | uuid | Plan id. |
 
-### `set_model_campaign_list`
+### `set_model_capability`
 
-Tick or untick a record model as a campaign list. Records of a ticked model can be set up as campaigns. Needs permission to edit models.
+Switch a feature on or off for a record model. Turns a feature of a record model on or off; `p_capability` is the feature key, such as `campaigns`, whose records can then be set up as campaigns. `p_settings` replaces the feature’s settings when given. Needs permission to edit models. Returns whether the feature is now on.
 
 Scope: `lab:write`.
 
-| Argument        | Type |                                    |
-| --------------- | ---- | ---------------------------------- |
-| `p_model_key` * | text | Record model key.                  |
-| `p_enabled` *   | bool | `false` pauses judging new points. |
+| Argument         | Type |                                                                               |
+| ---------------- | ---- | ----------------------------------------------------------------------------- |
+| `p_model_key` *  | text | Record model key.                                                             |
+| `p_capability` * | text | The feature key, such as `campaigns`.                                         |
+| `p_enabled` *    | bool | `true` switches the feature on, `false` switches it off.                      |
+| `p_settings`     | json | A JSON object of settings for the feature (replaces its settings when given). |
 
 ### `configure_campaign`
 

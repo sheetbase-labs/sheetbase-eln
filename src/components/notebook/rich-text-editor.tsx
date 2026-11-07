@@ -190,7 +190,7 @@ function createRecordRefPlugin(
             const kind = known.get(match[0])
             const href = kind ? objectPath(kind, match[0]) : null
             if (!href) continue
-            const from = pos + (match.index ?? 0)
+            const from = pos + match.index
             decorations.push(
               Decoration.inline(from, from + match[0].length, {
                 class: 'text-link mono cursor-pointer',

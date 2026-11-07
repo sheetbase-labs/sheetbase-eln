@@ -158,6 +158,7 @@ export const updateAiSettingsFn = createServerFn({ method: 'POST' })
     const { createServerDataClient } =
       await import('#/lib/server-data-client.server')
     const client = createServerDataClient(session.token)
+    const before = await readRow(session.token, data.workspaceId)
     const updated = await client.rpc<WorkspaceAiSettingsRow | null>(
       'update_workspace_ai_settings',
       {
@@ -187,6 +188,34 @@ export const updateAiSettingsFn = createServerFn({ method: 'POST' })
         maxCostMicrousdPerCall: data.maxCostMicrousdPerCall,
       }),
     )
+
+    // A different model or provider can answer differently, so the checks run
+    // again on their own and the result is there to read.
+    const changed =
+      (before?.ai_provider_profile ?? null) !== data.providerProfile ||
+      (before?.ai_model ?? null) !== data.model
+    if (data.enabled && changed) {
+      const { getRequestHeaders } = await import('@tanstack/react-start/server')
+      const headers = new Headers(getRequestHeaders())
+      void import('#/lib/ai-evals-run.server')
+        .then(({ runAndRecordEvals }) =>
+          runAndRecordEvals({
+            workspaceId: data.workspaceId,
+            userId: session.userId,
+            trigger: 'profile_change',
+            headers,
+          }),
+        )
+        .catch((cause: unknown) => {
+          logger.warn(
+            'ai.evals.profile_change_failed',
+            redact({
+              workspaceId: data.workspaceId,
+              message: cause instanceof Error ? cause.message : 'unknown',
+            }),
+          )
+        })
+    }
 
     return buildView(session, updated, error, profiles)
   })

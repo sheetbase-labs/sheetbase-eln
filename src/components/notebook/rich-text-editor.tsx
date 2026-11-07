@@ -742,14 +742,18 @@ export function RichTextEditor({
   }, [conflict, conflictServerDoc, editor, liveProvider])
 
   React.useEffect(() => {
-    if (!editor || editor.isDestroyed || !autoFocus) return
+    if (!editor || editor.isDestroyed) return
     // Mid-swap into the shared document the caret is restored where it was.
+    // This does not wait for autoFocus: the old editor leaving the page is
+    // reported as a blur, which can have switched it off by now, and the
+    // person never left the block.
     const place = restoreRef.current
     if (place) {
       // The view is shown by now, so the focus can be given back.
       if (place.focused) editor.commands.focus(null, { scrollIntoView: false })
       return
     }
+    if (!autoFocus) return
     editor.commands.focus(caretHint === 'start' ? 'start' : 'end')
   }, [autoFocus, caretHint, editor])
 

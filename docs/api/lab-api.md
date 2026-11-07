@@ -96,6 +96,46 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `agent_action_requests`        | An action an agent asked to take: what it was, what the workspace had set for it (`level`), and how it ended (`status`). A token sees only its own requests.                                                                                    |
 | `lab_watchers`                 | A scheduled review the lab turned on: stock expiring, stock low, work overdue, data missing or results off.                                                                                                                                     |
 | `lab_watcher_findings`         | Something a watcher found, with the record it is about and a suggested action. `status` is open, snoozed, dismissed or resolved.                                                                                                                |
+| Table                          | What it holds                                                                                                                                                                |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reagent_orders`               | A reagent order: requested from a material that is running low, placed with the supplier, then received as a new lot. `status` is requested, ordered, received or cancelled. |
+| `recurring_schedules`          | A recurring experiment or booking. `kind` is `booking` or `experiment`; `status` is active, paused or ended.                                                                 |
+| `recurring_occurrences`        | One planned run of a recurring schedule and what became of it (`outcome`).                                                                                                   |
+| `instrument_service_log`       | A service, repair, calibration or other visit logged against an instrument.                                                                                                  |
+| `experiment_series`            | An experiment that heads a series: it groups other experiments that run as separate pieces of one piece of work.                                                             |
+| `experiment_series_members`    | An experiment in a series, with where it sits (`position`) and the day it is planned (`planned_on`). An experiment is in one series at most.                                 |
+| `step_timers`                  | A timer started on a protocol step. Personal tokens only: you see your own timers.                                                                                           |
+| `material_safety`              | Chemical safety information for a material: hazard pictograms, signal word, hazard statements and the safety data sheet file.                                                |
+| `material_ingredients`         | What went into a prepared solution: one row per ingredient lot, with quantity and unit.                                                                                      |
+| `stocktakes`                   | A stocktake of a freezer, shelf or box. `status` is in_progress, completed or cancelled.                                                                                     |
+| `stocktake_items`              | One item expected in or found during a stocktake, with where it should be, where it was found and how a mismatch was resolved.                                               |
+| `instrument_feeds`             | A live measurement series on an instrument (temperature, pressure and so on), with its alert limits and last value.                                                          |
+| `instrument_readings`          | One reading in an instrument feed. Large; filter by `feed_id` and `taken_at`, or use `list_instrument_feed_series` for charts.                                               |
+| `sample_workflows`             | A sample workflow: the stages a sample moves through. `status` is draft, active or archived.                                                                                 |
+| `sample_workflow_stages`       | A stage in a sample workflow, with its turnaround time, required fields and actions.                                                                                         |
+| `sample_workflow_transitions`  | Which stage a sample may move to from another stage.                                                                                                                         |
+| `sample_workflow_runs`         | A sample's journey through a workflow: its current stage, when it entered and when it is due.                                                                                |
+| `sample_workflow_events`       | The history of moves a sample made through a workflow.                                                                                                                       |
+| `request_forms`                | Which record models accept requests, their intro text and who handles them.                                                                                                  |
+| `shipments`                    | A sample shipment in or out. `direction` is inbound or outbound; `status` is draft, in_transit, received or cancelled.                                                       |
+| `shipment_items`               | An item on a shipment, with whether it arrived and in what condition.                                                                                                        |
+| `instrument_booking_rules`     | Booking limits on an instrument: longest booking and how far ahead people may book.                                                                                          |
+| `instrument_required_training` | Training protocols a person must hold before booking an instrument.                                                                                                          |
+| `field_spec_limits`            | Specification and alert limits for a numeric field on a record kind.                                                                                                         |
+| `model_incident_logs`          | Record models that are used as incident logs.                                                                                                                                |
+| `legal_holds`                  | A legal hold keeping records from deletion or archiving until it is released.                                                                                                |
+| `legal_hold_records`           | A record placed on a legal hold.                                                                                                                                             |
+| `retention_rules`              | How many months each kind of record is kept before it comes up for archiving.                                                                                                |
+| `request_details`              | What was asked and how it was decided, for each request record.                                                                                                              |
+| `record_spec_results`          | Each record's value for a field with result limits, and whether it is within spec, in the alert band or out. Personal tokens only.                                           |
+| `my_work_items`                | What is waiting on the person: reviews, tasks, assigned records and so on. Personal tokens only.                                                                             |
+| `inbox_work_items`             | The person's Inbox items with tab and type. Personal tokens only.                                                                                                            |
+| `project_follows`              | Projects a person follows. Personal tokens only: you see your own follows.                                                                                                   |
+| `plate_runs`                   | Plate runs: one plate read on an instrument, with its layout, readout, analysis settings and the last analysis (normalised values, Z-prime, hits and curves).                |
+| `plate_worklists`              | Liquid handler worklists: the transfers from a source plate to a destination plate, and what the robot log said was moved.                                                   |
+| `instrument_run_documents`     | Instrument files converted to the Allotrope Simple Model (ASM): one vendor-neutral document per instrument run, with the converter, its version and the image that ran it.   |
+| `qc_series`                    | Quality control series: a value tracked across runs (a plate assay metric, or any value sent in), with its limits, the Westgard rules and whether it is in control.          |
+| `qc_points`                    | Quality control points: each value of a series with its distance from the mean in SD, the Westgard rules it broke and whether someone has acknowledged it.                   |
 
 ## Actions
 
@@ -1186,3 +1226,114 @@ Scope: `lab:write`.
 | `p_ok` *         | bool | Whether it worked. |
 | `p_result`       | json | What it returned.  |
 | `p_error`        | text | Why it failed.     |
+### `record_instrument_run_document`
+
+Keep an Allotrope document with an instrument run. Stores the ASM document an instrument file was converted to, beside the run it came from. One per run; sending it again replaces it. Returns the document. Sends `instrument.run.converted`.
+
+Scope: `lab:write`.
+
+| Argument              | Type |                                                                |
+| --------------------- | ---- | -------------------------------------------------------------- |
+| `p_run_id` *          | uuid | Run id: the workflow run, or the instrument run.               |
+| `p_document` *        | json | The Allotrope Simple Model document, as JSON (at most 16 MiB). |
+| `p_converter` *       | text | What made the document, for example `allotropy`.               |
+| `p_converter_version` | text | Version of the converter.                                      |
+| `p_image_digest`      | text | The immutable image that ran the converter.                    |
+| `p_vendor`            | text | The instrument software the file came from.                    |
+| `p_technique`         | text | Measurement technique, for example `Plate Reader`.             |
+| `p_manifest`          | text | The Allotrope manifest the document follows.                   |
+| `p_measurements`      | int  | Number of measurements in the document.                        |
+| `p_device`            | json | JSON description of the instrument that wrote the file.        |
+
+### `create_qc_series`
+
+Track a value for quality control. Starts a series. For a value you send in, use `manual` and add points with `record_qc_point`; for a plate assay use `plate_metric` with a `p_design_id` and `p_metric`. Give `p_mean` and `p_sd`, or set a baseline later. Returns the series.
+
+Scope: `lab:write`.
+
+| Argument           | Type   |                                                                                                                                        |
+| ------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `p_workspace_id` * | uuid   | Your workspace id.                                                                                                                     |
+| `p_name` *         | text   | Name.                                                                                                                                  |
+| `p_source_kind`    | text   | `manual` (points are sent in) or `plate_metric` (fed by the plate runs of an assay design).                                            |
+| `p_metric`         | text   | For a plate series: `z_prime`, `signal_to_background`, `positive_mean`, `negative_mean`, `blank_mean`, `positive_cv` or `negative_cv`. |
+| `p_design_id`      | uuid   | Plate design the layout came from.                                                                                                     |
+| `p_instrument_id`  | uuid   | Instrument id.                                                                                                                         |
+| `p_unit`           | text   | Unit of the quantity.                                                                                                                  |
+| `p_mean`           | num    | Centre line of the control limits.                                                                                                     |
+| `p_sd`             | num    | Standard deviation (greater than 0) of the control limits.                                                                             |
+| `p_rules`          | text[] | Westgard rules to judge by, from `1-3s`, `2-2s`, `R-4s`, `4-1s` and `10x`.                                                             |
+
+### `track_plate_assay_qc`
+
+Track the controls of a plate assay. Starts a series for each plate quality metric (Z-prime, signal to background, control means) of an assay design, and backfills them from its analysed runs. Returns the series.
+
+Scope: `lab:write`.
+
+| Argument          | Type |                                    |
+| ----------------- | ---- | ---------------------------------- |
+| `p_design_id` *   | uuid | Plate design the layout came from. |
+| `p_instrument_id` | uuid | Instrument id.                     |
+
+### `update_qc_series`
+
+Change a quality control series. Renames a series, changes its rules or unit, or pauses and resumes it. Changing the rules re-judges every point. Returns the series.
+
+Scope: `lab:write`.
+
+| Argument        | Type   |                                                                            |
+| --------------- | ------ | -------------------------------------------------------------------------- |
+| `p_series_id` * | uuid   | Quality control series id.                                                 |
+| `p_name`        | text   | Name.                                                                      |
+| `p_rules`       | text[] | Westgard rules to judge by, from `1-3s`, `2-2s`, `R-4s`, `4-1s` and `10x`. |
+| `p_enabled`     | bool   | `false` pauses judging new points.                                         |
+| `p_unit`        | text   | Unit of the quantity.                                                      |
+
+### `delete_qc_series`
+
+Stop tracking a series. Deletes a series and all of its points.
+
+Scope: `lab:write`.
+
+| Argument        | Type |                            |
+| --------------- | ---- | -------------------------- |
+| `p_series_id` * | uuid | Quality control series id. |
+
+### `set_qc_baseline`
+
+Set the control limits of a series. Enter `p_mean` and `p_sd`, or give `p_first_n` to take them from the first N points. Every point is judged again. Returns the series. Sends `qc.violation` or `qc.back_in_control` if the state changes.
+
+Scope: `lab:write`.
+
+| Argument        | Type |                                                                                 |
+| --------------- | ---- | ------------------------------------------------------------------------------- |
+| `p_series_id` * | uuid | Quality control series id.                                                      |
+| `p_mean`        | num  | Centre line of the control limits.                                              |
+| `p_sd`          | num  | Standard deviation (greater than 0) of the control limits.                      |
+| `p_first_n`     | int  | Take the limits from the first N points (mean and SD) instead of entering them. |
+
+### `record_qc_point`
+
+Add a value to a series. Adds a measurement and judges it against the limits and the series rules. Returns the point, with its `z` and any `violations`. Sends `qc.violation` when a rule is broken, and `qc.back_in_control` when the series recovers.
+
+Scope: `lab:write`.
+
+| Argument              | Type |                                          |
+| --------------------- | ---- | ---------------------------------------- |
+| `p_series_id` *       | uuid | Quality control series id.               |
+| `p_value` *           | num  | The measured value, as a number or text. |
+| `p_at`                | ts   | When it was measured (default now).      |
+| `p_label`             | text | What was measured.                       |
+| `p_instrument_run_id` | uuid | The instrument run the value came from.  |
+
+### `acknowledge_qc_point`
+
+Acknowledge a quality control breach. Marks a broken point as seen, with a note, and optionally leaves it out of the limits so the series is judged again. Returns the point.
+
+Scope: `lab:write`.
+
+| Argument       | Type |                                                            |
+| -------------- | ---- | ---------------------------------------------------------- |
+| `p_point_id` * | uuid | Quality control point id.                                  |
+| `p_note`       | text | A note.                                                    |
+| `p_exclude`    | bool | Leave the point out of the limits and re-judge the series. |

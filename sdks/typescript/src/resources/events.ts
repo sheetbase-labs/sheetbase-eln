@@ -163,6 +163,9 @@ export const EVENT_NAMES = [
   'experiment.part_opened',
   'experiment.part_completed',
   'experiment.part_reopened',
+  'instrument.run.converted',
+  'qc.violation',
+  'qc.back_in_control',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]

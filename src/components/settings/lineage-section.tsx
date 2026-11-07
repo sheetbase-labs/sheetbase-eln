@@ -44,9 +44,12 @@ function useRefreshLineage(workspaceId: string) {
 export function LineageSection({
   workspaceId,
   canManage,
+  dataAccess = false,
 }: {
   workspaceId: string
   canManage: boolean
+  /** Stewards see where the stream is read from. */
+  dataAccess?: boolean
 }) {
   const settings = useQuery({
     queryKey: lineageAdminKeys.settings(workspaceId),
@@ -235,6 +238,7 @@ export function LineageSection({
           workspaceId={workspaceId}
           days={settings.data.retentionDays}
           canManage={canManage}
+          dataAccess={dataAccess}
           onSaved={refresh}
         />
       ) : null}
@@ -264,11 +268,13 @@ function RetentionField({
   workspaceId,
   days,
   canManage,
+  dataAccess,
   onSaved,
 }: {
   workspaceId: string
   days: number
   canManage: boolean
+  dataAccess: boolean
   onSaved: () => Promise<unknown>
 }) {
   const [value, setValue] = useState(String(days))
@@ -287,6 +293,11 @@ function RetentionField({
     <SettingsBody className="gap-2 border-t border-border-subtle pb-4">
       <h2 className="text-section">{t('settings.lineage.streamTitle')}</h2>
       <Muted>{t('settings.lineage.streamDescription')}</Muted>
+      {dataAccess ? (
+        <Muted>
+          {t('settings.lineage.streamAddress', { path: '/api/events/stream' })}
+        </Muted>
+      ) : null}
       <div className="flex items-end gap-2">
         <Field label={t('settings.lineage.streamDays')}>
           <Input

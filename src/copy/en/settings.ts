@@ -2795,6 +2795,8 @@ export const settings = {
     streamTitle: 'Event stream',
     streamDescription:
       'People and tools can read every change in order from the event stream. Choose how long it is kept.',
+    streamAddress:
+      'Read it from {path}. Pass the last position you handled as after to carry on where you stopped.',
     streamDays: 'Keep for (days)',
     streamSave: 'Save',
   },

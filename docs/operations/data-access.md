@@ -20,6 +20,13 @@ SQL login. Owners and administrators choose the roles in Settings → Access
 
 Measurement tables have no SQL view yet; use their `api.<resource_name>` route.
 
+## Following changes
+
+Members with data access see where the workspace's event stream is read from in
+Settings → Integrations. `GET /api/events/stream` returns every catalogued change in
+order as CloudEvents, as pages or a live stream, filtered to what the caller could
+see in the app. See `docs/api/event-stream.md`.
+
 ## Deployment
 
 - Role bootstrap (`docker/db/init/00-roles.sh`, `.agents/setup`) creates

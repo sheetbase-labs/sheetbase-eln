@@ -32,6 +32,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (options: object) => ({
     options,
     useParams: () => ({ templateId: ids.template }),
+    useRouteContext: () => ({ context: { workspace: { id: 'ws-1' } } }),
   }),
   Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
 }))

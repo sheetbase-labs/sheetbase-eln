@@ -521,6 +521,10 @@ export const workspaceSettings = api.table(
       .notNull()
       .default(sql`'{}'`),
     auditRetentionDays: integer('audit_retention_days').notNull().default(2555),
+    /** How far back the event stream serves history; the change log itself is kept. */
+    eventStreamRetentionDays: integer('event_stream_retention_days')
+      .notNull()
+      .default(30),
     /** The certification statement the workspace words; null is the standard one. */
     signatureStatement: text('signature_statement'),
     /** Raised each time the statement changes; certifications keep the version they were made against. */
@@ -644,6 +648,10 @@ export const workspaceSettings = api.table(
     check(
       'chk_workspace_settings_audit_retention_days',
       sql`${table.auditRetentionDays} > 0`,
+    ),
+    check(
+      'chk_workspace_settings_event_stream_retention',
+      sql`${table.eventStreamRetentionDays} BETWEEN 1 AND 3650`,
     ),
     check(
       'chk_workspace_settings_ai_feature_flags',
@@ -10078,6 +10086,153 @@ export const pipelineRunOutputs = api.table(
     index('idx_pipeline_run_outputs_version').on(table.datasetVersionId),
     index('idx_pipeline_run_outputs_run').on(table.runId),
     index('idx_pipeline_run_outputs_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * Reproductions: a finished Pipeline run re-run into a scratch result with the
+ * version, parameters and inputs it used, and the verdict (matches / differs).
+ * Never edited or deleted; see docs/api/provenance-api.md.
+ */
+export const pipelineReproductions = api.table(
+  'pipeline_reproductions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    sourceRunId: uuid('source_run_id').notNull(),
+    definitionVersionId: uuid('definition_version_id').notNull(),
+    status: text('status').notNull(),
+    tolerance: numeric('tolerance').notNull().default('0.000000001'),
+    compared: text('compared'),
+    summary: jsonb('summary')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    changes: jsonb('changes')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    errorCode: text('error_code'),
+    errorMessage: text('error_message'),
+    durationMs: integer('duration_ms'),
+    requestedByUserId: text('requested_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'pipeline_reproductions_run_fkey',
+      columns: [table.workspaceId, table.sourceRunId],
+      foreignColumns: [pipelineRuns.workspaceId, pipelineRuns.id],
+    }).onDelete('cascade'),
+    check(
+      'chk_pipeline_reproductions_status',
+      sql`${table.status} IN ('matches', 'differs', 'failed')`,
+    ),
+    check(
+      'chk_pipeline_reproductions_compared',
+      sql`${table.compared} IS NULL OR ${table.compared} IN ('dataset_version', 'preview', 'digest')`,
+    ),
+    check('chk_pipeline_reproductions_tolerance', sql`${table.tolerance} >= 0`),
+    index('idx_pipeline_reproductions_run').on(
+      table.sourceRunId,
+      table.createdAt,
+    ),
+    index('idx_pipeline_reproductions_workspace').on(
+      table.workspaceId,
+      table.createdAt,
+    ),
+  ],
+)
+
+/** An OpenLineage endpoint a workspace sends RunEvents to; off until an admin adds one. */
+export const lineageTargets = api.table(
+  'lineage_targets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    endpointUrl: text('endpoint_url').notNull(),
+    namespace: text('namespace').notNull().default('sheetbase'),
+    authHeaderName: text('auth_header_name').notNull().default('Authorization'),
+    hasSecret: boolean('has_secret').notNull().default(false),
+    enabled: boolean('enabled').notNull().default(false),
+    lastSequence: bigint('last_sequence', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
+    lastTestAt: timestamp('last_test_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    lastTestOk: boolean('last_test_ok'),
+    lastTestMessage: text('last_test_message'),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_lineage_targets_workspace_name').on(
+      table.workspaceId,
+      table.name,
+    ),
+    index('idx_lineage_targets_workspace').on(table.workspaceId),
+  ],
+)
+
+/** The outbox: one OpenLineage RunEvent per change, delivered with retries. */
+export const lineageDeliveries = api.table(
+  'lineage_deliveries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    targetId: uuid('target_id')
+      .notNull()
+      .references(() => lineageTargets.id, { onDelete: 'cascade' }),
+    changeEventId: uuid('change_event_id').notNull(),
+    eventType: text('event_type').notNull(),
+    jobName: text('job_name').notNull(),
+    runId: uuid('run_id').notNull(),
+    body: jsonb('body').notNull(),
+    status: text('status').notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .notNull()
+      .defaultNow(),
+    httpStatus: integer('http_status'),
+    lastError: text('last_error'),
+    deliveredAt: timestamp('delivered_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_lineage_deliveries_event').on(
+      table.targetId,
+      table.changeEventId,
+    ),
+    check(
+      'chk_lineage_deliveries_type',
+      sql`${table.eventType} IN ('START', 'COMPLETE', 'FAIL', 'ABORT')`,
+    ),
+    check(
+      'chk_lineage_deliveries_status',
+      sql`${table.status} IN ('pending', 'delivered', 'failed')`,
+    ),
+    index('idx_lineage_deliveries_target').on(table.targetId, table.createdAt),
   ],
 )
 

@@ -182,6 +182,8 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.campaign.request_round',
   'sheetbase.campaign.approve_round',
   'sheetbase.campaign.enter_results',
+  // Switch a feature on or off for a record model (assistant-planner.ts).
+  'sheetbase.model.set_feature',
   // The person's own out of office, set or cancelled from a card.
   'sheetbase.absence.set',
   'sheetbase.absence.cancel',

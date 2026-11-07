@@ -25,6 +25,11 @@ import type { Tone } from '#/components/ui/status'
 import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
+/** "a" or "an" for the noun a picker names ("an instrument"). */
+function articleFor(noun: string): string {
+  return /^[aeiou]/i.test(noun) ? 'an' : 'a'
+}
+
 /**
  * Entity picker: the one way to choose a project, experiment, protocol,
  * instrument, person, model record and the like. It replaces the bare
@@ -573,7 +578,10 @@ function EntityPicker({
 
   return (
     <Command
-      label={t('notebook.entityPicker.label', { noun })}
+      label={t('notebook.entityPicker.label', {
+        article: articleFor(noun),
+        noun,
+      })}
       query={q}
       onQueryChange={setQ}
       shouldFilter={false}
@@ -791,7 +799,10 @@ export function PickerSelect({
     : value === '' && clearLabel
       ? clearLabel
       : (placeholder ??
-        t('notebook.entityPicker.chooseANoun', { noun: picker.noun }))
+        t('notebook.entityPicker.chooseANoun', {
+          article: articleFor(picker.noun),
+          noun: picker.noun,
+        }))
 
   return (
     <>
@@ -831,7 +842,13 @@ export function PickerSelect({
         clearLabel={clearLabel}
         open={open}
         onOpenChange={setOpen}
-        title={title ?? t('notebook.entityPicker.label', { noun: picker.noun })}
+        title={
+          title ??
+          t('notebook.entityPicker.label', {
+            article: articleFor(picker.noun),
+            noun: picker.noun,
+          })
+        }
         value={value}
         onPick={onChange}
       />

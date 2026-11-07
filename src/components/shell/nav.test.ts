@@ -110,4 +110,19 @@ describe('sidebar groups', () => {
     expect(groups.map((g) => g.key)).toEqual(['work', 'lab', 'data'])
     expect(groups[0].items.map((i) => i.key)).toContain('projects')
   })
+
+  it('shows a feature page only while some model has the feature', () => {
+    const keys = (features: string[]) =>
+      visibleNavGroups(navGroups, [], features)
+        .flatMap((g) => g.items)
+        .map((i) => i.key)
+    expect(keys([])).not.toContain('campaigns')
+    expect(keys(['campaigns'])).toContain('campaigns')
+    // The lab's own hiding still applies on top.
+    expect(
+      visibleNavGroups(navGroups, ['campaigns'], ['campaigns'])
+        .flatMap((g) => g.items)
+        .map((i) => i.key),
+    ).not.toContain('campaigns')
+  })
 })

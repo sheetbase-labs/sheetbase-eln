@@ -18,6 +18,11 @@ export type NavItem = NavVisibility & {
   icon: IconName
   link: LinkProps
   count?: string
+  /**
+   * A model feature (`lib/features/registry.ts`) the page belongs to. The page
+   * is shown only while some model of the lab has the feature switched on.
+   */
+  feature?: string
 }
 
 /**
@@ -202,6 +207,7 @@ export const navGroups: NavGroup[] = [
         label: 'Campaigns',
         icon: 'lineChart',
         link: { to: '/campaigns' },
+        feature: 'campaigns',
       },
     ],
   },
@@ -237,9 +243,17 @@ export const modelsPlace: NavItem = {
 export function visibleNavGroups(
   groups: readonly NavGroup[],
   hidden: readonly string[],
+  /** The model features switched on somewhere in the lab. */
+  features: readonly string[] = [],
 ): NavGroup[] {
   const off = new Set(hidden.filter(canHideNavPage))
+  const on = new Set(features)
   return groups
-    .map((g) => ({ ...g, items: g.items.filter((i) => !off.has(i.key)) }))
+    .map((g) => ({
+      ...g,
+      items: g.items.filter(
+        (i) => !off.has(i.key) && (!i.feature || on.has(i.feature)),
+      ),
+    }))
     .filter((g) => g.items.length > 0)
 }

@@ -609,7 +609,7 @@ Scope: `lab:read`.
 
 Set the rule that opens a part of an experiment. Sets, changes or clears the conditions that open a part, whether the gate warns or blocks, and whether the steps of the part are done in order. A gate that came from a template cannot be changed. Returns the part. A gate that blocks is enforced by the database: writes in the part, and finishing it, are refused with error code `SB150` until the conditions hold.
 
-`p_conditions` is a list of conditions, all of which must hold. Each has a `kind`: `table_filled` (`blockId`, optionally `column` and `minRows`), `step_done` (`blockId`), `part_done` (`partId`), `samples_linked` (optionally `min`), `field_set` (`field`) or `date_reached` (`date`, which only warns and never blocks). Leave it out to take the rule off the part.
+`p_conditions` is a list of conditions, all of which must hold. Each has a `kind`: `table_filled` (`blockId`, optionally `column` and `minRows`), `step_done` (`blockId`), `part_done` (`partId`), `samples_linked` (optionally `min`), `field_set` (`field`), `date_reached` (`date`, which only warns and never blocks) or `qc_in_control` (optionally `seriesId`; unmet while a tracked quality control series has a breach nobody has acknowledged). Leave it out to take the rule off the part.
 
 Scope: `lab:write`.
 

@@ -111,6 +111,10 @@ describe('the page check of a gate condition', () => {
     expect(
       evaluateGateCondition({ kind: 'samples_linked', min: 3 }, ctx([])).known,
     ).toBe(false)
+    // Quality control lives in the database; the page only shows its answer.
+    expect(
+      evaluateGateCondition({ kind: 'qc_in_control' }, ctx([])).known,
+    ).toBe(false)
   })
 
   it('checks a step and a part', () => {

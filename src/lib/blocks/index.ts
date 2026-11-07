@@ -937,6 +937,7 @@ const GATE_KINDS = [
   'samples_linked',
   'field_set',
   'date_reached',
+  'qc_in_control',
 ]
 
 /** A gate holds back what is below it: 1 to 12 conditions and a mode. */
@@ -1002,6 +1003,17 @@ function validateGate(payload: unknown): FieldErrors {
           code: 'invalid_field_value',
           field: `conditions[${i}].partId`,
           message: 'partId must be a UUID',
+        })
+      }
+      if (
+        condition.kind === 'qc_in_control' &&
+        condition.seriesId !== undefined &&
+        !isUuid(condition.seriesId)
+      ) {
+        errors.push({
+          code: 'invalid_field_value',
+          field: `conditions[${i}].seriesId`,
+          message: 'seriesId must be a UUID',
         })
       }
       if (

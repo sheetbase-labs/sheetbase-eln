@@ -38,6 +38,7 @@ import type {
   RecordGate,
 } from '#/lib/experiment-gates'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { fetchQcSeries, qcKeys } from '#/lib/run-qc'
 import { useUserNames } from '#/lib/user-names'
 import { cn } from '#/lib/utils'
 
@@ -199,6 +200,12 @@ export function describeCondition(
       return t('notebook.gates.describe.date_reached', {
         date: dateWords(condition.date),
       })
+    case 'qc_in_control':
+      return condition.seriesId && condition.label?.trim()
+        ? t('notebook.gates.describe.qc_in_control_series', {
+            series: condition.label.trim(),
+          })
+        : t('notebook.gates.describe.qc_in_control_any')
   }
 }
 
@@ -606,6 +613,7 @@ const ALL_KINDS: readonly Kind[] = [
   'samples_linked',
   'field_set',
   'date_reached',
+  'qc_in_control',
 ]
 
 /** A first condition of a kind, pointed at something that exists when it can be. */
@@ -636,6 +644,8 @@ function blankCondition(kind: Kind, targets: GateTargets): GateCondition {
       }
     case 'date_reached':
       return { kind, date: new Date().toISOString().slice(0, 10) }
+    case 'qc_in_control':
+      return { kind }
   }
 }
 
@@ -656,10 +666,51 @@ function conditionIsComplete(condition: GateCondition): boolean {
       return Boolean(condition.field)
     case 'date_reached':
       return /^\d{4}-\d{2}-\d{2}$/.test(condition.date)
+    case 'qc_in_control':
+      return true
   }
 }
 
 const ROWS_OPTION = '__rows__'
+
+/** Which tracked quality control series a gate waits on: all of them, or one. */
+function QcSeriesSelect({
+  condition,
+  onChange,
+}: {
+  condition: Extract<GateCondition, { kind: 'qc_in_control' }>
+  onChange: (next: GateCondition) => void
+}) {
+  const list = useQuery({
+    queryKey: qcKeys.series('gate-picker'),
+    queryFn: () => fetchQcSeries(notebookDataClient),
+    staleTime: 10_000,
+  })
+  return (
+    <Select
+      aria-label={t('notebook.gates.dialog.qcSeriesLabel')}
+      value={condition.seriesId ?? ''}
+      className="w-auto min-w-48"
+      onChange={(event) => {
+        const series = (list.data ?? []).find(
+          (s) => s.id === event.target.value,
+        )
+        onChange(
+          series
+            ? { kind: 'qc_in_control', seriesId: series.id, label: series.name }
+            : { kind: 'qc_in_control' },
+        )
+      }}
+    >
+      <option value="">{t('notebook.gates.dialog.qcAnySeries')}</option>
+      {(list.data ?? []).map((series) => (
+        <option key={series.id} value={series.id}>
+          {series.name}
+        </option>
+      ))}
+    </Select>
+  )
+}
 
 function ConditionRow({
   condition,
@@ -840,6 +891,9 @@ function ConditionRow({
               </option>
             ))}
           </Select>
+        ) : null}
+        {condition.kind === 'qc_in_control' ? (
+          <QcSeriesSelect condition={condition} onChange={onChange} />
         ) : null}
         {condition.kind === 'date_reached' ? (
           <Input

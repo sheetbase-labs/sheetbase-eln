@@ -232,7 +232,7 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_parts:
     'The parts to make, in order: each `{title, first_block_id, day_offset}`. A part runs from its first block to the next part’s.',
   p_conditions:
-    'JSON list of the conditions the gate waits on, each with a `kind`: `table_filled` (`blockId`, optional `column` and `minRows`), `step_done` (`blockId`), `part_done` (`partId`), `samples_linked` (optional `min`), `field_set` (`field`) or `date_reached` (`date`, YYYY-MM-DD). All must hold. Leave out or send an empty list to take the rule off.',
+    'JSON list of the conditions the gate waits on, each with a `kind`: `table_filled` (`blockId`, optional `column` and `minRows`), `step_done` (`blockId`), `part_done` (`partId`), `samples_linked` (optional `min`), `field_set` (`field`), `date_reached` (`date`, YYYY-MM-DD) or `qc_in_control` (optional `seriesId`; unmet while a tracked quality control series has a breach nobody has looked at). All must hold. Leave out or send an empty list to take the rule off.',
   p_gate_mode:
     '`warn` lets people go on past the gate with a reason; `block` refuses the work behind it until the conditions hold.',
   p_steps_in_order: 'true to make the steps of the part be done in order.',

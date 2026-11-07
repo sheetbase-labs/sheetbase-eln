@@ -25,7 +25,6 @@ from sheetbase._generated.models import (
     DatasetsRow,
     ExperimentPartsRow,
     FieldSpecLimitsRow,
-    GateOverridesRow,
     IdpGroupMappingsRow,
     InsertSheetInstanceBlockResult,
     InstantiateNotebookTemplateResult,
@@ -196,9 +195,7 @@ class Rpc:
         "mutate_sheet_instance_calculations",
         "mutate_sheet_instance_local_state",
         "my_instrument_training_gaps",
-        "override_gate",
         "parts_in_range",
-        "pin_protocol_reference",
         "pool_samples",
         "prepare_solution",
         "preview_contract_rules",
@@ -218,7 +215,6 @@ class Rpc:
         "read_sheet_instance_calculation_results",
         "receive_reagent_order",
         "receive_shipment",
-        "record_gates",
         "record_instrument_readings",
         "record_instrument_run_document",
         "record_parts",
@@ -283,7 +279,6 @@ class Rpc:
         "set_member_absence",
         "set_model_supplier_list",
         "set_part_done",
-        "set_part_gate",
         "set_part_plan",
         "set_qc_baseline",
         "set_reagent_order_price",
@@ -2544,30 +2539,6 @@ class Rpc:
         body["p_instrument_id"] = instrument_id
         return self._call("my_instrument_training_gaps", body)  # type: ignore[no-any-return]
 
-    def override_gate(
-        self,
-        *,
-        reason: str,
-        gate_block_id: Union[str, Unset] = UNSET,
-        gate_part_id: Union[str, Unset] = UNSET,
-    ) -> Union["GateOverridesRow", List["GateOverridesRow"]]:
-        """
-        Go on past a gate that warns, with a reason
-
-        Name the gate block or the part. The reason (1 to 2000 characters) is kept with the experiment and shown to the reviewer. A gate that blocks cannot be gone past (`SB155`), and one that is already open needs no going past (`SB156`). Returns the override. Sends `experiment.gate_overridden`.
-
-        Scopes: lab:write.
-
-        ``POST /api/db/rpc/override_gate``
-        """
-        body: Dict[str, Any] = {}
-        body["p_reason"] = reason
-        if not isinstance(gate_block_id, Unset):
-            body["p_gate_block_id"] = gate_block_id
-        if not isinstance(gate_part_id, Unset):
-            body["p_gate_part_id"] = gate_part_id
-        return self._call("override_gate", body)  # type: ignore[no-any-return]
-
     def parts_in_range(self, *, from_: str, to: str) -> List[Dict[str, Any]]:
         """
         List the parts of running experiments that fall in a range of days
@@ -2582,30 +2553,6 @@ class Rpc:
         body["p_from"] = from_
         body["p_to"] = to
         return self._call("parts_in_range", body)  # type: ignore[no-any-return]
-
-    def pin_protocol_reference(
-        self,
-        *,
-        block_id: str,
-        protocol_record_id: str,
-        expected_block_version: int,
-        expected_structure_version: int,
-    ) -> Dict[str, "JsonValue"]:
-        """
-        Pin a protocol to an experiment and copy its steps and gates
-
-        Pins the exact protocol version into the experiment's empty protocol block and copies its procedure steps in, with the protocol's gate blocks in their place. Gates from the protocol cannot be changed or removed on the experiment. Returns the block, the pinned revision, `copied_steps` and `copied_gates`.
-
-        Scopes: lab:write.
-
-        ``POST /api/db/rpc/pin_protocol_reference``
-        """
-        body: Dict[str, Any] = {}
-        body["p_block_id"] = block_id
-        body["p_protocol_record_id"] = protocol_record_id
-        body["p_expected_block_version"] = expected_block_version
-        body["p_expected_structure_version"] = expected_structure_version
-        return self._call("pin_protocol_reference", body)  # type: ignore[no-any-return]
 
     def pool_samples(
         self,
@@ -3064,20 +3011,6 @@ class Rpc:
         if not isinstance(condition_note, Unset):
             body["p_condition_note"] = condition_note
         return self._call("receive_shipment", body)  # type: ignore[no-any-return]
-
-    def record_gates(self, *, record_id: str) -> List[Dict[str, Any]]:
-        """
-        List the gates of an experiment and what each still waits on
-
-        Every gate in page order: the "opens when" rule of each part, then the gate blocks. `met` is true when every condition holds. `blocking` is true when the gate holds work back now: it is unmet, set to `block`, and not only waiting on a date. `missing` says what is still to do, in words, and `conditions` has the answer for each condition. `overridden` is true when someone went on past a gate that warns.
-
-        Scopes: lab:read.
-
-        ``POST /api/db/rpc/record_gates``
-        """
-        body: Dict[str, Any] = {}
-        body["p_record_id"] = record_id
-        return self._call("record_gates", body)  # type: ignore[no-any-return]
 
     def record_instrument_readings(
         self,
@@ -4551,33 +4484,6 @@ class Rpc:
         body["p_done"] = done
         return self._call("set_part_done", body)  # type: ignore[no-any-return]
 
-    def set_part_gate(
-        self,
-        *,
-        part_id: str,
-        conditions: Union[Dict[str, "JsonValue"], Unset] = UNSET,
-        gate_mode: Union[str, Unset] = UNSET,
-        steps_in_order: Union[bool, Unset] = UNSET,
-    ) -> Union["ExperimentPartsRow", List["ExperimentPartsRow"]]:
-        """
-        Set the rule that opens a part of an experiment
-
-        Sets, changes or clears the conditions that open a part, whether the gate warns or blocks, and whether the steps of the part are done in order. A gate that came from a template cannot be changed. Returns the part. A gate that blocks is enforced by the database: writes in the part, and finishing it, are refused with error code `SB150` until the conditions hold.
-
-        Scopes: lab:write.
-
-        ``POST /api/db/rpc/set_part_gate``
-        """
-        body: Dict[str, Any] = {}
-        body["p_part_id"] = part_id
-        if not isinstance(conditions, Unset):
-            body["p_conditions"] = conditions
-        if not isinstance(gate_mode, Unset):
-            body["p_gate_mode"] = gate_mode
-        if not isinstance(steps_in_order, Unset):
-            body["p_steps_in_order"] = steps_in_order
-        return self._call("set_part_gate", body)  # type: ignore[no-any-return]
-
     def set_part_plan(
         self,
         *,
@@ -5529,9 +5435,7 @@ class AsyncRpc:
         "mutate_sheet_instance_calculations",
         "mutate_sheet_instance_local_state",
         "my_instrument_training_gaps",
-        "override_gate",
         "parts_in_range",
-        "pin_protocol_reference",
         "pool_samples",
         "prepare_solution",
         "preview_contract_rules",
@@ -5551,7 +5455,6 @@ class AsyncRpc:
         "read_sheet_instance_calculation_results",
         "receive_reagent_order",
         "receive_shipment",
-        "record_gates",
         "record_instrument_readings",
         "record_instrument_run_document",
         "record_parts",
@@ -5616,7 +5519,6 @@ class AsyncRpc:
         "set_member_absence",
         "set_model_supplier_list",
         "set_part_done",
-        "set_part_gate",
         "set_part_plan",
         "set_qc_baseline",
         "set_reagent_order_price",
@@ -7877,30 +7779,6 @@ class AsyncRpc:
         body["p_instrument_id"] = instrument_id
         return await self._call("my_instrument_training_gaps", body)  # type: ignore[no-any-return]
 
-    async def override_gate(
-        self,
-        *,
-        reason: str,
-        gate_block_id: Union[str, Unset] = UNSET,
-        gate_part_id: Union[str, Unset] = UNSET,
-    ) -> Union["GateOverridesRow", List["GateOverridesRow"]]:
-        """
-        Go on past a gate that warns, with a reason
-
-        Name the gate block or the part. The reason (1 to 2000 characters) is kept with the experiment and shown to the reviewer. A gate that blocks cannot be gone past (`SB155`), and one that is already open needs no going past (`SB156`). Returns the override. Sends `experiment.gate_overridden`.
-
-        Scopes: lab:write.
-
-        ``POST /api/db/rpc/override_gate``
-        """
-        body: Dict[str, Any] = {}
-        body["p_reason"] = reason
-        if not isinstance(gate_block_id, Unset):
-            body["p_gate_block_id"] = gate_block_id
-        if not isinstance(gate_part_id, Unset):
-            body["p_gate_part_id"] = gate_part_id
-        return await self._call("override_gate", body)  # type: ignore[no-any-return]
-
     async def parts_in_range(self, *, from_: str, to: str) -> List[Dict[str, Any]]:
         """
         List the parts of running experiments that fall in a range of days
@@ -7915,30 +7793,6 @@ class AsyncRpc:
         body["p_from"] = from_
         body["p_to"] = to
         return await self._call("parts_in_range", body)  # type: ignore[no-any-return]
-
-    async def pin_protocol_reference(
-        self,
-        *,
-        block_id: str,
-        protocol_record_id: str,
-        expected_block_version: int,
-        expected_structure_version: int,
-    ) -> Dict[str, "JsonValue"]:
-        """
-        Pin a protocol to an experiment and copy its steps and gates
-
-        Pins the exact protocol version into the experiment's empty protocol block and copies its procedure steps in, with the protocol's gate blocks in their place. Gates from the protocol cannot be changed or removed on the experiment. Returns the block, the pinned revision, `copied_steps` and `copied_gates`.
-
-        Scopes: lab:write.
-
-        ``POST /api/db/rpc/pin_protocol_reference``
-        """
-        body: Dict[str, Any] = {}
-        body["p_block_id"] = block_id
-        body["p_protocol_record_id"] = protocol_record_id
-        body["p_expected_block_version"] = expected_block_version
-        body["p_expected_structure_version"] = expected_structure_version
-        return await self._call("pin_protocol_reference", body)  # type: ignore[no-any-return]
 
     async def pool_samples(
         self,
@@ -8397,20 +8251,6 @@ class AsyncRpc:
         if not isinstance(condition_note, Unset):
             body["p_condition_note"] = condition_note
         return await self._call("receive_shipment", body)  # type: ignore[no-any-return]
-
-    async def record_gates(self, *, record_id: str) -> List[Dict[str, Any]]:
-        """
-        List the gates of an experiment and what each still waits on
-
-        Every gate in page order: the "opens when" rule of each part, then the gate blocks. `met` is true when every condition holds. `blocking` is true when the gate holds work back now: it is unmet, set to `block`, and not only waiting on a date. `missing` says what is still to do, in words, and `conditions` has the answer for each condition. `overridden` is true when someone went on past a gate that warns.
-
-        Scopes: lab:read.
-
-        ``POST /api/db/rpc/record_gates``
-        """
-        body: Dict[str, Any] = {}
-        body["p_record_id"] = record_id
-        return await self._call("record_gates", body)  # type: ignore[no-any-return]
 
     async def record_instrument_readings(
         self,
@@ -9883,33 +9723,6 @@ class AsyncRpc:
         body["p_part_id"] = part_id
         body["p_done"] = done
         return await self._call("set_part_done", body)  # type: ignore[no-any-return]
-
-    async def set_part_gate(
-        self,
-        *,
-        part_id: str,
-        conditions: Union[Dict[str, "JsonValue"], Unset] = UNSET,
-        gate_mode: Union[str, Unset] = UNSET,
-        steps_in_order: Union[bool, Unset] = UNSET,
-    ) -> Union["ExperimentPartsRow", List["ExperimentPartsRow"]]:
-        """
-        Set the rule that opens a part of an experiment
-
-        Sets, changes or clears the conditions that open a part, whether the gate warns or blocks, and whether the steps of the part are done in order. A gate that came from a template cannot be changed. Returns the part. A gate that blocks is enforced by the database: writes in the part, and finishing it, are refused with error code `SB150` until the conditions hold.
-
-        Scopes: lab:write.
-
-        ``POST /api/db/rpc/set_part_gate``
-        """
-        body: Dict[str, Any] = {}
-        body["p_part_id"] = part_id
-        if not isinstance(conditions, Unset):
-            body["p_conditions"] = conditions
-        if not isinstance(gate_mode, Unset):
-            body["p_gate_mode"] = gate_mode
-        if not isinstance(steps_in_order, Unset):
-            body["p_steps_in_order"] = steps_in_order
-        return await self._call("set_part_gate", body)  # type: ignore[no-any-return]
 
     async def set_part_plan(
         self,

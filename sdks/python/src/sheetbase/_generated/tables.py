@@ -46,6 +46,7 @@ from sheetbase._generated.models import (
     ExperimentSeriesRow,
     FieldSpecLimitsRow,
     FoldersRow,
+    GateOverridesRow,
     IdpGroupMappingsRow,
     InboxWorkItemsRow,
     InstrumentBookingRulesRow,
@@ -576,6 +577,24 @@ class AsyncFoldersTable(AsyncReadableTable[FoldersRow]):
     Scopes: projects:read.
     """
     name = "folders"
+
+
+class GateOverridesTable(ReadableTable[GateOverridesRow]):
+    """
+    ``/api/db/gate_overrides`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "gate_overrides"
+
+
+class AsyncGateOverridesTable(AsyncReadableTable[GateOverridesRow]):
+    """
+    ``/api/db/gate_overrides`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "gate_overrides"
 
 
 class IdpGroupMappingsTable(ReadableTable[IdpGroupMappingsRow]):
@@ -2016,6 +2035,7 @@ class Tables:
         "experiment_series_members",
         "field_spec_limits",
         "folders",
+        "gate_overrides",
         "idp_group_mappings",
         "inbox_work_items",
         "instrument_booking_rules",
@@ -2120,6 +2140,7 @@ class Tables:
         self.experiment_series_members = ExperimentSeriesMembersTable(transport)
         self.field_spec_limits = FieldSpecLimitsTable(transport)
         self.folders = FoldersTable(transport)
+        self.gate_overrides = GateOverridesTable(transport)
         self.idp_group_mappings = IdpGroupMappingsTable(transport)
         self.inbox_work_items = InboxWorkItemsTable(transport)
         self.instrument_booking_rules = InstrumentBookingRulesTable(transport)
@@ -2235,6 +2256,7 @@ class AsyncTables:
         "experiment_series_members",
         "field_spec_limits",
         "folders",
+        "gate_overrides",
         "idp_group_mappings",
         "inbox_work_items",
         "instrument_booking_rules",
@@ -2339,6 +2361,7 @@ class AsyncTables:
         self.experiment_series_members = AsyncExperimentSeriesMembersTable(transport)
         self.field_spec_limits = AsyncFieldSpecLimitsTable(transport)
         self.folders = AsyncFoldersTable(transport)
+        self.gate_overrides = AsyncGateOverridesTable(transport)
         self.idp_group_mappings = AsyncIdpGroupMappingsTable(transport)
         self.inbox_work_items = AsyncInboxWorkItemsTable(transport)
         self.instrument_booking_rules = AsyncInstrumentBookingRulesTable(transport)

@@ -5,6 +5,8 @@ import {
   EXPERIMENT_START_TOOL,
   INBOX_READ_TOOL,
   PARTS_READ_TOOL,
+  GATES_READ_TOOL,
+  GATE_GO_ON_TOOL,
   PART_ADD_TOOL,
   PART_DONE_TOOL,
   PART_UPDATE_TOOL,
@@ -22,6 +24,8 @@ import {
   TIMER_START_TOOL,
   inboxReadSchema,
   partsReadSchema,
+  gatesReadSchema,
+  proposeGateGoOnSchema,
   proposeBookingRepeatSchema,
   proposePartAddSchema,
   proposePartDoneSchema,
@@ -91,6 +95,10 @@ export function isPartsReadTool(name: string): boolean {
   return name === PARTS_READ_TOOL
 }
 
+export function isGatesReadTool(name: string): boolean {
+  return name === GATES_READ_TOOL
+}
+
 export function isPlanningProposalTool(
   name: string,
 ): name is PlanningProposeToolName {
@@ -144,6 +152,16 @@ export function partsToolDefs(): ProviderToolDef[] {
       PARTS_READ_TOOL,
       'Read the parts of an experiment that runs over several days: each part’s day and date, who does it, whether it is done, current or later, and its steps. Use it for "which part are we on" or "when is part 4".',
       partsReadSchema,
+    ),
+  ]
+}
+
+export function gatesToolDefs(): ProviderToolDef[] {
+  return [
+    toolDef(
+      GATES_READ_TOOL,
+      'Read what holds work back in an experiment: each gate (a part that opens when earlier work is done, or a gate on the page), whether it is open, what is still missing, whether it warns or blocks, and whether someone went on anyway and why. Use it for "what is blocking part 4" or "why can\'t I start the next part".',
+      gatesReadSchema,
     ),
   ]
 }
@@ -211,6 +229,11 @@ export function planningProposalDefs(): ProviderToolDef[] {
       PART_DONE_TOOL,
       `Propose marking a part that has no steps as done, or reopening it. With no part named it is the current part. ${note}`,
       proposePartDoneSchema,
+    ),
+    toolDef(
+      GATE_GO_ON_TOOL,
+      `Propose going on past a gate that only warns, with the reason the person gives. A gate that blocks cannot be gone past. The reason is kept with the experiment and shown to the reviewer, so ask for it if it was not given. ${note}`,
+      proposeGateGoOnSchema,
     ),
     toolDef(
       SHIPMENT_SEND_TOOL,
@@ -600,6 +623,83 @@ export async function readParts(
         rows.length === 0
           ? 'This experiment is a single page with no parts.'
           : 'Day 0 is the day the experiment started. A part with steps is done when its steps are.',
+    }),
+    isError: false,
+  }
+}
+
+interface GateRow {
+  gate_id: string
+  gate_kind: 'block' | 'part'
+  block_id: string | null
+  part_id: string | null
+  part_number: number | null
+  label: string
+  mode: 'warn' | 'block'
+  met: boolean
+  blocking: boolean
+  overridden: boolean
+  overridden_at: string | null
+  overridden_by_user_id: string | null
+  override_reason: string | null
+  missing: string[] | null
+}
+
+function gateRows(client: DataClient, recordId: string): Promise<GateRow[]> {
+  return client.rpc<GateRow[]>('record_gates', { p_record_id: recordId })
+}
+
+export async function readGates(
+  args: unknown,
+  context: LabToolContext,
+): Promise<{ text: string; isError: boolean }> {
+  const parsed = gatesReadSchema.safeParse(args)
+  if (!parsed.success) return { text: invalid(parsed.error), isError: true }
+  const record = await findRecord(context.client, parsed.data.record)
+  if (!record.ok) return { text: record.message, isError: true }
+  let rows: GateRow[]
+  try {
+    rows = await gateRows(context.client, record.value.id)
+  } catch {
+    return { text: 'The gates could not be read just now.', isError: true }
+  }
+  const wanted = parsed.data.part?.trim().toLowerCase()
+  if (wanted) {
+    const number = /^(?:part\s*)?(\d{1,3})$/.exec(wanted)
+    rows = rows.filter((row) =>
+      number
+        ? row.part_number === Number(number[1])
+        : row.label.toLowerCase().includes(wanted),
+    )
+  }
+  const names = await memberNames(context.client).catch(
+    () => new Map<string, string>(),
+  )
+  const who = (id: string | null) => (id ? (names.get(id) ?? null) : null)
+  return {
+    text: JSON.stringify({
+      experiment: recordTarget(record.value),
+      gateCount: rows.length,
+      closed: rows.filter((row) => !row.met && !row.overridden).length,
+      gates: rows.map((row) => ({
+        what:
+          row.gate_kind === 'part'
+            ? `Part ${row.part_number ?? ''} opens when`
+            : `Gate "${row.label}"`,
+        part: row.part_number,
+        open: row.met || row.overridden,
+        mode: row.mode === 'block' ? 'blocks until it is met' : 'warns only',
+        stillMissing: row.met ? [] : (row.missing ?? []),
+        wentOnAnyway: row.overridden,
+        wentOnBy: who(row.overridden_by_user_id),
+        wentOnAt: row.overridden_at,
+        reason: row.override_reason,
+      })),
+      open: recordLink(record.value.id),
+      note:
+        rows.length === 0
+          ? 'Nothing holds work back in this experiment.'
+          : 'A gate that blocks cannot be gone past. One that warns can be, with a reason, using the go on tool.',
     }),
     isError: false,
   }
@@ -1304,6 +1404,72 @@ export async function buildPlanningProposal(
             kind: 'part.done',
             partId: part.value.part_id,
             done: !reopen,
+          },
+        },
+      }
+    }
+    case GATE_GO_ON_TOOL: {
+      const parsed = proposeGateGoOnSchema.safeParse(args)
+      if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
+      const input = parsed.data
+      const record = await findRecord(client, input.record)
+      if (!record.ok) return record
+      const closed = (await gateRows(client, record.value.id)).filter(
+        (row) => !row.met && !row.overridden,
+      )
+      if (closed.length === 0) {
+        return {
+          ok: false,
+          message: `Nothing is holding work back in ${record.value.identifier}. Tell the person.`,
+        }
+      }
+      const words = (input.gate ?? input.part ?? '').trim().toLowerCase()
+      const number = /^(?:part\s*)?(\d{1,3})$/.exec(words)
+      const matches = words
+        ? closed.filter((row) =>
+            number
+              ? row.part_number === Number(number[1])
+              : row.label.toLowerCase().includes(words),
+          )
+        : closed
+      if (matches.length !== 1) {
+        return {
+          ok: false,
+          message:
+            matches.length === 0
+              ? `No closed gate matches "${words}". Closed: ${closed.map((row) => row.label).join(', ')}.`
+              : `More than one gate is closed: ${matches.map((row) => row.label).join(', ')}. Ask the person which one.`,
+        }
+      }
+      const gate = matches[0]
+      if (gate.mode === 'block') {
+        return {
+          ok: false,
+          message: `${gate.label} blocks until it is met, so it cannot be gone past. It still needs: ${(gate.missing ?? []).join('; ')}. Tell the person.`,
+        }
+      }
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: recordTarget(record.value),
+          deepLink: recordLink(record.value.id),
+          changes: [
+            { label: 'Gate', before: null, after: gate.label },
+            {
+              label: 'Still to do',
+              before: (gate.missing ?? []).join('; ') || null,
+              after: 'Going on anyway',
+            },
+            { label: 'Reason', before: null, after: input.reason },
+          ],
+          action: {
+            kind: 'gate.go_on',
+            blockId: gate.block_id,
+            partId: gate.part_id,
+            reason: input.reason,
           },
         },
       }

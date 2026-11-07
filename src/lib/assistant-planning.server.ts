@@ -609,7 +609,7 @@ async function partSignoffRows(
     const rows = await client.rpc<PartSignoffRow[]>('record_part_signoffs', {
       p_record_id: recordId,
     })
-    return new Map((rows ?? []).map((row) => [row.part_id, row]))
+    return new Map(rows.map((row) => [row.part_id, row]))
   } catch {
     return new Map()
   }

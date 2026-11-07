@@ -45,7 +45,11 @@ async function as(user: string): Promise<Client> {
 
 async function addRow(
   datasetId: string,
-  values: { purity?: number | null; batch?: string | null; note?: string | null },
+  values: {
+    purity?: number | null
+    batch?: string | null
+    note?: string | null
+  },
   ageDays = 0,
 ): Promise<string> {
   const id = randomUUID()
@@ -181,14 +185,18 @@ afterAll(async () => {
 
 describe('making a contract', () => {
   it('lets someone who edits schemas make one and refuses a viewer', async () => {
-    const made = await save([{ kind: 'required', field: 'batch', mode: 'warn' }])
+    const made = await save([
+      { kind: 'required', field: 'batch', mode: 'warn' },
+    ])
     expect(made.version).toBe(1)
     expect(made.lifecycle).toBe('active')
     expect(made.owner_user_id).toBe(OWNER)
     expect(made.schedule_minutes).toBe(1440)
     expect(made.rules[0].id).toMatch(/^r[0-9a-f]{8}$/)
     await expectDenied(
-      viewer.query(`select api.save_data_contract($1,null,'[]'::jsonb)`, [SCHEMA]),
+      viewer.query(`select api.save_data_contract($1,null,'[]'::jsonb)`, [
+        SCHEMA,
+      ]),
       '42501',
     )
   })
@@ -207,15 +215,27 @@ describe('making a contract', () => {
   it('refuses rules that make no sense, saying why', async () => {
     const bad = async (rule: unknown, message: RegExp) =>
       await expect(save([rule])).rejects.toThrow(message)
-    await bad({ kind: 'range', field: 'purity', min: 5, max: 1 }, /above the highest/)
+    await bad(
+      { kind: 'range', field: 'purity', min: 5, max: 1 },
+      /above the highest/,
+    )
     await bad({ kind: 'range', field: 'purity' }, /lowest or highest/)
     await bad({ kind: 'required' }, /needs a field/)
-    await bad({ kind: 'completeness', field: 'batch', threshold: 0 }, /percentage/)
+    await bad(
+      { kind: 'completeness', field: 'batch', threshold: 0 },
+      /percentage/,
+    )
     await bad({ kind: 'units', field: 'purity', units: [] }, /unit names/)
-    await bad({ kind: 'freshness', maxAgeMinutes: 0 }, /whole number of minutes/)
+    await bad(
+      { kind: 'freshness', maxAgeMinutes: 0 },
+      /whole number of minutes/,
+    )
     await bad({ kind: 'row_count', field: 'purity', min: 1 }, /whole dataset/)
     await bad({ kind: 'mystery' }, /unknown rule kind/)
-    await bad({ kind: 'required', field: 'batch', mode: 'maybe' }, /warn or block/)
+    await bad(
+      { kind: 'required', field: 'batch', mode: 'maybe' },
+      /warn or block/,
+    )
   })
 
   it('adds and removes one rule at a time', async () => {
@@ -230,7 +250,9 @@ describe('making a contract', () => {
       `select * from api.remove_contract_rule($1,$2)`,
       [c.id, rule.id],
     )
-    expect(removed.rows[0].rules.some((r: any) => r.kind === 'unique')).toBe(false)
+    expect(removed.rows[0].rules.some((r: any) => r.kind === 'unique')).toBe(
+      false,
+    )
   })
 })
 
@@ -245,9 +267,28 @@ describe('checking stored data', () => {
       [
         { id: 'req', kind: 'required', field: 'batch', mode: 'warn' },
         { id: 'uni', kind: 'unique', field: 'batch', mode: 'warn' },
-        { id: 'rng', kind: 'range', field: 'purity', min: 60, max: 100, mode: 'warn' },
-        { id: 'cmp', kind: 'completeness', field: 'note', threshold: 80, mode: 'warn' },
-        { id: 'unt', kind: 'units', field: 'purity', units: ['mg/mL'], mode: 'warn' },
+        {
+          id: 'rng',
+          kind: 'range',
+          field: 'purity',
+          min: 60,
+          max: 100,
+          mode: 'warn',
+        },
+        {
+          id: 'cmp',
+          kind: 'completeness',
+          field: 'note',
+          threshold: 80,
+          mode: 'warn',
+        },
+        {
+          id: 'unt',
+          kind: 'units',
+          field: 'purity',
+          units: ['mg/mL'],
+          mode: 'warn',
+        },
         { id: 'cnt', kind: 'row_count', min: 10, mode: 'warn' },
         { id: 'gone', kind: 'required', field: 'removed_field', mode: 'block' },
       ],
@@ -261,11 +302,22 @@ describe('checking stored data', () => {
     expect(byId.req).toMatchObject({ status: 'fail', failed: 1, checked: 4 })
     expect(byId.uni).toMatchObject({ status: 'fail', failed: 2, checked: 3 })
     expect(byId.rng).toMatchObject({ status: 'fail', failed: 2, checked: 3 })
-    expect(byId.rng.samples.map((s: any) => s.value).sort()).toEqual(['101', '55'])
-    expect(byId.cmp).toMatchObject({ status: 'fail', failed: 2, checked: 4, percent: 50 })
+    expect(byId.rng.samples.map((s: any) => s.value).sort()).toEqual([
+      '101',
+      '55',
+    ])
+    expect(byId.cmp).toMatchObject({
+      status: 'fail',
+      failed: 2,
+      checked: 4,
+      percent: 50,
+    })
     expect(byId.unt).toMatchObject({ status: 'fail', actual: '%' })
     expect(byId.cnt).toMatchObject({ status: 'fail', rowCount: 4 })
-    expect(byId.gone).toMatchObject({ status: 'skipped', reason: 'field_missing' })
+    expect(byId.gone).toMatchObject({
+      status: 'skipped',
+      reason: 'field_missing',
+    })
     // Only warn rules failed (the block rule points at a field that is gone).
     expect(result.runs[0].status).toBe('warning')
     expect(result.status).toBe('warning')
@@ -275,9 +327,21 @@ describe('checking stored data', () => {
   it('says Fail when a block rule fails, and Pass once the data is right', async () => {
     const ds = await newDataset('Fixable')
     const bad = await addRow(ds, { purity: 150 })
-    await save([{ id: 'rng', kind: 'range', field: 'purity', min: 0, max: 100, mode: 'block' }])
+    await save([
+      {
+        id: 'rng',
+        kind: 'range',
+        field: 'purity',
+        min: 0,
+        max: 100,
+        mode: 'block',
+      },
+    ])
     expect((await check(ds)).runs[0].status).toBe('fail')
-    await migrator.query(`update api.dataset_row_values set numeric_value=90 where row_id=$1`, [bad])
+    await migrator.query(
+      `update api.dataset_row_values set numeric_value=90 where row_id=$1`,
+      [bad],
+    )
     const fixed = await check(ds)
     expect(fixed.runs[0].status).toBe('pass')
     const status = await migrator.query(
@@ -290,7 +354,9 @@ describe('checking stored data', () => {
   it('checks freshness against the newest row', async () => {
     const ds = await newDataset('Stale feed')
     await addRow(ds, { purity: 90 }, 3)
-    await save([{ id: 'fresh', kind: 'freshness', maxAgeMinutes: 60, mode: 'warn' }])
+    await save([
+      { id: 'fresh', kind: 'freshness', maxAgeMinutes: 60, mode: 'warn' },
+    ])
     const stale = await check(ds)
     const rule = stale.runs[0].results[0]
     expect(rule.status).toBe('fail')
@@ -302,7 +368,16 @@ describe('checking stored data', () => {
   it('announces a breach and a restore once each, and every run', async () => {
     const ds = await newDataset('Events')
     const row = await addRow(ds, { purity: 150 })
-    await save([{ id: 'rng', kind: 'range', field: 'purity', min: 0, max: 100, mode: 'block' }])
+    await save([
+      {
+        id: 'rng',
+        kind: 'range',
+        field: 'purity',
+        min: 0,
+        max: 100,
+        mode: 'block',
+      },
+    ])
     await migrator.query(
       `update api.data_contracts set last_status = null where dataset_schema_id=$1`,
       [SCHEMA],
@@ -312,13 +387,18 @@ describe('checking stored data', () => {
     await check(ds)
     await check(ds)
     expect((await events('breached')).length).toBe(breachesBefore + 1)
-    await migrator.query(`update api.dataset_row_values set numeric_value=50 where row_id=$1`, [row])
+    await migrator.query(
+      `update api.dataset_row_values set numeric_value=50 where row_id=$1`,
+      [row],
+    )
     // Other datasets under the contract still hold the standing at Fail until
     // they are re-checked, so check them all.
     await check()
     const restored = (await events('restored')).length
     expect(restored).toBeGreaterThanOrEqual(restoredBefore)
-    const runEvents = (await events()).filter((e) => e.entity_type === 'data_contract_run')
+    const runEvents = (await events()).filter(
+      (e) => e.entity_type === 'data_contract_run',
+    )
     expect(runEvents.length).toBeGreaterThan(3)
     expect(runEvents.at(-1)!.payload).toMatchObject({ trigger: 'manual' })
   })
@@ -326,20 +406,50 @@ describe('checking stored data', () => {
   it('previews a change of rules without saving or recording', async () => {
     const ds = await newDataset('Preview')
     await addRow(ds, { purity: 80 })
-    await save([{ id: 'rng', kind: 'range', field: 'purity', min: 0, max: 100, mode: 'block' }])
+    await save([
+      {
+        id: 'rng',
+        kind: 'range',
+        field: 'purity',
+        min: 0,
+        max: 100,
+        mode: 'block',
+      },
+    ])
     const c = await contract()
     const runsBefore = (
-      await migrator.query(`select count(*)::int n from api.data_contract_runs where contract_id=$1`, [c.id])
+      await migrator.query(
+        `select count(*)::int n from api.data_contract_runs where contract_id=$1`,
+        [c.id],
+      )
     ).rows[0].n
     const { rows } = await owner.query(
       `select api.preview_contract_rules($1,$2::jsonb,$3) as result`,
-      [c.id, JSON.stringify([{ id: 'rng', kind: 'range', field: 'purity', min: 90, max: 100, mode: 'block' }]), ds],
+      [
+        c.id,
+        JSON.stringify([
+          {
+            id: 'rng',
+            kind: 'range',
+            field: 'purity',
+            min: 90,
+            max: 100,
+            mode: 'block',
+          },
+        ]),
+        ds,
+      ],
     )
     expect(rows[0].result[0].status).toBe('fail')
     const after = await contract()
     expect(after.rules[0].min).toBe(0)
     expect(
-      (await migrator.query(`select count(*)::int n from api.data_contract_runs where contract_id=$1`, [c.id])).rows[0].n,
+      (
+        await migrator.query(
+          `select count(*)::int n from api.data_contract_runs where contract_id=$1`,
+          [c.id],
+        )
+      ).rows[0].n,
     ).toBe(runsBefore)
   })
 })
@@ -369,14 +479,26 @@ describe('imports', () => {
     return { dataset, file, parser, parserVersion }
   }
 
-  async function commit(f: Awaited<ReturnType<typeof importFixture>>, purity: number | null, batch: string | null) {
-    const revision = (await migrator.query(`select revision from api.datasets where id=$1`, [f.dataset])).rows[0].revision
+  async function commit(
+    f: Awaited<ReturnType<typeof importFixture>>,
+    purity: number | null,
+    batch: string | null,
+  ) {
+    const revision = (
+      await migrator.query(`select revision from api.datasets where id=$1`, [
+        f.dataset,
+      ])
+    ).rows[0].revision
     const { rows } = await owner.query<{ result: any }>(
       `select api.commit_dataset_import($1,$7,$2::jsonb,$3,$4,'{}'::jsonb,'{}'::jsonb,$5,$6) as result`,
       [
         f.dataset,
         JSON.stringify([
-          { operation: 'create', rowId: randomUUID(), values: { [F_PURITY]: purity, [F_BATCH]: batch } },
+          {
+            operation: 'create',
+            rowId: randomUUID(),
+            values: { [F_PURITY]: purity, [F_BATCH]: batch },
+          },
         ]),
         randomUUID(),
         f.file,
@@ -390,29 +512,54 @@ describe('imports', () => {
 
   it('refuses a block-rule failure before writing and keeps the run', async () => {
     await save([
-      { id: 'rng', kind: 'range', field: 'purity', min: 0, max: 100, mode: 'block' },
+      {
+        id: 'rng',
+        kind: 'range',
+        field: 'purity',
+        min: 0,
+        max: 100,
+        mode: 'block',
+      },
       { id: 'req', kind: 'required', field: 'batch', mode: 'warn' },
     ])
     const f = await importFixture()
     const refused = await commit(f, 120, 'B9')
     expect(refused.ok).toBe(false)
     expect(refused.contract.blocked).toBe(true)
-    expect(refused.errors[0]).toMatchObject({ code: 'contract_failed', ruleId: 'rng', rowIndex: 1 })
-    const rows = await migrator.query(`select count(*)::int n from api.dataset_rows where dataset_id=$1`, [f.dataset])
+    expect(refused.errors[0]).toMatchObject({
+      code: 'contract_failed',
+      ruleId: 'rng',
+      rowIndex: 1,
+    })
+    const rows = await migrator.query(
+      `select count(*)::int n from api.dataset_rows where dataset_id=$1`,
+      [f.dataset],
+    )
     expect(rows.rows[0].n).toBe(0)
     const run = await migrator.query(
       `select blocked, trigger, scope, status from api.data_contract_runs where id=$1`,
       [refused.contract.runId],
     )
-    expect(run.rows[0]).toEqual({ blocked: true, trigger: 'import', scope: 'batch', status: 'fail' })
+    expect(run.rows[0]).toEqual({
+      blocked: true,
+      trigger: 'import',
+      scope: 'batch',
+      status: 'fail',
+    })
   })
 
   it('keeps an import that only breaks a warn rule, and moves the standing to Warning', async () => {
-    await migrator.query(`update api.data_contracts set last_status='pass' where dataset_schema_id=$1`, [SCHEMA])
+    await migrator.query(
+      `update api.data_contracts set last_status='pass' where dataset_schema_id=$1`,
+      [SCHEMA],
+    )
     const f = await importFixture()
     const kept = await commit(f, 80, null)
     expect(kept.ok).toBe(true)
-    const rows = await migrator.query(`select count(*)::int n from api.dataset_rows where dataset_id=$1`, [f.dataset])
+    const rows = await migrator.query(
+      `select count(*)::int n from api.dataset_rows where dataset_id=$1`,
+      [f.dataset],
+    )
     expect(rows.rows[0].n).toBe(1)
     expect((await contract()).last_status).toBe('warning')
   })
@@ -424,28 +571,44 @@ describe('imports', () => {
     uniqueDataset = f.dataset
     const refused = await commit(f, 71, 'UNIQ-1')
     expect(refused.ok).toBe(false)
-    expect(refused.contract.results[0]).toMatchObject({ ruleId: 'uni', failed: 1 })
+    expect(refused.contract.results[0]).toMatchObject({
+      ruleId: 'uni',
+      failed: 1,
+    })
   })
 
   it('checks a pipeline batch through the same gate, and only for writers', async () => {
     const ds = uniqueDataset
-    const batch = [{ operation: 'create', rowId: randomUUID(), values: { [F_BATCH]: 'UNIQ-1' } }]
+    const batch = [
+      {
+        operation: 'create',
+        rowId: randomUUID(),
+        values: { [F_BATCH]: 'UNIQ-1' },
+      },
+    ]
     const { rows } = await owner.query(
       `select api.check_dataset_contract($1,$2::jsonb,'pipeline') as result`,
       [ds, JSON.stringify(batch)],
     )
     expect(rows[0].result.blocked).toBe(true)
     await expectDenied(
-      viewer.query(`select api.check_dataset_contract($1,$2::jsonb,'pipeline')`, [ds, JSON.stringify(batch)]),
+      viewer.query(
+        `select api.check_dataset_contract($1,$2::jsonb,'pipeline')`,
+        [ds, JSON.stringify(batch)],
+      ),
       '42501',
     )
   })
 
   it('does not hold back a dataset with no contract or a draft one', async () => {
-    await save([{ id: 'uni', kind: 'unique', field: 'batch', mode: 'block' }], { lifecycle: 'draft' })
+    await save([{ id: 'uni', kind: 'unique', field: 'batch', mode: 'block' }], {
+      lifecycle: 'draft',
+    })
     const f = await importFixture()
     expect((await commit(f, 70, 'UNIQ-1')).ok).toBe(true)
-    await save([{ id: 'uni', kind: 'unique', field: 'batch', mode: 'block' }], { lifecycle: 'active' })
+    await save([{ id: 'uni', kind: 'unique', field: 'batch', mode: 'block' }], {
+      lifecycle: 'active',
+    })
   })
 })
 
@@ -476,25 +639,51 @@ describe('record models', () => {
         JSON.stringify([
           { id: 'g', kind: 'required', field: 'genotype', mode: 'warn' },
           { id: 'u', kind: 'unique', field: 'genotype', mode: 'warn' },
-          { id: 'o', kind: 'range', field: 'od600', min: 0, max: 5, mode: 'warn' },
+          {
+            id: 'o',
+            kind: 'range',
+            field: 'od600',
+            min: 0,
+            max: 5,
+            mode: 'warn',
+          },
         ]),
       ],
     )
-    const run = await owner.query(`select api.run_contract_check($1) as result`, [made.rows[0].id])
-    const results = Object.fromEntries(run.rows[0].result.runs[0].results.map((r: any) => [r.ruleId, r]))
+    const run = await owner.query(
+      `select api.run_contract_check($1) as result`,
+      [made.rows[0].id],
+    )
+    const results = Object.fromEntries(
+      run.rows[0].result.runs[0].results.map((r: any) => [r.ruleId, r]),
+    )
     expect(results.g).toMatchObject({ failed: 1, checked: 3 })
     expect(results.u).toMatchObject({ failed: 2, checked: 2 })
     expect(results.o).toMatchObject({ failed: 1, checked: 3 })
 
-    const one = await migrator.query(`select id from api.records where title='Strain 3' and kind='strain'`)
-    const single = await owner.query(`select api.check_record_contract($1) as result`, [one.rows[0].id])
-    expect(single.rows[0].result.results.map((r: any) => r.ruleId)).toEqual(['g'])
+    const one = await migrator.query(
+      `select id from api.records where title='Strain 3' and kind='strain'`,
+    )
+    const single = await owner.query(
+      `select api.check_record_contract($1) as result`,
+      [one.rows[0].id],
+    )
+    expect(single.rows[0].result.results.map((r: any) => r.ruleId)).toEqual([
+      'g',
+    ])
 
     const batch = await owner.query(
       `select api.check_record_batch_contract('strain',$1::jsonb) as result`,
-      [JSON.stringify([{ values: { genotype: 'wt', od600: 2 } }, { values: { od600: 99 } }])],
+      [
+        JSON.stringify([
+          { values: { genotype: 'wt', od600: 2 } },
+          { values: { od600: 99 } },
+        ]),
+      ],
     )
-    expect(batch.rows[0].result.results.map((r: any) => r.ruleId).sort()).toEqual(['g', 'o', 'u'])
+    expect(
+      batch.rows[0].result.results.map((r: any) => r.ruleId).sort(),
+    ).toEqual(['g', 'o', 'u'])
     expect(batch.rows[0].result.blocked).toBe(false)
   })
 })
@@ -503,18 +692,49 @@ describe('ODCS', () => {
   it('exports rules in the standard shape and reads them back unchanged', async () => {
     const c = await save(
       [
-        { id: 'required_batch', kind: 'required', field: 'batch', mode: 'block' },
+        {
+          id: 'required_batch',
+          kind: 'required',
+          field: 'batch',
+          mode: 'block',
+        },
         { id: 'unique_batch', kind: 'unique', field: 'batch', mode: 'warn' },
-        { id: 'range_purity', kind: 'range', field: 'purity', min: 0, max: 100, mode: 'block' },
-        { id: 'units_purity', kind: 'units', field: 'purity', units: ['%'], mode: 'warn' },
-        { id: 'completeness_note', kind: 'completeness', field: 'note', threshold: 90, mode: 'block' },
+        {
+          id: 'range_purity',
+          kind: 'range',
+          field: 'purity',
+          min: 0,
+          max: 100,
+          mode: 'block',
+        },
+        {
+          id: 'units_purity',
+          kind: 'units',
+          field: 'purity',
+          units: ['%'],
+          mode: 'warn',
+        },
+        {
+          id: 'completeness_note',
+          kind: 'completeness',
+          field: 'note',
+          threshold: 90,
+          mode: 'block',
+        },
         { id: 'row_count', kind: 'row_count', min: 5, max: 500, mode: 'warn' },
-        { id: 'freshness', kind: 'freshness', maxAgeMinutes: 1440, mode: 'block' },
+        {
+          id: 'freshness',
+          kind: 'freshness',
+          maxAgeMinutes: 1440,
+          mode: 'block',
+        },
       ],
       { name: 'Assay results contract' },
     )
     const exported = (
-      await owner.query(`select api.export_data_contract_odcs($1) as odcs`, [c.id])
+      await owner.query(`select api.export_data_contract_odcs($1) as odcs`, [
+        c.id,
+      ])
     ).rows[0].odcs
     expect(exported).toMatchObject({
       apiVersion: 'v3.1.0',
@@ -527,18 +747,31 @@ describe('ODCS', () => {
     const purity = table.properties.find((p: any) => p.name === 'purity')
     expect(purity.logicalType).toBe('number')
     expect(purity.logicalTypeOptions).toEqual({ minimum: 0, maximum: 100 })
-    expect(table.properties.find((p: any) => p.name === 'batch')).toMatchObject({ required: true, unique: true })
-    expect(table.quality[0]).toMatchObject({ metric: 'rowCount', mustBeBetween: [5, 500] })
-    expect(exported.slaProperties[0]).toMatchObject({ property: 'freshness', value: 1440, unit: 'm' })
+    expect(table.properties.find((p: any) => p.name === 'batch')).toMatchObject(
+      { required: true, unique: true },
+    )
+    expect(table.quality[0]).toMatchObject({
+      metric: 'rowCount',
+      mustBeBetween: [5, 500],
+    })
+    expect(exported.slaProperties[0]).toMatchObject({
+      property: 'freshness',
+      value: 1440,
+      unit: 'm',
+    })
 
     const before = await contract()
     const imported = (
-      await owner.query(`select api.import_data_contract_odcs($1::jsonb, $2) as result`, [JSON.stringify(exported), SCHEMA])
+      await owner.query(
+        `select api.import_data_contract_odcs($1::jsonb, $2) as result`,
+        [JSON.stringify(exported), SCHEMA],
+      )
     ).rows[0].result
     expect(imported.rulesImported).toBe(7)
     expect(imported.ignored).toEqual([])
     const after = await contract()
-    const strip = (rules: any[]) => rules.map((r) => ({ ...r })).sort((a, b) => a.id.localeCompare(b.id))
+    const strip = (rules: any[]) =>
+      rules.map((r) => ({ ...r })).sort((a, b) => a.id.localeCompare(b.id))
     expect(strip(after.rules)).toEqual(strip(before.rules))
     expect(after.version).toBe(before.version)
   })
@@ -557,7 +790,11 @@ describe('ODCS', () => {
               {
                 name: 'assay_results',
                 properties: [
-                  { name: 'batch', required: true, quality: [{ type: 'sql', query: 'select 1' }] },
+                  {
+                    name: 'batch',
+                    required: true,
+                    quality: [{ type: 'sql', query: 'select 1' }],
+                  },
                 ],
               },
             ],
@@ -568,24 +805,45 @@ describe('ODCS', () => {
     expect(result.rulesImported).toBe(1)
     expect(result.ignored).toHaveLength(1)
     expect(result.contract.lifecycle).toBe('draft')
-    expect(result.contract.rules[0]).toMatchObject({ kind: 'required', field: 'batch', mode: 'warn' })
+    expect(result.contract.rules[0]).toMatchObject({
+      kind: 'required',
+      field: 'batch',
+      mode: 'warn',
+    })
     await expect(
-      owner.query(`select api.import_data_contract_odcs('{"kind":"Other"}'::jsonb, $1)`, [SCHEMA]),
+      owner.query(
+        `select api.import_data_contract_odcs('{"kind":"Other"}'::jsonb, $1)`,
+        [SCHEMA],
+      ),
     ).rejects.toThrow(/not an ODCS/)
   })
 })
 
 describe('scheduled checks', () => {
   it('runs due contracts and sets the next time', async () => {
-    await save([{ id: 'rng', kind: 'range', field: 'purity', min: 0, max: 100, mode: 'warn' }], {
-      lifecycle: 'active',
-      schedule: 60,
-    })
+    await save(
+      [
+        {
+          id: 'rng',
+          kind: 'range',
+          field: 'purity',
+          min: 0,
+          max: 100,
+          mode: 'warn',
+        },
+      ],
+      {
+        lifecycle: 'active',
+        schedule: 60,
+      },
+    )
     await migrator.query(
       `update api.data_contracts set next_check_at = now() - interval '1 minute' where dataset_schema_id=$1`,
       [SCHEMA],
     )
-    const swept = await migrator.query(`select internal.sweep_contract_checks(20) as result`)
+    const swept = await migrator.query(
+      `select internal.sweep_contract_checks(20) as result`,
+    )
     expect(swept.rows[0].result.checked).toBeGreaterThanOrEqual(1)
     const c = await contract()
     expect(new Date(c.next_check_at).getTime()).toBeGreaterThan(Date.now())

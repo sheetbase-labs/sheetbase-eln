@@ -15,7 +15,14 @@
 -- image the compose files and Railway use). The extension is created as a
 -- trusted one, so the migration role can do it without superuser rights.
 
-CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
+-- The vector type and its operators live in their own schema, not public:
+-- search runs as the caller (so row security applies) and the caller roles
+-- have no rights on public.
+CREATE SCHEMA IF NOT EXISTS extensions AUTHORIZATION migrator;
+--> statement-breakpoint
+GRANT USAGE ON SCHEMA extensions TO authenticated, api_client;
+--> statement-breakpoint
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
 --> statement-breakpoint
 
 -- ---------------------------------------------------------------------------
@@ -47,7 +54,7 @@ CREATE TABLE api.search_embeddings (
   -- document is not embedded (and paid for) again.
   text_hash text NOT NULL,
   model_id text NOT NULL,
-  embedding public.vector(1024) NOT NULL,
+  embedding extensions.vector(1024) NOT NULL,
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (object_type, object_id, chunk_no),
   FOREIGN KEY (object_type, object_id)
@@ -57,7 +64,7 @@ CREATE TABLE api.search_embeddings (
 ALTER TABLE api.search_embeddings OWNER TO migrator;
 --> statement-breakpoint
 CREATE INDEX idx_search_embeddings_vec ON api.search_embeddings
-  USING hnsw (embedding public.vector_cosine_ops);
+  USING hnsw (embedding extensions.vector_cosine_ops);
 --> statement-breakpoint
 CREATE INDEX idx_search_embeddings_workspace
   ON api.search_embeddings (workspace_id, object_type);
@@ -122,11 +129,11 @@ BEGIN
   WITH near AS MATERIALIZED (
     SELECT e.object_type AS o_type, e.object_id AS o_id, e.chunk_no AS c_no,
            e.chunk_text AS c_text,
-           (e.embedding OPERATOR(public.<=>) p_embedding::public.vector(1024)) AS dist
+           (e.embedding OPERATOR(extensions.<=>) p_embedding::extensions.vector(1024)) AS dist
       FROM api.search_embeddings e
      WHERE e.workspace_id = api.current_workspace_id()
        AND (p_types IS NULL OR e.object_type = ANY (p_types))
-     ORDER BY e.embedding OPERATOR(public.<=>) p_embedding::public.vector(1024)
+     ORDER BY e.embedding OPERATOR(extensions.<=>) p_embedding::extensions.vector(1024)
      LIMIT v_limit * 8
   ),
   best AS (
@@ -181,9 +188,9 @@ CREATE FUNCTION api.similar_work(
     AS $$
 DECLARE
   v_limit integer := least(greatest(coalesce(p_limit, 8), 1), 50);
-  v_centroid public.vector(1024);
+  v_centroid extensions.vector(1024);
 BEGIN
-  SELECT public.avg(e.embedding) INTO v_centroid
+  SELECT extensions.avg(e.embedding) INTO v_centroid
     FROM api.search_embeddings e
    WHERE e.workspace_id = api.current_workspace_id()
      AND e.object_type = p_object_type AND e.object_id = p_object_id;
@@ -194,12 +201,12 @@ BEGIN
   WITH near AS MATERIALIZED (
     SELECT e.object_type AS o_type, e.object_id AS o_id, e.chunk_no AS c_no,
            e.chunk_text AS c_text,
-           (e.embedding OPERATOR(public.<=>) v_centroid) AS dist
+           (e.embedding OPERATOR(extensions.<=>) v_centroid) AS dist
       FROM api.search_embeddings e
      WHERE e.workspace_id = api.current_workspace_id()
        AND NOT (e.object_type = p_object_type AND e.object_id = p_object_id)
        AND (p_types IS NULL OR e.object_type = ANY (p_types))
-     ORDER BY e.embedding OPERATOR(public.<=>) v_centroid
+     ORDER BY e.embedding OPERATOR(extensions.<=>) v_centroid
      LIMIT v_limit * 10
   ),
   best AS (

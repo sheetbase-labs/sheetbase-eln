@@ -30,6 +30,8 @@ import {
   buildResultPreview,
   readResultPreview,
 } from '#/lib/pipelines/result-preview'
+import { describeGateBlock } from '#/lib/data-contracts/gate'
+import type { ContractGateReport } from '#/lib/data-contracts/types'
 import {
   PipelinePythonError,
   executePythonTransform,
@@ -105,6 +107,7 @@ export type PipelineErrorCode =
   | 'output_column_mapping'
   | 'output_value_invalid'
   | 'dataset_commit_failed'
+  | 'contract_blocked'
   | 'run_cancelled'
   | 'run_not_waiting'
   | 'prompt_not_found'
@@ -2680,6 +2683,25 @@ async function writeOutput(
   const mapped = mapOutputRows(config, fields, resultRows)
   if (mapped.kind === 'error') {
     return { ok: false, code: mapped.code, message: mapped.message }
+  }
+
+  // A data contract on the output's schema can refuse the whole result before
+  // any of it is written. Every chunk is checked at once, so a rule about the
+  // batch (a value that must be unique, a share that must be filled in) sees
+  // the whole result, not one slice of it.
+  if (mapped.rows.length > 0) {
+    const gate = await conn.query<{ result: ContractGateReport | null }>(
+      `SELECT api.check_dataset_contract($1, $2::jsonb, 'pipeline') result`,
+      [datasetId, JSON.stringify(mapped.rows)],
+    )
+    const report = gate.rows[0]?.result
+    if (report?.blocked) {
+      return {
+        ok: false,
+        code: 'contract_blocked',
+        message: truncate(describeGateBlock(report), 500),
+      }
+    }
   }
 
   let commitMs = 0

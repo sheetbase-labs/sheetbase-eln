@@ -1955,6 +1955,110 @@ export const validationRuns = api.table(
   ],
 )
 
+/**
+ * A data contract: rules for what good data looks like on a dataset schema or
+ * a record model (migration 20261106235346). Written only through the
+ * `save_data_contract` family of functions; each check is a data_contract_runs
+ * row.
+ */
+export const dataContracts = api.table(
+  'data_contracts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    datasetSchemaId: uuid('dataset_schema_id').references(
+      () => datasetSchemaDefinitions.id,
+      { onDelete: 'cascade' },
+    ),
+    recordModelKey: text('record_model_key'),
+    name: text('name').notNull(),
+    description: text('description'),
+    ownerUserId: text('owner_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    version: integer('version').notNull().default(1),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    rules: jsonb('rules').notNull().default(sql`'[]'::jsonb`),
+    scheduleMinutes: integer('schedule_minutes'),
+    nextCheckAt: timestamp('next_check_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    lastStatus: text('last_status'),
+    lastCheckedAt: timestamp('last_checked_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    createdByUserId: text('created_by_user_id').notNull(),
+    updatedByUserId: text('updated_by_user_id'),
+  },
+  (table) => [
+    check(
+      'chk_data_contracts_one_target',
+      sql`(${table.datasetSchemaId} IS NOT NULL)::integer + (${table.recordModelKey} IS NOT NULL)::integer = 1`,
+    ),
+    check(
+      'chk_data_contracts_lifecycle',
+      sql`${table.lifecycle} IN ('draft', 'active', 'retired')`,
+    ),
+    check(
+      'chk_data_contracts_status',
+      sql`${table.lastStatus} IS NULL OR ${table.lastStatus} IN ('pass', 'warning', 'fail')`,
+    ),
+  ],
+)
+
+/** One check of a data contract: what each rule found, and whether it blocked. */
+export const dataContractRuns = api.table(
+  'data_contract_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').notNull(),
+    contractId: uuid('contract_id')
+      .notNull()
+      .references(() => dataContracts.id, { onDelete: 'cascade' }),
+    contractVersion: integer('contract_version').notNull(),
+    datasetId: uuid('dataset_id').references(() => datasets.id, {
+      onDelete: 'set null',
+    }),
+    trigger: text('trigger').notNull(),
+    scope: text('scope').notNull(),
+    status: text('status').notNull(),
+    rowsChecked: bigint('rows_checked', { mode: 'number' })
+      .notNull()
+      .default(0),
+    failedRules: integer('failed_rules').notNull().default(0),
+    blocked: boolean('blocked').notNull().default(false),
+    results: jsonb('results').notNull().default(sql`'[]'::jsonb`),
+    createdByUserId: text('created_by_user_id'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_data_contract_runs_trigger',
+      sql`${table.trigger} IN ('import', 'pipeline', 'manual', 'schedule')`,
+    ),
+    check(
+      'chk_data_contract_runs_status',
+      sql`${table.status} IN ('pass', 'warning', 'fail')`,
+    ),
+    index('idx_data_contract_runs_contract').on(
+      table.contractId,
+      table.createdAt,
+    ),
+  ],
+)
+
 /** Explicit human request, pinned to the same frozen revision as its signature. */
 export const signatureWitnessRequests = api.table(
   'signature_witness_requests',

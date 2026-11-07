@@ -84,7 +84,7 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_mean: 'Centre line of the control limits.',
   p_sd: 'Standard deviation (greater than 0) of the control limits.',
   p_rules:
-    'Westgard rules to judge by, from `1-3s`, `2-2s`, `R-4s`, `4-1s` and `10x`.',
+    'Westgard rules to judge by, from `1-3s`, `2-2s`, `R-4s`, `4-1s` and `10x`. For a data contract, a JSON array of rules: `{ id, kind, field, mode, min, max, units, threshold, maxAgeMinutes }`, where `kind` is `required`, `unique`, `range`, `units`, `completeness`, `row_count` or `freshness` and `mode` is `warn` or `block`.',
   p_enabled: '`false` pauses judging new points.',
   p_first_n:
     'Take the limits from the first N points (mean and SD) instead of entering them.',
@@ -253,6 +253,21 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
     'Minutes after midnight the working day ends (1020 is 17:00).',
   p_work_days: 'Working days as ISO weekdays: 1 is Monday, 7 is Sunday.',
   p_version_id: 'Dataset version id.',
+  p_contract_id: 'Data contract id.',
+  p_dataset_schema_id: 'Dataset schema (table model) id the contract sits on.',
+  p_record_model_key: 'Key of the record model the contract sits on.',
+  p_rule: 'JSON object: one rule, as in `p_rules`.',
+  p_rule_id: 'Id of a rule in the contract.',
+  p_description: 'A description.',
+  p_owner_user_id: 'The member who owns it.',
+  p_lifecycle: '`draft`, `active` or `retired`.',
+  p_schedule_minutes:
+    'Run a check every this many minutes (5 to 525600); 0 turns scheduled checks off.',
+  p_odcs:
+    'An Open Data Contract Standard (ODCS v3.1) document as JSON. YAML parses to the same thing.',
+  p_dataset_id: 'Dataset id.',
+  p_rows: 'JSON array of rows about to be committed.',
+  p_trigger: '`import` or `pipeline`.',
 }
 
 export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
@@ -671,6 +686,63 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['instrument_id', 'uuid', 1],
       ['protocol_record_id', 'uuid', 1],
       ['workspace_id', 'uuid', 1],
+    ],
+  },
+  data_contracts: {
+    summary:
+      'A data contract: rules for what good data looks like on a dataset schema or a record model. `last_status` is `pass`, `warning` or `fail`; `rules` is the list of rules.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['dataset_schema_id', 'uuid', 0],
+      ['record_model_key', 'text', 0],
+      ['name', 'text', 1],
+      ['description', 'text', 0],
+      ['owner_user_id', 'text', 0],
+      ['version', 'int', 1],
+      ['lifecycle', 'text', 1],
+      ['rules', 'json', 1],
+      ['schedule_minutes', 'int', 0],
+      ['next_check_at', 'ts', 0],
+      ['last_status', 'text', 0],
+      ['last_checked_at', 'ts', 0],
+      ['created_at', 'ts', 1],
+      ['updated_at', 'ts', 1],
+      ['created_by_user_id', 'text', 1],
+      ['updated_by_user_id', 'text', 0],
+    ],
+  },
+  data_contract_runs: {
+    summary:
+      'One check of a data contract. `status` is `pass`, `warning` or `fail`; `trigger` is `import`, `pipeline`, `manual` or `schedule`; `blocked` means an import or pipeline commit was refused. `results` says what each rule found.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['contract_id', 'uuid', 1],
+      ['contract_version', 'int', 1],
+      ['dataset_id', 'uuid', 0],
+      ['trigger', 'text', 1],
+      ['scope', 'text', 1],
+      ['status', 'text', 1],
+      ['rows_checked', 'bigint', 1],
+      ['failed_rules', 'int', 1],
+      ['blocked', 'bool', 1],
+      ['results', 'json', 1],
+      ['created_by_user_id', 'text', 0],
+      ['created_at', 'ts', 1],
+    ],
+  },
+  data_contract_dataset_status: {
+    summary:
+      "Where each dataset stands under its schema's contract: the latest full check.",
+    columns: [
+      ['contract_id', 'uuid', 1],
+      ['dataset_id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['status', 'text', 1],
+      ['failed_rules', 'int', 1],
+      ['run_id', 'uuid', 1],
+      ['checked_at', 'ts', 1],
     ],
   },
   field_spec_limits: {
@@ -1997,6 +2069,127 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
       ['p_reason', 'text', 0],
     ],
     result: 'row:shipments',
+  },
+  save_data_contract: {
+    summary: 'Make or change a data contract',
+    description:
+      'Makes the contract on a dataset schema or a record model, or changes it. Anything left out keeps its value. A change of rules makes a new version. Needs an owner, admin or steward.',
+    scope: 'lab:write',
+    params: [
+      ['p_dataset_schema_id', 'uuid', 0],
+      ['p_record_model_key', 'text', 0],
+      ['p_rules', 'json', 0],
+      ['p_name', 'text', 0],
+      ['p_description', 'text', 0],
+      ['p_owner_user_id', 'text', 0],
+      ['p_lifecycle', 'text', 0],
+      ['p_schedule_minutes', 'int', 0],
+    ],
+    result: 'row:data_contracts',
+  },
+  add_contract_rule: {
+    summary: 'Add a rule to a data contract',
+    description:
+      'Adds one rule, such as a required field or a range. An id is made if you leave it out. Needs an owner, admin or steward.',
+    scope: 'lab:write',
+    params: [
+      ['p_contract_id', 'uuid', 1],
+      ['p_rule', 'json', 1],
+    ],
+    result: 'row:data_contracts',
+  },
+  remove_contract_rule: {
+    summary: 'Remove a rule from a data contract',
+    description:
+      'Removes one rule by its id. Needs an owner, admin or steward.',
+    scope: 'lab:write',
+    params: [
+      ['p_contract_id', 'uuid', 1],
+      ['p_rule_id', 'text', 1],
+    ],
+    result: 'row:data_contracts',
+  },
+  delete_data_contract: {
+    summary: 'Delete a data contract',
+    description:
+      'Deletes the contract and its run history. Needs an owner, admin or steward.',
+    scope: 'lab:write',
+    params: [['p_contract_id', 'uuid', 1]],
+    result: 'void',
+  },
+  run_contract_check: {
+    summary: 'Check a data contract now',
+    description:
+      'Checks the stored data against the contract and keeps the result as a run: every active dataset under a dataset schema contract (or the one named), or the records of a model. Returns the standing and the runs.',
+    scope: 'lab:write',
+    params: [
+      ['p_contract_id', 'uuid', 1],
+      ['p_dataset_id', 'uuid', 0],
+    ],
+    result: 'json',
+  },
+  preview_contract_rules: {
+    summary: 'See what a change of rules would find',
+    description:
+      'Checks the data as it stands against rules you are thinking of, without saving them or recording a run. Needs an owner, admin or steward.',
+    scope: 'lab:read',
+    params: [
+      ['p_contract_id', 'uuid', 1],
+      ['p_rules', 'json', 1],
+      ['p_dataset_id', 'uuid', 0],
+    ],
+    result: 'json',
+  },
+  check_dataset_contract: {
+    summary: 'Check rows against a dataset’s contract before committing them',
+    description:
+      'Checks a batch of rows, in the shape of `commit_dataset_row_batch`, against the contract on the dataset’s schema and records a run. If `blocked` is true a block-mode rule found a problem and the rows should not be committed. Imports do this themselves; call it before committing from a pipeline or script.',
+    scope: 'lab:write',
+    params: [
+      ['p_dataset_id', 'uuid', 1],
+      ['p_rows', 'json', 1],
+      ['p_trigger', 'text', 0],
+    ],
+    result: 'json',
+  },
+  check_record_contract: {
+    summary: 'Does a record meet its model’s contract?',
+    description:
+      'Advisory: lists the rules a record breaks. Nothing is recorded and nothing is blocked.',
+    scope: 'lab:read',
+    params: [['p_record_id', 'uuid', 1]],
+    result: 'json',
+  },
+  check_record_batch_contract: {
+    summary: 'Check records about to be created against their model’s contract',
+    description:
+      'Advisory: rows are `{ values: { field_name: value } }`. Nothing is recorded.',
+    scope: 'lab:read',
+    params: [
+      ['p_record_model_key', 'text', 1],
+      ['p_rows', 'json', 1],
+    ],
+    result: 'json',
+  },
+  export_data_contract_odcs: {
+    summary: 'Export a data contract as ODCS',
+    description:
+      'Returns the contract as an Open Data Contract Standard (v3.1) document, as JSON. Save it as YAML to keep it in git.',
+    scope: 'lab:read',
+    params: [['p_contract_id', 'uuid', 1]],
+    result: 'json',
+  },
+  import_data_contract_odcs: {
+    summary: 'Import a data contract from ODCS',
+    description:
+      'Reads an ODCS v3.1 document and makes or replaces the contract it describes. The target is the dataset schema or record model named by the document unless you give one. Returns the contract and a list of what was left out. Needs an owner, admin or steward.',
+    scope: 'lab:write',
+    params: [
+      ['p_odcs', 'json', 1],
+      ['p_dataset_schema_id', 'uuid', 0],
+      ['p_record_model_key', 'text', 0],
+    ],
+    result: 'json',
   },
   set_field_spec_limits: {
     summary: 'Set result limits on a field',

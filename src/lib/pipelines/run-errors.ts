@@ -97,6 +97,12 @@ const GUIDANCE: Record<string, RunErrorGuidance> = {
     fix: 'output',
     retryHelps: false,
   },
+  contract_blocked: {
+    title: t('contracts.pipeline.blockedTitle'),
+    hint: t('contracts.pipeline.blockedHint'),
+    fix: 'output',
+    retryHelps: false,
+  },
   dataset_commit_failed: {
     title: t('data.runErrors.outputDatasetRefusedRows'),
     hint: t('data.runErrors.messageBelowSaysWhich'),

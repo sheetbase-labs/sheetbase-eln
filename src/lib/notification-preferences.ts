@@ -231,6 +231,14 @@ export const NOTIFICATION_EVENTS = [
     defaultPush: false,
   },
   {
+    key: 'qc_violation',
+    label: 'A quality control series goes out of range',
+    group: GROUP_LAB,
+    source: 'notification',
+    defaultEmail: true,
+    defaultPush: true,
+  },
+  {
     key: 'protocol_new_version',
     label: 'Protocol you use has a new version',
     group: GROUP_PROTOCOLS,

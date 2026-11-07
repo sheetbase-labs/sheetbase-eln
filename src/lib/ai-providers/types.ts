@@ -49,6 +49,12 @@ export interface ProviderProfile {
   pricing: ProviderPricing
   /** Output-token ceiling. Defaults to the caller's remaining budget. */
   maxOutputTokens?: number
+  /**
+   * Model to ask for text vectors (search by meaning). A profile that names
+   * one can be chosen as a workspace's embeddings profile. Not available for
+   * `anthropic`, which has no embeddings endpoint.
+   */
+  embeddingModel?: string
 }
 
 /** A profile plus the resolved key. Never serialise this. */

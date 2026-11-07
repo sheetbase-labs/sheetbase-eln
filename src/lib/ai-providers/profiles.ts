@@ -38,6 +38,7 @@ const profileSchema = z
       .optional(),
     pricing: pricingSchema,
     maxOutputTokens: z.number().int().min(1).max(100_000).optional(),
+    embeddingModel: z.string().min(1).max(200).optional(),
   })
   .strict()
 
@@ -53,6 +54,9 @@ export interface PublicProviderProfile {
   model: string
   dataClass: 'cloud' | 'local'
   keyAvailable: boolean
+  /** Can be chosen for search by meaning. */
+  embeddings?: boolean
+  embeddingModel?: string | null
 }
 
 /**
@@ -142,6 +146,13 @@ export function assertProviderProfile(profile: ProviderProfile): void {
       { providerId: profile.id },
     )
   }
+  if (profile.embeddingModel && profile.kind === 'anthropic') {
+    throw new AiProviderError(
+      'config_invalid',
+      `Provider '${profile.id}' is Anthropic, which has no embeddings endpoint`,
+      { providerId: profile.id },
+    )
+  }
   if (cloud && !profile.apiKeyEnv) {
     throw new AiProviderError(
       'config_invalid',
@@ -195,5 +206,7 @@ export function toPublicProviderProfile(
     model: profile.model,
     dataClass: isCloudProvider(profile.kind) ? 'cloud' : 'local',
     keyAvailable,
+    embeddings: Boolean(profile.embeddingModel) && profile.kind !== 'anthropic',
+    embeddingModel: profile.embeddingModel ?? null,
   }
 }

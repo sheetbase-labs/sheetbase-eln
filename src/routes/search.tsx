@@ -276,12 +276,13 @@ function SearchPage() {
     staleTime: 60_000,
   })
   const meaningAvailable = semanticSettings.data?.settings.enabled === true
+  const showMeaning =
+    meaningAvailable && meaningOn && q.trim().length > 0 && filterCount === 0
   const meaningQuery = useQuery({
     queryKey: ['semantic-hits', workspaceId, q.trim()],
     queryFn: () =>
       hybridSearchFn({ data: { workspaceId, query: q.trim(), limit: 20 } }),
-    enabled:
-      meaningAvailable && meaningOn && q.trim().length > 0 && filterCount === 0,
+    enabled: showMeaning,
     staleTime: 30_000,
   })
   const meaningExtras = useMemo<SemanticHit[]>(
@@ -914,12 +915,23 @@ function SearchPage() {
             ) : null}
 
             {results.length || query.isLoading ? (
-              <SearchResultsTable
-                results={results}
-                q={q}
-                projectNames={projectNames.data}
-                isLoading={query.isLoading}
-              />
+              // With a "Close in meaning" section below, the word results take
+              // just the room their rows need instead of the whole pane.
+              <div
+                className={showMeaning ? 'shrink-0' : 'min-h-0 flex-1'}
+                style={
+                  showMeaning
+                    ? { height: Math.min(results.length * 33 + 52, 420) }
+                    : undefined
+                }
+              >
+                <SearchResultsTable
+                  results={results}
+                  q={q}
+                  projectNames={projectNames.data}
+                  isLoading={query.isLoading}
+                />
+              </div>
             ) : null}
 
             <LoadMore
@@ -930,10 +942,7 @@ function SearchPage() {
               onLoadMore={() => void query.fetchNextPage()}
             />
 
-            {meaningAvailable &&
-            meaningOn &&
-            q.trim().length > 0 &&
-            filterCount === 0 ? (
+            {showMeaning ? (
               <section
                 className="mb-6 flex flex-col gap-2"
                 aria-label={t('projects.searchMeaning.heading')}
@@ -948,10 +957,17 @@ function SearchPage() {
                   </span>
                 </div>
                 {meaningQuery.isPending ? null : meaningExtras.length > 0 ? (
-                  <SemanticHitsTable
-                    hits={meaningExtras}
-                    label={t('projects.searchMeaning.heading')}
-                  />
+                  <div
+                    className="shrink-0"
+                    style={{
+                      height: Math.min(meaningExtras.length * 46 + 48, 460),
+                    }}
+                  >
+                    <SemanticHitsTable
+                      hits={meaningExtras}
+                      label={t('projects.searchMeaning.heading')}
+                    />
+                  </div>
                 ) : (
                   <p className="m-0 px-4 text-label text-fg-muted md:px-6">
                     {meaningQuery.data?.meaning.used === false

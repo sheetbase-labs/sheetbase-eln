@@ -639,22 +639,31 @@ const LAB_EVENTS: ReadonlyArray<{
     operation: 'create',
     payload: {},
   },
-<<<<<<< HEAD
   {
     name: 'experiment.part_signed',
     entityType: 'part_signoff',
-=======
-    name: 'plan.proposed',
-    entityType: 'experiment_plan',
->>>>>>> 82ca4de (test: pin plan and campaign events)
     operation: 'create',
     payload: {},
   },
   {
-<<<<<<< HEAD
     name: 'experiment.part_countersigned',
     entityType: 'part_countersign',
-=======
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'experiment.part_amended',
+    entityType: 'part_amendment',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'plan.proposed',
+    entityType: 'experiment_plan',
+    operation: 'create',
+    payload: {},
+  },
+  {
     name: 'plan.applied',
     entityType: 'experiment_plan',
     operation: 'update',
@@ -669,18 +678,10 @@ const LAB_EVENTS: ReadonlyArray<{
   {
     name: 'campaign.started',
     entityType: 'campaign',
->>>>>>> 82ca4de (test: pin plan and campaign events)
     operation: 'create',
     payload: {},
   },
   {
-<<<<<<< HEAD
-    name: 'experiment.part_amended',
-    entityType: 'part_amendment',
-    operation: 'create',
-    payload: {},
-  },
-=======
     name: 'campaign.finished',
     entityType: 'campaign',
     operation: 'update',
@@ -710,7 +711,6 @@ const LAB_EVENTS: ReadonlyArray<{
     operation: 'update',
     payload: { change: 'completed' },
   },
->>>>>>> 82ca4de (test: pin plan and campaign events)
 ]
 
 describe('lab feature events', () => {

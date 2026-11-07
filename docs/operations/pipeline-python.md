@@ -40,20 +40,11 @@ variables. The job receives only JSON on stdin. Its container uses:
 
 - no network, a read-only root filesystem and UID/GID 65532;
 - no capabilities, no new privileges and Docker's default seccomp profile;
-- 1 CPU, 512 MiB memory by default (`PIPELINE_PYTHON_MEMORY`, `512m` to `8g`) with no additional swap, and 64 processes;
+- 1 CPU, 512 MiB memory with no additional swap, and 64 processes;
 - a 64 MiB ephemeral `/tmp` filesystem, without executable files;
 - a 60-second execution limit, followed by forced container removal;
 - at most 100,000 input/output rows, 256 fields per row, 1,000,000 cells,
   and 32 MiB per request/result. Inputs are limited across all aliases together.
-
-## BayBE for campaigns
-
-Optimisation campaigns use the same runner. The image has no BayBE by default,
-and campaigns then use the built-in optimiser. To add BayBE, build with
-`docker build --build-arg WITH_BAYBE=true docker/pipeline-python`, which installs
-the version pinned in `docker/pipeline-python/requirements-baybe.txt`. BayBE peaks
-at about 1 GB, so also set `PIPELINE_PYTHON_MEMORY=2g` (or more) for the app. Each
-round records the engine, its version and the image digest it used.
 
 Rows are never silently truncated. The runner accepts at most two concurrent
 jobs and fails closed after a container cleanup failure; resolve the Docker

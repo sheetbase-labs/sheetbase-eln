@@ -13,13 +13,6 @@ export declare const LIMITS: {
   fileBytes: number
 }
 export declare const OUTPUT_DIR: string
-export declare function memoryLimit(
-  env?: Record<string, string | undefined>,
-): string
-export declare function containerArguments(
-  image: string,
-  name: string,
-): string[]
 export declare const ARTEFACT_KEY: RegExp
 
 export interface CollectedArtefact {

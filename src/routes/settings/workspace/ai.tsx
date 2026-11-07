@@ -34,6 +34,7 @@ import type {
   AiSettingsView,
   WorkspaceAiSettings,
 } from '#/lib/ai-settings'
+import { SemanticSearchSection } from '#/components/settings/semantic-search-section'
 import { MODEL_NAMES } from '#/lib/metrics'
 import { t } from '#/copy'
 
@@ -379,6 +380,11 @@ function AiSettingsPage() {
                 </div>
               ) : null}
             </Section>
+
+            <SemanticSearchSection
+              workspaceId={workspaceId}
+              cloudAllowed={form.cloudEgressEnabled}
+            />
 
             <Section title={t('settings.ai.limits')}>
               <div className="grid gap-4 md:grid-cols-2">

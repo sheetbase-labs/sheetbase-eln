@@ -683,7 +683,7 @@ async function reproduceInScratch(
     `SELECT manifest FROM api.pipeline_run_manifests WHERE run_id = $1`,
     [source.id],
   )
-  const manifest = manifestRows[0]?.manifest ?? null
+  const manifest: RunManifest | null = manifestRows.at(0)?.manifest ?? null
   // The decisions people gave at confirm steps are replayed, not asked again.
   const { rows: prompts } = await conn.query<{
     step_id: string

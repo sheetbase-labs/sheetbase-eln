@@ -59,7 +59,7 @@ const COMPARED: Record<string, string> = {
 function summaryOf(
   reproduction: PipelineReproductionWire,
 ): Partial<PipelineReproductionSummary> {
-  return reproduction.summary as Partial<PipelineReproductionSummary>
+  return reproduction.summary
 }
 
 /** Reproduce a run, then refresh what the page shows about it. */
@@ -260,7 +260,8 @@ export function RunReproductions({
   const reproductions = useRunReproductions(runId)
   const reproduce = useReproduceRun(runId)
   const list = reproductions.data ?? []
-  const [latest, ...earlier] = list
+  const latest: PipelineReproductionWire | undefined = list.at(0)
+  const earlier = list.slice(1)
   return (
     <section
       id="reproduce"

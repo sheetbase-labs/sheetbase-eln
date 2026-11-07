@@ -45,7 +45,7 @@ history, and **Made by** on a dataset version in Snapshots. The assistant offers
 a **Reproduce run** card (`sheetbase.pipeline.reproduce`) and reads past results
 from the reproductions area. A pipeline step can ask for one with the
 **Reproduce a run** action (`request_pipeline_reproduction`): the request is
-queued and the server runs it as the person who owns the pipeline's run,
+queued and the server runs it as the person who started the pipeline run,
 within seconds.
 
 ## Lineage events (OpenLineage)

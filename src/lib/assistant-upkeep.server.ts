@@ -655,7 +655,7 @@ export async function buildUpkeepProposal(
           'pipeline_runs',
           `?id=eq.${input.runId}&select=id,status,definition_version_id,created_at&limit=1`,
         )
-        run = rows[0]
+        run = rows.at(0)
         if (!run) return fail('That run was not found.')
         const versions = await client.list<{ definition_id: string }>(
           'pipeline_definition_versions',
@@ -696,7 +696,7 @@ export async function buildUpkeepProposal(
           'pipeline_runs',
           `?definition_version_id=in.(${versions.map((v) => v.id).join(',')})&status=eq.succeeded&select=id,status,definition_version_id,created_at&order=created_at.desc&limit=1`,
         )
-        run = runs[0]
+        run = runs.at(0)
         if (!run) return fail(`${definition.name} has no finished run yet.`)
       }
       if (run.status !== 'succeeded') {

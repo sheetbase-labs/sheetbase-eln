@@ -98,7 +98,10 @@ const REQUEST_PLUMBING: ReadonlySet<string> = new Set([
 export const AGENT_ACTIONS: readonly AgentActionEntry[] = Object.freeze(
   Object.entries(LAB_RPCS)
     .filter(
-      ([key, rpc]) => rpc.scope === 'lab:write' && !REQUEST_PLUMBING.has(key),
+      ([key, rpc]) =>
+        rpc.scope === 'lab:write' &&
+        !REQUEST_PLUMBING.has(key) &&
+        !agentActionAlwaysNever(key),
     )
     .map(([key, rpc]) => ({
       key,

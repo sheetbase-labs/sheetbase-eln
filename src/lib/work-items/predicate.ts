@@ -76,7 +76,8 @@ export function workItemType(kind: string): WorkItemType {
     kind === 'request_submitted' ||
     kind === 'request_update' ||
     kind === 'shipment_incoming' ||
-    kind === 'watcher_finding'
+    kind === 'watcher_finding' ||
+    kind === 'qc_violation'
   )
     return 'lab'
   if (

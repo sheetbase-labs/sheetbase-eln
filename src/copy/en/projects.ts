@@ -2073,6 +2073,7 @@ export const projects = {
       agent_proposal: 'Agent proposal',
       agent_action_request: 'Agent action',
       watcher_finding: 'Watcher finding',
+      qc_violation: 'Quality control',
       invitation_accepted: 'Joined',
       verification_requested: 'Verify identity',
       verification_granted: 'Verified',

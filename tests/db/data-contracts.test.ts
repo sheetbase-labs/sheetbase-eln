@@ -1,5 +1,5 @@
 /**
- * Data contracts (migration 20261106235346).
+ * Data contracts (migration 20261107090735).
  *
  * Proves, against a freshly migrated database:
  *  - only people who may edit schemas can make or change a contract;

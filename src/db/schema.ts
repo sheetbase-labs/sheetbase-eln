@@ -1957,7 +1957,7 @@ export const validationRuns = api.table(
 
 /**
  * A data contract: rules for what good data looks like on a dataset schema or
- * a record model (migration 20261106235346). Written only through the
+ * a record model (migration 20261107090735). Written only through the
  * `save_data_contract` family of functions; each check is a data_contract_runs
  * row.
  */

@@ -447,21 +447,71 @@ describe('campaigns', () => {
     await owner.query(
       `select api.create_starter_model('notcampaign','Other','OTH','Not a campaign','[]'::jsonb,false)`,
     )
-    await owner.query(`select api.set_model_campaign_list('campaign', true)`)
+    await owner.query(
+      `select api.set_model_capability('campaign', 'campaigns', true)`,
+    )
     campaignId = (await record('campaign', 'Buffer optimisation')).id
   })
 
-  it('needs a record of a model ticked as a campaign list', async () => {
+  it('needs a record of a model with the Campaigns feature', async () => {
     const other = await record('notcampaign', 'Not a campaign')
     await expect(configure(other.id)).rejects.toThrow(
-      /ticked as a campaign list/,
+      /model with the Campaigns feature/,
     )
     await expect(
-      owner.query(`select api.set_model_campaign_list('nothing', true)`),
+      owner.query(
+        `select api.set_model_capability('nothing', 'campaigns', true)`,
+      ),
     ).rejects.toThrow(/model not found/)
     await expect(
-      viewer.query(`select api.set_model_campaign_list('campaign', false)`),
+      owner.query(
+        `select api.set_model_capability('campaign', 'Not A Key', true)`,
+      ),
+    ).rejects.toThrow(/unknown feature/)
+    await expect(
+      viewer.query(
+        `select api.set_model_capability('campaign', 'campaigns', false)`,
+      ),
     ).rejects.toThrow()
+  })
+
+  it('switches a feature on and off, tells webhooks once, and keeps settings', async () => {
+    const events = async () =>
+      (
+        await owner.query(
+          `select payload->>'change' as change from api.change_events
+            where entity_type = 'model_capability' and payload->>'modelKey' = 'notcampaign'
+            order by sequence`,
+        )
+      ).rows.map((r) => r.change)
+    expect(await events()).toEqual([])
+    await owner.query(
+      `select api.set_model_capability('notcampaign', 'campaigns', true, '{"a":1}'::jsonb)`,
+    )
+    // Switching it on again, even with new settings, is not a new event.
+    await owner.query(
+      `select api.set_model_capability('notcampaign', 'campaigns', true, '{"a":2}'::jsonb)`,
+    )
+    expect(
+      (
+        await owner.query(
+          `select settings from api.model_capabilities where model_key = 'notcampaign'`,
+        )
+      ).rows,
+    ).toEqual([{ settings: { a: 2 } }])
+    // A configure now works for a record of that model.
+    const other = await record('notcampaign', 'Now a campaign')
+    await expect(configure(other.id)).resolves.toBeDefined()
+    await owner.query(
+      `select api.set_model_capability('notcampaign', 'campaigns', false)`,
+    )
+    await owner.query(
+      `select api.set_model_capability('notcampaign', 'campaigns', false)`,
+    )
+    expect(await events()).toEqual(['enabled', 'disabled'])
+    await expect(
+      configure((await record('notcampaign', 'Again')).id),
+    ).rejects.toThrow(/model with the Campaigns feature/)
   })
 
   it('checks the factors and objectives', async () => {
@@ -846,7 +896,7 @@ describe('campaigns', () => {
       (await outsider.query(`select * from api.campaign_rounds`)).rows,
     ).toHaveLength(0)
     expect(
-      (await outsider.query(`select * from api.model_campaign_lists`)).rows,
+      (await outsider.query(`select * from api.model_capabilities`)).rows,
     ).toHaveLength(0)
   })
 })

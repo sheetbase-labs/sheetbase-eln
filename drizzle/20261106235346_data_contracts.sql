@@ -23,7 +23,7 @@ BEGIN
     RAISE EXCEPTION 'unexpected shape for chk_change_events_entity_type';
   END IF;
   IF position('''data_contract''' IN v_def) = 0 THEN
-    v_def := replace(v_def, '::text]', '::text, ''data_contract''::text, ''data_contract_run''::text]');
+    v_def := replace(v_def, '::text]', '::text, ''data_contract''::text, ''data_contract_run''::text, ''data_contract_standing''::text]');
     EXECUTE 'ALTER TABLE api.change_events DROP CONSTRAINT chk_change_events_entity_type';
     EXECUTE 'ALTER TABLE api.change_events ADD CONSTRAINT chk_change_events_entity_type ' || v_def;
   END IF;
@@ -621,7 +621,7 @@ BEGIN
         'rowsChecked', v_run.rows_checked, 'failedRules', v_run.failed_rules, 'blocked', v_blocked)));
     IF (v_rank->>v_new)::integer > coalesce((v_rank->>v_prev)::integer, 0) THEN
       PERFORM internal.emit_change_event_as_actor(
-        v_actor, p_contract.workspace_id, 'data_contract', p_contract.id, 'update', NULL, NULL,
+        v_actor, p_contract.workspace_id, 'data_contract_standing', p_contract.id, 'update', NULL, NULL,
         jsonb_strip_nulls(jsonb_build_object(
           'effect', 'breached', 'contractId', p_contract.id, 'name', p_contract.name,
           'status', v_new, 'previousStatus', coalesce(v_prev, 'pass'),
@@ -629,7 +629,7 @@ BEGIN
           'datasetId', p_dataset_id, 'runId', v_run.id)));
     ELSIF v_new = 'pass' AND v_prev IN ('warning', 'fail') THEN
       PERFORM internal.emit_change_event_as_actor(
-        v_actor, p_contract.workspace_id, 'data_contract', p_contract.id, 'update', NULL, NULL,
+        v_actor, p_contract.workspace_id, 'data_contract_standing', p_contract.id, 'restore', NULL, NULL,
         jsonb_strip_nulls(jsonb_build_object(
           'effect', 'restored', 'contractId', p_contract.id, 'name', p_contract.name,
           'status', v_new, 'previousStatus', v_prev,

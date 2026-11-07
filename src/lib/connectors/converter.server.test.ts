@@ -1,11 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const execute = vi.fn()
-vi.mock('#/lib/pipeline-python.server', async (original) => ({
-  ...(await original<typeof import('#/lib/pipeline-python.server')>()),
-  executePythonTransform: (...args: unknown[]) => execute(...args),
-}))
-
 import { PipelinePythonError } from '#/lib/pipeline-python.server'
 
 import {
@@ -15,6 +9,12 @@ import {
   listConverters,
 } from './converter.server'
 import type { ResolvedParser } from './parser-resolution'
+
+const execute = vi.fn()
+vi.mock('#/lib/pipeline-python.server', async (original) => ({
+  ...(await original<Record<string, unknown>>()),
+  executePythonTransform: (...args: unknown[]) => execute(...args),
+}))
 
 const RUNTIME = `registry/python@sha256:${'a'.repeat(64)}`
 

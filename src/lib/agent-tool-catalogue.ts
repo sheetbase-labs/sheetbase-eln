@@ -191,6 +191,9 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.search.save',
   'sheetbase.pin',
   'sheetbase.lab.logo',
+  // Lab watchers: dismiss or snooze a finding, turn a watcher on or off.
+  'sheetbase.watcher.finding',
+  'sheetbase.watcher.set',
 ] as const
 
 /** Model APIs only allow letters, digits, `_` and `-` in a function name. */

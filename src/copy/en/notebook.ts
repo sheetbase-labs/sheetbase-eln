@@ -301,6 +301,8 @@ export const notebook = {
         applying: 'Saving…',
         applied: 'Saved',
       },
+      setFinding: { apply: 'Save', applying: 'Saving…', applied: 'Saved' },
+      setWatcher: { apply: 'Save', applying: 'Saving…', applied: 'Saved' },
       endTimer: {
         apply: 'Stop timer',
         applying: 'Stopping…',

@@ -15,6 +15,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { BLOCK_DECLARATIONS, EXTRA_PICKER_OPTIONS } from './declarations'
+import type { BlockDeclaration } from './declarations'
 import {
   BLOCK_PICKER_GROUPS,
   BLOCK_PICKER_OPTIONS,
@@ -255,7 +256,9 @@ describe('block declarations', () => {
 
   it('give each insert-menu entry its own position', () => {
     const orders = [
-      ...BLOCK_DECLARATIONS.flatMap((d) => (d.picker ? [d.picker.order] : [])),
+      ...BLOCK_DECLARATIONS.flatMap((d: BlockDeclaration) =>
+        d.picker ? [d.picker.order] : [],
+      ),
       ...EXTRA_PICKER_OPTIONS.map((o) => o.order),
     ]
     expect(new Set(orders).size).toBe(orders.length)

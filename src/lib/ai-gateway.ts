@@ -392,7 +392,7 @@ function prepareCall(
     const original = fromWireToolName(def.name)
     if (
       !(ASSISTANT_READ_TOOL_NAMES as readonly string[]).includes(original) &&
-      !(ASSISTANT_PROPOSE_TOOL_NAMES as readonly string[]).includes(original)
+      !ASSISTANT_PROPOSE_TOOL_NAMES.includes(original)
     ) {
       reject(
         registry,

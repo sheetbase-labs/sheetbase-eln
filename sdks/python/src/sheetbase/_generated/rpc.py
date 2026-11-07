@@ -28,6 +28,8 @@ from sheetbase._generated.models import (
     InsertSheetInstanceBlockResult,
     InstantiateNotebookTemplateResult,
     InstrumentFeedsRow,
+    InstrumentJobsRow,
+    InstrumentRobotSettingsRow,
     InstrumentRunDocumentsRow,
     InstrumentServiceLogRow,
     JsonValue,
@@ -41,6 +43,7 @@ from sheetbase._generated.models import (
     NotebookUpgradeApplyResult,
     NotebookUpgradeDecision,
     NotebookUpgradePreview,
+    PartPlansRow,
     PipelineDefinitionVersionsRow,
     PlateRunsRow,
     PlateWorklistsRow,
@@ -54,6 +57,8 @@ from sheetbase._generated.models import (
     RecurringSchedulesRow,
     SampleWorkflowRunsRow,
     SavedSearchesRow,
+    ScheduleProposalsRow,
+    SchedulerSettingsRow,
     ScimTokensRow,
     SheetCalculationChange,
     SheetCalculationResultsPage,
@@ -94,6 +99,7 @@ class Rpc:
     """
 
     NAMES = (
+        "accept_schedule_proposal",
         "acknowledge_qc_point",
         "add_records_to_legal_hold",
         "add_registry_parent",
@@ -111,11 +117,13 @@ class Rpc:
         "archive_sheet_instance",
         "assign_record",
         "cancel_agent_workflow",
+        "cancel_instrument_job",
         "cancel_member_absence",
         "cancel_plate_worklist",
         "cancel_reagent_order",
         "cancel_shipment",
         "cancel_stocktake",
+        "clear_instrument_robot",
         "commit_dataset_row_batch",
         "commit_sheet_record_batch",
         "complete_plate_worklist",
@@ -139,6 +147,7 @@ class Rpc:
         "create_shipment",
         "create_supplier_model",
         "create_webhook_subscription",
+        "dataset_version_rows_json",
         "delete_block",
         "delete_experiment_part",
         "delete_lineage_target",
@@ -147,6 +156,7 @@ class Rpc:
         "delete_scheduled_report",
         "delete_webhook_subscription",
         "directory_sync_status",
+        "dismiss_schedule_proposal",
         "dissolve_experiment_series",
         "duplicate_sheet_instance",
         "duplicate_sheet_instance_block",
@@ -192,6 +202,7 @@ class Rpc:
         "query_dataset_version_transfer",
         "query_sheet_instance_rows",
         "query_storage_readings",
+        "queue_instrument_job",
         "read_sheet_instance_calculation_results",
         "receive_reagent_order",
         "receive_shipment",
@@ -217,6 +228,7 @@ class Rpc:
         "report_usage_lines",
         "request_agent_action",
         "request_reagent_order",
+        "request_schedule_proposal",
         "request_signature_timestamp",
         "resolve_agent_action_level",
         "resolve_sheet_instance_row_identity",
@@ -248,25 +260,30 @@ class Rpc:
         "set_instrument_feed_limits",
         "set_instrument_out_of_service",
         "set_instrument_rate",
+        "set_instrument_robot",
         "set_lab_watcher",
         "set_link_part",
         "set_material_safety",
         "set_member_absence",
         "set_model_supplier_list",
         "set_part_done",
+        "set_part_plan",
         "set_qc_baseline",
         "set_reagent_order_price",
         "set_record_favourite",
         "set_recurring_schedule_paused",
         "set_sample_workflow_status",
         "set_scheduled_report_active",
+        "set_scheduler_settings",
         "set_series_member_day",
         "set_step_done",
         "set_timestamp_settings",
         "set_watcher_finding_status",
+        "slip_experiment_part",
         "snapshot_dataset",
         "split_record_into_parts",
         "start_experiment_series",
+        "start_instrument_job",
         "start_step_timer",
         "start_stocktake",
         "submit_request",
@@ -297,6 +314,20 @@ class Rpc:
 
     def _call(self, name: str, body: Dict[str, Any]) -> Any:
         return self._transport.post(f"/api/db/rpc/{name}", json_body=body)
+
+    def accept_schedule_proposal(self, *, proposal_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Accept a proposed schedule and book it
+
+        Books each instrument slot (as the person accepting), replaces the bookings of an earlier accepted plan and moves the parts to the days planned. A slot that cannot be booked is listed in `skipped` with the reason, not hidden. Returns `{ proposalId, booked, skipped }`. Sends `schedule.accepted`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/accept_schedule_proposal``
+        """
+        body: Dict[str, Any] = {}
+        body["p_proposal_id"] = proposal_id
+        return self._call("accept_schedule_proposal", body)  # type: ignore[no-any-return]
 
     def acknowledge_qc_point(
         self,
@@ -668,6 +699,24 @@ class Rpc:
         body["p_reason"] = reason
         return self._call("cancel_agent_workflow", body)  # type: ignore[no-any-return]
 
+    def cancel_instrument_job(
+        self,
+        *,
+        job_id: str,
+    ) -> Union["InstrumentJobsRow", List["InstrumentJobsRow"]]:
+        """
+        Stop a robot job
+
+        Cancels a queued or staged job at once, and asks the agent to stop a running one. Sends `instrument.job.cancelled` when it has stopped.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/cancel_instrument_job``
+        """
+        body: Dict[str, Any] = {}
+        body["p_job_id"] = job_id
+        return self._call("cancel_instrument_job", body)  # type: ignore[no-any-return]
+
     def cancel_member_absence(
         self,
         *,
@@ -763,6 +812,20 @@ class Rpc:
         body: Dict[str, Any] = {}
         body["p_stocktake_id"] = stocktake_id
         return self._call("cancel_stocktake", body)  # type: ignore[no-any-return]
+
+    def clear_instrument_robot(self, *, instrument_id: str) -> None:
+        """
+        Stop treating an instrument as a robot
+
+        Removes the robot settings. Jobs already sent stay on record. Needs permission to manage instruments.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/clear_instrument_robot``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        return self._call("clear_instrument_robot", body)  # type: ignore[no-any-return]
 
     def commit_dataset_row_batch(
         self,
@@ -1476,6 +1539,27 @@ class Rpc:
             body["p_rate_limit_per_minute"] = rate_limit_per_minute
         return self._call("create_webhook_subscription", body)  # type: ignore[no-any-return]
 
+    def dataset_version_rows_json(
+        self,
+        *,
+        version_id: str,
+        limit: Union[int, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Read a dataset version as rows
+
+        The columns and up to `p_limit` rows (default 50000) of one dataset version, as JSON: `{ versionId, datasetId, label, columns, rowCount, truncated, rows }`. Code cells read their inputs this way.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/dataset_version_rows_json``
+        """
+        body: Dict[str, Any] = {}
+        body["p_version_id"] = version_id
+        if not isinstance(limit, Unset):
+            body["p_limit"] = limit
+        return self._call("dataset_version_rows_json", body)  # type: ignore[no-any-return]
+
     def delete_block(
         self,
         *,
@@ -1606,6 +1690,24 @@ class Rpc:
         body: Dict[str, Any] = {}
         body["p_workspace_id"] = workspace_id
         return self._call("directory_sync_status", body)  # type: ignore[no-any-return]
+
+    def dismiss_schedule_proposal(
+        self,
+        *,
+        proposal_id: str,
+    ) -> Union["ScheduleProposalsRow", List["ScheduleProposalsRow"]]:
+        """
+        Dismiss a proposed schedule
+
+        Leaves the schedule as it is. Sends `schedule.dismissed`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/dismiss_schedule_proposal``
+        """
+        body: Dict[str, Any] = {}
+        body["p_proposal_id"] = proposal_id
+        return self._call("dismiss_schedule_proposal", body)  # type: ignore[no-any-return]
 
     def dissolve_experiment_series(self, *, record_id: str) -> Dict[str, "JsonValue"]:
         """
@@ -2654,6 +2756,29 @@ class Rpc:
             body["p_limit"] = limit
         return self._call("query_storage_readings", body)  # type: ignore[no-any-return]
 
+    def queue_instrument_job(
+        self,
+        *,
+        instrument_id: str,
+        worklist_id: str,
+        note: Union[str, Unset] = UNSET,
+    ) -> Union["InstrumentJobsRow", List["InstrumentJobsRow"]]:
+        """
+        Send a worklist to a robot
+
+        Queues a planned worklist for a robot. The folder agent puts it on the robot and the job waits, staged, until a person starts it. A worklist has one open job at a time. Sends `instrument.job.queued`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/queue_instrument_job``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        body["p_worklist_id"] = worklist_id
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        return self._call("queue_instrument_job", body)  # type: ignore[no-any-return]
+
     def read_sheet_instance_calculation_results(
         self,
         *,
@@ -3216,6 +3341,30 @@ class Rpc:
         if not isinstance(note, Unset):
             body["p_note"] = note
         return self._call("request_reagent_order", body)  # type: ignore[no-any-return]
+
+    def request_schedule_proposal(
+        self,
+        *,
+        record_id: str,
+        reason: Union[str, Unset] = UNSET,
+        slipped_part_id: Union[str, Unset] = UNSET,
+    ) -> Union["ScheduleProposalsRow", List["ScheduleProposalsRow"]]:
+        """
+        Ask for a proposed schedule for an experiment
+
+        Asks the planner to lay the experiment’s parts out on instruments and people, respecting working hours, absences, each instrument’s booking rules and the waits between parts. Returns a proposal in `requested`; read it again until it is `proposed` (or `failed`). Nothing is booked. Sends `schedule.proposed` when the plan is ready.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/request_schedule_proposal``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        if not isinstance(reason, Unset):
+            body["p_reason"] = reason
+        if not isinstance(slipped_part_id, Unset):
+            body["p_slipped_part_id"] = slipped_part_id
+        return self._call("request_schedule_proposal", body)  # type: ignore[no-any-return]
 
     def request_signature_timestamp(
         self,
@@ -3926,6 +4075,32 @@ class Rpc:
             body["p_currency"] = currency
         return self._call("set_instrument_rate", body)  # type: ignore[no-any-return]
 
+    def set_instrument_robot(
+        self,
+        *,
+        instrument_id: str,
+        driver: str,
+        worklist_format: Union[str, Unset] = UNSET,
+        labware: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Union["InstrumentRobotSettingsRow", List["InstrumentRobotSettingsRow"]]:
+        """
+        Make an instrument a robot, or change how it is reached
+
+        Sets how worklists reach the instrument: `opentrons` (the robot is on the network) or `file` (its own software reads a folder), the worklist file it reads and the labware that file names. The folder agent on the lab computer does the rest. Needs permission to manage instruments. Returns the settings.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_instrument_robot``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        body["p_driver"] = driver
+        if not isinstance(worklist_format, Unset):
+            body["p_worklist_format"] = worklist_format
+        if not isinstance(labware, Unset):
+            body["p_labware"] = labware
+        return self._call("set_instrument_robot", body)  # type: ignore[no-any-return]
+
     def set_lab_watcher(
         self,
         *,
@@ -4064,6 +4239,33 @@ class Rpc:
         body["p_done"] = done
         return self._call("set_part_done", body)  # type: ignore[no-any-return]
 
+    def set_part_plan(
+        self,
+        *,
+        part_id: str,
+        hands_on_minutes: Union[int, Unset] = UNSET,
+        wait_after_minutes: Union[int, Unset] = UNSET,
+        needs: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Union["PartPlansRow", List["PartPlansRow"]]:
+        """
+        Say how long a part takes and what it needs
+
+        Sets a part’s hands-on time, the wait after it, and the instruments it needs (each with minutes). The list replaces the part’s earlier one. The scheduler plans from this.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_part_plan``
+        """
+        body: Dict[str, Any] = {}
+        body["p_part_id"] = part_id
+        if not isinstance(hands_on_minutes, Unset):
+            body["p_hands_on_minutes"] = hands_on_minutes
+        if not isinstance(wait_after_minutes, Unset):
+            body["p_wait_after_minutes"] = wait_after_minutes
+        if not isinstance(needs, Unset):
+            body["p_needs"] = needs
+        return self._call("set_part_plan", body)  # type: ignore[no-any-return]
+
     def set_qc_baseline(
         self,
         *,
@@ -4186,6 +4388,32 @@ class Rpc:
         body["p_active"] = active
         return self._call("set_scheduled_report_active", body)  # type: ignore[no-any-return]
 
+    def set_scheduler_settings(
+        self,
+        *,
+        workspace_id: str,
+        timezone: str,
+        work_start_minute: int,
+        work_end_minute: int,
+        work_days: List[int],
+    ) -> Union["SchedulerSettingsRow", List["SchedulerSettingsRow"]]:
+        """
+        Set the lab’s working hours
+
+        The working day the scheduler places hands-on work in: time zone, start and end (minutes after midnight) and the days worked. Needs access to manage General settings.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_scheduler_settings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_timezone"] = timezone
+        body["p_work_start_minute"] = work_start_minute
+        body["p_work_end_minute"] = work_end_minute
+        body["p_work_days"] = work_days
+        return self._call("set_scheduler_settings", body)  # type: ignore[no-any-return]
+
     def set_series_member_day(
         self,
         *,
@@ -4280,6 +4508,26 @@ class Rpc:
             body["p_until"] = until
         return self._call("set_watcher_finding_status", body)  # type: ignore[no-any-return]
 
+    def slip_experiment_part(
+        self,
+        *,
+        part_id: str,
+        days: int,
+    ) -> Union["ScheduleProposalsRow", List["ScheduleProposalsRow"]]:
+        """
+        A part ran late: re-plan the rest
+
+        Moves the part and the parts after it later by a number of days and asks for a new proposal; nothing is booked until it is accepted.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/slip_experiment_part``
+        """
+        body: Dict[str, Any] = {}
+        body["p_part_id"] = part_id
+        body["p_days"] = days
+        return self._call("slip_experiment_part", body)  # type: ignore[no-any-return]
+
     def snapshot_dataset(
         self,
         *,
@@ -4335,6 +4583,24 @@ class Rpc:
         body: Dict[str, Any] = {}
         body["p_record_id"] = record_id
         return self._call("start_experiment_series", body)  # type: ignore[no-any-return]
+
+    def start_instrument_job(
+        self,
+        *,
+        job_id: str,
+    ) -> Union["InstrumentJobsRow", List["InstrumentJobsRow"]]:
+        """
+        Start a staged robot job
+
+        A person starts the job once it is on the robot and the deck is ready. Only a staged job can be started; a script or an assistant cannot start one for you, because the person starting it is at the robot. Sends `instrument.job.started`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/start_instrument_job``
+        """
+        body: Dict[str, Any] = {}
+        body["p_job_id"] = job_id
+        return self._call("start_instrument_job", body)  # type: ignore[no-any-return]
 
     def start_step_timer(
         self,
@@ -4829,6 +5095,7 @@ class AsyncRpc:
     """Async counterpart of :class:`Rpc`."""
 
     NAMES = (
+        "accept_schedule_proposal",
         "acknowledge_qc_point",
         "add_records_to_legal_hold",
         "add_registry_parent",
@@ -4846,11 +5113,13 @@ class AsyncRpc:
         "archive_sheet_instance",
         "assign_record",
         "cancel_agent_workflow",
+        "cancel_instrument_job",
         "cancel_member_absence",
         "cancel_plate_worklist",
         "cancel_reagent_order",
         "cancel_shipment",
         "cancel_stocktake",
+        "clear_instrument_robot",
         "commit_dataset_row_batch",
         "commit_sheet_record_batch",
         "complete_plate_worklist",
@@ -4874,6 +5143,7 @@ class AsyncRpc:
         "create_shipment",
         "create_supplier_model",
         "create_webhook_subscription",
+        "dataset_version_rows_json",
         "delete_block",
         "delete_experiment_part",
         "delete_lineage_target",
@@ -4882,6 +5152,7 @@ class AsyncRpc:
         "delete_scheduled_report",
         "delete_webhook_subscription",
         "directory_sync_status",
+        "dismiss_schedule_proposal",
         "dissolve_experiment_series",
         "duplicate_sheet_instance",
         "duplicate_sheet_instance_block",
@@ -4927,6 +5198,7 @@ class AsyncRpc:
         "query_dataset_version_transfer",
         "query_sheet_instance_rows",
         "query_storage_readings",
+        "queue_instrument_job",
         "read_sheet_instance_calculation_results",
         "receive_reagent_order",
         "receive_shipment",
@@ -4952,6 +5224,7 @@ class AsyncRpc:
         "report_usage_lines",
         "request_agent_action",
         "request_reagent_order",
+        "request_schedule_proposal",
         "request_signature_timestamp",
         "resolve_agent_action_level",
         "resolve_sheet_instance_row_identity",
@@ -4983,25 +5256,30 @@ class AsyncRpc:
         "set_instrument_feed_limits",
         "set_instrument_out_of_service",
         "set_instrument_rate",
+        "set_instrument_robot",
         "set_lab_watcher",
         "set_link_part",
         "set_material_safety",
         "set_member_absence",
         "set_model_supplier_list",
         "set_part_done",
+        "set_part_plan",
         "set_qc_baseline",
         "set_reagent_order_price",
         "set_record_favourite",
         "set_recurring_schedule_paused",
         "set_sample_workflow_status",
         "set_scheduled_report_active",
+        "set_scheduler_settings",
         "set_series_member_day",
         "set_step_done",
         "set_timestamp_settings",
         "set_watcher_finding_status",
+        "slip_experiment_part",
         "snapshot_dataset",
         "split_record_into_parts",
         "start_experiment_series",
+        "start_instrument_job",
         "start_step_timer",
         "start_stocktake",
         "submit_request",
@@ -5032,6 +5310,20 @@ class AsyncRpc:
 
     async def _call(self, name: str, body: Dict[str, Any]) -> Any:
         return await self._transport.post(f"/api/db/rpc/{name}", json_body=body)
+
+    async def accept_schedule_proposal(self, *, proposal_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Accept a proposed schedule and book it
+
+        Books each instrument slot (as the person accepting), replaces the bookings of an earlier accepted plan and moves the parts to the days planned. A slot that cannot be booked is listed in `skipped` with the reason, not hidden. Returns `{ proposalId, booked, skipped }`. Sends `schedule.accepted`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/accept_schedule_proposal``
+        """
+        body: Dict[str, Any] = {}
+        body["p_proposal_id"] = proposal_id
+        return await self._call("accept_schedule_proposal", body)  # type: ignore[no-any-return]
 
     async def acknowledge_qc_point(
         self,
@@ -5403,6 +5695,24 @@ class AsyncRpc:
         body["p_reason"] = reason
         return await self._call("cancel_agent_workflow", body)  # type: ignore[no-any-return]
 
+    async def cancel_instrument_job(
+        self,
+        *,
+        job_id: str,
+    ) -> Union["InstrumentJobsRow", List["InstrumentJobsRow"]]:
+        """
+        Stop a robot job
+
+        Cancels a queued or staged job at once, and asks the agent to stop a running one. Sends `instrument.job.cancelled` when it has stopped.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/cancel_instrument_job``
+        """
+        body: Dict[str, Any] = {}
+        body["p_job_id"] = job_id
+        return await self._call("cancel_instrument_job", body)  # type: ignore[no-any-return]
+
     async def cancel_member_absence(
         self,
         *,
@@ -5498,6 +5808,20 @@ class AsyncRpc:
         body: Dict[str, Any] = {}
         body["p_stocktake_id"] = stocktake_id
         return await self._call("cancel_stocktake", body)  # type: ignore[no-any-return]
+
+    async def clear_instrument_robot(self, *, instrument_id: str) -> None:
+        """
+        Stop treating an instrument as a robot
+
+        Removes the robot settings. Jobs already sent stay on record. Needs permission to manage instruments.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/clear_instrument_robot``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        return await self._call("clear_instrument_robot", body)  # type: ignore[no-any-return]
 
     async def commit_dataset_row_batch(
         self,
@@ -6211,6 +6535,27 @@ class AsyncRpc:
             body["p_rate_limit_per_minute"] = rate_limit_per_minute
         return await self._call("create_webhook_subscription", body)  # type: ignore[no-any-return]
 
+    async def dataset_version_rows_json(
+        self,
+        *,
+        version_id: str,
+        limit: Union[int, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Read a dataset version as rows
+
+        The columns and up to `p_limit` rows (default 50000) of one dataset version, as JSON: `{ versionId, datasetId, label, columns, rowCount, truncated, rows }`. Code cells read their inputs this way.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/dataset_version_rows_json``
+        """
+        body: Dict[str, Any] = {}
+        body["p_version_id"] = version_id
+        if not isinstance(limit, Unset):
+            body["p_limit"] = limit
+        return await self._call("dataset_version_rows_json", body)  # type: ignore[no-any-return]
+
     async def delete_block(
         self,
         *,
@@ -6341,6 +6686,24 @@ class AsyncRpc:
         body: Dict[str, Any] = {}
         body["p_workspace_id"] = workspace_id
         return await self._call("directory_sync_status", body)  # type: ignore[no-any-return]
+
+    async def dismiss_schedule_proposal(
+        self,
+        *,
+        proposal_id: str,
+    ) -> Union["ScheduleProposalsRow", List["ScheduleProposalsRow"]]:
+        """
+        Dismiss a proposed schedule
+
+        Leaves the schedule as it is. Sends `schedule.dismissed`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/dismiss_schedule_proposal``
+        """
+        body: Dict[str, Any] = {}
+        body["p_proposal_id"] = proposal_id
+        return await self._call("dismiss_schedule_proposal", body)  # type: ignore[no-any-return]
 
     async def dissolve_experiment_series(self, *, record_id: str) -> Dict[str, "JsonValue"]:
         """
@@ -7389,6 +7752,29 @@ class AsyncRpc:
             body["p_limit"] = limit
         return await self._call("query_storage_readings", body)  # type: ignore[no-any-return]
 
+    async def queue_instrument_job(
+        self,
+        *,
+        instrument_id: str,
+        worklist_id: str,
+        note: Union[str, Unset] = UNSET,
+    ) -> Union["InstrumentJobsRow", List["InstrumentJobsRow"]]:
+        """
+        Send a worklist to a robot
+
+        Queues a planned worklist for a robot. The folder agent puts it on the robot and the job waits, staged, until a person starts it. A worklist has one open job at a time. Sends `instrument.job.queued`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/queue_instrument_job``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        body["p_worklist_id"] = worklist_id
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        return await self._call("queue_instrument_job", body)  # type: ignore[no-any-return]
+
     async def read_sheet_instance_calculation_results(
         self,
         *,
@@ -7951,6 +8337,30 @@ class AsyncRpc:
         if not isinstance(note, Unset):
             body["p_note"] = note
         return await self._call("request_reagent_order", body)  # type: ignore[no-any-return]
+
+    async def request_schedule_proposal(
+        self,
+        *,
+        record_id: str,
+        reason: Union[str, Unset] = UNSET,
+        slipped_part_id: Union[str, Unset] = UNSET,
+    ) -> Union["ScheduleProposalsRow", List["ScheduleProposalsRow"]]:
+        """
+        Ask for a proposed schedule for an experiment
+
+        Asks the planner to lay the experiment’s parts out on instruments and people, respecting working hours, absences, each instrument’s booking rules and the waits between parts. Returns a proposal in `requested`; read it again until it is `proposed` (or `failed`). Nothing is booked. Sends `schedule.proposed` when the plan is ready.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/request_schedule_proposal``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        if not isinstance(reason, Unset):
+            body["p_reason"] = reason
+        if not isinstance(slipped_part_id, Unset):
+            body["p_slipped_part_id"] = slipped_part_id
+        return await self._call("request_schedule_proposal", body)  # type: ignore[no-any-return]
 
     async def request_signature_timestamp(
         self,
@@ -8661,6 +9071,32 @@ class AsyncRpc:
             body["p_currency"] = currency
         return await self._call("set_instrument_rate", body)  # type: ignore[no-any-return]
 
+    async def set_instrument_robot(
+        self,
+        *,
+        instrument_id: str,
+        driver: str,
+        worklist_format: Union[str, Unset] = UNSET,
+        labware: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Union["InstrumentRobotSettingsRow", List["InstrumentRobotSettingsRow"]]:
+        """
+        Make an instrument a robot, or change how it is reached
+
+        Sets how worklists reach the instrument: `opentrons` (the robot is on the network) or `file` (its own software reads a folder), the worklist file it reads and the labware that file names. The folder agent on the lab computer does the rest. Needs permission to manage instruments. Returns the settings.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_instrument_robot``
+        """
+        body: Dict[str, Any] = {}
+        body["p_instrument_id"] = instrument_id
+        body["p_driver"] = driver
+        if not isinstance(worklist_format, Unset):
+            body["p_worklist_format"] = worklist_format
+        if not isinstance(labware, Unset):
+            body["p_labware"] = labware
+        return await self._call("set_instrument_robot", body)  # type: ignore[no-any-return]
+
     async def set_lab_watcher(
         self,
         *,
@@ -8799,6 +9235,33 @@ class AsyncRpc:
         body["p_done"] = done
         return await self._call("set_part_done", body)  # type: ignore[no-any-return]
 
+    async def set_part_plan(
+        self,
+        *,
+        part_id: str,
+        hands_on_minutes: Union[int, Unset] = UNSET,
+        wait_after_minutes: Union[int, Unset] = UNSET,
+        needs: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Union["PartPlansRow", List["PartPlansRow"]]:
+        """
+        Say how long a part takes and what it needs
+
+        Sets a part’s hands-on time, the wait after it, and the instruments it needs (each with minutes). The list replaces the part’s earlier one. The scheduler plans from this.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_part_plan``
+        """
+        body: Dict[str, Any] = {}
+        body["p_part_id"] = part_id
+        if not isinstance(hands_on_minutes, Unset):
+            body["p_hands_on_minutes"] = hands_on_minutes
+        if not isinstance(wait_after_minutes, Unset):
+            body["p_wait_after_minutes"] = wait_after_minutes
+        if not isinstance(needs, Unset):
+            body["p_needs"] = needs
+        return await self._call("set_part_plan", body)  # type: ignore[no-any-return]
+
     async def set_qc_baseline(
         self,
         *,
@@ -8921,6 +9384,32 @@ class AsyncRpc:
         body["p_active"] = active
         return await self._call("set_scheduled_report_active", body)  # type: ignore[no-any-return]
 
+    async def set_scheduler_settings(
+        self,
+        *,
+        workspace_id: str,
+        timezone: str,
+        work_start_minute: int,
+        work_end_minute: int,
+        work_days: List[int],
+    ) -> Union["SchedulerSettingsRow", List["SchedulerSettingsRow"]]:
+        """
+        Set the lab’s working hours
+
+        The working day the scheduler places hands-on work in: time zone, start and end (minutes after midnight) and the days worked. Needs access to manage General settings.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_scheduler_settings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_timezone"] = timezone
+        body["p_work_start_minute"] = work_start_minute
+        body["p_work_end_minute"] = work_end_minute
+        body["p_work_days"] = work_days
+        return await self._call("set_scheduler_settings", body)  # type: ignore[no-any-return]
+
     async def set_series_member_day(
         self,
         *,
@@ -9015,6 +9504,26 @@ class AsyncRpc:
             body["p_until"] = until
         return await self._call("set_watcher_finding_status", body)  # type: ignore[no-any-return]
 
+    async def slip_experiment_part(
+        self,
+        *,
+        part_id: str,
+        days: int,
+    ) -> Union["ScheduleProposalsRow", List["ScheduleProposalsRow"]]:
+        """
+        A part ran late: re-plan the rest
+
+        Moves the part and the parts after it later by a number of days and asks for a new proposal; nothing is booked until it is accepted.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/slip_experiment_part``
+        """
+        body: Dict[str, Any] = {}
+        body["p_part_id"] = part_id
+        body["p_days"] = days
+        return await self._call("slip_experiment_part", body)  # type: ignore[no-any-return]
+
     async def snapshot_dataset(
         self,
         *,
@@ -9070,6 +9579,24 @@ class AsyncRpc:
         body: Dict[str, Any] = {}
         body["p_record_id"] = record_id
         return await self._call("start_experiment_series", body)  # type: ignore[no-any-return]
+
+    async def start_instrument_job(
+        self,
+        *,
+        job_id: str,
+    ) -> Union["InstrumentJobsRow", List["InstrumentJobsRow"]]:
+        """
+        Start a staged robot job
+
+        A person starts the job once it is on the robot and the deck is ready. Only a staged job can be started; a script or an assistant cannot start one for you, because the person starting it is at the robot. Sends `instrument.job.started`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/start_instrument_job``
+        """
+        body: Dict[str, Any] = {}
+        body["p_job_id"] = job_id
+        return await self._call("start_instrument_job", body)  # type: ignore[no-any-return]
 
     async def start_step_timer(
         self,

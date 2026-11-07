@@ -506,10 +506,9 @@ server, so every notebook comes back in the "not updated" list.
 
 ## Extensions modules without a story
 
-| Module                                         | Why no story                                                                                                                                                               |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/routes/settings/workspace/extensions.tsx` | A route that lists installs through the data client and the key route; covered by the extension database tests and the Extensions settings click-through.                  |
-| `src/components/viz/extension-analysis.tsx`    | Lists analysis kinds and runs them through the extension run route, then draws with the shared chart renderer, which has its own story; covered by the runner-point tests. |
+| Module                                      | Why no story                                                                                                                                                               |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/viz/extension-analysis.tsx` | Lists analysis kinds and runs them through the extension run route, then draws with the shared chart renderer, which has its own story; covered by the runner-point tests. |
 
 ## Robots, scheduler and code cells
 

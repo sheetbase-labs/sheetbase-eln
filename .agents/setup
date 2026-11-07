@@ -41,6 +41,12 @@ if ! command -v pg_ctlcluster >/dev/null 2>&1 || ! apt-cache show postgresql-18 
   sudo apt-get update
   sudo apt-get install -y --no-install-recommends postgresql-18 postgresql-client-18
 fi
+# Search by meaning needs pgvector, trusted so the migrator can create it.
+if [ ! -f /usr/share/postgresql/18/extension/vector.control ]; then
+  sudo apt-get install -y --no-install-recommends postgresql-18-pgvector
+fi
+grep -q '^trusted' /usr/share/postgresql/18/extension/vector.control \
+  || echo 'trusted = true' | sudo tee -a /usr/share/postgresql/18/extension/vector.control >/dev/null
 PG_CONF=/etc/postgresql/18/main/postgresql.conf
 # Tune for speed over durability: this is an ephemeral dev/test orb.
 sudo sed -i 's/^#\?\s*fsync\s*=.*/fsync = off/' "$PG_CONF"

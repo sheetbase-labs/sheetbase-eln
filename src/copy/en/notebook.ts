@@ -132,6 +132,11 @@ export const notebook = {
         applying: 'Saving…',
         applied: 'Part updated',
       },
+      askPartSignoff: {
+        apply: 'Ask them',
+        applying: 'Asking…',
+        applied: 'Asked',
+      },
       finishPart: {
         apply: 'Update part',
         applying: 'Saving…',

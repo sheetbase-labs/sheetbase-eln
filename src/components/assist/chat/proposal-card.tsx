@@ -68,6 +68,7 @@ const ACTION_COPY = {
   'part.update': 'updatePart',
   'part.done': 'finishPart',
   'gate.go_on': 'goOnGate',
+  'part.signoff_request': 'askPartSignoff',
   'shipment.create': 'sendShipment',
   'shipment.receive': 'receiveShipment',
   'project.create': 'createProject',

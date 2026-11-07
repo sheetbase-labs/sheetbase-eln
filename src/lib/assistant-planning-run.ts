@@ -93,6 +93,14 @@ export async function runPlanningAction(
         p_reason: action.reason,
       })
       return undefined
+    case 'part.signoff_request':
+      await client.rpc('request_part_signoff', {
+        p_part_id: action.partId,
+        p_user_id: action.userId,
+        p_note: action.note,
+        p_due_at: null,
+      })
+      return undefined
     case 'step.result':
       await client.rpc('add_step_result', {
         p_block_id: action.blockId,

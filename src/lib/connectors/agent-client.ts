@@ -3,11 +3,7 @@
  * (`/api/connectors/agent`).
  */
 import { t } from '#/copy'
-import type {
-  AgentSystem,
-  LiveSourceInput,
-  RobotInput,
-} from './agent-package'
+import type { AgentSystem, LiveSourceInput, RobotInput } from './agent-package'
 
 export interface AgentStatus {
   /** A token for an agent has been made and not replaced. */

@@ -399,7 +399,11 @@ export async function handleJobs(
           `The token’s owner cannot run this robot: ${boundedErrorMessage(error)}`,
         )
       }
-      if (error.status === 400 || error.status === 409 || error.status === 422) {
+      if (
+        error.status === 400 ||
+        error.status === 409 ||
+        error.status === 422
+      ) {
         return errorResponse(422, 'refused', boundedErrorMessage(error))
       }
     }

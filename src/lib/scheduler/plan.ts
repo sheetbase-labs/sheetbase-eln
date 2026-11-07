@@ -286,12 +286,16 @@ export function planSchedule(input: PlanInput): PlanResult {
     let day = dayOfEpoch(earliestOfPart, hours.timezone)
     let found = false
 
-    for (let tries = 0; tries < MAX_DAYS_SEARCHED && !found; tries++, day = addDays(day, 1)) {
+    for (
+      let tries = 0;
+      tries < MAX_DAYS_SEARCHED && !found;
+      tries++, day = addDays(day, 1)
+    ) {
       if (!hours.days.includes(isoWeekdayOf(day))) continue
       if (isAway(input.absences, part.assigneeUserId, day)) continue
       const dayStart = localToEpoch(day, hours.startMinute, hours.timezone)
       const dayEnd = localToEpoch(day, hours.endMinute, hours.timezone)
-      let t = Math.max(earliestOfPart, dayStart)
+      const t = Math.max(earliestOfPart, dayStart)
       if (t >= dayEnd) continue
 
       // Try to fit every instrument the part needs, one after another, on this day.
@@ -300,7 +304,13 @@ export function planSchedule(input: PlanInput): PlanResult {
       let at = t
       for (const need of part.needs) {
         const long = need.minutes > dayLength
-        const slot = freeSlot(busyFor(need.resourceId), at, dayEnd, need.minutes, long)
+        const slot = freeSlot(
+          busyFor(need.resourceId),
+          at,
+          dayEnd,
+          need.minutes,
+          long,
+        )
         if (slot === null) {
           ok = false
           break
@@ -311,7 +321,10 @@ export function planSchedule(input: PlanInput): PlanResult {
       if (!ok) continue
       // The person's own time has to fit too.
       const first = trial.length > 0 ? trial[0].start : t
-      if (part.handsOnMinutes <= dayLength && first + part.handsOnMinutes > dayEnd) {
+      if (
+        part.handsOnMinutes <= dayLength &&
+        first + part.handsOnMinutes > dayEnd
+      ) {
         continue
       }
       found = true

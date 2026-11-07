@@ -287,11 +287,7 @@ export async function handleAgentPackage(
       const robotParam = new URL(request.url).searchParams.get('robot')
       if (robotParam !== null) {
         if (!z.uuid().safeParse(robotParam).success) {
-          return requestErrorResponse(
-            400,
-            'invalid_request',
-            'Name the robot.',
-          )
+          return requestErrorResponse(400, 'invalid_request', 'Name the robot.')
         }
         const robot = await findLiveInstrument(
           client,

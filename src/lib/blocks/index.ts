@@ -1101,7 +1101,8 @@ function validateCodeCell(payload: unknown): FieldErrors {
           errors.push({
             code: 'invalid_field_value',
             field: `inputs.${index}.alias`,
-            message: 'each input needs a name of letters, digits and underscores',
+            message:
+              'each input needs a name of letters, digits and underscores',
           })
         } else if (aliases.has(alias)) {
           errors.push({

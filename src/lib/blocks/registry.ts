@@ -336,7 +336,15 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     description: t('notebook.blockRegistry.codeCellDescription'),
     icon: 'code',
     group: 'evidence',
-    aliases: ['python', 'sql', 'code', 'script', 'notebook', 'analysis', 'query'],
+    aliases: [
+      'python',
+      'sql',
+      'code',
+      'script',
+      'notebook',
+      'analysis',
+      'query',
+    ],
   },
   {
     type: 'pipeline_output',

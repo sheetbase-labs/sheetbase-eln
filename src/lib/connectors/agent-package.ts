@@ -30,8 +30,7 @@ export function robotAgentTokenName(instrumentLabel: string): string {
 
 /** How the agent reaches the robot: its network address, or a folder its software reads. */
 export type RobotInput =
-  | { driver: 'opentrons'; address: string }
-  | { driver: 'file'; dir: string }
+  { driver: 'opentrons'; address: string } | { driver: 'file'; dir: string }
 
 /** Where live readings come from: a log file the instrument keeps writing, or a network port. */
 export type LiveSourceInput =

@@ -36,21 +36,36 @@ const rpcJob = {
 describe('parsing the agent’s request', () => {
   it('needs an action and a robot', () => {
     expect(() => parseJobsBody(null)).toThrow(/JSON/)
-    expect(() => parseJobsBody({ action: 'x', instrumentId: INSTRUMENT })).toThrow(/list or report/)
-    expect(() => parseJobsBody({ action: 'list', instrumentId: 'nope' })).toThrow(/robot/)
-    expect(parseJobsBody({ action: 'list', instrumentId: INSTRUMENT })).toEqual({ action: 'list', instrumentId: INSTRUMENT })
+    expect(() =>
+      parseJobsBody({ action: 'x', instrumentId: INSTRUMENT }),
+    ).toThrow(/list or report/)
+    expect(() =>
+      parseJobsBody({ action: 'list', instrumentId: 'nope' }),
+    ).toThrow(/robot/)
+    expect(parseJobsBody({ action: 'list', instrumentId: INSTRUMENT })).toEqual(
+      { action: 'list', instrumentId: INSTRUMENT },
+    )
   })
 
   it('checks a report', () => {
     const base = { action: 'report', instrumentId: INSTRUMENT, jobId: JOB }
     expect(() => parseJobsBody({ ...base, status: 'queued' })).toThrow(/status/)
-    expect(() => parseJobsBody({ ...base, status: 'complete' })).toThrow(/entries or runLog/)
+    expect(() => parseJobsBody({ ...base, status: 'complete' })).toThrow(
+      /entries or runLog/,
+    )
     const ok = parseJobsBody({
       ...base,
       status: 'complete',
-      entries: [{ sourceWell: 'a1', destWell: 'b2', actualUl: 15, status: 'ok' }],
+      entries: [
+        { sourceWell: 'a1', destWell: 'b2', actualUl: 15, status: 'ok' },
+      ],
     })
-    expect(ok.entries?.[0]).toEqual({ sourceWell: 'A1', destWell: 'B2', actualUl: 15, status: 'ok' })
+    expect(ok.entries?.[0]).toEqual({
+      sourceWell: 'A1',
+      destWell: 'B2',
+      actualUl: 15,
+      status: 'ok',
+    })
   })
 })
 
@@ -66,12 +81,30 @@ describe('what the agent is told', () => {
 
 describe('matching the robot’s log to the worklist', () => {
   const planned = [
-    { sourcePlate: 'S', sourceWell: 'A1', destPlate: 'D', destWell: 'B2', volumeUl: 15, label: 'x', sampleId: null },
-    { sourcePlate: 'S', sourceWell: 'A2', destPlate: 'D', destWell: 'B3', volumeUl: 15, label: 'y', sampleId: null },
+    {
+      sourcePlate: 'S',
+      sourceWell: 'A1',
+      destPlate: 'D',
+      destWell: 'B2',
+      volumeUl: 15,
+      label: 'x',
+      sampleId: null,
+    },
+    {
+      sourcePlate: 'S',
+      sourceWell: 'A2',
+      destPlate: 'D',
+      destWell: 'B3',
+      volumeUl: 15,
+      label: 'y',
+      sampleId: null,
+    },
   ]
   it('reads entries and text logs alike', () => {
     const fromEntries = reconcileJobLog(planned, {
-      entries: [{ sourceWell: 'A1', destWell: 'B2', actualUl: 15, status: 'ok' }],
+      entries: [
+        { sourceWell: 'A1', destWell: 'B2', actualUl: 15, status: 'ok' },
+      ],
     })
     expect(fromEntries.map((t) => t.status)).toEqual(['done', 'missing'])
     const fromText = reconcileJobLog(planned, {
@@ -80,12 +113,18 @@ describe('matching the robot’s log to the worklist', () => {
     expect(fromText.map((t) => t.status)).toEqual(['done', 'short'])
   })
   it('refuses a log with nothing in it', () => {
-    expect(() => reconcileJobLog(planned, { runLog: 'nothing here' })).toThrow(/transfers/)
+    expect(() => reconcileJobLog(planned, { runLog: 'nothing here' })).toThrow(
+      /transfers/,
+    )
   })
 })
 
 describe('the endpoint', () => {
-  const claims = { role: 'authenticated', scopes: ['datasets:write'], workspace_id: 'w' }
+  const claims = {
+    role: 'authenticated',
+    scopes: ['datasets:write'],
+    workspace_id: 'w',
+  }
   function request(body: unknown) {
     return new Request('http://eln.test/api/connectors/jobs', {
       method: 'POST',
@@ -95,7 +134,8 @@ describe('the endpoint', () => {
   }
   const deps = (rpc: DataClient['rpc'], list?: DataClient['list']) => ({
     verifyCredential: async () => claims as never,
-    createClient: () => ({ rpc, list: list ?? (async () => []) }) as unknown as DataClient,
+    createClient: () =>
+      ({ rpc, list: list ?? (async () => []) }) as unknown as DataClient,
   })
 
   it('lists jobs through the database', async () => {
@@ -103,7 +143,9 @@ describe('the endpoint', () => {
       request({ action: 'list', instrumentId: INSTRUMENT }),
       deps((async () => [rpcJob]) as never),
     )
-    const body = (await response.json()) as { jobs: Array<{ id: string; file?: unknown }> }
+    const body = (await response.json()) as {
+      jobs: Array<{ id: string; file?: unknown }>
+    }
     expect(response.status).toBe(200)
     expect(body.jobs[0].id).toBe(JOB)
     expect(body.jobs[0].file).toBeTruthy()
@@ -114,7 +156,13 @@ describe('the endpoint', () => {
     const list = (async (resource: string) =>
       resource === 'instrument_jobs'
         ? [{ worklist_id: 'w' }]
-        : [{ transfers: [{ sourceWell: 'A1', destWell: 'B2', volumeUl: 15 }], source_plate: 'S', dest_plate: 'D' }]) as never
+        : [
+            {
+              transfers: [{ sourceWell: 'A1', destWell: 'B2', volumeUl: 15 }],
+              source_plate: 'S',
+              dest_plate: 'D',
+            },
+          ]) as never
     const rpc = (async (name: string, args: Record<string, unknown>) => {
       calls.push({ name, args })
       return { id: JOB, number: 4, status: 'complete' }
@@ -125,30 +173,43 @@ describe('the endpoint', () => {
         instrumentId: INSTRUMENT,
         jobId: JOB,
         status: 'complete',
-        entries: [{ sourceWell: 'A1', destWell: 'B2', actualUl: 15, status: 'ok' }],
+        entries: [
+          { sourceWell: 'A1', destWell: 'B2', actualUl: 15, status: 'ok' },
+        ],
       }),
       deps(rpc, list),
     )
     expect(response.status).toBe(200)
     expect(calls[0].name).toBe('agent_report_instrument_job')
-    expect(calls[0].args.p_reconciled).toMatchObject([{ status: 'done', movedUl: 15 }])
+    expect(calls[0].args.p_reconciled).toMatchObject([
+      { status: 'done', movedUl: 15 },
+    ])
   })
 
   it('answers a refusal from the database as final, not as a retry', async () => {
     const response = await handleJobs(
-      request({ action: 'report', instrumentId: INSTRUMENT, jobId: JOB, status: 'staged' }),
-      deps((async () => {
+      request({
+        action: 'report',
+        instrumentId: INSTRUMENT,
+        jobId: JOB,
+        status: 'staged',
+      }),
+      deps(async () => {
         throw new Error('this job is cancelled')
-      })),
+      }),
     )
     expect(response.status).toBe(422)
   })
 
   it('refuses a service credential', async () => {
-    const response = await handleJobs(request({ action: 'list', instrumentId: INSTRUMENT }), {
-      verifyCredential: async () => ({ ...claims, role: 'api_client' }) as never,
-      createClient: () => ({}) as DataClient,
-    })
+    const response = await handleJobs(
+      request({ action: 'list', instrumentId: INSTRUMENT }),
+      {
+        verifyCredential: async () =>
+          ({ ...claims, role: 'api_client' }) as never,
+        createClient: () => ({}) as DataClient,
+      },
+    )
     expect(response.status).toBe(403)
   })
 })

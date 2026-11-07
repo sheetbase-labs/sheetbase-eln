@@ -215,7 +215,7 @@ export function toExperimentPart(row: ExperimentPartWire): ExperimentPart {
     gateMode: row.gate_mode ?? 'warn',
     stepsInOrder: row.steps_in_order ?? false,
     gateFromTemplate: row.gate_from_template ?? false,
-    requiresSignOff: row.requires_sign_off ?? false,
+    requiresSignOff: row.requires_sign_off,
     signedOffAt: row.signed_off_at ?? null,
     signedOffByUserId: row.signed_off_by_user_id ?? null,
     signoffId: row.signoff_id ?? null,

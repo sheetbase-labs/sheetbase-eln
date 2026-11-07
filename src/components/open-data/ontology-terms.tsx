@@ -15,7 +15,10 @@ import {
   searchOntology,
   unlinkOntologyTerm,
 } from '#/lib/open-data/client'
-import type { OntologyAnnotation, OntologyTermHit } from '#/lib/open-data/client'
+import type {
+  OntologyAnnotation,
+  OntologyTermHit,
+} from '#/lib/open-data/client'
 import { t } from '#/copy'
 
 const dataClient = createDataClient()
@@ -63,7 +66,8 @@ export function OntologyTerms({
       searchOntology(text.trim(), controller.signal)
         .then(setHits)
         .catch((e: unknown) => {
-          if (!controller.signal.aborted) setSearchError(e instanceof Error ? e.message : String(e))
+          if (!controller.signal.aborted)
+            setSearchError(e instanceof Error ? e.message : String(e))
         })
         .finally(() => setSearching(false))
     }, 300)
@@ -74,7 +78,9 @@ export function OntologyTerms({
   }, [text])
 
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: openDataKeys.annotations(kind, targetId) })
+    queryClient.invalidateQueries({
+      queryKey: openDataKeys.annotations(kind, targetId),
+    })
   const link = useMutation({
     mutationFn: (term: OntologyTermHit) =>
       linkOntologyTerm(dataClient, { workspaceId, kind, targetId, term }),
@@ -83,7 +89,8 @@ export function OntologyTerms({
       setText('')
       void invalidate()
     },
-    onError: (e) => toast(`${t('openData.picker.failed')}: ${describeAdminError(e)}`),
+    onError: (e) =>
+      toast(`${t('openData.picker.failed')}: ${describeAdminError(e)}`),
   })
   const unlink = useMutation({
     mutationFn: (id: string) => unlinkOntologyTerm(dataClient, id),
@@ -100,10 +107,18 @@ export function OntologyTerms({
       {rows.length === 0 ? <Muted>{t('openData.picker.none')}</Muted> : null}
       {rows.map((a) => (
         <div key={a.id} className="flex items-center gap-2 text-body">
-          <a href={a.iri} target="_blank" rel="noreferrer" title={a.iri} className="min-w-0 truncate">
+          <a
+            href={a.iri}
+            target="_blank"
+            rel="noreferrer"
+            title={a.iri}
+            className="min-w-0 truncate"
+          >
             {a.label}
           </a>
-          <span className="text-label text-fg-muted uppercase">{a.ontology}</span>
+          <span className="text-label text-fg-muted uppercase">
+            {a.ontology}
+          </span>
           {canEdit ? (
             <Button
               size="sm"
@@ -129,7 +144,9 @@ export function OntologyTerms({
             />
             {searching ? <Muted>{t('openData.picker.searching')}</Muted> : null}
             {searchError ? <Muted role="alert">{searchError}</Muted> : null}
-            {hits && !searching && hits.length === 0 ? <Muted>{t('openData.picker.noMatch')}</Muted> : null}
+            {hits && !searching && hits.length === 0 ? (
+              <Muted>{t('openData.picker.noMatch')}</Muted>
+            ) : null}
             {hits && hits.length > 0 ? (
               <ul className="m-0 flex max-h-56 list-none flex-col overflow-y-auto rounded-md border border-border p-0">
                 {hits.map((h) => (
@@ -140,10 +157,15 @@ export function OntologyTerms({
                       onClick={() => link.mutate(h)}
                     >
                       <span>
-                        {h.label} <span className="text-label text-fg-muted uppercase">{h.ontology}</span>
+                        {h.label}{' '}
+                        <span className="text-label text-fg-muted uppercase">
+                          {h.ontology}
+                        </span>
                       </span>
                       {h.description ? (
-                        <span className="line-clamp-2 text-label text-fg-muted">{h.description}</span>
+                        <span className="line-clamp-2 text-label text-fg-muted">
+                          {h.description}
+                        </span>
                       ) : null}
                     </button>
                   </li>
@@ -151,7 +173,11 @@ export function OntologyTerms({
               </ul>
             ) : null}
             <div>
-              <Button size="sm" variant="quiet" onClick={() => setAdding(false)}>
+              <Button
+                size="sm"
+                variant="quiet"
+                onClick={() => setAdding(false)}
+              >
                 {t('common.actions.cancel')}
               </Button>
             </div>

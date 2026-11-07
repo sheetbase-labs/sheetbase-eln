@@ -2,7 +2,7 @@
  * Ontology terms from the EBI Ontology Lookup Service (OLS4), so a field or a
  * vocabulary term can say which OBI, ChEBI, CL, UBERON, NCBITaxon or UO term it
  * means. Looking terms up is the only thing that leaves the install, and only
- * after an admin turns it on (Settings > Integrations): the words typed in the
+ * after an admin turns it on (Settings > Open data): the words typed in the
  * picker go to www.ebi.ac.uk, nothing else does.
  */
 
@@ -73,7 +73,8 @@ export function olsSearchUrl(
 }
 
 export function parseOlsResponse(body: unknown): OntologyTerm[] {
-  const docs = (body as { response?: { docs?: unknown } } | null)?.response?.docs
+  const docs = (body as { response?: { docs?: unknown } } | null)?.response
+    ?.docs
   if (!Array.isArray(docs)) return []
   const out: OntologyTerm[] = []
   const seen = new Set<string>()

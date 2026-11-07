@@ -101,7 +101,9 @@ export async function buildDatasetCrate(
   const csv =
     delimitedHeaderLine(input.fields, ',') +
     '\r\n' +
-    input.rows.map((row) => delimitedRowLine(input.fields, row, ',')).join('\r\n') +
+    input.rows
+      .map((row) => delimitedRowLine(input.fields, row, ','))
+      .join('\r\n') +
     (input.rows.length > 0 ? '\r\n' : '')
   const csvBytes = new TextEncoder().encode(csv)
   const csvPath = `data/${base}.csv`
@@ -159,7 +161,11 @@ export async function buildDatasetCrate(
     identifier: input.license.id,
   })
   input.authors.forEach((author, i) => {
-    graph.push({ '@id': `#author-${i + 1}`, '@type': 'Person', name: author.name })
+    graph.push({
+      '@id': `#author-${i + 1}`,
+      '@type': 'Person',
+      name: author.name,
+    })
   })
 
   const conformsTo: Json[] = [{ '@id': 'https://w3id.org/ro/crate/1.1' }]
@@ -208,9 +214,24 @@ export async function buildDatasetCrate(
     add(runPath, runBytes)
     rootParts.push({ '@id': workflowPath }, { '@id': runPath })
     graph.push(
-      { '@id': 'https://w3id.org/ro/wfrun/process/0.5', '@type': 'CreativeWork', name: 'Process Run Crate', version: '0.5' },
-      { '@id': 'https://w3id.org/ro/wfrun/workflow/0.5', '@type': 'CreativeWork', name: 'Workflow Run Crate', version: '0.5' },
-      { '@id': 'https://w3id.org/ro/wfrun/provenance/0.5', '@type': 'CreativeWork', name: 'Provenance Run Crate', version: '0.5' },
+      {
+        '@id': 'https://w3id.org/ro/wfrun/process/0.5',
+        '@type': 'CreativeWork',
+        name: 'Process Run Crate',
+        version: '0.5',
+      },
+      {
+        '@id': 'https://w3id.org/ro/wfrun/workflow/0.5',
+        '@type': 'CreativeWork',
+        name: 'Workflow Run Crate',
+        version: '0.5',
+      },
+      {
+        '@id': 'https://w3id.org/ro/wfrun/provenance/0.5',
+        '@type': 'CreativeWork',
+        name: 'Provenance Run Crate',
+        version: '0.5',
+      },
       {
         '@id': '#sheetbase-pipeline-language',
         '@type': 'ComputerLanguage',
@@ -236,35 +257,49 @@ export async function buildDatasetCrate(
         contentSize: String(runBytes.length),
         sha256: sha256(runBytes),
       },
-      { '@id': '#sheetbase', '@type': 'SoftwareApplication', name: 'Sheetbase', url: 'https://sheetbase.io' },
+      {
+        '@id': '#sheetbase',
+        '@type': 'SoftwareApplication',
+        name: 'Sheetbase',
+        url: 'https://sheetbase.io',
+      },
     )
     if (run.actorName) {
-      graph.push({ '@id': '#run-agent', '@type': 'Person', name: run.actorName })
+      graph.push({
+        '@id': '#run-agent',
+        '@type': 'Person',
+        name: run.actorName,
+      })
     }
     // The run itself.
     const paramEntities: Json[] = []
     const asRecord = (v: unknown): Record<string, unknown> =>
-      v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
+      v && typeof v === 'object' && !Array.isArray(v)
+        ? (v as Record<string, unknown>)
+        : {}
     for (const [key, value] of Object.entries(asRecord(run.parameters))) {
       const id = `#param-${safeName(key, 'p')}`
       paramEntities.push({
         '@id': id,
         '@type': 'PropertyValue',
         name: key,
-        value: typeof value === 'object' ? JSON.stringify(value) : (value as string | number | boolean),
+        value: typeof value === 'object' ? JSON.stringify(value) : value,
       })
     }
     graph.push(...paramEntities)
-    const inputs = Object.entries(asRecord(run.inputVersions)).map(([key, value]) => {
-      const id = `#input-${safeName(key, 'i')}`
-      graph.push({
-        '@id': id,
-        '@type': 'PropertyValue',
-        name: key,
-        value: typeof value === 'object' ? JSON.stringify(value) : String(value),
-      })
-      return { '@id': id }
-    })
+    const inputs = Object.entries(asRecord(run.inputVersions)).map(
+      ([key, value]) => {
+        const id = `#input-${safeName(key, 'i')}`
+        graph.push({
+          '@id': id,
+          '@type': 'PropertyValue',
+          name: key,
+          value:
+            typeof value === 'object' ? JSON.stringify(value) : String(value),
+        })
+        return { '@id': id }
+      },
+    )
     graph.push({
       '@id': `#run-${run.id}`,
       '@type': 'CreateAction',
@@ -275,9 +310,10 @@ export async function buildDatasetCrate(
       startTime: run.startedAt,
       endTime: run.finishedAt ?? undefined,
       actionStatus: {
-        '@id': run.status === 'succeeded'
-          ? 'http://schema.org/CompletedActionStatus'
-          : 'http://schema.org/FailedActionStatus',
+        '@id':
+          run.status === 'succeeded'
+            ? 'http://schema.org/CompletedActionStatus'
+            : 'http://schema.org/FailedActionStatus',
       },
       agent: run.actorName ? { '@id': '#run-agent' } : undefined,
       'sheetbase:inputDigest': run.inputDigest ?? undefined,
@@ -291,7 +327,11 @@ export async function buildDatasetCrate(
       url: 'https://sheetbase.io',
     })
     const action = graph.find((e) => e['@id'] === `#run-${run.id}`)
-    if (action) action.instrument = [{ '@id': workflowPath }, { '@id': '#sheetbase-run-engine' }]
+    if (action)
+      action.instrument = [
+        { '@id': workflowPath },
+        { '@id': '#sheetbase-run-engine' },
+      ]
     // The workflow is the main entity of a Workflow Run Crate.
   }
 
@@ -304,18 +344,29 @@ export async function buildDatasetCrate(
       `Snapshot ${input.versionLabel} of the dataset ${input.name}.`,
     datePublished: input.exportedAt,
     identifier: input.doi
-      ? [`https://doi.org/${input.doi}`, input.datasetDisplayId ?? input.datasetId]
+      ? [
+          `https://doi.org/${input.doi}`,
+          input.datasetDisplayId ?? input.datasetId,
+        ]
       : (input.datasetDisplayId ?? input.datasetId),
     license: { '@id': input.license.url },
     author: input.authors.map((_, i) => ({ '@id': `#author-${i + 1}` })),
     hasPart: rootParts,
-    mainEntity: input.run
-      ? { '@id': rootParts[1]['@id'] }
-      : undefined,
+    mainEntity: input.run ? { '@id': rootParts[1]['@id'] } : undefined,
     additionalProperty: [
-      { '@type': 'PropertyValue', name: 'datasetVersionId', value: input.versionId },
+      {
+        '@type': 'PropertyValue',
+        name: 'datasetVersionId',
+        value: input.versionId,
+      },
       ...(input.contentHash
-        ? [{ '@type': 'PropertyValue', name: 'contentHash', value: input.contentHash }]
+        ? [
+            {
+              '@type': 'PropertyValue',
+              name: 'contentHash',
+              value: input.contentHash,
+            },
+          ]
         : []),
     ],
   }

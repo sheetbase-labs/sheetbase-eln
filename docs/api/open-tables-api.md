@@ -19,13 +19,13 @@ version _n_ matches what the app shows for that version.
 
 ## Calls
 
-| Call                                           | Scope         | What it does                                                    |
-| ---------------------------------------------- | ------------- | --------------------------------------------------------------- |
-| `POST /api/db/rpc/lake_settings`               | `admin:read`  | Whether open tables are on, and how the last pass went          |
-| `POST /api/db/rpc/set_lake_settings`           | `admin:write` | Turn them on or off. The tables follow the person who turns them on |
-| `POST /api/db/rpc/request_lake_refresh`        | `admin:write` | Ask for a pass now                                              |
-| `POST /api/db/rpc/list_lake_credentials`       | `admin:read`  | The logins that can read the tables (never their passwords)     |
-| `POST /api/db/rpc/revoke_lake_credential`      | `admin:write` | Stop a login straight away                                      |
+| Call                                      | Scope         | What it does                                                        |
+| ----------------------------------------- | ------------- | ------------------------------------------------------------------- |
+| `POST /api/db/rpc/lake_settings`          | `admin:read`  | Whether open tables are on, and how the last pass went              |
+| `POST /api/db/rpc/set_lake_settings`      | `admin:write` | Turn them on or off. The tables follow the person who turns them on |
+| `POST /api/db/rpc/request_lake_refresh`   | `admin:write` | Ask for a pass now                                                  |
+| `POST /api/db/rpc/list_lake_credentials`  | `admin:read`  | The logins that can read the tables (never their passwords)         |
+| `POST /api/db/rpc/revoke_lake_credential` | `admin:write` | Stop a login straight away                                          |
 
 Making a login hands out a password that is shown once, so it is done at
 Settings > Open data. Turning tables on needs a personal token and the

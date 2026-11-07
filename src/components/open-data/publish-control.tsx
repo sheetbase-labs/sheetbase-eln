@@ -45,7 +45,10 @@ import { t } from '#/copy'
 
 const dataClient = createDataClient()
 
-const TONE: Record<PublicationStatus, 'ok' | 'warn' | 'bad' | 'progress' | 'draft'> = {
+const TONE: Record<
+  PublicationStatus,
+  'ok' | 'warn' | 'bad' | 'progress' | 'draft'
+> = {
   queued: 'progress',
   sending: 'progress',
   draft: 'warn',
@@ -69,7 +72,9 @@ const BUSY: readonly PublicationStatus[] = ['queued', 'sending', 'publishing']
 
 function formatBytes(n: number | null): string {
   if (n == null) return ''
-  return n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 ** 2).toFixed(1)} MB`
+  return n < 1024 * 1024
+    ? `${Math.max(1, Math.round(n / 1024))} KB`
+    : `${(n / 1024 ** 2).toFixed(1)} MB`
 }
 
 /**
@@ -109,22 +114,26 @@ export function PublishControl({
       (q.state.data ?? []).some((p) => BUSY.includes(p.status)) ? 3_000 : false,
   })
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: openDataKeys.publications(kind, objectId) })
+    queryClient.invalidateQueries({
+      queryKey: openDataKeys.publications(kind, objectId),
+    })
 
   const usable = (targets.data ?? []).filter((x) => x.enabled && x.token_set)
-  const chosen = usable.find((x) => x.id === targetId) ?? usable[0]
+  const chosen = usable.find((x) => x.id === targetId) ?? usable.at(0)
   const rows = publications.data ?? []
   const published = rows.find((p) => p.status === 'published')
 
   const start = useMutation({
-    mutationFn: () =>
-      requestPublication(dataClient, {
-        targetId: chosen!.id,
+    mutationFn: () => {
+      if (!chosen) throw new Error(t('openData.publish.noRepositories'))
+      return requestPublication(dataClient, {
+        targetId: chosen.id,
         kind,
         objectId,
         title: (title ?? defaultTitle).trim(),
-        license: license ?? chosen!.license,
-      }),
+        license: license ?? chosen.license,
+      })
+    },
     onSuccess: () => {
       void invalidate()
       toast(t('openData.publish.queued'))
@@ -138,11 +147,13 @@ export function PublishControl({
           ? discardPublication(dataClient, input.id)
           : retryPublication(dataClient, input.id),
     onSuccess: () => void invalidate(),
-    onError: (e) => toast(`${t('openData.publish.failed')}: ${describeAdminError(e)}`),
+    onError: (e) =>
+      toast(`${t('openData.publish.failed')}: ${describeAdminError(e)}`),
   })
 
   // Nothing to offer: no repository is ready and nothing was published.
-  if (!published && !(canPublish && (usable.length > 0 || rows.length > 0))) return null
+  if (!published && !(canPublish && (usable.length > 0 || rows.length > 0)))
+    return null
 
   return (
     <>
@@ -174,7 +185,9 @@ export function PublishControl({
           />
           <DialogBody>
             {usable.length === 0 ? (
-              <Notice tone="info">{t('openData.publish.noRepositories')}</Notice>
+              <Notice tone="info">
+                {t('openData.publish.noRepositories')}
+              </Notice>
             ) : (
               <form
                 className="flex flex-col gap-3"
@@ -200,7 +213,11 @@ export function PublishControl({
                   </Select>
                 </Field>
                 <Field label={t('openData.publish.titleField')} required>
-                  <Input value={title ?? defaultTitle} onChange={(e) => setTitle(e.target.value)} required />
+                  <Input
+                    value={title ?? defaultTitle}
+                    onChange={(e) => setTitle(e.target.value)}
+                    required
+                  />
                 </Field>
                 <Field label={t('openData.publish.licence')}>
                   <Select
@@ -215,9 +232,15 @@ export function PublishControl({
                     ))}
                   </Select>
                 </Field>
-                {start.error ? <Notice tone="bad">{describeAdminError(start.error)}</Notice> : null}
+                {start.error ? (
+                  <Notice tone="bad">{describeAdminError(start.error)}</Notice>
+                ) : null}
                 <div>
-                  <Button type="submit" variant="primary" disabled={start.isPending}>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={start.isPending}
+                  >
                     {t('openData.publish.send')}
                   </Button>
                 </div>
@@ -226,7 +249,9 @@ export function PublishControl({
 
             {rows.length > 0 ? (
               <div className="mt-4 flex flex-col gap-2">
-                <h3 className="text-label font-medium">{t('openData.publish.list')}</h3>
+                <h3 className="text-label font-medium">
+                  {t('openData.publish.list')}
+                </h3>
                 <ul className="m-0 flex list-none flex-col divide-y divide-border-subtle p-0">
                   {rows.map((p) => (
                     <li key={p.id} className="flex flex-col gap-1 py-2">
@@ -234,28 +259,44 @@ export function PublishControl({
                         <Status tone={TONE[p.status]}>{LABEL[p.status]}</Status>
                         <span className="font-medium">{p.title}</span>
                         <span className="text-label text-fg-muted">
-                          {formatDate(p.created_at)} · {licenseById(p.license).name}
+                          {formatDate(p.created_at)} ·{' '}
+                          {licenseById(p.license).name}
                         </span>
                       </div>
                       {p.package_name ? (
                         <Muted>
                           {t('openData.publish.previewTitle')}: {p.package_name}
-                          {p.package_bytes ? ` (${formatBytes(p.package_bytes)})` : ''}
-                          {p.includes_run_crate ? ` · ${t('openData.publish.includesRun')}` : ''}
+                          {p.package_bytes
+                            ? ` (${formatBytes(p.package_bytes)})`
+                            : ''}
+                          {p.includes_run_crate
+                            ? ` · ${t('openData.publish.includesRun')}`
+                            : ''}
                         </Muted>
                       ) : null}
-                      {p.status === 'draft' ? <Muted>{t('openData.publish.draftReady')}</Muted> : null}
-                      {p.last_error && (p.status === 'failed' || p.status === 'draft') ? (
+                      {p.status === 'draft' ? (
+                        <Muted>{t('openData.publish.draftReady')}</Muted>
+                      ) : null}
+                      {p.last_error &&
+                      (p.status === 'failed' || p.status === 'draft') ? (
                         <Notice tone="bad">{p.last_error}</Notice>
                       ) : null}
                       <div className="flex flex-wrap items-center gap-2">
                         {p.doi ? (
-                          <a href={p.record_url ?? `https://doi.org/${p.doi}`} target="_blank" rel="noreferrer">
+                          <a
+                            href={p.record_url ?? `https://doi.org/${p.doi}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
                             DOI {p.doi}
                           </a>
                         ) : null}
                         {p.status === 'draft' && p.draft_url ? (
-                          <a href={p.draft_url} target="_blank" rel="noreferrer">
+                          <a
+                            href={p.draft_url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
                             {t('openData.publish.openDraft')}
                           </a>
                         ) : null}
@@ -265,17 +306,28 @@ export function PublishControl({
                               <Button
                                 size="sm"
                                 variant="quiet"
-                                onClick={() => act.mutate({ op: 'discard', id: p.id })}
+                                onClick={() =>
+                                  act.mutate({ op: 'discard', id: p.id })
+                                }
                               >
                                 {t('openData.publish.discard')}
                               </Button>
-                              <Button size="sm" variant="primary" onClick={() => setConfirming(p)}>
+                              <Button
+                                size="sm"
+                                variant="primary"
+                                onClick={() => setConfirming(p)}
+                              >
                                 {t('openData.publish.publishNow')}
                               </Button>
                             </>
                           ) : null}
                           {p.status === 'failed' ? (
-                            <Button size="sm" onClick={() => act.mutate({ op: 'retry', id: p.id })}>
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                act.mutate({ op: 'retry', id: p.id })
+                              }
+                            >
                               {t('openData.publish.retry')}
                             </Button>
                           ) : null}
@@ -288,19 +340,30 @@ export function PublishControl({
             ) : null}
           </DialogBody>
           <DialogFooter>
-            <DialogClose render={<Button type="button" />}>{t('common.actions.close')}</DialogClose>
+            <DialogClose render={<Button type="button" />}>
+              {t('common.actions.close')}
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog open={confirming !== null} onOpenChange={(o) => (o ? null : setConfirming(null))}>
+      <ConfirmDialog
+        open={confirming !== null}
+        onOpenChange={(o) => (o ? null : setConfirming(null))}
+      >
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
-            <ConfirmDialogTitle>{t('openData.publish.confirmTitle')}</ConfirmDialogTitle>
-            <ConfirmDialogDescription>{t('openData.publish.confirmBody')}</ConfirmDialogDescription>
+            <ConfirmDialogTitle>
+              {t('openData.publish.confirmTitle')}
+            </ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              {t('openData.publish.confirmBody')}
+            </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
-            <ConfirmDialogCancel>{t('common.actions.cancel')}</ConfirmDialogCancel>
+            <ConfirmDialogCancel>
+              {t('common.actions.cancel')}
+            </ConfirmDialogCancel>
             <ConfirmDialogAction
               onClick={() => {
                 if (confirming) act.mutate({ op: 'publish', id: confirming.id })

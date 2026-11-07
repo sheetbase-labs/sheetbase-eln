@@ -22,10 +22,9 @@ export interface LakeFileDeps {
 export function realLakeFileDeps(): LakeFileDeps {
   return {
     tokenWorkspace: async (hash) => {
-      const { rows } = await getPool(env.DATABASE_URL).query<{ w: string | null }>(
-        `SELECT internal.lake_token_workspace($1) AS w`,
-        [hash],
-      )
+      const { rows } = await getPool(env.DATABASE_URL).query<{
+        w: string | null
+      }>(`SELECT internal.lake_token_workspace($1) AS w`, [hash])
       return rows[0]?.w ?? null
     },
     storage: getObjectStorage(),
@@ -33,8 +32,7 @@ export function realLakeFileDeps(): LakeFileDeps {
 }
 
 const SEGMENT = /^[a-z0-9][a-z0-9_.-]{0,100}$/
-const UUID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 function bearer(request: Request): string | null {
   const header = request.headers.get('authorization') ?? ''
@@ -56,7 +54,9 @@ const json = (status: number, message: string) =>
     headers: { 'content-type': 'application/json' },
   })
 
-async function readAll(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
+async function readAll(
+  stream: ReadableStream<Uint8Array>,
+): Promise<Uint8Array> {
   const chunks: Uint8Array[] = []
   const reader = stream.getReader()
   for (;;) {
@@ -75,13 +75,16 @@ export async function handleLakeFile(
 ): Promise<Response> {
   const token = bearer(request)
   if (!token) {
-    return new Response(JSON.stringify({ error: 'A lake login is required.' }), {
-      status: 401,
-      headers: {
-        'content-type': 'application/json',
-        'www-authenticate': 'Bearer realm="sheetbase-lake"',
+    return new Response(
+      JSON.stringify({ error: 'A lake login is required.' }),
+      {
+        status: 401,
+        headers: {
+          'content-type': 'application/json',
+          'www-authenticate': 'Bearer realm="sheetbase-lake"',
+        },
       },
-    })
+    )
   }
   const owner = await deps.tokenWorkspace(
     createHash('sha256').update(token).digest('hex'),
@@ -104,7 +107,8 @@ export async function handleLakeFile(
   try {
     body = await readAll((await deps.storage.getStream(key)).stream)
   } catch (error) {
-    if (error instanceof MissingStorageObjectError) return json(404, 'No such file.')
+    if (error instanceof MissingStorageObjectError)
+      return json(404, 'No such file.')
     throw error
   }
   const common = {

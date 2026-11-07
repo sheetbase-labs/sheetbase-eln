@@ -106,8 +106,11 @@ async function buildExperimentPackage(
       `id=eq.${row.object_id}&kind=eq.experiment&select=${RECORD_SELECT}&limit=1`,
       token,
     )
-  )[0]
-  if (!record) throw new Error('The experiment is no longer visible to the person who asked.')
+  ).at(0)
+  if (!record)
+    throw new Error(
+      'The experiment is no longer visible to the person who asked.',
+    )
   const experiment = await collectExperiment(
     record,
     {
@@ -133,7 +136,7 @@ async function buildExperimentPackage(
     bytes,
     includesRunCrate: false,
     description: `Experiment ${record.identifier}: ${record.title}. Packaged by Sheetbase as an .eln RO-Crate with its notebook, files, datasets, signatures and audit history.`,
-    keywords: record.tags ?? [],
+    keywords: record.tags,
   }
 }
 
@@ -157,26 +160,44 @@ async function buildDatasetPackage(
       `id=eq.${row.object_id}&select=id,dataset_id,label,schema_version_id,source_dataset_revision,workspace_id&limit=1`,
       token,
     )
-  )[0]
-  if (!version) throw new Error('The dataset version is no longer visible to the person who asked.')
+  ).at(0)
+  if (!version)
+    throw new Error(
+      'The dataset version is no longer visible to the person who asked.',
+    )
   const dataset = (
-    await selectAll<{ id: string; name: string; description: string | null; display_id: string | null }>(
+    await selectAll<{
+      id: string
+      name: string
+      description: string | null
+      display_id: string | null
+    }>(
       'datasets',
       `id=eq.${version.dataset_id}&select=id,name,description,display_id&limit=1`,
       token,
     )
-  )[0]
+  ).at(0)
   const fields = await loadDatasetFields(token, version.schema_version_id)
   const rows: ExportRow[] = []
-  const paged = pagedRows('query_dataset_version_rows', { p_dataset_version_id: version.id }, token)
+  const paged = pagedRows(
+    'query_dataset_version_rows',
+    { p_dataset_version_id: version.id },
+    token,
+  )
   for await (const r of paged.rows) {
     rows.push(r)
-    if (rows.length > 500_000) throw new Error('This dataset version is too big to package.')
+    if (rows.length > 500_000)
+      throw new Error('This dataset version is too big to package.')
   }
   // Ontology terms on the columns.
   const terms: Record<string, CrateOntologyTerm[]> = {}
   if (fields.length > 0) {
-    const annotations = await selectAll<{ target_id: string; iri: string; label: string; ontology: string }>(
+    const annotations = await selectAll<{
+      target_id: string
+      iri: string
+      label: string
+      ontology: string
+    }>(
       'ontology_annotations',
       `target_kind=eq.schema_field&target_id=in.(${fields.map((f) => f.id).join(',')})&select=target_id,iri,label,ontology`,
       token,
@@ -184,7 +205,11 @@ async function buildDatasetPackage(
     for (const a of annotations) {
       const field = fields.find((f) => f.id === a.target_id)
       if (!field) continue
-      ;(terms[field.key] ??= []).push({ iri: a.iri, label: a.label, ontology: a.ontology })
+      ;(terms[field.key] ??= []).push({
+        iri: a.iri,
+        label: a.label,
+        ontology: a.ontology,
+      })
     }
   }
   // The pipeline run that produced this version, if one did.
@@ -195,7 +220,7 @@ async function buildDatasetPackage(
       `dataset_version_id=eq.${version.id}&select=run_id&order=created_at.desc&limit=1`,
       token,
     ).catch(() => [])
-  )[0]
+  ).at(0)
   if (output) {
     const pr = (
       await selectAll<{
@@ -214,15 +239,20 @@ async function buildDatasetPackage(
         `id=eq.${output.run_id}&select=id,status,trigger_kind,started_at,finished_at,parameters,input_versions,input_digest,definition_version_id,actor_user_id&limit=1`,
         token,
       )
-    )[0]
+    ).at(0)
     if (pr) {
       const dv = (
-        await selectAll<{ id: string; definition_id: string; version: number; configuration: unknown }>(
+        await selectAll<{
+          id: string
+          definition_id: string
+          version: number
+          configuration: unknown
+        }>(
           'pipeline_definition_versions',
           `id=eq.${pr.definition_version_id}&select=id,definition_id,version,configuration&limit=1`,
           token,
         )
-      )[0]
+      ).at(0)
       const def = dv
         ? (
             await selectAll<{ key: string; name: string }>(
@@ -230,7 +260,7 @@ async function buildDatasetPackage(
               `id=eq.${dv.definition_id}&select=key,name&limit=1`,
               token,
             )
-          )[0]
+          ).at(0)
         : undefined
       const manifest = (
         await selectAll<{ manifest_digest: string }>(
@@ -238,7 +268,7 @@ async function buildDatasetPackage(
           `run_id=eq.${pr.id}&select=manifest_digest&order=sequence.desc&limit=1`,
           token,
         ).catch(() => [])
-      )[0]
+      ).at(0)
       if (dv && def) {
         run = {
           id: pr.id,
@@ -285,7 +315,9 @@ async function buildDatasetPackage(
     description:
       `${dataset?.name ?? row.title}, snapshot ${version.label}${dataset?.display_id ? ` (${dataset.display_id})` : ''}. ` +
       `Packaged by Sheetbase as an RO-Crate with its columns, units and ontology terms` +
-      (crate.includesRunCrate ? ', and a Workflow Run Crate for the pipeline run that produced it.' : '.'),
+      (crate.includesRunCrate
+        ? ', and a Workflow Run Crate for the pipeline run that produced it.'
+        : '.'),
     keywords: ['Sheetbase', 'dataset', ...(run ? ['provenance'] : [])],
   }
 }
@@ -317,7 +349,9 @@ export async function sweepPublications(
         }
         if (stage === 'publish') {
           if (!row.remote_id) throw new Error('There is no draft to publish.')
-          const record = await publishDraft(target, row.remote_id, { fetch: deps.fetch })
+          const record = await publishDraft(target, row.remote_id, {
+            fetch: deps.fetch,
+          })
           await conn.query(
             `SELECT internal.record_publication_published($1, $2, $3)`,
             [row.id, record.doi, record.recordUrl],
@@ -329,15 +363,18 @@ export async function sweepPublications(
           `SELECT internal.mark_publication_sending($1) AS ok`,
           [row.id],
         )
-        if (!claimed.rows[0]?.ok) continue
+        if (!claimed.rows.at(0)?.ok) continue
         const user = (
           await conn.query<{ name: string | null; email: string | null }>(
             `SELECT name, email FROM internal."user" WHERE id = $1`,
             [row.requested_by_user_id],
           )
-        ).rows[0]
+        ).rows.at(0)
         const author = { name: user?.name || user?.email || 'Sheetbase author' }
-        const token = await deps.tokenFor(row.requested_by_user_id, row.workspace_id)
+        const token = await deps.tokenFor(
+          row.requested_by_user_id,
+          row.workspace_id,
+        )
         const built = deps.buildPackage
           ? await deps.buildPackage(row, token, author)
           : row.object_kind === 'experiment'
@@ -351,7 +388,9 @@ export async function sweepPublications(
             creators: [author],
             license: licenseById(row.license),
             keywords: built.keywords,
-            publicationDate: (deps.now?.() ?? new Date()).toISOString().slice(0, 10),
+            publicationDate: (deps.now?.() ?? new Date())
+              .toISOString()
+              .slice(0, 10),
             contactEmail: user?.email ?? null,
             publisher: row.target_name,
           },
@@ -378,12 +417,15 @@ export async function sweepPublications(
           error instanceof RepositoryError || error instanceof Error
             ? error.message
             : String(error)
-        logger.warn('publication step failed', { publicationId: row.id, stage, error: message })
-        await conn.query(`SELECT internal.record_publication_failure($1, $2, $3)`, [
-          row.id,
+        logger.warn('publication step failed', {
+          publicationId: row.id,
           stage,
-          message,
-        ])
+          error: message,
+        })
+        await conn.query(
+          `SELECT internal.record_publication_failure($1, $2, $3)`,
+          [row.id, stage, message],
+        )
       }
     }
     return result
@@ -417,7 +459,8 @@ const startedGlobalKey = '__sheetbasePublisherStarted'
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
-  const inTest = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+  const inTest =
+    process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
@@ -434,7 +477,8 @@ export function startPublisher(
     running = true
     try {
       const r = await sweepPublications(options.deps ?? realPublisherDeps())
-      if (r.drafted || r.published || r.failed) logger.info('publications swept', r)
+      if (r.drafted || r.published || r.failed)
+        logger.info('publications swept', r)
     } catch (error) {
       logger.warn('publication sweep failed', {
         error: error instanceof Error ? error.message : String(error),
@@ -445,7 +489,10 @@ export function startPublisher(
   }
   bootTimer = setTimeout(() => void tick(), 25_000)
   bootTimer.unref()
-  timer = setInterval(() => void tick(), options.intervalMs ?? PUBLISH_SWEEP_INTERVAL_MS)
+  timer = setInterval(
+    () => void tick(),
+    options.intervalMs ?? PUBLISH_SWEEP_INTERVAL_MS,
+  )
   timer.unref()
 }
 

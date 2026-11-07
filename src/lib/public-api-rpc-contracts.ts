@@ -269,8 +269,14 @@ const publicationRow = ref('PublicationsRow')
 const lakeSettingsResult: JsonSchema = obj(
   {
     enabled: bool('Whether open tables are written.'),
-    exporterUserId: { type: ['string', 'null'], description: 'Whose access the tables follow.' },
-    lastRunAt: { type: ['string', 'null'], description: 'When the last pass finished.' },
+    exporterUserId: {
+      type: ['string', 'null'],
+      description: 'Whose access the tables follow.',
+    },
+    lastRunAt: {
+      type: ['string', 'null'],
+      description: 'When the last pass finished.',
+    },
     lastStatus: { type: ['string', 'null'] },
     lastError: { type: ['string', 'null'] },
     refreshRequestedAt: { type: ['string', 'null'] },
@@ -284,7 +290,11 @@ const lakeSettingsResult: JsonSchema = obj(
 const ontologySettingsResult: JsonSchema = obj(
   {
     enabled: bool('Whether ontology search is allowed.'),
-    ontologies: { type: 'array', items: { type: 'string' }, description: 'Ontologies that may be searched.' },
+    ontologies: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Ontologies that may be searched.',
+    },
   },
   ['enabled'],
   'Ontology lookup settings.',
@@ -300,7 +310,10 @@ const lakeLoginRow = obj(
     expires_at: { type: ['string', 'null'], format: 'date-time' },
     revoked_at: { type: ['string', 'null'], format: 'date-time' },
     last_used_at: { type: ['string', 'null'], format: 'date-time' },
-    status: { type: 'string', enum: ['active', 'expired', 'revoked', 'suspended'] },
+    status: {
+      type: 'string',
+      enum: ['active', 'expired', 'revoked', 'suspended'],
+    },
   },
   ['id', 'name', 'username', 'status'],
   'A table login. The password is never returned.',
@@ -619,14 +632,16 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
   },
   list_lake_credentials: {
     summary: 'List table logins',
-    description: 'Needs data access. Lists logins that can read the open tables; passwords are never returned.',
+    description:
+      'Needs data access. Lists logins that can read the open tables; passwords are never returned.',
     required: ['p_workspace_id'],
     properties: { p_workspace_id: uuid('Workspace UUID.') },
     result: { type: 'array', items: lakeLoginRow },
   },
   revoke_lake_credential: {
     summary: 'Revoke a table login',
-    description: 'The login stops working straight away. Making a login is done at the settings page, where the password is shown once.',
+    description:
+      'The login stops working straight away. Making a login is done at the settings page, where the password is shown once.',
     required: ['p_workspace_id', 'p_credential_id'],
     properties: {
       p_workspace_id: uuid('Workspace UUID.'),
@@ -636,7 +651,8 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
   },
   ontology_settings: {
     summary: 'Read the ontology lookup settings',
-    description: 'Whether searching the EBI Ontology Lookup Service is allowed, and which ontologies.',
+    description:
+      'Whether searching the EBI Ontology Lookup Service is allowed, and which ontologies.',
     required: ['p_workspace_id'],
     properties: { p_workspace_id: uuid('Workspace UUID.') },
     result: ontologySettingsResult,
@@ -652,23 +668,36 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_ontologies: {
         type: ['array', 'null'],
         items: { type: 'string' },
-        description: 'Short names of the ontologies to search. Null keeps the current list.',
+        description:
+          'Short names of the ontologies to search. Null keeps the current list.',
       },
     },
     result: ontologySettingsResult,
   },
   link_ontology_term: {
     summary: 'Attach an ontology term to a field',
-    description: 'Needs schema access. Linking the same term twice returns the existing link.',
-    required: ['p_workspace_id', 'p_target_kind', 'p_target_id', 'p_ontology', 'p_iri', 'p_label'],
+    description:
+      'Needs schema access. Linking the same term twice returns the existing link.',
+    required: [
+      'p_workspace_id',
+      'p_target_kind',
+      'p_target_id',
+      'p_ontology',
+      'p_iri',
+      'p_label',
+    ],
     properties: {
       p_workspace_id: uuid('Workspace UUID.'),
-      p_target_kind: text('`model_field`, `schema_field`, `definition_field` or `vocabulary_term`.'),
+      p_target_kind: text(
+        '`model_field`, `schema_field`, `definition_field` or `vocabulary_term`.',
+      ),
       p_target_id: uuid('The field or term UUID.'),
       p_ontology: text('Short ontology name, for example `chebi`.'),
       p_iri: text('The term’s IRI.'),
       p_label: text('The term’s label.'),
-      p_short_form: text('The term’s short id, for example `CHEBI_15377`.', { nullable: true }),
+      p_short_form: text('The term’s short id, for example `CHEBI_15377`.', {
+        nullable: true,
+      }),
     },
     result: pgrstRow(ontologyAnnotationRow, 'The link.'),
   },
@@ -690,7 +719,9 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_kind: text('`zenodo`, `invenio`, `figshare` or `dataverse`.'),
       p_name: text('A name people recognise.'),
       p_base_url: text('The repository’s web address.'),
-      p_collection: text('Dataverse alias or InvenioRDM community.', { nullable: true }),
+      p_collection: text('Dataverse alias or InvenioRDM community.', {
+        nullable: true,
+      }),
       p_license: text('Default licence id, for example `cc-by-4.0`.'),
       p_enabled: bool('Whether it is offered when publishing.'),
     },
@@ -698,7 +729,8 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
   },
   delete_publication_target: {
     summary: 'Remove a publishing repository',
-    description: 'Needs integrations access. Existing publications keep their DOI.',
+    description:
+      'Needs integrations access. Existing publications keep their DOI.',
     required: ['p_id'],
     properties: { p_id: uuid('Repository UUID.') },
     result: { description: 'No content.', type: 'null' },
@@ -712,8 +744,12 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_target_id: uuid('Repository UUID.'),
       p_object_kind: text('`experiment` or `dataset_version`.'),
       p_object_id: uuid('The experiment or dataset version UUID.'),
-      p_title: text('Title of the record. Defaults to the object’s name.', { nullable: true }),
-      p_license: text('Licence id. Defaults to the repository’s.', { nullable: true }),
+      p_title: text('Title of the record. Defaults to the object’s name.', {
+        nullable: true,
+      }),
+      p_license: text('Licence id. Defaults to the repository’s.', {
+        nullable: true,
+      }),
     },
     result: pgrstRow(publicationRow, 'The publication, queued.'),
   },

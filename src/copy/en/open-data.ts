@@ -71,9 +71,11 @@ export const openData = {
     explain:
       'Label fields and vocabulary terms with standard terms such as OBI, ChEBI or Uberon. Searching sends what you type to the EBI Ontology Lookup Service.',
     enable: 'Allow ontology search',
-    enableHint: 'Off by default. Nothing is sent anywhere until you turn it on.',
+    enableHint:
+      'Off by default. Nothing is sent anywhere until you turn it on.',
     ontologies: 'Ontologies to search',
-    ontologiesHint: 'Short names separated by commas, for example obi, chebi, uberon.',
+    ontologiesHint:
+      'Short names separated by commas, for example obi, chebi, uberon.',
     saved: 'Ontology lookup saved',
     failed: 'Couldn’t save ontology lookup',
   },
@@ -94,7 +96,13 @@ export const openData = {
       'Where finished experiments and dataset versions can be published with a DOI. Publishing sends a package to the repository you choose.',
     add: 'Add repository',
     none: 'No repositories yet.',
-    columns: { name: 'Name', kind: 'Type', address: 'Address', licence: 'Licence', token: 'Access' },
+    columns: {
+      name: 'Name',
+      kind: 'Type',
+      address: 'Address',
+      licence: 'Licence',
+      token: 'Access',
+    },
     kinds: {
       zenodo: 'Zenodo',
       invenio: 'InvenioRDM',
@@ -104,15 +112,18 @@ export const openData = {
     name: 'Name',
     type: 'Type',
     address: 'Address',
-    addressHint: 'The repository’s web address, for example https://zenodo.org.',
+    addressHint:
+      'The repository’s web address, for example https://zenodo.org.',
     collection: 'Collection',
-    collectionHint: 'Dataverse alias or InvenioRDM community. Leave empty for none.',
+    collectionHint:
+      'Dataverse alias or InvenioRDM community. Leave empty for none.',
     licence: 'Default licence',
     enabled: 'Offer this repository when publishing',
     token: 'Access token',
     tokenSet: 'Set',
     tokenMissing: 'Missing',
-    tokenHint: 'Created in the repository’s account settings. It is stored sealed and never shown again.',
+    tokenHint:
+      'Created in the repository’s account settings. It is stored sealed and never shown again.',
     setToken: 'Set token',
     save: 'Save repository',
     saved: 'Repository saved',
@@ -120,7 +131,8 @@ export const openData = {
     failed: 'Couldn’t save the repository',
     remove: 'Remove',
     removeTitle: 'Remove this repository?',
-    removeBody: 'Existing publications keep their DOI. You can’t publish to it again.',
+    removeBody:
+      'Existing publications keep their DOI. You can’t publish to it again.',
   },
   publish: {
     action: 'Publish',
@@ -131,7 +143,8 @@ export const openData = {
       'Sends this dataset version as a research package, with the pipeline run that produced it.',
     repository: 'Repository',
     chooseRepository: 'Choose a repository',
-    noRepositories: 'No repository is set up. An admin can add one in Settings > Open data.',
+    noRepositories:
+      'No repository is set up. An admin can add one in Settings > Open data.',
     titleField: 'Title',
     licence: 'Licence',
     send: 'Prepare draft',

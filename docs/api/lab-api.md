@@ -1997,6 +1997,7 @@ Scope: `lab:read`.
 | Argument          | Type |                     |
 | ----------------- | ---- | ------------------- |
 | `p_compound_id` * | uuid | The compound entry. |
+
 ### `set_campaign_status`
 
 Pause or finish a campaign. `p_status` is `paused` or `finished`. Finishing sets aside a round that is waiting for a person; results already in are kept. Returns the campaign.

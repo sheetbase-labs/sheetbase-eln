@@ -27,7 +27,7 @@ import {
   setModelFeature,
   useModelFeatures,
 } from '#/lib/features/data'
-import { MODEL_FEATURES } from '#/lib/features/registry'
+import { FEATURE_GROUPS, MODEL_FEATURES } from '#/lib/features/registry'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { ROOT_CONTEXT_QUERY_KEY } from '#/lib/root-context-cache'
 import { messageOf } from '#/lib/result-quality'
@@ -113,31 +113,40 @@ export function ModelFeaturesDialog({
                 {messageOf(features.error, '')}
               </Notice>
             ) : (
-              MODEL_FEATURES.map((feature) => (
-                <label
-                  key={feature.key}
-                  className="flex items-start gap-2 text-body"
-                >
-                  <Checkbox
-                    checked={draft.has(feature.key)}
-                    disabled={features.isPending}
-                    onCheckedChange={(checked) =>
-                      setDraft((current) => {
-                        const next = new Set(current)
-                        if (checked === true) next.add(feature.key)
-                        else next.delete(feature.key)
-                        return next
-                      })
-                    }
-                    className="mt-0.5"
-                  />
-                  <span className="flex flex-col">
-                    <span className="font-medium">{feature.label()}</span>
-                    <span className="text-label text-fg-muted">
-                      {feature.hint()}
-                    </span>
-                  </span>
-                </label>
+              FEATURE_GROUPS.map((group) => (
+                <section key={group} className="flex flex-col gap-3">
+                  <h3 className="m-0 text-label font-semibold text-fg">
+                    {t(`features.groups.${group}`)}
+                  </h3>
+                  {MODEL_FEATURES.filter((f) => f.group === group).map(
+                    (feature) => (
+                      <label
+                        key={feature.key}
+                        className="flex items-start gap-2 text-body"
+                      >
+                        <Checkbox
+                          checked={draft.has(feature.key)}
+                          disabled={features.isPending}
+                          onCheckedChange={(checked) =>
+                            setDraft((current) => {
+                              const next = new Set(current)
+                              if (checked === true) next.add(feature.key)
+                              else next.delete(feature.key)
+                              return next
+                            })
+                          }
+                          className="mt-0.5"
+                        />
+                        <span className="flex flex-col">
+                          <span className="font-medium">{feature.label()}</span>
+                          <span className="text-label text-fg-muted">
+                            {feature.hint()}
+                          </span>
+                        </span>
+                      </label>
+                    ),
+                  )}
+                </section>
               ))
             )}
           </div>

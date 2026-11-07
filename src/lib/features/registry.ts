@@ -50,8 +50,19 @@ export interface ModelFeature {
   /** What the lab sees: a short name and one sentence on what it does. */
   label: () => string
   hint: () => string
+  /** The heading it sits under in the Features list. */
+  group: FeatureGroup
   contributes: FeatureContributions
 }
+
+export type FeatureGroup = 'records' | 'quality' | 'planning'
+
+/** The headings of the Features list, in order. */
+export const FEATURE_GROUPS: readonly FeatureGroup[] = [
+  'records',
+  'quality',
+  'planning',
+]
 
 export const CAMPAIGNS_FEATURE = 'campaigns'
 export const REGISTRY_FEATURE = 'registry'
@@ -63,6 +74,7 @@ export const RETENTION_FEATURE = 'retention'
 export const MODEL_FEATURES: readonly ModelFeature[] = [
   {
     key: CAMPAIGNS_FEATURE,
+    group: 'planning',
     label: () => t('features.campaigns.label'),
     hint: () => t('features.campaigns.hint'),
     contributes: {
@@ -87,6 +99,7 @@ export const MODEL_FEATURES: readonly ModelFeature[] = [
   },
   {
     key: REGISTRY_FEATURE,
+    group: 'records',
     label: () => t('features.registry.label'),
     hint: () => t('features.registry.hint'),
     contributes: {
@@ -102,6 +115,7 @@ export const MODEL_FEATURES: readonly ModelFeature[] = [
   },
   {
     key: INCIDENT_LOG_FEATURE,
+    group: 'quality',
     label: () => t('features.incidentLog.label'),
     hint: () => t('features.incidentLog.hint'),
     contributes: {
@@ -111,6 +125,7 @@ export const MODEL_FEATURES: readonly ModelFeature[] = [
   },
   {
     key: RESULT_LIMITS_FEATURE,
+    group: 'quality',
     label: () => t('features.resultLimits.label'),
     hint: () => t('features.resultLimits.hint'),
     contributes: {
@@ -120,6 +135,7 @@ export const MODEL_FEATURES: readonly ModelFeature[] = [
   },
   {
     key: LEGAL_HOLD_FEATURE,
+    group: 'quality',
     label: () => t('features.legalHold.label'),
     hint: () => t('features.legalHold.hint'),
     contributes: {
@@ -130,6 +146,7 @@ export const MODEL_FEATURES: readonly ModelFeature[] = [
   },
   {
     key: RETENTION_FEATURE,
+    group: 'quality',
     label: () => t('features.retention.label'),
     hint: () => t('features.retention.hint'),
     contributes: {

@@ -6,6 +6,11 @@ export const features = {
     'Switch on extra things records of this model can do. Each one adds its own page or actions where it is used.',
   save: 'Save',
   saving: 'Saving…',
+  groups: {
+    records: 'Records',
+    quality: 'Quality and compliance',
+    planning: 'Planning',
+  },
   saved: 'Features saved',
   couldNotSave: 'The features could not be saved.',
   loadError: 'The features could not be loaded.',

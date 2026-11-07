@@ -225,7 +225,7 @@ export async function runSuggestedAction(
   finding: Pick<LabWatcherFindingRow, 'suggested_action'>,
 ): Promise<void> {
   const suggestion = finding.suggested_action
-  if (!suggestion || suggestion.kind !== 'lab_action') return
+  if (!suggestion) return
   if (!agentActionByKey(suggestion.action)) {
     throw new Error('This suggestion is not something the app can do.')
   }

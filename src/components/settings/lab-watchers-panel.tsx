@@ -162,7 +162,7 @@ export function LabWatchersPanel({ workspaceId }: { workspaceId: string }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Section title={t('agents.watchers.title')}>
+      <Section title={t('agents.watchers.reviews')}>
         {watchers.error ? (
           <Notice tone="bad">{t('agents.watchers.loadError')}</Notice>
         ) : watchers.isLoading ? (

@@ -64,8 +64,19 @@ export function contextKindLabel(kind: AiObjectRefKind): string {
   return KIND_LABELS[kind]
 }
 
+export interface OpenAssistantDetail {
+  /** A question to ask as soon as the assistant is ready. */
+  prompt?: string
+}
+
 /** Open the global assistant without coupling the caller to its state. */
-export function openAssistant(): void {
+export function openAssistant(options: OpenAssistantDetail = {}): void {
   if (typeof window === 'undefined') return
-  window.dispatchEvent(new Event(OPEN_ASSISTANT_EVENT))
+  window.dispatchEvent(
+    options.prompt
+      ? new CustomEvent<OpenAssistantDetail>(OPEN_ASSISTANT_EVENT, {
+          detail: options,
+        })
+      : new Event(OPEN_ASSISTANT_EVENT),
+  )
 }

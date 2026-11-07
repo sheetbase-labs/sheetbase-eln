@@ -24,7 +24,7 @@ const RECORDS: RefSource = {
   kind: null,
 }
 
-const SOURCES: Record<string, RefSource> = {
+const SOURCES: Partial<Record<string, RefSource>> = {
   EXP: RECORDS,
   SMP: RECORDS,
   MAT: RECORDS,
@@ -44,7 +44,7 @@ export function splitRefs(text: string): RefPart[] {
   const parts: RefPart[] = []
   let last = 0
   for (const match of text.matchAll(RECORD_REF)) {
-    const at = match.index ?? 0
+    const at = match.index
     if (at > last) parts.push({ text: text.slice(last, at), ref: false })
     parts.push({ text: match[0], ref: true })
     last = at + match[0].length

@@ -206,7 +206,10 @@ function DatasetModelLayout({
             <span>{t('library.models.overview.key', { key: m.key })}</span>
             <TableSubtypeOf id={m.id} />
             {contract.data ? (
-              <span className="text-fg">
+              <span className="inline-flex items-center gap-1.5 text-fg">
+                <span className="text-fg-muted">
+                  {t('contracts.dataset.status')}
+                </span>
                 <ContractStatusBadge status={contract.data.lastStatus} />
               </span>
             ) : null}
@@ -359,7 +362,10 @@ function RecordModelLayout({
                 </span>
               ) : null}
               {contract.data ? (
-                <span className="text-fg">
+                <span className="inline-flex items-center gap-1.5 text-fg">
+                  <span className="text-fg-muted">
+                    {t('contracts.dataset.status')}
+                  </span>
                   <ContractStatusBadge status={contract.data.lastStatus} />
                 </span>
               ) : null}

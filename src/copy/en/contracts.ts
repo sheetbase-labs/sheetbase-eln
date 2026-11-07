@@ -38,6 +38,7 @@ export const contracts = {
     owner: 'Owner',
     noOwner: 'No owner',
     version: 'Version',
+    standing: 'Status',
     state: 'State',
     lastChecked: 'Last checked',
     never: 'Never',

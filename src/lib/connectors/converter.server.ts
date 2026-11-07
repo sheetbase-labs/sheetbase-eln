@@ -132,7 +132,7 @@ export async function convertFile(input: {
   } catch (error) {
     return fail(error)
   }
-  const row = result.rows[0]
+  const row = result.rows.at(0)
   const document = asRecord(row?.['asm'])
   if (!row || Object.keys(document).length === 0)
     throw new ConverterError(

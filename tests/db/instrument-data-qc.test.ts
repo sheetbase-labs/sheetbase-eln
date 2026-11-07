@@ -50,7 +50,7 @@ async function mark(): Promise<string> {
 async function feed(since: string) {
   const { rows } = await migrator.query(
     `select entity_type, operation, payload from api.change_events
-      where workspace_id = $1 and entity_type in ('qc_series','instrument_run_document') and sequence > $2
+      where workspace_id = $1 and entity_type in ('qc_series','qc_violation','instrument_run_document') and sequence > $2
       order by sequence`,
     [WS, since],
   )

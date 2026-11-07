@@ -118,10 +118,13 @@ describe('PIPELINE_TRIGGER_EVENTS', () => {
         entry.producer !== null &&
         (['record', 'dataset', 'sheet', 'notebook'].includes(entry.family) ||
           entry.name.startsWith('storage.alarm.') ||
-          entry.name === 'watcher.finding.created'),
+          entry.name === 'watcher.finding.created' ||
+          // Instrument data and run quality control start pipelines too.
+          entry.name === 'instrument.run.converted' ||
+          entry.name === 'qc.violation'),
     ).map((entry) => entry.name)
     expect([...PIPELINE_TRIGGER_EVENTS].sort()).toEqual(expected.sort())
-    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(41)
+    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(43)
   })
 
   it('normalizes every triggerable name to itself', () => {

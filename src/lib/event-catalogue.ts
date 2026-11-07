@@ -2042,9 +2042,8 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     summary:
       'A new quality control point broke one of the series’ Westgard rules.',
     producer: {
-      entityType: 'qc_series',
-      operation: 'update',
-      when: { key: 'change', equals: 'violation' },
+      entityType: 'qc_violation',
+      operation: 'create',
     },
     wireName: 'qc.violation',
     status: 'stable',

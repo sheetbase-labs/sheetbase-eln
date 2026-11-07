@@ -28,6 +28,9 @@ BEGIN
   IF position('''qc_series''' IN v_def) = 0 THEN
     v_def := replace(v_def, '::text]', '::text, ''qc_series''::text]');
   END IF;
+  IF position('''qc_violation''' IN v_def) = 0 THEN
+    v_def := replace(v_def, '::text]', '::text, ''qc_violation''::text]');
+  END IF;
   EXECUTE 'ALTER TABLE api.change_events DROP CONSTRAINT chk_change_events_entity_type';
   EXECUTE 'ALTER TABLE api.change_events ADD CONSTRAINT chk_change_events_entity_type ' || v_def;
 END $$;
@@ -55,8 +58,8 @@ BEGIN
   END IF;
 END $$;
 --> statement-breakpoint
-INSERT INTO api.notification_events (event_type, source, inbox_kinds, default_email)
-VALUES ('qc_violation', 'notification', ARRAY[]::text[], true)
+INSERT INTO api.notification_events (event_type, source, inbox_kinds, default_email, default_push)
+VALUES ('qc_violation', 'notification', ARRAY[]::text[], true, true)
 ON CONFLICT DO NOTHING;
 --> statement-breakpoint
 
@@ -445,8 +448,9 @@ BEGIN
         state_changed_at = CASE WHEN v_before = 'out_of_control' THEN state_changed_at ELSE now() END,
         updated_at = now()
       WHERE id = s.id;
-    PERFORM internal.emit_change_event(s.workspace_id, 'qc_series', s.id, 'update', NULL, NULL,
-      jsonb_build_object('change', 'violation', 'seriesId', s.id, 'name', s.name, 'pointId', p.id,
+    -- Its own entity, so a pipeline can start from a violation alone.
+    PERFORM internal.emit_change_event(s.workspace_id, 'qc_violation', p.id, 'create', NULL, NULL,
+      jsonb_build_object('seriesId', s.id, 'name', s.name, 'pointId', p.id,
                          'value', p.value, 'z', p.z, 'rules', to_jsonb(p.violations),
                          'instrumentId', s.instrument_id, 'designId', s.design_id,
                          'plateRunId', p.plate_run_id, 'at', p.at));

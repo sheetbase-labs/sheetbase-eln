@@ -76,7 +76,21 @@ is analysed, its Z′, signal to background and control means are added.
 
 Both can start a pipeline, for example to hold the next run or message a
 channel. See [event-catalogue.md](event-catalogue.md). The person who tracks
-the series also gets a bell notification, which links to the series.
+the series (and the instrument's owner) also gets a bell notification, which
+links to the series.
+
+## Inbox and gates
+
+While a series is out of control and has a breach nobody has acknowledged (or
+left out of the limits), the same people see it in the Inbox under the lab
+items, one item per instrument or assay, listing the series and the rules it
+broke. It goes when every breach is acknowledged or the series is back in
+control. Muting the event in the app hides the Inbox item too.
+
+A gate in an experiment can wait on quality control: the condition
+`qc_in_control` (optionally with a `seriesId`) is unmet while a series it covers
+has an open breach, and it holds work back like any other blocking condition.
+See `set_part_gate` and the gate conditions in [lab-api.md](lab-api.md).
 
 ## Access
 

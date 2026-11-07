@@ -221,6 +221,7 @@ __all__ = [
     "PartPlansRow",
     "PartResourceNeedsRow",
     "PartsInRangeParams",
+    "PinProtocolReferenceParams",
     "PipelineDefinitionVersionsRow",
     "PipelineDefinitionsRow",
     "PipelineReproductionsRow",
@@ -4182,6 +4183,13 @@ class MyInstrumentTrainingGapsParams(TypedDict):
 class PartsInRangeParams(TypedDict):
     p_from: str
     p_to: str
+
+
+class PinProtocolReferenceParams(TypedDict):
+    p_block_id: str
+    p_protocol_record_id: str
+    p_expected_block_version: int
+    p_expected_structure_version: int
 
 
 class _PoolSamplesParamsRequired(TypedDict):

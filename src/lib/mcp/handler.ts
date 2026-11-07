@@ -17,7 +17,12 @@ import type { Scope } from '../api-credential-scopes'
 import type { DataClient } from '../data-client'
 import { DataClientError } from '../data-client'
 import { logger, redact } from '../logger'
-import { LAB_ACT_TOOL_NAME, hasLabActScope, labActTool, runLabAct } from './lab'
+import {
+  LAB_ACT_TOOL_NAME,
+  hasLabActScope,
+  labActTool,
+  runGuardedLabAct,
+} from './lab'
 import type { AiFeatureFlagKey, AiFeatureFlags } from '../ai-feature-flags'
 import {
   ADMIN_READ_TOOL_NAME,
@@ -671,16 +676,29 @@ async function callTool(
       return toolError('Lab actions require a personal token.')
     }
     try {
-      const outcome = await runLabAct(args, context.scopes, context.client)
-      if (!outcome.ok) return toolError(outcome.message, outcome.code)
+      const outcome = await runGuardedLabAct(args, {
+        workspaceId: context.workspaceId,
+        credentialId: context.credentialId,
+        scopes: context.scopes,
+        client: context.client,
+      })
+      if (outcome.ok === false) return toolError(outcome.message, outcome.code)
       logger.info(
         'ai.mcp.lab_act',
         redact({
           action: outcome.action,
+          waiting: outcome.ok === 'waiting',
           workspaceId: context.workspaceId,
           credentialId: context.credentialId,
         }),
       )
+      if (outcome.ok === 'waiting') {
+        return textResult({
+          status: 'waiting_for_approval',
+          requestId: outcome.request.id,
+          message: outcome.message,
+        })
+      }
       return textResult(outcome.result)
     } catch (error) {
       if (error instanceof DataClientError) {

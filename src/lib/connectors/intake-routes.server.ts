@@ -10,6 +10,7 @@ import { createServerDataClient } from './enterprise/execution.server'
 import { postgrestFileObjectReader } from './enterprise/retain.server'
 import { IntakeError, runIntake } from './intake.server'
 import type { IntakeFailureRow, IntakeRetained } from './intake.server'
+import { converterReader } from './converter.server'
 import { webhookReader } from './webhook-parser.server'
 import type { ConnectorWire } from './types'
 import { DataClientError } from '../data-client'
@@ -223,6 +224,7 @@ export async function handleIntake(
         fileName,
         bytes: kept.bytes,
       }),
+      readWithConverter: converterReader({ fileName, bytes: kept.bytes }),
     })
     return Response.json(result, {
       status: result.alreadyCompleted ? 200 : 201,

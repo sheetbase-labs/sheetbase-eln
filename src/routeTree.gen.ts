@@ -109,6 +109,7 @@ import { Route as ApiImportFilesRouteImport } from './routes/api/import/files'
 import { Route as ApiImportReviewRouteImport } from './routes/api/import/review'
 import { Route as ApiOfficeEditorSessionRouteImport } from './routes/api/office-editor/session'
 import { Route as ApiOfficeEditorStatusRouteImport } from './routes/api/office-editor/status'
+import { Route as ApiParsersConverterRouteImport } from './routes/api/parsers/converter'
 import { Route as ApiParsersRequestUpdateRouteImport } from './routes/api/parsers/request-update'
 import { Route as ApiParsersValidateRouteImport } from './routes/api/parsers/validate'
 import { Route as ApiParsersWebhookRouteImport } from './routes/api/parsers/webhook'
@@ -730,6 +731,11 @@ const ApiOfficeEditorSessionRoute = ApiOfficeEditorSessionRouteImport.update({
 const ApiOfficeEditorStatusRoute = ApiOfficeEditorStatusRouteImport.update({
   id: '/api/office-editor/status',
   path: '/api/office-editor/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiParsersConverterRoute = ApiParsersConverterRouteImport.update({
+  id: '/api/parsers/converter',
+  path: '/api/parsers/converter',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiParsersRequestUpdateRoute = ApiParsersRequestUpdateRouteImport.update({
@@ -1491,6 +1497,7 @@ export interface FileRoutesByFullPath {
   '/api/import/review': typeof ApiImportReviewRoute
   '/api/office-editor/session': typeof ApiOfficeEditorSessionRoute
   '/api/office-editor/status': typeof ApiOfficeEditorStatusRoute
+  '/api/parsers/converter': typeof ApiParsersConverterRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/parsers/webhook': typeof ApiParsersWebhookRoute
@@ -1702,6 +1709,7 @@ export interface FileRoutesByTo {
   '/api/import/review': typeof ApiImportReviewRoute
   '/api/office-editor/session': typeof ApiOfficeEditorSessionRoute
   '/api/office-editor/status': typeof ApiOfficeEditorStatusRoute
+  '/api/parsers/converter': typeof ApiParsersConverterRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/parsers/webhook': typeof ApiParsersWebhookRoute
@@ -1923,6 +1931,7 @@ export interface FileRoutesById {
   '/api/import/review': typeof ApiImportReviewRoute
   '/api/office-editor/session': typeof ApiOfficeEditorSessionRoute
   '/api/office-editor/status': typeof ApiOfficeEditorStatusRoute
+  '/api/parsers/converter': typeof ApiParsersConverterRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/parsers/webhook': typeof ApiParsersWebhookRoute
@@ -2148,6 +2157,7 @@ export interface FileRouteTypes {
     | '/api/import/review'
     | '/api/office-editor/session'
     | '/api/office-editor/status'
+    | '/api/parsers/converter'
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
     | '/api/parsers/webhook'
@@ -2359,6 +2369,7 @@ export interface FileRouteTypes {
     | '/api/import/review'
     | '/api/office-editor/session'
     | '/api/office-editor/status'
+    | '/api/parsers/converter'
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
     | '/api/parsers/webhook'
@@ -2579,6 +2590,7 @@ export interface FileRouteTypes {
     | '/api/import/review'
     | '/api/office-editor/session'
     | '/api/office-editor/status'
+    | '/api/parsers/converter'
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
     | '/api/parsers/webhook'
@@ -2781,6 +2793,7 @@ export interface RootRouteChildren {
   ApiImportReviewRoute: typeof ApiImportReviewRoute
   ApiOfficeEditorSessionRoute: typeof ApiOfficeEditorSessionRoute
   ApiOfficeEditorStatusRoute: typeof ApiOfficeEditorStatusRoute
+  ApiParsersConverterRoute: typeof ApiParsersConverterRoute
   ApiParsersRequestUpdateRoute: typeof ApiParsersRequestUpdateRoute
   ApiParsersValidateRoute: typeof ApiParsersValidateRoute
   ApiParsersWebhookRoute: typeof ApiParsersWebhookRoute
@@ -3513,6 +3526,13 @@ declare module '@tanstack/react-router' {
       path: '/api/office-editor/status'
       fullPath: '/api/office-editor/status'
       preLoaderRoute: typeof ApiOfficeEditorStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/parsers/converter': {
+      id: '/api/parsers/converter'
+      path: '/api/parsers/converter'
+      fullPath: '/api/parsers/converter'
+      preLoaderRoute: typeof ApiParsersConverterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/parsers/request-update': {
@@ -4946,6 +4966,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiImportReviewRoute: ApiImportReviewRoute,
   ApiOfficeEditorSessionRoute: ApiOfficeEditorSessionRoute,
   ApiOfficeEditorStatusRoute: ApiOfficeEditorStatusRoute,
+  ApiParsersConverterRoute: ApiParsersConverterRoute,
   ApiParsersRequestUpdateRoute: ApiParsersRequestUpdateRoute,
   ApiParsersValidateRoute: ApiParsersValidateRoute,
   ApiParsersWebhookRoute: ApiParsersWebhookRoute,

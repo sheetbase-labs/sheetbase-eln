@@ -1324,6 +1324,7 @@ export const settings = {
       builtin: 'Built in',
       columns: 'Columns',
       webhook: 'Webhook',
+      converter: 'Allotrope converter',
     },
   },
   webhookParserDialog: {

@@ -13,6 +13,7 @@
  */
 import type { ConnectorDirection, ConnectorType } from './types'
 import { t } from '#/copy'
+import type { AsmCapture } from '#/lib/instrument-data/asm'
 
 export interface ConnectorTypeDescriptor {
   type: ConnectorType
@@ -62,6 +63,11 @@ export interface ParsedInstrumentPayload {
   headers: string[]
   rows: Array<Record<string, string>>
   warnings: string[]
+  /**
+   * The Allotrope (ASM) document a converter made from the file. Kept with the
+   * instrument run; never stored in the connector run's result.
+   */
+  asm?: AsmCapture
 }
 
 export interface IngestionParser {

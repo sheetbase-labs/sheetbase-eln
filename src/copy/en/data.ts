@@ -3369,6 +3369,13 @@ export const data = {
       webhookBadAnswer:
         '{parser} answered in a form Sheetbase can’t use: {detail}',
       webhookRefused: '{parser} couldn’t read the file: {detail}',
+      converterUnavailable:
+        'The converter behind {parser} isn’t available right now. Check that the Python runtime is running, then try again.',
+      converterFailed: '{parser} couldn’t convert the file: {detail}',
+      converterTooLarge:
+        'The converted data from this file is too large to keep. Split the export into smaller files.',
+      converterUnknown:
+        '{parser} doesn’t name a converter. Choose another parser in the instrument’s data setup.',
       noRows: 'The file has no data rows.',
       noMapping: 'None of the file’s columns match the dataset it goes into.',
       fileTooLarge:

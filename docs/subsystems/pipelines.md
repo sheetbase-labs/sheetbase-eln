@@ -458,6 +458,21 @@ and Python runtime identities are pinned; Python clock/randomness, current-state
 ELN actions and external systems can still introduce non-determinism. Row order in the result is preserved from the transform's `ORDER
 BY`; where no order is specified, row order is not part of the contract.
 
+### Reproduce
+
+A finished run can be run again to check it repeats. **Reproduce** (run page,
+`POST /api/pipelines/reproduce`, the assistant card, or the **Reproduce a run**
+pipeline action) loads the run's pinned version, parameters and inputs, checks
+each input against the digest the manifest recorded, runs the steps in a
+rolled-back scratch transaction and compares the rows with the original
+(content digest first, then the output Dataset Version, then the stored
+preview). Nothing is published; the verdict (`matches`, `differs` or `failed`,
+with the first differences) is kept in `pipeline_reproductions`, shown in run
+history and on the dataset version it produced, and sends
+`pipeline.run.reproduced`. Python steps with a clock or randomness, current-state
+actions and external systems can still make a run differ, which is what the
+check is for. See [the provenance API](../api/provenance-api.md).
+
 ## Limits (v1, fixed)
 
 | Limit                        | Value   |

@@ -86,6 +86,12 @@ export interface ElnArchiveInput {
   workspaceId: string
   exportedAt: string
   experiments: ElnExperiment[]
+  /** Licence the package is released under, when it is being published. */
+  license?: { id: string; url: string; name: string } | null
+  /** Who the package is by, when it is being published. */
+  authors?: Array<{ name: string }>
+  /** DOI reserved for the package, when it is being published. */
+  doi?: string | null
 }
 
 type Json = Record<string, unknown>
@@ -334,8 +340,28 @@ export async function buildElnArchive(
     name: input.name,
     description: input.description ?? undefined,
     datePublished: input.exportedAt,
-    license: undefined,
+    license: input.license ? { '@id': input.license.url } : undefined,
+    author: input.authors?.length
+      ? input.authors.map((_, i) => ({ '@id': `#author-${i + 1}` }))
+      : undefined,
+    identifier: input.doi ? `https://doi.org/${input.doi}` : undefined,
     hasPart: rootParts,
+  }
+  const publishing: Json[] = []
+  if (input.license) {
+    publishing.push({
+      '@id': input.license.url,
+      '@type': 'CreativeWork',
+      name: input.license.name,
+      identifier: input.license.id,
+    })
+  }
+  for (const [i, author] of (input.authors ?? []).entries()) {
+    publishing.push({
+      '@id': `#author-${i + 1}`,
+      '@type': 'Person',
+      name: author.name,
+    })
   }
   if (input.project) {
     rootEntity.identifier = input.project.key
@@ -366,6 +392,7 @@ export async function buildElnArchive(
         url: 'https://sheetbase.io',
       },
       rootEntity,
+      ...publishing,
       ...[...persons.values()],
       ...graph,
     ],

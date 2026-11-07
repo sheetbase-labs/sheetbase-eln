@@ -1446,8 +1446,6 @@ export const library = {
       backToRecords: 'Back to records',
       record: 'Record',
       models: 'Models',
-      modelV: ' · model v{version}',
-      versionNotRecorded: ' · version not recorded',
       loadingRecord: 'Loading record…',
       editDetails: 'Edit details',
       allRecords: 'All records',

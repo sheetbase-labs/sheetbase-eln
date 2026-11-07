@@ -58,7 +58,35 @@ function LateMark({
   )
 }
 
-function PartMark({ state }: { state: PartProgress['state'] }) {
+function PartMark({
+  state,
+  signed = false,
+  awaiting = false,
+}: {
+  state: PartProgress['state']
+  signed?: boolean
+  awaiting?: boolean
+}) {
+  if (signed) {
+    return (
+      <Icon
+        name="lock"
+        size={12}
+        aria-hidden="true"
+        className="text-success-text"
+      />
+    )
+  }
+  if (awaiting) {
+    return (
+      <Icon
+        name="lock"
+        size={12}
+        aria-hidden="true"
+        className="text-fg-muted"
+      />
+    )
+  }
   if (state === 'done') {
     return (
       <Icon
@@ -81,6 +109,15 @@ function PartMark({ state }: { state: PartProgress['state'] }) {
   return (
     <Icon name="clock" size={12} aria-hidden="true" className="text-fg-muted" />
   )
+}
+
+/** The state of a part in words, with its signature where it needs one. */
+function partStateText(
+  part: Pick<PartProgress, 'state' | 'signed' | 'awaitingSignOff'>,
+): string {
+  if (part.signed) return t('notebook.partSignoff.stateSigned')
+  if (part.awaitingSignOff) return t('notebook.partSignoff.stateAwaiting')
+  return stateText(part.state)
 }
 
 function stateText(state: PartProgress['state']): string {
@@ -182,7 +219,11 @@ function DesktopStrip({
               )}
             >
               <span className="flex min-w-0 items-center gap-1.5 text-body text-fg">
-                <PartMark state={part.state} />
+                <PartMark
+                  state={part.state}
+                  signed={part.signed}
+                  awaiting={part.awaitingSignOff}
+                />
                 <span
                   className={cn(
                     'truncate',
@@ -192,7 +233,7 @@ function DesktopStrip({
                 >
                   {title}
                 </span>
-                <span className="sr-only">{stateText(part.state)}</span>
+                <span className="sr-only">{partStateText(part)}</span>
               </span>
               <span className="truncate text-label text-fg-muted">
                 {partDayLine(part, startedAt)}
@@ -284,7 +325,11 @@ function PhonePicker({
                   )}
                 >
                   <span className="mt-1 flex w-4 justify-center">
-                    <PartMark state={part.state} />
+                    <PartMark
+                      state={part.state}
+                      signed={part.signed}
+                      awaiting={part.awaitingSignOff}
+                    />
                   </span>
                   <span className="flex min-w-0 flex-col">
                     <span
@@ -420,7 +465,7 @@ export function PartFooter({
             ? t('notebook.parts.doneBy', {
                 name: nameOf(part.completedByUserId),
               })
-            : stateText(part.state)}
+            : partStateText(part)}
         </span>
       </Link>
     )
@@ -457,9 +502,12 @@ export function UpNextBanner({
           {t('notebook.parts.upNextTitle', { number: String(shown.number) })}
         </p>
         <p className="m-0 text-label text-fg-muted">
-          {t('notebook.parts.upNextBody', {
-            previous: String(shown.number - 1 || current.number),
-          })}
+          {t(
+            current.requiresSignOff && !current.signed
+              ? 'notebook.partSignoff.upNextSigned'
+              : 'notebook.parts.upNextBody',
+            { previous: String(shown.number - 1 || current.number) },
+          )}
         </p>
       </div>
       <Button
@@ -544,7 +592,11 @@ export function PartsOutline({
                 )}
               >
                 <span className="flex w-4 shrink-0 justify-center">
-                  <PartMark state={part.state} />
+                  <PartMark
+                    state={part.state}
+                    signed={part.signed}
+                    awaiting={part.awaitingSignOff}
+                  />
                 </span>
                 <span className="min-w-0 flex-1 truncate">{title}</span>
                 <span className="shrink-0 text-label text-fg-muted">

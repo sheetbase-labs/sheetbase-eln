@@ -19,6 +19,10 @@ import { useStepTimers } from '#/components/notebook/step-timer'
 import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
 import { useRecordPartsProgress } from '#/components/notebook/use-record-parts'
 import {
+  SignOffPartCard,
+  usePartSignoffs,
+} from '#/components/notebook/part-signoff'
+import {
   currentPart,
   daysSinceStart,
   formatPartDate,
@@ -47,6 +51,9 @@ export function CurrentStepCard({
   returned = false,
   renderSubmit,
   startedAt,
+  workspaceId,
+  currentUserId,
+  currentUserName,
 }: {
   recordId: string
   /** Every block of the notebook, so the steps of all parts are counted. */
@@ -59,6 +66,10 @@ export function CurrentStepCard({
   returned?: boolean
   /** The notebook's Submit button, or nothing when this person cannot submit. */
   renderSubmit?: (variant: 'primary' | 'secondary') => React.ReactNode
+  /** For signing off a part: the workspace and the person signing. */
+  workspaceId?: string
+  currentUserId?: string
+  currentUserName?: string
 }) {
   const timers = useStepTimers()
   const timerBlockIds = React.useMemo(
@@ -66,6 +77,10 @@ export function CurrentStepCard({
     [timers.data],
   )
   const { parts } = useRecordPartsProgress(recordId, blocks)
+  const signoffs = usePartSignoffs(
+    recordId,
+    parts.some((p) => p.requiresSignOff),
+  )
   const steps = React.useMemo(
     () => stepProgress(blocks, timerBlockIds, parts),
     [blocks, timerBlockIds, parts],
@@ -89,6 +104,20 @@ export function CurrentStepCard({
           submit={renderSubmit?.('secondary')}
           part={nowPart}
           startedAt={startedAt}
+        />
+      ) : nowPart?.awaitingSignOff ? (
+        <SignOffPartCard
+          recordId={recordId}
+          workspaceId={workspaceId}
+          part={nowPart}
+          next={
+            parts.find((part) => part.number === nowPart.number + 1) ?? null
+          }
+          status={signoffs.find((row) => row.partId === nowPart.id)}
+          canEdit={canEdit}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          submit={renderSubmit?.('secondary')}
         />
       ) : nowPart ? (
         <RunningPart

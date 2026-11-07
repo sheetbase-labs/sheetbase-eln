@@ -571,7 +571,7 @@ describe('countersigning', () => {
         `select api.sign_experiment_part($1,'witnessed',$2,$3,$4)`,
         [one, `Person ${OWNER}`, digest, own],
       ),
-    ).rejects.toThrow(/someone other than the signer/)
+    ).rejects.toMatchObject({ code: 'SB152' })
 
     await sign(witness, WITNESS, recordId, one, 'witnessed')
     expect((await signoffs(recordId))[0]).toMatchObject({
@@ -594,7 +594,7 @@ describe('countersigning', () => {
     await sign(owner, OWNER, recordId, one)
     await expect(
       sign(witness, WITNESS, recordId, one, 'witnessed'),
-    ).rejects.toThrow(/explicit request/)
+    ).rejects.toMatchObject({ code: 'SB152' })
     await owner.query(`select api.request_part_signoff($1,$2,'please')`, [
       one,
       WITNESS,

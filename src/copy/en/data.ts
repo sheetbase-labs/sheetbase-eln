@@ -3040,6 +3040,9 @@ export const data = {
     finishPart: 'Finish or reopen a part',
     finishPartDescription:
       'Mark a part of an experiment that has no steps as done, or reopen it. A part with steps is done when its steps are.',
+    setPartGate: 'Set when a part opens',
+    setPartGateDescription:
+      'Make a part of an experiment open only when earlier work is done (a table filled, a step done, samples linked), and say whether it warns or blocks until then. Leave the conditions out to take the rule off.',
     addStepResult: 'Record a result on a step',
     addStepResultDescription:
       'Add a measurement to the notebook against a protocol step.',

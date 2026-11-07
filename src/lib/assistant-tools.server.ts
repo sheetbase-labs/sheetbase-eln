@@ -35,6 +35,9 @@ import {
   isSeriesReadTool,
   readSeries,
   partsToolDefs,
+  gatesToolDefs,
+  isGatesReadTool,
+  readGates,
   isPartsReadTool,
   readParts,
   isInboxReadTool,
@@ -284,6 +287,7 @@ export async function createAssistantToolkit(deps: {
     ...stepsToolDefs(),
     ...seriesToolDefs(),
     ...partsToolDefs(),
+    ...gatesToolDefs(),
   )
   // Proposals are cards the person applies; offered only when agents may draft.
   if (deps.flags.mcp_draft) {
@@ -374,6 +378,11 @@ export async function createAssistantToolkit(deps: {
 
       if (isPartsReadTool(name)) {
         const result = await readParts(args, labContext)
+        return { text: clip(result.text), isError: result.isError }
+      }
+
+      if (isGatesReadTool(name)) {
+        const result = await readGates(args, labContext)
         return { text: clip(result.text), isError: result.isError }
       }
 

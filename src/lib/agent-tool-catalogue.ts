@@ -83,6 +83,8 @@ export const ASSISTANT_READ_TOOL_NAMES = [
   'sheetbase.series.read',
   // The parts of an experiment with their days and status, read only (assistant-planning.server.ts).
   'sheetbase.parts.read',
+  // What holds work back in an experiment and why, read only (assistant-planning.server.ts).
+  'sheetbase.gates.read',
 ] as const
 
 export type AssistantReadToolName = (typeof ASSISTANT_READ_TOOL_NAMES)[number]
@@ -135,6 +137,7 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.part.add',
   'sheetbase.part.update',
   'sheetbase.part.complete',
+  'sheetbase.gate.go_on',
   'sheetbase.shipment.send',
   'sheetbase.shipment.receive',
   // Keeping the lab tidy from a card: start a project, follow something, mark

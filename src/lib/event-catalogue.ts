@@ -2067,6 +2067,36 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     consumers: webhookSsePipeline,
   },
   {
+    name: 'experiment.gate_opened',
+    family: 'record',
+    summary: 'A gate in an experiment opened: what it waited on is done.',
+    producer: {
+      entityType: 'gate_opening',
+      operation: 'create',
+    },
+    wireName: 'experiment.gate_opened',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries gateId (block:<id> or part:<id>), gate (its label), mode (warn or block), blockId, partId, partNumber, part, recordId, identifier and title. It fires once when the gate becomes met, and again if it closes and opens later.',
+  },
+  {
+    name: 'experiment.gate_overridden',
+    family: 'record',
+    summary: 'Someone went on past a gate that warns, with a reason.',
+    producer: {
+      entityType: 'gate_override',
+      operation: 'create',
+    },
+    wireName: 'experiment.gate_overridden',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries the same fields as experiment.gate_opened, plus reason, missing (what was still to do, in words) and userId.',
+  },
+  {
     name: 'experiment.series_member_added',
     family: 'record',
     summary: 'An experiment was added to a series of experiments.',
@@ -2615,6 +2645,8 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
   'schedule.dismissed': 'A proposed schedule is dismissed',
   'code_cell.run': 'A code cell is run',
   'code_cell.reproduced': 'A code cell run is reproduced',
+  'experiment.gate_opened': 'A gate in an experiment opens',
+  'experiment.gate_overridden': 'A gate in an experiment is gone past',
 })
 
 /**

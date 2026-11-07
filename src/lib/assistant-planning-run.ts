@@ -85,6 +85,14 @@ export async function runPlanningAction(
         p_done: action.done,
       })
       return undefined
+    case 'gate.go_on':
+      await client.rpc('override_gate', {
+        ...(action.blockId
+          ? { p_gate_block_id: action.blockId }
+          : { p_gate_part_id: action.partId }),
+        p_reason: action.reason,
+      })
+      return undefined
     case 'step.result':
       await client.rpc('add_step_result', {
         p_block_id: action.blockId,

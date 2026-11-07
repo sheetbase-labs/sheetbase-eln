@@ -67,6 +67,7 @@ const ACTION_COPY = {
   'part.add': 'addPart',
   'part.update': 'updatePart',
   'part.done': 'finishPart',
+  'gate.go_on': 'goOnGate',
   'shipment.create': 'sendShipment',
   'shipment.receive': 'receiveShipment',
   'project.create': 'createProject',

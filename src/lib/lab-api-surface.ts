@@ -231,6 +231,13 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
     'The part that takes over the blocks of the part being deleted.',
   p_parts:
     'The parts to make, in order: each `{title, first_block_id, day_offset}`. A part runs from its first block to the next part’s.',
+  p_conditions:
+    'JSON list of the conditions the gate waits on, each with a `kind`: `table_filled` (`blockId`, optional `column` and `minRows`), `step_done` (`blockId`), `part_done` (`partId`), `samples_linked` (optional `min`), `field_set` (`field`) or `date_reached` (`date`, YYYY-MM-DD). All must hold. Leave out or send an empty list to take the rule off.',
+  p_gate_mode:
+    '`warn` lets people go on past the gate with a reason; `block` refuses the work behind it until the conditions hold.',
+  p_steps_in_order: 'true to make the steps of the part be done in order.',
+  p_gate_block_id: 'The gate block to go on past.',
+  p_gate_part_id: 'The part whose "opens when" rule to go on past.',
   p_favourite: '`true` to pin, `false` to unpin.',
   p_driver:
     '`opentrons` (the robot is on the network) or `file` (its software reads a folder).',
@@ -285,8 +292,28 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['opened_at', 'ts', 0],
       ['completed_at', 'ts', 0],
       ['completed_by_user_id', 'text', 0],
+      ['opens_when', 'json', 0],
+      ['gate_mode', 'text', 1],
+      ['steps_in_order', 'bool', 1],
+      ['gate_from_template', 'bool', 1],
       ['created_at', 'ts', 1],
       ['updated_at', 'ts', 1],
+    ],
+  },
+  gate_overrides: {
+    summary:
+      'Someone went on past a gate that warns, with a reason: who, when, what the gate was and what was still missing. The reviewer sees these.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['record_id', 'uuid', 1],
+      ['block_id', 'uuid', 0],
+      ['part_id', 'uuid', 0],
+      ['label', 'text', 1],
+      ['missing', 'text[]', 1],
+      ['reason', 'text', 1],
+      ['created_at', 'ts', 1],
+      ['created_by_user_id', 'text', 0],
     ],
   },
   reagent_orders: {
@@ -1639,6 +1666,40 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
       ['p_done', 'bool', 1],
     ],
     result: 'row:experiment_parts',
+  },
+  record_gates: {
+    summary: 'List the gates of an experiment and what each still waits on',
+    description:
+      'Every gate in page order: the "opens when" rule of each part, then the gate blocks. `met` is true when every condition holds. `blocking` is true when the gate holds work back now: it is unmet, set to `block`, and not only waiting on a date. `missing` says what is still to do, in words, and `conditions` has the answer for each condition. `overridden` is true when someone went on past a gate that warns.',
+    scope: 'lab:read',
+    params: [['p_record_id', 'uuid', 1]],
+    result:
+      'rows:gate_id=text,gate_kind=text,block_id=uuid,part_id=uuid,part_number=int,label=text,mode=text,met=bool,blocking=bool,overridden=bool,overridden_at=ts,overridden_by_user_id=text,override_reason=text,missing=text[],conditions=json,from_template=bool',
+  },
+  set_part_gate: {
+    summary: 'Set the rule that opens a part of an experiment',
+    description:
+      'Sets, changes or clears the conditions that open a part, whether the gate warns or blocks, and whether the steps of the part are done in order. A gate that came from a template cannot be changed. Returns the part. A gate that blocks is enforced by the database: writes in the part, and finishing it, are refused with error code `SB150` until the conditions hold.',
+    scope: 'lab:write',
+    params: [
+      ['p_part_id', 'uuid', 1],
+      ['p_conditions', 'json', 0],
+      ['p_gate_mode', 'text', 0],
+      ['p_steps_in_order', 'bool', 0],
+    ],
+    result: 'row:experiment_parts',
+  },
+  override_gate: {
+    summary: 'Go on past a gate that warns, with a reason',
+    description:
+      'Name the gate block or the part. The reason (1 to 2000 characters) is kept with the experiment and shown to the reviewer. A gate that blocks cannot be gone past (`SB155`), and one that is already open needs no going past (`SB156`). Returns the override. Sends `experiment.gate_overridden`.',
+    scope: 'lab:write',
+    params: [
+      ['p_gate_block_id', 'uuid', 0],
+      ['p_gate_part_id', 'uuid', 0],
+      ['p_reason', 'text', 1],
+    ],
+    result: 'row:gate_overrides',
   },
   set_block_part: {
     summary: 'Move a block to another part',

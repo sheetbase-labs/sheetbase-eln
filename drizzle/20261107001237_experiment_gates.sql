@@ -1555,3 +1555,18 @@ BEGIN
   RETURN btrim(coalesce(v_text, ''));
 END;
 $$;
+--> statement-breakpoint
+-- A pipeline can set when a part opens. The database's copy of the action
+-- catalogue (checked when a pipeline is saved) gains the action.
+DO $$
+DECLARE
+  v_def text;
+  v_added text := $added$,{"operation":"set_part_gate","rpc":"set_part_gate","label":"Set when a part opens","description":"Make a part of an experiment open only when earlier work is done (a table filled, a step done, samples linked), and say whether it warns or blocks until then. Leave the conditions out to take the rule off.","arguments":[{"name":"p_part_id","type":"uuid","required":true,"nullable":false},{"name":"p_conditions","type":"jsonb","required":false,"nullable":true},{"name":"p_gate_mode","type":"text","required":false,"nullable":true},{"name":"p_steps_in_order","type":"boolean","required":false,"nullable":true}]}]$added$;
+BEGIN
+  SELECT pg_get_functiondef('internal.pipeline_action_errors(jsonb)'::regprocedure) INTO v_def;
+  IF position(']$catalogue$::jsonb' IN v_def) = 0 THEN
+    RAISE EXCEPTION 'unexpected shape for internal.pipeline_action_errors';
+  END IF;
+  v_def := replace(v_def, ']$catalogue$::jsonb', v_added || '$catalogue$::jsonb');
+  EXECUTE v_def;
+END $$;

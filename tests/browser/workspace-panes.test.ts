@@ -168,7 +168,7 @@ test('actual pages stay independent through splitting, navigation, resizing and 
   expect(errors).toEqual([])
 })
 
-test('unsaved chart edits refuse close and navigation, then a saved pane can close', async ({
+test('unsaved chart edits ask Save, Discard or Cancel before a pane closes', async ({
   page,
 }) => {
   const datasetId = await withAdminDb(async (db) => {
@@ -198,33 +198,41 @@ test('unsaved chart edits refuse close and navigation, then a saved pane can clo
     .nth(1)
     .getByRole('button', { name: 'Close Analysis Studio pane' })
     .click()
+  // Closing asks what to do with the unsaved chart; Cancel keeps the pane.
+  const prompt = page.getByRole('alertdialog', { name: 'Save your changes?' })
+  await expect(prompt).toBeVisible()
+  await prompt.getByRole('button', { name: 'Cancel', exact: true }).click()
   await expect(panes).toHaveCount(2)
-  await expect(
-    page
-      .getByText('Save pending edits before closing or leaving this page.')
-      .first(),
-  ).toBeVisible()
+  // The header offers Save too; saving clears the unsaved state.
   await panes
     .nth(1)
-    .getByRole('button', { name: 'Chart settings', exact: true })
-    .click()
-  const settings = page.getByRole('dialog', {
-    name: 'Chart settings',
-    exact: true,
-  })
-  await settings.getByRole('tab', { name: /^Views/ }).click()
-  await settings.getByLabel('Analysis view name').fill(uniqueName('Pane draft'))
-  await settings
-    .getByRole('button', { name: 'Save analysis view', exact: true })
+    .getByRole('group', { name: 'Unsaved changes' })
+    .getByRole('button', { name: 'Save', exact: true })
     .click()
   await expect(
     page.getByText('Analysis view saved', { exact: true }),
   ).toBeVisible()
-  await settings.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(
+    panes.nth(1).getByRole('group', { name: 'Unsaved changes' }),
+  ).toHaveCount(0)
   await panes
     .nth(1)
     .getByRole('button', { name: 'Close Analysis Studio pane' })
     .click()
+  await expect(panes).toHaveCount(1)
+
+  // Discard from the close prompt throws the edit away and closes the pane.
+  await menu(page, panes.nth(0), /^Split right/)
+  await expect(panes).toHaveCount(2)
+  await panes
+    .nth(1)
+    .getByLabel('Y axis field', { exact: true })
+    .selectOption({ label: 'Turbidity' })
+  await panes
+    .nth(1)
+    .getByRole('button', { name: 'Close Analysis Studio pane' })
+    .click()
+  await prompt.getByRole('button', { name: 'Discard', exact: true }).click()
   await expect(panes).toHaveCount(1)
 })
 

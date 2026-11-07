@@ -233,6 +233,7 @@ import { Route as ApiExportRecordIdElnRouteImport } from './routes/api/export/re
 import { Route as ApiExportRevisionIdBundleRouteImport } from './routes/api/export/revision/$id/bundle'
 import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
 import { Route as ApiExportRevisionIdPdfRouteImport } from './routes/api/export/revision/$id/pdf'
+import { Route as ApiLakeFilesWorkspaceIdSplatRouteImport } from './routes/api/lake/files/$workspaceId/$'
 import { Route as ApiWopiFilesFileIdIndexRouteImport } from './routes/api/wopi/files/$fileId/index'
 import { Route as ApiWopiFilesFileIdContentsRouteImport } from './routes/api/wopi/files/$fileId/contents'
 import { Route as SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRouteImport } from './routes/settings/workspace/integrations/webhooks.$subscriptionId'
@@ -1408,6 +1409,12 @@ const ApiExportRevisionIdPdfRoute = ApiExportRevisionIdPdfRouteImport.update({
   path: '/api/export/revision/$id/pdf',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLakeFilesWorkspaceIdSplatRoute =
+  ApiLakeFilesWorkspaceIdSplatRouteImport.update({
+    id: '/api/lake/files/$workspaceId/$',
+    path: '/api/lake/files/$workspaceId/$',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiWopiFilesFileIdIndexRoute = ApiWopiFilesFileIdIndexRouteImport.update({
   id: '/api/wopi/files/$fileId/',
   path: '/api/wopi/files/$fileId/',
@@ -1651,6 +1658,7 @@ export interface FileRoutesByFullPath {
   '/api/export/revision/$id/bundle': typeof ApiExportRevisionIdBundleRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
+  '/api/lake/files/$workspaceId/$': typeof ApiLakeFilesWorkspaceIdSplatRoute
   '/api/wopi/files/$fileId/contents': typeof ApiWopiFilesFileIdContentsRoute
   '/settings/workspace/integrations/webhooks/$subscriptionId': typeof SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRoute
   '/api/wopi/files/$fileId/': typeof ApiWopiFilesFileIdIndexRoute
@@ -1865,6 +1873,7 @@ export interface FileRoutesByTo {
   '/api/export/revision/$id/bundle': typeof ApiExportRevisionIdBundleRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
+  '/api/lake/files/$workspaceId/$': typeof ApiLakeFilesWorkspaceIdSplatRoute
   '/api/wopi/files/$fileId/contents': typeof ApiWopiFilesFileIdContentsRoute
   '/settings/workspace/integrations/webhooks/$subscriptionId': typeof SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRoute
   '/api/wopi/files/$fileId': typeof ApiWopiFilesFileIdIndexRoute
@@ -2095,6 +2104,7 @@ export interface FileRoutesById {
   '/api/export/revision/$id/bundle': typeof ApiExportRevisionIdBundleRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
+  '/api/lake/files/$workspaceId/$': typeof ApiLakeFilesWorkspaceIdSplatRoute
   '/api/wopi/files/$fileId/contents': typeof ApiWopiFilesFileIdContentsRoute
   '/settings/workspace/integrations/webhooks/$subscriptionId': typeof SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRoute
   '/api/wopi/files/$fileId/': typeof ApiWopiFilesFileIdIndexRoute
@@ -2326,6 +2336,7 @@ export interface FileRouteTypes {
     | '/api/export/revision/$id/bundle'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
+    | '/api/lake/files/$workspaceId/$'
     | '/api/wopi/files/$fileId/contents'
     | '/settings/workspace/integrations/webhooks/$subscriptionId'
     | '/api/wopi/files/$fileId/'
@@ -2540,6 +2551,7 @@ export interface FileRouteTypes {
     | '/api/export/revision/$id/bundle'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
+    | '/api/lake/files/$workspaceId/$'
     | '/api/wopi/files/$fileId/contents'
     | '/settings/workspace/integrations/webhooks/$subscriptionId'
     | '/api/wopi/files/$fileId'
@@ -2769,6 +2781,7 @@ export interface FileRouteTypes {
     | '/api/export/revision/$id/bundle'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
+    | '/api/lake/files/$workspaceId/$'
     | '/api/wopi/files/$fileId/contents'
     | '/settings/workspace/integrations/webhooks/$subscriptionId'
     | '/api/wopi/files/$fileId/'
@@ -2886,6 +2899,7 @@ export interface RootRouteChildren {
   ApiExportRevisionIdBundleRoute: typeof ApiExportRevisionIdBundleRoute
   ApiExportRevisionIdPackageRoute: typeof ApiExportRevisionIdPackageRoute
   ApiExportRevisionIdPdfRoute: typeof ApiExportRevisionIdPdfRoute
+  ApiLakeFilesWorkspaceIdSplatRoute: typeof ApiLakeFilesWorkspaceIdSplatRoute
   ApiWopiFilesFileIdContentsRoute: typeof ApiWopiFilesFileIdContentsRoute
   ApiWopiFilesFileIdIndexRoute: typeof ApiWopiFilesFileIdIndexRoute
 }
@@ -4460,6 +4474,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExportRevisionIdPdfRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/lake/files/$workspaceId/$': {
+      id: '/api/lake/files/$workspaceId/$'
+      path: '/api/lake/files/$workspaceId/$'
+      fullPath: '/api/lake/files/$workspaceId/$'
+      preLoaderRoute: typeof ApiLakeFilesWorkspaceIdSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/wopi/files/$fileId/': {
       id: '/api/wopi/files/$fileId/'
       path: '/api/wopi/files/$fileId'
@@ -5101,6 +5122,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExportRevisionIdBundleRoute: ApiExportRevisionIdBundleRoute,
   ApiExportRevisionIdPackageRoute: ApiExportRevisionIdPackageRoute,
   ApiExportRevisionIdPdfRoute: ApiExportRevisionIdPdfRoute,
+  ApiLakeFilesWorkspaceIdSplatRoute: ApiLakeFilesWorkspaceIdSplatRoute,
   ApiWopiFilesFileIdContentsRoute: ApiWopiFilesFileIdContentsRoute,
   ApiWopiFilesFileIdIndexRoute: ApiWopiFilesFileIdIndexRoute,
 }

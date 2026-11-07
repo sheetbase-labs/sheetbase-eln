@@ -142,7 +142,11 @@ export const HaveWeDoneThisBefore: Story = {
 export const SettingsOn: Story = {
   render: () => (
     <QueryClientProvider client={seeded(settings())}>
-      <SemanticSearchSection workspaceId={WORKSPACE} cloudAllowed={false} />
+      <SemanticSearchSection
+        workspaceId={WORKSPACE}
+        cloudAllowed={false}
+        assistantOn
+      />
     </QueryClientProvider>
   ),
 }
@@ -153,7 +157,11 @@ export const SettingsOff: Story = {
     <QueryClientProvider
       client={seeded(settings({ enabled: false, profile: null }))}
     >
-      <SemanticSearchSection workspaceId={WORKSPACE} cloudAllowed={false} />
+      <SemanticSearchSection
+        workspaceId={WORKSPACE}
+        cloudAllowed={false}
+        assistantOn
+      />
     </QueryClientProvider>
   ),
 }

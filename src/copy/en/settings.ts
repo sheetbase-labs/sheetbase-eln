@@ -80,6 +80,8 @@ export const settings = {
     enable: 'Search by meaning',
     enableBody:
       'Read the text of notebooks, files, datasets and comments so a question finds what it means, not only the words it uses.',
+    needsAssistant:
+      'Search by meaning follows the assistant switch above. Turn the assistant on for this workspace and nothing is read until you do.',
     model: 'Model that reads the text',
     modelHint:
       'Set up by whoever runs this installation. A model on your own network keeps the text inside the lab.',

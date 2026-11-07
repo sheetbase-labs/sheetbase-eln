@@ -12,6 +12,7 @@ export const plates = {
   tabs: {
     runs: 'Runs',
     potency: 'Potency',
+    quality: 'Quality',
     worklists: 'Worklists',
   },
   empty: {

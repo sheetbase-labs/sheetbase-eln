@@ -36,14 +36,18 @@ import { qcTone, qualityLabel, runText } from './plates-shared'
 import { RunDetail } from './run-detail'
 import { WorklistDialog } from './worklist-dialogs'
 
-export type PlatesTab = 'runs' | 'potency' | 'worklists'
+import { RunQcPanel } from '#/components/quality/run-qc-panel'
+
+export type PlatesTab = 'runs' | 'potency' | 'quality' | 'worklists'
 
 export function PlatesPage({
   canWrite,
+  workspaceId,
   runId,
   onOpenRun,
 }: {
   canWrite: boolean
+  workspaceId: string
   runId?: string
   onOpenRun: (id: string | undefined) => void
 }) {
@@ -269,6 +273,7 @@ export function PlatesPage({
                 count: runs.isPending ? undefined : all.length,
               },
               { key: 'potency', label: t('plates.tabs.potency') },
+              { key: 'quality', label: t('plates.tabs.quality') },
               {
                 key: 'worklists',
                 label: t('plates.tabs.worklists'),
@@ -280,7 +285,7 @@ export function PlatesPage({
           />
         }
       />
-      {tab !== 'potency' ? (
+      {tab === 'runs' || tab === 'worklists' ? (
         <ListToolbar
           q={q}
           onSearch={setQ}
@@ -321,6 +326,14 @@ export function PlatesPage({
           )
         ) : tab === 'potency' ? (
           <PotencyPanel runs={all} />
+        ) : tab === 'quality' ? (
+          <div className="p-6">
+            <RunQcPanel
+              scope={{}}
+              workspaceId={workspaceId}
+              canWrite={canWrite}
+            />
+          </div>
         ) : worklists.isError ? (
           <div className="p-6">
             <Notice tone="bad" title={t('plates.worklists.loadError')}>

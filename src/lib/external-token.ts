@@ -200,6 +200,11 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   // Validation runs (regulated labs): the evidence of each check run. Read
   // only; a run is started by a person signed in to the app.
   validation_runs: { read: 'admin:read' },
+  // What agents may do on their own, and the assistant checks. Read only: the
+  // settings are an admin's to change in the app, never an agent's.
+  agent_action_policies: { read: 'admin:read' },
+  ai_eval_runs: { read: 'admin:read' },
+  ai_eval_results: { read: 'admin:read' },
 }
 
 /**

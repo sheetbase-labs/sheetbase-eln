@@ -4,7 +4,6 @@ import {
   CAMPAIGN_APPROVE_TOOL,
   CAMPAIGN_RESULTS_TOOL,
   CAMPAIGN_START_TOOL,
-  MODEL_FEATURE_TOOL,
   PLANNER_PROPOSE_TOOL_NAMES,
   isPlannerAction,
 } from './assistant-planner'
@@ -35,7 +34,7 @@ function context(
   rows: Partial<Record<string, unknown[]>> = {},
 ): LabToolContext {
   const defaults: Record<string, unknown[] | undefined> = {
-    model_capabilities: [{ model_key: 'campaign', capability: 'campaigns' }],
+    model_campaign_lists: [{ model_key: 'campaign' }],
     record_models: [{ key: 'campaign', name: 'Campaign' }],
     records: [RECORD],
     campaigns: [CAMPAIGN],
@@ -62,43 +61,6 @@ describe('planner assistant cards', () => {
     expect(plannerProposalDefs().map((d) => d.name)).toEqual(
       PLANNER_PROPOSE_TOOL_NAMES.map((n) => n.replaceAll('.', '__')),
     )
-  })
-
-  it('proposes switching a feature on for a model, by name', async () => {
-    const input = {
-      title: 'Campaigns for assays',
-      summary: 'Let assay records be campaigns',
-      model: 'assay',
-      feature: 'Campaigns',
-      enabled: true,
-    }
-    const ctx = context({
-      record_models: [{ key: 'assay', name: 'Assay' }],
-      model_capabilities: [],
-    })
-    const built = await buildPlannerProposal(MODEL_FEATURE_TOOL, input, ctx)
-    expect(built.ok).toBe(true)
-    if (!built.ok) return
-    expect(built.proposal.action).toEqual({
-      kind: 'model.feature',
-      modelKey: 'assay',
-      feature: 'campaigns',
-      enabled: true,
-    })
-    expect(isPlannerAction(built.proposal.action ?? { kind: '' })).toBe(true)
-    // Switching off what is already off, and a feature that does not exist, have no card.
-    const already = await buildPlannerProposal(
-      MODEL_FEATURE_TOOL,
-      { ...input, enabled: false },
-      ctx,
-    )
-    expect(already.ok).toBe(false)
-    const unknown = await buildPlannerProposal(
-      MODEL_FEATURE_TOOL,
-      { ...input, feature: 'Teleportation' },
-      ctx,
-    )
-    expect(unknown.ok).toBe(false)
   })
 
   it('proposes starting a campaign that is not running', async () => {

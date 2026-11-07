@@ -17,7 +17,6 @@ import {
 } from '#/components/ui/table'
 import { SettingsBody } from '#/components/settings/settings-page'
 import { canHideNavPage, navGroups } from '#/components/shell/nav'
-import { useModelFeatures } from '#/lib/features/data'
 import { ROOT_CONTEXT_QUERY_KEY } from '#/lib/root-context-cache'
 import {
   fetchHiddenNavPages,
@@ -67,11 +66,6 @@ export function SidebarPagesPanel({
       toast.error(t('settings.sidebarPages.saveFailed'))
     },
   })
-  // A page that belongs to a model feature is listed only while the feature is on.
-  const modelFeatures = useModelFeatures(client)
-  const featuresOn = new Set(
-    (modelFeatures.data ?? []).map((f) => f.capability),
-  )
   const busy = !canManage || query.isPending || save.isPending
 
   function toggle(page: string, shown: boolean) {
@@ -97,47 +91,45 @@ export function SidebarPagesPanel({
           </TableHeader>
           <TableBody loading={query.isPending} colSpan={3}>
             {navGroups.flatMap((group) =>
-              group.items
-                .filter((item) => !item.feature || featuresOn.has(item.feature))
-                .map((item) => {
-                  const fixed = !canHideNavPage(item.key)
-                  const shown = fixed || !hidden.includes(item.key)
-                  return (
-                    <TableRow key={item.key}>
-                      <TableCell>
-                        <span className="inline-flex items-center gap-2">
-                          <Icon
-                            name={item.icon}
-                            size={16}
-                            className="text-fg-muted"
-                          />
-                          {item.label}
+              group.items.map((item) => {
+                const fixed = !canHideNavPage(item.key)
+                const shown = fixed || !hidden.includes(item.key)
+                return (
+                  <TableRow key={item.key}>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-2">
+                        <Icon
+                          name={item.icon}
+                          size={16}
+                          className="text-fg-muted"
+                        />
+                        {item.label}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-fg-muted">
+                      {group.label}
+                    </TableCell>
+                    <TableCell>
+                      {fixed ? (
+                        <span className="text-label text-fg-muted">
+                          {t('settings.sidebarPages.alwaysShown')}
                         </span>
-                      </TableCell>
-                      <TableCell className="text-fg-muted">
-                        {group.label}
-                      </TableCell>
-                      <TableCell>
-                        {fixed ? (
-                          <span className="text-label text-fg-muted">
-                            {t('settings.sidebarPages.alwaysShown')}
-                          </span>
-                        ) : (
-                          <Checkbox
-                            aria-label={t('settings.sidebarPages.showPage', {
-                              page: item.label,
-                            })}
-                            checked={shown}
-                            disabled={busy}
-                            onCheckedChange={(checked) =>
-                              toggle(item.key, checked === true)
-                            }
-                          />
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                }),
+                      ) : (
+                        <Checkbox
+                          aria-label={t('settings.sidebarPages.showPage', {
+                            page: item.label,
+                          })}
+                          checked={shown}
+                          disabled={busy}
+                          onCheckedChange={(checked) =>
+                            toggle(item.key, checked === true)
+                          }
+                        />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )
+              }),
             )}
           </TableBody>
         </Table>

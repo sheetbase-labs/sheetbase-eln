@@ -1,7 +1,7 @@
 # Campaigns API
 
 A campaign optimises what you vary, round by round. It is an ordinary record of a
-model with the **Campaigns** feature switched on (Models, Features), so it has its own
+model ticked as a **Campaign list** (Models, Quality), so it has its own
 fields, links and history. Each round the optimiser proposes a batch of
 conditions, the planner lays them out as a plate and worklist, results come back
 and the model learns from them. A person approves each round; nothing is made
@@ -10,7 +10,7 @@ before that.
 ## Set up
 
 ```
-POST /api/db/rpc/set_model_capability  { "p_model_key": "campaign", "p_capability": "campaigns", "p_enabled": true }
+POST /api/db/rpc/set_model_campaign_list  { "p_model_key": "campaign", "p_enabled": true }
 POST /api/db/rpc/configure_campaign
 { "p_record_id": "<campaign record>",
   "p_factors": [ { "key": "temp", "label": "Temperature", "kind": "continuous", "min": 20, "max": 40, "unit": "°C" },

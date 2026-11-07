@@ -285,11 +285,6 @@ export const notebook = {
         applying: 'Applying…',
         applied: 'Plan applied',
       },
-      setModelFeature: {
-        apply: 'Save feature',
-        applying: 'Saving…',
-        applied: 'Feature saved',
-      },
       startCampaign: {
         apply: 'Start campaign',
         applying: 'Starting…',

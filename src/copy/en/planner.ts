@@ -146,7 +146,7 @@ export const planner = {
     roundsOf: '{used} of {max}',
     empty: {
       title: 'Set up campaigns',
-      body: 'A campaign is a record that says what to vary, what to improve and how much you can spend. Start from a ready-made Campaign model, or switch on the Campaigns feature for any record model in Models.',
+      body: 'A campaign is a record that says what to vary, what to improve and how much you can spend. Start from a ready-made Campaign model, or tick “Campaign list” on any record model in Models.',
       notAllowed:
         'Ask someone who can edit models to set up campaigns for the lab.',
       setUp: 'Set up Campaign model',
@@ -163,7 +163,7 @@ export const planner = {
     notFound: 'This campaign could not be found.',
     loadError: 'The campaign could not be loaded.',
     notACampaign:
-      'This record’s model does not have the Campaigns feature, so it cannot be a campaign.',
+      'This record is not in a model ticked as a campaign list, so it cannot be a campaign.',
     design: 'Design',
     factors: 'Factors',
     factorsHint: 'What the optimiser may change, and over what range.',
@@ -360,5 +360,10 @@ export const planner = {
     valuesProblem: '{name}: give at least two values.',
     targetProblem: '{name}: give the value to hit.',
     numberProblem: 'Check the numbers: {name}.',
+  },
+  models: {
+    campaignTick: 'Campaign list',
+    campaignTickHint:
+      'Records of this model can be campaigns: they are listed on the Campaigns page and can be optimised round by round.',
   },
 } as const

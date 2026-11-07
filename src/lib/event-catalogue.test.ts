@@ -711,18 +711,6 @@ const LAB_EVENTS: ReadonlyArray<{
     operation: 'update',
     payload: { change: 'completed' },
   },
-  {
-    name: 'model.feature.enabled',
-    entityType: 'model_capability',
-    operation: 'update',
-    payload: { change: 'enabled' },
-  },
-  {
-    name: 'model.feature.disabled',
-    entityType: 'model_capability',
-    operation: 'update',
-    payload: { change: 'disabled' },
-  },
 ]
 
 describe('lab feature events', () => {

@@ -158,7 +158,16 @@ describe('memory for a job', () => {
   })
 
   it('refuses a value that is not a small memory size', () => {
-    for (const bad of ['0', '64m', '9g', '2G', '2gb', 'unlimited', '-1', '2g;rm'])
+    for (const bad of [
+      '0',
+      '64m',
+      '9g',
+      '2G',
+      '2gb',
+      'unlimited',
+      '-1',
+      '2g;rm',
+    ])
       expect(() => memoryLimit({ PIPELINE_PYTHON_MEMORY: bad })).toThrow(
         /PIPELINE_PYTHON_MEMORY/,
       )

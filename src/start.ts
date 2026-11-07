@@ -156,6 +156,15 @@ const timestampMiddleware = createMiddleware().server(async ({ next }) => {
   return next()
 })
 
+// OpenLineage: sends runs, imports and worklists to each workspace's lineage
+// endpoints. Does nothing until an admin adds one. Guarded like the schedulers.
+const lineageMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startLineageScheduler } =
+    await import('#/lib/provenance/lineage-emitter.server')
+  startLineageScheduler()
+  return next()
+})
+
 // Workspace backups: the same archive as the whole-workspace export, made on
 // each workspace's schedule and kept to the newest few. Guarded like the other
 // schedulers and never started under test runners unless explicitly enabled.
@@ -251,6 +260,7 @@ export const startInstance = createStart(() => ({
     stepTimerMiddleware,
     auditVerificationMiddleware,
     timestampMiddleware,
+    lineageMiddleware,
     backupSchedulerMiddleware,
     webhookDeliveryMiddleware,
     csrfMiddleware,

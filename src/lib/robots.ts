@@ -122,6 +122,8 @@ export interface InstrumentJobWire {
   finished_at: string | null
   created_at: string
   updated_at: string
+  /** The worklist's name, when the list asked for it. */
+  plate_worklists?: { name: string; number: number } | null
 }
 
 /** "IJ-0007". */
@@ -164,7 +166,7 @@ export function fetchInstrumentJobs(
   filter: { instrumentId?: string; worklistId?: string; limit?: number } = {},
 ): Promise<InstrumentJobWire[]> {
   const query = new URLSearchParams({
-    select: '*',
+    select: '*,plate_worklists(name,number)',
     order: 'created_at.desc',
     limit: String(filter.limit ?? 50),
   })
@@ -287,4 +289,32 @@ export function robotFileFor(job: {
     name: `${jobReference(job.number).toLowerCase()}-${fileSlug(job.worklist.name)}.${extension}`,
     content,
   }
+}
+
+/** Robot settings of every robot, keyed by instrument. */
+export function robotsById(
+  settings: readonly RobotSettingsWire[],
+): Map<string, RobotSettingsWire> {
+  return new Map(settings.map((row) => [row.instrument_id, row]))
+}
+
+/** Which labware fields a robot's setup asks for, given its driver and file format. */
+export function labwareFieldsFor(
+  driver: RobotDriver,
+  format: WorklistFormat,
+): ReadonlyArray<keyof RobotLabware> {
+  if (driver === 'opentrons') {
+    return [
+      'opentronsSourceLabware',
+      'opentronsDestLabware',
+      'opentronsPipette',
+      'opentronsTiprack',
+      'opentronsMount',
+    ]
+  }
+  if (format === 'tecan_gwl') {
+    return ['liquidClass', 'tecanSourceType', 'tecanDestType']
+  }
+  if (format === 'echo') return ['echoSourceType']
+  return []
 }

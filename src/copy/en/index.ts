@@ -6,6 +6,7 @@
  */
 import { account } from './account'
 import { agentRequests, agents } from './agents'
+import { automation } from './automation'
 import { calculators } from './calculators'
 import { calendarFeed } from './calendar-feed'
 import { common } from './common'
@@ -30,6 +31,7 @@ export const en = {
   account,
   agents,
   agentRequests,
+  automation,
   people,
   calculators,
   calendarFeed,

@@ -31,6 +31,7 @@ import {
   agentFiles,
   agentTokenName,
   liveAgentTokenName,
+  robotAgentTokenName,
   AGENT_SCOPES,
   AGENT_SEEN_MINUTES,
 } from './agent-package'
@@ -83,6 +84,27 @@ const liveDownloadBody = z
     instrumentId: z.uuid(),
     system: z.enum(['windows', 'mac', 'linux']),
     live: z.array(liveSource).min(1).max(4),
+  })
+  .strict()
+
+const robotDownloadBody = z
+  .object({
+    instrumentId: z.uuid(),
+    system: z.enum(['windows', 'mac', 'linux']),
+    robot: z.discriminatedUnion('driver', [
+      z
+        .object({
+          driver: z.literal('opentrons'),
+          address: z.string().trim().min(1).max(300),
+        })
+        .strict(),
+      z
+        .object({
+          driver: z.literal('file'),
+          dir: z.string().trim().min(1).max(500),
+        })
+        .strict(),
+    ]),
   })
   .strict()
 
@@ -262,6 +284,30 @@ export async function handleAgentPackage(
 
   try {
     if (request.method === 'GET') {
+      const robotParam = new URL(request.url).searchParams.get('robot')
+      if (robotParam !== null) {
+        if (!z.uuid().safeParse(robotParam).success) {
+          return requestErrorResponse(
+            400,
+            'invalid_request',
+            'Name the robot.',
+          )
+        }
+        const robot = await findLiveInstrument(
+          client,
+          context.workspaceId,
+          robotParam,
+        )
+        if (!robot)
+          return requestErrorResponse(404, 'not_found', 'No such instrument.')
+        return Response.json(
+          await tokenStatus(
+            await credentials.listCredentials(db, context.workspaceId),
+            robotAgentTokenName(robot.display_id ?? robot.id),
+            now,
+          ),
+        )
+      }
       const instrumentParam = new URL(request.url).searchParams.get(
         'instrument',
       )
@@ -313,6 +359,51 @@ export async function handleAgentPackage(
     }
 
     const rawBody = await request.json().catch(() => null)
+    if (rawBody && typeof rawBody === 'object' && 'robot' in rawBody) {
+      const robot = robotDownloadBody.safeParse(rawBody)
+      if (!robot.success) {
+        return requestErrorResponse(
+          400,
+          'invalid_request',
+          'Choose the computer’s system and how the agent reaches the robot.',
+        )
+      }
+      await client.rpc('require_capability', {
+        p_workspace_id: context.workspaceId,
+        p_capability: 'integrations.manage',
+      })
+      const instrument = await findLiveInstrument(
+        client,
+        context.workspaceId,
+        robot.data.instrumentId,
+      )
+      if (!instrument)
+        return requestErrorResponse(404, 'not_found', 'No such instrument.')
+      if (instrument.retired_at) {
+        return requestErrorResponse(
+          422,
+          'instrument_retired',
+          'A retired instrument does not take jobs.',
+        )
+      }
+      const minted = await mint(
+        robotAgentTokenName(instrument.display_id ?? instrument.id),
+      )
+      const files = agentFiles({
+        agentSource: await deps.agentSource(),
+        url: origin(request),
+        instrumentName: instrument.name,
+        instrumentId: instrument.id,
+        robot: robot.data.robot,
+        credential: minted.secret,
+        system: robot.data.system satisfies AgentSystem,
+      })
+      return zipResponse(
+        files,
+        `sheetbase-robot-${(instrument.display_id ?? 'agent').toLowerCase()}.zip`,
+      )
+    }
+
     if (rawBody && typeof rawBody === 'object' && 'live' in rawBody) {
       const live = liveDownloadBody.safeParse(rawBody)
       if (!live.success) {

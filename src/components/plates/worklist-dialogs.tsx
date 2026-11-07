@@ -5,6 +5,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
+import {
+  SendToRobotDialog,
+  WorklistJobLine,
+} from '#/components/instruments/robot-section'
 import { RecordPickerDialog } from '#/components/record-picker/record-picker'
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
@@ -372,8 +376,10 @@ export function WorklistDialog({
   } | null>(null)
   const [picking, setPicking] = useState(false)
   const [completing, setCompleting] = useState(false)
+  const [sending, setSending] = useState(false)
 
   useEffect(() => {
+    setSending(false)
     setUnit('ul')
     setLogText(null)
     setWithdraw(true)
@@ -601,6 +607,7 @@ export function WorklistDialog({
                       {t(`plates.worklists.statuses.${worklist.status}`)}
                     </Status>
                   </p>
+                  {isPlanned ? <WorklistJobLine worklistId={worklist.id} /> : null}
                   {worklist.withdrawals ? (
                     <div className="flex flex-col gap-1 text-label">
                       {worklist.withdrawals.withdrawn.length > 0 ? (
@@ -700,6 +707,11 @@ export function WorklistDialog({
                   {t('plates.worklist.download')}
                 </Button>
                 {canWrite && isPlanned ? (
+                  <Button onClick={() => setSending(true)}>
+                    {t('automation.robot.send.button')}
+                  </Button>
+                ) : null}
+                {canWrite && isPlanned ? (
                   <Button variant="primary" onClick={() => setCompleting(true)}>
                     {t('plates.worklists.complete.submit')}
                   </Button>
@@ -724,6 +736,13 @@ export function WorklistDialog({
           )
         }
       />
+      {sending ? (
+        <SendToRobotDialog
+          worklistId={worklist.id}
+          reference={reference}
+          onClose={() => setSending(false)}
+        />
+      ) : null}
     </>
   )
 }

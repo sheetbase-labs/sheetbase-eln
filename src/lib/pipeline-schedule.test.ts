@@ -111,16 +111,17 @@ describe('validateScheduleSpec', () => {
 })
 
 describe('PIPELINE_TRIGGER_EVENTS', () => {
-  it('covers exactly the stable record/dataset/sheet/notebook events with producers', () => {
+  it('covers exactly the stable record/dataset/sheet/notebook, storage alarm and watcher events with producers', () => {
     const expected = EVENT_CATALOGUE.filter(
       (entry) =>
         entry.status === 'stable' &&
         entry.producer !== null &&
         (['record', 'dataset', 'sheet', 'notebook'].includes(entry.family) ||
-          entry.name.startsWith('storage.alarm.')),
+          entry.name.startsWith('storage.alarm.') ||
+          entry.name === 'watcher.finding.created'),
     ).map((entry) => entry.name)
     expect([...PIPELINE_TRIGGER_EVENTS].sort()).toEqual(expected.sort())
-    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(40)
+    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(41)
   })
 
   it('normalizes every triggerable name to itself', () => {

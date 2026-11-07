@@ -91,6 +91,7 @@ export type CatalogueIntroducedIn =
   | 'spend-01'
   | 'scim-01'
   | 'trust-01'
+  | 'agents-01'
 
 /** Which consumers can observe the event today. */
 export interface EventConsumerMap {
@@ -1600,6 +1601,88 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     consumers: webhookSse,
   },
   {
+    name: 'agent.policy.changed',
+    family: 'administration',
+    summary:
+      'An admin changed what agents may do on their own: an action was set to Auto, Ask or Never, for everyone, a role or one service credential.',
+    producer: { entityType: 'agent_action_policy', operation: 'update' },
+    wireName: 'agent.policy.changed',
+    status: 'stable',
+    introducedIn: 'agents-01',
+    consumers: webhookSse,
+    notes:
+      'Payload carries `actionKey`, `subject` (everyone, role or credential), `role`, `credentialId` and the new `level`.',
+  },
+  {
+    name: 'agent.action.requested',
+    family: 'administration',
+    summary:
+      'An agent asked to take an action. `status` says what the workspace setting did with it: pending (waiting for a person), approved (Auto) or refused (Never).',
+    producer: { entityType: 'agent_action_request', operation: 'create' },
+    wireName: 'agent.action.requested',
+    status: 'stable',
+    introducedIn: 'agents-01',
+    consumers: webhookSse,
+    notes: 'Payload carries `requestId`, `actionKey`, `level`, `status` and `summary`.',
+  },
+  {
+    name: 'agent.action.decided',
+    family: 'administration',
+    summary: 'A person approved or rejected an action an agent asked to take.',
+    producer: {
+      entityType: 'agent_action_request',
+      operation: 'update',
+      when: { key: 'event', equals: 'decided' },
+    },
+    wireName: 'agent.action.decided',
+    status: 'stable',
+    introducedIn: 'agents-01',
+    consumers: webhookSse,
+    notes: 'Payload carries `requestId`, `actionKey`, `decision` and `status`.',
+  },
+  {
+    name: 'agent.action.completed',
+    family: 'administration',
+    summary:
+      'An approved agent action was run, and it either worked or failed.',
+    producer: {
+      entityType: 'agent_action_request',
+      operation: 'update',
+      when: { key: 'event', equals: 'completed' },
+    },
+    wireName: 'agent.action.completed',
+    status: 'stable',
+    introducedIn: 'agents-01',
+    consumers: webhookSse,
+    notes: 'Payload carries `requestId`, `actionKey`, `status` and `error`.',
+  },
+  {
+    name: 'ai.eval.completed',
+    family: 'administration',
+    summary:
+      'The assistant checks were run (by hand, or after the AI model or provider changed). The payload has the score and counts.',
+    producer: { entityType: 'ai_eval_run', operation: 'create' },
+    wireName: 'ai.eval.completed',
+    status: 'stable',
+    introducedIn: 'agents-01',
+    consumers: webhookSse,
+    notes:
+      'Payload carries `runId`, `mode` (tools or model), `status`, `passed`, `failed`, `skipped`, `score` and `providerProfile`. Each check is on the `ai_eval_results` resource.',
+  },
+  {
+    name: 'watcher.finding.created',
+    family: 'administration',
+    summary:
+      'A lab watcher found something new: an expiring lot, a low reagent, an overdue experiment, missing data or a result off from past runs.',
+    producer: { entityType: 'lab_watcher_finding', operation: 'create' },
+    wireName: 'watcher.finding.created',
+    status: 'stable',
+    introducedIn: 'agents-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries `findingId`, `watcherId`, `watcherKind`, `objectKind`, `objectId`, `title` and `summary`. A pipeline can run on it.',
+  },
+  {
     name: 'legal_hold.created',
     family: 'compliance',
     summary:
@@ -2051,6 +2134,12 @@ export const INTENTIONALLY_EXCLUDED: readonly ExcludedProducer[] =
  * and pipeline pickers. An event not listed is spelled out from its name.
  */
 const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  'agent.policy.changed': 'What agents may do changes',
+  'agent.action.requested': 'An agent asks to take an action',
+  'agent.action.decided': 'An agent’s action is approved or rejected',
+  'agent.action.completed': 'An agent’s action is run',
+  'ai.eval.completed': 'The assistant checks finish',
+  'watcher.finding.created': 'A lab watcher finds something',
   'validation.run_completed': 'Validation checks finish',
   'signature.timestamped': 'A signature is timestamped',
   'signature.timestamp_failed': 'A signature’s timestamp gives up',

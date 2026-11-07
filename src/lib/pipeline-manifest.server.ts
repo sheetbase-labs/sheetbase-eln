@@ -277,7 +277,7 @@ function quote(name: string): string {
 }
 
 /** Digest of one materialized input table, in a stable row order. */
-async function digestInput(
+export async function digestInput(
   conn: ManifestConnection,
   name: string,
 ): Promise<{ rowCount: number; contentDigest: string }> {

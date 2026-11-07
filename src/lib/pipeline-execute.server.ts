@@ -26,7 +26,10 @@
  * input digest replays the prior success (idempotent); a retry links a new
  * attempt to the failed run.
  */
-import { buildResultPreview } from '#/lib/pipelines/result-preview'
+import {
+  buildResultPreview,
+  readResultPreview,
+} from '#/lib/pipelines/result-preview'
 import {
   PipelinePythonError,
   executePythonTransform,
@@ -35,7 +38,12 @@ import {
 import type { PythonTransformUsage } from './pipeline-python.server'
 import { queuePipelineNotifications } from './pipeline-notifications.server'
 import { executePipelineActions } from './pipeline-actions.server'
-import { recordRunManifest } from './pipeline-manifest.server'
+import {
+  digestInput,
+  digestRows,
+  recordRunManifest,
+} from './pipeline-manifest.server'
+import type { RunManifest } from './pipeline-manifest.server'
 import {
   SandboxSession,
   SandboxUnavailableError,
@@ -56,10 +64,17 @@ import {
   validateConfirmAnswer,
 } from './pipelines/config'
 import type {
+  PipelineReproductionSummary,
+  PipelineReproductionWire,
   PipelineRunWire,
   PipelineTrialLogEntry,
   PipelineTrialWire,
 } from './pipelines/types'
+import {
+  DEFAULT_REPRODUCE_TOLERANCE,
+  diffMatches,
+  diffResultRows,
+} from './pipelines/reproduce-diff'
 import {
   checkTransformStatement,
   substituteParameters,
@@ -98,6 +113,8 @@ export type PipelineErrorCode =
   | 'prompt_expired'
   | 'confirm_expired'
   | 'waiting_expired'
+  | 'run_not_finished'
+  | 'reproduce_no_baseline'
   | 'pipeline_internal'
 
 class PipelineStepError extends Error {
@@ -155,6 +172,8 @@ interface RunRow {
   input_digest: string | null
   parameters: Record<string, unknown>
   input_versions: Record<string, string>
+  /** What the run stored when it finished (the preview of its rows). */
+  result?: Record<string, unknown>
   actor_user_id: string | null
   actor_credential_id: string | null
   version_number: number
@@ -504,6 +523,416 @@ export async function tryPipelineDraft(
     await conn.rollback().catch(() => {})
     await conn.end().catch(() => {})
   }
+}
+
+// ---------------------------------------------------------------------------
+// Reproduce — run a finished run again from what it pinned, into scratch.
+// ---------------------------------------------------------------------------
+
+export interface PipelineReproduceInput {
+  runId: string
+  /** Relative tolerance for numbers; defaults to 1e-9. */
+  tolerance?: number
+}
+
+export interface PipelineReproduceReport {
+  ok: boolean
+  reproduction?: PipelineReproductionWire
+  errorCode?: PipelineErrorCode
+  errorMessage?: string
+}
+
+/** Rows compared one by one; a bigger result is compared by digest alone. */
+const REPRODUCE_COMPARE_ROW_LIMIT = 100_000
+
+interface ReproductionOutcome {
+  status: 'matches' | 'differs' | 'failed'
+  compared: 'dataset_version' | 'preview' | 'digest' | null
+  summary: Partial<PipelineReproductionSummary>
+  changes: unknown[]
+  errorCode: string | null
+  errorMessage: string | null
+}
+
+/**
+ * Re-run a succeeded Pipeline run with the definition version, parameters,
+ * recorded answers and input Dataset Versions it pinned, in a transaction that
+ * is always rolled back: no run, no logs, no Dataset Version, no actions and no
+ * notifications. Then compare with what the run recorded and keep only the
+ * verdict, as a reproduction. Python steps run on the image the pinned
+ * configuration names by digest.
+ */
+export async function reproducePipelineRun(
+  actor: string,
+  input: PipelineReproduceInput,
+  deps: PipelineExecuteDeps,
+): Promise<PipelineReproduceReport> {
+  const tolerance =
+    input.tolerance !== undefined &&
+    Number.isFinite(input.tolerance) &&
+    input.tolerance >= 0
+      ? input.tolerance
+      : DEFAULT_REPRODUCE_TOLERANCE
+  const startedAt = Date.now()
+  const conn = await deps.connect()
+  let workspaceId: string | null = null
+  let outcome: ReproductionOutcome
+  try {
+    await conn.begin()
+    const run = await loadRun(conn, input.runId)
+    if (!run) {
+      return {
+        ok: false,
+        errorCode: 'run_not_found',
+        errorMessage: 'Pipeline run not found.',
+      }
+    }
+    await assertMember(conn, run.workspace_id, actor)
+    await setActorClaims(conn, actor, run.workspace_id)
+    if (run.status !== 'succeeded') {
+      return {
+        ok: false,
+        errorCode: 'run_not_finished',
+        errorMessage:
+          'Only a run that finished successfully can be reproduced.',
+      }
+    }
+    // From here on a failure is a finding about the run, and is kept.
+    workspaceId = run.workspace_id
+    outcome = await reproduceInScratch(conn, run, deps, tolerance)
+  } catch (error) {
+    if (!workspaceId) {
+      return {
+        ok: false,
+        errorCode:
+          error instanceof PipelineStepError ? error.code : 'pipeline_internal',
+        errorMessage: error instanceof Error ? error.message : String(error),
+      }
+    }
+    outcome = {
+      status: 'failed',
+      compared: null,
+      summary: {},
+      changes: [],
+      errorCode:
+        error instanceof PipelineStepError ? error.code : 'pipeline_internal',
+      errorMessage: error instanceof Error ? error.message : String(error),
+    }
+  } finally {
+    // A reproduction leaves nothing behind, whatever happened.
+    await conn.rollback().catch(() => {})
+    await conn.end().catch(() => {})
+  }
+
+  // Only the verdict is kept, in its own short transaction.
+  if (!workspaceId) {
+    return {
+      ok: false,
+      errorCode: 'run_not_found',
+      errorMessage: 'Pipeline run not found.',
+    }
+  }
+  const keep = await deps.connect()
+  try {
+    await keep.begin()
+    await setActorClaims(keep, actor, workspaceId)
+    const { rows } = await keep.query<PipelineReproductionWire>(
+      `SELECT * FROM api.record_pipeline_reproduction($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9)`,
+      [
+        input.runId,
+        outcome.status,
+        tolerance,
+        outcome.compared,
+        JSON.stringify(outcome.summary),
+        JSON.stringify(outcome.changes),
+        outcome.errorCode,
+        outcome.errorMessage ? truncate(outcome.errorMessage, 500) : null,
+        Date.now() - startedAt,
+      ],
+    )
+    await keep.commit()
+    return { ok: true, reproduction: rows[0] }
+  } catch (error) {
+    await keep.rollback().catch(() => {})
+    return {
+      ok: false,
+      errorCode: 'pipeline_internal',
+      errorMessage: error instanceof Error ? error.message : String(error),
+    }
+  } finally {
+    await keep.end().catch(() => {})
+  }
+}
+
+async function reproduceInScratch(
+  conn: ExecConnection,
+  source: RunRow,
+  deps: PipelineExecuteDeps,
+  tolerance: number,
+): Promise<ReproductionOutcome> {
+  const config = parseConfig(source.configuration)
+  const requestErrors = validatePipelineRunRequest(
+    config,
+    source.parameters,
+    source.input_versions,
+  )
+  if (requestErrors.length > 0) {
+    throw new PipelineStepError('invalid_run_request', requestErrors[0].message)
+  }
+  const { rows: manifestRows } = await conn.query<{ manifest: RunManifest }>(
+    `SELECT manifest FROM api.pipeline_run_manifests WHERE run_id = $1`,
+    [source.id],
+  )
+  const manifest = manifestRows[0]?.manifest ?? null
+  // The decisions people gave at confirm steps are replayed, not asked again.
+  const { rows: prompts } = await conn.query<{
+    step_id: string
+    answer: Record<string, unknown>
+  }>(
+    `SELECT step_id, answer FROM api.pipeline_run_prompts
+      WHERE run_id = $1 AND answer IS NOT NULL`,
+    [source.id],
+  )
+  const answered = new Map(prompts.map((p) => [p.step_id, p.answer]))
+
+  const trialLogs: TrialLogEntry[] = []
+  const run: RunRow = { ...source, trial: trialLogs }
+  const materialized = await materializeInputs(conn, run)
+  const inputs: PipelineReproductionSummary['inputs'] = []
+  for (const input of materialized) {
+    const recorded = manifest?.inputs.find((entry) => entry.name === input.name)
+    const digest = recorded ? await digestInput(conn, input.name) : null
+    inputs.push({
+      name: input.name,
+      datasetVersionId: input.datasetVersionId,
+      unchanged:
+        recorded && digest
+          ? recorded.contentDigest === digest.contentDigest
+          : null,
+    })
+  }
+  const transform = await withSandbox(conn, deps, (sandbox) =>
+    executeSteps(
+      conn,
+      run,
+      config,
+      deps.executePython ?? executePythonTransform,
+      sandbox,
+      answered,
+    ),
+  )
+  if (transform.kind === 'error') {
+    return {
+      status: 'failed',
+      compared: null,
+      summary: { inputs },
+      changes: [],
+      errorCode: transform.code,
+      errorMessage: transform.message,
+    }
+  }
+  if (transform.kind !== 'rows') {
+    return {
+      status: 'failed',
+      compared: null,
+      summary: { inputs },
+      changes: [],
+      errorCode: 'run_cancelled',
+      errorMessage: 'The re-run stopped before it produced a result.',
+    }
+  }
+
+  const reproducedRows = transform.rows
+  const reproducedDigest = digestRows(reproducedRows)
+  const originalDigest = manifest?.outputs.contentDigest ?? null
+  const base: Partial<PipelineReproductionSummary> = {
+    inputs,
+    originalDigest,
+    reproducedDigest,
+    originalRows: manifest?.outputs.rowCount ?? 0,
+    reproducedRows: reproducedRows.length,
+  }
+  if (originalDigest !== null && originalDigest === reproducedDigest) {
+    return {
+      status: 'matches',
+      compared: 'digest',
+      summary: {
+        ...base,
+        identical: true,
+        matchedRows: reproducedRows.length,
+        addedRows: 0,
+        removedRows: 0,
+        changedRows: 0,
+        changedCells: 0,
+        columnsAdded: [],
+        columnsRemoved: [],
+        changedColumns: {},
+        largestDelta: {},
+        truncated: false,
+      },
+      changes: [],
+      errorCode: null,
+      errorMessage: null,
+    }
+  }
+
+  // Not byte for byte: find what the run recorded and compare row by row.
+  const baseline = await loadReproductionBaseline(
+    conn,
+    source,
+    config,
+    manifest,
+    reproducedRows,
+  )
+  if (!baseline) {
+    return {
+      status: originalDigest === null ? 'failed' : 'differs',
+      compared: originalDigest === null ? null : 'digest',
+      summary: {
+        ...base,
+        identical: false,
+        note:
+          originalDigest === null
+            ? 'This run recorded no result to compare with.'
+            : 'The result differs, but the run did not keep its rows, so what changed cannot be shown.',
+      },
+      changes: [],
+      errorCode: originalDigest === null ? 'reproduce_no_baseline' : null,
+      errorMessage:
+        originalDigest === null
+          ? 'This run recorded no result to compare with.'
+          : null,
+    }
+  }
+  const diff = diffResultRows(baseline.original, baseline.reproduced, tolerance)
+  const { examples, ...counts } = diff
+  return {
+    status: diffMatches(diff) ? 'matches' : 'differs',
+    compared: baseline.compared,
+    summary: {
+      ...base,
+      ...counts,
+      originalRows: baseline.originalTotal,
+      identical: false,
+      ...(baseline.note ? { note: baseline.note } : {}),
+    },
+    changes: examples,
+    errorCode: null,
+    errorMessage: null,
+  }
+}
+
+/**
+ * The rows to compare: the Dataset Version the run wrote when it holds exactly
+ * the run's result; otherwise the preview the run stored (its first rows).
+ * Both sides are keyed by the output field names, so the comparison reads like
+ * the Dataset.
+ */
+async function loadReproductionBaseline(
+  conn: ExecConnection,
+  source: RunRow,
+  config: PipelineConfig,
+  manifest: RunManifest | null,
+  reproducedRows: Array<Record<string, unknown>>,
+): Promise<{
+  compared: 'dataset_version' | 'preview'
+  original: Array<Record<string, unknown>>
+  reproduced: Array<Record<string, unknown>>
+  originalTotal: number
+  note?: string
+} | null> {
+  const { rows: outputs } = await conn.query<{ dataset_version_id: string }>(
+    `SELECT dataset_version_id FROM api.pipeline_run_outputs
+      WHERE run_id = $1 ORDER BY created_at LIMIT 1`,
+    [source.id],
+  )
+  const versionId = outputs[0]?.dataset_version_id
+  const expectedRows = manifest?.outputs.rowCount ?? null
+  if (versionId && reproducedRows.length <= REPRODUCE_COMPARE_ROW_LIMIT) {
+    const version = await loadInputVersion(conn, source.workspace_id, versionId)
+    if (version) {
+      const fields = await loadSchemaFields(conn, version.schema_version_id)
+      const count = await countInputRows(conn, version.id)
+      // An appending pipeline's version also holds earlier runs' rows; only a
+      // version that is exactly this run's result can be compared whole.
+      if (
+        fields.length > 0 &&
+        count <= REPRODUCE_COMPARE_ROW_LIMIT &&
+        (expectedRows === null || expectedRows === count)
+      ) {
+        const columns = fields.map((f) => ({
+          slug: f.key,
+          logicalType: f.logical_type,
+          fieldId: f.field_id,
+        }))
+        await conn.query(buildInputTableDdl('_sb_reproduce_original', columns))
+        await materializeInputRows(
+          conn,
+          '_sb_reproduce_original',
+          version,
+          columns,
+        )
+        const { rows } = await conn.query<{ row: Record<string, unknown> }>(
+          `SELECT row_to_json(t) AS row FROM pg_temp._sb_reproduce_original t ORDER BY "_sb_row_id"`,
+        )
+        const original = rows.map((entry) => {
+          const {
+            _sb_row_id: _id,
+            _sb_row_revision: _rev,
+            ...values
+          } = entry.row
+          return values
+        })
+        return {
+          compared: 'dataset_version',
+          original,
+          reproduced: toOutputFieldRows(config, fields, reproducedRows),
+          originalTotal: count,
+        }
+      }
+    }
+  }
+  const preview = readResultPreview(source.result ?? {})
+  if (preview && preview.columns.length > 0) {
+    const original = preview.rows.map((cells) =>
+      Object.fromEntries(preview.columns.map((c, i) => [c, cells[i]])),
+    )
+    const shown = reproducedRows.slice(0, preview.rows.length)
+    return {
+      compared: 'preview',
+      original,
+      reproduced: shown.map((row) =>
+        Object.fromEntries(preview.columns.map((c) => [c, row[c] ?? null])),
+      ),
+      originalTotal: preview.rowCount,
+      note: `Compared the first ${preview.rows.length} rows only; the run did not keep its full result.`,
+    }
+  }
+  return null
+}
+
+/** Reproduced result rows keyed the way the output Dataset keys them. */
+function toOutputFieldRows(
+  config: PipelineConfig,
+  fields: SchemaFieldRow[],
+  rows: Array<Record<string, unknown>>,
+): Array<Record<string, unknown>> {
+  const mapping = config.output.fieldMapping ?? {}
+  const byKey = new Map(fields.map((f) => [f.key, f]))
+  return rows.map((row) => {
+    const out: Record<string, unknown> = {}
+    for (const [column, raw] of Object.entries(row)) {
+      const field = byKey.get(mapping[column] ?? column)
+      if (!field) continue
+      if (raw === null || raw === undefined) {
+        out[field.key] = null
+        continue
+      }
+      const value = coerceValue(field.logical_type, raw)
+      out[field.key] = value === COERCE_ERROR ? raw : value
+    }
+    return out
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -1410,7 +1839,7 @@ async function loadRun(
     `SELECT r.id, r.workspace_id, r.definition_version_id, r.trigger_kind,
             r.status, r.attempt, r.retry_of_run_id, r.trigger_occurrence_id,
             r.schedule_id, r.input_digest,
-            r.parameters, r.input_versions, r.actor_user_id, r.actor_credential_id,
+            r.parameters, r.input_versions, r.result, r.actor_user_id, r.actor_credential_id,
             v.version AS version_number, v.configuration, d.name AS definition_name
        FROM api.pipeline_runs r
        JOIN api.pipeline_definition_versions v ON v.id = r.definition_version_id

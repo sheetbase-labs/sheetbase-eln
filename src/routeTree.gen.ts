@@ -116,6 +116,7 @@ import { Route as ApiParsersWebhookRouteImport } from './routes/api/parsers/webh
 import { Route as ApiPipelinesExecuteRouteImport } from './routes/api/pipelines/execute'
 import { Route as ApiPipelinesManifestRouteImport } from './routes/api/pipelines/manifest'
 import { Route as ApiPipelinesPythonTestRouteImport } from './routes/api/pipelines/python-test'
+import { Route as ApiPipelinesReproduceRouteImport } from './routes/api/pipelines/reproduce'
 import { Route as ApiPipelinesRuntimeRouteImport } from './routes/api/pipelines/runtime'
 import { Route as ApiPipelinesTryDraftRouteImport } from './routes/api/pipelines/try-draft'
 import { Route as ApiSignaturesStepUpRouteImport } from './routes/api/signatures/step-up'
@@ -766,6 +767,11 @@ const ApiPipelinesManifestRoute = ApiPipelinesManifestRouteImport.update({
 const ApiPipelinesPythonTestRoute = ApiPipelinesPythonTestRouteImport.update({
   id: '/api/pipelines/python-test',
   path: '/api/pipelines/python-test',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPipelinesReproduceRoute = ApiPipelinesReproduceRouteImport.update({
+  id: '/api/pipelines/reproduce',
+  path: '/api/pipelines/reproduce',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPipelinesRuntimeRoute = ApiPipelinesRuntimeRouteImport.update({
@@ -1504,6 +1510,7 @@ export interface FileRoutesByFullPath {
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/manifest': typeof ApiPipelinesManifestRoute
   '/api/pipelines/python-test': typeof ApiPipelinesPythonTestRoute
+  '/api/pipelines/reproduce': typeof ApiPipelinesReproduceRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/api/pipelines/try-draft': typeof ApiPipelinesTryDraftRoute
   '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
@@ -1716,6 +1723,7 @@ export interface FileRoutesByTo {
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/manifest': typeof ApiPipelinesManifestRoute
   '/api/pipelines/python-test': typeof ApiPipelinesPythonTestRoute
+  '/api/pipelines/reproduce': typeof ApiPipelinesReproduceRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/api/pipelines/try-draft': typeof ApiPipelinesTryDraftRoute
   '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
@@ -1938,6 +1946,7 @@ export interface FileRoutesById {
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/manifest': typeof ApiPipelinesManifestRoute
   '/api/pipelines/python-test': typeof ApiPipelinesPythonTestRoute
+  '/api/pipelines/reproduce': typeof ApiPipelinesReproduceRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/api/pipelines/try-draft': typeof ApiPipelinesTryDraftRoute
   '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
@@ -2164,6 +2173,7 @@ export interface FileRouteTypes {
     | '/api/pipelines/execute'
     | '/api/pipelines/manifest'
     | '/api/pipelines/python-test'
+    | '/api/pipelines/reproduce'
     | '/api/pipelines/runtime'
     | '/api/pipelines/try-draft'
     | '/api/signatures/step-up'
@@ -2376,6 +2386,7 @@ export interface FileRouteTypes {
     | '/api/pipelines/execute'
     | '/api/pipelines/manifest'
     | '/api/pipelines/python-test'
+    | '/api/pipelines/reproduce'
     | '/api/pipelines/runtime'
     | '/api/pipelines/try-draft'
     | '/api/signatures/step-up'
@@ -2597,6 +2608,7 @@ export interface FileRouteTypes {
     | '/api/pipelines/execute'
     | '/api/pipelines/manifest'
     | '/api/pipelines/python-test'
+    | '/api/pipelines/reproduce'
     | '/api/pipelines/runtime'
     | '/api/pipelines/try-draft'
     | '/api/signatures/step-up'
@@ -2800,6 +2812,7 @@ export interface RootRouteChildren {
   ApiPipelinesExecuteRoute: typeof ApiPipelinesExecuteRoute
   ApiPipelinesManifestRoute: typeof ApiPipelinesManifestRoute
   ApiPipelinesPythonTestRoute: typeof ApiPipelinesPythonTestRoute
+  ApiPipelinesReproduceRoute: typeof ApiPipelinesReproduceRoute
   ApiPipelinesRuntimeRoute: typeof ApiPipelinesRuntimeRoute
   ApiPipelinesTryDraftRoute: typeof ApiPipelinesTryDraftRoute
   ApiSignaturesStepUpRoute: typeof ApiSignaturesStepUpRoute
@@ -3575,6 +3588,13 @@ declare module '@tanstack/react-router' {
       path: '/api/pipelines/python-test'
       fullPath: '/api/pipelines/python-test'
       preLoaderRoute: typeof ApiPipelinesPythonTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pipelines/reproduce': {
+      id: '/api/pipelines/reproduce'
+      path: '/api/pipelines/reproduce'
+      fullPath: '/api/pipelines/reproduce'
+      preLoaderRoute: typeof ApiPipelinesReproduceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/pipelines/runtime': {
@@ -4973,6 +4993,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPipelinesExecuteRoute: ApiPipelinesExecuteRoute,
   ApiPipelinesManifestRoute: ApiPipelinesManifestRoute,
   ApiPipelinesPythonTestRoute: ApiPipelinesPythonTestRoute,
+  ApiPipelinesReproduceRoute: ApiPipelinesReproduceRoute,
   ApiPipelinesRuntimeRoute: ApiPipelinesRuntimeRoute,
   ApiPipelinesTryDraftRoute: ApiPipelinesTryDraftRoute,
   ApiSignaturesStepUpRoute: ApiSignaturesStepUpRoute,

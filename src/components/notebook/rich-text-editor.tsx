@@ -301,6 +301,15 @@ function createDecorationPlugins(
   ]
 }
 
+/** The router, or null where the editor is shown outside an app (tests, docs). */
+function useOptionalRouter() {
+  try {
+    return useRouter()
+  } catch {
+    return null
+  }
+}
+
 export function RichTextEditor({
   payload,
   onChange,
@@ -363,7 +372,7 @@ export function RichTextEditor({
   const knownRefsRef = React.useRef<ReadonlyMap<string, string>>(knownRefs)
   knownRefsRef.current = knownRefs
   const workspace = useWorkspaceNavigation()
-  const router = useRouter()
+  const router = useOptionalRouter()
   const followRef = React.useRef<
     (href: string, event: MouseEvent, editable: boolean) => boolean
   >(() => false)
@@ -373,7 +382,8 @@ export function RichTextEditor({
       return false
     if (openBesideOnAlt(workspace, href, event)) return true
     event.preventDefault()
-    void router.navigate({ href })
+    if (router) void router.navigate({ href })
+    else window.location.assign(href)
     return true
   }
   const decorationPlugins = React.useRef(

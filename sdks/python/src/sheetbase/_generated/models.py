@@ -115,6 +115,7 @@ __all__ = [
     "DatasetsRowInsert",
     "DeleteBlockParams",
     "DeleteExperimentPartParams",
+    "DeleteLineageTargetParams",
     "DeleteQcSeriesParams",
     "DeleteSavedSearchParams",
     "DeleteScheduledReportParams",
@@ -126,6 +127,7 @@ __all__ = [
     "EndRecurringScheduleParams",
     "EndStepTimerParams",
     "EnrolSampleInWorkflowParams",
+    "EventStreamPageParams",
     "ExperimentPartsRow",
     "ExperimentSeriesMembersRow",
     "ExperimentSeriesRow",
@@ -165,6 +167,8 @@ __all__ = [
     "LeaveSampleWorkflowParams",
     "LegalHoldRecordsRow",
     "LegalHoldsRow",
+    "LineageDeliveriesRow",
+    "LineageTargetsRow",
     "ListInstrumentFeedSeriesParams",
     "ListWebhookDeliveriesParams",
     "LogInstrumentServiceParams",
@@ -199,6 +203,7 @@ __all__ = [
     "PartsInRangeParams",
     "PipelineDefinitionVersionsRow",
     "PipelineDefinitionsRow",
+    "PipelineReproductionsRow",
     "PipelineRunLogsRow",
     "PipelineRunOutputsRow",
     "PipelineRunsRow",
@@ -275,6 +280,7 @@ __all__ = [
     "RestoreSheetInstanceParams",
     "RetentionDueParams",
     "RetentionRulesRow",
+    "RetryLineageDeliveriesParams",
     "ReviewCoverRow",
     "RevisionsRow",
     "RevokeScimTokenParams",
@@ -286,6 +292,7 @@ __all__ = [
     "SampleWorkflowStagesRow",
     "SampleWorkflowTransitionsRow",
     "SampleWorkflowsRow",
+    "SaveLineageTargetParams",
     "SavePlateRunAnalysisParams",
     "SaveSampleWorkflowParams",
     "SaveScheduledReportParams",
@@ -301,6 +308,7 @@ __all__ = [
     "SeriesMembersParams",
     "SeriesRollupParams",
     "SetBlockPartParams",
+    "SetEventStreamRetentionParams",
     "SetFieldSpecLimitsParams",
     "SetIdpGroupMappingParams",
     "SetInstrumentBookingRulesParams",
@@ -1509,6 +1517,50 @@ class LegalHoldsRow(_LegalHoldsRowRequired, total=False):
     release_note: Optional[str]
 
 
+class _LineageDeliveriesRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    target_id: str
+    change_event_id: str
+    event_type: str
+    job_name: str
+    run_id: str
+    body: Dict[str, "JsonValue"]
+    status: str
+    attempts: int
+    next_attempt_at: str
+    created_at: str
+
+
+class LineageDeliveriesRow(_LineageDeliveriesRowRequired, total=False):
+    """`api.lineage_deliveries` row (snake_case). Each lineage event waiting to go to, or sent to, an endpoint. `status` is pending, delivered or failed; a failed one can be tried again with `retry_lineage_deliveries`."""
+    http_status: Optional[int]
+    last_error: Optional[str]
+    delivered_at: Optional[str]
+
+
+class _LineageTargetsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    name: str
+    endpoint_url: str
+    namespace: str
+    auth_header_name: str
+    has_secret: bool
+    enabled: bool
+    last_sequence: int
+    created_at: str
+    updated_at: str
+
+
+class LineageTargetsRow(_LineageTargetsRowRequired, total=False):
+    """`api.lineage_targets` row (snake_case). A place lineage events (OpenLineage) are sent: its address, namespace, the name of the header it signs with (the value is never shown) and whether it is switched on. Only people who manage integrations see these."""
+    last_test_at: Optional[str]
+    last_test_ok: Optional[bool]
+    last_test_message: Optional[str]
+    created_by_user_id: Optional[str]
+
+
 class _MaterialIngredientsRowRequired(TypedDict):
     id: str
     workspace_id: str
@@ -1776,6 +1828,27 @@ class PipelineDefinitionsRow(_PipelineDefinitionsRowRequired, total=False):
     display_id: Optional[str]
     created_by_user_id: Optional[str]
     updated_by_user_id: Optional[str]
+
+
+class _PipelineReproductionsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    source_run_id: str
+    definition_version_id: str
+    status: str
+    tolerance: float
+    summary: Dict[str, "JsonValue"]
+    changes: Dict[str, "JsonValue"]
+    created_at: str
+
+
+class PipelineReproductionsRow(_PipelineReproductionsRowRequired, total=False):
+    """`api.pipeline_reproductions` row (snake_case). A finished pipeline run run again from its pinned version, parameters and inputs, and compared with the original. `status` is matches, differs or failed; `compared` says what it was compared against (the output dataset version, the stored preview, or the content digest); `summary` has the counts and `changes` the first differences."""
+    compared: Optional[str]
+    error_code: Optional[str]
+    error_message: Optional[str]
+    duration_ms: Optional[int]
+    requested_by_user_id: Optional[str]
 
 
 class PipelineRunLogsRow(TypedDict):
@@ -3572,6 +3645,10 @@ class DeleteExperimentPartParams(_DeleteExperimentPartParamsRequired, total=Fals
     p_move_blocks_to: str
 
 
+class DeleteLineageTargetParams(TypedDict):
+    p_id: str
+
+
 class DeleteQcSeriesParams(TypedDict):
     p_series_id: str
 
@@ -3623,6 +3700,12 @@ class EndStepTimerParams(TypedDict):
 class EnrolSampleInWorkflowParams(TypedDict):
     p_record_id: str
     p_workflow_id: str
+
+
+class EventStreamPageParams(TypedDict, total=False):
+    p_after: int
+    p_limit: int
+    p_entity_types: List[str]
 
 
 class _FinishAgentActionParamsRequired(TypedDict):
@@ -4161,6 +4244,10 @@ class RetentionDueParams(TypedDict, total=False):
     p_kind: str
 
 
+class RetryLineageDeliveriesParams(TypedDict):
+    p_target_id: str
+
+
 class RevokeScimTokenParams(TypedDict):
     p_id: str
 
@@ -4185,6 +4272,19 @@ class _RunSavedSearchParamsRequired(TypedDict):
 class RunSavedSearchParams(_RunSavedSearchParamsRequired, total=False):
     p_limit: int
     p_offset: int
+
+
+class _SaveLineageTargetParamsRequired(TypedDict):
+    p_workspace_id: str
+    p_name: str
+    p_endpoint_url: str
+
+
+class SaveLineageTargetParams(_SaveLineageTargetParamsRequired, total=False):
+    p_id: str
+    p_namespace: str
+    p_auth_header_name: str
+    p_enabled: bool
 
 
 class _SavePlateRunAnalysisParamsRequired(TypedDict):
@@ -4269,6 +4369,11 @@ class SeriesRollupParams(TypedDict):
 class SetBlockPartParams(TypedDict):
     p_block_id: str
     p_part_id: str
+
+
+class SetEventStreamRetentionParams(TypedDict):
+    p_workspace_id: str
+    p_days: int
 
 
 class _SetFieldSpecLimitsParamsRequired(TypedDict):

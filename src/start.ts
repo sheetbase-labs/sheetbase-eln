@@ -200,6 +200,15 @@ const scheduleMiddleware = createMiddleware().server(async ({ next }) => {
   return next()
 })
 
+// Open tables: keeps each enabled workspace's Parquet lake up to date. Does
+// nothing until an admin turns it on. Guarded like the other schedulers.
+const lakeMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startLakeScheduler } =
+    await import('#/lib/lake/lake-scheduler.server')
+  startLakeScheduler()
+  return next()
+})
+
 // Workspace backups: the same archive as the whole-workspace export, made on
 // each workspace's schedule and kept to the newest few. Guarded like the other
 // schedulers and never started under test runners unless explicitly enabled.
@@ -299,6 +308,7 @@ export const startInstance = createStart(() => ({
     timestampMiddleware,
     lineageMiddleware,
     scheduleMiddleware,
+    lakeMiddleware,
     backupSchedulerMiddleware,
     webhookDeliveryMiddleware,
     csrfMiddleware,

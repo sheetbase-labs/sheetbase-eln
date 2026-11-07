@@ -2990,6 +2990,12 @@ export const data = {
       'Workspace-built integration using the generic run model.',
   },
   pipelineActions: {
+    sendWorklistToInstrument: 'Send worklist to instrument',
+    sendWorklistToInstrumentDescription:
+      'Queue a planned worklist for a robot. The agent puts it on the robot and a person presses Start in Sheetbase.',
+    requestSchedule: 'Request a schedule',
+    requestScheduleDescription:
+      'Ask the scheduler to propose bookings for the parts of an experiment. Nothing is booked until a person accepts the proposal.',
     reproduceRun: 'Reproduce a run',
     reproduceRunDescription:
       'Run a finished pipeline run again from its pinned version, settings and inputs in scratch space and record whether the result matches.',

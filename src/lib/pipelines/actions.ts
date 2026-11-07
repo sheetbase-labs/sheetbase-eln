@@ -247,6 +247,26 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
     'instrument_rate.set',
   ),
   definition(
+    'queue_instrument_job',
+    t('data.pipelineActions.sendWorklistToInstrument'),
+    t('data.pipelineActions.sendWorklistToInstrumentDescription'),
+    [
+      arg('p_instrument_id', 'uuid'),
+      arg('p_worklist_id', 'uuid'),
+      arg('p_note', 'text', false, true),
+    ],
+  ),
+  definition(
+    'request_schedule_proposal',
+    t('data.pipelineActions.requestSchedule'),
+    t('data.pipelineActions.requestScheduleDescription'),
+    [
+      arg('p_record_id', 'uuid'),
+      arg('p_reason', 'text', false, true),
+      arg('p_slipped_part_id', 'uuid', false, true),
+    ],
+  ),
+  definition(
     'request_pipeline_reproduction',
     t('data.pipelineActions.reproduceRun'),
     t('data.pipelineActions.reproduceRunDescription'),

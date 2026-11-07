@@ -836,6 +836,19 @@ export function extractBlockText(
         .map((field) => extractStringField(payload, field))
         .filter(Boolean)
         .join(' ')
+    case 'sequence':
+      return [
+        ...['title', 'caption', 'name', 'registryIdentifier'].map((field) =>
+          extractStringField(payload, field),
+        ),
+        extractFromArrayField(payload, 'features', ['label', 'type']),
+        extractFromArrayField(payload, 'primers', ['name', 'seq']),
+        extractFromArrayField(payload, 'plans', ['name']),
+        extractFromArrayField(payload, 'reads', ['name']),
+        extractFromArrayField(payload, 'products', ['identifier', 'title']),
+      ]
+        .filter(Boolean)
+        .join(' ')
     case 'reaction':
       return [
         extractStringField(payload, 'title'),

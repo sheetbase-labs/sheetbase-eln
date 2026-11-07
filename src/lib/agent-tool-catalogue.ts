@@ -63,6 +63,9 @@ export const ASSISTANT_READ_TOOL_NAMES = [
   'sheetbase.storage.readings',
   'sheetbase.compound.search',
   'sheetbase.compound.check',
+  // Pure calculation on DNA the person supplies: sites, digests, primers,
+  // cloning products, alignment, Sanger reads (mcp/sequence.ts).
+  'sheetbase.sequence.analyse',
   'sheetbase.dataset_rows.query',
   'sheetbase.dataset_version_rows.query',
   'sheetbase.sheet_instance_rows.query',

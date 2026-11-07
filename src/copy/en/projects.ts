@@ -3446,6 +3446,7 @@ export const projects = {
     structure: 'Structure',
     reaction: 'Reaction',
     codeCell: 'Code cell',
+    sequence: 'Sequence',
     file: 'File',
     linkedRecord: 'Linked record',
     protocolReference: 'Protocol reference',

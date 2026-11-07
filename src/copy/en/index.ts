@@ -13,6 +13,7 @@ import { common } from './common'
 import { contracts } from './contracts'
 import { data } from './data'
 import { library } from './library'
+import { molbio } from './molbio'
 import { notebook } from './notebook'
 import { openData } from './open-data'
 import { people } from './people'
@@ -50,6 +51,7 @@ export const en = {
   shipments,
   plates,
   sequences,
+  molbio,
   safety,
   spend,
   pwa,

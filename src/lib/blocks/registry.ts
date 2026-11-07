@@ -43,6 +43,7 @@ import {
 } from './rich-text'
 import { EMPTY_CONCLUSION_PAYLOAD } from '../conclusion-block'
 import { EMPTY_REACTION_PAYLOAD, EMPTY_STRUCTURE_PAYLOAD } from '../chemistry'
+import { EMPTY_SEQUENCE_PAYLOAD } from '../sequence-block'
 import {
   EMPTY_CORRECTIVE_ACTIONS_PAYLOAD,
   EMPTY_SIGNATURE_REQUEST_PAYLOAD,
@@ -77,6 +78,7 @@ export type BlockType =
   | 'reaction'
   | 'code_cell'
   | 'gate'
+  | 'sequence'
 
 /**
  * The allow-list, in the order `chk_blocks_type` names them. A type not in this
@@ -106,6 +108,7 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   'reaction',
   'code_cell',
   'gate',
+  'sequence',
 ]
 
 /** Membership index for the allow-list; each key is a stored block type. */
@@ -357,6 +360,28 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     ],
   },
   {
+    type: 'sequence',
+    label: t('notebook.blockRegistry.sequenceLabel'),
+    description: t('notebook.blockRegistry.sequenceDescription'),
+    icon: 'dna',
+    group: 'evidence',
+    aliases: [
+      'dna',
+      'plasmid',
+      'primer',
+      'digest',
+      'restriction',
+      'gibson',
+      'golden gate',
+      'cloning',
+      'sanger',
+      'genbank',
+      'fasta',
+      'construct',
+      'gel',
+    ],
+  },
+  {
     type: 'pipeline_output',
     label: t('notebook.blockRegistry.pipelineOutputLabel'),
     description: t('notebook.blockRegistry.referenceAPipelineRunDescription'),
@@ -531,6 +556,21 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
             ? payload.title
             : t('notebook.blockRegistry.reactionLabel'),
         count: Array.isArray(payload.rows) ? payload.rows.length : 0,
+      }),
+  },
+  sequence: {
+    editable: true,
+    defaultPayload: () => ({ ...EMPTY_SEQUENCE_PAYLOAD, features: [] }),
+    summary: (payload) =>
+      t('notebook.blockRegistry.sequenceSummary', {
+        title:
+          typeof payload.title === 'string' && payload.title
+            ? payload.title
+            : typeof payload.name === 'string' && payload.name
+              ? payload.name
+              : t('notebook.blockRegistry.sequenceLabel'),
+        length:
+          typeof payload.residues === 'string' ? payload.residues.length : 0,
       }),
   },
   metric: { editable: true, defaultPayload: () => ({}) },

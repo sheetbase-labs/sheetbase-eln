@@ -1,3 +1,5 @@
+import { sequenceFingerprint } from './bio-registry'
+import { cleanDna } from './molbio/dna'
 import {
   BOOKING_RULES_SET_TOOL,
   COMPOUND_LOT_TOOL,
@@ -142,7 +144,7 @@ export function labworkProposalDefs(): ProviderToolDef[] {
     ),
     toolDef(
       REGISTRY_ADD_TOOL,
-      `Propose adding an entry to a registry (cell lines, constructs, antibodies and so on), filled in only from what the person said. Duplicates are refused. ${NOTE}`,
+      `Propose adding an entry to a registry (cell lines, constructs, antibodies and so on), filled in only from what the person said. For a construct or other sequence entry, pass the sequence (the same sequence is refused as a duplicate, from either strand or any start) and the entries it was built from. Duplicates are refused. ${NOTE}`,
       proposeRegistryAddSchema,
     ),
     toolDef(
@@ -690,6 +692,73 @@ export async function buildLabworkProposal(
         customFields[def.fieldName] = value
         changes.push({ label: def.label, before: null, after: String(value) })
       }
+      if (input.sequence) {
+        const models = await client.list<{
+          registry_sequence_field: string | null
+        }>(
+          'record_models',
+          `?key=eq.${encodeURIComponent(registry.value.key)}&select=registry_sequence_field&limit=1`,
+        )
+        const field = models.at(0)?.registry_sequence_field
+        if (!field)
+          return fail(
+            `${registry.value.name} does not keep a sequence. Pick a registry that does, or leave the sequence out.`,
+          )
+        const residues = cleanDna(input.sequence)
+        if (residues.length < 10)
+          return fail('That sequence is too short to register.')
+        const topology = input.topology ?? 'circular'
+        customFields[field] = await sequenceFingerprint({
+          name: input.name,
+          description: '',
+          organism: null,
+          molecule: 'dna',
+          topology,
+          length: residues.length,
+          residues,
+          features: [],
+        })
+        if (registry.value.key === 'construct') {
+          customFields.sequence_length = String(residues.length)
+          customFields.shape = topology
+        }
+        changes.push({
+          label: 'Sequence',
+          before: null,
+          after: `${residues.length} bp, ${topology}`,
+        })
+      }
+      const parents: { recordId: string; role: string }[] = []
+      for (const wanted of input.parents ?? []) {
+        const like = likeValue(wanted.record)
+        const found = await client.list<{
+          id: string
+          identifier: string
+          title: string
+        }>(
+          'records',
+          `?deleted_at=is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title&order=updated_at.desc&limit=5`,
+        )
+        const exact = found.find(
+          (row) =>
+            row.identifier.toLowerCase() === wanted.record.trim().toLowerCase(),
+        )
+        const one = exact ?? (found.length === 1 ? found[0] : undefined)
+        if (!one)
+          return fail(
+            found.length === 0
+              ? `No entry matches "${wanted.record}".`
+              : `More than one entry matches "${wanted.record}": ${found
+                  .map((row) => `${row.identifier} ${row.title}`)
+                  .join(', ')}. Ask which one.`,
+          )
+        parents.push({ recordId: one.id, role: wanted.role ?? 'parent' })
+        changes.push({
+          label: `Built from (${wanted.role ?? 'parent'})`,
+          before: null,
+          after: `${one.identifier} · ${one.title}`,
+        })
+      }
       const twins = await client.rpc<
         { identifier: string; title: string; match: string }[]
       >('registry_find_duplicates', {
@@ -716,6 +785,7 @@ export async function buildLabworkProposal(
           recordKind: registry.value.key,
           title: input.name.trim(),
           customFields,
+          ...(parents.length > 0 ? { parents } : {}),
         },
       })
     }

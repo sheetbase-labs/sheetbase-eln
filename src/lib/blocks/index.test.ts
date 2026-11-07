@@ -315,6 +315,13 @@ describe('block payload validation (ELN-002)', () => {
           { id: 'a', role: 'reactant', name: 'Salicylic acid', mw: 138.12 },
         ],
       },
+      sequence: {
+        name: 'pUC19',
+        molecule: 'dna',
+        topology: 'circular',
+        residues: 'ATGCATGCATGC',
+        features: [],
+      },
       linked_record: {
         targetKind: 'sample',
         targetIdentifier: 'SMP-1',

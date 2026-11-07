@@ -69,6 +69,7 @@ export const BLOCK_SECTION_MAP: Record<string, SectionId> = {
   structure: 'visualizations',
   reaction: 'visualizations',
   code_cell: 'visualizations',
+  sequence: 'visualizations',
   metric: 'metrics',
   file: 'files',
   linked_record: 'links',

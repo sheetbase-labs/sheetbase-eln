@@ -67,6 +67,13 @@ assistant they are the “Send to robot”, “Plan schedule” and “Accept an
 (`sheetbase.robot.send_worklist`, `sheetbase.schedule.plan`,
 `sheetbase.schedule.accept`).
 
+`sheetbase.sequence.analyse` does molecular biology on DNA the caller sends:
+restriction maps, digests and gel bands, primer design and checks, PCR,
+digest-and-ligate, Golden Gate and Gibson products, alignment and Sanger read
+checks. It is pure calculation (nothing read or stored), so any read credential
+can call it. Sequence blocks are ordinary notebook blocks (see
+`docs/api/sequence-blocks-api.md`).
+
 The admin read tool covers the tables that are not on the external allowlist:
 workspace settings/counts, members, credential metadata (owner only),
 connectors, pipeline runs and schedules, instrument metadata, protocol

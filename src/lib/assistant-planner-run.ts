@@ -4,6 +4,7 @@ import {
   requestRound,
   startCampaign,
 } from './campaigns/data'
+import { setModelFeature } from './features/data'
 import type { DataClient } from './data-client'
 import { applyPlan, createPlan } from './planner/data'
 import type { PlannerAction, PlannerActionResult } from './assistant-planner'
@@ -24,6 +25,14 @@ export async function runPlannerAction(
       const result = await applyPlan(client, plan.id)
       return { openHref: `/experiments/${result.recordId}` }
     }
+    case 'model.feature':
+      await setModelFeature(
+        client,
+        action.modelKey,
+        action.feature,
+        action.enabled,
+      )
+      return { openHref: '/models' }
     case 'campaign.start':
       await startCampaign(client, action.recordId)
       return { openHref: `/campaigns/${action.recordId}` }

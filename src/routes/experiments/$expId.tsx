@@ -2,6 +2,7 @@ import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { RecordUnavailable } from '#/components/ui/record-unavailable'
 import { useQuery } from '@tanstack/react-query'
 
+import { PublishControl } from '#/components/open-data/publish-control'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { PageHeader } from '#/components/ui/layout'
 import { Tabs } from '#/components/ui/tabs'
@@ -328,6 +329,13 @@ function ExperimentLayout() {
                 canWrite={canWrite}
                 nextStep={nextStep}
                 reviewRevisionId={reviewRevisionId}
+              />
+              <PublishControl
+                workspaceId={context.workspace?.id ?? ''}
+                kind="experiment"
+                objectId={e.id}
+                defaultTitle={e.title}
+                canPublish={canWrite}
               />
               <AskAiButton />
             </>

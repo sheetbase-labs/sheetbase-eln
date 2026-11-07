@@ -194,6 +194,14 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
   {
     place: 'workspace',
     cluster: HEALTH,
+    label: 'Open data',
+    link: { to: '/settings/workspace/open-data' },
+    match: (p) => p.startsWith('/settings/workspace/open-data'),
+    area: 'integrations',
+  },
+  {
+    place: 'workspace',
+    cluster: HEALTH,
     label: 'Audit and retention',
     link: { to: '/settings/workspace/audit' },
     match: (p) =>

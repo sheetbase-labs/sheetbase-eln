@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { Status } from '#/components/ui/status'
+import { hasCapability } from '#/lib/capability'
+import { OntologyTerms } from '#/components/open-data/ontology-terms'
 import { isUuid } from '#/lib/field-value-validation'
 import { RecordModelFields } from '#/components/models/record-model-fields-tab'
 import { builtInModel } from '#/lib/built-in-models'
@@ -98,6 +100,7 @@ function fieldTypeLabel(field: CanonicalDatasetSchemaField): string {
 }
 
 function ModelFields() {
+  const { context } = Route.useRouteContext()
   const { modelId } = Route.useParams()
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
@@ -336,6 +339,15 @@ function ModelFields() {
             {sel.description ? (
               <Muted className="mt-2">{sel.description}</Muted>
             ) : null}
+          </InspectorSection>
+          <InspectorSection title={t('openData.picker.label')}>
+            <OntologyTerms
+              key={sel.field_id}
+              workspaceId={context.workspace?.id ?? ''}
+              kind="model_field"
+              targetId={sel.field_id}
+              canEdit={hasCapability(context.workspace?.role, 'record.create')}
+            />
           </InspectorSection>
           <InspectorSection title={t('library.models.fields.validation')}>
             {sel.validation && Object.keys(sel.validation).length ? (

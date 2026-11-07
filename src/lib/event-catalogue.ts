@@ -2021,6 +2021,56 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     consumers: webhookSse,
   },
   {
+    name: 'instrument.run.converted',
+    family: 'instrument',
+    summary:
+      'An instrument file was converted to an Allotrope (ASM) document and kept with its run.',
+    producer: {
+      entityType: 'instrument_run_document',
+      operation: 'create',
+    },
+    wireName: 'instrument.run.converted',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries runId, instrumentId, format, technique, vendor, converter, converterVersion and measurements. The document itself is on the instrument_run_documents resource.',
+  },
+  {
+    name: 'qc.violation',
+    family: 'instrument',
+    summary:
+      'A new quality control point broke one of the series’ Westgard rules.',
+    producer: {
+      entityType: 'qc_series',
+      operation: 'update',
+      when: { key: 'change', equals: 'violation' },
+    },
+    wireName: 'qc.violation',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries seriesId, name, pointId, value, z, rules (for example 1-3s or 2-2s), instrumentId, designId, plateRunId and at. Follow it to stop the next run until the instrument has been looked at.',
+  },
+  {
+    name: 'qc.back_in_control',
+    family: 'instrument',
+    summary:
+      'A quality control series that was out of control had a point that broke no rule.',
+    producer: {
+      entityType: 'qc_series',
+      operation: 'update',
+      when: { key: 'change', equals: 'back_in_control' },
+    },
+    wireName: 'qc.back_in_control',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries seriesId, name, pointId, value, z, instrumentId, designId and at.',
+  },
+  {
     name: 'plate_worklist.created',
     family: 'inventory',
     summary: 'A liquid handler worklist was made.',
@@ -2240,6 +2290,9 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
   'plate_run.created': 'A plate run is added',
   'plate_run.analysed': 'A plate run is analysed',
   'plate_run.archived': 'A plate run is archived',
+  'instrument.run.converted': 'An instrument file is converted to Allotrope',
+  'qc.violation': 'A quality control point breaks a rule',
+  'qc.back_in_control': 'A quality control series is back in control',
   'plate_worklist.created': 'A liquid handler worklist is made',
   'plate_worklist.completed': 'A liquid handler worklist is completed',
   'experiment.part_created': 'A part is added to an experiment',

@@ -31,6 +31,19 @@
  *   node instrument-agent.mjs --instrument <id> --live-file D:\\Logs\\temp.csv
  *   node instrument-agent.mjs --instrument <id> --live-tcp 192.168.1.20:4001 --feed Weight --unit g
  *
+ * Robots: an instrument that does the pipetting can also be driven. Sheetbase
+ * queues a worklist for it; the agent puts the run on the robot, a person presses
+ * Start in Sheetbase, and the robot's log goes back so the transfers, lineage and
+ * stock withdrawals are recorded against the experiment.
+ *
+ *   node instrument-agent.mjs --instrument <id> --robot-driver opentrons --robot-address http://192.168.1.50:31950
+ *   node instrument-agent.mjs --instrument <id> --robot-driver file --robot-dir D:\\RobotWorklists
+ *
+ * `opentrons` talks to the robot's HTTP API. `file` writes the worklist to a
+ * staging folder, copies it into the folder the robot's own software watches
+ * when a person presses Start, and reads the log the software writes beside it
+ * (`<worklist>.log.csv`). A person always starts the run.
+ *
  * A file is sent once its size and modified time have stopped changing, so a
  * file the instrument is still writing is left alone. Sent files move to
  * `processed/`; files the server refuses for good (bad format, no mapping)
@@ -39,6 +52,7 @@
  * where it is and is retried.
  */
 import {
+  copyFile,
   mkdir,
   open,
   readdir,
@@ -56,6 +70,7 @@ export const DEFAULT_EXTENSIONS = ['csv', 'tsv', 'txt', 'json', 'xlsx']
 const RETRYABLE = new Set([408, 409, 425, 429])
 
 export const CONFIG_FILE_NAME = 'sheetbase-agent.json'
+export const ROBOT_DRIVERS = ['opentrons', 'file']
 
 /**
  * Settings, lowest to highest priority: the settings file, the environment,
@@ -79,8 +94,13 @@ export function parseArgs(argv, env = process.env, fileConfig = {}) {
     live: Array.isArray(fileConfig.live)
       ? fileConfig.live.filter((source) => source && typeof source === 'object')
       : [],
+    robot:
+      fileConfig.robot && typeof fileConfig.robot === 'object'
+        ? { ...fileConfig.robot }
+        : null,
   }
   const adHoc = { feed: '', unit: '' }
+  const robotFlags = {}
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i]
     const next = () => {
@@ -106,7 +126,10 @@ export function parseArgs(argv, env = process.env, fileConfig = {}) {
     else if (flag === '--live-tcp') {
       const [host, port] = next().split(':')
       options.live.push({ kind: 'network', host, port: Number(port) })
-    } else if (flag === '--feed') adHoc.feed = next()
+    } else if (flag === '--robot-driver') robotFlags.driver = next()
+    else if (flag === '--robot-address') robotFlags.address = next()
+    else if (flag === '--robot-dir') robotFlags.dir = next()
+    else if (flag === '--feed') adHoc.feed = next()
     else if (flag === '--unit') adHoc.unit = next()
     else if (flag === '--config')
       next() // read before parsing, see main()
@@ -116,7 +139,23 @@ export function parseArgs(argv, env = process.env, fileConfig = {}) {
     if (adHoc.feed && !source.feed) source.feed = adHoc.feed
     if (adHoc.unit && !source.unit) source.unit = adHoc.unit
   }
-  const live = options.live.length > 0
+  if (Object.keys(robotFlags).length > 0) {
+    options.robot = { ...(options.robot ?? {}), ...robotFlags }
+  }
+  if (options.robot) {
+    if (!ROBOT_DRIVERS.includes(options.robot.driver)) {
+      throw new Error(
+        `The robot driver must be one of: ${ROBOT_DRIVERS.join(', ')}.`,
+      )
+    }
+    if (options.robot.driver === 'opentrons' && !options.robot.address) {
+      throw new Error('An Opentrons robot needs its address (robot.address).')
+    }
+    if (options.robot.driver === 'file' && !options.robot.dir) {
+      throw new Error('A file robot needs its folder (robot.dir).')
+    }
+  }
+  const live = options.live.length > 0 || Boolean(options.robot)
   for (const [name, value] of [
     ['the Sheetbase address (url)', options.url],
     ['the access token (credential)', options.credential],
@@ -605,6 +644,326 @@ function followNetwork(source, onLine, log, stopped) {
   open()
 }
 
+// ---------------------------------------------------------------------------
+// Robots
+// ---------------------------------------------------------------------------
+
+/**
+ * What an Opentrons run did, as transfers. The worklist protocol moves liquid
+ * with `pipette.transfer`, which the robot breaks into aspirate and dispense
+ * commands; each aspirate is paired with the dispense that follows it, and
+ * pairs between the same two wells are added up (a transfer larger than the
+ * pipette is several of them). A command that did not succeed marks its
+ * transfer as failed. Pure, so it can be tested without a robot.
+ */
+export function opentronsEntries(run, commands) {
+  const slotOf = new Map()
+  for (const item of run?.labware ?? []) {
+    const slot = item?.location?.slotName
+    if (item?.id && slot !== undefined) slotOf.set(item.id, String(slot))
+  }
+  const entries = []
+  let pending = null
+  for (const command of commands ?? []) {
+    const type = command?.commandType
+    const params = command?.params ?? {}
+    const ok = command?.status === 'succeeded'
+    if (type === 'aspirate') {
+      pending = {
+        well: String(params.wellName ?? '').toUpperCase(),
+        slot: slotOf.get(params.labwareId) ?? null,
+        volume: Number(params.volume ?? 0),
+        ok,
+      }
+    } else if (type === 'dispense' && pending) {
+      const destWell = String(params.wellName ?? '').toUpperCase()
+      const last = entries.at(-1)
+      const moved = ok && pending.ok ? Number(params.volume ?? 0) : 0
+      if (last && last.sourceWell === pending.well && last.destWell === destWell) {
+        last.actualUl += moved
+        if (!(ok && pending.ok)) last.status = 'failed'
+      } else {
+        entries.push({
+          sourceWell: pending.well,
+          destWell,
+          actualUl: moved,
+          status: ok && pending.ok ? 'ok' : 'failed',
+        })
+      }
+      pending = null
+    }
+  }
+  return entries
+}
+
+/** The Opentrons HTTP API (robot server), one run per job. */
+export function createOpentronsDriver(config, deps = {}) {
+  const fetchImpl = deps.fetch ?? fetch
+  const base = String(config.address).replace(/\/+$/, '')
+  const headers = { 'Opentrons-Version': '3' }
+  async function call(method, path, body) {
+    const response = await fetchImpl(`${base}${path}`, {
+      method,
+      headers:
+        body instanceof FormData
+          ? headers
+          : { ...headers, 'content-type': 'application/json' },
+      body:
+        body === undefined
+          ? undefined
+          : body instanceof FormData
+            ? body
+            : JSON.stringify(body),
+    })
+    const text = await response.text()
+    let json = null
+    try {
+      json = text ? JSON.parse(text) : null
+    } catch {
+      // not JSON
+    }
+    if (!response.ok) {
+      const detail = json?.errors?.[0]?.detail ?? json?.message ?? text.slice(0, 200)
+      const failure = new Error(`The robot answered ${response.status}: ${detail}`)
+      failure.robotStatus = response.status
+      throw failure
+    }
+    return json
+  }
+  return {
+    name: 'opentrons',
+    /** Put the protocol on the robot and create the run. */
+    async stage(job) {
+      const form = new FormData()
+      form.append(
+        'files',
+        new Blob([job.file.content], { type: 'text/x-python' }),
+        job.file.name,
+      )
+      const protocol = await call('POST', '/protocols', form)
+      const protocolId = protocol?.data?.id
+      if (!protocolId) throw new Error('The robot did not accept the protocol.')
+      const analysis = protocol?.data?.analysisSummaries?.[0]
+      if (analysis?.status === 'not-ok') {
+        throw new Error('The robot could not read the protocol.')
+      }
+      const run = await call('POST', '/runs', { data: { protocolId } })
+      const runId = run?.data?.id
+      if (!runId) throw new Error('The robot did not create a run.')
+      return { remoteRef: runId, message: 'On the robot, waiting for Start' }
+    },
+    async start(job) {
+      try {
+        await call('POST', `/runs/${job.remoteRef}/actions`, {
+          data: { actionType: 'play' },
+        })
+      } catch (error) {
+        // Already playing: an earlier attempt got through before the news did.
+        if (error.robotStatus !== 409) throw error
+      }
+      return { message: 'Started' }
+    },
+    /** 'staged' | 'running' | 'complete' | 'failed' | 'cancelled' | 'paused' */
+    async poll(job) {
+      const run = await call('GET', `/runs/${job.remoteRef}`)
+      const status = run?.data?.status
+      if (status === 'succeeded') {
+        const commands = await call(
+          'GET',
+          `/runs/${job.remoteRef}/commands?pageLength=20000`,
+        )
+        return {
+          status: 'complete',
+          entries: opentronsEntries(run.data, commands?.data),
+        }
+      }
+      if (status === 'failed') {
+        return {
+          status: 'failed',
+          message: run?.data?.errors?.[0]?.detail ?? 'The run failed.',
+        }
+      }
+      if (status === 'stopped') return { status: 'cancelled' }
+      if (status === 'idle') return { status: 'staged' }
+      return { status: 'running', message: status }
+    },
+    async stop(job) {
+      await call('POST', `/runs/${job.remoteRef}/actions`, {
+        data: { actionType: 'stop' },
+      })
+    },
+  }
+}
+
+/**
+ * A robot whose own software reads a worklist from a folder. The file waits in
+ * `staging/` until a person presses Start, then moves into the watched folder;
+ * the log the software writes beside it (`<worklist>.log.csv`) ends the job.
+ */
+export function createFileDriver(config) {
+  const dir = resolve(config.dir)
+  const staging = join(dir, 'staging')
+  const logNames = (name) => {
+    const stem = name.replace(/\.[^.]+$/, '')
+    return ['csv', 'txt', 'tsv'].flatMap((ext) => [
+      join(dir, `${stem}.log.${ext}`),
+      join(dir, 'logs', `${stem}.log.${ext}`),
+    ])
+  }
+  return {
+    name: 'file',
+    async stage(job) {
+      await mkdir(staging, { recursive: true })
+      await writeFile(join(staging, job.file.name), job.file.content)
+      return { remoteRef: job.file.name, message: 'Worklist is ready to start' }
+    },
+    async start(job) {
+      await copyFile(join(staging, job.remoteRef), join(dir, job.remoteRef))
+      return { message: 'Worklist given to the robot software' }
+    },
+    async poll(job) {
+      for (const path of logNames(job.remoteRef)) {
+        try {
+          const info = await stat(path)
+          if (info.size === 0) continue
+          return {
+            status: 'complete',
+            runLog: await readFile(path, 'utf8'),
+            volumeUnit: config.logVolumeUnit ?? 'ul',
+          }
+        } catch {
+          // not there yet
+        }
+      }
+      return { status: job.status === 'staged' ? 'staged' : 'running' }
+    },
+    async stop() {
+      // The robot software owns the run; the person stops it there.
+    },
+  }
+}
+
+/**
+ * Works through the jobs queued for one robot. `pass()` looks once; each job
+ * moves at most one step, so a person pressing Start and the robot finishing
+ * are noticed on the next passes.
+ */
+export function createRobotRunner(options, deps = {}) {
+  const fetchImpl = deps.fetch ?? fetch
+  const log = deps.log ?? ((line) => console.log(line))
+  const ensureToken = deps.ensureToken
+  const driver =
+    deps.driver ??
+    (options.robot.driver === 'opentrons'
+      ? createOpentronsDriver(options.robot, { fetch: fetchImpl })
+      : createFileDriver(options.robot))
+  // Last status told to Sheetbase per job, so the same news is not sent twice.
+  const told = new Map()
+
+  async function post(body, attempt = 0) {
+    const response = await fetchImpl(`${options.url}/api/connectors/jobs`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${await ensureToken(attempt > 0)}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ instrumentId: options.instrumentId, ...body }),
+    })
+    if (response.status === 401 && attempt === 0) return post(body, 1)
+    const json = await response.json().catch(() => null)
+    if (!response.ok) {
+      const error = new Error(
+        json?.error?.message ?? `HTTP ${response.status}`,
+      )
+      error.status = response.status
+      throw error
+    }
+    return json
+  }
+
+  async function report(job, status, extra = {}) {
+    await post({ action: 'report', jobId: job.id, status, ...extra })
+    told.set(job.id, status)
+    log(`IJ-${String(job.number).padStart(4, '0')}: ${status}${extra.message ? ` (${extra.message})` : ''}`)
+  }
+
+  async function step(job) {
+    const label = `IJ-${String(job.number).padStart(4, '0')}`
+    try {
+      if (job.cancelRequested && job.status !== 'queued') {
+        if (job.remoteRef) await driver.stop(job).catch(() => {})
+        await report(job, 'cancelled', { message: 'Stopped on request' })
+        return
+      }
+      if (job.status === 'queued') {
+        const staged = await driver.stage(job)
+        await report(job, 'staged', staged)
+        return
+      }
+      if (job.status === 'starting') {
+        const started = await driver.start(job)
+        await report(job, 'running', { message: started?.message })
+        return
+      }
+      if (job.status === 'staged' || job.status === 'running') {
+        const seen = await driver.poll(job)
+        if (seen.status === 'complete') {
+          await report(job, 'complete', {
+            message: 'The robot finished',
+            entries: seen.entries,
+            runLog: seen.runLog,
+            volumeUnit: seen.volumeUnit,
+          })
+        } else if (seen.status === 'failed' || seen.status === 'cancelled') {
+          await report(job, seen.status, { message: seen.message })
+        } else if (seen.status === 'running' && job.status === 'staged') {
+          // Someone started it on the robot itself.
+          await report(job, 'running', { message: 'Started at the robot' })
+        }
+      }
+    } catch (error) {
+      if (error.status >= 400 && error.status < 500 && error.status !== 429) {
+        log(`${label}: ${error.message}`)
+        return
+      }
+      if (job.status === 'queued') {
+        // The robot would not take it. Say so, so the person is not left waiting.
+        try {
+          await report(job, 'failed', { message: error.message })
+        } catch (inner) {
+          log(`${label}: ${inner.message}`)
+        }
+        return
+      }
+      log(`${label}: ${error.message}`)
+    }
+  }
+
+  async function pass() {
+    const { jobs } = await post({ action: 'list' })
+    for (const job of jobs ?? []) await step(job)
+    return (jobs ?? []).length
+  }
+  return { pass }
+}
+
+async function runRobot(options, agent, stopped) {
+  const runner = createRobotRunner(options, { ensureToken: agent.ensureToken })
+  console.log(
+    `driving the ${options.robot.driver} robot for instrument ${options.instrumentId} → ${options.url}`,
+  )
+  const seconds = Math.max(2, Number(options.robot.intervalSeconds ?? 3))
+  while (!stopped()) {
+    try {
+      await runner.pass()
+    } catch (error) {
+      console.error(`robot: ${error.message}`)
+      if (error.permanent) process.exit(1)
+    }
+    await new Promise((done) => setTimeout(done, seconds * 1000))
+  }
+}
+
 /** The settings file named by `--config`, else the one beside this script. */
 export async function loadConfigFile(argv, scriptDir) {
   const at = argv.indexOf('--config')
@@ -649,6 +1008,7 @@ async function main() {
   const jobs = []
   if (options.live.length > 0)
     jobs.push(runLive(options, agent, () => stopping))
+  if (options.robot) jobs.push(runRobot(options, agent, () => stopping))
   if (options.connector && options.dir) {
     await mkdir(options.dir, { recursive: true })
     console.log(

@@ -2151,6 +2151,179 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     notes:
       'Payload carries worklistId, reference, name, transfers and samplesWithdrawn.',
   },
+  {
+    name: 'instrument.job.queued',
+    family: 'instrument',
+    summary: 'A worklist was queued for a robot.',
+    producer: {
+      entityType: 'instrument_job',
+      operation: 'create',
+    },
+    wireName: 'instrument.job.queued',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries jobId, reference, instrumentId, instrument, worklistId, recordId, status, driver, error and result.',
+  },
+  {
+    name: 'instrument.job.staged',
+    family: 'instrument',
+    summary: 'The folder agent put a job on the robot, where it waits for a person to start it.',
+    producer: {
+      entityType: 'instrument_job',
+      operation: 'update',
+      when: { key: 'change', equals: 'staged' },
+    },
+    wireName: 'instrument.job.staged',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries jobId, reference, instrumentId, instrument, worklistId, recordId, status, driver, error and result.',
+  },
+  {
+    name: 'instrument.job.started',
+    family: 'instrument',
+    summary: 'A person started a job on a robot.',
+    producer: {
+      entityType: 'instrument_job',
+      operation: 'update',
+      when: { key: 'change', equals: 'started' },
+    },
+    wireName: 'instrument.job.started',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries jobId, reference, instrumentId, instrument, worklistId, recordId, status, driver, error and result.',
+  },
+  {
+    name: 'instrument.job.completed',
+    family: 'instrument',
+    summary: 'A robot finished a job and its log was read back; result has the transfers by status and the samples withdrawn.',
+    producer: {
+      entityType: 'instrument_job',
+      operation: 'update',
+      when: { key: 'change', equals: 'completed' },
+    },
+    wireName: 'instrument.job.completed',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries jobId, reference, instrumentId, instrument, worklistId, recordId, status, driver, error and result.',
+  },
+  {
+    name: 'instrument.job.failed',
+    family: 'instrument',
+    summary: 'A robot job failed.',
+    producer: {
+      entityType: 'instrument_job',
+      operation: 'update',
+      when: { key: 'change', equals: 'failed' },
+    },
+    wireName: 'instrument.job.failed',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries jobId, reference, instrumentId, instrument, worklistId, recordId, status, driver, error and result.',
+  },
+  {
+    name: 'instrument.job.cancelled',
+    family: 'instrument',
+    summary: 'A robot job was cancelled.',
+    producer: {
+      entityType: 'instrument_job',
+      operation: 'update',
+      when: { key: 'change', equals: 'cancelled' },
+    },
+    wireName: 'instrument.job.cancelled',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries jobId, reference, instrumentId, instrument, worklistId, recordId, status, driver, error and result.',
+  },
+  {
+    name: 'schedule.proposed',
+    family: 'booking',
+    summary: 'The planner proposed a schedule for an experiment. Nothing is booked until a person accepts it.',
+    producer: {
+      entityType: 'schedule_proposal',
+      operation: 'create',
+    },
+    wireName: 'schedule.proposed',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries proposalId, reference, recordId, reason (plan or slip), status, items and conflicts.',
+  },
+  {
+    name: 'schedule.accepted',
+    family: 'booking',
+    summary: 'A proposed schedule was accepted and booked.',
+    producer: {
+      entityType: 'schedule_proposal',
+      operation: 'update',
+      when: { key: 'change', equals: 'accepted' },
+    },
+    wireName: 'schedule.accepted',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries proposalId, reference, recordId, reason (plan or slip), status, items and conflicts.',
+  },
+  {
+    name: 'schedule.dismissed',
+    family: 'booking',
+    summary: 'A proposed schedule was dismissed.',
+    producer: {
+      entityType: 'schedule_proposal',
+      operation: 'update',
+      when: { key: 'change', equals: 'dismissed' },
+    },
+    wireName: 'schedule.dismissed',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries proposalId, reference, recordId, reason (plan or slip), status, items and conflicts.',
+  },
+  {
+    name: 'code_cell.run',
+    family: 'record',
+    summary: 'A notebook code cell was run; the code, inputs, image and output digest are kept.',
+    producer: {
+      entityType: 'code_cell_run',
+      operation: 'create',
+    },
+    wireName: 'code_cell.run',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries runId, reference, recordId, blockId, language, status, matches, reproducesRunId and runtime (the image digest the code ran in).',
+  },
+  {
+    name: 'code_cell.reproduced',
+    family: 'record',
+    summary: 'A code cell run was run again from its pinned inputs; matches says whether the output came out the same.',
+    producer: {
+      entityType: 'code_cell_run',
+      operation: 'update',
+      when: { key: 'change', equals: 'reproduced' },
+    },
+    wireName: 'code_cell.reproduced',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries runId, reference, recordId, blockId, language, status, matches, reproducesRunId and runtime (the image digest the code ran in).',
+  },
 ])
 
 /**
@@ -2354,6 +2527,17 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
   'experiment.part_opened': 'A part of an experiment opens',
   'experiment.part_completed': 'A part of an experiment is finished',
   'experiment.part_reopened': 'A part of an experiment is reopened',
+  'instrument.job.queued': 'A worklist is queued for a robot',
+  'instrument.job.staged': 'A robot has a job waiting for Start',
+  'instrument.job.started': 'A robot job is started',
+  'instrument.job.completed': 'A robot job finishes',
+  'instrument.job.failed': 'A robot job fails',
+  'instrument.job.cancelled': 'A robot job is cancelled',
+  'schedule.proposed': 'A schedule is proposed for an experiment',
+  'schedule.accepted': 'A proposed schedule is accepted',
+  'schedule.dismissed': 'A proposed schedule is dismissed',
+  'code_cell.run': 'A code cell is run',
+  'code_cell.reproduced': 'A code cell run is reproduced',
 })
 
 /**

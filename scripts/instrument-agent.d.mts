@@ -13,6 +13,14 @@ export interface AgentOptions {
   parser: string
   instrumentId: string
   live: LiveSource[]
+  robot: RobotOptions | null
+}
+export interface RobotOptions {
+  driver: 'opentrons' | 'file'
+  address?: string
+  dir?: string
+  intervalSeconds?: number
+  logVolumeUnit?: 'ul' | 'nl' | 'ml'
 }
 export type LiveSource = {
   kind: 'file' | 'network'
@@ -82,3 +90,46 @@ export declare function createLiveSender(
   flush: () => Promise<'idle' | 'sent' | 'retry' | 'dropped'>
   readonly pending: number
 }
+
+export declare const ROBOT_DRIVERS: string[]
+export interface RobotJob {
+  id: string
+  number: number
+  status: string
+  remoteRef: string | null
+  cancelRequested?: boolean
+  file?: { name: string; content: string }
+}
+export interface RobotDriver {
+  name: string
+  stage(job: RobotJob): Promise<{ remoteRef: string; message?: string }>
+  start(job: RobotJob): Promise<{ message?: string }>
+  poll(job: RobotJob): Promise<{
+    status: string
+    message?: string
+    entries?: unknown[]
+    runLog?: string
+    volumeUnit?: string
+  }>
+  stop(job: RobotJob): Promise<void>
+}
+export declare function opentronsEntries(run: unknown, commands: unknown[]): Array<{
+  sourceWell: string
+  destWell: string
+  actualUl: number
+  status: 'ok' | 'failed'
+}>
+export declare function createOpentronsDriver(
+  config: RobotOptions,
+  deps?: { fetch?: typeof fetch },
+): RobotDriver
+export declare function createFileDriver(config: RobotOptions): RobotDriver
+export declare function createRobotRunner(
+  options: AgentOptions,
+  deps?: {
+    fetch?: typeof fetch
+    log?: (line: string) => void
+    ensureToken: (force?: boolean) => Promise<string>
+    driver?: RobotDriver
+  },
+): { pass(): Promise<number> }

@@ -129,11 +129,13 @@ __all__ = [
     "DeleteDataContractParams",
     "DeleteExperimentPartParams",
     "DeleteLineageTargetParams",
+    "DeletePublicationTargetParams",
     "DeleteQcSeriesParams",
     "DeleteSavedSearchParams",
     "DeleteScheduledReportParams",
     "DeleteWebhookSubscriptionParams",
     "DirectorySyncStatusParams",
+    "DiscardPublicationParams",
     "DismissScheduleProposalParams",
     "DissolveExperimentSeriesParams",
     "DuplicateSheetInstanceBlockParams",
@@ -182,12 +184,16 @@ __all__ = [
     "JsonValue",
     "LabWatcherFindingsRow",
     "LabWatchersRow",
+    "LakeSettingsParams",
+    "LakeTablesRow",
     "LeaveSampleWorkflowParams",
     "LegalHoldRecordsRow",
     "LegalHoldsRow",
     "LineageDeliveriesRow",
     "LineageTargetsRow",
+    "LinkOntologyTermParams",
     "ListInstrumentFeedSeriesParams",
+    "ListLakeCredentialsParams",
     "ListWebhookDeliveriesParams",
     "LogInstrumentServiceParams",
     "MarkReagentOrderedParams",
@@ -218,6 +224,8 @@ __all__ = [
     "NotebookUpgradeApplyResult",
     "NotebookUpgradeDecision",
     "NotebookUpgradePreview",
+    "OntologyAnnotationsRow",
+    "OntologySettingsParams",
     "PartPlansRow",
     "PartResourceNeedsRow",
     "PartsInRangeParams",
@@ -244,6 +252,8 @@ __all__ = [
     "ProjectsRowPatch",
     "ProposeAgentOperationParams",
     "ProxyError",
+    "PublicationTargetsRow",
+    "PublicationsRow",
     "QcPointsRow",
     "QcSeriesRow",
     "QueryDatasetRowsParams",
@@ -293,6 +303,8 @@ __all__ = [
     "RequestAgentActionParams",
     "RequestDetailsRow",
     "RequestFormsRow",
+    "RequestLakeRefreshParams",
+    "RequestPublicationParams",
     "RequestReagentOrderParams",
     "RequestScheduleProposalParams",
     "RequestSignatureTimestampParams",
@@ -305,8 +317,10 @@ __all__ = [
     "RetentionDueParams",
     "RetentionRulesRow",
     "RetryLineageDeliveriesParams",
+    "RetryPublicationParams",
     "ReviewCoverRow",
     "RevisionsRow",
+    "RevokeLakeCredentialParams",
     "RevokeScimTokenParams",
     "RotateWebhookSecretParams",
     "RunContractCheckParams",
@@ -320,6 +334,7 @@ __all__ = [
     "SaveDataContractParams",
     "SaveLineageTargetParams",
     "SavePlateRunAnalysisParams",
+    "SavePublicationTargetParams",
     "SaveSampleWorkflowParams",
     "SaveScheduledReportParams",
     "SaveSearchParams",
@@ -345,10 +360,12 @@ __all__ = [
     "SetInstrumentRateParams",
     "SetInstrumentRobotParams",
     "SetLabWatcherParams",
+    "SetLakeSettingsParams",
     "SetLinkPartParams",
     "SetMaterialSafetyParams",
     "SetMemberAbsenceParams",
     "SetModelSupplierListParams",
+    "SetOntologySettingsParams",
     "SetPartDoneParams",
     "SetPartPlanParams",
     "SetQcBaselineParams",
@@ -428,6 +445,7 @@ __all__ = [
     "TrackPlateAssayQcParams",
     "TransitionRecordStatusParams",
     "UnfollowProjectParams",
+    "UnlinkOntologyTermParams",
     "UpdateBlockPayloadParams",
     "UpdateExperimentPartParams",
     "UpdatePipelineDefinitionVersionDraftParams",
@@ -1654,6 +1672,30 @@ class LabWatchersRow(_LabWatchersRowRequired, total=False):
     last_found: Optional[int]
 
 
+class _LakeTablesRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    source_kind: Literal["model_view", "dataset"]
+    source_key: str
+    source_label: str
+    table_name: str
+    status: Literal["pending", "ready", "failed", "retired"]
+    row_count: int
+    byte_size: int
+    file_count: int
+    created_at: str
+    updated_at: str
+
+
+class LakeTablesRow(_LakeTablesRowRequired, total=False):
+    """`api.lake_tables` row (snake_case). One open table: a model view or a dataset version written as Parquet on the workspace’s storage. Only people with data access see these rows."""
+    columns: List[Dict[str, Any]]
+    snapshots: List[Dict[str, Any]]
+    snapshot_id: Optional[int]
+    last_snapshot_at: Optional[str]
+    last_error: Optional[str]
+
+
 class LegalHoldRecordsRow(TypedDict):
     """`api.legal_hold_records` row (snake_case). A record placed on a legal hold."""
     hold_id: str
@@ -1952,6 +1994,23 @@ class NotebookUpgradePreview(TypedDict):
     conflicts: List[Dict[str, Any]]
 
 
+class _OntologyAnnotationsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    target_kind: Literal["model_field", "schema_field", "definition_field", "vocabulary_term"]
+    target_id: str
+    ontology: str
+    iri: str
+    label: str
+    created_at: str
+
+
+class OntologyAnnotationsRow(_OntologyAnnotationsRowRequired, total=False):
+    """`api.ontology_annotations` row (snake_case). A standard ontology term attached to a model field, dataset field or vocabulary term."""
+    short_form: Optional[str]
+    created_by_user_id: Optional[str]
+
+
 class _PartPlansRowRequired(TypedDict):
     part_id: str
     workspace_id: str
@@ -2199,6 +2258,55 @@ class ProjectsRowPatch(TypedDict, total=False):
 
 class ProxyError(TypedDict):
     error: Dict[str, Any]
+
+
+class _PublicationTargetsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    kind: Literal["zenodo", "invenio", "figshare", "dataverse"]
+    name: str
+    base_url: str
+    license: str
+    enabled: bool
+    token_set: bool
+    created_at: str
+    updated_at: str
+
+
+class PublicationTargetsRow(_PublicationTargetsRowRequired, total=False):
+    """`api.publication_targets` row (snake_case). A repository the workspace can publish to. The access token is never returned; `token_set` says whether one is stored."""
+    collection: Optional[str]
+    created_by_user_id: Optional[str]
+
+
+class _PublicationsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    target_id: str
+    object_kind: Literal["experiment", "dataset_version"]
+    object_id: str
+    title: str
+    license: str
+    status: Literal["queued", "sending", "draft", "publishing", "published", "failed", "discarded"]
+    stage: Literal["send", "publish"]
+    includes_run_crate: bool
+    attempts: int
+    requested_by_user_id: str
+    created_at: str
+    updated_at: str
+
+
+class PublicationsRow(_PublicationsRowRequired, total=False):
+    """`api.publications` row (snake_case). An experiment or dataset version sent to a repository, with its status and DOI."""
+    doi: Optional[str]
+    record_url: Optional[str]
+    draft_url: Optional[str]
+    package_name: Optional[str]
+    package_bytes: Optional[int]
+    package_sha256: Optional[str]
+    last_error: Optional[str]
+    next_attempt_at: str
+    published_at: Optional[str]
 
 
 class _QcPointsRowRequired(TypedDict):
@@ -3920,6 +4028,10 @@ class DeleteLineageTargetParams(TypedDict):
     p_id: str
 
 
+class DeletePublicationTargetParams(TypedDict):
+    p_id: str
+
+
 class DeleteQcSeriesParams(TypedDict):
     p_series_id: str
 
@@ -3939,6 +4051,10 @@ class DeleteWebhookSubscriptionParams(TypedDict):
 
 class DirectorySyncStatusParams(TypedDict):
     p_workspace_id: str
+
+
+class DiscardPublicationParams(TypedDict):
+    p_id: str
 
 
 class DismissScheduleProposalParams(TypedDict):
@@ -4061,12 +4177,29 @@ class IsRecordOnHoldParams(TypedDict):
     p_record_id: str
 
 
+class LakeSettingsParams(TypedDict):
+    p_workspace_id: str
+
+
 class _LeaveSampleWorkflowParamsRequired(TypedDict):
     p_run_id: str
 
 
 class LeaveSampleWorkflowParams(_LeaveSampleWorkflowParamsRequired, total=False):
     p_notes: str
+
+
+class _LinkOntologyTermParamsRequired(TypedDict):
+    p_workspace_id: str
+    p_target_kind: str
+    p_target_id: str
+    p_ontology: str
+    p_iri: str
+    p_label: str
+
+
+class LinkOntologyTermParams(_LinkOntologyTermParamsRequired, total=False):
+    p_short_form: Optional[str]
 
 
 class _ListInstrumentFeedSeriesParamsRequired(TypedDict):
@@ -4077,6 +4210,10 @@ class _ListInstrumentFeedSeriesParamsRequired(TypedDict):
 class ListInstrumentFeedSeriesParams(_ListInstrumentFeedSeriesParamsRequired, total=False):
     p_until: str
     p_buckets: int
+
+
+class ListLakeCredentialsParams(TypedDict):
+    p_workspace_id: str
 
 
 class _ListWebhookDeliveriesParamsRequired(TypedDict):
@@ -4177,6 +4314,10 @@ class MutateSheetInstanceLocalStateParams(TypedDict):
 
 class MyInstrumentTrainingGapsParams(TypedDict):
     p_instrument_id: str
+
+
+class OntologySettingsParams(TypedDict):
+    p_workspace_id: str
 
 
 class PartsInRangeParams(TypedDict):
@@ -4499,6 +4640,21 @@ class RequestAgentActionParams(TypedDict):
     p_idempotency_key: str
 
 
+class RequestLakeRefreshParams(TypedDict):
+    p_workspace_id: str
+
+
+class _RequestPublicationParamsRequired(TypedDict):
+    p_target_id: str
+    p_object_kind: str
+    p_object_id: str
+
+
+class RequestPublicationParams(_RequestPublicationParamsRequired, total=False):
+    p_title: Optional[str]
+    p_license: Optional[str]
+
+
 class _RequestReagentOrderParamsRequired(TypedDict):
     p_material_record_id: str
     p_quantity: float
@@ -4568,6 +4724,15 @@ class RetryLineageDeliveriesParams(TypedDict):
     p_target_id: str
 
 
+class RetryPublicationParams(TypedDict):
+    p_id: str
+
+
+class RevokeLakeCredentialParams(TypedDict):
+    p_workspace_id: str
+    p_credential_id: str
+
+
 class RevokeScimTokenParams(TypedDict):
     p_id: str
 
@@ -4634,6 +4799,20 @@ class _SavePlateRunAnalysisParamsRequired(TypedDict):
 
 class SavePlateRunAnalysisParams(_SavePlateRunAnalysisParamsRequired, total=False):
     p_expected_metadata_version: int
+
+
+class _SavePublicationTargetParamsRequired(TypedDict):
+    p_workspace_id: str
+    p_kind: str
+    p_name: str
+    p_base_url: str
+
+
+class SavePublicationTargetParams(_SavePublicationTargetParamsRequired, total=False):
+    p_id: str
+    p_collection: Optional[str]
+    p_license: str
+    p_enabled: bool
 
 
 class SaveSampleWorkflowParams(TypedDict):
@@ -4796,6 +4975,11 @@ class SetLabWatcherParams(_SetLabWatcherParamsRequired, total=False):
     p_params: Dict[str, "JsonValue"]
 
 
+class SetLakeSettingsParams(TypedDict):
+    p_workspace_id: str
+    p_enabled: bool
+
+
 class SetLinkPartParams(TypedDict):
     p_link_id: str
     p_part_id: str
@@ -4827,6 +5011,15 @@ class SetMemberAbsenceParams(_SetMemberAbsenceParamsRequired, total=False):
 class SetModelSupplierListParams(TypedDict):
     p_model_key: str
     p_enabled: bool
+
+
+class _SetOntologySettingsParamsRequired(TypedDict):
+    p_workspace_id: str
+    p_enabled: bool
+
+
+class SetOntologySettingsParams(_SetOntologySettingsParamsRequired, total=False):
+    p_ontologies: Optional[List[str]]
 
 
 class SetPartDoneParams(TypedDict):
@@ -5000,6 +5193,10 @@ class TransitionRecordStatusParams(TypedDict):
 
 class UnfollowProjectParams(TypedDict):
     p_project_id: str
+
+
+class UnlinkOntologyTermParams(TypedDict):
+    p_annotation_id: str
 
 
 class UpdateBlockPayloadParams(TypedDict):

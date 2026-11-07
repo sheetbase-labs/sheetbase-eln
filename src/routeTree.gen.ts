@@ -189,6 +189,7 @@ import { Route as SettingsWorkspaceClientsRouteImport } from './routes/settings/
 import { Route as SettingsWorkspaceDiagnosticsRouteImport } from './routes/settings/workspace/diagnostics'
 import { Route as SettingsWorkspaceIntegrationsRouteImport } from './routes/settings/workspace/integrations'
 import { Route as SettingsWorkspaceMembersRouteImport } from './routes/settings/workspace/members'
+import { Route as SettingsWorkspaceOpenDataRouteImport } from './routes/settings/workspace/open-data'
 import { Route as SettingsWorkspaceRolesRouteImport } from './routes/settings/workspace/roles'
 import { Route as SettingsWorkspaceSignaturesRouteImport } from './routes/settings/workspace/signatures'
 import { Route as SettingsWorkspaceUsageRouteImport } from './routes/settings/workspace/usage'
@@ -1159,6 +1160,12 @@ const SettingsWorkspaceMembersRoute =
     path: '/workspace/members',
     getParentRoute: () => SettingsRoute,
   } as any)
+const SettingsWorkspaceOpenDataRoute =
+  SettingsWorkspaceOpenDataRouteImport.update({
+    id: '/workspace/open-data',
+    path: '/workspace/open-data',
+    getParentRoute: () => SettingsRoute,
+  } as any)
 const SettingsWorkspaceRolesRoute = SettingsWorkspaceRolesRouteImport.update({
   id: '/workspace/roles',
   path: '/workspace/roles',
@@ -1605,6 +1612,7 @@ export interface FileRoutesByFullPath {
   '/settings/workspace/diagnostics': typeof SettingsWorkspaceDiagnosticsRoute
   '/settings/workspace/integrations': typeof SettingsWorkspaceIntegrationsRouteWithChildren
   '/settings/workspace/members': typeof SettingsWorkspaceMembersRoute
+  '/settings/workspace/open-data': typeof SettingsWorkspaceOpenDataRoute
   '/settings/workspace/roles': typeof SettingsWorkspaceRolesRoute
   '/settings/workspace/signatures': typeof SettingsWorkspaceSignaturesRoute
   '/settings/workspace/usage': typeof SettingsWorkspaceUsageRoute
@@ -1820,6 +1828,7 @@ export interface FileRoutesByTo {
   '/settings/workspace/diagnostics': typeof SettingsWorkspaceDiagnosticsRoute
   '/settings/workspace/integrations': typeof SettingsWorkspaceIntegrationsRouteWithChildren
   '/settings/workspace/members': typeof SettingsWorkspaceMembersRoute
+  '/settings/workspace/open-data': typeof SettingsWorkspaceOpenDataRoute
   '/settings/workspace/roles': typeof SettingsWorkspaceRolesRoute
   '/settings/workspace/signatures': typeof SettingsWorkspaceSignaturesRoute
   '/settings/workspace/usage': typeof SettingsWorkspaceUsageRoute
@@ -2051,6 +2060,7 @@ export interface FileRoutesById {
   '/settings/workspace/diagnostics': typeof SettingsWorkspaceDiagnosticsRoute
   '/settings/workspace/integrations': typeof SettingsWorkspaceIntegrationsRouteWithChildren
   '/settings/workspace/members': typeof SettingsWorkspaceMembersRoute
+  '/settings/workspace/open-data': typeof SettingsWorkspaceOpenDataRoute
   '/settings/workspace/roles': typeof SettingsWorkspaceRolesRoute
   '/settings/workspace/signatures': typeof SettingsWorkspaceSignaturesRoute
   '/settings/workspace/usage': typeof SettingsWorkspaceUsageRoute
@@ -2283,6 +2293,7 @@ export interface FileRouteTypes {
     | '/settings/workspace/diagnostics'
     | '/settings/workspace/integrations'
     | '/settings/workspace/members'
+    | '/settings/workspace/open-data'
     | '/settings/workspace/roles'
     | '/settings/workspace/signatures'
     | '/settings/workspace/usage'
@@ -2498,6 +2509,7 @@ export interface FileRouteTypes {
     | '/settings/workspace/diagnostics'
     | '/settings/workspace/integrations'
     | '/settings/workspace/members'
+    | '/settings/workspace/open-data'
     | '/settings/workspace/roles'
     | '/settings/workspace/signatures'
     | '/settings/workspace/usage'
@@ -2728,6 +2740,7 @@ export interface FileRouteTypes {
     | '/settings/workspace/diagnostics'
     | '/settings/workspace/integrations'
     | '/settings/workspace/members'
+    | '/settings/workspace/open-data'
     | '/settings/workspace/roles'
     | '/settings/workspace/signatures'
     | '/settings/workspace/usage'
@@ -4166,6 +4179,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsWorkspaceMembersRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/workspace/open-data': {
+      id: '/settings/workspace/open-data'
+      path: '/workspace/open-data'
+      fullPath: '/settings/workspace/open-data'
+      preLoaderRoute: typeof SettingsWorkspaceOpenDataRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/workspace/roles': {
       id: '/settings/workspace/roles'
       path: '/workspace/roles'
@@ -4907,6 +4927,7 @@ interface SettingsRouteChildren {
   SettingsWorkspaceDiagnosticsRoute: typeof SettingsWorkspaceDiagnosticsRoute
   SettingsWorkspaceIntegrationsRoute: typeof SettingsWorkspaceIntegrationsRouteWithChildren
   SettingsWorkspaceMembersRoute: typeof SettingsWorkspaceMembersRoute
+  SettingsWorkspaceOpenDataRoute: typeof SettingsWorkspaceOpenDataRoute
   SettingsWorkspaceRolesRoute: typeof SettingsWorkspaceRolesRoute
   SettingsWorkspaceSignaturesRoute: typeof SettingsWorkspaceSignaturesRoute
   SettingsWorkspaceUsageRoute: typeof SettingsWorkspaceUsageRoute
@@ -4939,6 +4960,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsWorkspaceIntegrationsRoute:
     SettingsWorkspaceIntegrationsRouteWithChildren,
   SettingsWorkspaceMembersRoute: SettingsWorkspaceMembersRoute,
+  SettingsWorkspaceOpenDataRoute: SettingsWorkspaceOpenDataRoute,
   SettingsWorkspaceRolesRoute: SettingsWorkspaceRolesRoute,
   SettingsWorkspaceSignaturesRoute: SettingsWorkspaceSignaturesRoute,
   SettingsWorkspaceUsageRoute: SettingsWorkspaceUsageRoute,

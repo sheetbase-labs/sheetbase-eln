@@ -14,6 +14,7 @@ import { contracts } from './contracts'
 import { data } from './data'
 import { library } from './library'
 import { notebook } from './notebook'
+import { openData } from './open-data'
 import { people } from './people'
 import { plates } from './plates'
 import { projects } from './projects'
@@ -37,6 +38,7 @@ export const en = {
   calculators,
   calendarFeed,
   notebook,
+  openData,
   data,
   library,
   settings,

@@ -20,6 +20,7 @@ import {
 } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Button, buttonVariants } from '#/components/ui/button'
+import { PublishControl } from '#/components/open-data/publish-control'
 import { CiteSnapshotDialog } from '#/components/datasets/cite-snapshot-dialog'
 import { SnapshotReproduce } from '#/components/pipelines/run-reproduction'
 import { useRunForDatasetVersion } from '#/components/pipelines/pipelines-data'
@@ -425,6 +426,19 @@ function Snapshots() {
                 <Button size="sm" onClick={() => setCiteTarget(current)}>
                   {t('data.datasetSnapshots.citeNotebook')}
                 </Button>
+              </div>
+            </InspectorSection>
+          ) : null}
+          {canWrite && !tombstone && current ? (
+            <InspectorSection title={t('openData.publish.action')}>
+              <div className="flex flex-wrap items-center gap-2">
+                <PublishControl
+                  workspaceId={context.workspace?.id ?? ''}
+                  kind="dataset_version"
+                  objectId={current.id}
+                  defaultTitle={current.label}
+                  canPublish={canWrite}
+                />
               </div>
             </InspectorSection>
           ) : null}

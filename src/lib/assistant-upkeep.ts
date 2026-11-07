@@ -1,5 +1,11 @@
 import { z } from 'zod'
 
+import { CONTRACT_RULE_KINDS } from './data-contracts/types'
+import type { ContractRule } from './data-contracts/types'
+
+/** A rule as a card carries it: the database makes the id. */
+export type ContractRuleInput = Omit<ContractRule, 'id'>
+
 /**
  * Keeping the lab tidy from the assistant: start a project, follow a record or
  * project, mark notifications read, move a reagent order on or cancel it,
@@ -32,6 +38,8 @@ export const TIMESTAMPS_SET_TOOL = 'sheetbase.timestamps.set'
 export const TIMESTAMPS_RETRY_TOOL = 'sheetbase.timestamps.retry'
 export const VALIDATION_RUN_TOOL = 'sheetbase.validation.run'
 export const PIPELINE_REPRODUCE_TOOL = 'sheetbase.pipeline.reproduce'
+export const CONTRACT_CHECK_TOOL = 'sheetbase.contract.check'
+export const CONTRACT_RULE_ADD_TOOL = 'sheetbase.contract.add_rule'
 
 export const UPKEEP_PROPOSE_TOOL_NAMES = [
   PROJECT_CREATE_TOOL,
@@ -53,6 +61,8 @@ export const UPKEEP_PROPOSE_TOOL_NAMES = [
   TIMESTAMPS_RETRY_TOOL,
   VALIDATION_RUN_TOOL,
   PIPELINE_REPRODUCE_TOOL,
+  CONTRACT_CHECK_TOOL,
+  CONTRACT_RULE_ADD_TOOL,
 ] as const
 
 export type UpkeepProposeToolName = (typeof UPKEEP_PROPOSE_TOOL_NAMES)[number]
@@ -288,6 +298,54 @@ export const proposePipelineReproduceSchema = z
   })
   .strict()
 
+const contractName = z
+  .string()
+  .min(1)
+  .max(200)
+  .describe(
+    'The data contract by its name (usually the model it belongs to). List the contracts area first.',
+  )
+
+export const proposeContractCheckSchema = z
+  .object({ title, summary, contract: contractName })
+  .strict()
+
+export const proposeContractRuleAddSchema = z
+  .object({
+    title,
+    summary,
+    contract: contractName,
+    kind: z.enum(CONTRACT_RULE_KINDS),
+    field: z
+      .string()
+      .max(200)
+      .optional()
+      .describe(
+        'The field key, for every kind except row_count and freshness of the whole dataset.',
+      ),
+    mode: z
+      .enum(['warn', 'block'])
+      .optional()
+      .describe(
+        'warn keeps the data and shows a warning (default). block refuses an import or pipeline run that breaks it.',
+      ),
+    min: z.number().optional().describe('Lowest value, or fewest rows.'),
+    max: z.number().optional().describe('Highest value, or most rows.'),
+    units: z.array(z.string().min(1).max(40)).max(20).optional(),
+    threshold: z
+      .number()
+      .optional()
+      .describe(
+        'Completeness: the lowest share of rows with a value, 1 to 100.',
+      ),
+    maxAgeMinutes: z
+      .number()
+      .int()
+      .optional()
+      .describe('Freshness: the longest gap between new data, in minutes.'),
+  })
+  .strict()
+
 export const proposeGroupRoleSetSchema = z
   .object({
     title,
@@ -408,6 +466,8 @@ export type UpkeepAction =
   | { kind: 'timestamps.retry'; signatureId: string }
   | { kind: 'validation.run' }
   | { kind: 'pipeline.reproduce'; runId: string; definitionId: string }
+  | { kind: 'contract.check'; contractId: string }
+  | { kind: 'contract.rule_add'; contractId: string; rule: ContractRuleInput }
 
 export type UpkeepActionKind = UpkeepAction['kind']
 
@@ -432,6 +492,8 @@ const KINDS: readonly string[] = [
   'timestamps.retry',
   'validation.run',
   'pipeline.reproduce',
+  'contract.check',
+  'contract.rule_add',
 ]
 
 export function isUpkeepAction(action: {

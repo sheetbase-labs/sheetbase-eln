@@ -93,6 +93,9 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `project_follows`              | Projects a person follows. Personal tokens only: you see your own follows.                                                                                                                                                                                                                                         |
 | `plate_runs`                   | Plate runs: one plate read on an instrument, with its layout, readout, analysis settings and the last analysis (normalised values, Z-prime, hits and curves).                                                                                                                                                      |
 | `plate_worklists`              | Liquid handler worklists: the transfers from a source plate to a destination plate, and what the robot log said was moved.                                                                                                                                                                                         |
+| `data_contracts`               | A data contract: rules for what good data looks like on a dataset schema or a record model. `last_status` is `pass`, `warning` or `fail`; `rules` is the list of rules.                                                                                                                                            |
+| `data_contract_runs`           | One check of a data contract. `status` is `pass`, `warning` or `fail`; `trigger` is `import`, `pipeline`, `manual` or `schedule`; `blocked` means an import or pipeline commit was refused. `results` says what each rule found.                                                                                   |
+| `data_contract_dataset_status` | Where each dataset stands under its schema's contract: the latest full check.                                                                                                                                                                                                                                      |
 | `instrument_run_documents`     | Instrument files converted to the Allotrope Simple Model (ASM): one vendor-neutral document per instrument run, with the converter, its version and the image that ran it.                                                                                                                                         |
 | `qc_series`                    | Quality control series: a value tracked across runs (a plate assay metric, or any value sent in), with its limits, the Westgard rules and whether it is in control.                                                                                                                                                |
 | `qc_points`                    | Quality control points: each value of a series with its distance from the mean in SD, the Westgard rules it broke and whether someone has acknowledged it.                                                                                                                                                         |
@@ -1494,3 +1497,130 @@ Scope: `lab:read`.
 | ---------------- | ---- | ------------------- |
 | `p_version_id` * | uuid | Dataset version id. |
 | `p_limit`        | int  |                     |
+
+### `save_data_contract`
+
+Make or change a data contract. Makes the contract on a dataset schema or a record model, or changes it. Anything left out keeps its value. A change of rules makes a new version. Needs an owner, admin or steward.
+
+Scope: `lab:write`.
+
+| Argument              | Type |                                                                                                                                                                                                                                                                                                                                    |
+| --------------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `p_dataset_schema_id` | uuid | Dataset schema (table model) id the contract sits on.                                                                                                                                                                                                                                                                              |
+| `p_record_model_key`  | text | Key of the record model the contract sits on.                                                                                                                                                                                                                                                                                      |
+| `p_rules`             | json | Westgard rules to judge by, from `1-3s`, `2-2s`, `R-4s`, `4-1s` and `10x`. For a data contract, a JSON array of rules: `{ id, kind, field, mode, min, max, units, threshold, maxAgeMinutes }`, where `kind` is `required`, `unique`, `range`, `units`, `completeness`, `row_count` or `freshness` and `mode` is `warn` or `block`. |
+| `p_name`              | text | Name.                                                                                                                                                                                                                                                                                                                              |
+| `p_description`       | text | A description.                                                                                                                                                                                                                                                                                                                     |
+| `p_owner_user_id`     | text | The member who owns it.                                                                                                                                                                                                                                                                                                            |
+| `p_lifecycle`         | text | `draft`, `active` or `retired`.                                                                                                                                                                                                                                                                                                    |
+| `p_schedule_minutes`  | int  | Run a check every this many minutes (5 to 525600); 0 turns scheduled checks off.                                                                                                                                                                                                                                                   |
+
+### `add_contract_rule`
+
+Add a rule to a data contract. Adds one rule, such as a required field or a range. An id is made if you leave it out. Needs an owner, admin or steward.
+
+Scope: `lab:write`.
+
+| Argument          | Type |                                         |
+| ----------------- | ---- | --------------------------------------- |
+| `p_contract_id` * | uuid | Data contract id.                       |
+| `p_rule` *        | json | JSON object: one rule, as in `p_rules`. |
+
+### `remove_contract_rule`
+
+Remove a rule from a data contract. Removes one rule by its id. Needs an owner, admin or steward.
+
+Scope: `lab:write`.
+
+| Argument          | Type |                               |
+| ----------------- | ---- | ----------------------------- |
+| `p_contract_id` * | uuid | Data contract id.             |
+| `p_rule_id` *     | text | Id of a rule in the contract. |
+
+### `delete_data_contract`
+
+Delete a data contract. Deletes the contract and its run history. Needs an owner, admin or steward.
+
+Scope: `lab:write`.
+
+| Argument          | Type |                   |
+| ----------------- | ---- | ----------------- |
+| `p_contract_id` * | uuid | Data contract id. |
+
+### `run_contract_check`
+
+Check a data contract now. Checks the stored data against the contract and keeps the result as a run: every active dataset under a dataset schema contract (or the one named), or the records of a model. Returns the standing and the runs.
+
+Scope: `lab:write`.
+
+| Argument          | Type |                   |
+| ----------------- | ---- | ----------------- |
+| `p_contract_id` * | uuid | Data contract id. |
+| `p_dataset_id`    | uuid | Dataset id.       |
+
+### `preview_contract_rules`
+
+See what a change of rules would find. Checks the data as it stands against rules you are thinking of, without saving them or recording a run. Needs an owner, admin or steward.
+
+Scope: `lab:read`.
+
+| Argument          | Type |                                                                                                                                                                                                                                                                                                                                    |
+| ----------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `p_contract_id` * | uuid | Data contract id.                                                                                                                                                                                                                                                                                                                  |
+| `p_rules` *       | json | Westgard rules to judge by, from `1-3s`, `2-2s`, `R-4s`, `4-1s` and `10x`. For a data contract, a JSON array of rules: `{ id, kind, field, mode, min, max, units, threshold, maxAgeMinutes }`, where `kind` is `required`, `unique`, `range`, `units`, `completeness`, `row_count` or `freshness` and `mode` is `warn` or `block`. |
+| `p_dataset_id`    | uuid | Dataset id.                                                                                                                                                                                                                                                                                                                        |
+
+### `check_dataset_contract`
+
+Check rows against a dataset’s contract before committing them. Checks a batch of rows, in the shape of `commit_dataset_row_batch`, against the contract on the dataset’s schema and records a run. If `blocked` is true a block-mode rule found a problem and the rows should not be committed. Imports do this themselves; call it before committing from a pipeline or script.
+
+Scope: `lab:write`.
+
+| Argument         | Type |                                           |
+| ---------------- | ---- | ----------------------------------------- |
+| `p_dataset_id` * | uuid | Dataset id.                               |
+| `p_rows` *       | json | JSON array of rows about to be committed. |
+| `p_trigger`      | text | `import` or `pipeline`.                   |
+
+### `check_record_contract`
+
+Does a record meet its model’s contract?. Advisory: lists the rules a record breaks. Nothing is recorded and nothing is blocked.
+
+Scope: `lab:read`.
+
+| Argument        | Type |            |
+| --------------- | ---- | ---------- |
+| `p_record_id` * | uuid | Record id. |
+
+### `check_record_batch_contract`
+
+Check records about to be created against their model’s contract. Advisory: rows are `{ values: { field_name: value } }`. Nothing is recorded.
+
+Scope: `lab:read`.
+
+| Argument               | Type |                                               |
+| ---------------------- | ---- | --------------------------------------------- |
+| `p_record_model_key` * | text | Key of the record model the contract sits on. |
+| `p_rows` *             | json | JSON array of rows about to be committed.     |
+
+### `export_data_contract_odcs`
+
+Export a data contract as ODCS. Returns the contract as an Open Data Contract Standard (v3.1) document, as JSON. Save it as YAML to keep it in git.
+
+Scope: `lab:read`.
+
+| Argument          | Type |                   |
+| ----------------- | ---- | ----------------- |
+| `p_contract_id` * | uuid | Data contract id. |
+
+### `import_data_contract_odcs`
+
+Import a data contract from ODCS. Reads an ODCS v3.1 document and makes or replaces the contract it describes. The target is the dataset schema or record model named by the document unless you give one. Returns the contract and a list of what was left out. Needs an owner, admin or steward.
+
+Scope: `lab:write`.
+
+| Argument              | Type |                                                                                             |
+| --------------------- | ---- | ------------------------------------------------------------------------------------------- |
+| `p_odcs` *            | json | An Open Data Contract Standard (ODCS v3.1) document as JSON. YAML parses to the same thing. |
+| `p_dataset_schema_id` | uuid | Dataset schema (table model) id the contract sits on.                                       |
+| `p_record_model_key`  | text | Key of the record model the contract sits on.                                               |

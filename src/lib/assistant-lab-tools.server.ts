@@ -165,6 +165,10 @@ export const LAB_AREAS = {
     'Actions an agent asked to take and how each was handled: waiting for a person, approved, refused, done or failed (openOnly: only those waiting)',
   ai_checks:
     'Runs of the built-in assistant checks: when, which mode, and how many passed or failed',
+  contracts:
+    'Data contracts on table models and record models: owner, whether each is in force, and its standing Pass, Warning or Fail (openOnly: only those with a Warning or Fail)',
+  dataset_contracts:
+    'How each dataset stands against its contract at its latest full check: Pass, Warning or Fail and how many rules were broken (openOnly: only those not passing)',
 } as const
 
 export type LabArea = keyof typeof LAB_AREAS
@@ -735,6 +739,8 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   directory_sync: 'revoked_at=is.null',
   watcher_findings: 'status=eq.open',
   agent_requests: 'status=eq.pending',
+  contracts: 'last_status=in.(warning,fail)',
+  dataset_contracts: 'status=neq.pass',
 }
 
 interface PlainArea {
@@ -768,6 +774,21 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'finished_at.desc',
     search: [],
     page: '/settings/workspace/ai',
+  },
+  contracts: {
+    table: 'data_contracts',
+    select:
+      'id,name,description,lifecycle,version,last_status,last_checked_at,dataset_schema_id,record_model_key,owner_user_id',
+    order: 'name.asc',
+    search: ['name', 'description'],
+    page: '/models',
+  },
+  dataset_contracts: {
+    table: 'data_contract_dataset_status',
+    select: 'contract_id,dataset_id,status,failed_rules,checked_at',
+    order: 'checked_at.desc',
+    search: [],
+    page: '/datasets',
   },
   directory_sync: {
     table: 'scim_tokens',

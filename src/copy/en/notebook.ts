@@ -180,6 +180,16 @@ export const notebook = {
         applying: 'Reproducing…',
         applied: 'Reproduced',
       },
+      checkContract: {
+        apply: 'Check now',
+        applying: 'Checking…',
+        applied: 'Checked',
+      },
+      addContractRule: {
+        apply: 'Add rule',
+        applying: 'Adding…',
+        applied: 'Rule added',
+      },
       runValidation: {
         apply: 'Run checks',
         applying: 'Running…',

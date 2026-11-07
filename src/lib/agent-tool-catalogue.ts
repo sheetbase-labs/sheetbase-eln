@@ -179,6 +179,9 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.validation.run',
   // Run a finished pipeline run again in scratch and compare it (assistant-upkeep.ts).
   'sheetbase.pipeline.reproduce',
+  // Data contracts: check one now, or add a rule (assistant-upkeep.ts).
+  'sheetbase.contract.check',
+  'sheetbase.contract.add_rule',
   // Running the lab from a card: stocktakes, legal holds, retention, registry
   // entries, sample workflows, result limits, booking rules, timers, repeating
   // work, pooling, solution prep, saved searches, pins and the lab logo

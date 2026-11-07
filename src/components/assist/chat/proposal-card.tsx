@@ -81,6 +81,8 @@ const ACTION_COPY = {
   'timestamps.retry': 'retryTimestamp',
   'validation.run': 'runValidation',
   'pipeline.reproduce': 'reproduceRun',
+  'contract.check': 'checkContract',
+  'contract.rule_add': 'addContractRule',
   'notifications.read': 'markRead',
   'reagent.ordered': 'markOrdered',
   'reagent.cancel': 'cancelOrder',

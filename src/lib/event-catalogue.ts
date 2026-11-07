@@ -2142,6 +2142,51 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
       'Payload carries the same fields as experiment.gate_opened, plus reason, missing (what was still to do, in words) and userId.',
   },
   {
+    name: 'experiment.part_signed',
+    family: 'record',
+    summary: 'A part of an experiment was signed off.',
+    producer: {
+      entityType: 'part_signoff',
+      operation: 'create',
+    },
+    wireName: 'experiment.part_signed',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries signoffId, signedByUserId, signerName, digest (the SHA-256 of the part as it was signed), authMethod, partId, partNumber, part (the title), recordId, identifier and title. Signing a part freezes it and opens the next one.',
+  },
+  {
+    name: 'experiment.part_countersigned',
+    family: 'record',
+    summary: 'A signed part of an experiment was countersigned.',
+    producer: {
+      entityType: 'part_countersign',
+      operation: 'create',
+    },
+    wireName: 'experiment.part_countersigned',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries signoffId, countersignsId (the signature it countersigns), signedByUserId, signerName, digest, authMethod, partId, partNumber, part, recordId, identifier and title.',
+  },
+  {
+    name: 'experiment.part_amended',
+    family: 'record',
+    summary: 'A signed part of an experiment was reopened to be amended.',
+    producer: {
+      entityType: 'part_amendment',
+      operation: 'create',
+    },
+    wireName: 'experiment.part_amended',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries amendmentId, signoffId (the signature set aside), reason, amendedByUserId, partId, partNumber, part, recordId, identifier and title. The old signature stays on record.',
+  },
+  {
     name: 'experiment.series_member_added',
     family: 'record',
     summary: 'An experiment was added to a series of experiments.',
@@ -2695,6 +2740,10 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
   'code_cell.reproduced': 'A code cell run is reproduced',
   'experiment.gate_opened': 'A gate in an experiment opens',
   'experiment.gate_overridden': 'A gate in an experiment is gone past',
+  'experiment.part_signed': 'A part of an experiment is signed off',
+  'experiment.part_countersigned': 'A part of an experiment is countersigned',
+  'experiment.part_amended':
+    'A signed part of an experiment is reopened to amend it',
 })
 
 /**

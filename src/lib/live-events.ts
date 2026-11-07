@@ -428,7 +428,11 @@ export function createLiveEventCoordinator(
       case 'part_completion':
       case 'part_opened':
       case 'gate_opening':
-      case 'gate_override': {
+      case 'gate_override':
+      case 'part_signoff':
+      case 'part_countersign':
+      case 'part_amendment':
+      case 'part_signoff_request': {
         if (event.recordId) {
           void qc.invalidateQueries({
             queryKey: partQueryKeys.forRecord(event.recordId),

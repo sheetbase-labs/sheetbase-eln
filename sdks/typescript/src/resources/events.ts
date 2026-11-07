@@ -192,6 +192,9 @@ export const EVENT_NAMES = [
   'lineage.endpoint.created',
   'lineage.endpoint.updated',
   'lineage.delivery_failed',
+  'experiment.part_signed',
+  'experiment.part_countersigned',
+  'experiment.part_amended',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]

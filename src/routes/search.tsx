@@ -930,7 +930,10 @@ function SearchPage() {
               onLoadMore={() => void query.fetchNextPage()}
             />
 
-            {meaningAvailable && meaningOn && active && filterCount === 0 ? (
+            {meaningAvailable &&
+            meaningOn &&
+            q.trim().length > 0 &&
+            filterCount === 0 ? (
               <section
                 className="mb-6 flex flex-col gap-2"
                 aria-label={t('projects.searchMeaning.heading')}

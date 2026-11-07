@@ -17,8 +17,9 @@ import { isCloudProvider } from './ai-providers/types'
 import type { ProviderDeps, ProviderProfile } from './ai-providers/types'
 import type { DataClient } from './data-client'
 import { executeSearch } from './search'
-export { fetchSimilarWork as similarWork } from './similar-work'
 import type { RpcSearchResult, SearchResultType } from './search'
+
+export { fetchSimilarWork as similarWork } from './similar-work'
 
 export type SemanticUnavailableReason =
   | 'ai_off'
@@ -116,7 +117,7 @@ export async function embedQuery(
   const configuration = getProviderConfiguration()
   const { profile, apiKey } = resolveEmbeddings(row, configuration.profiles)
   const done = await embedTexts(profile, apiKey, [query.slice(0, 4000)], deps)
-  return done.vectors[0]!
+  return done.vectors[0]
 }
 
 export interface SemanticSearchOptions {

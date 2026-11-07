@@ -50,7 +50,7 @@ export function fitVector(vector: readonly number[], providerId: string) {
   }
   const scale = norm > 0 ? 1 / Math.sqrt(norm) : 1
   const out = new Array<number>(EMBEDDING_DIMENSIONS).fill(0)
-  for (let i = 0; i < vector.length; i += 1) out[i] = vector[i]! * scale
+  for (let i = 0; i < vector.length; i += 1) out[i] = vector[i] * scale
   return out
 }
 
@@ -104,7 +104,7 @@ export function parseEmbeddingResponse(
         { providerId: profile.id },
       )
     }
-    return fitVector(entry.embedding as number[], profile.id)
+    return fitVector(entry.embedding, profile.id)
   })
   const usage = asRecord(root?.usage)
   const reported =

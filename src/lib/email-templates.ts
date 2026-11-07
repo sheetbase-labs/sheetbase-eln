@@ -37,6 +37,7 @@ const SUBJECTS: Partial<Record<NotificationEventType, string>> = {
   step_timer: 'A step timer has ended',
   protocol_new_version: 'Protocol you use has a new version',
   part_reminder: 'A part of an experiment is due today',
+  part_signoff_request: 'You are asked to sign or countersign a part',
 }
 
 export function renderEmail(

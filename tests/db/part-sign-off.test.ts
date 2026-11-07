@@ -259,12 +259,12 @@ describe('a part that needs a signature', () => {
     await finishPartOne(stepIds)
 
     // Work is done, but Part 1 is still the one to work on, awaiting a signature.
-    expect((await states(recordId)).map((p) => [p.status, p.is_current])).toEqual(
-      [
-        ['now', true],
-        ['later', false],
-      ],
-    )
+    expect(
+      (await states(recordId)).map((p) => [p.status, p.is_current]),
+    ).toEqual([
+      ['now', true],
+      ['later', false],
+    ])
     expect((await signoffs(recordId))[0]).toMatchObject({
       requires_sign_off: true,
       work_done: true,
@@ -279,12 +279,12 @@ describe('a part that needs a signature', () => {
     const since = await mark()
     const result = (await sign(owner, OWNER, recordId, one)).rows[0].r
     expect(result).toMatchObject({ meaning: 'signed', part_id: one })
-    expect((await states(recordId)).map((p) => [p.status, p.is_current])).toEqual(
-      [
-        ['done', false],
-        ['now', true],
-      ],
-    )
+    expect(
+      (await states(recordId)).map((p) => [p.status, p.is_current]),
+    ).toEqual([
+      ['done', false],
+      ['now', true],
+    ])
     expect((await signoffs(recordId))[0]).toMatchObject({
       signed: true,
       awaiting_sign_off: false,
@@ -315,27 +315,30 @@ describe('a part that needs a signature', () => {
     await owner.query(`select api.set_parts_sign_off($1,true)`, [recordId])
     const early = await previewDigest(owner, one)
     await expect(
-      owner.query(
-        `select api.sign_experiment_part($1,'signed',$2,$3,'nope')`,
-        [one, `Person ${OWNER}`, early],
-      ),
+      owner.query(`select api.sign_experiment_part($1,'signed',$2,$3,'nope')`, [
+        one,
+        `Person ${OWNER}`,
+        early,
+      ]),
     ).rejects.toThrow(/finish the part/)
     await finishPartOne(stepIds)
 
     // The part changed after the digest was shown.
     await expect(
-      owner.query(
-        `select api.sign_experiment_part($1,'signed',$2,$3,'nope')`,
-        [one, `Person ${OWNER}`, early],
-      ),
+      owner.query(`select api.sign_experiment_part($1,'signed',$2,$3,'nope')`, [
+        one,
+        `Person ${OWNER}`,
+        early,
+      ]),
     ).rejects.toMatchObject({ code: 'SB001' })
 
     const digest = await previewDigest(owner, one)
     await expect(
-      owner.query(
-        `select api.sign_experiment_part($1,'signed',$2,$3,NULL)`,
-        [one, `Person ${OWNER}`, digest],
-      ),
+      owner.query(`select api.sign_experiment_part($1,'signed',$2,$3,NULL)`, [
+        one,
+        `Person ${OWNER}`,
+        digest,
+      ]),
     ).rejects.toMatchObject({ code: 'SB002' })
     await expect(
       owner.query(
@@ -359,10 +362,12 @@ describe('a part that needs a signature', () => {
       meaning: 'signed',
     })
     await expect(
-      owner.query(
-        `select api.sign_experiment_part($1,'signed',$2,$3,$4)`,
-        [one, `Person ${OWNER}`, digest, wrongDigest],
-      ),
+      owner.query(`select api.sign_experiment_part($1,'signed',$2,$3,$4)`, [
+        one,
+        `Person ${OWNER}`,
+        digest,
+        wrongDigest,
+      ]),
     ).rejects.toMatchObject({ code: 'SB002' })
 
     // A spent grant cannot be used again.
@@ -373,15 +378,19 @@ describe('a part that needs a signature', () => {
       digest,
       meaning: 'signed',
     })
-    await owner.query(
-      `select api.sign_experiment_part($1,'signed',$2,$3,$4)`,
-      [one, `Person ${OWNER}`, digest, token],
-    )
+    await owner.query(`select api.sign_experiment_part($1,'signed',$2,$3,$4)`, [
+      one,
+      `Person ${OWNER}`,
+      digest,
+      token,
+    ])
     await expect(
-      owner.query(
-        `select api.sign_experiment_part($1,'signed',$2,$3,$4)`,
-        [one, `Person ${OWNER}`, digest, token],
-      ),
+      owner.query(`select api.sign_experiment_part($1,'signed',$2,$3,$4)`, [
+        one,
+        `Person ${OWNER}`,
+        digest,
+        token,
+      ]),
     ).rejects.toThrow()
   })
 
@@ -398,10 +407,12 @@ describe('a part that needs a signature', () => {
       meaning: 'signed',
     })
     await expect(
-      owner.query(
-        `select api.sign_experiment_part($1,'signed',$2,$3,$4)`,
-        [one, `Person ${OWNER}`, digest, token],
-      ),
+      owner.query(`select api.sign_experiment_part($1,'signed',$2,$3,$4)`, [
+        one,
+        `Person ${OWNER}`,
+        digest,
+        token,
+      ]),
     ).rejects.toMatchObject({ code: 'SB152' })
   })
 
@@ -429,10 +440,10 @@ describe('a signed part is locked', () => {
       owner.query(`select api.set_step_done($1,false)`, [stepIds[0]]),
     ).rejects.toMatchObject({ code: 'SB150' })
     await expect(
-      owner.query(
-        `select api.update_block_payload($1,$2::jsonb,1)`,
-        [stepIds[0], JSON.stringify({ text: 'tampered' })],
-      ),
+      owner.query(`select api.update_block_payload($1,$2::jsonb,1)`, [
+        stepIds[0],
+        JSON.stringify({ text: 'tampered' }),
+      ]),
     ).rejects.toThrow()
     await expect(
       owner.query(`select api.update_experiment_part($1,'Renamed')`, [one]),
@@ -567,10 +578,12 @@ describe('countersigning', () => {
       meaning: 'witnessed',
     })
     await expect(
-      owner.query(
-        `select api.sign_experiment_part($1,'witnessed',$2,$3,$4)`,
-        [one, `Person ${OWNER}`, digest, own],
-      ),
+      owner.query(`select api.sign_experiment_part($1,'witnessed',$2,$3,$4)`, [
+        one,
+        `Person ${OWNER}`,
+        digest,
+        own,
+      ]),
     ).rejects.toMatchObject({ code: 'SB152' })
 
     await sign(witness, WITNESS, recordId, one, 'witnessed')

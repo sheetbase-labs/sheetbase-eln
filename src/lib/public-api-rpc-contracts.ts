@@ -486,6 +486,39 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
     result: pgrstRow(scimTokenRow, 'The revoked token.'),
   },
 
+  event_stream_page: {
+    summary: 'Read a page of the event stream',
+    description:
+      'Changes in the workspace in order, after the sequence in `p_after`, that the caller could see in the app. Returns `events` (rows with `sequence`, `entity_type`, `operation` and `payload`), `nextCursor`, `hasMore`, the `earliest` and `latest` kept, `expired` (the cursor is older than the events kept) and `retentionDays`. `GET /api/events/stream` serves the same thing as CloudEvents and a live stream.',
+    required: [],
+    properties: {
+      p_after: bigint('Last sequence handled; 0 starts at the oldest kept.'),
+      p_limit: int('Events per page.', {
+        minimum: 1,
+        maximum: 1000,
+        default: 200,
+      }),
+      p_entity_types: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Only these kinds of change, such as `pipeline_reproduction`.',
+      },
+    },
+    result: obj(
+      {
+        events: jsonArray('The events.'),
+        nextCursor: bigint('Pass as `p_after` for the next page.'),
+        hasMore: bool('More events are waiting.'),
+        earliest: { type: ['integer', 'null'] },
+        latest: { type: ['integer', 'null'] },
+        expired: bool('The cursor was older than the events kept.'),
+        retentionDays: int('Days of history kept.'),
+      },
+      ['events', 'nextCursor', 'hasMore'],
+      'A page of the event stream.',
+    ),
+  },
   timestamp_settings: {
     summary: 'Read the time-stamping service',
     description:

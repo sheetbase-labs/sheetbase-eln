@@ -25,6 +25,7 @@ approval ledger. A flag or scope can only reduce access.
 | Trusted timestamps     | `signature_timestamps`                                                                                                    | `reviews:read`                  |
 | Validation runs        | `validation_runs`                                                                                                         | `admin:read`                    |
 | Agent permissions      | `agent_action_policies`, `ai_eval_runs`, `ai_eval_results`                                                                | `admin:read`                    |
+| Provenance             | `pipeline_reproductions`, `lineage_targets`, `lineage_deliveries`                                                         | `lab:read`                      |
 
 The tool fixes the projected columns from the published row schema, allows
 equality filters only, caps rows per resource, and returns `nextOffset`. Pipeline
@@ -39,6 +40,12 @@ notebooks, sheets, datasets, dataset versions and analyses. `sheetbase.search`,
 `sheetbase.storage.readings` (freezer, fridge, incubator and room readings with
 their alarm limits, optionally only those out of range) and
 `sheetbase.sheet_instance.materialization_preview` remain the convenience reads.
+`sheetbase.events.read` follows the workspace event stream (`event_stream_page`, `admin:read`):
+every change after a sequence number, limited to what the person could see in the app.
+Lineage endpoints are changed with `sheetbase.lab.act` (`save_lineage_target`,
+`delete_lineage_target`, `retry_lineage_deliveries`, `set_event_stream_retention`).
+Reproducing a run is `POST /api/pipelines/reproduce` and, in the assistant, the
+“Reproduce run” card (`sheetbase.pipeline.reproduce`).
 Logging readings is `record_storage_readings` through `sheetbase.lab.act`, the
 same call loggers and scripts make over the API.
 

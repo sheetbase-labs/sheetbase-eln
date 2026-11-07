@@ -361,6 +361,12 @@ function readToolArgs(
         p_query: data.query,
         p_limit: data.limit ?? 20,
       }
+    case 'sheetbase.events.read':
+      return {
+        p_after: data.after ?? 0,
+        p_limit: data.limit ?? 200,
+        p_entity_types: data.entityTypes ?? null,
+      }
     case 'sheetbase.storage.readings':
       return {
         p_unit_id: data.storageUnitId ?? null,

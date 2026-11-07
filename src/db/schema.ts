@@ -10149,6 +10149,39 @@ export const pipelineReproductions = api.table(
 )
 
 /** An OpenLineage endpoint a workspace sends RunEvents to; off until an admin adds one. */
+export const pipelineReproductionRequests = api.table(
+  'pipeline_reproduction_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').notNull(),
+    runId: uuid('run_id').notNull(),
+    requestedByUserId: text('requested_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().default('pending'),
+    reproductionId: uuid('reproduction_id'),
+    errorMessage: text('error_message'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    handledAt: timestamp('handled_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    foreignKey({
+      name: 'pipeline_reproduction_requests_run_fkey',
+      columns: [table.workspaceId, table.runId],
+      foreignColumns: [pipelineRuns.workspaceId, pipelineRuns.id],
+    }).onDelete('cascade'),
+    check(
+      'chk_pipeline_reproduction_requests_status',
+      sql`${table.status} IN ('pending', 'running', 'done', 'failed')`,
+    ),
+    index('idx_pipeline_reproduction_requests_pending')
+      .on(table.createdAt)
+      .where(sql`${table.status} = 'pending'`),
+  ],
+)
+
 export const lineageTargets = api.table(
   'lineage_targets',
   {

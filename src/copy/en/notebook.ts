@@ -3184,7 +3184,7 @@ export const notebook = {
       step_done: 'Step {number} is done',
       part_done: 'Part {number} is done',
       samples_linked: {
-        one: 'a sample is linked',
+        one: 'at least {count} sample is linked',
         other: 'at least {count} samples are linked',
       },
       field_set: '{field} is set',

@@ -174,7 +174,8 @@ export function previewSample(
     parser.parser_versions.find((v) => v.status !== 'retired') ??
     parser.parser_versions.at(0)
   const kind: ParserKind = parserKindOf(parser.key, version?.signature ?? {})
-  if (kind === 'webhook') return { status: 'later', reason: 'service' }
+  if (kind === 'webhook' || kind === 'converter')
+    return { status: 'later', reason: 'service' }
   if (parser.format === 'xlsx') return { status: 'later', reason: 'binary' }
   if (kind === 'builtin') {
     const reader = getParser(parser.key)

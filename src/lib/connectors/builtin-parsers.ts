@@ -77,7 +77,7 @@ export function isBuiltinParserKey(key: string): boolean {
 }
 
 /** How a parser version reads a file. */
-export type ParserKind = 'builtin' | 'columns' | 'webhook'
+export type ParserKind = 'builtin' | 'columns' | 'webhook' | 'converter'
 
 export function parserKindOf(
   key: string,
@@ -86,6 +86,8 @@ export function parserKindOf(
   if (isBuiltinParserKey(key)) return 'builtin'
   if (signature['webhook'] && typeof signature['webhook'] === 'object')
     return 'webhook'
+  if (signature['converter'] && typeof signature['converter'] === 'object')
+    return 'converter'
   if (typeof signature['engine'] === 'string') return 'builtin'
   return 'columns'
 }

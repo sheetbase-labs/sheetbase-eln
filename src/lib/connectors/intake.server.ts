@@ -26,7 +26,8 @@ import { sha256Hex } from './digest'
 import { ingestInstrumentPayload } from './instrument-ingestion'
 import { recordRunSampleResults, sampleResultsFromPayload } from './run-results'
 import { detectParserId } from './instrument-parsers'
-import { ParserResolutionError } from './parser-resolution'
+import { ConverterError } from './converter.server'
+import { ParserResolutionError, resolveParserVersion } from './parser-resolution'
 import type { ResolvedParser } from './parser-resolution'
 import { TabularIngestionError } from './tabular-ingestion'
 import type { ConnectorWire } from './types'
@@ -67,6 +68,10 @@ export interface IntakeInput {
   instrumentId: string | null
   /** Runs a webhook parser; supplied by the server (it holds the signing key). */
   readWithWebhook?: (parser: ResolvedParser) => Promise<ParsedInstrumentPayload>
+  /** Converts the file to Allotrope; supplied by the server (it reaches the Python runtime). */
+  readWithConverter?: (
+    parser: ResolvedParser,
+  ) => Promise<ParsedInstrumentPayload>
   /** A failed run this one follows, when someone chose to try again. */
   retryOfRunId?: string | null
 }
@@ -89,6 +94,11 @@ export interface IntakeResult {
   samples: { linked: number; unknown: string[] } | null
   /** The open experiment the dataset and run were linked to, when one fits. */
   experiment: { id: string; identifier: string } | null
+  /**
+   * The Allotrope document a converter made from the file: whether it is kept
+   * with the instrument run (it needs one) and how many measurements it holds.
+   */
+  asm: { kept: boolean; measurements: number; converter: string } | null
 }
 
 export class IntakeError extends Error {
@@ -131,7 +141,11 @@ export interface IntakeFailureRow {
 }
 
 /** Codes the agent should give up on, against the ones worth trying later. */
-const TRANSIENT = new Set(['webhook_unreachable', 'webhook_timeout'])
+const TRANSIENT = new Set([
+  'webhook_unreachable',
+  'webhook_timeout',
+  'converter_unavailable',
+])
 
 /** The file's words for what went wrong, for a scientist rather than a developer. */
 export function describeIntakeFailure(
@@ -166,6 +180,14 @@ export function describeIntakeFailure(
     case 'webhook_error':
     case 'webhook_refused':
       return t('data.intake.reasons.webhookRefused', { parser, detail })
+    case 'converter_unavailable':
+      return t('data.intake.reasons.converterUnavailable', { parser })
+    case 'converter_failed':
+      return t('data.intake.reasons.converterFailed', { parser, detail })
+    case 'converter_too_large':
+      return t('data.intake.reasons.converterTooLarge')
+    case 'converter_unknown':
+      return t('data.intake.reasons.converterUnknown', { parser })
     case 'no_rows':
       return t('data.intake.reasons.noRows')
     case 'no_mapping':
@@ -345,7 +367,16 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
   }
 
   try {
-    const text = await readIntakeText(input.bytes)
+    // A converter reads the file's bytes itself (a workbook or a binary
+    // format is fine), so only a parser that reads text needs the text.
+    const chosenKey =
+      parserKey || (!input.autoDetect ? connector.parser_id : null)
+    const converterChosen = chosenKey
+      ? await resolveParserVersion(client, workspaceId, chosenKey)
+          .then((resolved) => resolved.kind === 'converter')
+          .catch(() => false)
+      : false
+    const text = converterChosen ? '' : await readIntakeText(input.bytes)
     parserKey ??=
       input.autoDetect || !connector.parser_id
         ? detectParserId(text)
@@ -394,6 +425,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
       connectorId: connector.id,
       parserId: parserKey,
       readWithWebhook: input.readWithWebhook,
+      readWithConverter: input.readWithConverter,
       text,
       fileName: input.fileName,
       fileRecordId: input.retained?.fileRecordId ?? null,
@@ -454,6 +486,36 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
         samples = null
       }
     }
+    // A converted file keeps its Allotrope document with the instrument run.
+    let asm: IntakeResult['asm'] = null
+    const converted = result.parsed?.asm
+    if (converted) {
+      let kept = false
+      if (instrumentRunId) {
+        try {
+          await client.rpc('record_instrument_run_document', {
+            p_run_id: instrumentRunId,
+            p_document: converted.document,
+            p_converter: converted.converter,
+            p_converter_version: converted.converterVersion || null,
+            p_image_digest: converted.imageDigest || null,
+            p_vendor: converted.vendor || null,
+            p_technique: converted.technique || null,
+            p_manifest: converted.manifest || null,
+            p_measurements: converted.measurements,
+            p_device: converted.device,
+          })
+          kept = true
+        } catch {
+          kept = false
+        }
+      }
+      asm = {
+        kept,
+        measurements: converted.measurements,
+        converter: `${converted.converter} ${converted.converterVersion}`.trim(),
+      }
+    }
     // The dataset gets its project and owner, and, when the samples already
     // belong to one open experiment, that experiment. Reading the file has
     // succeeded, so none of this may fail the intake.
@@ -490,6 +552,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
       instrumentLink,
       samples,
       experiment,
+      asm,
     }
   } catch (error) {
     if (error instanceof IntakeError) {
@@ -501,6 +564,13 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
       return fail(422, error.code, error.message)
     }
     if (error instanceof WebhookParserError) {
+      return fail(
+        TRANSIENT.has(error.code) ? 502 : 422,
+        error.code,
+        error.message,
+      )
+    }
+    if (error instanceof ConverterError) {
       return fail(
         TRANSIENT.has(error.code) ? 502 : 422,
         error.code,

@@ -43,6 +43,13 @@ export interface InstrumentIngestionInput {
    * a caller that can't passes nothing and a webhook parser is refused.
    */
   readWithWebhook?: (parser: ResolvedParser) => Promise<ParsedInstrumentPayload>
+  /**
+   * Converts the file to Allotrope in the Python runtime. Only the server can,
+   * so a caller that can't passes nothing and a converter parser is refused.
+   */
+  readWithConverter?: (
+    parser: ResolvedParser,
+  ) => Promise<ParsedInstrumentPayload>
   /** Raw payload text exactly as received (never transformed client-side). */
   text: string
   fileName: string
@@ -101,6 +108,17 @@ function readerFor(
       )
     }
     return () => readWithWebhook(parser)
+  }
+  if (parser.kind === 'converter') {
+    const readWithConverter = input.readWithConverter
+    if (!readWithConverter) {
+      throw new ParserResolutionError(
+        'parser_unsupported',
+        `${parser.name} converts files on the server and can’t be used from here.`,
+        parser.key,
+      )
+    }
+    return () => readWithConverter(parser)
   }
   const reader = builtinReader(parser)
   if (reader) return () => reader.parse(input.text)

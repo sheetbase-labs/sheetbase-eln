@@ -34,6 +34,7 @@ import {
   runIntake,
 } from './intake.server'
 import type { IntakeResult, IntakeRetained } from './intake.server'
+import { converterReader } from './converter.server'
 import { webhookReader } from './webhook-parser.server'
 import type { WebhookParserDeps } from './webhook-parser.server'
 import type { ConnectorWire } from './types'
@@ -388,6 +389,7 @@ export async function runPickup(
         loadSecret: deps.loadWebhookSecret,
         deps: deps.webhook,
       }),
+      readWithConverter: converterReader({ fileName, bytes }),
     })
   } catch (error) {
     if (error instanceof IntakeError) {

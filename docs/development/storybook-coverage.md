@@ -491,3 +491,13 @@ server, so every notebook comes back in the "not updated" list.
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/components/pipelines/run-reproduction.tsx` | Reads a run's reproductions and starts one through the data client and the reproduce route; covered by the run page tests and the provenance database tests.                    |
 | `src/components/settings/lineage-section.tsx`   | Reads and saves lineage endpoints through server functions that need a signed-in manager; covered by the provenance database tests and the Integrations settings click-through. |
+
+## Robots, scheduler and code cells
+
+| Module                                               | Why no story                                                                                                            |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `src/components/instruments/robot-section.tsx`       | Reads robot settings and jobs through the data client and calls the job functions; covered by the robot job tests.      |
+| `src/components/scheduler/schedule-panel.tsx`        | Reads parts, needs and proposals through the data client and calls the scheduler functions; covered by scheduler tests. |
+| `src/components/scheduler/instrument-timeline.tsx`   | Reads an instrument's bookings and jobs through the data client; covered by the scheduler tests.                        |
+| `src/components/settings/working-hours-settings.tsx` | Reads and saves the scheduler settings through the data client; covered by the scheduler tests.                         |
+| `src/components/notebook/code-cell-block.tsx`        | Runs the cell through the code cell route and reads its runs through the data client; covered by the code cell tests.   |

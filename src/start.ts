@@ -209,6 +209,15 @@ const lakeMiddleware = createMiddleware().server(async ({ next }) => {
   return next()
 })
 
+// Publishing: sends queued experiments and dataset versions to the repository
+// an admin set up, and makes a draft public once someone confirms. Does
+// nothing until then. Guarded like the other schedulers.
+const publisherMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startPublisher } = await import('#/lib/publishing/publisher.server')
+  startPublisher()
+  return next()
+})
+
 // Workspace backups: the same archive as the whole-workspace export, made on
 // each workspace's schedule and kept to the newest few. Guarded like the other
 // schedulers and never started under test runners unless explicitly enabled.
@@ -309,6 +318,7 @@ export const startInstance = createStart(() => ({
     lineageMiddleware,
     scheduleMiddleware,
     lakeMiddleware,
+    publisherMiddleware,
     backupSchedulerMiddleware,
     webhookDeliveryMiddleware,
     csrfMiddleware,

@@ -10,13 +10,23 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Any, Optional, Sequence
+from typing import Any, Iterator, Optional, Sequence
 from urllib.parse import quote, urlparse
 
 import httpx
 
 from sheetbase._version import __version__
 from sheetbase.errors import TokenError, data_path_error, DataPathError
+
+
+class StreamError(Exception):
+    """A streaming request the server refused (``status``, ``code``, ``details``)."""
+
+    def __init__(self, status: int, code: str, message: str, details: Optional[dict] = None) -> None:
+        super().__init__(message)
+        self.status = status
+        self.code = code
+        self.details = details or {}
 
 
 @dataclass(frozen=True)
@@ -203,6 +213,43 @@ class HttpTransport:
         headers: Optional[dict[str, str]] = None,
     ) -> Any:
         return self.request("DELETE", path, params=params, headers=headers)
+
+    def stream_lines(
+        self,
+        path: str,
+        *,
+        params: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> Iterator[str]:
+        """Yield the lines of a long-lived ``text/event-stream`` response.
+
+        Raises on an error status, with the error envelope's code and message.
+        """
+        token = self._ensure_token()
+        hdrs = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "text/event-stream",
+            "User-Agent": f"sheetbase-py/{__version__}",
+        }
+        if headers:
+            hdrs.update(headers)
+        # No overall timeout: the server sends a keep-alive comment regularly.
+        timeout = httpx.Timeout(self.timeout, read=None)
+        with self._client.stream(
+            "GET", f"{self.base_url}{path}", params=params, headers=hdrs, timeout=timeout
+        ) as resp:
+            if resp.status_code >= 400:
+                resp.read()
+                body = _safe_json(resp)
+                err = body.get("error", {}) if body else {}
+                raise StreamError(
+                    resp.status_code,
+                    err.get("code", "server_error"),
+                    err.get("message", f"HTTP {resp.status_code}"),
+                    err,
+                )
+            for line in resp.iter_lines():
+                yield line
 
     # ── response handling ───────────────────────────────────────────────
 

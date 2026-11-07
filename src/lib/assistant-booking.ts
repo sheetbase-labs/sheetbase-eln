@@ -8,6 +8,8 @@ import { isLabworkAction } from './assistant-labwork'
 import type { LabworkAction } from './assistant-labwork'
 import { isPlatesAction } from './assistant-plates'
 import type { PlatesAction } from './assistant-plates'
+import { isAutomationAction } from './assistant-automation'
+import type { AutomationAction } from './assistant-automation'
 import { isQcAction } from './assistant-qc'
 import type { QcAction } from './assistant-qc'
 import { isUpkeepAction } from './assistant-upkeep'
@@ -139,6 +141,7 @@ export type AssistantAction =
   | UpkeepAction
   | PlatesAction
   | QcAction
+  | AutomationAction
   | LabworkAction
 
 export type AssistantActionKind = AssistantAction['kind']
@@ -185,6 +188,11 @@ export async function runAssistantAction(
         // Lab-work jobs load only when a card's button is pressed.
         const { runLabworkAction } = await import('./assistant-labwork-run')
         return runLabworkAction(client, action)
+      }
+      if (isAutomationAction(action)) {
+        const { runAutomationAction } =
+          await import('./assistant-automation-run')
+        return runAutomationAction(client, action)
       }
       if (isQcAction(action)) {
         const { runQcAction } = await import('./assistant-qc-run')

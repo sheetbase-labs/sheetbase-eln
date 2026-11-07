@@ -357,4 +357,4 @@ export const planner = {
     campaignTickHint:
       'Records of this model can be campaigns: they are listed on the Campaigns page and can be optimised round by round.',
   },
-}
+} as const

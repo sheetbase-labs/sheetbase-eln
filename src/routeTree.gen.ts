@@ -55,6 +55,8 @@ import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as ApiMetricsRouteImport } from './routes/api/metrics'
 import { Route as ApiSheetCalculationsRouteImport } from './routes/api/sheet-calculations'
 import { Route as ApiWorkspaceLogoRouteImport } from './routes/api/workspace-logo'
+import { Route as CampaignsIndexRouteImport } from './routes/campaigns.index'
+import { Route as CampaignsCampaignIdRouteImport } from './routes/campaigns.$campaignId'
 import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datasetId'
 import { Route as DocsNameRouteImport } from './routes/docs/$name'
 import { Route as EvidenceRevisionIdRouteImport } from './routes/evidence/$revisionId'
@@ -70,6 +72,8 @@ import { Route as MaterialsLotIdRouteImport } from './routes/materials/$lotId'
 import { Route as ModelsModelIdRouteImport } from './routes/models/$modelId'
 import { Route as PipelinesPipelineIdRouteImport } from './routes/pipelines/$pipelineId'
 import { Route as PipelinesAgentsRouteImport } from './routes/pipelines/agents'
+import { Route as PlansIndexRouteImport } from './routes/plans.index'
+import { Route as PlansPlanIdRouteImport } from './routes/plans.$planId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as ProtocolsProtocolIdRouteImport } from './routes/protocols/$protocolId'
 import { Route as RIdentifierRouteImport } from './routes/r/$identifier'
@@ -467,6 +471,16 @@ const ApiWorkspaceLogoRoute = ApiWorkspaceLogoRouteImport.update({
   path: '/api/workspace-logo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CampaignsIndexRoute = CampaignsIndexRouteImport.update({
+  id: '/campaigns/',
+  path: '/campaigns/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CampaignsCampaignIdRoute = CampaignsCampaignIdRouteImport.update({
+  id: '/campaigns/$campaignId',
+  path: '/campaigns/$campaignId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DatasetsDatasetIdRoute = DatasetsDatasetIdRouteImport.update({
   id: '/$datasetId',
   path: '/$datasetId',
@@ -541,6 +555,16 @@ const PipelinesAgentsRoute = PipelinesAgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
   getParentRoute: () => PipelinesRoute,
+} as any)
+const PlansIndexRoute = PlansIndexRouteImport.update({
+  id: '/plans/',
+  path: '/plans/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlansPlanIdRoute = PlansPlanIdRouteImport.update({
+  id: '/plans/$planId',
+  path: '/plans/$planId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   id: '/$projectId',
@@ -1472,6 +1496,7 @@ export interface FileRoutesByFullPath {
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/api/workspace-logo': typeof ApiWorkspaceLogoRoute
+  '/campaigns/$campaignId': typeof CampaignsCampaignIdRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRouteWithChildren
   '/docs/$name': typeof DocsNameRoute
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
@@ -1485,6 +1510,7 @@ export interface FileRoutesByFullPath {
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
   '/pipelines/agents': typeof PipelinesAgentsRoute
+  '/plans/$planId': typeof PlansPlanIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/r/$identifier': typeof RIdentifierRoute
@@ -1500,8 +1526,10 @@ export interface FileRoutesByFullPath {
   '/stocktake/$stocktakeId': typeof StocktakeStocktakeIdRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/analysis/': typeof AnalysisIndexRoute
+  '/campaigns/': typeof CampaignsIndexRoute
   '/help/': typeof HelpIndexRoute
   '/import/': typeof ImportIndexRoute
+  '/plans/': typeof PlansIndexRoute
   '/review/': typeof ReviewIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/api/ai/evals': typeof ApiAiEvalsRoute
@@ -1697,6 +1725,7 @@ export interface FileRoutesByTo {
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/api/workspace-logo': typeof ApiWorkspaceLogoRoute
+  '/campaigns/$campaignId': typeof CampaignsCampaignIdRoute
   '/docs/$name': typeof DocsNameRoute
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
   '/experiments/new': typeof ExperimentsNewRoute
@@ -1706,6 +1735,7 @@ export interface FileRoutesByTo {
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/materials/$lotId': typeof MaterialsLotIdRoute
   '/pipelines/agents': typeof PipelinesAgentsRoute
+  '/plans/$planId': typeof PlansPlanIdRoute
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/r/$identifier': typeof RIdentifierRoute
   '/readings/new': typeof ReadingsNewRoute
@@ -1717,8 +1747,10 @@ export interface FileRoutesByTo {
   '/sign-in/two-factor': typeof SignInTwoFactorRoute
   '/stocktake/$stocktakeId': typeof StocktakeStocktakeIdRoute
   '/analysis': typeof AnalysisIndexRoute
+  '/campaigns': typeof CampaignsIndexRoute
   '/help': typeof HelpIndexRoute
   '/import': typeof ImportIndexRoute
+  '/plans': typeof PlansIndexRoute
   '/review': typeof ReviewIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/api/ai/evals': typeof ApiAiEvalsRoute
@@ -1916,6 +1948,7 @@ export interface FileRoutesById {
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/api/workspace-logo': typeof ApiWorkspaceLogoRoute
+  '/campaigns/$campaignId': typeof CampaignsCampaignIdRoute
   '/datasets/$datasetId': typeof DatasetsDatasetIdRouteWithChildren
   '/docs/$name': typeof DocsNameRoute
   '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
@@ -1929,6 +1962,7 @@ export interface FileRoutesById {
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
   '/pipelines/agents': typeof PipelinesAgentsRoute
+  '/plans/$planId': typeof PlansPlanIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/r/$identifier': typeof RIdentifierRoute
@@ -1944,8 +1978,10 @@ export interface FileRoutesById {
   '/stocktake_/$stocktakeId': typeof StocktakeStocktakeIdRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/analysis/': typeof AnalysisIndexRoute
+  '/campaigns/': typeof CampaignsIndexRoute
   '/help/': typeof HelpIndexRoute
   '/import/': typeof ImportIndexRoute
+  '/plans/': typeof PlansIndexRoute
   '/review/': typeof ReviewIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/api/ai/evals': typeof ApiAiEvalsRoute
@@ -2147,6 +2183,7 @@ export interface FileRouteTypes {
     | '/api/metrics'
     | '/api/sheet-calculations'
     | '/api/workspace-logo'
+    | '/campaigns/$campaignId'
     | '/datasets/$datasetId'
     | '/docs/$name'
     | '/evidence/$revisionId'
@@ -2160,6 +2197,7 @@ export interface FileRouteTypes {
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
     | '/pipelines/agents'
+    | '/plans/$planId'
     | '/projects/$projectId'
     | '/protocols/$protocolId'
     | '/r/$identifier'
@@ -2175,8 +2213,10 @@ export interface FileRouteTypes {
     | '/stocktake/$stocktakeId'
     | '/templates/$templateId'
     | '/analysis/'
+    | '/campaigns/'
     | '/help/'
     | '/import/'
+    | '/plans/'
     | '/review/'
     | '/settings/'
     | '/api/ai/evals'
@@ -2372,6 +2412,7 @@ export interface FileRouteTypes {
     | '/api/metrics'
     | '/api/sheet-calculations'
     | '/api/workspace-logo'
+    | '/campaigns/$campaignId'
     | '/docs/$name'
     | '/evidence/$revisionId'
     | '/experiments/new'
@@ -2381,6 +2422,7 @@ export interface FileRouteTypes {
     | '/instruments/$instrumentId'
     | '/materials/$lotId'
     | '/pipelines/agents'
+    | '/plans/$planId'
     | '/protocols/$protocolId'
     | '/r/$identifier'
     | '/readings/new'
@@ -2392,8 +2434,10 @@ export interface FileRouteTypes {
     | '/sign-in/two-factor'
     | '/stocktake/$stocktakeId'
     | '/analysis'
+    | '/campaigns'
     | '/help'
     | '/import'
+    | '/plans'
     | '/review'
     | '/settings'
     | '/api/ai/evals'
@@ -2590,6 +2634,7 @@ export interface FileRouteTypes {
     | '/api/metrics'
     | '/api/sheet-calculations'
     | '/api/workspace-logo'
+    | '/campaigns/$campaignId'
     | '/datasets/$datasetId'
     | '/docs/$name'
     | '/evidence/$revisionId'
@@ -2603,6 +2648,7 @@ export interface FileRouteTypes {
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
     | '/pipelines/agents'
+    | '/plans/$planId'
     | '/projects/$projectId'
     | '/protocols/$protocolId'
     | '/r/$identifier'
@@ -2618,8 +2664,10 @@ export interface FileRouteTypes {
     | '/stocktake_/$stocktakeId'
     | '/templates/$templateId'
     | '/analysis/'
+    | '/campaigns/'
     | '/help/'
     | '/import/'
+    | '/plans/'
     | '/review/'
     | '/settings/'
     | '/api/ai/evals'
@@ -2818,8 +2866,10 @@ export interface RootRouteChildren {
   ApiMetricsRoute: typeof ApiMetricsRoute
   ApiSheetCalculationsRoute: typeof ApiSheetCalculationsRoute
   ApiWorkspaceLogoRoute: typeof ApiWorkspaceLogoRoute
+  CampaignsCampaignIdRoute: typeof CampaignsCampaignIdRoute
   DocsNameRoute: typeof DocsNameRoute
   EvidenceRevisionIdRoute: typeof EvidenceRevisionIdRoute
+  PlansPlanIdRoute: typeof PlansPlanIdRoute
   RIdentifierRoute: typeof RIdentifierRoute
   ReadingsNewRoute: typeof ReadingsNewRoute
   RecordsRecordIdRoute: typeof RecordsRecordIdRouteWithChildren
@@ -2829,6 +2879,8 @@ export interface RootRouteChildren {
   SheetsNewRoute: typeof SheetsNewRoute
   SignInTwoFactorRoute: typeof SignInTwoFactorRoute
   StocktakeStocktakeIdRoute: typeof StocktakeStocktakeIdRoute
+  CampaignsIndexRoute: typeof CampaignsIndexRoute
+  PlansIndexRoute: typeof PlansIndexRoute
   ReviewIndexRoute: typeof ReviewIndexRoute
   ApiAiEvalsRoute: typeof ApiAiEvalsRoute
   ApiAssistantChatRoute: typeof ApiAssistantChatRoute
@@ -3214,6 +3266,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWorkspaceLogoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/campaigns/': {
+      id: '/campaigns/'
+      path: '/campaigns'
+      fullPath: '/campaigns/'
+      preLoaderRoute: typeof CampaignsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/campaigns/$campaignId': {
+      id: '/campaigns/$campaignId'
+      path: '/campaigns/$campaignId'
+      fullPath: '/campaigns/$campaignId'
+      preLoaderRoute: typeof CampaignsCampaignIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/datasets/$datasetId': {
       id: '/datasets/$datasetId'
       path: '/$datasetId'
@@ -3318,6 +3384,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/pipelines/agents'
       preLoaderRoute: typeof PipelinesAgentsRouteImport
       parentRoute: typeof PipelinesRoute
+    }
+    '/plans/': {
+      id: '/plans/'
+      path: '/plans'
+      fullPath: '/plans/'
+      preLoaderRoute: typeof PlansIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plans/$planId': {
+      id: '/plans/$planId'
+      path: '/plans/$planId'
+      fullPath: '/plans/$planId'
+      preLoaderRoute: typeof PlansPlanIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/projects/$projectId': {
       id: '/projects/$projectId'
@@ -5032,8 +5112,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMetricsRoute: ApiMetricsRoute,
   ApiSheetCalculationsRoute: ApiSheetCalculationsRoute,
   ApiWorkspaceLogoRoute: ApiWorkspaceLogoRoute,
+  CampaignsCampaignIdRoute: CampaignsCampaignIdRoute,
   DocsNameRoute: DocsNameRoute,
   EvidenceRevisionIdRoute: EvidenceRevisionIdRoute,
+  PlansPlanIdRoute: PlansPlanIdRoute,
   RIdentifierRoute: RIdentifierRoute,
   ReadingsNewRoute: ReadingsNewRoute,
   RecordsRecordIdRoute: RecordsRecordIdRouteWithChildren,
@@ -5043,6 +5125,8 @@ const rootRouteChildren: RootRouteChildren = {
   SheetsNewRoute: SheetsNewRoute,
   SignInTwoFactorRoute: SignInTwoFactorRoute,
   StocktakeStocktakeIdRoute: StocktakeStocktakeIdRoute,
+  CampaignsIndexRoute: CampaignsIndexRoute,
+  PlansIndexRoute: PlansIndexRoute,
   ReviewIndexRoute: ReviewIndexRoute,
   ApiAiEvalsRoute: ApiAiEvalsRoute,
   ApiAssistantChatRoute: ApiAssistantChatRoute,

@@ -191,6 +191,18 @@ export const navGroups: NavGroup[] = [
         icon: 'template',
         link: { to: '/templates' },
       },
+      {
+        key: 'plans',
+        label: 'Plans',
+        icon: 'spark',
+        link: { to: '/plans' },
+      },
+      {
+        key: 'campaigns',
+        label: 'Campaigns',
+        icon: 'lineChart',
+        link: { to: '/campaigns' },
+      },
     ],
   },
 ]

@@ -15,7 +15,7 @@ import {
   shapePage,
   sseFrame,
   knownEventNames,
-  STREAM_ENTITY_TYPES,
+  entityTypesFor,
 } from './event-stream'
 import type { ShapedPage, StreamPage } from './event-stream'
 
@@ -116,7 +116,7 @@ export async function handleEventStream(
       caller,
       cursorParam ?? 0,
       limit,
-      STREAM_ENTITY_TYPES,
+      entityTypesFor(names),
     )
     if (page.expired) return expired(page)
     return Response.json(shapePage(caller.workspaceId, page, names))
@@ -186,7 +186,7 @@ function stream(
             caller,
             cursor,
             limit,
-            STREAM_ENTITY_TYPES,
+            entityTypesFor(names),
           )
           if (page.expired) {
             send(

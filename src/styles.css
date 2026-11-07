@@ -153,6 +153,16 @@
   --chart-5: oklch(0.657 0.115 213);
   --chart-grid: oklch(0.954 0.005 258.3);
   --chart-axis: oklch(0.713 0.018 259.4);
+  /* A gel and a Sanger trace: the gel stays dark in either theme, as it does on the bench. */
+  --gel-bg: oklch(0.205 0.012 259);
+  --gel-well: oklch(0.31 0.015 259);
+  --gel-label: oklch(0.86 0.01 259);
+  --gel-ladder: oklch(0.72 0.02 259);
+  --gel-band: oklch(0.97 0.005 259);
+  --trace-a: oklch(0.62 0.17 145);
+  --trace-c: oklch(0.55 0.17 255);
+  --trace-g: oklch(0.38 0.02 259);
+  --trace-t: oklch(0.58 0.21 27);
 
   /* Inverse and overlays */
   --inverse-bg: oklch(0.19 0.018 259.7);
@@ -252,6 +262,10 @@
   --chart-5: oklch(0.743 0.121 210.2);
   --chart-grid: oklch(0.294 0 0);
   --chart-axis: oklch(0.436 0 0);
+  --trace-a: oklch(0.74 0.16 145);
+  --trace-c: oklch(0.72 0.14 250);
+  --trace-g: oklch(0.82 0.01 259);
+  --trace-t: oklch(0.7 0.18 25);
 
   --inverse-bg: oklch(0.933 0 0);
   --inverse-text: oklch(0.177 0 0);

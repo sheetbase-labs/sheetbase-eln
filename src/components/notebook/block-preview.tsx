@@ -1,4 +1,5 @@
 import { ReactionPreview, StructurePreview } from './chemistry-block'
+import { SequencePreview } from './sequence-block'
 import { t } from '#/copy'
 import * as React from 'react'
 import { useStepNumber } from '#/lib/step-numbers'
@@ -305,6 +306,14 @@ function renderPayload(
       return <StructurePreview payload={payload} />
     case 'reaction':
       return <ReactionPreview payload={payload} />
+    case 'sequence':
+      return (
+        <SequencePreview
+          payload={payload}
+          recordId={recordId}
+          blockId={blockId}
+        />
+      )
     case 'file':
       return <FileBlockPreview payload={payload} recordId={recordId} />
     case 'signature_request':

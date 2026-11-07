@@ -384,6 +384,7 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
   structure: 'Structure',
   reaction: 'Reaction',
   code_cell: 'Code cell',
+  sequence: 'Sequence',
   file: 'File',
   metric: 'Metric',
   procedure_step: 'Procedure step',

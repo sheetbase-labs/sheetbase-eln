@@ -501,3 +501,13 @@ server, so every notebook comes back in the "not updated" list.
 | `src/components/scheduler/instrument-timeline.tsx`   | Reads an instrument's bookings and jobs through the data client; covered by the scheduler tests.                        |
 | `src/components/settings/working-hours-settings.tsx` | Reads and saves the scheduler settings through the data client; covered by the scheduler tests.                         |
 | `src/components/notebook/code-cell-block.tsx`        | Runs the cell through the code cell route and reads its runs through the data client; covered by the code cell tests.   |
+
+## Data contract modules without a story
+
+| Module                                                | Why no story                                                                                                                   |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `src/components/contracts/blocked-import-dialog.tsx`  | Portalled dialog that reads the contract from the server; the import flow opens it when a contract refuses an import.          |
+| `src/components/contracts/contract-impact-notice.tsx` | Notice that reads the model's contract from the server and compares it with the version about to be published.                 |
+| `src/components/contracts/contract-panel.tsx`         | The Contract tab: reads and writes contracts, runs and members through the data client, and has no state to show without them. |
+| `src/components/contracts/dataset-contract-badge.tsx` | Reads a dataset's standing and its contract from the server; the badge it draws has its own story (`ContractStatusBadge`).     |
+| `src/components/contracts/rule-dialog.tsx`            | Portalled form that previews a rule against stored data and saves it through the data client.                                  |

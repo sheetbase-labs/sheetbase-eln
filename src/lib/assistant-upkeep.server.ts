@@ -227,11 +227,11 @@ async function findContract(
   const exact = rows.filter(
     (row) => row.name.toLowerCase() === words.trim().toLowerCase(),
   )
-  const pick = exact.length === 1 ? exact : rows
-  if (pick.length === 0) return `No data contract matches “${words}”.`
-  if (pick.length > 1)
-    return `Several data contracts match “${words}”: ${pick.map((row) => row.name).join(', ')}. Say which one.`
-  return pick[0]
+  const matches = exact.length === 1 ? exact : rows
+  if (matches.length === 0) return `No data contract matches “${words}”.`
+  if (matches.length > 1)
+    return `Several data contracts match “${words}”: ${matches.map((row) => row.name).join(', ')}. Say which one.`
+  return matches[0]
 }
 
 // ---------------------------------------------------------------------------

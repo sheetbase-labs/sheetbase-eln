@@ -1751,17 +1751,11 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     family: 'dataset',
     summary:
       'A data contract changed: its rules, owner, schedule or whether it is in force.',
-    producer: {
-      entityType: 'data_contract',
-      operation: 'update',
-      when: { key: 'effect', equals: 'saved' },
-    },
+    producer: { entityType: 'data_contract', operation: 'update' },
     wireName: 'contract.updated',
     status: 'stable',
     introducedIn: 'contract-01',
     consumers: webhookSsePipeline,
-    notes:
-      'Shares the data_contract update pair with contract.breached and contract.restored, picked by the payload effect.',
   },
   {
     name: 'contract.deleted',
@@ -1789,11 +1783,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     family: 'dataset',
     summary:
       'A data contract got worse: from pass to warning or fail, or from warning to fail.',
-    producer: {
-      entityType: 'data_contract',
-      operation: 'update',
-      when: { key: 'effect', equals: 'breached' },
-    },
+    producer: { entityType: 'data_contract_standing', operation: 'update' },
     wireName: 'contract.breached',
     status: 'stable',
     introducedIn: 'contract-01',
@@ -1805,11 +1795,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     name: 'contract.restored',
     family: 'dataset',
     summary: 'A data contract that was in warning or fail passes again.',
-    producer: {
-      entityType: 'data_contract',
-      operation: 'update',
-      when: { key: 'effect', equals: 'restored' },
-    },
+    producer: { entityType: 'data_contract_standing', operation: 'restore' },
     wireName: 'contract.restored',
     status: 'stable',
     introducedIn: 'contract-01',

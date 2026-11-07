@@ -7,7 +7,9 @@ name: sheetbase-dev
 # this Compose file does not expose the app beyond loopback.
 services:
   postgres:
-    image: postgres:18-alpine
+    # postgres:18-alpine plus pgvector (docker/db/Dockerfile).
+    build: ./docker/db
+    image: sheetbase-postgres:18
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-sheetbase_dev}
       POSTGRES_USER: ${POSTGRES_USER:-sheetbase_dev}

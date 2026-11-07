@@ -6,7 +6,9 @@ name: sheetbase
 
 services:
   postgres:
-    image: postgres:18-alpine
+    # postgres:18-alpine plus pgvector (docker/db/Dockerfile).
+    build: ./docker/db
+    image: sheetbase-postgres:18
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-sheetbase}
       POSTGRES_USER: ${POSTGRES_USER:-sheetbase}

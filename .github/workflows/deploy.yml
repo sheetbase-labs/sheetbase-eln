@@ -65,20 +65,6 @@ jobs:
     permissions:
       contents: read
       packages: read
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_DB: sheetbase
-          POSTGRES_USER: sheetbase
-          POSTGRES_PASSWORD: sheetbase-ci
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U sheetbase -d sheetbase"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     env:
       DATABASE_URL: postgresql://sheetbase:sheetbase-ci@localhost:5432/sheetbase
       MIGRATION_DATABASE_URL: postgresql://sheetbase:sheetbase-ci@localhost:5432/sheetbase
@@ -93,6 +79,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # PostgreSQL 18 with pgvector (docker/db/Dockerfile), built here because a
+      # service container can only pull a published image.
+      - name: Start database
+        run: |
+          docker build -t sheetbase-postgres:18 docker/db
+          docker run -d --name postgres -p 5432:5432 \
+            -e POSTGRES_DB=sheetbase -e POSTGRES_USER=sheetbase -e POSTGRES_PASSWORD=sheetbase-ci \
+            --health-cmd "pg_isready -U sheetbase -d sheetbase" \
+            --health-interval 5s --health-timeout 5s --health-retries 10 \
+            sheetbase-postgres:18
+          until [ "$(docker inspect -f '{{.State.Health.Status}}' postgres)" = healthy ]; do sleep 2; done
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -125,7 +123,7 @@ jobs:
       # CI database user create the disposable sheetbase_test database.
       - name: Bootstrap database roles
         run: |
-          CID=$(docker ps -q --filter ancestor=postgres:18-alpine | head -1)
+          CID=postgres
           docker exec -i \
             -e POSTGRES_USER=sheetbase \
             -e POSTGRES_DB=sheetbase \

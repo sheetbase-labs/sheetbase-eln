@@ -118,6 +118,31 @@ type Json = Record<string, unknown>
 const joinUrl = (base: string, path: string) =>
   `${base.replace(/\/+$/, '')}${path.startsWith('/') ? '' : '/'}${path}`
 
+/**
+ * A repository can be a lab's own server on a private network, so private
+ * addresses are allowed. What is never a repository: cloud metadata services
+ * and addresses with credentials in them.
+ */
+export function assertRepositoryUrl(url: string): void {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new RepositoryError('That repository address is not a web address.')
+  }
+  const host = parsed.hostname.toLowerCase()
+  if (
+    !/^https?:$/.test(parsed.protocol) ||
+    parsed.username !== '' ||
+    parsed.password !== '' ||
+    host.startsWith('169.254.') ||
+    host === 'metadata.google.internal' ||
+    host === 'fd00:ec2::254'
+  ) {
+    throw new RepositoryError('That repository address is not allowed.')
+  }
+}
+
 async function call(
   deps: RepositoryDeps,
   url: string,

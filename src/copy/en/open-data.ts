@@ -152,7 +152,7 @@ export const openData = {
     previewTitle: 'What gets sent',
     includesRun: 'Includes the pipeline run that produced it',
     list: 'Publications',
-    draftReady: 'Draft ready. Publishing makes it public and can’t be undone.',
+    draftReady: 'Publishing makes it public and can’t be undone.',
     publishNow: 'Publish with DOI',
     discard: 'Discard draft',
     retry: 'Try again',

@@ -6,7 +6,6 @@ import { Input } from '#/components/ui/input'
 import { Muted } from '#/components/ui/layout'
 import { toast } from '#/components/ui/sonner'
 import { createDataClient } from '#/lib/data-client'
-import { describeAdminError } from '#/lib/workspace-admin'
 import {
   fetchAnnotations,
   fetchOntologySettings,
@@ -14,6 +13,7 @@ import {
   openDataKeys,
   searchOntology,
   unlinkOntologyTerm,
+  describeOpenDataError,
 } from '#/lib/open-data/client'
 import type {
   OntologyAnnotation,
@@ -90,12 +90,12 @@ export function OntologyTerms({
       void invalidate()
     },
     onError: (e) =>
-      toast(`${t('openData.picker.failed')}: ${describeAdminError(e)}`),
+      toast(`${t('openData.picker.failed')}: ${describeOpenDataError(e)}`),
   })
   const unlink = useMutation({
     mutationFn: (id: string) => unlinkOntologyTerm(dataClient, id),
     onSuccess: () => void invalidate(),
-    onError: (e) => toast(describeAdminError(e)),
+    onError: (e) => toast(describeOpenDataError(e)),
   })
 
   const rows = linked.data ?? []
@@ -156,7 +156,7 @@ export function OntologyTerms({
                       className="flex w-full flex-col items-start gap-0.5 px-2 py-1.5 text-left hover:bg-surface-hover"
                       onClick={() => link.mutate(h)}
                     >
-                      <span>
+                      <span className="line-clamp-2 break-words">
                         {h.label}{' '}
                         <span className="text-label text-fg-muted uppercase">
                           {h.ontology}

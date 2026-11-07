@@ -280,6 +280,31 @@ export const notebook = {
         applying: 'Booking…',
         applied: 'Booked',
       },
+      applyPlan: {
+        apply: 'Apply plan',
+        applying: 'Applying…',
+        applied: 'Plan applied',
+      },
+      startCampaign: {
+        apply: 'Start campaign',
+        applying: 'Starting…',
+        applied: 'Campaign started',
+      },
+      askRound: {
+        apply: 'Ask for next round',
+        applying: 'Asking…',
+        applied: 'Round asked for',
+      },
+      approveRound: {
+        apply: 'Approve round',
+        applying: 'Approving…',
+        applied: 'Round approved',
+      },
+      enterResults: {
+        apply: 'Save results',
+        applying: 'Saving…',
+        applied: 'Results saved',
+      },
       acknowledgeQc: {
         apply: 'Acknowledge',
         applying: 'Acknowledging…',

@@ -85,8 +85,8 @@ dispatch on `main` and the `deploy` confirmation. Pushes do not deploy. It:
 4. Pushes the application and PostgREST images to GHCR, then resolves
    and publishes their immutable registry digests.
 
-The workflow does **not** run `pnpm generate-routes` — the route tree is
-committed. Deployment is a separate step via SSH over Tailscale.
+The route tree is not committed (see "Clean checkout and route generation"); the
+image build's Vite plugin writes it. Deployment is a separate step via SSH over Tailscale.
 
 ### Local build (for testing)
 
@@ -297,19 +297,13 @@ passes its readiness check.
 
 ## Clean checkout and route generation
 
-`src/routeTree.gen.ts` is committed to the repository. The CI workflow and
-`.agents/setup` do **not** run `pnpm generate-routes` when the committed file
-exists. This keeps a clean checkout clean, which is required by the artifact
-build's `assertCleanBuildSource` check.
-
-Developers must regenerate and commit the route tree after adding, removing, or
-renaming route files:
-
-```bash
-pnpm generate-routes
-git add src/routeTree.gen.ts
-git commit -m "chore: regenerate route tree"
-```
+`src/routeTree.gen.ts`, the OpenAPI contract (`docs/api/openapi/external-api-v0.json`)
+and the Python SDK's `_generated/` folder are derived from source and git-ignored,
+so two PRs never conflict on them. CI generates them after install (`pnpm generate`),
+`pnpm typecheck` and the vitest layers generate whatever is missing, and the image
+build's Vite plugin writes the route tree. Ignored files do not affect the artifact
+build's `assertCleanBuildSource` check. Never commit them. After adding a route or a
+public endpoint, run `pnpm generate` to refresh them locally.
 
 `.env.production` is gitignored. Production secrets are injected by the secret
 manager at deploy time, never committed to the repository.

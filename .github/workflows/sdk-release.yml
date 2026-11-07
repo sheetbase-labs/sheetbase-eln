@@ -54,6 +54,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The OpenAPI contract and the Python SDK's generated layer are not
+      # committed; build them once here and hand them to the SDK jobs.
+      - name: Generate the contract and the SDK's generated layer
+        run: pnpm generate
+
+      - name: Keep the generated contract for the SDK jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-contract
+          path: |
+            docs/api/openapi/external-api-v0.json
+            sdks/python/src/sheetbase/_generated/
+          if-no-files-found: error
+
       - name: SDK support-matrix contract tests
         run: npx vitest run src/lib/sdk-support-matrix.test.ts
 
@@ -75,6 +89,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Fetch the generated contract
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-contract
+          path: .
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -128,6 +148,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Fetch the generated contract
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-contract
+          path: .
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5

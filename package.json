@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite dev --port 3000",
+    "generate": "node scripts/ensure-generated.mjs --force",
     "generate-routes": "node scripts/generate-routes.mjs",
     "openapi:generate": "tsx scripts/generate-public-openapi.ts && prettier --write docs/api/openapi/external-api-v0.json && python3 sdks/python/scripts/generate.py",
     "sdk:generate": "python3 sdks/python/scripts/generate.py",
@@ -44,7 +45,7 @@
     "test:phase1": "vitest run --config vitest.db.config.ts phase1-proof",
     "test:phase3": "vitest run --config vitest.db.config.ts phase3-proof",
     "test:phase4": "vitest run src/lib/formula-ir.test.ts src/lib/scientific-workbook-engine.test.ts src/lib/calculation.server.test.ts src/lib/formula-write.server.test.ts src/lib/function-descriptions.test.ts src/lib/sheet-calculation.test.ts src/lib/sheet-calculation-exclusion.test.ts src/components/notebook/scientific-workbook-provider.test.tsx && playwright test phase4-proof",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node scripts/ensure-generated.mjs && tsc --noEmit",
     "validate": "pnpm check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm build-storybook",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate-once.mjs",

@@ -3,13 +3,16 @@
 Use [`external-api-v0.json`](./external-api-v0.json) with this
 README. You do not need to read application source to integrate.
 
-Regenerate after allowlist or RPC-contract changes:
+This file is generated from source and is not committed (it is git-ignored), so
+two PRs that add endpoints never conflict on it. CI, `pnpm typecheck` and the test
+layers generate it; to refresh it after allowlist or RPC-contract changes:
 
 ```bash
-pnpm openapi:generate
+pnpm generate        # route tree, this contract and the Python SDK's generated layer
+pnpm openapi:generate  # just the contract and the SDK
 ```
 
-`pnpm generate-routes` is unrelated (TanStack Router). Keep both scripts.
+Published copies come from the SDK release workflow's artifacts.
 
 ## 1. Authenticate
 

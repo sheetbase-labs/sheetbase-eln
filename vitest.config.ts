@@ -18,6 +18,8 @@ export default defineConfig({
     // Restores web storage (and matchMedia) that Node ≥ 26's experimental
     // globals shadow inside the jsdom environment; see tests/unit/setup.ts.
     setupFiles: ['tests/unit/setup.ts'],
+    // Generates the uncommitted route tree and API contract when missing.
+    globalSetup: ['tests/global-generate.ts'],
     exclude: [
       ...configDefaults.exclude,
       // Database, API and browser layers need the local service stack and

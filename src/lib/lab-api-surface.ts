@@ -229,6 +229,9 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_clear_assignee: 'true to clear who does the part.',
   p_move_blocks_to:
     'The part that takes over the blocks of the part being deleted.',
+  p_user_id: 'The person (their user id).',
+  p_due_at: 'When it is wanted by (an ISO date and time). Optional.',
+  p_required: '`true` if each part needs a signature, `false` if not.',
   p_parts:
     'The parts to make, in order: each `{title, first_block_id, day_offset}`. A part runs from its first block to the next part’s.',
   p_conditions:
@@ -296,6 +299,10 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['gate_mode', 'text', 1],
       ['steps_in_order', 'bool', 1],
       ['gate_from_template', 'bool', 1],
+      ['requires_sign_off', 'bool', 1],
+      ['signed_off_at', 'ts', 0],
+      ['signed_off_by_user_id', 'text', 0],
+      ['signoff_id', 'uuid', 0],
       ['created_at', 'ts', 1],
       ['updated_at', 'ts', 1],
     ],
@@ -314,6 +321,58 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['reason', 'text', 1],
       ['created_at', 'ts', 1],
       ['created_by_user_id', 'text', 0],
+    ],
+  },
+  experiment_part_signoffs: {
+    summary:
+      'A signature on a part of an experiment. `meaning` is `signed` (the person who did the part) or `witnessed` (a countersign of that signature, named in `countersigns_id`). `snapshot` is the part as it was frozen when signed, and `snapshot_digest` its SHA-256. Rows are never changed or removed.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['record_id', 'uuid', 1],
+      ['part_id', 'uuid', 1],
+      ['part_number', 'int', 1],
+      ['part_title', 'text', 1],
+      ['meaning', 'text', 1],
+      ['countersigns_id', 'uuid', 0],
+      ['snapshot', 'json', 1],
+      ['snapshot_digest', 'text', 1],
+      ['signer_user_id', 'text', 1],
+      ['signer_name', 'text', 1],
+      ['auth_method', 'text', 1],
+      ['signed_at', 'ts', 1],
+    ],
+  },
+  experiment_part_requests: {
+    summary:
+      'A request to sign a finished part (`kind` is `sign`) or to countersign a signed one (`countersign`). `fulfilled_at` is set when it was done or no longer applies.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['record_id', 'uuid', 1],
+      ['part_id', 'uuid', 1],
+      ['kind', 'text', 1],
+      ['signoff_id', 'uuid', 0],
+      ['requested_user_id', 'text', 1],
+      ['requested_by_user_id', 'text', 1],
+      ['note', 'text', 0],
+      ['due_at', 'ts', 0],
+      ['created_at', 'ts', 1],
+      ['fulfilled_at', 'ts', 0],
+    ],
+  },
+  experiment_part_amendments: {
+    summary:
+      'A signed part was reopened to amend it. `signoff_id` is the signature set aside, which stays on record. Rows are never changed or removed.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['record_id', 'uuid', 1],
+      ['part_id', 'uuid', 1],
+      ['signoff_id', 'uuid', 1],
+      ['reason', 'text', 1],
+      ['amended_by_user_id', 'text', 1],
+      ['amended_at', 'ts', 1],
     ],
   },
   reagent_orders: {
@@ -1729,6 +1788,59 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
       ['p_reason', 'text', 1],
     ],
     result: 'row:gate_overrides',
+  },
+  part_signoff_preview: {
+    summary: 'Show what signing a part would cover',
+    description:
+      'The SHA-256 digest of the part as it is now, how many blocks and steps it holds, whether it needs a signature, is finished and is signed. A signature is bound to this digest. Signing itself is done by a person in the app with a fresh password, never over the API.',
+    scope: 'lab:read',
+    params: [['p_part_id', 'uuid', 1]],
+    result: 'json',
+  },
+  record_part_signoffs: {
+    summary: 'List where each part of an experiment stands on signatures',
+    description:
+      'Every part in order: whether it needs a signature, is finished and waiting (`awaiting_sign_off`), who signed and when, who has countersigned or been asked to, and how often it was amended (with the last reason). Empty for an experiment with no parts.',
+    scope: 'lab:read',
+    params: [['p_record_id', 'uuid', 1]],
+    result:
+      'rows:part_id=uuid,part_number=int,title=text,requires_sign_off=bool,work_done=bool,awaiting_sign_off=bool,signed=bool,signoff_id=uuid,signed_at=ts,signed_by_user_id=text,signer_name=text,snapshot_digest=text,countersigned_by=text[],countersign_requested_from=text[],sign_requested_from=text[],amendment_count=int,last_amended_at=ts,last_amendment_reason=text',
+  },
+  set_parts_sign_off: {
+    summary:
+      'Require a signature on the parts of an experiment, or stop requiring it',
+    description:
+      'Applies to the parts that are not signed yet, and to parts added later. When a part needs a signature it counts as finished only once it is signed, and the parts after it cannot be worked until then. Returns how many parts changed.',
+    scope: 'lab:write',
+    params: [
+      ['p_record_id', 'uuid', 1],
+      ['p_required', 'bool', 1],
+    ],
+    result: 'json',
+  },
+  request_part_signoff: {
+    summary: 'Ask someone to sign or countersign a part of an experiment',
+    description:
+      'For a finished part that is waiting, asks the person to sign it; for a signed part, asks them to countersign. They get a notification. Nothing is signed on their behalf: signing needs the person, in the app, with a fresh password.',
+    scope: 'lab:write',
+    params: [
+      ['p_part_id', 'uuid', 1],
+      ['p_user_id', 'text', 1],
+      ['p_note', 'text', 0],
+      ['p_due_at', 'ts', 0],
+    ],
+    result: 'json',
+  },
+  amend_experiment_part: {
+    summary: 'Reopen a signed part of an experiment to amend it',
+    description:
+      'Needs a reason. Only that part is reopened; the signature stays on record and the part has to be signed again before the parts after it can go on. Returns the amendment.',
+    scope: 'lab:write',
+    params: [
+      ['p_part_id', 'uuid', 1],
+      ['p_reason', 'text', 1],
+    ],
+    result: 'json',
   },
   set_block_part: {
     summary: 'Move a block to another part',

@@ -1667,6 +1667,19 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
     ],
     result: 'row:experiment_parts',
   },
+  pin_protocol_reference: {
+    summary: 'Pin a protocol to an experiment and copy its steps and gates',
+    description:
+      "Pins the exact protocol version into the experiment's empty protocol block and copies its procedure steps in, with the protocol's gate blocks in their place. Gates from the protocol cannot be changed or removed on the experiment. Returns the block, the pinned revision, `copied_steps` and `copied_gates`.",
+    scope: 'lab:write',
+    params: [
+      ['p_block_id', 'uuid', 1],
+      ['p_protocol_record_id', 'uuid', 1],
+      ['p_expected_block_version', 'int', 1],
+      ['p_expected_structure_version', 'int', 1],
+    ],
+    result: 'json',
+  },
   record_gates: {
     summary: 'List the gates of an experiment and what each still waits on',
     description:

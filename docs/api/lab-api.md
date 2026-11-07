@@ -584,6 +584,17 @@ Scope: `lab:write`.
 | `p_part_id` * | uuid | The part of the experiment.            |
 | `p_done` *    | bool | true to finish it, false to reopen it. |
 
+### `pin_protocol_reference`
+
+Pin a protocol to an experiment and copy its steps and gates. Pins the exact protocol version into the experiment's empty protocol block, copies its procedure steps in, and brings the protocol's gate blocks across in their place. Gates from the protocol cannot be changed or removed on the experiment. Returns the block, the pinned revision, `copied_steps` and `copied_gates`.
+
+| Parameter                        | Type | Notes                                      |
+| -------------------------------- | ---- | ------------------------------------------ |
+| `p_block_id` *                   | uuid | The empty protocol block.                  |
+| `p_protocol_record_id` *         | uuid | The protocol to pin.                       |
+| `p_expected_block_version` *     | int  | The block version you read.                |
+| `p_expected_structure_version` * | int  | The experiment structure version you read. |
+
 ### `record_gates`
 
 List the gates of an experiment and what each still waits on. Every gate in page order: the "opens when" rule of each part, then the gate blocks. `met` is true when every condition holds. `blocking` is true when the gate holds work back now: it is unmet, set to `block`, and not only waiting on a date. `missing` says what is still to do, in words, and `conditions` has the answer for each condition. `overridden` is true when someone went on past a gate that warns. A protocol can hold gate blocks too: they hold nothing while the protocol is written, and come across with its steps when the protocol is pinned to an experiment, as gates from the protocol that cannot be changed or removed there.

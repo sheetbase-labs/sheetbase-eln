@@ -201,7 +201,14 @@ describe('legal holds and retention', () => {
 describe('registry, workflows and rules', () => {
   it('adds a registry entry and refuses a duplicate', async () => {
     const rows = {
-      record_models: [{ key: 'cell_line', name: 'Cell line' }],
+      record_models: [
+        {
+          key: 'cell_line',
+          name: 'Cell line',
+          identifier_prefix: 'CL',
+          model_capabilities: [{ settings: { keyFields: ['name'] } }],
+        },
+      ],
       projects: [{ id: 'p1', key: 'VAC', title: 'Vaccine A' }],
     }
     const input = { registry: 'cell line', name: 'HEK-293', project: 'VAC' }
@@ -237,7 +244,10 @@ describe('registry, workflows and rules', () => {
         {
           key: 'construct',
           name: 'Construct',
-          registry_sequence_field: 'sequence_fingerprint',
+          identifier_prefix: 'CON',
+          model_capabilities: [
+            { settings: { sequenceField: 'sequence_fingerprint' } },
+          ],
         },
       ],
       projects: [{ id: 'p1', key: 'VAC', title: 'Vaccine A' }],
@@ -281,7 +291,14 @@ describe('registry, workflows and rules', () => {
 
   it('refuses a sequence for a registry that keeps none', async () => {
     const rows = {
-      record_models: [{ key: 'cell_line', name: 'Cell line' }],
+      record_models: [
+        {
+          key: 'cell_line',
+          name: 'Cell line',
+          identifier_prefix: 'CL',
+          model_capabilities: [{ settings: {} }],
+        },
+      ],
       projects: [{ id: 'p1', key: 'VAC', title: 'Vaccine A' }],
     }
     expect(

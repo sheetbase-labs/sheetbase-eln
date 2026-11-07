@@ -30,6 +30,8 @@ import {
   proposeStorageReadingSchema,
 } from './assistant-bench'
 import type { BenchAction, BenchProposeToolName } from './assistant-bench'
+import { fetchModelsWithFeature } from './features/data'
+import { INCIDENT_LOG_FEATURE } from './features/registry'
 import {
   findExperiment,
   instrumentLabel,
@@ -959,13 +961,10 @@ export async function buildBenchProposal(
       const parsed = parse(proposeIncidentSchema, args)
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
-      const forms = await client.list<{ model_key: string }>(
-        'model_incident_logs',
-        '?select=model_key',
-      )
+      const forms = await fetchModelsWithFeature(client, INCIDENT_LOG_FEATURE)
       const form = await pickForm(
         client,
-        forms.map((row) => row.model_key),
+        forms.map((row) => row.key),
         input.form,
         'incident log',
       )

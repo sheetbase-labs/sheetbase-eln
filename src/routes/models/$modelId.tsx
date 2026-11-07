@@ -2,7 +2,7 @@ import { RegistrySettingsDialog } from '#/components/registry/registry-settings'
 import { SupplierListDialog } from '#/components/materials/supplier-list'
 import { ModelFeaturesDialog } from '#/components/models/model-features-dialog'
 import { ModelQualityDialog } from '#/components/results/model-quality-dialog'
-import { useQualityOptions } from '#/lib/result-quality'
+import { useQualityFeatures } from '#/lib/result-quality'
 import { RequestSettingsDialog } from '#/components/requests/request-settings'
 import { useState } from 'react'
 import {
@@ -318,7 +318,8 @@ function RecordModelLayout({
   const [suppliersOpen, setSuppliersOpen] = useState(false)
   const [qualityOpen, setQualityOpen] = useState(false)
   const [featuresOpen, setFeaturesOpen] = useState(false)
-  const quality = useQualityOptions(workspaceId ?? undefined)
+  const quality = useQualityFeatures()
+  const hasResultLimits = quality.resultLimits.has(modelKey)
   const [requestsOpen, setRequestsOpen] = useState(false)
   const recordCount = useRecordModelRecordCount(modelKey)
   const typed = useTypedObjects(modelKey)
@@ -395,17 +396,19 @@ function RecordModelLayout({
                   <Button onClick={() => setSubtypeOpen(true)}>
                     {t('library.models.overview.newSubtype')}
                   </Button>
-                  <Button onClick={() => setRegistryOpen(true)}>
-                    {m.is_registry
-                      ? t('registry.settings.buttonOn')
-                      : t('registry.settings.button')}
-                  </Button>
+                  {m.is_registry ? (
+                    <Button onClick={() => setRegistryOpen(true)}>
+                      {t('registry.settings.button')}
+                    </Button>
+                  ) : null}
                   <Button onClick={() => setSuppliersOpen(true)}>
                     {t('spend.suppliers.listDialog.button')}
                   </Button>
-                  <Button onClick={() => setQualityOpen(true)}>
-                    {t('quality.limits.button')}
-                  </Button>
+                  {hasResultLimits ? (
+                    <Button onClick={() => setQualityOpen(true)}>
+                      {t('quality.limits.button')}
+                    </Button>
+                  ) : null}
                   <Button onClick={() => setFeaturesOpen(true)}>
                     {t('features.button')}
                   </Button>
@@ -508,12 +511,7 @@ function RecordModelLayout({
           <ModelFeaturesDialog open onOpenChange={setFeaturesOpen} model={m} />
         ) : null}
         {qualityOpen ? (
-          <ModelQualityDialog
-            open
-            onOpenChange={setQualityOpen}
-            model={m}
-            specLimitsOn={quality.specLimits}
-          />
+          <ModelQualityDialog open onOpenChange={setQualityOpen} model={m} />
         ) : null}
         {requestsOpen ? (
           <RequestSettingsDialog

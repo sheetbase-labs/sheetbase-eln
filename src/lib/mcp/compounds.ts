@@ -6,6 +6,8 @@
  */
 import type { DataClient } from '../data-client'
 import { loadOcl } from '../chemistry-draw'
+import { fetchModelsWithFeature, registrySetupOf } from '../features/data'
+import { REGISTRY_FEATURE } from '../features/registry'
 import {
   describeStructure,
   findStructureDuplicates,
@@ -29,10 +31,11 @@ async function structureRegistries(
   client: DataClient,
   wanted: string | null | undefined,
 ): Promise<ModelRow[]> {
-  const rows = await client.list<ModelRow>(
-    'record_models',
-    '?is_registry=eq.true&registry_structure_field=not.is.null&select=key,name&order=name.asc',
+  const rows: ModelRow[] = (
+    await fetchModelsWithFeature(client, REGISTRY_FEATURE)
   )
+    .filter((m) => registrySetupOf(m.settings).structureField !== null)
+    .map((m) => ({ key: m.key, name: m.name }))
   if (!wanted) return rows
   const lower = wanted.trim().toLowerCase()
   return rows.filter(

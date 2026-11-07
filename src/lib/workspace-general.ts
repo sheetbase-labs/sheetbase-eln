@@ -21,9 +21,7 @@ export interface WorkspaceGeneral {
    * finish only through review, sessions idle out after 30 minutes. */
   regulatedLab: boolean
   /** Whether number fields can carry result limits that judge each result. */
-  specLimitsEnabled: boolean
   /** Whether retention rules and legal holds are in use. */
-  retentionEnabled: boolean
   /** SET-01.2 — identifier prefix per record kind. */
   idPrefixes: Record<string, string>
   /** When the first admin finished the short setup; null until then. */
@@ -91,8 +89,6 @@ interface WorkspaceSettingsWire {
   require_change_reason: boolean
   lock_on_sign: boolean
   regulated_lab: boolean
-  spec_limits_enabled?: boolean
-  retention_enabled?: boolean
   id_prefixes: Record<string, string> | null
   setup_completed_at?: string | null
   workspaces: { name: string } | null
@@ -116,7 +112,7 @@ export async function fetchWorkspaceGeneral(
 ): Promise<WorkspaceGeneral | null> {
   const rows = await client.list<WorkspaceSettingsWire>(
     'workspace_settings',
-    '?select=site,timezone,date_format,number_format,publication_approval_required,allow_offline_editing,require_change_reason,lock_on_sign,regulated_lab,spec_limits_enabled,retention_enabled,id_prefixes,setup_completed_at,workspaces(name)&limit=1',
+    '?select=site,timezone,date_format,number_format,publication_approval_required,allow_offline_editing,require_change_reason,lock_on_sign,regulated_lab,id_prefixes,setup_completed_at,workspaces(name)&limit=1',
   )
   if (rows.length === 0) return null
   const row = rows[0]
@@ -131,8 +127,6 @@ export async function fetchWorkspaceGeneral(
     requireChangeReason: row.require_change_reason,
     lockOnSign: row.lock_on_sign,
     regulatedLab: row.regulated_lab,
-    specLimitsEnabled: row.spec_limits_enabled ?? false,
-    retentionEnabled: row.retention_enabled ?? false,
     idPrefixes: row.id_prefixes ?? {},
     setupCompletedAt: row.setup_completed_at ?? null,
   }
@@ -205,30 +199,6 @@ export async function setRegulatedLab(
   await client.rpc('set_regulated_lab', {
     p_workspace_id: workspaceId,
     p_regulated: regulated,
-  })
-}
-
-/** Turn result limits on or off for the whole workspace. */
-export async function setSpecLimitsEnabled(
-  workspaceId: string,
-  enabled: boolean,
-  client: DataClient = notebookDataClient,
-): Promise<void> {
-  await client.rpc('set_spec_limits_enabled', {
-    p_workspace_id: workspaceId,
-    p_enabled: enabled,
-  })
-}
-
-/** Turn retention rules and legal holds on or off for the whole workspace. */
-export async function setRetentionEnabled(
-  workspaceId: string,
-  enabled: boolean,
-  client: DataClient = notebookDataClient,
-): Promise<void> {
-  await client.rpc('set_retention_enabled', {
-    p_workspace_id: workspaceId,
-    p_enabled: enabled,
   })
 }
 

@@ -103,7 +103,7 @@ export function RecordModelRecord({
         isLoading: ownFields.isLoading || types.isLoading,
       }
   const usedByQuery = useRecordModelUsedBy(recordId)
-  const quality = useRecordQuality(model.data?.workspace_id, modelKey, recordId)
+  const quality = useRecordQuality(modelKey, recordId)
   const timelineQuery = useRecordModelTimeline(recordId)
 
   const [editing, setEditing] = useState(false)

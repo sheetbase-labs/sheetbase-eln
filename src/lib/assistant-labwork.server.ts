@@ -1,4 +1,6 @@
 import { sequenceFingerprint } from './bio-registry'
+import { fetchModelsWithFeature, registrySetupOf } from './features/data'
+import { REGISTRY_FEATURE } from './features/registry'
 import { cleanDna } from './molbio/dna'
 import {
   BOOKING_RULES_SET_TOOL,
@@ -265,12 +267,20 @@ interface NamedModel {
 async function findModel(
   client: DataClient,
   wanted: string,
-  extra = '',
+  /** Only models with this feature, and (when given) whose settings pass. */
+  only?: {
+    feature: string
+    where?: (settings: Record<string, unknown>) => boolean
+  },
 ): Promise<Lookup<NamedModel>> {
-  const rows = await client.list<NamedModel>(
-    'record_models',
-    `?${extra}select=key,name&order=name.asc&limit=200`,
-  )
+  const rows: NamedModel[] = only
+    ? (await fetchModelsWithFeature(client, only.feature))
+        .filter((m) => (only.where ? only.where(m.settings) : true))
+        .map((m) => ({ key: m.key, name: m.name }))
+    : await client.list<NamedModel>(
+        'record_models',
+        '?select=key,name&order=name.asc&limit=200',
+      )
   const lower = wanted.trim().toLowerCase()
   const exact = rows.filter(
     (row) =>
@@ -647,20 +657,15 @@ export async function buildLabworkProposal(
       const parsed = parse(proposeRegistryAddSchema, args)
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
-      const registry = await findModel(
-        client,
-        input.registry,
-        'is_registry=eq.true&',
-      )
+      const registry = await findModel(client, input.registry, {
+        feature: REGISTRY_FEATURE,
+      })
       if (!registry.ok) return fail(registry.message)
-      const takesStructures = await client.list<{
-        key: string
-        registry_structure_field: string | null
-      }>(
-        'record_models',
-        `?key=eq.${encodeURIComponent(registry.value.key)}&select=key,registry_structure_field`,
+      const registries = await fetchModelsWithFeature(client, REGISTRY_FEATURE)
+      const setup = registrySetupOf(
+        registries.find((m) => m.key === registry.value.key)?.settings,
       )
-      if (takesStructures.some((row) => row.registry_structure_field)) {
+      if (setup.structureField) {
         return fail(
           `${registry.value.name} registers compounds by structure. Use ${COMPOUND_REGISTER_TOOL} with a SMILES line instead.`,
         )
@@ -693,13 +698,7 @@ export async function buildLabworkProposal(
         changes.push({ label: def.label, before: null, after: String(value) })
       }
       if (input.sequence) {
-        const models = await client.list<{
-          registry_sequence_field: string | null
-        }>(
-          'record_models',
-          `?key=eq.${encodeURIComponent(registry.value.key)}&select=registry_sequence_field&limit=1`,
-        )
-        const field = models.at(0)?.registry_sequence_field
+        const field = setup.sequenceField
         if (!field)
           return fail(
             `${registry.value.name} does not keep a sequence. Pick a registry that does, or leave the sequence out.`,
@@ -794,11 +793,10 @@ export async function buildLabworkProposal(
       const parsed = parse(proposeCompoundRegisterSchema, args)
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
-      const registry = await findModel(
-        client,
-        input.registry,
-        'is_registry=eq.true&registry_structure_field=not.is.null&',
-      )
+      const registry = await findModel(client, input.registry, {
+        feature: REGISTRY_FEATURE,
+        where: (settings) => registrySetupOf(settings).structureField !== null,
+      })
       if (!registry.ok) return fail(registry.message)
       const project = await findProject(client, input.project)
       if (!project.ok) return fail(project.message)
@@ -876,14 +874,14 @@ export async function buildLabworkProposal(
       const parsed = parse(proposeCompoundLotSchema, args)
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
-      const models = await client.list<{
-        key: string
-        name: string
-        registry_lot_kind: string | null
-      }>(
-        'record_models',
-        '?is_registry=eq.true&registry_structure_field=not.is.null&select=key,name,registry_lot_kind',
-      )
+      const models = (await fetchModelsWithFeature(client, REGISTRY_FEATURE))
+        .map((m) => ({
+          key: m.key,
+          name: m.name,
+          registry_lot_kind: registrySetupOf(m.settings).lotKind,
+          structureField: registrySetupOf(m.settings).structureField,
+        }))
+        .filter((m) => m.structureField !== null)
       if (models.length === 0) {
         return fail(
           'No registry takes structures yet, so there are no compounds.',

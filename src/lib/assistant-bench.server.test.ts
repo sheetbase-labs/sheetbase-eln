@@ -316,11 +316,19 @@ describe('forms from chat', () => {
     },
   ]
   const rows: Rows = {
-    model_incident_logs: [{ model_key: 'near_miss' }],
     record_models: (q: string) =>
-      q.includes('select=key,name')
-        ? [{ key: 'near_miss', name: 'Near miss' }]
-        : [],
+      q.includes('model_capabilities')
+        ? [
+            {
+              key: 'near_miss',
+              name: 'Near miss',
+              identifier_prefix: 'NM',
+              model_capabilities: [{ settings: {} }],
+            },
+          ]
+        : q.includes('select=key,name')
+          ? [{ key: 'near_miss', name: 'Near miss' }]
+          : [],
     projects: [{ id: P1, title: 'Safety' }],
     record_field_definitions: fields,
     model_field_options: [

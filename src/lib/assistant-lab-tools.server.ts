@@ -26,6 +26,8 @@ import {
 } from './report-period'
 import { fetchSpendLines, groupSpend, totalSpend } from './spend-report'
 import type { ProviderToolDef } from './ai-providers/types'
+import { fetchModelsWithFeature } from './features/data'
+import { INCIDENT_LOG_FEATURE, REGISTRY_FEATURE } from './features/registry'
 
 /**
  * The assistant's view of the lab's day-to-day features: the schedule, free
@@ -1054,17 +1056,11 @@ async function recordKinds(
       return { kinds: rows.map((row) => row.model_key), page: '/requests' }
     }
     case 'incidents': {
-      const rows = await client.list<{ model_key: string }>(
-        'model_incident_logs',
-        '?select=model_key',
-      )
-      return { kinds: rows.map((row) => row.model_key), page: '/incidents' }
+      const rows = await fetchModelsWithFeature(client, INCIDENT_LOG_FEATURE)
+      return { kinds: rows.map((row) => row.key), page: '/incidents' }
     }
     case 'registry': {
-      const rows = await client.list<{ key: string }>(
-        'record_models',
-        '?is_registry=eq.true&select=key',
-      )
+      const rows = await fetchModelsWithFeature(client, REGISTRY_FEATURE)
       return { kinds: rows.map((row) => row.key), page: '/registry' }
     }
     default:

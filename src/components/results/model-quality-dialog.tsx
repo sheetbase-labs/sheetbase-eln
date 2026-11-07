@@ -1,13 +1,11 @@
 /**
- * The Quality button on a model: tick it as an incident log, and (when the lab
- * has result limits on) set the lowest, highest and alert values for each of
- * its number fields.
+ * The Result limits button on a model that has the Result limits feature: set
+ * the lowest, highest and alert values for each of its number fields.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
-import { Checkbox } from '#/components/ui/checkbox'
 import {
   Dialog,
   DialogBody,
@@ -34,13 +32,11 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import {
   NO_LIMITS,
   fetchFieldLimits,
-  fetchIncidentModels,
   limitsProblem,
   messageOf,
   parseLimit,
   qualityKeys,
   saveFieldLimits,
-  setModelIncidentLog,
 } from '#/lib/result-quality'
 import type { SpecLimits } from '#/lib/result-quality'
 
@@ -85,12 +81,10 @@ export function ModelQualityDialog({
   open,
   onOpenChange,
   model,
-  specLimitsOn,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   model: WorkspaceRecordModel
-  specLimitsOn: boolean
 }) {
   const queryClient = useQueryClient()
   const fieldsQuery = useRecordModelFields(model.key)
@@ -106,21 +100,9 @@ export function ModelQualityDialog({
   const limits = useQuery({
     queryKey: qualityKeys.limits(model.key),
     queryFn: () => fetchFieldLimits(client, model.key),
-    enabled: open && specLimitsOn,
-  })
-  const incidentModels = useQuery({
-    queryKey: qualityKeys.incidentModels,
-    queryFn: () => fetchIncidentModels(client),
     enabled: open,
   })
-  const isLog = Boolean(incidentModels.data?.some((m) => m.key === model.key))
-
-  const [log, setLog] = useState(false)
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
-  useEffect(() => {
-    if (!open) return
-    setLog(isLog)
-  }, [open, isLog])
   useEffect(() => {
     if (!open || !limits.data) return
     setDrafts(
@@ -137,22 +119,19 @@ export function ModelQualityDialog({
 
   const save = useMutation({
     mutationFn: async () => {
-      if (log !== isLog) await setModelIncidentLog(client, model.key, log)
-      if (specLimitsOn) {
-        const saved = new Map(
-          (limits.data ?? []).map((l) => [l.fieldName, l] as const),
-        )
-        for (const field of numberFields) {
-          const next = fromDraft(drafts[field.fieldName] ?? BLANK)
-          const was = saved.get(field.fieldName) ?? NO_LIMITS
-          const same =
-            was.lowerLimit === next.lowerLimit &&
-            was.upperLimit === next.upperLimit &&
-            was.alertLower === next.alertLower &&
-            was.alertUpper === next.alertUpper
-          if (!same) {
-            await saveFieldLimits(client, model.key, field.fieldName, next)
-          }
+      const saved = new Map(
+        (limits.data ?? []).map((l) => [l.fieldName, l] as const),
+      )
+      for (const field of numberFields) {
+        const next = fromDraft(drafts[field.fieldName] ?? BLANK)
+        const was = saved.get(field.fieldName) ?? NO_LIMITS
+        const same =
+          was.lowerLimit === next.lowerLimit &&
+          was.upperLimit === next.upperLimit &&
+          was.alertLower === next.alertLower &&
+          was.alertUpper === next.alertUpper
+        if (!same) {
+          await saveFieldLimits(client, model.key, field.fieldName, next)
         }
       }
     },
@@ -187,31 +166,8 @@ export function ModelQualityDialog({
         <DialogHeader title={t('quality.limits.title', { name: model.name })} />
         <DialogBody>
           <div className="flex flex-col gap-5">
-            <label className="flex items-start gap-2 text-body">
-              <Checkbox
-                checked={log}
-                onCheckedChange={(checked) => setLog(checked === true)}
-                className="mt-0.5"
-              />
-              <span className="flex flex-col">
-                <span className="font-medium">
-                  {t('quality.limits.incidentTick')}
-                </span>
-                <span className="text-label text-fg-muted">
-                  {t('quality.limits.incidentTickHint')}
-                </span>
-              </span>
-            </label>
-
             <div className="flex flex-col gap-2">
-              <h3 className="m-0 text-label font-semibold">
-                {t('quality.limits.resultsTitle')}
-              </h3>
-              {!specLimitsOn ? (
-                <p className="m-0 text-label text-fg-muted">
-                  {t('quality.limits.resultsOff')}
-                </p>
-              ) : numberFields.length === 0 ? (
+              {numberFields.length === 0 ? (
                 <p className="m-0 text-label text-fg-muted">
                   {t('quality.limits.noNumberFields')}
                 </p>

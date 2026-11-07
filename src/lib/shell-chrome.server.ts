@@ -86,12 +86,14 @@ export async function getShellPinned(
                 when r.kind = 'report' then 'reports'
                 when exists (select 1 from api.request_details q
                               where q.record_id = r.id) then 'requests'
-                when exists (select 1 from api.model_incident_logs l
-                              where l.workspace_id = r.workspace_id
-                                and l.model_key = r.kind) then 'incidents'
-                when exists (select 1 from api.record_models m
-                              where m.workspace_id = r.workspace_id
-                                and m.key = r.kind and m.is_registry) then 'registry'
+                when exists (select 1 from api.model_capabilities c
+                              where c.workspace_id = r.workspace_id
+                                and c.model_key = r.kind
+                                and c.capability = 'incident_log') then 'incidents'
+                when exists (select 1 from api.model_capabilities c
+                              where c.workspace_id = r.workspace_id
+                                and c.model_key = r.kind
+                                and c.capability = 'registry') then 'registry'
               end
             end as page
        from api.user_favourites f

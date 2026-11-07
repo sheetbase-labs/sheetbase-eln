@@ -23,7 +23,6 @@ function RetentionSettings() {
         {t('quality.retention.subtitle')}
       </SettingsHeader>
       <RetentionPanel
-        workspaceId={context.workspace?.id ?? ''}
         canManage={canManageSettings(context.workspace, 'general')}
       />
     </>

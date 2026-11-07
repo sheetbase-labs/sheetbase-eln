@@ -3,15 +3,6 @@
  * Each part is optional for a lab.
  */
 export const quality = {
-  general: {
-    title: 'Quality',
-    limitsTitle: 'Judge results against limits',
-    limitsHint:
-      'When on, a number field can have a lowest and highest acceptable value. Records show whether each result passes, needs a look or is out of specification.',
-    retentionTitle: 'Keep records for a set time and allow legal holds',
-    retentionHint:
-      'When on, you can set how long records of each model are kept, archive the ones past that time, and freeze records that must not change or go while a hold is in place.',
-  },
   verdict: {
     pass: 'In specification',
     alert: 'Needs a look',
@@ -21,17 +12,12 @@ export const quality = {
     failShort: 'Out of spec',
   },
   limits: {
-    button: 'Quality',
-    title: 'Quality for {name}',
-    incidentTick: 'Use this model as an incident log',
-    incidentTickHint:
-      'Its records are listed together on the Incidents page, with those of any other model you tick.',
+    button: 'Result limits',
+    title: 'Result limits for {name}',
     resultsTitle: 'Result limits',
     resultsHint:
       'Set what a good result looks like for a number field. A result outside the lowest and highest values is out of specification. One inside them but outside the alert range needs a look.',
     noNumberFields: 'This model has no number fields to set limits on.',
-    resultsOff:
-      'Result limits are off. An administrator can turn them on in Settings, under General.',
     field: 'Field',
     lowest: 'Lowest',
     highest: 'Highest',
@@ -87,7 +73,7 @@ export const quality = {
     loadError: 'The incident log couldn’t be loaded.',
     empty: {
       title: 'No incident log yet',
-      body: 'Start with a ready-made Incident model, or tick “Use this model as an incident log” on any model you already have.',
+      body: 'Start with a ready-made Incident model, or switch on the Incident log feature for any model you already have.',
       notAllowed:
         'An administrator can set up the incident log. Ask them to start one.',
       setUp: 'Set up the incident log',
@@ -102,7 +88,7 @@ export const quality = {
     navLabel: 'Retention and holds',
     title: 'Retention and holds',
     subtitle: 'How long records are kept, and what must be left untouched',
-    off: 'Retention and legal holds are off. Turn them on in Settings, under General.',
+    off: 'Retention and legal holds are off. Switch on the Retention or Legal hold feature for a model from its Features list.',
     viewOnly: 'You can see these settings but not change them.',
     loadError: 'Retention settings couldn’t be loaded.',
     rules: {

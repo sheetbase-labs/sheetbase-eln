@@ -1,6 +1,6 @@
 /**
- * Result quality: result limits (migration 0080), the incident log (0081),
- * legal holds (0082) and retention rules (0083). Each is optional per lab.
+ * Result quality: result limits, the incident log, legal holds and retention
+ * rules. Each is a feature a model can have (`lib/features/registry.ts`).
  *
  * Limits belong to a number field on a record model. A value inside the limits
  * and the alert band passes, inside the limits but outside the band is an
@@ -13,10 +13,13 @@ import { useQuery } from '@tanstack/react-query'
 import { t } from '#/copy'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { DataClient } from '#/lib/data-client'
+import { fetchModelsWithFeature, useModelFeatures } from '#/lib/features/data'
 import {
-  fetchWorkspaceGeneral,
-  workspaceGeneralQueryKey,
-} from '#/lib/workspace-general'
+  INCIDENT_LOG_FEATURE,
+  LEGAL_HOLD_FEATURE,
+  RESULT_LIMITS_FEATURE,
+  RETENTION_FEATURE,
+} from '#/lib/features/registry'
 
 export const qualityKeys = {
   all: ['quality'] as const,
@@ -39,22 +42,28 @@ export function messageOf(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
-// Which parts of the lab switched on -----------------------------------------
+// Which features are on ---------------------------------------------------------
 
-/** Whether this lab has turned on result limits and on retention. Nothing is
- * shown while the settings load. */
-export function useQualityOptions(workspaceId: string | undefined): {
-  specLimits: boolean
-  retention: boolean
+/** Which quality features are switched on for models of this lab, by model key.
+ * Nothing is on while the features load. */
+export function useQualityFeatures(): {
+  resultLimits: ReadonlySet<string>
+  retention: ReadonlySet<string>
+  legalHold: ReadonlySet<string>
+  loading: boolean
 } {
-  const general = useQuery({
-    queryKey: workspaceGeneralQueryKey,
-    queryFn: () => fetchWorkspaceGeneral(),
-    enabled: Boolean(workspaceId),
-  })
+  const features = useModelFeatures()
+  const keys = (feature: string) =>
+    new Set(
+      (features.data ?? [])
+        .filter((f) => f.capability === feature)
+        .map((f) => f.model_key),
+    )
   return {
-    specLimits: general.data?.specLimitsEnabled ?? false,
-    retention: general.data?.retentionEnabled ?? false,
+    resultLimits: keys(RESULT_LIMITS_FEATURE),
+    retention: keys(RETENTION_FEATURE),
+    legalHold: keys(LEGAL_HOLD_FEATURE),
+    loading: features.isPending,
   }
 }
 
@@ -266,16 +275,12 @@ export interface IncidentEntry {
 export async function fetchIncidentModels(
   client: DataClient,
 ): Promise<IncidentModel[]> {
-  const logs = await client.list<{ model_key: string }>(
-    'model_incident_logs',
-    '?select=model_key',
-  )
-  if (logs.length === 0) return []
-  const list = logs.map((l) => encodeURIComponent(l.model_key)).join(',')
-  return client.list<IncidentModel>(
-    'record_models',
-    `?key=in.(${list})&select=key,name,identifier_prefix&order=name.asc`,
-  )
+  const models = await fetchModelsWithFeature(client, INCIDENT_LOG_FEATURE)
+  return models.map(({ key, name, identifier_prefix }) => ({
+    key,
+    name,
+    identifier_prefix,
+  }))
 }
 
 export async function fetchIncidents(
@@ -288,17 +293,6 @@ export async function fetchIncidents(
     'records',
     `?kind=in.(${list})&deleted_at=is.null&order=created_at.desc&limit=5000&select=id,identifier,title,kind,status,custom_fields,created_at,archived_at`,
   )
-}
-
-export async function setModelIncidentLog(
-  client: DataClient,
-  modelKey: string,
-  enabled: boolean,
-): Promise<void> {
-  await client.rpc('set_model_incident_log', {
-    p_model_key: modelKey,
-    p_enabled: enabled,
-  })
 }
 
 export interface StarterModelField {
@@ -540,7 +534,6 @@ export function keepTimeLabel(months: number): string {
 /** Everything the record page needs from the quality settings: the verdict of
  * each limited field, those fields' limits, and whether a hold freezes it. */
 export function useRecordQuality(
-  workspaceId: string | undefined,
   modelKey: string,
   recordId: string,
 ): {
@@ -548,16 +541,17 @@ export function useRecordQuality(
   limitsByField: Map<string, FieldLimits>
   onHold: boolean
 } {
-  const options = useQualityOptions(workspaceId)
+  const features = useQualityFeatures()
+  const limitsOn = features.resultLimits.has(modelKey)
   const results = useQuery({
     queryKey: qualityKeys.recordResults(recordId),
     queryFn: () => fetchRecordResults(notebookDataClient, recordId),
-    enabled: options.specLimits,
+    enabled: limitsOn,
   })
   const limits = useQuery({
     queryKey: qualityKeys.limits(modelKey),
     queryFn: () => fetchFieldLimits(notebookDataClient, modelKey),
-    enabled: options.specLimits,
+    enabled: limitsOn,
   })
   const hold = useQuery({
     queryKey: qualityKeys.recordHold(recordId),
@@ -565,7 +559,7 @@ export function useRecordQuality(
     staleTime: 30_000,
   })
   return {
-    results: options.specLimits ? (results.data ?? []) : [],
+    results: limitsOn ? (results.data ?? []) : [],
     limitsByField: new Map(
       (limits.data ?? []).map((l) => [l.fieldName, l] as const),
     ),

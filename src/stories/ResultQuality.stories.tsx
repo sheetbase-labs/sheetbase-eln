@@ -15,7 +15,7 @@ import type {
   LegalHold,
   RetentionRule,
 } from '#/lib/result-quality'
-import { workspaceGeneralQueryKey } from '#/lib/workspace-general'
+import { featureKeys } from '#/lib/features/data'
 import { screenQueryClient, screenRoutes } from './screen-stories'
 import { cellBankModel, modelField } from './model-fixtures'
 
@@ -146,38 +146,26 @@ const dialogClient = (specLimits: boolean) =>
       { key: qualityKeys.limits('cell_bank'), value: limits },
       { key: qualityKeys.incidentModels, value: [] },
       {
-        key: workspaceGeneralQueryKey,
-        value: { specLimitsEnabled: specLimits },
+        key: featureKeys.list,
+        value: specLimits
+          ? [
+              {
+                model_key: 'cell_bank',
+                capability: 'result_limits',
+                settings: {},
+              },
+            ]
+          : [],
       },
     ],
   })
 const withLimits = dialogClient(true)
-const withoutLimits = dialogClient(false)
 
-/** Limits for each number field of a model, and the incident log tick. */
+/** Limits for each number field of a model that has the Result limits feature. */
 export const QualityDialog: Story = {
   render: () => (
     <QueryClientProvider client={withLimits}>
-      <ModelQualityDialog
-        open
-        onOpenChange={() => {}}
-        model={cellBankModel}
-        specLimitsOn
-      />
-    </QueryClientProvider>
-  ),
-}
-
-/** With result limits off for the lab, the dialog says where to turn them on. */
-export const QualityDialogLimitsOff: Story = {
-  render: () => (
-    <QueryClientProvider client={withoutLimits}>
-      <ModelQualityDialog
-        open
-        onOpenChange={() => {}}
-        model={cellBankModel}
-        specLimitsOn={false}
-      />
+      <ModelQualityDialog open onOpenChange={() => {}} model={cellBankModel} />
     </QueryClientProvider>
   ),
 }
@@ -210,7 +198,13 @@ const holds: LegalHold[] = [
 ]
 const retentionClient = screenQueryClient({
   data: [
-    { key: workspaceGeneralQueryKey, value: { retentionEnabled: true } },
+    {
+      key: featureKeys.list,
+      value: [
+        { model_key: 'incident', capability: 'retention', settings: {} },
+        { model_key: 'incident', capability: 'legal_hold', settings: {} },
+      ],
+    },
     {
       key: ['quality', 'models'],
       value: [
@@ -234,7 +228,7 @@ export const Retention: Story = {
   render: () => (
     <QueryClientProvider client={retentionClient}>
       <div className="w-[1000px] max-w-full">
-        <RetentionPanel workspaceId="ws-1" canManage />
+        <RetentionPanel canManage />
       </div>
     </QueryClientProvider>
   ),

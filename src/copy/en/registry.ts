@@ -48,12 +48,8 @@ export const registry = {
     couldNotSetUp: 'That registry couldn’t be set up.',
   },
   settings: {
-    button: 'Registry',
-    buttonOn: 'Registry settings',
+    button: 'Registry settings',
     title: 'Registry settings',
-    tick: 'Treat this model as a registry',
-    tickHint:
-      'Its records keep one number each, are checked for repeats before they are added, and can say what they came from.',
     keyFields: 'Count as the same thing when these match',
     keyFieldsHint:
       'Pick up to four fields. Two entries with the same values in every one of them are flagged as repeats. Entries with the same name are always flagged.',

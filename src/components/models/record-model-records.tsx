@@ -22,7 +22,7 @@ import {
   fetchFieldLimits,
   fetchKindResults,
   qualityKeys,
-  useQualityOptions,
+  useQualityFeatures,
   worstVerdict,
 } from '#/lib/result-quality'
 import type { SpecVerdict } from '#/lib/result-quality'
@@ -66,13 +66,14 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
   const [results, setResults] = useState<'' | 'out'>('')
 
   // Result limits: a column and a filter, only for a model that has limits.
-  const quality = useQualityOptions(model.data?.workspace_id)
+  const quality = useQualityFeatures()
+  const limitsOn = quality.resultLimits.has(modelKey)
   const limitsQuery = useQuery({
     queryKey: qualityKeys.limits(modelKey),
     queryFn: () => fetchFieldLimits(notebookDataClient, modelKey),
-    enabled: quality.specLimits,
+    enabled: limitsOn,
   })
-  const judged = quality.specLimits && (limitsQuery.data?.length ?? 0) > 0
+  const judged = limitsOn && (limitsQuery.data?.length ?? 0) > 0
   const outOfSpec = useQuery({
     queryKey: qualityKeys.kindResults(modelKey),
     queryFn: () => fetchKindResults(notebookDataClient, modelKey),

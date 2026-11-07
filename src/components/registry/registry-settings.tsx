@@ -1,7 +1,7 @@
 /**
- * The Registry box on a model: tick it and the model's records become registry
- * entries. Choose which fields make two entries the same thing, and which one
- * holds a sequence, if any.
+ * Registry settings for a model that has the Registry feature: which fields make
+ * two entries the same thing, which one holds a sequence and which holds a
+ * drawn structure, if any. The feature itself is switched on from Features.
  */
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -21,6 +21,7 @@ import { Select } from '#/components/ui/select'
 import { toast } from '#/components/ui/sonner'
 import { t } from '#/copy'
 import { messageOf, setModelRegistry } from '#/lib/bio-registry'
+import { featureKeys } from '#/lib/features/data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   indexExistingStructures,
@@ -49,7 +50,6 @@ export function RegistrySettingsDialog({
   const fields = (fieldsQuery.data ?? []).filter(
     (f) => f.lifecycle === 'active',
   )
-  const [isRegistry, setIsRegistry] = useState(Boolean(model.is_registry))
   const [keyFields, setKeyFields] = useState<string[]>(
     model.registry_key_fields ?? [],
   )
@@ -73,7 +73,6 @@ export function RegistrySettingsDialog({
 
   useEffect(() => {
     if (!open) return
-    setIsRegistry(Boolean(model.is_registry))
     setKeyFields(model.registry_key_fields ?? [])
     setSequenceField(model.registry_sequence_field ?? '')
     setStructureField(model.registry_structure_field ?? '')
@@ -84,18 +83,19 @@ export function RegistrySettingsDialog({
     mutationFn: async () => {
       await setModelRegistry(notebookDataClient, {
         modelKey: model.key,
-        isRegistry,
-        keyFields: isRegistry ? keyFields : [],
-        sequenceField: isRegistry && sequenceField ? sequenceField : null,
+        isRegistry: true,
+        keyFields,
+        sequenceField: sequenceField || null,
       })
       await setModelChemistry(notebookDataClient, {
         modelKey: model.key,
-        structureField: isRegistry && structureField ? structureField : null,
-        lotKind: isRegistry && structureField && lotKind ? lotKind : null,
+        structureField: structureField || null,
+        lotKind: structureField && lotKind ? lotKind : null,
       })
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['registry'] })
+      void queryClient.invalidateQueries({ queryKey: featureKeys.all })
       void queryClient.invalidateQueries({
         queryKey: recordModelQueryKeys.model(model.key),
       })
@@ -140,138 +140,119 @@ export function RegistrySettingsDialog({
         <DialogHeader title={t('registry.settings.title')} />
         <DialogBody>
           <div className="flex flex-col gap-4">
-            <label className="flex items-start gap-2 text-body">
-              <Checkbox
-                checked={isRegistry}
-                onCheckedChange={(checked) => setIsRegistry(checked === true)}
-                className="mt-0.5"
-              />
-              <span className="flex flex-col">
-                <span className="font-medium">
-                  {t('registry.settings.tick')}
-                </span>
-                <span className="text-label text-fg-muted">
-                  {t('registry.settings.tickHint')}
-                </span>
-              </span>
-            </label>
-            {isRegistry ? (
-              <>
-                <Field
-                  label={t('registry.settings.keyFields')}
-                  hint={t('registry.settings.keyFieldsHint')}
-                >
-                  {fields.length === 0 ? (
-                    <span className="text-label text-fg-muted">
-                      {t('registry.settings.noFields')}
-                    </span>
-                  ) : (
-                    <span className="flex flex-col gap-1.5">
-                      {fields.map((field) => {
-                        const on = keyFields.includes(field.fieldName)
-                        return (
-                          <label
-                            key={field.fieldName}
-                            className="flex items-center gap-2 text-body"
-                          >
-                            <Checkbox
-                              checked={on}
-                              disabled={
-                                !on && keyFields.length >= MAX_KEY_FIELDS
-                              }
-                              onCheckedChange={(checked) =>
-                                toggle(field.fieldName, checked === true)
-                              }
-                            />
-                            {field.label}
-                          </label>
-                        )
-                      })}
-                    </span>
-                  )}
-                </Field>
-                {fields.length > 0 ? (
-                  <Field
-                    label={t('registry.settings.sequenceField')}
-                    hint={t('registry.settings.sequenceFieldHint')}
-                  >
-                    <Select
-                      value={sequenceField}
-                      onChange={(e) => setSequenceField(e.target.value)}
-                    >
-                      <option value="">
-                        {t('registry.settings.sequenceNone')}
-                      </option>
-                      {fields.map((field) => (
-                        <option key={field.fieldName} value={field.fieldName}>
-                          {field.label}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                ) : null}
-                {fields.length > 0 ? (
-                  <Field
-                    label={t('registry.chemistry.settings.structureField')}
-                    hint={t('registry.chemistry.settings.structureFieldHint')}
-                  >
-                    <Select
-                      value={structureField}
-                      onChange={(e) => setStructureField(e.target.value)}
-                    >
-                      <option value="">
-                        {t('registry.chemistry.settings.structureNone')}
-                      </option>
-                      {fields.map((field) => (
-                        <option key={field.fieldName} value={field.fieldName}>
-                          {field.label}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                ) : null}
-                {structureField ? (
-                  <>
-                    <Field
-                      label={t('registry.chemistry.settings.lotKind')}
-                      hint={t('registry.chemistry.settings.lotKindHint')}
-                    >
-                      <Select
-                        value={lotKind}
-                        onChange={(e) => setLotKind(e.target.value)}
-                      >
-                        <option value="">
-                          {t('registry.chemistry.settings.lotNone')}
-                        </option>
-                        {(otherModels.data ?? [])
-                          .filter((m) => m.key !== model.key)
-                          .map((m) => (
-                            <option key={m.key} value={m.key}>
-                              {m.name}
-                            </option>
-                          ))}
-                      </Select>
-                    </Field>
-                    {model.registry_structure_field === structureField ? (
-                      <div className="flex flex-col items-start gap-1">
-                        <Button
-                          type="button"
-                          disabled={readExisting.isPending}
-                          onClick={() => readExisting.mutate()}
+            <>
+              <Field
+                label={t('registry.settings.keyFields')}
+                hint={t('registry.settings.keyFieldsHint')}
+              >
+                {fields.length === 0 ? (
+                  <span className="text-label text-fg-muted">
+                    {t('registry.settings.noFields')}
+                  </span>
+                ) : (
+                  <span className="flex flex-col gap-1.5">
+                    {fields.map((field) => {
+                      const on = keyFields.includes(field.fieldName)
+                      return (
+                        <label
+                          key={field.fieldName}
+                          className="flex items-center gap-2 text-body"
                         >
-                          {readExisting.isPending
-                            ? t('registry.chemistry.settings.reading')
-                            : t('registry.chemistry.settings.readExisting')}
-                        </Button>
-                        <span className="text-label text-fg-muted">
-                          {t('registry.chemistry.settings.readExistingHint')}
-                        </span>
-                      </div>
-                    ) : null}
-                  </>
-                ) : null}
-              </>
-            ) : null}
+                          <Checkbox
+                            checked={on}
+                            disabled={!on && keyFields.length >= MAX_KEY_FIELDS}
+                            onCheckedChange={(checked) =>
+                              toggle(field.fieldName, checked === true)
+                            }
+                          />
+                          {field.label}
+                        </label>
+                      )
+                    })}
+                  </span>
+                )}
+              </Field>
+              {fields.length > 0 ? (
+                <Field
+                  label={t('registry.settings.sequenceField')}
+                  hint={t('registry.settings.sequenceFieldHint')}
+                >
+                  <Select
+                    value={sequenceField}
+                    onChange={(e) => setSequenceField(e.target.value)}
+                  >
+                    <option value="">
+                      {t('registry.settings.sequenceNone')}
+                    </option>
+                    {fields.map((field) => (
+                      <option key={field.fieldName} value={field.fieldName}>
+                        {field.label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : null}
+              {fields.length > 0 ? (
+                <Field
+                  label={t('registry.chemistry.settings.structureField')}
+                  hint={t('registry.chemistry.settings.structureFieldHint')}
+                >
+                  <Select
+                    value={structureField}
+                    onChange={(e) => setStructureField(e.target.value)}
+                  >
+                    <option value="">
+                      {t('registry.chemistry.settings.structureNone')}
+                    </option>
+                    {fields.map((field) => (
+                      <option key={field.fieldName} value={field.fieldName}>
+                        {field.label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : null}
+              {structureField ? (
+                <>
+                  <Field
+                    label={t('registry.chemistry.settings.lotKind')}
+                    hint={t('registry.chemistry.settings.lotKindHint')}
+                  >
+                    <Select
+                      value={lotKind}
+                      onChange={(e) => setLotKind(e.target.value)}
+                    >
+                      <option value="">
+                        {t('registry.chemistry.settings.lotNone')}
+                      </option>
+                      {(otherModels.data ?? [])
+                        .filter((m) => m.key !== model.key)
+                        .map((m) => (
+                          <option key={m.key} value={m.key}>
+                            {m.name}
+                          </option>
+                        ))}
+                    </Select>
+                  </Field>
+                  {model.registry_structure_field === structureField ? (
+                    <div className="flex flex-col items-start gap-1">
+                      <Button
+                        type="button"
+                        disabled={readExisting.isPending}
+                        onClick={() => readExisting.mutate()}
+                      >
+                        {readExisting.isPending
+                          ? t('registry.chemistry.settings.reading')
+                          : t('registry.chemistry.settings.readExisting')}
+                      </Button>
+                      <span className="text-label text-fg-muted">
+                        {t('registry.chemistry.settings.readExistingHint')}
+                      </span>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+            </>
           </div>
         </DialogBody>
         <DialogFooter>

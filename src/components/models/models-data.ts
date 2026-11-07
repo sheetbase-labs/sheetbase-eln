@@ -12,6 +12,9 @@ import type {
   CanonicalDatasetSchemaField,
   CanonicalDatasetSchemaVersion,
 } from '#/lib/dataset-schema-definition-rpc'
+import { MODEL_FEATURES_EMBED, registrySetupOf } from '#/lib/features/data'
+import type { EmbeddedFeature } from '#/lib/features/data'
+import { REGISTRY_FEATURE } from '#/lib/features/registry'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   displayModelFieldValue,
@@ -448,15 +451,17 @@ export interface WorkspaceRecordModel {
   identifier_prefix: string
   /** The model this one is a subtype of, by key. */
   parent_key?: string | null
-  /** True when the model's records are governed registry entries. */
+  /** The features this model has switched on, with their settings. */
+  model_capabilities?: EmbeddedFeature[]
+  /** From the Registry feature: true when the model's records are governed registry entries. */
   is_registry?: boolean
-  /** Fields that together identify a duplicate; all must match. */
+  /** From the Registry feature: fields that together identify a duplicate; all must match. */
   registry_key_fields?: string[]
-  /** The field holding the sequence fingerprint, when the model has one. */
+  /** From the Registry feature: the field holding the sequence fingerprint, when the model has one. */
   registry_sequence_field?: string | null
-  /** The field holding the drawn structure, when entries are chemical compounds. */
+  /** From the Registry feature: the field holding the drawn structure, when entries are chemical compounds. */
   registry_structure_field?: string | null
-  /** The model a lot of a compound is made from. */
+  /** From the Registry feature: the model a lot of a compound is made from. */
   registry_lot_kind?: string | null
   lifecycle: string
   current_version: number
@@ -496,8 +501,26 @@ export const recordModelQueryKeys = {
     ['ui-port', 'record-models', 'records', key] as const,
 }
 
-const WORKSPACE_MODEL_COLUMNS =
-  'id,workspace_id,key,name,description,identifier_prefix,parent_key,is_registry,registry_key_fields,registry_sequence_field,registry_structure_field,registry_lot_kind,lifecycle,current_version,created_at,updated_at'
+const WORKSPACE_MODEL_COLUMNS = `id,workspace_id,key,name,description,identifier_prefix,parent_key,lifecycle,current_version,created_at,updated_at,${MODEL_FEATURES_EMBED}`
+
+/** A model row with the registry settings of its Registry feature spread onto it. */
+export function withFeatureFields(
+  row: WorkspaceRecordModel,
+): WorkspaceRecordModel {
+  const registry = row.model_capabilities?.find(
+    (f) => f.capability === REGISTRY_FEATURE,
+  )
+  if (!registry) return { ...row, is_registry: false }
+  const setup = registrySetupOf(registry.settings)
+  return {
+    ...row,
+    is_registry: true,
+    registry_key_fields: setup.keyFields,
+    registry_sequence_field: setup.sequenceField,
+    registry_structure_field: setup.structureField,
+    registry_lot_kind: setup.lotKind,
+  }
+}
 
 const RECORD_MODEL_RECORD_COLUMNS =
   'id,identifier,title,kind,status,custom_fields,properties,tags,created_at,updated_at,archived_at,metadata_version,model_version_id,model_version:record_model_versions(version)'
@@ -516,7 +539,7 @@ export function useWorkspaceRecordModel(
           'record_models',
           `?key=eq.${encodeURIComponent(key)}&select=${WORKSPACE_MODEL_COLUMNS}`,
         )
-        .then((rows) => rows[0] ?? null),
+        .then((rows) => (rows[0] ? withFeatureFields(rows[0]) : null)),
     enabled: Boolean(key),
     staleTime: 15_000,
   })

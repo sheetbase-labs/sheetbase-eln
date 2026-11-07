@@ -1,6 +1,6 @@
 /**
  * Biological registries (migration 0070). A registry is a record model with
- * the Registry box ticked: its records get numbers that never change, a
+ * the Registry feature switched on: its records get numbers that never change, a
  * duplicate check before anything is added, and lineage between entries.
  * Constructs, cell lines and antibodies are ready-made registries; any other
  * model can be ticked the same way.
@@ -9,6 +9,7 @@
  * security like any record; changes go through RPCs.
  */
 import type { DataClient } from '#/lib/data-client'
+import { registrySetupOf } from '#/lib/features/data'
 import { reverseComplement } from '#/lib/sequence'
 import type { ParsedSequence } from '#/lib/sequence'
 
@@ -71,10 +72,29 @@ export interface DuplicateMatch {
 export async function fetchRegistryModels(
   client: DataClient,
 ): Promise<RegistryModel[]> {
-  return client.list<RegistryModel>(
+  const rows = await client.list<{
+    id: string
+    key: string
+    name: string
+    identifier_prefix: string
+    model_capabilities: { settings: Record<string, unknown> }[]
+  }>(
     'record_models',
-    '?is_registry=eq.true&select=id,key,name,identifier_prefix,registry_key_fields,registry_sequence_field,registry_structure_field,registry_lot_kind&order=name.asc',
+    '?select=id,key,name,identifier_prefix,model_capabilities!inner(settings)&model_capabilities.capability=eq.registry&order=name.asc',
   )
+  return rows.map((row) => {
+    const setup = registrySetupOf(row.model_capabilities[0]?.settings)
+    return {
+      id: row.id,
+      key: row.key,
+      name: row.name,
+      identifier_prefix: row.identifier_prefix,
+      registry_key_fields: setup.keyFields,
+      registry_sequence_field: setup.sequenceField,
+      registry_structure_field: setup.structureField,
+      registry_lot_kind: setup.lotKind,
+    }
+  })
 }
 
 export async function fetchRegistryEntries(

@@ -28,13 +28,16 @@ runs:
         # cluster on 5432 until it is stopped.
         docker compose --env-file .env.ci-compose build postgrest &
         build=$!
-        docker compose --env-file .env.ci-compose pull postgres &
+        docker compose --env-file .env.ci-compose build postgres &
         pull=$!
         if [ "${{ inputs.host-tools }}" = "true" ]; then
           sudo apt-get update
           sudo apt-get install -y postgresql-common curl ca-certificates
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-          sudo apt-get install -y postgresql-18 postgresql-client-18
+          sudo apt-get install -y postgresql-18 postgresql-client-18 postgresql-18-pgvector
+          # The migrator is not a superuser, so the extension must be trusted
+          # (the docker/db image does the same).
+          echo 'trusted = true' | sudo tee -a /usr/share/postgresql/18/extension/vector.control
           sudo systemctl stop postgresql
           echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
           curl -fL https://github.com/PostgREST/postgrest/releases/download/v14.5/postgrest-v14.5-linux-static-x86-64.tar.xz -o /tmp/postgrest.tar.xz

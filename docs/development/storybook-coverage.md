@@ -523,3 +523,11 @@ server, so every notebook comes back in the "not updated" list.
 | `src/components/contracts/contract-panel.tsx`         | The Contract tab: reads and writes contracts, runs and members through the data client, and has no state to show without them. |
 | `src/components/contracts/dataset-contract-badge.tsx` | Reads a dataset's standing and its contract from the server; the badge it draws has its own story (`ContractStatusBadge`).     |
 | `src/components/contracts/rule-dialog.tsx`            | Portalled form that previews a rule against stored data and saves it through the data client.                                  |
+
+## Planner
+
+| Module                                    | Why no story                                                                                                                                                            |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/planner/plan-dialog.tsx`  | Asks the assistant through a server function and creates the experiment through the data client; plan rules and the create call are covered by unit and database tests. |
+| `src/components/planner/plan-review.tsx`  | Lays out a plan passed in as props; it has no states of its own and is covered by the Plan with AI click-through.                                                       |
+| `src/components/planner/plan-with-ai.tsx` | Shows a button only when a real model is connected.                                                                                                                     |

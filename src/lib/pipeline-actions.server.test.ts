@@ -438,6 +438,30 @@ describe('ELN pipeline actions', () => {
     )
     expect(calls[0][1]).toEqual([part, true])
   })
+  it('asks someone to sign off a part with typed, bound values', async () => {
+    const { conn, query } = connection([{ request: {} }])
+    const part = '00000000-0000-4000-8000-0000000000c2'
+    await executePipelineActions(
+      conn,
+      { workspaceId, runId },
+      [
+        {
+          name: 'ask',
+          operation: 'request_part_signoff',
+          arguments: {
+            p_part_id: part,
+            p_user_id: 'u-1',
+            p_note: 'Over to you',
+          },
+        },
+      ],
+      context,
+    )
+    const calls = query.mock.calls.filter(([sql]) =>
+      sql.startsWith('SELECT to_jsonb'),
+    )
+    expect(calls[0][1]).toEqual([part, 'u-1', 'Over to you'])
+  })
   it('finishes a step and records a result with typed, bound values', async () => {
     const { conn, query } = connection([{ done: true }, { block: {} }])
     const step = '00000000-0000-4000-8000-0000000000b1'

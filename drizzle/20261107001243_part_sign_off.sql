@@ -1034,3 +1034,18 @@ REVOKE ALL ON FUNCTION api.record_part_signoffs(p_record_id uuid) FROM PUBLIC;
 --> statement-breakpoint
 GRANT ALL ON FUNCTION api.record_part_signoffs(p_record_id uuid) TO authenticated;
 --> statement-breakpoint
+
+-- A pipeline can ask someone to sign or countersign a part. The database's
+-- copy of the action catalogue (checked when a pipeline is saved) gains the action.
+DO $$
+DECLARE
+  v_def text;
+  v_added text := $added$,{"operation":"request_part_signoff","rpc":"request_part_signoff","label":"Ask someone to sign off a part","description":"Ask a person to sign a finished part of an experiment, or to countersign a signed one. They are notified. Nothing is signed for them.","arguments":[{"name":"p_part_id","type":"uuid","required":true,"nullable":false},{"name":"p_user_id","type":"text","required":true,"nullable":false},{"name":"p_note","type":"text","required":false,"nullable":true}]}]$added$;
+BEGIN
+  SELECT pg_get_functiondef('internal.pipeline_action_errors(jsonb)'::regprocedure) INTO v_def;
+  IF position(']$catalogue$::jsonb' IN v_def) = 0 THEN
+    RAISE EXCEPTION 'unexpected shape for internal.pipeline_action_errors';
+  END IF;
+  v_def := replace(v_def, ']$catalogue$::jsonb', v_added || '$catalogue$::jsonb');
+  EXECUTE v_def;
+END $$;

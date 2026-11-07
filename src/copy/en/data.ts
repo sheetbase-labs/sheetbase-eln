@@ -3045,6 +3045,9 @@ export const data = {
     setPartGate: 'Set when a part opens',
     setPartGateDescription:
       'Make a part of an experiment open only when earlier work is done (a table filled, a step done, samples linked), and say whether it warns or blocks until then. Leave the conditions out to take the rule off.',
+    requestPartSignoff: 'Ask someone to sign off a part',
+    requestPartSignoffDescription:
+      'Ask a person to sign a finished part of an experiment, or to countersign a signed one. They are notified. Nothing is signed for them.',
     addStepResult: 'Record a result on a step',
     addStepResultDescription:
       'Add a measurement to the notebook against a protocol step.',

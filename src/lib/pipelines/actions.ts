@@ -311,6 +311,16 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
     ],
   ),
   definition(
+    'request_part_signoff',
+    t('data.pipelineActions.requestPartSignoff'),
+    t('data.pipelineActions.requestPartSignoffDescription'),
+    [
+      arg('p_part_id', 'uuid'),
+      arg('p_user_id', 'text'),
+      arg('p_note', 'text', false, true),
+    ],
+  ),
+  definition(
     'add_step_result',
     t('data.pipelineActions.addStepResult'),
     t('data.pipelineActions.addStepResultDescription'),

@@ -384,6 +384,7 @@ function AiSettingsPage() {
             <SemanticSearchSection
               workspaceId={workspaceId}
               cloudAllowed={form.cloudEgressEnabled}
+              assistantOn={form.enabled}
             />
 
             <Section title={t('settings.ai.limits')}>

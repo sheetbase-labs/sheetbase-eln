@@ -87,7 +87,7 @@ export function SimilarWorkPanel({
                 />
                 <Link
                   to={hit.deepLink}
-                  className="min-w-0 flex-1 truncate text-fg hover:text-link"
+                  className="line-clamp-2 min-w-0 flex-1 text-fg hover:text-link"
                   title={hit.passage}
                 >
                   {hit.title}

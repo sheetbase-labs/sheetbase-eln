@@ -2,7 +2,7 @@
 export const registry = {
   title: 'Registry',
   subtitle:
-    'Everything your lab registers once and quotes by number: constructs, cell lines, antibodies and anything else you turn on',
+    'Everything your lab registers once and quotes by number: constructs, cell lines, antibodies, papers and anything else you turn on',
   navLabel: 'Registry',
   paneLabel: 'Registry',
   register: 'Register',
@@ -41,7 +41,7 @@ export const registry = {
       'Register the first one and it gets a number everyone can quote.',
     filtered: 'Nothing matches that search.',
     setUp: 'Set up {name}',
-    setUpAll: 'Set up all three',
+    setUpAll: 'Set up all',
     notAllowed:
       'Ask someone who can edit models to set up a registry, or turn it on for a model from its page.',
     settingUp: 'Setting up…',

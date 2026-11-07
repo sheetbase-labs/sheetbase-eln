@@ -170,7 +170,7 @@ export function ActionRequestsBoard({
                             onClick={() => approve.mutate(row)}
                           >
                             {approve.isPending &&
-                            approve.variables?.id === row.id
+                            approve.variables.id === row.id
                               ? t('agentRequests.running')
                               : t('agentRequests.approve')}
                           </Button>

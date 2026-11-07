@@ -1,9 +1,6 @@
-import { eq } from 'drizzle-orm'
-
 import { db } from '#/db/client.server'
-import * as schema from '#/db/schema'
 import { env } from '#/env.server'
-import { getAppSession } from '#/lib/auth'
+import { getCurrentContext } from '#/lib/current-user'
 import { verifyExternalCredential, readBearerToken } from '#/lib/external-token'
 import { subscribeToChangeEvents } from '#/lib/sse-subscribe'
 import type {
@@ -15,17 +12,15 @@ import type { StreamPage } from './event-stream'
 /** A session, or a token with the admin:read scope (personal or service). */
 export const eventStreamDeps: EventStreamDeps = {
   async authenticate(headers) {
-    const session = await getAppSession(headers)
-    if (session) {
-      const membership = await db.query.workspaceMemberships.findFirst({
-        where: eq(schema.workspaceMemberships.userId, session.user.id),
-      })
-      if (!membership) return null
+    // The workspace the person has open, not just their first membership.
+    const context = await getCurrentContext(headers)
+    if (context) {
+      if (!context.workspace || context.workspace.suspended) return null
       return {
-        workspaceId: membership.workspaceId,
+        workspaceId: context.workspace.id,
         claims: {
-          sub: session.user.id,
-          workspace_id: membership.workspaceId,
+          sub: context.user.id,
+          workspace_id: context.workspace.id,
           role: 'authenticated',
         },
       } satisfies StreamCaller

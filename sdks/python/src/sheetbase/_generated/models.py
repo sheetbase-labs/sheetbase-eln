@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 __all__ = [
     "AcceptScheduleProposalParams",
     "AcknowledgeQcPointParams",
+    "AddContractRuleParams",
     "AddRecordsToLegalHoldParams",
     "AddRegistryParentParams",
     "AddSeriesMemberParams",
@@ -82,6 +83,9 @@ __all__ = [
     "CancelReagentOrderParams",
     "CancelShipmentParams",
     "CancelStocktakeParams",
+    "CheckDatasetContractParams",
+    "CheckRecordBatchContractParams",
+    "CheckRecordContractParams",
     "ClearInstrumentRobotParams",
     "CodeCellRunsRow",
     "CommitDatasetRowBatchParams",
@@ -111,6 +115,9 @@ __all__ = [
     "CreateShipmentParams",
     "CreateSupplierModelParams",
     "CreateWebhookSubscriptionParams",
+    "DataContractDatasetStatusRow",
+    "DataContractRunsRow",
+    "DataContractsRow",
     "DatasetSchemaDefinitionsRow",
     "DatasetSchemaVersionFieldsRow",
     "DatasetSchemaVersionsRow",
@@ -119,6 +126,7 @@ __all__ = [
     "DatasetsRow",
     "DatasetsRowInsert",
     "DeleteBlockParams",
+    "DeleteDataContractParams",
     "DeleteExperimentPartParams",
     "DeleteLineageTargetParams",
     "DeleteQcSeriesParams",
@@ -137,6 +145,7 @@ __all__ = [
     "ExperimentPartsRow",
     "ExperimentSeriesMembersRow",
     "ExperimentSeriesRow",
+    "ExportDataContractOdcsParams",
     "FieldCategory",
     "FieldCategoryEmbedded",
     "FieldCategoryVocabulary",
@@ -150,6 +159,7 @@ __all__ = [
     "GetWebhookEndpointHealthParams",
     "HandOverMemberWorkParams",
     "IdpGroupMappingsRow",
+    "ImportDataContractOdcsParams",
     "InboxWorkItemsRow",
     "InsertBlockParams",
     "InsertSheetInstanceBlockParams",
@@ -221,6 +231,7 @@ __all__ = [
     "PlateWorklistsRow",
     "PoolSamplesParams",
     "PrepareSolutionParams",
+    "PreviewContractRulesParams",
     "PreviewMemberHandoverParams",
     "PreviewNotebookTemplateUpgradeParams",
     "PreviewSheetInstanceCompositionAdoptionParams",
@@ -268,6 +279,7 @@ __all__ = [
     "RecurringSchedulesRow",
     "RegisterReplacementLotParams",
     "RegistryFindDuplicatesParams",
+    "RemoveContractRuleParams",
     "RemoveIdpGroupMappingParams",
     "RemoveInstrumentFeedParams",
     "RemoveRegistryParentParams",
@@ -297,6 +309,7 @@ __all__ = [
     "RevisionsRow",
     "RevokeScimTokenParams",
     "RotateWebhookSecretParams",
+    "RunContractCheckParams",
     "RunLabWatcherParams",
     "RunSavedSearchParams",
     "SampleWorkflowEventsRow",
@@ -304,6 +317,7 @@ __all__ = [
     "SampleWorkflowStagesRow",
     "SampleWorkflowTransitionsRow",
     "SampleWorkflowsRow",
+    "SaveDataContractParams",
     "SaveLineageTargetParams",
     "SavePlateRunAnalysisParams",
     "SaveSampleWorkflowParams",
@@ -1113,6 +1127,63 @@ class CompositionAdoptionPreview(_CompositionAdoptionPreviewRequired, total=Fals
     errorCode: Optional[str]
     errorMessage: Optional[str]
     target: Dict[str, Any]
+
+
+class DataContractDatasetStatusRow(TypedDict):
+    """`api.data_contract_dataset_status` row (snake_case). Where each dataset stands under its schema's contract: the latest full check."""
+    contract_id: str
+    dataset_id: str
+    workspace_id: str
+    status: str
+    failed_rules: int
+    run_id: str
+    checked_at: str
+
+
+class _DataContractRunsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    contract_id: str
+    contract_version: int
+    trigger: str
+    scope: str
+    status: str
+    rows_checked: int
+    failed_rules: int
+    blocked: bool
+    results: Dict[str, "JsonValue"]
+    created_at: str
+
+
+class DataContractRunsRow(_DataContractRunsRowRequired, total=False):
+    """`api.data_contract_runs` row (snake_case). One check of a data contract. `status` is `pass`, `warning` or `fail`; `trigger` is `import`, `pipeline`, `manual` or `schedule`; `blocked` means an import or pipeline commit was refused. `results` says what each rule found."""
+    dataset_id: Optional[str]
+    created_by_user_id: Optional[str]
+
+
+class _DataContractsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    name: str
+    version: int
+    lifecycle: str
+    rules: Dict[str, "JsonValue"]
+    created_at: str
+    updated_at: str
+    created_by_user_id: str
+
+
+class DataContractsRow(_DataContractsRowRequired, total=False):
+    """`api.data_contracts` row (snake_case). A data contract: rules for what good data looks like on a dataset schema or a record model. `last_status` is `pass`, `warning` or `fail`; `rules` is the list of rules."""
+    dataset_schema_id: Optional[str]
+    record_model_key: Optional[str]
+    description: Optional[str]
+    owner_user_id: Optional[str]
+    schedule_minutes: Optional[int]
+    next_check_at: Optional[str]
+    last_status: Optional[str]
+    last_checked_at: Optional[str]
+    updated_by_user_id: Optional[str]
 
 
 class _DatasetSchemaDefinitionsRowRequired(TypedDict):
@@ -3408,6 +3479,11 @@ class AcknowledgeQcPointParams(_AcknowledgeQcPointParamsRequired, total=False):
     p_exclude: bool
 
 
+class AddContractRuleParams(TypedDict):
+    p_contract_id: str
+    p_rule: Dict[str, "JsonValue"]
+
+
 class AddRecordsToLegalHoldParams(TypedDict):
     p_hold_id: str
     p_record_ids: List[str]
@@ -3545,6 +3621,24 @@ class CancelShipmentParams(_CancelShipmentParamsRequired, total=False):
 
 class CancelStocktakeParams(TypedDict):
     p_stocktake_id: str
+
+
+class _CheckDatasetContractParamsRequired(TypedDict):
+    p_dataset_id: str
+    p_rows: Dict[str, "JsonValue"]
+
+
+class CheckDatasetContractParams(_CheckDatasetContractParamsRequired, total=False):
+    p_trigger: str
+
+
+class CheckRecordBatchContractParams(TypedDict):
+    p_record_model_key: str
+    p_rows: Dict[str, "JsonValue"]
+
+
+class CheckRecordContractParams(TypedDict):
+    p_record_id: str
 
 
 class ClearInstrumentRobotParams(TypedDict):
@@ -3810,6 +3904,10 @@ class DeleteBlockParams(TypedDict):
     p_expected_structure_version: int
 
 
+class DeleteDataContractParams(TypedDict):
+    p_contract_id: str
+
+
 class _DeleteExperimentPartParamsRequired(TypedDict):
     p_part_id: str
 
@@ -3885,6 +3983,10 @@ class EventStreamPageParams(TypedDict, total=False):
     p_entity_types: List[str]
 
 
+class ExportDataContractOdcsParams(TypedDict):
+    p_contract_id: str
+
+
 class _FinishAgentActionParamsRequired(TypedDict):
     p_request_id: str
     p_ok: bool
@@ -3912,6 +4014,15 @@ class HandOverMemberWorkParams(TypedDict):
     p_from_user_id: str
     p_to_user_id: str
     p_selection: List[str]
+
+
+class _ImportDataContractOdcsParamsRequired(TypedDict):
+    p_odcs: Dict[str, "JsonValue"]
+
+
+class ImportDataContractOdcsParams(_ImportDataContractOdcsParamsRequired, total=False):
+    p_dataset_schema_id: str
+    p_record_model_key: str
 
 
 class InsertBlockParams(TypedDict):
@@ -4097,6 +4208,15 @@ class PrepareSolutionParams(_PrepareSolutionParamsRequired, total=False):
     p_expiry: str
     p_storage: str
     p_note: str
+
+
+class _PreviewContractRulesParamsRequired(TypedDict):
+    p_contract_id: str
+    p_rules: Dict[str, "JsonValue"]
+
+
+class PreviewContractRulesParams(_PreviewContractRulesParamsRequired, total=False):
+    p_dataset_id: str
 
 
 class PreviewMemberHandoverParams(TypedDict):
@@ -4302,6 +4422,11 @@ class RegistryFindDuplicatesParams(_RegistryFindDuplicatesParamsRequired, total=
     p_exclude_id: str
 
 
+class RemoveContractRuleParams(TypedDict):
+    p_contract_id: str
+    p_rule_id: str
+
+
 class RemoveIdpGroupMappingParams(TypedDict):
     p_id: str
 
@@ -4456,6 +4581,14 @@ class RotateWebhookSecretParams(_RotateWebhookSecretParamsRequired, total=False)
     p_new_secret: str
 
 
+class _RunContractCheckParamsRequired(TypedDict):
+    p_contract_id: str
+
+
+class RunContractCheckParams(_RunContractCheckParamsRequired, total=False):
+    p_dataset_id: str
+
+
 class RunLabWatcherParams(TypedDict):
     p_watcher_id: str
 
@@ -4467,6 +4600,17 @@ class _RunSavedSearchParamsRequired(TypedDict):
 class RunSavedSearchParams(_RunSavedSearchParamsRequired, total=False):
     p_limit: int
     p_offset: int
+
+
+class SaveDataContractParams(TypedDict, total=False):
+    p_dataset_schema_id: str
+    p_record_model_key: str
+    p_rules: Dict[str, "JsonValue"]
+    p_name: str
+    p_description: str
+    p_owner_user_id: str
+    p_lifecycle: str
+    p_schedule_minutes: int
 
 
 class _SaveLineageTargetParamsRequired(TypedDict):

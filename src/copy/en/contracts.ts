@@ -48,7 +48,8 @@ export const contracts = {
     descriptionHint: 'What this contract is for, in a sentence.',
     save: 'Save',
     saved: 'Contract saved',
-    readOnly: 'You can see this contract. People who edit models can change it.',
+    readOnly:
+      'You can see this contract. People who edit models can change it.',
     couldNotLoad: 'The contract could not be loaded.',
     deleteTitle: 'Delete this contract?',
     deleteBody:
@@ -265,14 +266,5 @@ export const contracts = {
   },
   inbox: {
     breached: '{contract} is now {status}',
-  },
-  assistant: {
-    run: { apply: 'Check now', applying: 'Checking…', applied: 'Checked' },
-    addRule: { apply: 'Add rule', applying: 'Adding…', applied: 'Rule added' },
-    removeRule: {
-      apply: 'Remove rule',
-      applying: 'Removing…',
-      applied: 'Rule removed',
-    },
   },
 } as const

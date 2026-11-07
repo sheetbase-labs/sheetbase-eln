@@ -12,6 +12,7 @@ import {
   quarantineSample,
 } from './samples'
 import { cancelShipment } from './shipments'
+import { addRule, runCheck } from './data-contracts/client'
 import { startValidationRun } from './validation/client'
 import { reproducePipelineRun } from './pipelines/data'
 import { logInstrumentService } from '../components/instruments/instruments-data'
@@ -90,6 +91,12 @@ export async function runUpkeepAction(
     case 'timestamps.retry':
       await requestSignatureTimestamp(client, action.signatureId)
       return { openHref: '/settings/workspace/audit' }
+    case 'contract.check':
+      await runCheck(client, action.contractId)
+      return { openHref: '/models' }
+    case 'contract.rule_add':
+      await addRule(client, action.contractId, action.rule)
+      return { openHref: '/models' }
     case 'validation.run':
       await startValidationRun()
       return { openHref: '/settings/workspace/validation' }

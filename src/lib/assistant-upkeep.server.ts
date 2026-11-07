@@ -11,6 +11,10 @@ import {
   VALIDATION_RUN_TOOL,
   PIPELINE_REPRODUCE_TOOL,
   proposePipelineReproduceSchema,
+  CONTRACT_CHECK_TOOL,
+  CONTRACT_RULE_ADD_TOOL,
+  proposeContractCheckSchema,
+  proposeContractRuleAddSchema,
   TIMESTAMPS_SET_TOOL,
   proposeTimestampsRetrySchema,
   proposeValidationRunSchema,
@@ -40,7 +44,18 @@ import {
   proposeSampleRetireSchema,
   proposeShipmentCancelSchema,
 } from './assistant-upkeep'
-import type { UpkeepAction, UpkeepProposeToolName } from './assistant-upkeep'
+import type {
+  ContractRuleInput,
+  UpkeepAction,
+  UpkeepProposeToolName,
+} from './assistant-upkeep'
+import {
+  describeRule,
+  draftProblem,
+  kindLabel,
+  modeLabel,
+  ruleToDraft,
+} from './data-contracts/rules'
 import {
   findExperiment,
   instrumentLabel,
@@ -175,7 +190,48 @@ export function upkeepProposalDefs(): ProviderToolDef[] {
       `Propose reproducing a finished pipeline run: it runs again from the same pinned version, settings and inputs in scratch space, compares the result with the original and records whether it matches. Nothing is published or changed. Give the pipeline by name, or a run id from a read. ${NOTE}`,
       proposePipelineReproduceSchema,
     ),
+    toolDef(
+      CONTRACT_CHECK_TOOL,
+      `Propose checking a data contract against its data now. List the contracts area first for the name. ${NOTE}`,
+      proposeContractCheckSchema,
+    ),
+    toolDef(
+      CONTRACT_RULE_ADD_TOOL,
+      `Propose adding a rule to a data contract: a field that must have a value or be unique, a range, allowed units, how complete the data is, a row count, or how fresh. Only for people who edit models. ${NOTE}`,
+      proposeContractRuleAddSchema,
+    ),
   ]
+}
+
+interface FoundContract {
+  id: string
+  name: string
+  last_status: string | null
+  dataset_schema_id: string | null
+  record_model_key: string | null
+}
+
+function contractLink(contract: FoundContract): string {
+  const model = contract.dataset_schema_id ?? contract.record_model_key
+  return model ? `/models/${encodeURIComponent(model)}/contract` : '/models'
+}
+
+async function findContract(
+  client: DataClient,
+  words: string,
+): Promise<FoundContract | string> {
+  const rows = await client.list<FoundContract>(
+    'data_contracts',
+    `?name=ilike.${likeValue(words)}&lifecycle=neq.retired&select=id,name,last_status,dataset_schema_id,record_model_key&limit=5`,
+  )
+  const exact = rows.filter(
+    (row) => row.name.toLowerCase() === words.trim().toLowerCase(),
+  )
+  const pick = exact.length === 1 ? exact : rows
+  if (pick.length === 0) return `No data contract matches “${words}”.`
+  if (pick.length > 1)
+    return `Several data contracts match “${words}”: ${pick.map((row) => row.name).join(', ')}. Say which one.`
+  return pick[0]
 }
 
 // ---------------------------------------------------------------------------
@@ -719,6 +775,58 @@ export async function buildUpkeepProposal(
           runId: run.id,
           definitionId: definition.id,
         },
+      })
+    }
+
+    case CONTRACT_CHECK_TOOL: {
+      const parsed = parse(proposeContractCheckSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const found = await findContract(client, parsed.data.contract)
+      if (typeof found === 'string') return fail(found)
+      return card(name, parsed.data, {
+        target: found.name,
+        deepLink: contractLink(found),
+        changes: [
+          {
+            label: 'Standing',
+            before: found.last_status ?? 'Not checked',
+            after: 'Checked now',
+          },
+        ],
+        action: { kind: 'contract.check', contractId: found.id },
+      })
+    }
+
+    case CONTRACT_RULE_ADD_TOOL: {
+      const parsed = parse(proposeContractRuleAddSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const found = await findContract(client, input.contract)
+      if (typeof found === 'string') return fail(found)
+      const rule: ContractRuleInput = {
+        kind: input.kind,
+        mode: input.mode ?? 'warn',
+      }
+      if (input.field) rule.field = input.field
+      if (input.min !== undefined) rule.min = input.min
+      if (input.max !== undefined) rule.max = input.max
+      if (input.units) rule.units = input.units
+      if (input.threshold !== undefined) rule.threshold = input.threshold
+      if (input.maxAgeMinutes !== undefined)
+        rule.maxAgeMinutes = input.maxAgeMinutes
+      const problem = draftProblem(ruleToDraft({ id: 'new', ...rule }))
+      if (problem) return fail(problem)
+      return card(name, input, {
+        target: found.name,
+        deepLink: contractLink(found),
+        changes: [
+          {
+            label: kindLabel(rule.kind),
+            before: null,
+            after: `${describeRule({ id: 'new', ...rule })}${rule.field ? ` on ${rule.field}` : ''} (${modeLabel(rule.mode)})`,
+          },
+        ],
+        action: { kind: 'contract.rule_add', contractId: found.id, rule },
       })
     }
 

@@ -57308,6 +57308,334 @@
         }
       }
     },
+    "/api/db/rpc/semantic_search": {
+      "post": {
+        "tags": ["Projects"],
+        "summary": "Search by meaning with your own vector",
+        "operationId": "rpc_semantic_search",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["projects:read"],
+        "description": "Ranks the stored passages closest to a vector you supply, through the caller’s own access, so work they cannot see never appears. The vector must be exactly 1024 numbers, unit length, made with the same model the workspace uses (see the AI settings); to search with words instead, use the MCP tool `sheetbase.search.semantic`. `p_limit` is clamped to 1–100. `p_types` limits the kinds of object (record, file, dataset, sheet, template, comment, project, analysis, deviation). Returns the closest passage per object, closest first.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_embedding"],
+                "properties": {
+                  "p_embedding": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 1024,
+                    "maxItems": 1024,
+                    "description": "The query as exactly 1024 numbers."
+                  },
+                  "p_limit": {
+                    "type": "integer",
+                    "description": "How many objects, clamped 1–100.",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 20
+                  },
+                  "p_types": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "nullable": true,
+                    "description": "Kinds of object to include. Omit for the usual set."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of semantic_search",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "object_type": {
+                        "type": "string"
+                      },
+                      "object_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "identifier": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "archived": {
+                        "type": "boolean"
+                      },
+                      "deep_link": {
+                        "type": "string"
+                      },
+                      "project_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "parent_type": {
+                        "type": "string"
+                      },
+                      "parent_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "passage": {
+                        "type": "string"
+                      },
+                      "chunk_no": {
+                        "type": "integer"
+                      },
+                      "similarity": {
+                        "type": "number"
+                      }
+                    },
+                    "required": ["object_type", "object_id", "similarity"]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/semantic_search_settings": {
+      "post": {
+        "tags": ["Projects"],
+        "summary": "Whether search by meaning is on for a workspace",
+        "operationId": "rpc_semantic_search_settings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["projects:read"],
+        "description": "Returns whether search by meaning and literature search are on, which embeddings model is chosen, and how many documents have been read so far.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_workspace_id"],
+                "properties": {
+                  "p_workspace_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Workspace UUID."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of semantic_search_settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "profile": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "literatureEnabled": {
+                      "type": "boolean"
+                    },
+                    "indexedDocuments": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "totalDocuments": {
+                      "type": "integer",
+                      "format": "int64"
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "literatureEnabled",
+                    "indexedDocuments",
+                    "totalDocuments"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/send_scheduled_report_now": {
       "post": {
         "tags": ["Projects"],
@@ -61257,6 +61585,192 @@
                       }
                     }
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/similar_work": {
+      "post": {
+        "tags": ["Projects"],
+        "summary": "Find work that reads like an experiment, dataset or file",
+        "operationId": "rpc_similar_work",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["projects:read"],
+        "description": "Returns the work closest in meaning to one object, using the vectors already stored (no model call). Only work the caller can see appears. `p_object_type` is record, file, dataset, sheet, template, analysis, project or deviation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_object_type", "p_object_id"],
+                "properties": {
+                  "p_object_type": {
+                    "type": "string",
+                    "description": "Kind of object."
+                  },
+                  "p_object_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The object’s UUID."
+                  },
+                  "p_limit": {
+                    "type": "integer",
+                    "description": "How many, clamped 1–50.",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "default": 8
+                  },
+                  "p_types": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "nullable": true,
+                    "description": "Kinds of object to include."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of similar_work",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "object_type": {
+                        "type": "string"
+                      },
+                      "object_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "identifier": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "archived": {
+                        "type": "boolean"
+                      },
+                      "deep_link": {
+                        "type": "string"
+                      },
+                      "project_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "parent_type": {
+                        "type": "string"
+                      },
+                      "parent_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "passage": {
+                        "type": "string"
+                      },
+                      "chunk_no": {
+                        "type": "integer"
+                      },
+                      "similarity": {
+                        "type": "number"
+                      }
+                    },
+                    "required": ["object_type", "object_id", "similarity"]
+                  }
                 }
               }
             }

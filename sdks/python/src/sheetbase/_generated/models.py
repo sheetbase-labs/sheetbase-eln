@@ -332,6 +332,8 @@ __all__ = [
     "ScimTokensRow",
     "SearchParams",
     "SearchSheetRecordsParams",
+    "SemanticSearchParams",
+    "SemanticSearchSettingsParams",
     "SendScheduledReportNowParams",
     "SeriesMembersParams",
     "SeriesRollupParams",
@@ -408,6 +410,7 @@ __all__ = [
     "ShipmentItemsRow",
     "ShipmentsRow",
     "SignatureTimestampsRow",
+    "SimilarWorkParams",
     "SlipExperimentPartParams",
     "SnapshotDatasetParams",
     "SplitRecordIntoPartsParams",
@@ -4693,6 +4696,19 @@ class SearchSheetRecordsParams(_SearchSheetRecordsParamsRequired, total=False):
     p_include_archived: bool
 
 
+class _SemanticSearchParamsRequired(TypedDict):
+    p_embedding: List[float]
+
+
+class SemanticSearchParams(_SemanticSearchParamsRequired, total=False):
+    p_limit: int
+    p_types: Optional[List[str]]
+
+
+class SemanticSearchSettingsParams(TypedDict):
+    p_workspace_id: str
+
+
 class SendScheduledReportNowParams(TypedDict):
     p_id: str
 
@@ -4926,6 +4942,16 @@ class _SetWatcherFindingStatusParamsRequired(TypedDict):
 
 class SetWatcherFindingStatusParams(_SetWatcherFindingStatusParamsRequired, total=False):
     p_until: str
+
+
+class _SimilarWorkParamsRequired(TypedDict):
+    p_object_type: str
+    p_object_id: str
+
+
+class SimilarWorkParams(_SimilarWorkParamsRequired, total=False):
+    p_limit: int
+    p_types: Optional[List[str]]
 
 
 class SlipExperimentPartParams(TypedDict):

@@ -218,3 +218,24 @@ single `host` tokens. Words within such tokens are not individually searchable.
 Display names with spaces tokenize correctly. This is a PostgreSQL FTS
 behaviour, not a Sheetbase-specific limitation. Record titles, identifiers and
 notebook text (which use natural-language spacing) are unaffected.
+
+## Search by meaning
+
+A workspace owner can turn on search by meaning in Settings, AI. Text from
+notebooks, files, datasets and comments is then turned into vectors with the
+embeddings model they choose (a model on your own server, or a cloud model
+once cloud consent is recorded). Results come back through the caller's own
+access, so work a token cannot see never appears.
+
+| Call                                        | Needs           | What it does                                                                                          |
+| ------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
+| `POST /api/db/rpc/similar_work`             | read            | Work closest in meaning to one experiment, dataset, file or other object. No model call.              |
+| `POST /api/db/rpc/semantic_search`          | read            | The closest passages to a vector you supply (exactly 1024 numbers, from the workspace's model).       |
+| `POST /api/db/rpc/semantic_search_settings` | read            | Whether it is on, which model is chosen, and how many documents have been read so far.                |
+| MCP `sheetbase.search.semantic`             | `projects:read` | Searches by words you give it (the server makes the vector). Returns identifiers, passages and links. |
+| MCP `sheetbase.literature.search`           | `projects:read` | Searches Europe PMC, PubMed or OpenAlex when the workspace has turned literature search on.           |
+
+Only the search phrase leaves the server for literature search; nothing from
+the workspace is sent. Turning the features on, choosing the model and
+re-reading everything are done by an owner in the app, signed in as a person.
+Add a paper you found to the Reference registry with the registry actions.

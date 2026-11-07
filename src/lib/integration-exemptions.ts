@@ -47,6 +47,13 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
     'Written by the server after a test send to a lineage endpoint; the result shows on lineage_targets.',
   create_scim_token:
     'Hands out a directory sync secret, shown once to the person who makes it.',
+  // Search by meaning.
+  search_embeddings:
+    'Derived number vectors kept for ranking; read results through semantic_search and similar_work, which apply the same access rules.',
+  set_semantic_search_settings:
+    'Turns search by meaning and literature search on or off and chooses the embeddings model; an owner does it in Settings, AI, signed in as a person, because it can send text to a provider.',
+  reindex_embeddings:
+    'Clears and rebuilds the stored vectors; an owner does it in Settings, AI, signed in as a person.',
   // Personal devices and display settings.
   my_push_devices:
     'Lists the phones and browsers that get this person’s push notifications.',

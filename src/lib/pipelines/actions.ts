@@ -267,6 +267,12 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
     ],
   ),
   definition(
+    'request_campaign_round',
+    t('data.pipelineActions.proposeNextRound'),
+    t('data.pipelineActions.proposeNextRoundDescription'),
+    [arg('p_record_id', 'uuid')],
+  ),
+  definition(
     'request_pipeline_reproduction',
     t('data.pipelineActions.reproduceRun'),
     t('data.pipelineActions.reproduceRunDescription'),

@@ -103,6 +103,8 @@ describe('sidebar groups', () => {
     const groups = visibleNavGroups(navGroups, [
       'protocols',
       'templates',
+      'plans',
+      'campaigns',
       'projects',
     ])
     expect(groups.map((g) => g.key)).toEqual(['work', 'lab', 'data'])

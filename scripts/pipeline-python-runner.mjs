@@ -157,6 +157,23 @@ export function validateResult(result) {
   }
 }
 
+/**
+ * Memory for one job. 512 MiB unless the operator sets PIPELINE_PYTHON_MEMORY
+ * (for instance 2g for an image that carries BayBE, which needs about 1 GiB).
+ * Only the operator of the runner can set it; a request never can.
+ */
+const MEMORY_LIMIT = /^(?:[1-9]\d{2,4}m|[1-8]g)$/
+export function memoryLimit(env = process.env) {
+  const value = env.PIPELINE_PYTHON_MEMORY ?? '512m'
+  if (!MEMORY_LIMIT.test(value))
+    throw new RunnerError(
+      'PIPELINE_PYTHON_MEMORY must look like 512m or 2g, between 100m and 8g.',
+      503,
+      'runner_unavailable',
+    )
+  return value
+}
+
 export function containerArguments(image, name) {
   if (!DIGEST_IMAGE.test(image))
     throw new RunnerError(
@@ -177,8 +194,8 @@ export function containerArguments(image, name) {
     '--cap-drop=ALL',
     '--security-opt=no-new-privileges=true',
     '--pids-limit=64',
-    '--memory=512m',
-    '--memory-swap=512m',
+    `--memory=${memoryLimit()}`,
+    `--memory-swap=${memoryLimit()}`,
     '--cpus=1',
     '--ipc=none',
     '--ulimit=nofile=256:256',

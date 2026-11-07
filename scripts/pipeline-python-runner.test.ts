@@ -14,6 +14,8 @@ import {
   ARTEFACT_KEY,
   LIMITS,
   collectOutputFiles,
+  containerArguments,
+  memoryLimit,
   pruneArtefacts,
   releaseArtefacts,
 } from './pipeline-python-runner.mjs'
@@ -145,5 +147,36 @@ describe('PIPE-04.2 artefact lifecycle', () => {
     await expect(releaseArtefacts('../escape', true)).rejects.toThrow(
       /Invalid artefact key/,
     )
+  })
+})
+
+describe('memory for a job', () => {
+  it('is 512 MiB unless the operator raises it', () => {
+    expect(memoryLimit({})).toBe('512m')
+    expect(memoryLimit({ PIPELINE_PYTHON_MEMORY: '2g' })).toBe('2g')
+    expect(memoryLimit({ PIPELINE_PYTHON_MEMORY: '1536m' })).toBe('1536m')
+  })
+
+  it('refuses a value that is not a small memory size', () => {
+    for (const bad of [
+      '0',
+      '64m',
+      '9g',
+      '2G',
+      '2gb',
+      'unlimited',
+      '-1',
+      '2g;rm',
+    ])
+      expect(() => memoryLimit({ PIPELINE_PYTHON_MEMORY: bad })).toThrow(
+        /PIPELINE_PYTHON_MEMORY/,
+      )
+  })
+
+  it('goes into the container arguments without swap beyond it', () => {
+    const digest = `python@sha256:${'a'.repeat(64)}`
+    const args = containerArguments(digest, 'job')
+    expect(args).toContain('--memory=512m')
+    expect(args).toContain('--memory-swap=512m')
   })
 })

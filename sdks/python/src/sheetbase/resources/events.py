@@ -212,6 +212,15 @@ EVENT_NAMES: tuple[str, ...] = (
     "experiment.part_signed",
     "experiment.part_countersigned",
     "experiment.part_amended",
+    "plan.proposed",
+    "plan.applied",
+    "plan.dismissed",
+    "campaign.started",
+    "campaign.finished",
+    "campaign.round.proposed",
+    "campaign.round.approved",
+    "campaign.round.rejected",
+    "campaign.round.completed",
 )
 
 #: Shipped wire aliases (table-name leaks kept for compatibility) mapped to

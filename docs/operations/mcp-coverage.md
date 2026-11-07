@@ -28,6 +28,8 @@ approval ledger. A flag or scope can only reduce access.
 | Provenance             | `pipeline_reproductions`, `lineage_targets`, `lineage_deliveries`                                                         | `lab:read`                                                      |
 | Robots                 | `instrument_robot_settings`, `instrument_jobs`                                                                            | `lab:read`                                                      |
 | Scheduler              | `scheduler_settings`, `part_plans`, `part_resource_needs`, `schedule_proposals`                                           | `lab:read`                                                      |
+| Planner                | `experiment_plans`                                                                                                        | `lab:read`                                                      |
+| Campaigns              | `model_campaign_lists`, `campaigns`, `campaign_rounds`                                                                    | `lab:read`                                                      |
 | Code cells             | `code_cell_runs`                                                                                                          | `lab:read`                                                      |
 | Data contracts         | `data_contracts`, `data_contract_runs`, `data_contract_dataset_status` (through `sheetbase.lab.read`)                     | `lab:read`                                                      |
 | Open data              | `lake_tables`, `ontology_annotations`, `publication_targets`, `publications`                                              | `datasets:read` / `schema:read` / `admin:read` / `reviews:read` |
@@ -73,6 +75,18 @@ digest-and-ligate, Golden Gate and Gibson products, alignment and Sanger read
 checks. It is pure calculation (nothing read or stored), so any read credential
 can call it. Sequence blocks are ordinary notebook blocks (see
 `docs/api/sequence-blocks-api.md`).
+
+The planner and campaigns use the same two tools. A plan is saved with
+`create_experiment_plan` and applied with `apply_experiment_plan` (or set aside with
+`dismiss_experiment_plan`) through `sheetbase.lab.act`; applying makes the experiment,
+plate, worklist, reservations and schedule request together. A campaign is set up with
+`configure_campaign`, run with `start_campaign`, `set_campaign_status`,
+`request_campaign_round`, `approve_campaign_round`, `reject_campaign_round`,
+`record_campaign_results` and `pull_campaign_round_results`, and read from `campaigns`
+and `campaign_rounds`. An agent can propose and request; `approve_campaign_round` is
+there for the person's own token, and a guardrail can hold it for a person. In the
+assistant they are the “Plan experiment”, “Start campaign”, “Ask for next round”,
+“Approve round” and “Enter results” cards.
 
 The admin read tool covers the tables that are not on the external allowlist:
 workspace settings/counts, members, credential metadata (owner only),

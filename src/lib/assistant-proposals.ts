@@ -9,6 +9,7 @@ import type { LabworkProposeToolName } from './assistant-labwork'
 import type { PlatesProposeToolName } from './assistant-plates'
 import type { QcProposeToolName } from './assistant-qc'
 import type { AutomationProposeToolName } from './assistant-automation'
+import type { PlannerProposeToolName } from './assistant-planner'
 import type { UpkeepProposeToolName } from './assistant-upkeep'
 import {
   INPUT_NAME_RE,
@@ -268,6 +269,7 @@ export interface AssistantProposal {
     | PlatesProposeToolName
     | QcProposeToolName
     | AutomationProposeToolName
+    | PlannerProposeToolName
   title: string
   summary: string
   /** Where it goes, for the card: "EXP-12 · Notebook". */

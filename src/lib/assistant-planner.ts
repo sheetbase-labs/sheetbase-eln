@@ -3,37 +3,20 @@ import { z } from 'zod'
 import type { ExperimentPlan } from './planner/plan'
 
 /**
- * The experiment planner and optimisation campaigns from the assistant. The
- * model names things the way people do, the server finds them and sends back a
- * card, and nothing happens until the person presses the button. A plan card
- * makes the plan and applies it in one step; a campaign card starts a
- * campaign, asks for a round, approves a round the person has read or enters
- * results.
+ * The experiment planner from the assistant. The model names things the way
+ * people do, the server finds them and sends back a card, and nothing happens
+ * until the person presses the button. The card creates the experiment, with
+ * its parts, plate, worklist and samples, in one step.
  */
 
 export const PLAN_TOOL = 'sheetbase.planner.plan_experiment'
-export const CAMPAIGN_START_TOOL = 'sheetbase.campaign.start'
-export const CAMPAIGN_ROUND_TOOL = 'sheetbase.campaign.request_round'
-export const CAMPAIGN_APPROVE_TOOL = 'sheetbase.campaign.approve_round'
-export const CAMPAIGN_RESULTS_TOOL = 'sheetbase.campaign.enter_results'
 
-export const PLANNER_PROPOSE_TOOL_NAMES = [
-  PLAN_TOOL,
-  CAMPAIGN_START_TOOL,
-  CAMPAIGN_ROUND_TOOL,
-  CAMPAIGN_APPROVE_TOOL,
-  CAMPAIGN_RESULTS_TOOL,
-] as const
+export const PLANNER_PROPOSE_TOOL_NAMES = [PLAN_TOOL] as const
 
 export type PlannerProposeToolName = (typeof PLANNER_PROPOSE_TOOL_NAMES)[number]
 
 const title = z.string().min(1).max(120)
 const summary = z.string().min(1).max(400)
-const campaign = z
-  .string()
-  .min(1)
-  .max(200)
-  .describe('The campaign by identifier such as CMP-0003 or by title.')
 
 export const proposePlanSchema = z
   .object({
@@ -125,95 +108,16 @@ export const proposePlanSchema = z
   })
   .strict()
 
-export const campaignStartSchema = z
-  .object({ title, summary, campaign })
-  .strict()
-
-export const campaignRoundSchema = z
-  .object({ title, summary, campaign })
-  .strict()
-
-export const campaignApproveSchema = z
-  .object({
-    title,
-    summary,
-    campaign,
-    round: z
-      .number()
-      .int()
-      .min(1)
-      .optional()
-      .describe(
-        'The round number. Defaults to the round waiting for approval.',
-      ),
-  })
-  .strict()
-
-export const campaignResultsSchema = z
-  .object({
-    title,
-    summary,
-    campaign,
-    round: z
-      .number()
-      .int()
-      .min(1)
-      .optional()
-      .describe('The round number. Defaults to the round waiting for results.'),
-    results: z
-      .array(
-        z.object({
-          condition: z
-            .number()
-            .int()
-            .min(1)
-            .describe('The condition number in the round.'),
-          values: z
-            .array(
-              z.object({
-                objective: z
-                  .string()
-                  .min(1)
-                  .max(80)
-                  .describe('The objective by name.'),
-                value: z.number().finite(),
-              }),
-            )
-            .min(1),
-        }),
-      )
-      .min(1)
-      .max(200),
-  })
-  .strict()
-
-/** What a planner or campaign card does when its button is pressed. */
-export type PlannerAction =
-  | {
-      kind: 'plan.apply'
-      projectId: string
-      goal: string
-      plan: ExperimentPlan
-    }
-  | { kind: 'campaign.start'; recordId: string }
-  | { kind: 'campaign.round'; recordId: string }
-  | { kind: 'campaign.approve'; roundId: string; recordId: string }
-  | {
-      kind: 'campaign.results'
-      roundId: string
-      recordId: string
-      results: Array<{ trial: number; results: Record<string, number> }>
-    }
+/** What a planner card does when its button is pressed. */
+export type PlannerAction = {
+  kind: 'plan.apply'
+  projectId: string
+  plan: ExperimentPlan
+}
 
 export type PlannerActionKind = PlannerAction['kind']
 
-const KINDS: readonly string[] = [
-  'plan.apply',
-  'campaign.start',
-  'campaign.round',
-  'campaign.approve',
-  'campaign.results',
-]
+const KINDS: readonly string[] = ['plan.apply']
 
 export function isPlannerAction(action: {
   kind: string

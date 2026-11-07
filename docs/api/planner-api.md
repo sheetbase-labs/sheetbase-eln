@@ -1,19 +1,21 @@
 # Planner API
 
-The planner turns a goal into one reviewable plan: the experiment (from a
-protocol when one fits), its parts, a plate layout, a worklist for a liquid
-handler, samples to set aside and, if asked, a request for a schedule. Nothing
-exists until a person applies the plan, and then everything is made together or
-not at all.
+The planner turns a goal into an experiment: from a protocol when one fits, with
+its parts, a plate layout, a worklist for a liquid handler, samples to set aside
+and, if asked, a request for a schedule. A plan is only a description. Nothing
+exists until a person presses Create experiment, and then everything is made
+together or not at all. The result is an ordinary experiment in a project; there
+is nothing else to manage afterwards.
 
-## Draw up a plan
+## Create an experiment from a plan
 
-In the app, **Plan with AI** (Experiments, or the Plans page) asks the assistant
-and saves the answer as a plan. From a script, save your own:
+In the app, **Plan with AI** on Experiments asks the assistant, shows the plan to
+read and, on **Create experiment**, makes the experiment. From a script, send a plan
+of your own:
 
 ```
-POST /api/db/rpc/create_experiment_plan
-{ "p_project_id": "…", "p_goal": "Dose response of compound X on HEK293 cells",
+POST /api/db/rpc/create_planned_experiment
+{ "p_project_id": "…",
   "p_plan": {
     "summary": "Eight doses in triplicate, read on the plate reader.",
     "experiment": { "title": "Compound X dose response", "templateRecordId": "<protocol id>" },
@@ -22,34 +24,21 @@ POST /api/db/rpc/create_experiment_plan
     "plate": { "name": "Dose plate", "format": "96_well", "wells": [ { "wellCode": "A1", "role": "blank" } ] },
     "worklist": { "format": "csv", "mode": "stamp", "sourcePlate": "Stock", "transfers": [] },
     "samples": [ { "recordId": "<sample id>", "quantity": 50, "unit": "µL" } ],
-    "schedule": true, "warnings": [] },
-  "p_source": "api" }
+    "schedule": true, "warnings": [] } }
 ```
 
-A part after the first may carry `"gate": "warn"` or `"block"`: on apply it opens
-only when the part before it is done (a gate, as on any multi-part experiment).
+A part after the first may carry `"gate": "warn"` or `"block"`: it opens only when
+the part before it is done (a gate, as on any multi-part experiment).
 
-Every id is checked when the plan is saved (the protocol is an active protocol,
-instruments are live, samples have stock), and the plate and worklist must be
-valid, so a bad plan is refused here and not half way through applying it.
-Read plans from `experiment_plans`; `number` gives the reference `PLN-0003`.
-
-## Apply or dismiss
-
-```
-POST /api/db/rpc/apply_experiment_plan     { "p_plan_id": "…" }
-POST /api/db/rpc/dismiss_experiment_plan   { "p_plan_id": "…" }
-```
-
-Apply returns `{ recordId, identifier, plateRunId, worklistId, proposalId, parts,
+The call returns `{ recordId, identifier, plateRunId, worklistId, proposalId, parts,
 reservations }`. The experiment, its parts, the plate run, the worklist, the sample
-reservations and the schedule request are created in one transaction; if any step
-fails, nothing is created and the plan stays waiting. Booking still needs a person
-to accept the schedule proposal.
+reservations and the schedule request are created in one transaction as the caller,
+through the same functions the pages use, so every permission and rule still applies.
+If any step is refused nothing is created. Booking still needs a person to accept the
+schedule proposal.
 
-Events: `plan.proposed`, `plan.applied`, `plan.dismissed`. In the assistant: the
-**Plan experiment** card (`sheetbase.planner.apply`). A pipeline step cannot apply
-a plan; that is for a person.
-
-In the app: **Plans** under Methods, and **Plan with AI** on Experiments (shown
-when the lab has a real model connected).
+Events: the experiment, plate run and reservations send their usual events
+(`record.created`, `plate.run.created` and so on); the planner sends none of its own.
+In the assistant: the **Plan experiment** card (`sheetbase.planner.plan_experiment`),
+whose button is **Create experiment**. A pipeline step does not create planned
+experiments; that is for a person.

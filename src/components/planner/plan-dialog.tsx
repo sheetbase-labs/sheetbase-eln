@@ -1,10 +1,11 @@
 /**
- * "Plan with AI": a goal goes in and one reviewable plan comes out. The plan is
- * saved as a draft and opened; nothing is created until the person applies it.
+ * "Plan with AI": a goal goes in and a plan comes out to read. Nothing is
+ * created until the person presses Create experiment, which makes the
+ * experiment with its parts, plate, worklist and samples in one step.
  */
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Textarea } from '#/components/inventory/list'
 import { Notice } from '#/components/ui/alert'
@@ -21,9 +22,16 @@ import { Field } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { t } from '#/copy'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { createPlan, fetchPlannerContext, planKeys } from '#/lib/planner/data'
+import {
+  createPlannedExperiment,
+  fetchPlannerContext,
+} from '#/lib/planner/data'
 import { parsePlanAnswer, plannerInstruction } from '#/lib/planner/plan'
+import type { ExperimentPlan } from '#/lib/planner/plan'
+import { messageOf } from '#/lib/result-quality'
 import { usePageAi } from '#/lib/use-page-ai'
+
+import { PlanReview } from './plan-review'
 
 const client = notebookDataClient
 
@@ -40,6 +48,7 @@ export function PlanDialog({
   const [goal, setGoal] = useState('')
   const [projectId, setProjectId] = useState('')
   const [working, setWorking] = useState(false)
+  const [plan, setPlan] = useState<ExperimentPlan | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const projects = useQuery({
@@ -67,21 +76,12 @@ export function PlanDialog({
         setError(t('planner.dialog.failed', { message: result.message }))
         return
       }
-      const plan = parsePlanAnswer(result.text, goal, context)
-      if (!plan) {
+      const drawn = parsePlanAnswer(result.text, goal, context)
+      if (!drawn) {
         setError(t('planner.dialog.nothing'))
         return
       }
-      const row = await createPlan(client, {
-        projectId: selected,
-        goal: goal.trim(),
-        plan,
-        source: 'page',
-      })
-      void queryClient.invalidateQueries({ queryKey: planKeys.all })
-      onOpenChange(false)
-      setGoal('')
-      void navigate({ to: '/plans/$planId', params: { planId: row.id } })
+      setPlan(drawn)
     } catch (e) {
       setError(
         t('planner.dialog.failed', {
@@ -92,6 +92,62 @@ export function PlanDialog({
       setWorking(false)
     }
   }
+
+  const create = useMutation({
+    mutationFn: () =>
+      createPlannedExperiment(client, { projectId: selected, plan: plan! }),
+    onSuccess: (made) => {
+      void queryClient.invalidateQueries({ queryKey: ['records'] })
+      onOpenChange(false)
+      setPlan(null)
+      setGoal('')
+      void navigate({
+        to: '/experiments/$expId',
+        params: { expId: made.recordId },
+      })
+    },
+  })
+
+  if (plan)
+    return (
+      <Dialog
+        open={open}
+        onOpenChange={(next) => !create.isPending && onOpenChange(next)}
+      >
+        <DialogContent className="w-[min(860px,calc(100vw-32px))]">
+          <DialogHeader title={t('planner.dialog.reviewTitle')} />
+          <DialogBody className="max-h-[70vh] overflow-auto">
+            {create.isError ? (
+              <Notice tone="bad" title={t('planner.view.createFailed')}>
+                {messageOf(create.error, '')}
+              </Notice>
+            ) : null}
+            <PlanReview goal={goal.trim()} plan={plan} />
+          </DialogBody>
+          <DialogFooter>
+            <Button
+              variant="quiet"
+              disabled={create.isPending}
+              onClick={() => {
+                create.reset()
+                setPlan(null)
+              }}
+            >
+              {t('planner.dialog.back')}
+            </Button>
+            <Button
+              variant="primary"
+              disabled={create.isPending}
+              onClick={() => create.mutate()}
+            >
+              {create.isPending
+                ? t('planner.view.creating')
+                : t('planner.view.create')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )
 
   return (
     <Dialog open={open} onOpenChange={(next) => !working && onOpenChange(next)}>

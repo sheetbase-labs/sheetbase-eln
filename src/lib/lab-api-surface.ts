@@ -129,6 +129,8 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_notebook_template_id: 'Template an experiment is made from.',
   p_lead_days: 'Create the experiment this many days ahead (default 0).',
   p_project_id: 'Project id.',
+  p_plan:
+    'JSON plan: `{ summary, rationale, experiment: { title, templateRecordId }, parts: [{ title, dayOffset, handsOnMinutes, waitAfterMinutes, gate, needs: [{ instrumentId, minutes }] }], plate: { name, format, wells }, worklist: { format, mode, sourcePlate, transfers }, samples: [{ recordId, quantity, unit }], schedule, warnings }`. Every id is checked before anything is created.',
   p_notes_: '',
   p_schedule_id: 'Recurring schedule id.',
   p_paused: '`true` pauses, `false` resumes.',
@@ -207,8 +209,7 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_tracking_reference: 'Tracking reference.',
   p_shipment_id: 'Shipment id.',
   p_shipped_on: 'Date shipped (YYYY-MM-DD).',
-  p_results:
-    'JSON array. To receive a reagent order: `{ item_id, received, note }`. For a campaign round: `{ trial, results: { objectiveKey: number } }`.',
+  p_results: 'JSON array of `{ item_id, received, note }`.',
   p_condition_note: 'Condition on arrival.',
   p_field_name: 'Field name.',
   p_lower: 'Lower specification limit.',
@@ -279,30 +280,6 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_dataset_id: 'Dataset id.',
   p_rows: 'JSON array of rows about to be committed.',
   p_trigger: '`import` or `pipeline`.',
-  p_goal: 'What you want to find out, in a sentence or two.',
-  p_plan:
-    'JSON plan: `{ summary, rationale, experiment: { title, templateRecordId }, parts: [{ title, dayOffset, handsOnMinutes, waitAfterMinutes, needs: [{ instrumentId, minutes }] }], plate: { name, format, wells }, worklist: { format, mode, sourcePlate, transfers }, samples: [{ recordId, quantity, unit }], schedule, warnings }`. Every id is checked when the plan is saved.',
-  p_source: '`page`, `assistant` or `api`: where the plan was drawn up.',
-  p_plan_id: 'Plan id.',
-  p_factors:
-    'JSON array of what the optimiser may change: `{ key, label, kind, min, max, values, unit }`. `kind` is `continuous` (needs `min` and `max`), `discrete` (numbers in `values`) or `categorical` (words in `values`).',
-  p_objectives:
-    'JSON array of what counts as better: `{ key, label, direction, target, weight, unit }`. `direction` is `maximise`, `minimise` or `target` (needs `target`). Up to four.',
-  p_batch_size: 'Conditions asked for in each round.',
-  p_max_rounds: 'Most rounds the campaign may use.',
-  p_max_runs: 'Most runs in all, or leave out for no limit.',
-  p_engine:
-    '`auto` (BayBE when the lab’s Python runtime has it, the built-in optimiser otherwise), `baybe` or `builtin`.',
-  p_layout:
-    'JSON plate layout for each round: `{ plateFormat, replicates, blanks, negatives, positives, volumeUl, worklistFormat, sourcePlate }`. Leave `plateFormat` out to enter results by hand.',
-  p_template_record_id:
-    'Protocol each round’s experiment starts from, or leave out for a blank experiment.',
-  p_auto_propose:
-    '`true` to ask for the next round as soon as a round’s results are all in.',
-  p_seed: 'Number that makes the optimiser repeatable.',
-  p_round_id: 'Campaign round id.',
-  p_objective_key:
-    'Key of the objective to fill from the round’s plate readings.',
 }
 
 export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
@@ -1415,87 +1392,6 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['diff', 'json', 0],
       ['ran_by_user_id', 'text', 1],
       ['ran_at', 'ts', 1],
-    ],
-  },
-  experiment_plans: {
-    summary:
-      'An experiment drawn up from a goal, ready to read and apply. `status` is proposed (waiting for a person), applied, dismissed or superseded. `plan` holds the protocol, parts, plate, worklist, samples and schedule request; `result` says what applying created. Nothing exists until `apply_experiment_plan`.',
-    columns: [
-      ['id', 'uuid', 1],
-      ['workspace_id', 'uuid', 1],
-      ['number', 'int', 1],
-      ['project_id', 'uuid', 1],
-      ['goal', 'text', 1],
-      ['summary', 'text', 1],
-      ['status', 'text', 1],
-      ['source', 'text', 1],
-      ['plan', 'json', 1],
-      ['result', 'json', 0],
-      ['created_by_user_id', 'text', 1],
-      ['decided_by_user_id', 'text', 0],
-      ['decided_at', 'ts', 0],
-      ['created_at', 'ts', 1],
-    ],
-  },
-  model_campaign_lists: {
-    summary:
-      'The record models ticked as campaign lists: their records can be optimised round by round.',
-    columns: [
-      ['workspace_id', 'uuid', 1],
-      ['model_key', 'text', 1],
-      ['created_at', 'ts', 1],
-      ['created_by_user_id', 'text', 1],
-    ],
-  },
-  campaigns: {
-    summary:
-      'An optimisation campaign: what it varies (`factors`), what counts as better (`objectives`), its budget and how each round is laid out on a plate. `status` is draft, active, paused or finished. Each round’s experiment joins the series headed by `series_record_id`.',
-    columns: [
-      ['record_id', 'uuid', 1],
-      ['workspace_id', 'uuid', 1],
-      ['factors', 'json', 1],
-      ['objectives', 'json', 1],
-      ['batch_size', 'int', 1],
-      ['max_rounds', 'int', 1],
-      ['max_runs', 'int', 0],
-      ['engine', 'text', 1],
-      ['layout', 'json', 1],
-      ['template_record_id', 'uuid', 0],
-      ['auto_propose', 'bool', 1],
-      ['seed', 'int', 1],
-      ['status', 'text', 1],
-      ['series_record_id', 'uuid', 0],
-      ['created_by_user_id', 'text', 1],
-      ['created_at', 'ts', 1],
-      ['updated_at', 'ts', 1],
-    ],
-  },
-  campaign_rounds: {
-    summary:
-      'One round of a campaign. `status` is requested, proposing, proposed (waiting for a person to approve), approved (waiting for results), completed, rejected or failed. `trials` lists each condition with its wells and results; `engine`, `engine_version` and `image_digest` say what chose them and `rationale` why.',
-    columns: [
-      ['id', 'uuid', 1],
-      ['workspace_id', 'uuid', 1],
-      ['campaign_record_id', 'uuid', 1],
-      ['number', 'int', 1],
-      ['status', 'text', 1],
-      ['batch_size', 'int', 1],
-      ['engine', 'text', 0],
-      ['engine_version', 'text', 0],
-      ['image_digest', 'text', 0],
-      ['trials', 'json', 1],
-      ['rationale', 'json', 1],
-      ['plate', 'json', 0],
-      ['experiment_record_id', 'uuid', 0],
-      ['plate_run_id', 'uuid', 0],
-      ['worklist_id', 'uuid', 0],
-      ['error_message', 'text', 0],
-      ['requested_by_user_id', 'text', 1],
-      ['decided_by_user_id', 'text', 0],
-      ['decided_at', 'ts', 0],
-      ['created_at', 'ts', 1],
-      ['proposed_at', 'ts', 0],
-      ['completed_at', 'ts', 0],
     ],
   },
 }
@@ -3107,132 +3003,15 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
     ],
     result: 'json',
   },
-  create_experiment_plan: {
-    summary: 'Save a plan drawn up from a goal',
+  create_planned_experiment: {
+    summary: 'Create an experiment from a plan, in one step',
     description:
-      'Checks every id in the plan (protocol, instruments, samples) and the plate and worklist, then saves it as a plan waiting for a person. Nothing is created until `apply_experiment_plan`. Needs permission to create records and access to the project. Returns the plan.',
+      'Creates the experiment (from the protocol when the plan names one) with its parts, the plate and worklist, the sample reservations and, when the plan asks for it, a schedule proposal. All of it happens together or none of it does. Needs permission to create records and edit access to the project. Returns `{ recordId, identifier, plateRunId, worklistId, proposalId, parts, reservations }`.',
     scope: 'lab:write',
     params: [
       ['p_project_id', 'uuid', 1],
-      ['p_goal', 'text', 1],
       ['p_plan', 'json', 1],
-      ['p_source', 'text', 0],
     ],
-    result: 'row:experiment_plans',
-  },
-  apply_experiment_plan: {
-    summary: 'Create everything a plan describes in one step',
-    description:
-      'Creates the experiment (from the protocol when the plan names one) with its parts, the plate and worklist, the sample reservations and, when the plan asks for it, a schedule proposal. All of it happens together or none of it does. Needs permission to create records. Returns `{ recordId, identifier, plateRunId, worklistId, proposalId, parts, reservations }`.',
-    scope: 'lab:write',
-    params: [['p_plan_id', 'uuid', 1]],
     result: 'json',
-  },
-  dismiss_experiment_plan: {
-    summary: 'Set a plan aside',
-    description:
-      'Marks a plan waiting for a person as dismissed. Nothing was created, so nothing is undone. Returns the plan.',
-    scope: 'lab:write',
-    params: [['p_plan_id', 'uuid', 1]],
-    result: 'row:experiment_plans',
-  },
-  set_model_campaign_list: {
-    summary: 'Tick or untick a record model as a campaign list',
-    description:
-      'Records of a ticked model can be set up as campaigns. Needs permission to edit models.',
-    scope: 'lab:write',
-    params: [
-      ['p_model_key', 'text', 1],
-      ['p_enabled', 'bool', 1],
-    ],
-    result: 'bool',
-  },
-  configure_campaign: {
-    summary: 'Set up or change a campaign’s design, budget and plate',
-    description:
-      'Saves the factors, objectives, budget and plate layout for a record of a campaign model. The factors and objectives are fixed once a round has been asked for; the budget, layout and the rest can still change. Returns the campaign.',
-    scope: 'lab:write',
-    params: [
-      ['p_record_id', 'uuid', 1],
-      ['p_factors', 'json', 1],
-      ['p_objectives', 'json', 1],
-      ['p_batch_size', 'int', 0],
-      ['p_max_rounds', 'int', 0],
-      ['p_max_runs', 'int', 0],
-      ['p_engine', 'text', 0],
-      ['p_layout', 'json', 0],
-      ['p_template_record_id', 'uuid', 0],
-      ['p_auto_propose', 'bool', 0],
-      ['p_seed', 'int', 0],
-    ],
-    result: 'row:campaigns',
-  },
-  start_campaign: {
-    summary: 'Start or resume a campaign',
-    description:
-      'Makes the campaign active and asks for its first round, or for the next one when it is resumed. The optimiser works the round out in the background; a person approves it. Returns the campaign.',
-    scope: 'lab:write',
-    params: [['p_record_id', 'uuid', 1]],
-    result: 'row:campaigns',
-  },
-  set_campaign_status: {
-    summary: 'Pause or finish a campaign',
-    description:
-      '`p_status` is `paused` or `finished`. Finishing sets aside a round that is waiting for a person; results already in are kept. Returns the campaign.',
-    scope: 'lab:write',
-    params: [
-      ['p_record_id', 'uuid', 1],
-      ['p_status', 'text', 1],
-    ],
-    result: 'row:campaigns',
-  },
-  request_campaign_round: {
-    summary: 'Ask for the next round',
-    description:
-      'Queues the next round when none is waiting and budget is left. The optimiser works it out in the background and the round waits for a person to approve it. Returns the round.',
-    scope: 'lab:write',
-    params: [['p_record_id', 'uuid', 1]],
-    result: 'row:campaign_rounds',
-  },
-  approve_campaign_round: {
-    summary: 'Approve a proposed round',
-    description:
-      'Makes the round’s experiment (joined to the campaign’s series), its plate and, when the campaign has a liquid handler, its worklist. Only a person decides this. Returns the round.',
-    scope: 'lab:write',
-    params: [['p_round_id', 'uuid', 1]],
-    result: 'row:campaign_rounds',
-  },
-  reject_campaign_round: {
-    summary: 'Reject a proposed round',
-    description:
-      'Sets the round’s conditions aside so the optimiser can propose another. A rejected round does not use up the budget. Returns the round.',
-    scope: 'lab:write',
-    params: [
-      ['p_round_id', 'uuid', 1],
-      ['p_reason', 'text', 0],
-    ],
-    result: 'row:campaign_rounds',
-  },
-  record_campaign_results: {
-    summary: 'Enter the results of a round',
-    description:
-      'Takes each condition’s result for each objective. The round is complete when every condition has every result, and the next round is asked for when the campaign does that automatically. Returns the round.',
-    scope: 'lab:write',
-    params: [
-      ['p_round_id', 'uuid', 1],
-      ['p_results', 'json', 1],
-    ],
-    result: 'row:campaign_rounds',
-  },
-  pull_campaign_round_results: {
-    summary: 'Read an objective from the round’s plate',
-    description:
-      'Fills one objective for each condition from the readings on the round’s plate: the mean of the condition’s wells. Returns the round.',
-    scope: 'lab:write',
-    params: [
-      ['p_round_id', 'uuid', 1],
-      ['p_objective_key', 'text', 1],
-    ],
-    result: 'row:campaign_rounds',
   },
 }

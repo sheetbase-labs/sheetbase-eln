@@ -34,6 +34,10 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
     'The folder agent reports a job moving on and what the robot did, through POST /api/connectors/jobs; people and scripts use queue, start and cancel.',
   record_code_cell_run:
     'Written by the server when a code cell has run in the app, so a run always carries what really ran; the runs are on code_cell_runs.',
+  // Part sign-off: signing is an attestation a person makes in the app with a
+  // fresh password, so tokens, MCP and pipelines can ask for it but not do it.
+  sign_experiment_part:
+    'Signing or countersigning a part is a person attesting in the app with a fresh password check; others can read it (record_part_signoffs) and ask for it (request_part_signoff).',
   // Provenance (lineage events and reproducing runs).
   pipeline_reproduction_requests:
     'The queue behind the Reproduce run pipeline action; the finished reproductions are on pipeline_reproductions.',

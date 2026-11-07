@@ -29,6 +29,7 @@ import {
 import { Tooltip } from '#/components/ui/tooltip'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
+import { requestShellRefresh } from '#/lib/shell-refresh'
 import {
   SNOOZE_CHOICES,
   WATCHERS,
@@ -88,6 +89,7 @@ export function LabWatchersPanel({ workspaceId }: { workspaceId: string }) {
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['lab-watchers'] })
     void queryClient.invalidateQueries({ queryKey: ['work-items'] })
+    requestShellRefresh()
   }
 
   const save = useMutation({

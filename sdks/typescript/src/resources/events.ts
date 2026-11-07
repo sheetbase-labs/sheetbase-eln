@@ -166,6 +166,10 @@ export const EVENT_NAMES = [
   'instrument.run.converted',
   'qc.violation',
   'qc.back_in_control',
+  'pipeline.run.reproduced',
+  'lineage.endpoint.created',
+  'lineage.endpoint.updated',
+  'lineage.delivery_failed',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]

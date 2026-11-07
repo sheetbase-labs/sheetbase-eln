@@ -40,6 +40,7 @@ import httpx
 from sheetbase._generated import Rpc, Tables
 from sheetbase._http import HttpTransport, TableHead
 from sheetbase._version import API_VERSION, __version__
+from sheetbase.resources.event_stream import EventStreamResource
 from sheetbase.resources import (
     AgentOperationsResource,
     CataloguesResource,
@@ -91,6 +92,8 @@ class SheetbaseClient:
         self.catalogues = CataloguesResource(self._transport)
         self.agent_operations = AgentOperationsResource(self._transport)
         self.webhooks = WebhooksResource(self._transport)
+        #: ``client.events.stream()`` / ``.page()``: the replayable event stream.
+        self.events = EventStreamResource(self._transport)
         self.facility = FacilityResource(self._transport)
         self.pipelines = PipelinesResource(self._transport)
         self.people = PeopleResource(self._transport)

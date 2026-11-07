@@ -195,7 +195,10 @@ The full results are on the `validation_runs` resource; see
 `pipeline.run.created` / `pipeline.run.updated`
 (from `pipeline_run`; fine-grained outcomes live in the run rows),
 `pipeline.schedule.created` / `pipeline.schedule.updated`
-(from `pipeline_schedule`).
+(from `pipeline_schedule`),
+`pipeline.run.reproduced` (from `pipeline_reproduction`; stable, delivered to webhooks),
+`lineage.endpoint.created` / `lineage.endpoint.updated` / `lineage.delivery_failed`
+(from `lineage_target`; the last two are stable and delivered to webhooks).
 
 Pipeline lifecycle events are intentionally not pipeline triggers (triggers
 must not fan out to themselves). The triggerable set is the stable

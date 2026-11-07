@@ -180,6 +180,11 @@ beforeEach(() => {
     if (String(args[0]) === 'instrument_qualification_requests')
       return requests.current
     if (String(args[0]) === 'instrument_feeds') return feeds.current
+    if (
+      String(args[0]) === 'qc_series' ||
+      String(args[0]) === 'instrument_run_documents'
+    )
+      return []
     return [{ user_id: 'u-2' }]
   })
   dataClient.rpc.mockImplementation((name: string) => {

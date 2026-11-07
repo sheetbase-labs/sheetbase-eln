@@ -9,12 +9,7 @@ import type * as arrowTypes from 'apache-arrow'
 
 /** The column types the lake uses; each is a DuckLake type name. */
 export type LakeType =
-  | 'int64'
-  | 'float64'
-  | 'varchar'
-  | 'boolean'
-  | 'date'
-  | 'timestamptz'
+  'int64' | 'float64' | 'varchar' | 'boolean' | 'date' | 'timestamptz'
 
 export interface LakeColumn {
   name: string
@@ -79,8 +74,8 @@ function toMicros(value: unknown): bigint | null {
   const ms = Date.parse(text)
   if (Number.isNaN(ms)) return null
   const fraction = /\.(\d{1,6})(?!\d)/.exec(text)?.[1]
-  const micros = fraction ? Number(fraction.padEnd(6, '0').slice(3)) : 0
-  return BigInt(ms) * 1000n + BigInt(micros)
+  const extraMicros = fraction ? Number(fraction.padEnd(6, '0').slice(3)) : 0
+  return BigInt(ms) * 1000n + BigInt(extraMicros)
 }
 
 /** DuckLake's text form for a timestamp bound: 2026-11-06 23:54:33.539743+00 */
@@ -203,7 +198,7 @@ export async function writeLakeParquet(
   columns: LakeColumn[],
   rows: unknown[][],
 ): Promise<LakeParquetFile> {
-  const arrow = (await import('apache-arrow')) as unknown as Arrow
+  const arrow = await import('apache-arrow')
   const parquet =
     (await import('parquet-wasm/node')) as unknown as ParquetModule
   const cells = columns.map((_, i) => rows.map((row) => row[i] ?? null))
@@ -212,7 +207,9 @@ export async function writeLakeParquet(
     vectors[column.name] = vectorFor(arrow, column, cells[i])
   })
   const table = (
-    arrow.tableFromArrays as unknown as (c: Record<string, unknown>) => arrowTypes.Table
+    arrow.tableFromArrays as unknown as (
+      c: Record<string, unknown>,
+    ) => arrowTypes.Table
   )(vectors)
   const wasmTable = parquet.Table.fromIPCStream(
     arrow.tableToIPC(table, 'stream'),
@@ -221,7 +218,11 @@ export async function writeLakeParquet(
     .setCompression(parquet.Compression.SNAPPY)
     .build()
   const bytes = parquet.writeParquet(wasmTable, props)
-  const tail = new DataView(bytes.buffer, bytes.byteOffset + bytes.length - 8, 8)
+  const tail = new DataView(
+    bytes.buffer,
+    bytes.byteOffset + bytes.length - 8,
+    8,
+  )
   return {
     bytes,
     recordCount: rows.length,

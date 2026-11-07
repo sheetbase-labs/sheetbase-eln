@@ -46,7 +46,10 @@ import {
   setOntologySettings,
 } from '#/lib/open-data/client'
 import type { PublicationTarget, RepositoryKind } from '#/lib/open-data/client'
-import { PUBLICATION_LICENSES as LICENSES, licenseById } from '#/lib/publishing/licenses'
+import {
+  PUBLICATION_LICENSES as LICENSES,
+  licenseById,
+} from '#/lib/publishing/licenses'
 import { setPublicationTokenFn } from '#/lib/publishing/targets-admin'
 import { t } from '#/copy'
 
@@ -72,10 +75,13 @@ export function OntologySection({
       setOntologySettings(dataClient, workspaceId, input),
     onSuccess: async () => {
       setList(null)
-      await queryClient.invalidateQueries({ queryKey: openDataKeys.ontology(workspaceId) })
+      await queryClient.invalidateQueries({
+        queryKey: openDataKeys.ontology(workspaceId),
+      })
       toast(t('openData.ontology.saved'))
     },
-    onError: (e) => toast(`${t('openData.ontology.failed')}: ${describeAdminError(e)}`),
+    onError: (e) =>
+      toast(`${t('openData.ontology.failed')}: ${describeAdminError(e)}`),
   })
   const enabled = settings.data?.enabled === true
   const parsed = shown
@@ -95,7 +101,10 @@ export function OntologySection({
       />
       {enabled ? (
         <div className="flex flex-wrap items-end gap-3">
-          <Field label={t('openData.ontology.ontologies')} hint={t('openData.ontology.ontologiesHint')}>
+          <Field
+            label={t('openData.ontology.ontologies')}
+            hint={t('openData.ontology.ontologiesHint')}
+          >
             <Input
               value={shown}
               disabled={!canManage}
@@ -104,7 +113,12 @@ export function OntologySection({
             />
           </Field>
           <Button
-            disabled={!canManage || list === null || parsed.length === 0 || save.isPending}
+            disabled={
+              !canManage ||
+              list === null ||
+              parsed.length === 0 ||
+              save.isPending
+            }
             onClick={() => save.mutate({ enabled: true, ontologies: parsed })}
           >
             {t('common.actions.save')}
@@ -159,7 +173,9 @@ export function RepositoriesSection({
   const [draft, setDraft] = useState<Draft | null>(null)
   const [removing, setRemoving] = useState<PublicationTarget | null>(null)
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: openDataKeys.targets(workspaceId) })
+    queryClient.invalidateQueries({
+      queryKey: openDataKeys.targets(workspaceId),
+    })
 
   const save = useMutation({
     mutationFn: async (d: Draft) => {
@@ -174,7 +190,9 @@ export function RepositoriesSection({
         enabled: d.enabled,
       })
       if (d.token.trim()) {
-        await setPublicationTokenFn({ data: { targetId: saved.id, token: d.token } })
+        await setPublicationTokenFn({
+          data: { targetId: saved.id, token: d.token },
+        })
       }
       return saved
     },
@@ -185,7 +203,8 @@ export function RepositoriesSection({
     },
   })
   const remove = useMutation({
-    mutationFn: (target: PublicationTarget) => deletePublicationTarget(dataClient, target.id),
+    mutationFn: (target: PublicationTarget) =>
+      deletePublicationTarget(dataClient, target.id),
     onSuccess: async () => {
       await invalidate()
       toast(t('openData.repos.removed'))
@@ -227,18 +246,26 @@ export function RepositoriesSection({
               <TableHead />
             </TableRow>
           </TableHeader>
-          <TableBody loading={targets.isPending} empty={t('openData.repos.none')} colSpan={6}>
+          <TableBody
+            loading={targets.isPending}
+            empty={t('openData.repos.none')}
+            colSpan={6}
+          >
             {rows.map((row) => (
               <TableRow key={row.id}>
                 <TableCell>{row.name}</TableCell>
                 <TableCell>{t(`openData.repos.kinds.${row.kind}`)}</TableCell>
                 <TableCell title={row.base_url}>
-                  <span className="block max-w-64 truncate">{row.base_url}</span>
+                  <span className="block max-w-64 truncate">
+                    {row.base_url}
+                  </span>
                 </TableCell>
                 <TableCell>{licenseById(row.license).name}</TableCell>
                 <TableCell>
                   <Status tone={row.token_set ? 'ok' : 'warn'}>
-                    {row.token_set ? t('openData.repos.tokenSet') : t('openData.repos.tokenMissing')}
+                    {row.token_set
+                      ? t('openData.repos.tokenSet')
+                      : t('openData.repos.tokenMissing')}
                   </Status>
                 </TableCell>
                 <TableCell className="text-right">
@@ -262,7 +289,11 @@ export function RepositoriesSection({
                       >
                         {t('common.actions.edit')}
                       </Button>
-                      <Button size="sm" variant="quiet" onClick={() => setRemoving(row)}>
+                      <Button
+                        size="sm"
+                        variant="quiet"
+                        onClick={() => setRemoving(row)}
+                      >
                         {t('openData.repos.remove')}
                       </Button>
                     </span>
@@ -274,7 +305,10 @@ export function RepositoriesSection({
         </Table>
       </TableBox>
 
-      <Dialog open={draft !== null} onOpenChange={(o) => (o ? null : setDraft(null))}>
+      <Dialog
+        open={draft !== null}
+        onOpenChange={(o) => (o ? null : setDraft(null))}
+      >
         <DialogContent>
           {draft ? (
             <form
@@ -283,12 +317,16 @@ export function RepositoriesSection({
                 save.mutate(draft)
               }}
             >
-              <DialogHeader title={draft.id ? draft.name : t('openData.repos.add')} />
+              <DialogHeader
+                title={draft.id ? draft.name : t('openData.repos.add')}
+              />
               <DialogBody>
                 <Field label={t('openData.repos.name')} required>
                   <Input
                     value={draft.name}
-                    onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                    onChange={(e) =>
+                      setDraft({ ...draft, name: e.target.value })
+                    }
                     required
                     autoFocus
                   />
@@ -300,29 +338,46 @@ export function RepositoriesSection({
                     disabled={draft.id !== null}
                     onChange={(e) => {
                       const kind = e.target.value as RepositoryKind
-                      setDraft({ ...draft, kind, baseUrl: draft.id ? draft.baseUrl : DEFAULT_URL[kind] })
+                      setDraft({
+                        ...draft,
+                        kind,
+                        baseUrl: draft.id ? draft.baseUrl : DEFAULT_URL[kind],
+                      })
                     }}
                   >
-                    {(['zenodo', 'invenio', 'figshare', 'dataverse'] as const).map((k) => (
+                    {(
+                      ['zenodo', 'invenio', 'figshare', 'dataverse'] as const
+                    ).map((k) => (
                       <option key={k} value={k}>
                         {t(`openData.repos.kinds.${k}`)}
                       </option>
                     ))}
                   </Select>
                 </Field>
-                <Field label={t('openData.repos.address')} hint={t('openData.repos.addressHint')} required>
+                <Field
+                  label={t('openData.repos.address')}
+                  hint={t('openData.repos.addressHint')}
+                  required
+                >
                   <Input
                     type="url"
                     value={draft.baseUrl}
-                    onChange={(e) => setDraft({ ...draft, baseUrl: e.target.value })}
+                    onChange={(e) =>
+                      setDraft({ ...draft, baseUrl: e.target.value })
+                    }
                     required
                   />
                 </Field>
                 {draft.kind === 'dataverse' || draft.kind === 'invenio' ? (
-                  <Field label={t('openData.repos.collection')} hint={t('openData.repos.collectionHint')}>
+                  <Field
+                    label={t('openData.repos.collection')}
+                    hint={t('openData.repos.collectionHint')}
+                  >
                     <Input
                       value={draft.collection}
-                      onChange={(e) => setDraft({ ...draft, collection: e.target.value })}
+                      onChange={(e) =>
+                        setDraft({ ...draft, collection: e.target.value })
+                      }
                     />
                   </Field>
                 ) : null}
@@ -330,7 +385,9 @@ export function RepositoriesSection({
                   <Select
                     aria-label={t('openData.repos.licence')}
                     value={draft.license}
-                    onChange={(e) => setDraft({ ...draft, license: e.target.value })}
+                    onChange={(e) =>
+                      setDraft({ ...draft, license: e.target.value })
+                    }
                   >
                     {LICENSES.map((l) => (
                       <option key={l.id} value={l.id}>
@@ -339,12 +396,17 @@ export function RepositoriesSection({
                     ))}
                   </Select>
                 </Field>
-                <Field label={t('openData.repos.token')} hint={t('openData.repos.tokenHint')}>
+                <Field
+                  label={t('openData.repos.token')}
+                  hint={t('openData.repos.tokenHint')}
+                >
                   <Input
                     type="password"
                     autoComplete="off"
                     value={draft.token}
-                    onChange={(e) => setDraft({ ...draft, token: e.target.value })}
+                    onChange={(e) =>
+                      setDraft({ ...draft, token: e.target.value })
+                    }
                     placeholder={draft.id ? '••••••••' : ''}
                   />
                 </Field>
@@ -355,16 +417,23 @@ export function RepositoriesSection({
                 />
                 {save.error ? (
                   <p role="alert" className="text-label text-danger">
-                    {t('openData.repos.failed')}: {describeAdminError(save.error)}
+                    {t('openData.repos.failed')}:{' '}
+                    {describeAdminError(save.error)}
                   </p>
                 ) : null}
               </DialogBody>
               <DialogFooter>
-                <DialogClose render={<Button type="button" />}>{t('common.actions.cancel')}</DialogClose>
+                <DialogClose render={<Button type="button" />}>
+                  {t('common.actions.cancel')}
+                </DialogClose>
                 <Button
                   type="submit"
                   variant="primary"
-                  disabled={!draft.name.trim() || !draft.baseUrl.trim() || save.isPending}
+                  disabled={
+                    !draft.name.trim() ||
+                    !draft.baseUrl.trim() ||
+                    save.isPending
+                  }
                 >
                   {t('openData.repos.save')}
                 </Button>
@@ -374,14 +443,23 @@ export function RepositoriesSection({
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog open={removing !== null} onOpenChange={(o) => (o ? null : setRemoving(null))}>
+      <ConfirmDialog
+        open={removing !== null}
+        onOpenChange={(o) => (o ? null : setRemoving(null))}
+      >
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
-            <ConfirmDialogTitle>{t('openData.repos.removeTitle')}</ConfirmDialogTitle>
-            <ConfirmDialogDescription>{t('openData.repos.removeBody')}</ConfirmDialogDescription>
+            <ConfirmDialogTitle>
+              {t('openData.repos.removeTitle')}
+            </ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              {t('openData.repos.removeBody')}
+            </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
-            <ConfirmDialogCancel>{t('common.actions.cancel')}</ConfirmDialogCancel>
+            <ConfirmDialogCancel>
+              {t('common.actions.cancel')}
+            </ConfirmDialogCancel>
             <ConfirmDialogAction
               variant="danger-fill"
               onClick={() => {

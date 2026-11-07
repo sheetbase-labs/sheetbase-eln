@@ -94,7 +94,7 @@ export async function commitLakeTable(
         `SELECT snapshot_id, schema_version, next_catalog_id, next_file_id
            FROM ${s}.ducklake_snapshot ORDER BY snapshot_id DESC LIMIT 1`,
       )
-    ).rows[0]
+    ).rows.at(0)
     if (!last) throw new Error('the lake catalogue has no first snapshot')
     const snapshot = Number(last.snapshot_id) + 1
     let schemaVersion = Number(last.schema_version)
@@ -107,7 +107,7 @@ export async function commitLakeTable(
           WHERE schema_id = 0 AND table_name = $1 AND end_snapshot IS NULL`,
         [commit.tableName],
       )
-    ).rows[0]
+    ).rows.at(0)
 
     let tableId: number
     let created = false
@@ -146,7 +146,7 @@ export async function commitLakeTable(
           `SELECT next_row_id FROM ${s}.ducklake_table_stats WHERE table_id = $1`,
           [tableId],
         )
-      ).rows[0]
+      ).rows.at(0)
       rowIdStart = stats ? Number(stats.next_row_id) : 0
       await q(`DELETE FROM ${s}.ducklake_table_stats WHERE table_id = $1`, [
         tableId,
@@ -337,7 +337,7 @@ export async function dropLakeTable(
           WHERE schema_id = 0 AND table_name = $1 AND end_snapshot IS NULL`,
         [tableName],
       )
-    ).rows[0]
+    ).rows.at(0)
     if (!found) {
       await conn.query('COMMIT')
       return
@@ -352,7 +352,8 @@ export async function dropLakeTable(
         `SELECT snapshot_id, schema_version, next_catalog_id, next_file_id
            FROM ${s}.ducklake_snapshot ORDER BY snapshot_id DESC LIMIT 1`,
       )
-    ).rows[0]
+    ).rows.at(0)
+    if (!last) throw new Error('the lake catalogue has no first snapshot')
     const snapshot = Number(last.snapshot_id) + 1
     const tableId = Number(found.table_id)
     await conn.query(
@@ -367,9 +368,10 @@ export async function dropLakeTable(
       `UPDATE ${s}.ducklake_data_file SET end_snapshot = $1 WHERE table_id = $2 AND end_snapshot IS NULL`,
       [snapshot, tableId],
     )
-    await conn.query(`DELETE FROM ${s}.ducklake_table_stats WHERE table_id = $1`, [
-      tableId,
-    ])
+    await conn.query(
+      `DELETE FROM ${s}.ducklake_table_stats WHERE table_id = $1`,
+      [tableId],
+    )
     await conn.query(
       `DELETE FROM ${s}.ducklake_table_column_stats WHERE table_id = $1`,
       [tableId],

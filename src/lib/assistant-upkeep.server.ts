@@ -735,7 +735,7 @@ export async function buildUpkeepProposal(
             : `Which repository? ${matches.map((t) => t.name).join(', ')}.`,
         )
       }
-      const target = matches[0]!
+      const target = matches[0]
       if (input.kind === 'experiment') {
         if (!input.experiment) return fail('Which experiment?')
         const found = await findExperiment(client, input.experiment)

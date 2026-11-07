@@ -152,9 +152,13 @@ async function asExporter<T>(
     // Reads run with the least privilege that can read the reporting views, and
     // row level security sees the exporter's claims.
     const ready = (
-      await conn.query<{ ready: boolean }>(`SELECT internal.reporting_ready() AS ready`)
+      await conn.query<{ ready: boolean }>(
+        `SELECT internal.reporting_ready() AS ready`,
+      )
     ).rows[0]?.ready
-    await conn.query(`SET LOCAL ROLE ${ready ? 'reporting_owner' : 'authenticated'}`)
+    await conn.query(
+      `SET LOCAL ROLE ${ready ? 'reporting_owner' : 'authenticated'}`,
+    )
     await conn.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
       JSON.stringify({
         role: 'authenticated',
@@ -222,7 +226,9 @@ async function modelViewSources(
     const base = view.view_name.endsWith(suffix)
       ? view.view_name.slice(0, -suffix.length)
       : view.view_name
-    const select = columns.map((c) => `"${c.name.replaceAll('"', '""')}"`).join(', ')
+    const select = columns
+      .map((c) => `"${c.name.replaceAll('"', '""')}"`)
+      .join(', ')
     const hasUpdated = columns.some((c) => c.name === 'updated_at')
     const fingerprintSql = hasUpdated
       ? `SELECT count(*)::text AS n, coalesce(max(updated_at)::text, '') AS m FROM data."${view.view_name}"`
@@ -248,9 +254,7 @@ async function modelViewSources(
             `${view.model_name} has more than ${LAKE_MAX_ROWS} rows, which is more than one pass writes`,
           )
         }
-        return result.rows.map((row) =>
-          columns.map((c) => cell(row[c.name])),
-        )
+        return result.rows.map((row) => columns.map((c) => cell(row[c.name])))
       },
     })
   }
@@ -266,9 +270,7 @@ interface DatasetVersionWire {
   display_id: string | null
 }
 
-async function datasetSources(
-  conn: LakeConnection,
-): Promise<LakeSource[]> {
+async function datasetSources(conn: LakeConnection): Promise<LakeSource[]> {
   const versions = (
     await conn.query<DatasetVersionWire>(
       `SELECT v.id, v.dataset_id, v.label, v.schema_version_id, d.name, d.display_id
@@ -326,10 +328,19 @@ async function datasetSources(
         let offset = 0
         for (;;) {
           const page = (
-            await conn.query<{ page: { rows: Array<{ rowId: string; revision: number | string; values: Record<string, unknown> }>; totalCount: number } }>(
-              `SELECT api.query_dataset_version_rows($1, 1000, $2) AS page`,
-              [version.id, offset],
-            )
+            await conn.query<{
+              page: {
+                rows: Array<{
+                  rowId: string
+                  revision: number | string
+                  values: Record<string, unknown>
+                }>
+                totalCount: number
+              }
+            }>(`SELECT api.query_dataset_version_rows($1, 1000, $2) AS page`, [
+              version.id,
+              offset,
+            ])
           ).rows[0].page
           for (const row of page.rows) {
             out.push([
@@ -438,22 +449,28 @@ export async function refreshWorkspaceLake(
 
     // What the exporter may see right now.
     const views = await discoverViews(conn, workspaceId)
-    const sources = await asExporter(conn, workspaceId, exporterUserId, async () => {
-      const allowed = (
-        await conn.query<{ ok: boolean }>(`SELECT api.has_data_access($1) AS ok`, [
-          workspaceId,
-        ])
-      ).rows[0]?.ok
-      if (!allowed) {
-        throw new Error(
-          'The person who turned on open tables no longer has data access. Turn them on again as someone who does.',
-        )
-      }
-      return [
-        ...(await modelViewSources(conn, workspaceId, views)),
-        ...(await datasetSources(conn)),
-      ]
-    })
+    const sources = await asExporter(
+      conn,
+      workspaceId,
+      exporterUserId,
+      async () => {
+        const allowed = (
+          await conn.query<{ ok: boolean }>(
+            `SELECT api.has_data_access($1) AS ok`,
+            [workspaceId],
+          )
+        ).rows[0]?.ok
+        if (!allowed) {
+          throw new Error(
+            'The person who turned on open tables no longer has data access. Turn them on again as someone who does.',
+          )
+        }
+        return [
+          ...(await modelViewSources(conn, workspaceId, views)),
+          ...(await datasetSources(conn)),
+        ]
+      },
+    )
 
     const known = (
       await conn.query<LakeTableRow>(
@@ -462,7 +479,9 @@ export async function refreshWorkspaceLake(
         [workspaceId],
       )
     ).rows
-    const bySource = new Map(known.map((k) => [`${k.source_kind}:${k.source_key}`, k]))
+    const bySource = new Map(
+      known.map((k) => [`${k.source_kind}:${k.source_key}`, k]),
+    )
     const takenNames = new Set<string>()
 
     for (const source of sources) {
@@ -500,13 +519,24 @@ export async function refreshWorkspaceLake(
       } catch (error) {
         result.failed++
         const message = error instanceof Error ? error.message : String(error)
-        logger.warn('open table failed', { workspaceId, tableName, error: message })
+        logger.warn('open table failed', {
+          workspaceId,
+          tableName,
+          error: message,
+        })
         await conn.query(
           `INSERT INTO api.lake_tables (workspace_id, source_kind, source_key, source_label, table_name, status, last_error)
            VALUES ($1, $2, $3, $4, $5, 'failed', $6)
            ON CONFLICT (workspace_id, table_name)
            DO UPDATE SET status = 'failed', last_error = $6, updated_at = now()`,
-          [workspaceId, source.kind, source.key, source.label, tableName, message.slice(0, 500)],
+          [
+            workspaceId,
+            source.kind,
+            source.key,
+            source.label,
+            tableName,
+            message.slice(0, 500),
+          ],
         )
       }
     }
@@ -526,13 +556,18 @@ export async function refreshWorkspaceLake(
     await conn.query(`SELECT internal.record_lake_run($1, $2, $3)`, [
       workspaceId,
       result.failed > 0 ? 'partial' : 'ok',
-      result.failed > 0 ? `${result.failed} table(s) could not be written` : null,
+      result.failed > 0
+        ? `${result.failed} table(s) could not be written`
+        : null,
     ])
     return result
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     await conn
-      .query(`SELECT internal.record_lake_run($1, 'failed', $2)`, [workspaceId, message])
+      .query(`SELECT internal.record_lake_run($1, 'failed', $2)`, [
+        workspaceId,
+        message,
+      ])
       .catch(() => undefined)
     throw error
   } finally {
@@ -552,7 +587,8 @@ async function writeSource(
     knownRow: LakeTableRow | undefined
   },
 ): Promise<boolean> {
-  const { workspaceId, exporterUserId, schema, tableName, source, knownRow } = input
+  const { workspaceId, exporterUserId, schema, tableName, source, knownRow } =
+    input
   const author = 'Sheetbase'
   let snapshotId = 0
   let tableId = 0
@@ -565,12 +601,25 @@ async function writeSource(
   if (source.kind === 'dataset' && source.versions) {
     // Every dataset version is a snapshot of the table, oldest first.
     const done = new Set(snapshots.map((s) => s.versionId))
-    const pending = source.versions.filter((v) => !done.has(v.id)).slice(0, VERSIONS_PER_PASS)
+    const pending = source.versions
+      .filter((v) => !done.has(v.id))
+      .slice(0, VERSIONS_PER_PASS)
     for (const version of pending) {
-      const rows = await asExporter(conn, workspaceId, exporterUserId, version.rows)
+      const rows = await asExporter(
+        conn,
+        workspaceId,
+        exporterUserId,
+        version.rows,
+      )
       const versionColumns = version.columns
       columns = versionColumns
-      const files = await writeFiles(deps, workspaceId, tableName, versionColumns, rows)
+      const files = await writeFiles(
+        deps,
+        workspaceId,
+        tableName,
+        versionColumns,
+        rows,
+      )
       const committed = await commitLakeTable(conn, {
         schema,
         tableName,
@@ -581,7 +630,11 @@ async function writeSource(
       })
       snapshots = [
         ...snapshots,
-        { versionId: version.id, label: version.label, snapshotId: committed.snapshotId },
+        {
+          versionId: version.id,
+          label: version.label,
+          snapshotId: committed.snapshotId,
+        },
       ]
       snapshotId = committed.snapshotId
       tableId = committed.tableId
@@ -598,8 +651,19 @@ async function writeSource(
       return false
     }
   } else {
-    const rows = await asExporter(conn, workspaceId, exporterUserId, source.rows)
-    const files = await writeFiles(deps, workspaceId, tableName, source.columns, rows)
+    const rows = await asExporter(
+      conn,
+      workspaceId,
+      exporterUserId,
+      source.rows,
+    )
+    const files = await writeFiles(
+      deps,
+      workspaceId,
+      tableName,
+      source.columns,
+      rows,
+    )
     const committed = await commitLakeTable(conn, {
       schema,
       tableName,

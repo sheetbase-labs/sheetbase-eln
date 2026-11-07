@@ -1271,7 +1271,10 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
         ...TEXT,
         description: 'The name to query, for example `lab.main.<table_name>`.',
       },
-      status: { type: 'string', enum: ['pending', 'ready', 'failed', 'retired'] },
+      status: {
+        type: 'string',
+        enum: ['pending', 'ready', 'failed', 'retired'],
+      },
       row_count: INT,
       byte_size: INT,
       file_count: INT,
@@ -1314,7 +1317,12 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
       workspace_id: UUID,
       target_kind: {
         type: 'string',
-        enum: ['model_field', 'schema_field', 'definition_field', 'vocabulary_term'],
+        enum: [
+          'model_field',
+          'schema_field',
+          'definition_field',
+          'vocabulary_term',
+        ],
       },
       target_id: UUID,
       ontology: { ...TEXT, description: 'Short name, for example `chebi`.' },
@@ -1341,7 +1349,10 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
     {
       id: UUID,
       workspace_id: UUID,
-      kind: { type: 'string', enum: ['zenodo', 'invenio', 'figshare', 'dataverse'] },
+      kind: {
+        type: 'string',
+        enum: ['zenodo', 'invenio', 'figshare', 'dataverse'],
+      },
       name: TEXT,
       base_url: TEXT,
       collection: { ...TEXT, nullable: true },
@@ -1378,7 +1389,15 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
       license: TEXT,
       status: {
         type: 'string',
-        enum: ['queued', 'sending', 'draft', 'publishing', 'published', 'failed', 'discarded'],
+        enum: [
+          'queued',
+          'sending',
+          'draft',
+          'publishing',
+          'published',
+          'failed',
+          'discarded',
+        ],
       },
       stage: { type: 'string', enum: ['send', 'publish'] },
       doi: { ...TEXT, nullable: true },

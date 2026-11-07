@@ -204,14 +204,18 @@ registry copy whose name a kit story already holds takes `UI/Registry <Name>`
 (after `UI/RegistryKbd`). A story file that merely shares its name with a
 component is not coverage of it.
 
-| Module                                            | Why no story                                                                                                |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `src/components/follow/follow-toggle.tsx`         | Reads and writes the signed-in person's follow through the data client; covered by the follow tests.        |
-| `src/components/settings/audit-timestamps.tsx`    | Reads and saves the time-stamping settings through the data client; covered by the trusted timestamp tests. |
-| `src/components/settings/change-email-dialog.tsx` | Calls the email change server functions; covered by the email change tests.                                 |
-| `src/components/settings/lab-logo-settings.tsx`   | Uploads to the logo route and reads the root route context; covered by the logo route tests.                |
-| `src/components/settings/leave-workspace.tsx`     | Calls the leave workspace function and sign-out; covered by the profile tests.                              |
-| `src/components/ui/lab-logo.tsx`                  | Reads the lab logo version from the root route context.                                                     |
+| Module                                                   | Why no story                                                                                                                               |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/components/follow/follow-toggle.tsx`                | Reads and writes the signed-in person's follow through the data client; covered by the follow tests.                                       |
+| `src/components/open-data/ontology-and-repositories.tsx` | Reads and saves ontology and repository settings through the data client and a server function; covered by the open-tables database tests. |
+| `src/components/open-data/ontology-terms.tsx`            | Searches the ontology route and links terms through the data client; covered by the ontology tests.                                        |
+| `src/components/open-data/open-tables.tsx`               | Reads and saves open-table settings and logins through the data client; covered by the open-tables database tests.                         |
+| `src/components/open-data/publish-control.tsx`           | Reads targets and publications through the data client and polls while a draft is made; covered by the publishing database tests.          |
+| `src/components/settings/audit-timestamps.tsx`           | Reads and saves the time-stamping settings through the data client; covered by the trusted timestamp tests.                                |
+| `src/components/settings/change-email-dialog.tsx`        | Calls the email change server functions; covered by the email change tests.                                                                |
+| `src/components/settings/lab-logo-settings.tsx`          | Uploads to the logo route and reads the root route context; covered by the logo route tests.                                               |
+| `src/components/settings/leave-workspace.tsx`            | Calls the leave workspace function and sign-out; covered by the profile tests.                                                             |
+| `src/components/ui/lab-logo.tsx`                         | Reads the lab logo version from the root route context.                                                                                    |
 
 ### Non-component modules in this scope
 

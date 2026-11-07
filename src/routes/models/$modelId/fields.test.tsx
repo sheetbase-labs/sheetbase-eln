@@ -13,6 +13,7 @@ vi.mock('@tanstack/react-router', () => ({
     options,
     useParams: () => ({ modelId: '00000000-0000-4000-8000-00000000d001' }),
     useSearch: () => ({}),
+    useRouteContext: () => ({ context: { workspace: null } }),
   }),
   useNavigate: () => vi.fn(),
   Link: ({ children, to }: { children?: React.ReactNode; to?: string }) => (

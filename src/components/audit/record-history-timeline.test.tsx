@@ -259,3 +259,31 @@ describe('captured change facts', () => {
     expect(mapped[1].title).toBe('Record updated')
   })
 })
+
+describe('duplicate create entries', () => {
+  it('shows a model record creation once', () => {
+    const mapped = mapTimelineEvents([
+      {
+        type: 'change_event',
+        id: 'a',
+        seq: 1,
+        ts: '2026-07-26T10:00:00.000Z',
+        eventType: 'incident',
+        operation: 'create',
+        actorUserId: 'u',
+        title: 'incident create',
+      },
+      {
+        type: 'change_event',
+        id: 'b',
+        seq: 2,
+        ts: '2026-07-26T10:00:00.000Z',
+        eventType: 'record',
+        operation: 'create',
+        actorUserId: 'u',
+        title: 'record create',
+      },
+    ])
+    expect(mapped.map((e) => e.title)).toEqual(['Incident created'])
+  })
+})

@@ -154,12 +154,11 @@ export function RecordModelRecord({
       <PageHeader
         trail={[
           {
-            label: t('library.models.recordModelRecord.models'),
-            link: { to: '/models' },
-          },
-          {
             label: model.data?.name ?? modelKey,
-            link: { to: '/models/$modelId', params: { modelId: modelKey } },
+            link: {
+              to: '/models/$modelId/records',
+              params: { modelId: modelKey },
+            },
           },
           { label: record?.identifier ?? '…', mono: true },
         ]}

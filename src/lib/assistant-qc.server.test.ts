@@ -65,7 +65,7 @@ describe('quality control assistant cards', () => {
       seriesId: SERIES.id,
       limits: { mean: 102, sd: 3 },
     })
-    expect(isQcAction(built.proposal.action)).toBe(true)
+    expect(isQcAction(built.proposal.action ?? { kind: '' })).toBe(true)
   })
 
   it('proposes limits from the first points', async () => {

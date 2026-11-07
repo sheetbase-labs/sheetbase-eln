@@ -37,9 +37,10 @@ export class ConverterError extends Error {
 
 let pythonSource: Promise<string> | null = null
 function converterSource(): Promise<string> {
-  pythonSource ??= import(
-    '../../../docker/pipeline-python/converters/allotropy_convert.py?raw'
-  ).then((module: { default: string }) => module.default)
+  pythonSource ??=
+    import('../../../docker/pipeline-python/converters/allotropy_convert.py?raw').then(
+      (module: { default: string }) => module.default,
+    )
   return pythonSource
 }
 
@@ -56,7 +57,10 @@ function text(value: unknown): string {
 function fail(error: unknown): never {
   if (error instanceof ConverterError) throw error
   if (error instanceof PipelinePythonError) {
-    if (error.code === 'runner_unavailable' || error.code === 'transform_timed_out')
+    if (
+      error.code === 'runner_unavailable' ||
+      error.code === 'transform_timed_out'
+    )
       throw new ConverterError('converter_unavailable', error.message)
     if (error.code === 'input_too_large' || error.code === 'output_too_large')
       throw new ConverterError('converter_too_large', error.message)

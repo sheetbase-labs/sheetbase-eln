@@ -161,7 +161,11 @@ describe('converterReader', () => {
       fileName: 'a.csv',
       bytes: new Uint8Array([1]),
       convert,
-    })(parser({ converter: { kind: 'allotropy', vendor: 'BECKMAN_VI_CELL_BLU' } }))
+    })(
+      parser({
+        converter: { kind: 'allotropy', vendor: 'BECKMAN_VI_CELL_BLU' },
+      }),
+    )
     expect(convert).toHaveBeenCalledWith({
       fileName: 'a.csv',
       bytes: new Uint8Array([1]),

@@ -75,6 +75,7 @@ export type BlockType =
   | 'dataset_import'
   | 'structure'
   | 'reaction'
+  | 'code_cell'
 
 /**
  * The allow-list, in the order `chk_blocks_type` names them. A type not in this
@@ -102,6 +103,7 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   'dataset_import',
   'structure',
   'reaction',
+  'code_cell',
 ]
 
 /** Membership index for the allow-list; each key is a stored block type. */
@@ -329,6 +331,14 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     ],
   },
   {
+    type: 'code_cell',
+    label: t('notebook.blockRegistry.codeCellLabel'),
+    description: t('notebook.blockRegistry.codeCellDescription'),
+    icon: 'code',
+    group: 'evidence',
+    aliases: ['python', 'sql', 'code', 'script', 'notebook', 'analysis', 'query'],
+  },
+  {
     type: 'pipeline_output',
     label: t('notebook.blockRegistry.pipelineOutputLabel'),
     description: t('notebook.blockRegistry.referenceAPipelineRunDescription'),
@@ -517,6 +527,14 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
   materials: {
     editable: true,
     defaultPayload: () => ({ items: [] }),
+  },
+  code_cell: {
+    editable: true,
+    defaultPayload: () => ({ language: 'python', source: '', inputs: [] }),
+    summary: (payload) =>
+      `${t('notebook.blockRegistry.codeCellLabel')}${
+        typeof payload.language === 'string' ? ` (${payload.language})` : ''
+      }`,
   },
   pipeline_output: {
     editable: true,

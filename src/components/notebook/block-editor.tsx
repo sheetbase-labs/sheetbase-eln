@@ -113,6 +113,7 @@ import { CHART_SPEC_VERSION, CHART_TYPES } from '#/lib/chart-spec'
 import type { AnalysisBlockPayload } from '#/lib/analysis-block'
 import { validateAnalysisBlockPayload } from '#/lib/analysis-block'
 import { PipelineOutputBlockEditor } from './pipeline-output-block-editor'
+import { CodeCellBlockEditor } from './code-cell-block'
 import { DatasetImportBlockEditor } from './dataset-import-block'
 import { ReactionEditor, StructureEditor } from './chemistry-block'
 import { AnalysisChartPicker } from './analysis-chart-picker'
@@ -265,6 +266,8 @@ function BlockEditorBody(props: BlockEditorProps) {
       return <AnalysisBlockEditor {...props} />
     case 'pipeline_output':
       return <PipelineOutputBlockEditor {...props} />
+    case 'code_cell':
+      return <CodeCellBlockEditor {...props} />
     case 'dataset_import':
       return <DatasetImportBlockEditor {...props} />
     case 'plate_map':

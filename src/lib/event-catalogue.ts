@@ -2658,7 +2658,8 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     consumers: webhookSsePipeline,
     notes:
       'Payload carries runId, reference, recordId, blockId, language, status, matches, reproducesRunId and runtime (the image digest the code ran in).',
-  },  {
+  },
+  {
     name: 'plan.proposed',
     family: 'record',
     summary:
@@ -2694,8 +2695,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
   {
     name: 'plan.dismissed',
     family: 'record',
-    summary:
-      'A plan was set aside without being applied.',
+    summary: 'A plan was set aside without being applied.',
     producer: {
       entityType: 'experiment_plan',
       operation: 'update',
@@ -2721,8 +2721,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     status: 'stable',
     introducedIn: 'lab-01',
     consumers: webhookSsePipeline,
-    notes:
-      'Payload carries campaignId, status and rounds.',
+    notes: 'Payload carries campaignId, status and rounds.',
   },
   {
     name: 'campaign.finished',
@@ -2738,8 +2737,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     status: 'stable',
     introducedIn: 'lab-01',
     consumers: webhookSsePipeline,
-    notes:
-      'Payload carries campaignId, status and rounds.',
+    notes: 'Payload carries campaignId, status and rounds.',
   },
   {
     name: 'campaign.round.proposed',
@@ -2777,8 +2775,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
   {
     name: 'campaign.round.rejected',
     family: 'record',
-    summary:
-      'A campaign round was rejected and its conditions set aside.',
+    summary: 'A campaign round was rejected and its conditions set aside.',
     producer: {
       entityType: 'campaign_round',
       operation: 'update',

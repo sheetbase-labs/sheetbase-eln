@@ -639,24 +639,78 @@ const LAB_EVENTS: ReadonlyArray<{
     operation: 'create',
     payload: {},
   },
+<<<<<<< HEAD
   {
     name: 'experiment.part_signed',
     entityType: 'part_signoff',
+=======
+    name: 'plan.proposed',
+    entityType: 'experiment_plan',
+>>>>>>> 82ca4de (test: pin plan and campaign events)
     operation: 'create',
     payload: {},
   },
   {
+<<<<<<< HEAD
     name: 'experiment.part_countersigned',
     entityType: 'part_countersign',
+=======
+    name: 'plan.applied',
+    entityType: 'experiment_plan',
+    operation: 'update',
+    payload: { change: 'applied' },
+  },
+  {
+    name: 'plan.dismissed',
+    entityType: 'experiment_plan',
+    operation: 'update',
+    payload: { change: 'dismissed' },
+  },
+  {
+    name: 'campaign.started',
+    entityType: 'campaign',
+>>>>>>> 82ca4de (test: pin plan and campaign events)
     operation: 'create',
     payload: {},
   },
   {
+<<<<<<< HEAD
     name: 'experiment.part_amended',
     entityType: 'part_amendment',
     operation: 'create',
     payload: {},
   },
+=======
+    name: 'campaign.finished',
+    entityType: 'campaign',
+    operation: 'update',
+    payload: { change: 'finished' },
+  },
+  {
+    name: 'campaign.round.proposed',
+    entityType: 'campaign_round',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'campaign.round.approved',
+    entityType: 'campaign_round',
+    operation: 'update',
+    payload: { change: 'approved' },
+  },
+  {
+    name: 'campaign.round.rejected',
+    entityType: 'campaign_round',
+    operation: 'update',
+    payload: { change: 'rejected' },
+  },
+  {
+    name: 'campaign.round.completed',
+    entityType: 'campaign_round',
+    operation: 'update',
+    payload: { change: 'completed' },
+  },
+>>>>>>> 82ca4de (test: pin plan and campaign events)
 ]
 
 describe('lab feature events', () => {

@@ -145,6 +145,10 @@ export const LAB_AREAS = {
     'Trusted timestamps on signatures: which are stamped, waiting or gave up (openOnly: only those not yet stamped)',
   validation:
     'Validation checks run on this install (regulated labs): when, and how many passed, failed or were skipped (openOnly: only runs with a failure)',
+  reproductions:
+    'Pipeline runs that were run again to check they give the same result: when, and whether it matches or differs (openOnly: only those that differ or failed)',
+  lineage:
+    'Where lineage events are sent (OpenLineage endpoints): whether each is on and whether its last test passed',
   safety:
     'Chemical safety information on materials: hazard pictograms, signal word and hazard statements',
   directory_sync:
@@ -717,6 +721,7 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   qc: 'state=eq.out_of_control',
   timestamps: 'status=neq.stamped',
   validation: 'status=eq.failed',
+  reproductions: 'status=neq.matches',
   sample_workflows: 'status=eq.active',
   directory_sync: 'revoked_at=is.null',
   watcher_findings: 'status=eq.open',
@@ -905,6 +910,20 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'finished_at.desc',
     search: [],
     page: '/settings/workspace/validation',
+  },
+  reproductions: {
+    table: 'pipeline_reproductions',
+    select: 'id,source_run_id,status,compared,summary,error_message,created_at',
+    order: 'created_at.desc',
+    search: [],
+    page: '/pipelines',
+  },
+  lineage: {
+    table: 'lineage_targets',
+    select: 'id,name,endpoint_url,namespace,enabled,last_test_ok,last_test_at',
+    order: 'name.asc',
+    search: ['name'],
+    page: '/settings/workspace/integrations',
   },
   retention_rules: {
     table: 'retention_rules',

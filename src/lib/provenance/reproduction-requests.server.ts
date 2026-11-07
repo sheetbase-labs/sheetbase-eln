@@ -45,7 +45,7 @@ export async function sweepReproductionRequests(
              FOR UPDATE SKIP LOCKED LIMIT 1)
         RETURNING r.id, r.run_id, r.requested_by_user_id`,
       )
-      const request = rows[0]
+      const request = rows.at(0)
       if (!request) break
       let reproductionId: string | null = null
       let error: string | null = null

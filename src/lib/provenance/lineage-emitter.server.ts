@@ -74,7 +74,7 @@ async function datasetRef(
       WHERE v.id = $1`,
     [versionId],
   )
-  const row = rows[0]
+  const row = rows.at(0)
   if (!row) return null
   const { rows: fields } = await conn.query<{ key: string }>(
     `SELECT key FROM api.dataset_schema_version_fields
@@ -110,7 +110,7 @@ export async function activityFor(
   if (intent.kind === 'PIPELINE') {
     const { rows } = await conn.query<{
       status: string
-      input_versions: Record<string, string>
+      input_versions: Record<string, string> | null
       error_message: string | null
       key: string
     }>(
@@ -121,7 +121,7 @@ export async function activityFor(
         WHERE r.id = $1`,
       [change.entity_uuid],
     )
-    const run = rows[0]
+    const run = rows.at(0)
     if (!run) return null
     const eventType =
       intent.eventType === 'FROM_STATUS'
@@ -161,7 +161,7 @@ export async function activityFor(
       `SELECT dataset_id, snapshot_version_id, error_detail FROM api.dataset_imports WHERE id = $1`,
       [change.entity_uuid],
     )
-    const row = rows[0]
+    const row = rows.at(0)
     if (!row) return null
     const activity: LineageActivity = {
       ...base,

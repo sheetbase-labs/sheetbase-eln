@@ -1445,7 +1445,6 @@ export const library = {
         'This record isn’t visible in this workspace, or it has been removed.',
       backToRecords: 'Back to records',
       record: 'Record',
-      models: 'Models',
       loadingRecord: 'Loading record…',
       editDetails: 'Edit details',
       allRecords: 'All records',

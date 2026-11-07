@@ -129,7 +129,7 @@ describe('PIPELINE_TRIGGER_EVENTS', () => {
           entry.name === 'schedule.proposed'),
     ).map((entry) => entry.name)
     expect([...PIPELINE_TRIGGER_EVENTS].sort()).toEqual(expected.sort())
-    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(52)
+    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(54)
   })
 
   it('normalizes every triggerable name to itself', () => {

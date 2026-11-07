@@ -203,7 +203,7 @@ export async function sweepEmbeddingsBatch(
             `INSERT INTO api.search_embeddings
                (workspace_id, object_type, object_id, chunk_no, chunk_text,
                 text_hash, model_id, embedding)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::public.vector)`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::extensions.vector)`,
             [
               row.workspace_id,
               row.object_type,

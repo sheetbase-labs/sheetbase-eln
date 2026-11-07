@@ -19,11 +19,15 @@ from sheetbase._tables import (
     UpdatableTable,
 )
 from sheetbase._generated.models import (
+    AgentActionPoliciesRow,
+    AgentActionRequestsRow,
     AgentOperationEventsRow,
     AgentOperationProposalsRow,
     AgentWorkflowEventsRow,
     AgentWorkflowStepsRow,
     AgentWorkflowsRow,
+    AiEvalResultsRow,
+    AiEvalRunsRow,
     BlocksRow,
     BlocksRowInsert,
     BlocksRowPatch,
@@ -46,6 +50,8 @@ from sheetbase._generated.models import (
     InstrumentReadingsRow,
     InstrumentRequiredTrainingRow,
     InstrumentServiceLogRow,
+    LabWatcherFindingsRow,
+    LabWatchersRow,
     LegalHoldRecordsRow,
     LegalHoldsRow,
     MaterialIngredientsRow,
@@ -108,6 +114,42 @@ from sheetbase._generated.models import (
     WebhookDeliveriesRow,
     WebhookSubscriptionsRow,
 )
+
+
+class AgentActionPoliciesTable(ReadableTable[AgentActionPoliciesRow]):
+    """
+    ``/api/db/agent_action_policies`` (GET, HEAD).
+
+    Scopes: admin:read.
+    """
+    name = "agent_action_policies"
+
+
+class AsyncAgentActionPoliciesTable(AsyncReadableTable[AgentActionPoliciesRow]):
+    """
+    ``/api/db/agent_action_policies`` (GET, HEAD).
+
+    Scopes: admin:read.
+    """
+    name = "agent_action_policies"
+
+
+class AgentActionRequestsTable(ReadableTable[AgentActionRequestsRow]):
+    """
+    ``/api/db/agent_action_requests`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "agent_action_requests"
+
+
+class AsyncAgentActionRequestsTable(AsyncReadableTable[AgentActionRequestsRow]):
+    """
+    ``/api/db/agent_action_requests`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "agent_action_requests"
 
 
 class AgentOperationEventsTable(ReadableTable[AgentOperationEventsRow]):
@@ -198,6 +240,42 @@ class AsyncAgentWorkflowsTable(AsyncReadableTable[AgentWorkflowsRow]):
     Scopes: agent_operations:read.
     """
     name = "agent_workflows"
+
+
+class AiEvalResultsTable(ReadableTable[AiEvalResultsRow]):
+    """
+    ``/api/db/ai_eval_results`` (GET, HEAD).
+
+    Scopes: admin:read.
+    """
+    name = "ai_eval_results"
+
+
+class AsyncAiEvalResultsTable(AsyncReadableTable[AiEvalResultsRow]):
+    """
+    ``/api/db/ai_eval_results`` (GET, HEAD).
+
+    Scopes: admin:read.
+    """
+    name = "ai_eval_results"
+
+
+class AiEvalRunsTable(ReadableTable[AiEvalRunsRow]):
+    """
+    ``/api/db/ai_eval_runs`` (GET, HEAD).
+
+    Scopes: admin:read.
+    """
+    name = "ai_eval_runs"
+
+
+class AsyncAiEvalRunsTable(AsyncReadableTable[AiEvalRunsRow]):
+    """
+    ``/api/db/ai_eval_runs`` (GET, HEAD).
+
+    Scopes: admin:read.
+    """
+    name = "ai_eval_runs"
 
 
 class BlocksTable(
@@ -554,6 +632,42 @@ class AsyncInstrumentServiceLogTable(AsyncReadableTable[InstrumentServiceLogRow]
     Scopes: lab:read.
     """
     name = "instrument_service_log"
+
+
+class LabWatcherFindingsTable(ReadableTable[LabWatcherFindingsRow]):
+    """
+    ``/api/db/lab_watcher_findings`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "lab_watcher_findings"
+
+
+class AsyncLabWatcherFindingsTable(AsyncReadableTable[LabWatcherFindingsRow]):
+    """
+    ``/api/db/lab_watcher_findings`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "lab_watcher_findings"
+
+
+class LabWatchersTable(ReadableTable[LabWatchersRow]):
+    """
+    ``/api/db/lab_watchers`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "lab_watchers"
+
+
+class AsyncLabWatchersTable(AsyncReadableTable[LabWatchersRow]):
+    """
+    ``/api/db/lab_watchers`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "lab_watchers"
 
 
 class LegalHoldRecordsTable(ReadableTable[LegalHoldRecordsRow]):
@@ -1574,11 +1688,15 @@ class Tables:
     """Every public table, e.g. ``client.tables.projects.list()``."""
 
     NAMES = (
+        "agent_action_policies",
+        "agent_action_requests",
         "agent_operation_events",
         "agent_operation_proposals",
         "agent_workflow_events",
         "agent_workflow_steps",
         "agent_workflows",
+        "ai_eval_results",
+        "ai_eval_runs",
         "blocks",
         "dataset_schema_definitions",
         "dataset_schema_version_fields",
@@ -1598,6 +1716,8 @@ class Tables:
         "instrument_readings",
         "instrument_required_training",
         "instrument_service_log",
+        "lab_watcher_findings",
+        "lab_watchers",
         "legal_hold_records",
         "legal_holds",
         "material_ingredients",
@@ -1656,11 +1776,15 @@ class Tables:
     )
 
     def __init__(self, transport: HttpTransport) -> None:
+        self.agent_action_policies = AgentActionPoliciesTable(transport)
+        self.agent_action_requests = AgentActionRequestsTable(transport)
         self.agent_operation_events = AgentOperationEventsTable(transport)
         self.agent_operation_proposals = AgentOperationProposalsTable(transport)
         self.agent_workflow_events = AgentWorkflowEventsTable(transport)
         self.agent_workflow_steps = AgentWorkflowStepsTable(transport)
         self.agent_workflows = AgentWorkflowsTable(transport)
+        self.ai_eval_results = AiEvalResultsTable(transport)
+        self.ai_eval_runs = AiEvalRunsTable(transport)
         self.blocks = BlocksTable(transport)
         self.dataset_schema_definitions = DatasetSchemaDefinitionsTable(transport)
         self.dataset_schema_version_fields = DatasetSchemaVersionFieldsTable(transport)
@@ -1680,6 +1804,8 @@ class Tables:
         self.instrument_readings = InstrumentReadingsTable(transport)
         self.instrument_required_training = InstrumentRequiredTrainingTable(transport)
         self.instrument_service_log = InstrumentServiceLogTable(transport)
+        self.lab_watcher_findings = LabWatcherFindingsTable(transport)
+        self.lab_watchers = LabWatchersTable(transport)
         self.legal_hold_records = LegalHoldRecordsTable(transport)
         self.legal_holds = LegalHoldsTable(transport)
         self.material_ingredients = MaterialIngredientsTable(transport)
@@ -1749,11 +1875,15 @@ class AsyncTables:
     """Every public table, e.g. ``client.tables.projects.list()``."""
 
     NAMES = (
+        "agent_action_policies",
+        "agent_action_requests",
         "agent_operation_events",
         "agent_operation_proposals",
         "agent_workflow_events",
         "agent_workflow_steps",
         "agent_workflows",
+        "ai_eval_results",
+        "ai_eval_runs",
         "blocks",
         "dataset_schema_definitions",
         "dataset_schema_version_fields",
@@ -1773,6 +1903,8 @@ class AsyncTables:
         "instrument_readings",
         "instrument_required_training",
         "instrument_service_log",
+        "lab_watcher_findings",
+        "lab_watchers",
         "legal_hold_records",
         "legal_holds",
         "material_ingredients",
@@ -1831,11 +1963,15 @@ class AsyncTables:
     )
 
     def __init__(self, transport: AsyncHttpTransport) -> None:
+        self.agent_action_policies = AsyncAgentActionPoliciesTable(transport)
+        self.agent_action_requests = AsyncAgentActionRequestsTable(transport)
         self.agent_operation_events = AsyncAgentOperationEventsTable(transport)
         self.agent_operation_proposals = AsyncAgentOperationProposalsTable(transport)
         self.agent_workflow_events = AsyncAgentWorkflowEventsTable(transport)
         self.agent_workflow_steps = AsyncAgentWorkflowStepsTable(transport)
         self.agent_workflows = AsyncAgentWorkflowsTable(transport)
+        self.ai_eval_results = AsyncAiEvalResultsTable(transport)
+        self.ai_eval_runs = AsyncAiEvalRunsTable(transport)
         self.blocks = AsyncBlocksTable(transport)
         self.dataset_schema_definitions = AsyncDatasetSchemaDefinitionsTable(transport)
         self.dataset_schema_version_fields = AsyncDatasetSchemaVersionFieldsTable(transport)
@@ -1855,6 +1991,8 @@ class AsyncTables:
         self.instrument_readings = AsyncInstrumentReadingsTable(transport)
         self.instrument_required_training = AsyncInstrumentRequiredTrainingTable(transport)
         self.instrument_service_log = AsyncInstrumentServiceLogTable(transport)
+        self.lab_watcher_findings = AsyncLabWatcherFindingsTable(transport)
+        self.lab_watchers = AsyncLabWatchersTable(transport)
         self.legal_hold_records = AsyncLegalHoldRecordsTable(transport)
         self.legal_holds = AsyncLegalHoldsTable(transport)
         self.material_ingredients = AsyncMaterialIngredientsTable(transport)

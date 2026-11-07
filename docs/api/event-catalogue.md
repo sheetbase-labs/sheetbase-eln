@@ -213,6 +213,16 @@ See [`pipelines.md`](../subsystems/pipelines.md) for the trigger model
 (rotation emits the pair so it is reconstructable; payloads carry display
 metadata only, never secrets).
 
+### Agent permissions, checks and watchers (`provisional`, SSE; `watcher.finding.created` also webhook and pipeline trigger)
+
+`agent.policy.changed` (an admin changed what agents may do with an action),
+`agent.action.requested` (an agent asked to take an action),
+`agent.action.decided` (`event=decided`: a person approved or rejected it),
+`agent.action.completed` (`event=completed`: it ran and succeeded or failed),
+`ai.eval.completed` (a Checks run finished, with how many passed) and
+`watcher.finding.created` (a watcher found something; payload carries the
+finding kind, title and record, and starts a pipeline set to that event).
+
 ### People and sign-in (`stable`, webhook and SSE)
 
 `member.work_handed_over` (counts of what moved and what stayed, by kind of

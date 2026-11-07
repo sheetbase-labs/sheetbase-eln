@@ -45,8 +45,13 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 - Every action below is one call to `sheetbase.lab.act` with `action` and
   `arguments`. It needs a personal token, `lab:write` (or `lab:read` for
   lookups) and the workspace setting **Agents can act in the lab**, which an owner
-  switches on in Settings > AI. It is off by default, because these actions
-  happen straight away rather than waiting for approval.
+  switches on in Settings > AI. It is off by default.
+- What happens to a change depends on the permission set for that action in
+  Settings > AI > Agent permissions: **Auto** runs it straight away, **Ask**
+  returns `waiting_for_approval` with a request id and puts the request in a
+  person's Inbox, **Never** refuses it. With nothing set the answer is Ask.
+  Signing, submitting for review, amending, locking and deleting are always
+  Never. Lookups are never held back.
 
 ## Tables
 
@@ -88,6 +93,9 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `project_follows`              | Projects a person follows. Personal tokens only: you see your own follows.                                                                                                                                                                      |
 | `plate_runs`                   | Plate runs: one plate read on an instrument, with its layout, readout, analysis settings and the last analysis (normalised values, Z-prime, hits and curves).                                                                                   |
 | `plate_worklists`              | Liquid handler worklists: the transfers from a source plate to a destination plate, and what the robot log said was moved.                                                                                                                      |
+| `agent_action_requests`        | An action an agent asked to take: what it was, what the workspace had set for it (`level`), and how it ended (`status`). A token sees only its own requests.                                                                                    |
+| `lab_watchers`                 | A scheduled review the lab turned on: stock expiring, stock low, work overdue, data missing or results off.                                                                                                                                     |
+| `lab_watcher_findings`         | Something a watcher found, with the record it is about and a suggested action. `status` is open, snoozed, dismissed or resolved.                                                                                                                |
 
 ## Actions
 
@@ -1101,3 +1109,80 @@ Scope: `lab:write`.
 | Argument          | Type |              |
 | ----------------- | ---- | ------------ |
 | `p_worklist_id` * | uuid | Worklist id. |
+
+### `request_agent_action`
+
+Ask to take an action. Records an action an agent wants to take and returns the request. The status comes back `refused` (Never), `pending` (Ask: a person approves it in the Inbox) or `approved` (Auto: the caller runs it now).
+
+Scope: `lab:write`.
+
+| Argument              | Type |                                                  |
+| --------------------- | ---- | ------------------------------------------------ |
+| `p_workspace_id` *    | uuid | Workspace id.                                    |
+| `p_action_key` *      | text | The action, for example `request_reagent_order`. |
+| `p_arguments` *       | json | The arguments the action will get.               |
+| `p_summary` *         | text | A plain-words line for the approver.             |
+| `p_provenance` *      | json | Where the request came from.                     |
+| `p_idempotency_key` * | text | The same key returns the same request.           |
+
+### `set_lab_watcher`
+
+Turn a lab watcher on or off. `p_kind` is `stock_expiring`, `stock_low`, `work_overdue`, `data_missing` or `results_off`. Returns the watcher.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                            |
+| ------------------ | ---- | ---------------------------------------------------------- |
+| `p_workspace_id` * | uuid | Workspace id.                                              |
+| `p_kind` *         | text | Which review.                                              |
+| `p_enabled` *      | bool | On or off.                                                 |
+| `p_schedule`       | text | `hourly`, `daily` or `weekly`.                             |
+| `p_project_id`     | uuid | Limit it to one project.                                   |
+| `p_params`         | json | `days` (how soon counts as soon) or `sigma` (how far off). |
+
+### `run_lab_watcher`
+
+Run a lab watcher now. Looks straight away instead of waiting for the schedule. Returns how many new findings were made.
+
+Scope: `lab:write`.
+
+| Argument         | Type |             |
+| ---------------- | ---- | ----------- |
+| `p_watcher_id` * | uuid | Watcher id. |
+
+### `set_watcher_finding_status`
+
+Dismiss or snooze a watcher finding. `p_action` is `dismiss`, `snooze` (with `p_until`) or `reopen`. Returns the finding.
+
+Scope: `lab:write`.
+
+| Argument         | Type |                                  |
+| ---------------- | ---- | -------------------------------- |
+| `p_finding_id` * | uuid | Finding id.                      |
+| `p_action` *     | text | `dismiss`, `snooze` or `reopen`. |
+| `p_until`        | ts   | When a snoozed finding returns.  |
+
+### `resolve_agent_action_level`
+
+What an agent may do with an action. Returns `auto`, `ask` or `never` for the caller.
+
+Scope: `lab:read`.
+
+| Argument           | Type |                          |
+| ------------------ | ---- | ------------------------ |
+| `p_workspace_id` * | uuid | Workspace id.            |
+| `p_action_key` *   | text | The action.              |
+| `p_credential_id`  | uuid | A service credential id. |
+
+### `finish_agent_action`
+
+Record how an agent action ended. Marks an approved request as succeeded or failed once it has been run. Returns the request.
+
+Scope: `lab:write`.
+
+| Argument         | Type |                    |
+| ---------------- | ---- | ------------------ |
+| `p_request_id` * | uuid | Request id.        |
+| `p_ok` *         | bool | Whether it worked. |
+| `p_result`       | json | What it returned.  |
+| `p_error`        | text | Why it failed.     |

@@ -9,6 +9,7 @@ import {
   GATE_GO_ON_TOOL,
   PART_ADD_TOOL,
   PART_DONE_TOOL,
+  PART_SIGNOFF_REQUEST_TOOL,
   PART_UPDATE_TOOL,
   PLANNING_PROPOSE_TOOL_NAMES,
   RECORD_ASK_TOOL,
@@ -29,6 +30,7 @@ import {
   proposeBookingRepeatSchema,
   proposePartAddSchema,
   proposePartDoneSchema,
+  proposePartSignoffRequestSchema,
   proposePartUpdateSchema,
   proposeExperimentStartSchema,
   proposeRecordAskSchema,
@@ -224,6 +226,11 @@ export function planningProposalDefs(): ProviderToolDef[] {
       PART_UPDATE_TOOL,
       `Propose changing a part of an experiment: its title, its day or who does it. With no part named it is the current part. ${note}`,
       proposePartUpdateSchema,
+    ),
+    toolDef(
+      PART_SIGNOFF_REQUEST_TOOL,
+      `Propose asking a person to sign a finished part of an experiment, or to countersign a part that is signed. Signing is done by people themselves; this only asks. With no part named it is the current part. ${note}`,
+      proposePartSignoffRequestSchema,
     ),
     toolDef(
       PART_DONE_TOOL,
@@ -511,6 +518,19 @@ export async function readSeries(
 // The parts of an experiment.
 // ---------------------------------------------------------------------------
 
+interface PartSignoffRow {
+  part_id: string
+  requires_sign_off: boolean
+  awaiting_sign_off: boolean
+  signed: boolean
+  signed_at: string | null
+  signed_by_user_id: string | null
+  countersigned_by: string[] | null
+  countersign_requested_from: string[] | null
+  sign_requested_from: string[] | null
+  amendment_count: number
+}
+
 interface PartRow {
   part_id: string
   part_number: number
@@ -581,6 +601,20 @@ function pickPart(
       }
 }
 
+async function partSignoffRows(
+  client: DataClient,
+  recordId: string,
+): Promise<Map<string, PartSignoffRow>> {
+  try {
+    const rows = await client.rpc<PartSignoffRow[]>('record_part_signoffs', {
+      p_record_id: recordId,
+    })
+    return new Map((rows ?? []).map((row) => [row.part_id, row]))
+  } catch {
+    return new Map()
+  }
+}
+
 export async function readParts(
   args: unknown,
   context: LabToolContext,
@@ -599,6 +633,9 @@ export async function readParts(
     () => new Map<string, string>(),
   )
   const who = (id: string | null) => (id ? (names.get(id) ?? null) : null)
+  const signoffs = await partSignoffRows(context.client, record.value.id)
+  const whoAll = (ids: readonly string[] | null | undefined) =>
+    (ids ?? []).map((id) => who(id) ?? 'Someone')
   return {
     text: JSON.stringify({
       experiment: recordTarget(record.value),
@@ -617,12 +654,29 @@ export async function readParts(
         steps: row.step_count,
         stepsDone: row.steps_done,
         results: row.result_count,
+        ...(signoffs.get(row.part_id)?.requires_sign_off ||
+        signoffs.get(row.part_id)?.signed
+          ? (() => {
+              const s = signoffs.get(row.part_id)!
+              return {
+                needsSignature: s.requires_sign_off,
+                waitingForSignature: s.awaiting_sign_off,
+                signed: s.signed,
+                signedBy: who(s.signed_by_user_id),
+                signedAt: s.signed_at,
+                countersignedBy: whoAll(s.countersigned_by),
+                askedToSign: whoAll(s.sign_requested_from),
+                askedToCountersign: whoAll(s.countersign_requested_from),
+                timesReopened: s.amendment_count,
+              }
+            })()
+          : {}),
       })),
       open: recordLink(record.value.id),
       note:
         rows.length === 0
           ? 'This experiment is a single page with no parts.'
-          : 'Day 0 is the day the experiment started. A part with steps is done when its steps are.',
+          : 'Day 0 is the day the experiment started. A part with steps is done when its steps are. A part that needs a signature is done once it is signed, and the next part opens then. Only people sign; you can propose asking someone to.',
     }),
     isError: false,
   }
@@ -1278,6 +1332,60 @@ export async function buildPlanningProposal(
             recordId: record.value.id,
             title: input.part,
             dayOffset: input.day ?? null,
+          },
+        },
+      }
+    }
+    case PART_SIGNOFF_REQUEST_TOOL: {
+      const parsed = proposePartSignoffRequestSchema.safeParse(args)
+      if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
+      const input = parsed.data
+      const record = await findRecord(client, input.record)
+      if (!record.ok) return record
+      const part = pickPart(
+        await partRows(client, record.value.id),
+        input.part,
+        recordTarget(record.value),
+      )
+      if (!part.ok) return part
+      const status = (await partSignoffRows(client, record.value.id)).get(
+        part.value.part_id,
+      )
+      if (!status?.requires_sign_off) {
+        return {
+          ok: false,
+          message: `${partLabel(part.value)} does not need a signature. Tell the person it can be turned on from the part's menu.`,
+        }
+      }
+      if (!status.signed && !status.awaiting_sign_off) {
+        return {
+          ok: false,
+          message: `${partLabel(part.value)} is not finished yet, so nobody can be asked to sign it. Tell the person.`,
+        }
+      }
+      const person = await findPerson(client, input.person)
+      if (!person.ok) return person
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: recordTarget(record.value),
+          deepLink: recordLink(record.value.id),
+          changes: [
+            { label: 'Part', before: null, after: partLabel(part.value) },
+            {
+              label: status.signed ? 'Ask to countersign' : 'Ask to sign',
+              before: null,
+              after: person.value.name,
+            },
+          ],
+          action: {
+            kind: 'part.signoff_request',
+            partId: part.value.part_id,
+            userId: person.value.id,
+            note: input.note ?? null,
           },
         },
       }

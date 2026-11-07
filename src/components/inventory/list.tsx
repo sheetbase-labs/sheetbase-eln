@@ -56,14 +56,14 @@ export function ListHeader({
         <h1 className="text-title max-md:text-[18px] max-md:leading-6">
           {title}
         </h1>
-        {subtitle ? (
-          <span className="text-body text-fg-muted max-md:hidden">
-            {subtitle}
-          </span>
-        ) : null}
         {total != null ? (
           <span className="num text-body text-fg-muted">
             {total.toLocaleString('en-GB')}
+          </span>
+        ) : null}
+        {subtitle ? (
+          <span className="text-body text-fg-muted max-md:hidden">
+            {subtitle}
           </span>
         ) : null}
         <span className="flex-1" />

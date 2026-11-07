@@ -7,6 +7,9 @@ import { toast } from '#/components/ui/sonner'
 import { getPaneRouter } from '#/router'
 import type { RouterContext } from '#/routes/__root'
 import type { ShortcutDefinition } from '#/lib/shortcuts'
+import { PendingEditsDialog } from './pending-edits-dialog'
+import { pendingEditsFor, runLeaveCheck } from '#/lib/pending-edits'
+import type { PendingEdit } from '#/lib/pending-edits'
 import { workspaceHref } from '#/lib/workspace-state'
 import type { FrozenState } from '#/lib/workspace-state'
 import { PaneContext } from './workspace-navigation'
@@ -104,6 +107,10 @@ function PanePageInstance({
       editingPane?.sameRecord,
     ],
   )
+  const [prompt, setPrompt] = useState<{
+    edits: PendingEdit[]
+    resolve: (leave: boolean) => void
+  } | null>(null)
   const [page] = useState(() => {
     const router = getPaneRouter(context, href)
     type Blocker = Parameters<RouterHistory['block']>[0]
@@ -141,14 +148,19 @@ function PanePageInstance({
       }
     }
 
-    function canLeaveEditors() {
+    async function canLeaveEditors() {
       // Existing spreadsheet/notebook guards are window-scoped. Until they
-      // expose pane ownership, conservatively refuse if ANY editor is dirty.
-      const event = new Event('beforeunload', { cancelable: true })
-      window.dispatchEvent(event)
-      if (!event.defaultPrevented) return true
-      toast.error(t('projects.panePage.unsaved'))
-      return false
+      // expose pane ownership, conservatively refuse if ANY of them is dirty.
+      // Pages that register their unsaved edits answer through the prompt.
+      if (!runLeaveCheck()) {
+        toast.error(t('projects.panePage.unsaved'))
+        return false
+      }
+      const held = pendingEditsFor(id)
+      if (held.length === 0) return true
+      return new Promise<boolean>((resolve) => {
+        setPrompt({ edits: held, resolve })
+      })
     }
 
     // Studio also uses raw history pushes. They must retain both native
@@ -156,9 +168,13 @@ function PanePageInstance({
     for (const method of ['push', 'replace'] as const) {
       const commit = router.history[method]
       router.history[method] = (path, state, options) => {
-        if (options?.ignoreBlocker || canLeaveEditors()) {
+        if (options?.ignoreBlocker) {
           commit(path, state, options)
+          return
         }
+        void canLeaveEditors().then((leave) => {
+          if (leave) commit(path, state, options)
+        })
       }
     }
 
@@ -167,7 +183,7 @@ function PanePageInstance({
       action: 'PUSH' | 'REPLACE',
     ) {
       for (const cancel of pending) cancel()
-      if (!canLeaveEditors()) return false
+      if (!(await canLeaveEditors())) return false
       for (const blocker of [...blockers]) {
         if (
           await blocker.blockerFn({
@@ -273,6 +289,13 @@ function PanePageInstance({
       <ShortcutProvider definitions={noGlobalShortcuts} enabled={active}>
         <RouterProvider router={page.router} />
       </ShortcutProvider>
+      <PendingEditsDialog
+        edits={prompt?.edits ?? null}
+        onResolve={(leave) => {
+          prompt?.resolve(leave)
+          setPrompt(null)
+        }}
+      />
     </PaneContext.Provider>
   )
 }

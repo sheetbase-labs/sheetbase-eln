@@ -21,6 +21,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { PanePage } from './pane-page'
 import type { PanePageHandle } from './pane-page'
 import type { RouterContext } from '#/routes/__root'
+import { registerPendingEditForTest } from '#/lib/pending-edits'
 import { noCapabilities } from '#/lib/capabilities'
 import { Route as LotRoute } from '#/routes/materials/$lotId'
 import type * as ReagentData from '#/lib/reagent-data'
@@ -210,6 +211,40 @@ it('refuses close and navigation while an existing spreadsheet unload guard is d
     window.removeEventListener('beforeunload', guard)
   }
   expect(await app.handles.get('first')!.requestClose()).toBe(true)
+})
+
+it('asks Save, Discard or Cancel when its own page holds unsaved edits', async () => {
+  const app = setup()
+  await screen.findByRole('heading', { name: 'Buffer alpha' })
+  const save = vi.fn(async () => true)
+  const discard = vi.fn()
+  const remove = registerPendingEditForTest({
+    label: 'Analysis Studio',
+    paneId: 'first',
+    save,
+    discard,
+  })
+  try {
+    // The other pane has nothing to save, so it closes straight away.
+    expect(await app.handles.get('second')!.requestClose()).toBe(true)
+
+    let closing = app.handles.get('first')!.requestClose()
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    expect(await closing).toBe(false)
+    expect(discard).not.toHaveBeenCalled()
+
+    closing = app.handles.get('first')!.requestClose()
+    fireEvent.click(await screen.findByRole('button', { name: 'Discard' }))
+    expect(await closing).toBe(true)
+    expect(discard).toHaveBeenCalledTimes(1)
+
+    closing = app.handles.get('first')!.requestClose()
+    fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
+    expect(await closing).toBe(true)
+    expect(save).toHaveBeenCalledTimes(1)
+  } finally {
+    remove()
+  }
 })
 
 it('sends authentication destinations to the outer router, not a pane document', async () => {

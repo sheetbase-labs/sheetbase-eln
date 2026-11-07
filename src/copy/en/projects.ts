@@ -1750,6 +1750,8 @@ export const projects = {
   },
   panePage: {
     unsaved: 'Save pending edits before closing or leaving this page.',
+    title: 'Save your changes?',
+    body: '{label} has changes you have not saved.',
   },
   peek: {
     label: 'Peek {name}',

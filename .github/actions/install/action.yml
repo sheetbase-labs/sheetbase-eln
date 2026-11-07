@@ -59,3 +59,9 @@ runs:
           rm -rf "${{ steps.components.outputs.dir }}/node_modules/$pkg"
           ln -s "$PWD/node_modules/$pkg" "${{ steps.components.outputs.dir }}/node_modules/$pkg"
         done
+    # The route tree, the public OpenAPI contract and the Python SDK's generated
+    # layer are derived from source and not committed, so no two PRs conflict on
+    # them. Every job gets them here.
+    - name: Generate derived files
+      shell: bash
+      run: pnpm generate

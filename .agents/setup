@@ -161,16 +161,9 @@ echo "==> Installing dependencies (frozen lockfile)"
 pnpm install --frozen-lockfile
 
 echo "==> Verifying TanStack Router route tree"
-# routeTree.gen.ts is committed to the repository. Only regenerate it if
-# it's missing (e.g. a fresh checkout without the generated file). Running
-# `tsr generate` unconditionally would mutate a clean checkout and break
-# the artifact build's clean-worktree assertion.
-if [ ! -f src/routeTree.gen.ts ]; then
-  echo "    src/routeTree.gen.ts not found — regenerating"
-  pnpm generate-routes
-else
-  echo "    src/routeTree.gen.ts present — using committed version"
-fi
+# The route tree, OpenAPI contract and Python SDK layer are git-ignored and
+# derived from source; generate whatever is missing.
+node scripts/ensure-generated.mjs
 
 echo "==> Applying database migrations"
 pnpm db:migrate

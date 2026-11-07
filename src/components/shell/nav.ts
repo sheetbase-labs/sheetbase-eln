@@ -122,6 +122,7 @@ export const navGroups: NavGroup[] = [
         label: 'Registry',
         icon: 'tag',
         link: { to: '/registry' },
+        feature: 'registry',
       },
       // An instrument is an everyday bench object: it has an identifier, a
       // status, qualification and calibration dates and bookings. Parser and
@@ -147,12 +148,13 @@ export const navGroups: NavGroup[] = [
         icon: 'flask',
         link: { to: '/plates' },
       },
-      // Incidents, deviations and near misses: any models the lab ticks as a log.
+      // Incidents, deviations and near misses: any models with the Incident log feature.
       {
         key: 'incidents',
         label: 'Incidents',
         icon: 'warn',
         link: { to: '/incidents' },
+        feature: 'incident_log',
       },
     ],
   },

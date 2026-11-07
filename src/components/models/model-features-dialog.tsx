@@ -32,6 +32,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { ROOT_CONTEXT_QUERY_KEY } from '#/lib/root-context-cache'
 import { messageOf } from '#/lib/result-quality'
 
+import { recordModelQueryKeys } from './models-data'
 import type { WorkspaceRecordModel } from './models-data'
 
 const client = notebookDataClient
@@ -80,6 +81,11 @@ export function ModelFeaturesDialog({
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: featureKeys.all })
       void queryClient.invalidateQueries({ queryKey: campaignKeys.all })
+      void queryClient.invalidateQueries({ queryKey: ['registry'] })
+      void queryClient.invalidateQueries({ queryKey: ['quality'] })
+      void queryClient.invalidateQueries({
+        queryKey: recordModelQueryKeys.model(model.key),
+      })
       // The sidebar shows a feature's page only while a model has it, and
       // reads that with the rest of the page context.
       queryClient.removeQueries({ queryKey: ROOT_CONTEXT_QUERY_KEY })

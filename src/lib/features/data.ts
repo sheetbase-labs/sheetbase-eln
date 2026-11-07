@@ -58,3 +58,73 @@ export function useModelFeatures(client: DataClient = notebookDataClient) {
     staleTime: 30_000,
   })
 }
+
+// Reading a model together with its features -------------------------------------
+
+/** Add to a `record_models` select to read the features a model has switched on. */
+export const MODEL_FEATURES_EMBED = 'model_capabilities(capability,settings)'
+
+export interface EmbeddedFeature {
+  capability: string
+  settings: Record<string, unknown>
+}
+
+/** What a registry model keeps in its feature settings. */
+export interface RegistrySetup {
+  keyFields: string[]
+  sequenceField: string | null
+  structureField: string | null
+  lotKind: string | null
+}
+
+const text = (value: unknown): string | null =>
+  typeof value === 'string' && value !== '' ? value : null
+
+export function registrySetupOf(
+  settings: Record<string, unknown> | undefined,
+): RegistrySetup {
+  const keys = settings?.keyFields
+  return {
+    keyFields: Array.isArray(keys)
+      ? keys.filter((k): k is string => typeof k === 'string')
+      : [],
+    sequenceField: text(settings?.sequenceField),
+    structureField: text(settings?.structureField),
+    lotKind: text(settings?.lotKind),
+  }
+}
+
+/** The features a model row came back with, as a set of keys. */
+export const featureKeysOf = (
+  row: { model_capabilities?: readonly EmbeddedFeature[] | null } | null,
+): ReadonlySet<string> =>
+  new Set((row?.model_capabilities ?? []).map((f) => f.capability))
+
+export interface FeatureModel {
+  key: string
+  name: string
+  identifier_prefix: string
+  settings: Record<string, unknown>
+}
+
+/** The models that have a feature switched on, by name, with the feature's settings. */
+export async function fetchModelsWithFeature(
+  client: DataClient,
+  feature: string,
+): Promise<FeatureModel[]> {
+  const rows = await client.list<{
+    key: string
+    name: string
+    identifier_prefix: string
+    model_capabilities: { settings: Record<string, unknown> }[]
+  }>(
+    'record_models',
+    `?select=key,name,identifier_prefix,model_capabilities!inner(settings)&model_capabilities.capability=eq.${encodeURIComponent(feature)}&order=name.asc&limit=500`,
+  )
+  return rows.map((r) => ({
+    key: r.key,
+    name: r.name,
+    identifier_prefix: r.identifier_prefix,
+    settings: r.model_capabilities[0]?.settings ?? {},
+  }))
+}

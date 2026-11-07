@@ -14,6 +14,16 @@
 import { t } from '#/copy'
 
 import {
+  COMPOUND_LOT_TOOL,
+  COMPOUND_REGISTER_TOOL,
+  LEGAL_HOLD_CREATE_TOOL,
+  LEGAL_HOLD_RELEASE_TOOL,
+  REGISTRY_ADD_TOOL,
+  RETENTION_APPLY_TOOL,
+  RETENTION_SET_TOOL,
+  SPEC_LIMITS_SET_TOOL,
+} from '../assistant-labwork'
+import {
   CAMPAIGN_APPROVE_TOOL,
   CAMPAIGN_RESULTS_TOOL,
   CAMPAIGN_ROUND_TOOL,
@@ -44,6 +54,11 @@ export interface ModelFeature {
 }
 
 export const CAMPAIGNS_FEATURE = 'campaigns'
+export const REGISTRY_FEATURE = 'registry'
+export const INCIDENT_LOG_FEATURE = 'incident_log'
+export const RESULT_LIMITS_FEATURE = 'result_limits'
+export const LEGAL_HOLD_FEATURE = 'legal_hold'
+export const RETENTION_FEATURE = 'retention'
 
 export const MODEL_FEATURES: readonly ModelFeature[] = [
   {
@@ -68,6 +83,59 @@ export const MODEL_FEATURES: readonly ModelFeature[] = [
         'campaign.round.completed',
       ],
       tables: ['campaigns', 'campaign_rounds'],
+    },
+  },
+  {
+    key: REGISTRY_FEATURE,
+    label: () => t('features.registry.label'),
+    hint: () => t('features.registry.hint'),
+    contributes: {
+      navPage: 'registry',
+      tools: [REGISTRY_ADD_TOOL, COMPOUND_REGISTER_TOOL, COMPOUND_LOT_TOOL],
+      events: [
+        'registry.entry.created',
+        'compound.registered',
+        'compound.structure_changed',
+        'compound.lot_added',
+      ],
+    },
+  },
+  {
+    key: INCIDENT_LOG_FEATURE,
+    label: () => t('features.incidentLog.label'),
+    hint: () => t('features.incidentLog.hint'),
+    contributes: {
+      navPage: 'incidents',
+      events: ['incident.reported'],
+    },
+  },
+  {
+    key: RESULT_LIMITS_FEATURE,
+    label: () => t('features.resultLimits.label'),
+    hint: () => t('features.resultLimits.hint'),
+    contributes: {
+      tools: [SPEC_LIMITS_SET_TOOL],
+      tables: ['field_spec_limits', 'record_spec_results'],
+    },
+  },
+  {
+    key: LEGAL_HOLD_FEATURE,
+    label: () => t('features.legalHold.label'),
+    hint: () => t('features.legalHold.hint'),
+    contributes: {
+      tools: [LEGAL_HOLD_CREATE_TOOL, LEGAL_HOLD_RELEASE_TOOL],
+      events: ['legal_hold.created', 'legal_hold.released'],
+      tables: ['legal_holds', 'legal_hold_records'],
+    },
+  },
+  {
+    key: RETENTION_FEATURE,
+    label: () => t('features.retention.label'),
+    hint: () => t('features.retention.hint'),
+    contributes: {
+      tools: [RETENTION_SET_TOOL, RETENTION_APPLY_TOOL],
+      events: ['retention.applied'],
+      tables: ['retention_rules'],
     },
   },
 ]

@@ -14,7 +14,10 @@ const flags = Object.fromEntries(
   AI_FEATURE_FLAGS.map((flag) => [flag.key, true]),
 ) as AiFeatureFlags
 
-function client(rpc = vi.fn(async () => ({ id: ORDER_ID }))): DataClient {
+function client(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rpc: (...args: any[]) => any = vi.fn(async () => ({ id: ORDER_ID })),
+): DataClient {
   return {
     list: vi.fn(async () => []),
     count: vi.fn(async () => 0),
@@ -79,8 +82,26 @@ describe('MCP lab actions', () => {
     ).not.toContain(LAB_ACT_TOOL_NAME)
   })
 
-  it('calls the matching RPC with validated arguments', async () => {
-    const rpc = vi.fn(async () => ({ id: ORDER_ID }))
+  /** An RPC double: the database decides the level, everything else answers `reply`. */
+  function guarded(
+    status: 'pending' | 'approved' | 'refused',
+    reply: unknown = { id: ORDER_ID },
+  ) {
+    return vi.fn(async (name: string) => {
+      if (name === 'request_agent_action') {
+        return {
+          id: 'request-1',
+          status,
+          level: status === 'approved' ? 'auto' : 'ask',
+        }
+      }
+      if (name === 'finish_agent_action') return { id: 'request-1' }
+      return reply
+    })
+  }
+
+  it('runs an Auto action with validated arguments and records the outcome', async () => {
+    const rpc = guarded('approved')
     const result = await call(
       {
         action: 'cancel_reagent_order',
@@ -93,6 +114,78 @@ describe('MCP lab actions', () => {
       p_order_id: ORDER_ID,
       p_reason: 'duplicate',
     })
+    expect(rpc).toHaveBeenCalledWith(
+      'finish_agent_action',
+      expect.objectContaining({ p_request_id: 'request-1', p_ok: true }),
+    )
+  })
+
+  it('leaves an Ask action waiting for a person and does not run it', async () => {
+    const rpc = guarded('pending')
+    const result = await call(
+      { action: 'cancel_reagent_order', arguments: { p_order_id: ORDER_ID } },
+      ctx({ client: client(rpc) }),
+    )
+    expect(result.isError).toBeUndefined()
+    expect(result.content[0].text).toContain('waiting_for_approval')
+    expect(result.content[0].text).toContain('request-1')
+    expect(rpc).not.toHaveBeenCalledWith(
+      'cancel_reagent_order',
+      expect.anything(),
+    )
+  })
+
+  it('refuses a Never action and does not run it', async () => {
+    const rpc = guarded('refused')
+    const result = await call(
+      { action: 'cancel_reagent_order', arguments: { p_order_id: ORDER_ID } },
+      ctx({ client: client(rpc) }),
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toContain('switched off')
+    expect(rpc).not.toHaveBeenCalledWith(
+      'cancel_reagent_order',
+      expect.anything(),
+    )
+  })
+
+  it('does not ask twice for the same request while it is waiting', async () => {
+    const rpc = guarded('pending')
+    const waiting = client(rpc)
+    waiting.list = vi.fn(async () => [
+      {
+        id: 'request-0',
+        status: 'pending',
+        level: 'ask',
+        arguments: { p_order_id: ORDER_ID },
+      },
+    ]) as unknown as DataClient['list']
+    const result = await call(
+      { action: 'cancel_reagent_order', arguments: { p_order_id: ORDER_ID } },
+      ctx({ client: waiting }),
+    )
+    expect(result.content[0].text).toContain('request-0')
+    expect(rpc).not.toHaveBeenCalledWith(
+      'request_agent_action',
+      expect.anything(),
+    )
+  })
+
+  it('runs a lookup at once, whatever the permissions say', async () => {
+    const rpc = guarded('pending', [{ id: 'row' }])
+    const result = await call(
+      {
+        action: 'query_storage_readings',
+        arguments: {},
+      },
+      ctx({ client: client(rpc) }),
+    )
+    expect(result.isError).toBeUndefined()
+    expect(rpc).toHaveBeenCalledWith('query_storage_readings', {})
+    expect(rpc).not.toHaveBeenCalledWith(
+      'request_agent_action',
+      expect.anything(),
+    )
   })
 
   it('rejects unknown arguments, bad ids and missing required ones', async () => {

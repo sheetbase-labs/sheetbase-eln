@@ -847,6 +847,69 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['updated_at', 'ts', 1],
     ],
   },
+  agent_action_requests: {
+    summary:
+      'An action an agent asked to take. `level` is what the workspace had set for it (auto, ask or never); `status` is pending (waiting for a person), approved, rejected, succeeded, failed or refused. A token sees only its own requests.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['action_key', 'text', 1],
+      ['arguments', 'json', 1],
+      ['summary', 'text', 1],
+      ['level', 'text', 1],
+      ['status', 'text', 1],
+      ['requested_by_user_id', 'text', 0],
+      ['requested_by_credential_id', 'uuid', 0],
+      ['decided_by_user_id', 'text', 0],
+      ['decided_at', 'ts', 0],
+      ['decision_reason', 'text', 0],
+      ['executed_at', 'ts', 0],
+      ['result', 'json', 0],
+      ['error', 'text', 0],
+      ['created_at', 'ts', 1],
+      ['updated_at', 'ts', 1],
+    ],
+  },
+  lab_watchers: {
+    summary:
+      'A scheduled review the lab turned on. `kind` is stock_expiring, stock_low, work_overdue, data_missing or results_off; `schedule` is hourly, daily or weekly.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['kind', 'text', 1],
+      ['enabled', 'bool', 1],
+      ['project_id', 'uuid', 0],
+      ['schedule', 'text', 1],
+      ['params', 'json', 1],
+      ['owner_user_id', 'text', 1],
+      ['last_run_at', 'ts', 0],
+      ['last_found', 'int', 0],
+      ['next_run_at', 'ts', 1],
+      ['created_at', 'ts', 1],
+      ['updated_at', 'ts', 1],
+    ],
+  },
+  lab_watcher_findings: {
+    summary:
+      'Something a watcher found, with the record it is about and, where one makes sense, a suggested action. `status` is open, snoozed, dismissed or resolved (no longer true).',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['watcher_id', 'uuid', 1],
+      ['kind', 'text', 1],
+      ['object_kind', 'text', 1],
+      ['object_id', 'uuid', 0],
+      ['project_id', 'uuid', 0],
+      ['title', 'text', 1],
+      ['summary', 'text', 1],
+      ['suggested_action', 'json', 0],
+      ['status', 'text', 1],
+      ['snoozed_until', 'ts', 0],
+      ['resolved_at', 'ts', 0],
+      ['created_at', 'ts', 1],
+      ['updated_at', 'ts', 1],
+    ],
+  },
 }
 
 export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
@@ -1803,5 +1866,80 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
     scope: 'lab:write',
     params: [['p_worklist_id', 'uuid', 1]],
     result: 'row:plate_worklists',
+  },
+  request_agent_action: {
+    summary: 'Ask to take an action',
+    description:
+      'Records an action an agent wants to take and returns the request. What happens next depends on the workspace setting for that action: `refused` (Never), `pending` (Ask: a person approves it in the Inbox) or `approved` (Auto: the caller runs it now). Signing, submitting for review, amending, locking and deleting are always refused.',
+    scope: 'lab:write',
+    params: [
+      ['p_workspace_id', 'uuid', 1],
+      ['p_action_key', 'text', 1],
+      ['p_arguments', 'json', 1],
+      ['p_summary', 'text', 1],
+      ['p_provenance', 'json', 1],
+      ['p_idempotency_key', 'text', 1],
+    ],
+    result: 'row:agent_action_requests',
+  },
+  set_lab_watcher: {
+    summary: 'Turn a lab watcher on or off',
+    description:
+      'Sets a watcher: `p_kind` is `stock_expiring`, `stock_low`, `work_overdue`, `data_missing` or `results_off`; `p_schedule` is `hourly`, `daily` or `weekly`; `p_project_id` limits it to one project; `p_params` can set `days` (how soon counts as soon) or `sigma` (how far off a result must be). Returns the watcher.',
+    scope: 'lab:write',
+    params: [
+      ['p_workspace_id', 'uuid', 1],
+      ['p_kind', 'text', 1],
+      ['p_enabled', 'bool', 1],
+      ['p_schedule', 'text', 0],
+      ['p_project_id', 'uuid', 0],
+      ['p_params', 'json', 0],
+    ],
+    result: 'row:lab_watchers',
+  },
+  run_lab_watcher: {
+    summary: 'Run a lab watcher now',
+    description:
+      'Looks straight away instead of waiting for the schedule. Returns how many new findings were made. Sends `watcher.finding.created` for each.',
+    scope: 'lab:write',
+    params: [['p_watcher_id', 'uuid', 1]],
+    result: 'int',
+  },
+  set_watcher_finding_status: {
+    summary: 'Dismiss or snooze a watcher finding',
+    description:
+      '`p_action` is `dismiss`, `snooze` (with `p_until`, a time in the future) or `reopen`. Returns the finding.',
+    scope: 'lab:write',
+    params: [
+      ['p_finding_id', 'uuid', 1],
+      ['p_action', 'text', 1],
+      ['p_until', 'ts', 0],
+    ],
+    result: 'row:lab_watcher_findings',
+  },
+  resolve_agent_action_level: {
+    summary: 'What an agent may do with an action',
+    description:
+      'Returns `auto`, `ask` or `never` for an action, for the caller: a setting for this credential beats one for the caller’s role, which beats the one for everyone, and with none the answer is `ask`. Signing, submitting for review, amending, locking and deleting are always `never`.',
+    scope: 'lab:read',
+    params: [
+      ['p_workspace_id', 'uuid', 1],
+      ['p_action_key', 'text', 1],
+      ['p_credential_id', 'uuid', 0],
+    ],
+    result: 'text',
+  },
+  finish_agent_action: {
+    summary: 'Record how an agent action ended',
+    description:
+      'Marks an approved request as succeeded or failed once the action has been run. Only the person who approved it, or the requester when the action was Auto, can call it.',
+    scope: 'lab:write',
+    params: [
+      ['p_request_id', 'uuid', 1],
+      ['p_ok', 'bool', 1],
+      ['p_result', 'json', 0],
+      ['p_error', 'text', 0],
+    ],
+    result: 'row:agent_action_requests',
   },
 }

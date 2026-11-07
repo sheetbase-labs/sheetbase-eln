@@ -21,8 +21,14 @@ const DRIZZLE_DIR = join(process.cwd(), 'drizzle')
 
 function migrationFiles(): string[] {
   return readdirSync(DRIZZLE_DIR)
-    .filter((file) => /^\d{4}_.+\.sql$/.test(file))
-    .filter((file) => Number(file.slice(0, 4)) >= FIRST_GUARDED_MIGRATION)
+    .filter(
+      (file) =>
+        // Numbered migrations from the first guarded one, and every
+        // timestamp-named one (`20261106235405_name.sql`), which all came later.
+        (/^\d{4}_.+\.sql$/.test(file) &&
+          Number(file.slice(0, 4)) >= FIRST_GUARDED_MIGRATION) ||
+        /^\d{14}_.+\.sql$/.test(file),
+    )
     .sort()
 }
 

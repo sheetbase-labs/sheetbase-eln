@@ -76,6 +76,7 @@ export type BlockType =
   | 'structure'
   | 'reaction'
   | 'code_cell'
+  | 'gate'
 
 /**
  * The allow-list, in the order `chk_blocks_type` names them. A type not in this
@@ -104,6 +105,7 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   'structure',
   'reaction',
   'code_cell',
+  'gate',
 ]
 
 /** Membership index for the allow-list; each key is a stored block type. */
@@ -225,6 +227,14 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     icon: 'box',
     group: 'structure',
     aliases: ['samples', 'materials', 'inventory'],
+  },
+  {
+    type: 'gate',
+    label: t('notebook.gates.blockLabel'),
+    description: t('notebook.gates.blockDescription'),
+    icon: 'lock',
+    group: 'structure',
+    aliases: ['gate', 'hold', 'wait', 'lock', 'condition', 'opens when'],
   },
   {
     type: 'rich_text',
@@ -567,6 +577,17 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
     // R5-NOTE-02: a CAPA list starts empty; the block says so rather than
     // showing a header with nothing under it.
     defaultPayload: () => ({ ...EMPTY_CORRECTIVE_ACTIONS_PAYLOAD }),
+  },
+  gate: {
+    // Rendered by the gate bar and changed through the gate dialog, not by the
+    // editor switch. It has no useful empty draft: the database refuses a gate
+    // without conditions, so one is only inserted once the dialog has some.
+    editable: false,
+    defaultPayload: () => ({ mode: 'warn', conditions: [] }),
+    summary: (payload) =>
+      typeof payload.label === 'string' && payload.label
+        ? payload.label
+        : t('notebook.gates.blockLabel'),
   },
 }
 

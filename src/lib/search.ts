@@ -829,6 +829,8 @@ export function extractBlockText(
       ])
     case 'metric':
       return extractStringField(payload, 'label')
+    case 'gate':
+      return extractStringField(payload, 'label')
     case 'structure':
       return ['title', 'caption', 'name', 'formula', 'smiles']
         .map((field) => extractStringField(payload, field))

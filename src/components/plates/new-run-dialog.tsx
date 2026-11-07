@@ -3,7 +3,7 @@
  * are controls and samples, and optionally analyse straight away.
  */
 import { useEffect, useMemo, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Textarea } from '#/components/inventory/list'
 import { useRecordModelProjects } from '#/components/models/models-data'
@@ -22,6 +22,7 @@ import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { toast } from '#/components/ui/sonner'
 import { t } from '#/copy'
+import { fetchPlateDesignOptions, qcKeys } from '#/lib/run-qc'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { defaultAssayConfig, parsePlateTable } from '#/lib/plate-assay'
 import type { AssayWell, PlateReadout } from '#/lib/plate-assay'
@@ -76,6 +77,14 @@ export function NewRunDialog({
   const [data, setData] = useState('')
   const [layout, setLayout] = useState('')
   const [projectId, setProjectId] = useState('')
+  const [designId, setDesignId] = useState('')
+  const designs =
+    useQuery({
+      queryKey: qcKeys.designs,
+      queryFn: () => fetchPlateDesignOptions(client),
+      staleTime: 60_000,
+      enabled: open,
+    }).data ?? []
   const [analyseNow, setAnalyseNow] = useState(true)
   const [interacted, setInteracted] = useState(false)
 
@@ -86,6 +95,7 @@ export function NewRunDialog({
     setData('')
     setLayout('')
     setProjectId('')
+    setDesignId('')
     setAnalyseNow(true)
     setInteracted(false)
   }, [open])
@@ -137,6 +147,7 @@ export function NewRunDialog({
         readout: parsed.readout,
         config: defaultAssayConfig(),
         projectId: projectId || null,
+        designId: designId || null,
       })
       if (analyseNow) {
         run = (await analyseAndSavePlateRun(client, run)).run
@@ -207,6 +218,24 @@ export function NewRunDialog({
                   ))}
                 </Select>
               </Field>
+              {designs.length > 0 ? (
+                <Field
+                  label={t('plates.form.design')}
+                  hint={t('plates.form.designHint')}
+                >
+                  <Select
+                    value={designId}
+                    onChange={(e) => setDesignId(e.target.value)}
+                  >
+                    <option value="">{t('plates.form.noDesign')}</option>
+                    {designs.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : null}
               {projects.length > 0 ? (
                 <Field label={t('plates.form.project')}>
                   <Select

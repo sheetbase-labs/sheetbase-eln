@@ -118,6 +118,7 @@ import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now as appNow } from '#/lib/clock'
 import { AddedFields } from '#/components/models/added-fields'
+import { ConvertedDataSection } from '#/components/instruments/converted-data'
 import { RunQcPanel } from '#/components/quality/run-qc-panel'
 import { rich, t } from '#/copy'
 
@@ -933,16 +934,13 @@ function InstrumentPage() {
               names={names}
             />
 
-            <Section
-              className="border-t border-border pt-4"
-              title={t('quality.runQc.title')}
-            >
-              <RunQcPanel
-                scope={{ instrumentId: i.id }}
-                workspaceId={context.workspace?.id ?? ''}
-                canWrite={canRecord}
-              />
-            </Section>
+            <RunQcPanel
+              scope={{ instrumentId: i.id }}
+              workspaceId={context.workspace?.id ?? ''}
+              canWrite={canRecord}
+            />
+
+            <ConvertedDataSection instrumentId={i.id} />
 
             <BookingRulesSection
               instrument={i}

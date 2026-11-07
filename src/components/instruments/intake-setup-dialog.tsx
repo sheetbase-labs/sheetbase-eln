@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { ConverterPicker } from '#/components/instruments/converter-picker'
 import { AgentDownload } from '#/components/instruments/agent-download'
 import { setInstrumentIntakeMethod } from '#/components/instruments/instruments-data'
 import { useWritableProjects } from '#/components/projects/use-writable-projects'
@@ -317,6 +318,18 @@ export function IntakeSetupDialog({
                     })}
                   </Select>
                 </Field>
+              ) : null}
+              {mode === 'always' ? (
+                <ConverterPicker
+                  instrumentId={instrument.id}
+                  canManage={canManage}
+                  onAdded={async (key) => {
+                    await queryClient.invalidateQueries({
+                      queryKey: parserSettingsQueryKeys.list(workspaceId),
+                    })
+                    set('parserKey', key)
+                  }}
+                />
               ) : null}
               <div className="flex flex-col gap-1.5">
                 <FileDrop

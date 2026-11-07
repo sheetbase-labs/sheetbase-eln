@@ -2625,6 +2625,8 @@ export const data = {
       '“{name}” v{version} is removed for everyone. A record citing it keeps its own frozen copy.',
     deleting: 'Deleting…',
     analysisStudio: 'Analysis Studio',
+    unsavedChanges: 'Unsaved changes',
+    defaultViewName: '{name} chart',
     couldLoadDatasets: 'Couldn’t load datasets',
     noDatasets: 'No datasets',
     dataSource: 'Data source',

@@ -31,6 +31,8 @@ import { downloadTextFile } from '#/lib/download'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
 import { toast } from '#/components/ui/sonner'
 import { Spinner } from '#/components/ui/spinner'
+import { usePaneContext } from '#/components/workspace/workspace-navigation'
+import { usePendingEdit } from '#/lib/pending-edits'
 import {
   Dialog,
   DialogBody,
@@ -228,22 +230,51 @@ export function AnalysisStudio() {
     DEFAULT_EXPORT_SETTINGS,
   )
   const [cleanChart, setCleanChart] = useState('')
+  // What the chart looked like when it was last saved or loaded, so Discard
+  // can put it back.
+  const cleanSnapshot = useRef<{
+    spec: ChartSpec | null
+    name: string
+    exportSettings: ExportSettings
+  } | null>(null)
+  function markClean(
+    nextSpec: ChartSpec | null,
+    name: string,
+    nextExport: ExportSettings,
+  ) {
+    cleanSnapshot.current = {
+      spec: nextSpec,
+      name,
+      exportSettings: nextExport,
+    }
+    chartDirtyRef.current = false
+    setCleanChart(stableStringify([nextSpec, name, nextExport]))
+  }
   const chartDraft = stableStringify([spec, viewName, exportSettings])
   const chartDirty = cleanChart !== '' && cleanChart !== chartDraft
+  const chartDirtyRef = useRef(chartDirty)
+  chartDirtyRef.current = chartDirty
   useBlocker({
-    shouldBlockFn: () => chartDirty,
+    shouldBlockFn: () => chartDirtyRef.current,
     enableBeforeUnload: false,
   })
-  useEffect(() => {
-    if (!chartDirty) return
-    // Memory-history blockers cannot protect a browser reload or tab close.
-    const guard = (event: BeforeUnloadEvent) => {
-      event.preventDefault()
-      event.returnValue = ''
-    }
-    window.addEventListener('beforeunload', guard)
-    return () => window.removeEventListener('beforeunload', guard)
-  }, [chartDirty])
+  function discardChart() {
+    const snapshot = cleanSnapshot.current
+    if (!snapshot) return
+    chartDirtyRef.current = false
+    setSpec(snapshot.spec)
+    setViewName(snapshot.name)
+    setExportSettings(snapshot.exportSettings)
+  }
+  const paneId = usePaneContext().paneId
+  const saveRef = useRef<() => Promise<boolean>>(async () => false)
+  usePendingEdit({
+    dirty: chartDirty,
+    label: t('data.analysisStudio.analysisStudio'),
+    paneId,
+    save: () => saveRef.current(),
+    discard: discardChart,
+  })
   // A saved view whose dataset differs from the current selection is applied
   // by the dataset-change effect below; until then it waits here, so loading
   // it does not have its spec overwritten by the default rebuild.
@@ -300,12 +331,10 @@ export function AnalysisStudio() {
       setViewName(pending.name)
       setSpec(pending.charts[0])
       if (pending.export_settings) setExportSettings(pending.export_settings)
-      setCleanChart(
-        stableStringify([
-          pending.charts[0],
-          pending.name,
-          pending.export_settings ?? exportSettings,
-        ]),
+      markClean(
+        pending.charts[0],
+        pending.name,
+        pending.export_settings ?? exportSettings,
       )
       return
     }
@@ -322,7 +351,7 @@ export function AnalysisStudio() {
     setSpec(next)
     setSelectedViewId(null)
     setViewName('')
-    setCleanChart(stableStringify([next, '', exportSettings]))
+    markClean(next, '', exportSettings)
     // Keyed on the dataset's id, not the object: a background refetch of the
     // list hands back new objects for the same dataset, and rebuilding then
     // would drop the saved view the user just opened.
@@ -394,14 +423,15 @@ export function AnalysisStudio() {
   const router = useRouter()
 
   const saveMutation = useMutation({
-    mutationFn: async (options?: { asNew?: boolean }) => {
-      if (!spec || !viewName.trim()) return
+    mutationFn: async (options?: { asNew?: boolean; name?: string }) => {
+      const name = (options?.name ?? viewName).trim()
+      if (!spec || !name) return
       const sourceRevisions = captureSourceRevisions(sources, spec)
       return saveAnalysisView(
         analysisStudioDataClient,
         {
           id: options?.asNew ? undefined : (selectedViewId ?? undefined),
-          name: viewName.trim(),
+          name,
           charts: chartsToSave(
             views,
             options?.asNew ? null : selectedViewId,
@@ -414,16 +444,17 @@ export function AnalysisStudio() {
         userId,
       )
     },
-    onSuccess: (view, options) => {
-      if (view && options?.asNew) setSelectedViewId(view.id)
+    onSuccess: (view) => {
+      if (view) {
+        setSelectedViewId(view.id)
+        setViewName(view.name)
+      }
       // A saved view has an address: reloading or sharing the page finds it.
       if (view) {
-        setCleanChart(
-          stableStringify([
-            view.charts[0],
-            view.name,
-            view.export_settings ?? exportSettings,
-          ]),
+        markClean(
+          view.charts[0],
+          view.name,
+          view.export_settings ?? exportSettings,
         )
         void navigate({
           search: (current) => ({ ...current, view: view.id }),
@@ -465,6 +496,35 @@ export function AnalysisStudio() {
     },
   })
 
+  // Save from the header or the leave prompt. A chart with no name yet gets
+  // one from its dataset, so saving is never blocked on typing.
+  async function saveChart(): Promise<boolean> {
+    if (!spec) return false
+    // Names take letters, digits, spaces and _ . - only, so a dataset name
+    // like "ELISA standard curve, plate PR-01" is cleaned to fit.
+    const generated = t('data.analysisStudio.defaultViewName', {
+      name: selectedDataset?.name ?? t('data.analysisStudio.analysisStudio'),
+    })
+      .replace(/[^\p{L}\p{N} _.-]+/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 100)
+      .replace(/[ _.-]+$/, '')
+    // Names are unique per person, so a second unnamed chart becomes "… 2".
+    const taken = new Set(views.map((view) => view.name))
+    let generatedName = generated
+    for (let n = 2; taken.has(generatedName); n += 1) {
+      generatedName = `${generated} ${n}`
+    }
+    const name = viewName.trim() || generatedName
+    try {
+      return Boolean(await saveMutation.mutateAsync({ name }))
+    } catch {
+      return false
+    }
+  }
+  saveRef.current = saveChart
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) =>
       deleteAnalysisView(analysisStudioDataClient, id),
@@ -503,13 +563,7 @@ export function AnalysisStudio() {
     setViewName(view.name)
     setSpec(view.charts[0])
     if (view.export_settings) setExportSettings(view.export_settings)
-    setCleanChart(
-      stableStringify([
-        view.charts[0],
-        view.name,
-        view.export_settings ?? exportSettings,
-      ]),
-    )
+    markClean(view.charts[0], view.name, view.export_settings ?? exportSettings)
   }
 
   // `?view=<id>` (the read-only analysis route's "Edit in studio" link): load
@@ -536,13 +590,7 @@ export function AnalysisStudio() {
     setViewName(view.name)
     setSpec(view.charts[0])
     if (view.export_settings) setExportSettings(view.export_settings)
-    setCleanChart(
-      stableStringify([
-        view.charts[0],
-        view.name,
-        view.export_settings ?? exportSettings,
-      ]),
-    )
+    markClean(view.charts[0], view.name, view.export_settings ?? exportSettings)
   }, [views, datasets, selectedDatasetId, summariesQuery.isLoading])
 
   // R5-STUDIO-03: staleness and citations are answered by the canonical
@@ -679,6 +727,40 @@ export function AnalysisStudio() {
             >
               {t('data.analysisStudio.chartSettings')}
             </Button>
+          ) : null}
+          {chartDirty ? (
+            <div
+              className="ml-auto flex items-center gap-1.5"
+              role="group"
+              aria-label={t('data.analysisStudio.unsavedChanges')}
+            >
+              <span className="text-xs text-fg-muted">
+                {t('data.analysisStudio.unsavedChanges')}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="quiet"
+                disabled={saveMutation.isPending}
+                onClick={discardChart}
+              >
+                {t('common.actions.discard')}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                disabled={saveMutation.isPending}
+                onClick={() => void saveChart()}
+              >
+                {saveMutation.isPending ? (
+                  <Spinner size={16} />
+                ) : (
+                  <Icon name="save" />
+                )}
+                {t('common.actions.save')}
+              </Button>
+            </div>
           ) : null}
           {mode === 'chart' && selectedSource && spec ? (
             <Button

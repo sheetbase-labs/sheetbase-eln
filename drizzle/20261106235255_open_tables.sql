@@ -712,7 +712,7 @@ CREATE FUNCTION api.list_lake_credentials(p_workspace_id uuid)
            WHEN NOT EXISTS (
              SELECT 1 FROM api.workspace_memberships m
               WHERE m.workspace_id = l.workspace_id AND m.user_id = l.user_id AND m.suspended_at IS NULL
-                AND m.role = ANY (internal.data_access_roles(l.workspace_id))) THEN 'suspended'
+                AND (m.role IN ('owner', 'admin') OR m.role = ANY (internal.data_access_roles(l.workspace_id)))) THEN 'suspended'
            ELSE 'active'
          END
     FROM internal.lake_credentials l
@@ -748,7 +748,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM api.workspace_memberships m
      WHERE m.workspace_id = l.workspace_id AND m.user_id = l.user_id AND m.suspended_at IS NULL
-       AND m.role = ANY (internal.data_access_roles(l.workspace_id))) THEN
+       AND (m.role IN ('owner', 'admin') OR m.role = ANY (internal.data_access_roles(l.workspace_id)))) THEN
     RETURN NULL;
   END IF;
   UPDATE internal.lake_credentials SET last_used_at = now()

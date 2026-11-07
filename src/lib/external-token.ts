@@ -282,6 +282,11 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
   validate_sheet_record_batch: ['sheets:write'],
 
   search: ['projects:read'],
+  // Search by meaning: the ranking calls and the workspace's status. Setting
+  // them up and re-reading are owner jobs done in Settings by a person.
+  semantic_search: ['projects:read'],
+  similar_work: ['projects:read'],
+  semantic_search_settings: ['projects:read'],
   run_saved_search: ['projects:read'],
   // Saving, renaming and deleting a search act as a person, so they need a
   // personal token; a service credential has no person to save it for.

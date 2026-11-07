@@ -18,6 +18,13 @@ import type { DataClient } from '../data-client'
 import { DataClientError } from '../data-client'
 import { logger, redact } from '../logger'
 import {
+  LITERATURE_SEARCH_TOOL,
+  SEMANTIC_SEARCH_TOOL,
+  runLiteratureSearch,
+  runSemanticSearch,
+  semanticMcpTools,
+} from './semantic'
+import {
   LAB_ACT_TOOL_NAME,
   hasLabActScope,
   labActTool,
@@ -272,11 +279,16 @@ function listTools(context: McpContext): McpTool[] {
     context.flags.mcp_lab
       ? [labActTool()]
       : []
+  const meaning =
+    context.flags.mcp_read && context.scopes.includes('projects:read')
+      ? semanticMcpTools()
+      : []
   return [
     ...(hasAnyReadScope(context.scopes) && context.flags.mcp_read
       ? [contextTool()]
       : []),
     ...canonical,
+    ...meaning,
     ...lab,
     ...admin,
     ...catalogue,
@@ -633,6 +645,24 @@ async function callTool(
       return toolError('This credential has no read scope.')
     }
     return callContextTool(args, context)
+  }
+
+  if (name === SEMANTIC_SEARCH_TOOL || name === LITERATURE_SEARCH_TOOL) {
+    if (!context.flags.mcp_read) {
+      return toolError('MCP read access is disabled by a workspace flag.')
+    }
+    if (!context.scopes.includes('projects:read')) {
+      return toolError(
+        'This credential lacks the required scope: projects:read.',
+      )
+    }
+    const outcome =
+      name === SEMANTIC_SEARCH_TOOL
+        ? await runSemanticSearch(args, context)
+        : await runLiteratureSearch(args, context)
+    return outcome.isError
+      ? toolError(outcome.text)
+      : { content: [{ type: 'text', text: outcome.text }] }
   }
 
   if (name === CANONICAL_READ_TOOL_NAME) {

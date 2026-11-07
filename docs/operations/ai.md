@@ -303,3 +303,17 @@ assistant cannot drift.
   but not blocked.
 - The built-in deterministic model is a fixture. It demonstrates the pipeline,
   not answer quality.
+
+## Search by meaning and literature
+
+Off by default. A workspace owner turns it on in Settings, AI and chooses an
+embeddings model from the deployment's profiles (`embeddingModel` on a profile
+in `AI_PROVIDER_PROFILES`). A model on your own server needs no consent; a
+cloud model also needs the workspace's cloud consent, because text leaves the
+server. Vectors are 1024 numbers kept in `api.search_embeddings` (pgvector)
+and are visible only where the underlying document is visible. Changing the
+model clears the vectors and they are rebuilt in the background (about a
+minute between sweeps). The database image must include pgvector: use
+`docker/db`. Literature search sends only a short phrase to Europe PMC,
+PubMed or OpenAlex and is a separate owner switch; `OPENALEX_API_KEY` and
+`OPENALEX_MAILTO` are optional.

@@ -289,6 +289,17 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
     [arg('p_part_id', 'uuid'), arg('p_done', 'boolean')],
   ),
   definition(
+    'set_part_gate',
+    t('data.pipelineActions.setPartGate'),
+    t('data.pipelineActions.setPartGateDescription'),
+    [
+      arg('p_part_id', 'uuid'),
+      arg('p_conditions', 'jsonb', false, true),
+      arg('p_gate_mode', 'text', false, true),
+      arg('p_steps_in_order', 'boolean', false, true),
+    ],
+  ),
+  definition(
     'add_step_result',
     t('data.pipelineActions.addStepResult'),
     t('data.pipelineActions.addStepResultDescription'),

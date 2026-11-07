@@ -19,6 +19,7 @@ export const INBOX_READ_TOOL = 'sheetbase.inbox.read'
 export const STEPS_READ_TOOL = 'sheetbase.steps.read'
 export const SERIES_READ_TOOL = 'sheetbase.series.read'
 export const PARTS_READ_TOOL = 'sheetbase.parts.read'
+export const GATES_READ_TOOL = 'sheetbase.gates.read'
 
 export const EXPERIMENT_START_TOOL = 'sheetbase.experiment.start'
 export const RECORD_ASSIGN_TOOL = 'sheetbase.record.assign'
@@ -34,6 +35,7 @@ export const SERIES_REMOVE_TOOL = 'sheetbase.series.remove_member'
 export const PART_ADD_TOOL = 'sheetbase.part.add'
 export const PART_UPDATE_TOOL = 'sheetbase.part.update'
 export const PART_DONE_TOOL = 'sheetbase.part.complete'
+export const GATE_GO_ON_TOOL = 'sheetbase.gate.go_on'
 
 export const PLANNING_PROPOSE_TOOL_NAMES = [
   EXPERIMENT_START_TOOL,
@@ -50,6 +52,7 @@ export const PLANNING_PROPOSE_TOOL_NAMES = [
   PART_ADD_TOOL,
   PART_UPDATE_TOOL,
   PART_DONE_TOOL,
+  GATE_GO_ON_TOOL,
 ] as const
 
 export type PlanningProposeToolName =
@@ -111,6 +114,20 @@ export const partsReadSchema = z
   })
   .strict()
 
+export const gatesReadSchema = z
+  .object({
+    record: named('The experiment by identifier (EXP-12) or title.'),
+    part: z
+      .string()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe(
+        'Only the gates that hold this part, by its number ("4") or words from its title. Leave out for every gate of the experiment.',
+      ),
+  })
+  .strict()
+
 const partWords = z
   .string()
   .min(1)
@@ -167,6 +184,37 @@ export const proposePartDoneSchema = z
       .optional()
       .describe(
         'false to reopen. Default true. Only for a part with no steps: a part with steps is done when its steps are.',
+      ),
+  })
+  .strict()
+
+export const proposeGateGoOnSchema = z
+  .object({
+    title,
+    summary,
+    record: named('The experiment by identifier (EXP-12) or title.'),
+    part: z
+      .string()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe(
+        'The part that is not open yet, by its number ("4") or words from its title.',
+      ),
+    gate: z
+      .string()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe(
+        'Words from the name of a gate on the page, when it is a gate on the page and not a part.',
+      ),
+    reason: z
+      .string()
+      .min(1)
+      .max(2000)
+      .describe(
+        'Why the person is going on before it is open, in their words. Ask them if they have not said. It is kept with the experiment and shown to the reviewer.',
       ),
   })
   .strict()
@@ -426,6 +474,12 @@ export type PlanningAction =
     }
   | { kind: 'part.done'; partId: string; done: boolean }
   | {
+      kind: 'gate.go_on'
+      blockId: string | null
+      partId: string | null
+      reason: string
+    }
+  | {
       kind: 'step.result'
       blockId: string
       label: string
@@ -482,6 +536,7 @@ export function isPlanningAction(action: {
     'part.add',
     'part.update',
     'part.done',
+    'gate.go_on',
     'shipment.create',
     'shipment.receive',
   ].includes(action.kind)

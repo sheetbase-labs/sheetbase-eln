@@ -169,6 +169,8 @@ export const EVENT_NAMES = [
   'experiment.part_opened',
   'experiment.part_completed',
   'experiment.part_reopened',
+  'experiment.gate_opened',
+  'experiment.gate_overridden',
   'instrument.run.converted',
   'qc.violation',
   'qc.back_in_control',

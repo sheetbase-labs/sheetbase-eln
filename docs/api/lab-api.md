@@ -112,6 +112,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `part_resource_needs`          | An instrument a part needs and for how many minutes. `resource_id` is the instrument id.                                                                                                                                                                                                                           |
 | `schedule_proposals`           | A proposed schedule for an experiment’s parts. `status` is requested, planning, proposed, accepted, dismissed, superseded or failed. `items` lists each slot with its instrument, person, times and what stands in its way. Nothing is booked until `accept_schedule_proposal`.                                    |
 | `code_cell_runs`               | Every run of a notebook code cell, kept with its code, the digests of the dataset versions it read, the first rows of the output and its digest, and the runtime it ran in (an image digest for Python). A run that reproduces another has `reproduces_run_id` and says whether the output `matches`.              |
+| `gate_overrides`               | Someone went on past a gate that warns, with a reason: who, when, what the gate was and what was still missing. The reviewer sees these.                                                                                                                                                                           |
 
 ## Actions
 
@@ -582,6 +583,43 @@ Scope: `lab:write`.
 | ------------- | ---- | -------------------------------------- |
 | `p_part_id` * | uuid | The part of the experiment.            |
 | `p_done` *    | bool | true to finish it, false to reopen it. |
+
+### `record_gates`
+
+List the gates of an experiment and what each still waits on. Every gate in page order: the "opens when" rule of each part, then the gate blocks. `met` is true when every condition holds. `blocking` is true when the gate holds work back now: it is unmet, set to `block`, and not only waiting on a date. `missing` says what is still to do, in words, and `conditions` has the answer for each condition. `overridden` is true when someone went on past a gate that warns.
+
+Scope: `lab:read`.
+
+| Argument        | Type |            |
+| --------------- | ---- | ---------- |
+| `p_record_id` * | uuid | Record id. |
+
+### `set_part_gate`
+
+Set the rule that opens a part of an experiment. Sets, changes or clears the conditions that open a part, whether the gate warns or blocks, and whether the steps of the part are done in order. A gate that came from a template cannot be changed. Returns the part. A gate that blocks is enforced by the database: writes in the part, and finishing it, are refused with error code `SB150` until the conditions hold.
+
+`p_conditions` is a list of conditions, all of which must hold. Each has a `kind`: `table_filled` (`blockId`, optionally `column` and `minRows`), `step_done` (`blockId`), `part_done` (`partId`), `samples_linked` (optionally `min`), `field_set` (`field`) or `date_reached` (`date`, which only warns and never blocks). Leave it out to take the rule off the part.
+
+Scope: `lab:write`.
+
+| Argument           | Type | Notes                                             |
+| ------------------ | ---- | ------------------------------------------------- |
+| `p_part_id` *      | uuid | The part of the experiment.                       |
+| `p_conditions`     | json | The conditions that open the part.                |
+| `p_gate_mode`      | text | `warn` (the default) or `block`.                  |
+| `p_steps_in_order` | bool | true to make the steps of the part wait in order. |
+
+### `override_gate`
+
+Go on past a gate that warns, with a reason. Name the gate block or the part. The reason (1 to 2000 characters) is kept with the experiment and shown to the reviewer. A gate that blocks cannot be gone past (`SB155`), and one that is already open needs no going past (`SB156`). Returns the override. Sends `experiment.gate_overridden` (see the [event catalogue](event-catalogue.md)).
+
+Scope: `lab:write`.
+
+| Argument          | Type | Notes                             |
+| ----------------- | ---- | --------------------------------- |
+| `p_gate_block_id` | uuid | The gate block. Or the part:      |
+| `p_gate_part_id`  | uuid | The part whose rule is not met.   |
+| `p_reason` *      | text | Why work goes on before it opens. |
 
 ### `set_block_part`
 

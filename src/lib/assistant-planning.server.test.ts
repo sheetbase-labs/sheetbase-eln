@@ -6,6 +6,7 @@ import {
   readInbox,
   readSeries,
   readParts,
+  readGates,
   readSteps,
 } from './assistant-planning.server'
 import type { LabToolContext } from './assistant-lab-tools.server'
@@ -49,6 +50,7 @@ function fakeClient(
     membership?: Record<string, Record<string, unknown>>
     seriesMembers?: Array<Record<string, unknown>>
     parts?: Array<Record<string, unknown>>
+    gates?: Array<Record<string, unknown>>
   } = {},
 ) {
   const client = {
@@ -92,6 +94,7 @@ function fakeClient(
     },
     rpc: (name: string, args?: Record<string, unknown>) => {
       if (name === 'record_steps') return Promise.resolve(data.steps ?? [])
+      if (name === 'record_gates') return Promise.resolve(data.gates ?? [])
       if (name === 'record_series') {
         const row = data.membership?.[String(args?.p_record_id)]
         return Promise.resolve(row ? [row] : [])
@@ -601,6 +604,90 @@ describe('parts', () => {
       context(fakeClient({ parts })),
     )
     expect(refused.ok).toBe(false)
+  })
+})
+
+const gate = (number: number, extra: Record<string, unknown> = {}) => ({
+  gate_id: `part:part-${number}`,
+  gate_kind: 'part',
+  block_id: null,
+  part_id: `part-${number}`,
+  part_number: number,
+  label: `Part ${number}`,
+  mode: 'warn',
+  met: false,
+  blocking: false,
+  overridden: false,
+  overridden_at: null,
+  overridden_by_user_id: null,
+  override_reason: null,
+  missing: ['At least 20 samples must be linked (12 so far)'],
+  ...extra,
+})
+
+describe('gates', () => {
+  it('reads what is holding a part back and who went on anyway', async () => {
+    const read = await readGates(
+      { record: 'EXP-12' },
+      context(
+        fakeClient({
+          gates: [
+            gate(3),
+            gate(4, {
+              overridden: true,
+              overridden_by_user_id: 'user-priya',
+              override_reason: 'Plates read on the other reader',
+            }),
+          ],
+        }),
+      ),
+    )
+    const body = JSON.parse(read.text)
+    expect(read.isError).toBe(false)
+    expect(body.closed).toBe(1)
+    expect(body.gates[0]).toMatchObject({ open: false, mode: 'warns only' })
+    expect(body.gates[1]).toMatchObject({
+      open: true,
+      wentOnBy: 'Priya Shah',
+      reason: 'Plates read on the other reader',
+    })
+  })
+
+  it('goes on past a gate that warns, with the reason', async () => {
+    const built = await buildPlanningProposal(
+      'sheetbase.gate.go_on',
+      {
+        title: 'Go on',
+        summary: 's',
+        record: 'EXP-12',
+        part: '3',
+        reason: 'Samples arrive tomorrow',
+      },
+      context(fakeClient({ gates: [gate(3)] })),
+    )
+    expect(built.ok && built.proposal.action).toEqual({
+      kind: 'gate.go_on',
+      blockId: null,
+      partId: 'part-3',
+      reason: 'Samples arrive tomorrow',
+    })
+  })
+
+  it('will not go on past a gate that blocks, or one that is open', async () => {
+    const blocked = await buildPlanningProposal(
+      'sheetbase.gate.go_on',
+      { title: 'Go on', summary: 's', record: 'EXP-12', reason: 'Late' },
+      context(
+        fakeClient({ gates: [gate(3, { mode: 'block', blocking: true })] }),
+      ),
+    )
+    expect(blocked.ok).toBe(false)
+    const open = await buildPlanningProposal(
+      'sheetbase.gate.go_on',
+      { title: 'Go on', summary: 's', record: 'EXP-12', reason: 'Late' },
+      context(fakeClient({ gates: [gate(3, { met: true, missing: [] })] })),
+    )
+    expect(open.ok).toBe(false)
   })
 })
 

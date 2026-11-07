@@ -532,6 +532,12 @@ const LAB_EVENTS: ReadonlyArray<{
     payload: {},
   },
   {
+    name: 'experiment.gate_opened',
+    entityType: 'gate_opening',
+    operation: 'create',
+    payload: {},
+  },
+  {
     name: 'qc.violation',
     entityType: 'qc_violation',
     operation: 'create',
@@ -608,6 +614,11 @@ const LAB_EVENTS: ReadonlyArray<{
     entityType: 'code_cell_run',
     operation: 'update',
     payload: { change: 'reproduced' },
+  },
+    name: 'experiment.gate_overridden',
+    entityType: 'gate_override',
+    operation: 'create',
+    payload: {},
   },
 ]
 

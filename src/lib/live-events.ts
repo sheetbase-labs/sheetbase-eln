@@ -48,6 +48,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { dropSharedReads } from './data-client'
 import { notebookQueryKeys } from './notebook-data'
 import { partQueryKeys } from './experiment-parts'
+import { gateQueryKeys } from './experiment-gates'
 
 // Home read models depend on durable domain mutations, not the SSE cursor.
 // In particular, reading audit history and presence must not refetch Home.
@@ -425,10 +426,15 @@ export function createLiveEventCoordinator(
       // blocks may have moved with them.
       case 'experiment_part':
       case 'part_completion':
-      case 'part_opened': {
+      case 'part_opened':
+      case 'gate_opening':
+      case 'gate_override': {
         if (event.recordId) {
           void qc.invalidateQueries({
             queryKey: partQueryKeys.forRecord(event.recordId),
+          })
+          void qc.invalidateQueries({
+            queryKey: gateQueryKeys.forRecord(event.recordId),
           })
           void qc.invalidateQueries({
             queryKey: keys.blocks(event.recordId),

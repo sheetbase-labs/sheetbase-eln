@@ -121,7 +121,7 @@ describe('RecordModelRecord — phone actions (MOB-02.4)', () => {
     // The record's essentials read in the single column either way.
     expect(screen.getAllByText('HEK293 WCB lot 3').length).toBeGreaterThan(0)
     expect(screen.getAllByText('CB-0012').length).toBeGreaterThan(0)
-    expect(screen.getByText(/Cell bank · model v1/)).toBeTruthy()
+    expect(screen.getAllByText('Cell bank').length).toBeGreaterThan(0)
     expect(screen.queryByText(/model v4/)).toBeNull()
 
     for (const name of ['New Cell bank', 'All records']) {

@@ -172,14 +172,7 @@ export function RecordModelRecord({
                   <Status tone={status.tone}>{status.label}</Status>
                 </span>
               ) : null}
-              <span>
-                {model.data?.name ?? modelKey}
-                {record.model_version
-                  ? t('library.models.recordModelRecord.modelV', {
-                      version: record.model_version.version,
-                    })
-                  : t('library.models.recordModelRecord.versionNotRecorded')}
-              </span>
+              <span>{model.data?.name ?? modelKey}</span>
             </>
           ) : (
             <span>{t('library.models.recordModelRecord.loadingRecord')}</span>
@@ -282,7 +275,7 @@ export function RecordModelRecord({
               {t('library.models.recordModelRecord.theRecordsModelVersionIs')}
             </p>
           ) : record && !fieldsQuery.isLoading ? (
-            <div className="grid gap-x-10 gap-y-5 md:grid-cols-2">
+            <div className="grid items-start gap-x-10 gap-y-5 md:grid-cols-2">
               <DescriptionList
                 items={[
                   ['ID', <span className="mono">{record.identifier}</span>],

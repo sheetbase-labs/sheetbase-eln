@@ -218,6 +218,15 @@ const publisherMiddleware = createMiddleware().server(async ({ next }) => {
   return next()
 })
 
+// Optimisation campaigns: picks up rounds asked for and proposes the next batch of
+// conditions from the results so far. Guarded like the other schedulers.
+const campaignRoundsMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startCampaignRoundScheduler } =
+    await import('#/lib/campaigns/round-requests.server')
+  startCampaignRoundScheduler()
+  return next()
+})
+
 // Workspace backups: the same archive as the whole-workspace export, made on
 // each workspace's schedule and kept to the newest few. Guarded like the other
 // schedulers and never started under test runners unless explicitly enabled.
@@ -319,6 +328,7 @@ export const startInstance = createStart(() => ({
     scheduleMiddleware,
     lakeMiddleware,
     publisherMiddleware,
+    campaignRoundsMiddleware,
     backupSchedulerMiddleware,
     webhookDeliveryMiddleware,
     csrfMiddleware,

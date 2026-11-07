@@ -175,6 +175,13 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.robot.send_worklist',
   'sheetbase.schedule.plan',
   'sheetbase.schedule.accept',
+  // The planner and optimisation campaigns (assistant-planner.ts): a plan is made
+  // and applied from one card; a person approves each campaign round.
+  'sheetbase.planner.plan_experiment',
+  'sheetbase.campaign.start',
+  'sheetbase.campaign.request_round',
+  'sheetbase.campaign.approve_round',
+  'sheetbase.campaign.enter_results',
   // The person's own out of office, set or cancelled from a card.
   'sheetbase.absence.set',
   'sheetbase.absence.cancel',

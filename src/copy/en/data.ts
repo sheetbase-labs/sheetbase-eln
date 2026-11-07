@@ -2995,6 +2995,9 @@ export const data = {
     sendWorklistToInstrument: 'Send worklist to instrument',
     sendWorklistToInstrumentDescription:
       'Queue a planned worklist for a robot. The agent puts it on the robot and a person presses Start in Sheetbase.',
+    proposeNextRound: 'Propose next round',
+    proposeNextRoundDescription:
+      'Ask a running optimisation campaign for its next round of conditions. The optimiser proposes; a person still approves the round before anything is made.',
     requestSchedule: 'Request a schedule',
     requestScheduleDescription:
       'Ask the scheduler to propose bookings for the parts of an experiment. Nothing is booked until a person accepts the proposal.',

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
@@ -26,6 +27,7 @@ import {
 import { RecordModelEditDialog } from './record-model-edit-dialog'
 import { rich, t } from '#/copy'
 import { hasCapability } from '#/lib/capability'
+import { campaignKeys, fetchCampaignModels } from '#/lib/campaigns/data'
 import {
   RegistryLineage,
   RegistryRetireButton,
@@ -151,6 +153,14 @@ export function RecordModelRecord({
   const structureField = isRegistry
     ? (model.data?.registry_structure_field ?? null)
     : null
+  const campaignModels = useQuery({
+    queryKey: campaignKeys.models,
+    queryFn: () => fetchCampaignModels(notebookDataClient),
+    staleTime: 30_000,
+  })
+  const isCampaign = Boolean(
+    campaignModels.data?.some((m) => m.key === modelKey),
+  )
   const canWrite = hasCapability(role, 'record.create')
 
   return (
@@ -190,6 +200,20 @@ export function RecordModelRecord({
                 retired={Boolean(record.archived_at)}
                 metadataVersion={record.metadata_version ?? 1}
               />
+            ) : null}
+            {isCampaign && record ? (
+              <Button
+                variant="primary"
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/campaigns/$campaignId"
+                    params={{ campaignId: record.id }}
+                  />
+                }
+              >
+                {t('planner.campaigns.openCampaign')}
+              </Button>
             ) : null}
             {record?.model_version_id &&
             !fieldsQuery.isError &&

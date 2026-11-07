@@ -10,6 +10,8 @@ import { isPlatesAction } from './assistant-plates'
 import type { PlatesAction } from './assistant-plates'
 import { isAutomationAction } from './assistant-automation'
 import type { AutomationAction } from './assistant-automation'
+import { isPlannerAction } from './assistant-planner'
+import type { PlannerAction } from './assistant-planner'
 import { isQcAction } from './assistant-qc'
 import type { QcAction } from './assistant-qc'
 import { isUpkeepAction } from './assistant-upkeep'
@@ -142,6 +144,7 @@ export type AssistantAction =
   | PlatesAction
   | QcAction
   | AutomationAction
+  | PlannerAction
   | LabworkAction
 
 export type AssistantActionKind = AssistantAction['kind']
@@ -193,6 +196,10 @@ export async function runAssistantAction(
         const { runAutomationAction } =
           await import('./assistant-automation-run')
         return runAutomationAction(client, action)
+      }
+      if (isPlannerAction(action)) {
+        const { runPlannerAction } = await import('./assistant-planner-run')
+        return runPlannerAction(client, action)
       }
       if (isQcAction(action)) {
         const { runQcAction } = await import('./assistant-qc-run')

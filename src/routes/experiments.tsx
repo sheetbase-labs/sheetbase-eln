@@ -46,6 +46,7 @@ import {
   ReadOnlyNote,
 } from '#/components/inventory/list'
 import { Chip } from '#/components/ui/chip'
+import { PlanWithAi } from '#/components/planner/plan-with-ai'
 import { MobileList, stickyCol } from '#/components/projects/mobile-list'
 import {
   EXPERIMENT_LIST_PAGE_SIZE,
@@ -499,6 +500,7 @@ function Experiments() {
                   <RepeatExperimentDialog workspaceId={context.workspace?.id} />
                 }
               />
+              <PlanWithAi />
               <Button
                 variant="primary"
                 icon="plus"

@@ -17,6 +17,7 @@ import { molbio } from './molbio'
 import { notebook } from './notebook'
 import { openData } from './open-data'
 import { people } from './people'
+import { planner } from './planner'
 import { plates } from './plates'
 import { projects } from './projects'
 import { pwa } from './pwa'
@@ -35,6 +36,7 @@ export const en = {
   agents,
   agentRequests,
   automation,
+  planner,
   people,
   calculators,
   calendarFeed,

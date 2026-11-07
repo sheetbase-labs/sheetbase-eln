@@ -199,6 +199,9 @@ EVENT_NAMES: tuple[str, ...] = (
     "schedule.dismissed",
     "code_cell.run",
     "code_cell.reproduced",
+    "experiment.part_signed",
+    "experiment.part_countersigned",
+    "experiment.part_amended",
 )
 
 #: Shipped wire aliases (table-name leaks kept for compatibility) mapped to

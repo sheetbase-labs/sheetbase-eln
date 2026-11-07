@@ -41,6 +41,7 @@ export type WorkItemLink =
   | { to: '/materials'; search?: { tab: 'orders' } }
   | { to: '/requests'; search: { tab: 'mine' | 'triage' } }
   | { to: '/shipments' }
+  | { to: '/plates' }
   | { to: '/datasets' }
   | {
       to: '/datasets/$datasetId/rows'
@@ -101,6 +102,13 @@ export function itemLink(item: WorkItem): WorkItemLink {
       return { to: '/pipelines/agents', search: { view: 'actions' } }
     case 'watcher_finding':
       return { to: '/settings/account/watchers' }
+    case 'qc_violation':
+      return item.sourceType === 'instrument' && item.sourceId
+        ? {
+            to: '/instruments/$instrumentId',
+            params: { instrumentId: item.sourceId },
+          }
+        : { to: '/plates' }
     case 'project_following':
       return item.projectId
         ? {

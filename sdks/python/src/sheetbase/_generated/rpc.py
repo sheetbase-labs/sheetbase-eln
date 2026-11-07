@@ -196,6 +196,7 @@ class Rpc:
         "mutate_sheet_instance_local_state",
         "my_instrument_training_gaps",
         "parts_in_range",
+        "pin_protocol_reference",
         "pool_samples",
         "prepare_solution",
         "preview_contract_rules",
@@ -2553,6 +2554,30 @@ class Rpc:
         body["p_from"] = from_
         body["p_to"] = to
         return self._call("parts_in_range", body)  # type: ignore[no-any-return]
+
+    def pin_protocol_reference(
+        self,
+        *,
+        block_id: str,
+        protocol_record_id: str,
+        expected_block_version: int,
+        expected_structure_version: int,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Pin a protocol to an experiment and copy its steps and gates
+
+        Pins the exact protocol version into the experiment's empty protocol block and copies its procedure steps in, with the protocol's gate blocks in their place. Gates from the protocol cannot be changed or removed on the experiment. Returns the block, the pinned revision, `copied_steps` and `copied_gates`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/pin_protocol_reference``
+        """
+        body: Dict[str, Any] = {}
+        body["p_block_id"] = block_id
+        body["p_protocol_record_id"] = protocol_record_id
+        body["p_expected_block_version"] = expected_block_version
+        body["p_expected_structure_version"] = expected_structure_version
+        return self._call("pin_protocol_reference", body)  # type: ignore[no-any-return]
 
     def pool_samples(
         self,
@@ -5436,6 +5461,7 @@ class AsyncRpc:
         "mutate_sheet_instance_local_state",
         "my_instrument_training_gaps",
         "parts_in_range",
+        "pin_protocol_reference",
         "pool_samples",
         "prepare_solution",
         "preview_contract_rules",
@@ -7793,6 +7819,30 @@ class AsyncRpc:
         body["p_from"] = from_
         body["p_to"] = to
         return await self._call("parts_in_range", body)  # type: ignore[no-any-return]
+
+    async def pin_protocol_reference(
+        self,
+        *,
+        block_id: str,
+        protocol_record_id: str,
+        expected_block_version: int,
+        expected_structure_version: int,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Pin a protocol to an experiment and copy its steps and gates
+
+        Pins the exact protocol version into the experiment's empty protocol block and copies its procedure steps in, with the protocol's gate blocks in their place. Gates from the protocol cannot be changed or removed on the experiment. Returns the block, the pinned revision, `copied_steps` and `copied_gates`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/pin_protocol_reference``
+        """
+        body: Dict[str, Any] = {}
+        body["p_block_id"] = block_id
+        body["p_protocol_record_id"] = protocol_record_id
+        body["p_expected_block_version"] = expected_block_version
+        body["p_expected_structure_version"] = expected_structure_version
+        return await self._call("pin_protocol_reference", body)  # type: ignore[no-any-return]
 
     async def pool_samples(
         self,

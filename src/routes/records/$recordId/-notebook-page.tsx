@@ -69,6 +69,7 @@ import {
 } from '#/components/notebook/parts-menu'
 import { useRecordPartsProgress } from '#/components/notebook/use-record-parts'
 import type { PartProgress } from '#/lib/experiment-parts'
+import type { RecordGate } from '#/lib/experiment-gates'
 import {
   blocksOfPart,
   currentPart,
@@ -77,6 +78,12 @@ import {
   shownPart,
 } from '#/lib/experiment-parts'
 import { stepProgress } from '#/lib/step-status'
+import {
+  GatesProvider,
+  GateOverridesPanel,
+  LockedPartBanner,
+} from '#/components/notebook/gates'
+import { useNotebookGates } from '#/components/notebook/gates-host'
 import { StepNumbersProvider } from '#/lib/step-numbers'
 import { WithdrawReviewDialog } from '#/components/notebook/withdraw-review-dialog'
 import { ReturnedReviewBanner } from '#/components/notebook/returned-review-banner'
@@ -659,7 +666,29 @@ export function RecordNotebookPage({
       .filter((id): id is string => Boolean(id)),
   )
   const userLabelForParts = partNames.userLabel
+  const navigate = useNavigate()
+  const gatesHost = useNotebookGates({
+    recordId,
+    blocks,
+    parts: partsList,
+    canEdit: Boolean(
+      hasCapability(workspaceRole, 'record.create') &&
+      record &&
+      record.status !== 'in_review' &&
+      !record.lockedAt &&
+      !record.archivedAt,
+    ),
+    enabled: !historicalRevisionId,
+  })
   const shownPartNow = shownPart(partsList, requestedPart)
+  const lockedPartGate =
+    gatesHost.state?.gates.find(
+      (gate) =>
+        gate.kind === 'part' &&
+        gate.partId === (shownPartNow?.id ?? null) &&
+        !gate.met &&
+        !gate.overridden,
+    ) ?? null
   const nowPart = currentPart(partsList)
   const canvasBlocks = shownPartNow
     ? blocksOfPart(blocks, shownPartNow)
@@ -1061,6 +1090,16 @@ export function RecordNotebookPage({
                           parts={partsList}
                           shown={shownPartNow}
                           workspaceId={context.workspace?.id}
+                          onEditGate={() => {
+                            const gate = gatesHost.state?.gates.find(
+                              (g) =>
+                                g.kind === 'part' &&
+                                g.partId === shownPartNow.id,
+                            )
+                            gatesHost.state?.edit(
+                              gate ?? partGateStub(shownPartNow),
+                            )
+                          }}
                         />
                       ) : undefined
                     }
@@ -1101,6 +1140,9 @@ export function RecordNotebookPage({
                 currentUserId={context.user.id}
                 currentUserName={context.user.name}
               />
+            ) : null}
+            {!historicalRevisionId && review?.submission ? (
+              <GateOverridesPanel recordId={record.id} />
             ) : null}
             {!historicalRevisionId && !embedded ? (
               <RecordNotebookTabs
@@ -1146,44 +1188,68 @@ export function RecordNotebookPage({
               />
             ) : (
               <StepNumbersProvider value={stepNumbers}>
-                {shownPartNow &&
-                nowPart &&
-                shownPartNow.state === 'later' &&
-                embedded ? (
-                  <UpNextBanner
-                    expId={record.id}
-                    shown={shownPartNow}
-                    current={nowPart}
+                <GatesProvider value={gatesHost.state}>
+                  {lockedPartGate && gatesHost.state ? (
+                    <LockedPartBanner
+                      gate={lockedPartGate}
+                      className="mb-3"
+                      onGoOn={
+                        lockedPartGate.mode === 'warn' &&
+                        gatesHost.state.canEdit
+                          ? () => gatesHost.state?.goOn(lockedPartGate)
+                          : undefined
+                      }
+                      goToPart={firstMissingPart(
+                        lockedPartGate,
+                        partsList,
+                        (number) =>
+                          void navigate({
+                            to: '/experiments/$expId/notebook/$part',
+                            params: { expId: recordId, part: String(number) },
+                          }),
+                      )}
+                    />
+                  ) : null}
+                  {shownPartNow &&
+                  nowPart &&
+                  shownPartNow.state === 'later' &&
+                  embedded ? (
+                    <UpNextBanner
+                      expId={record.id}
+                      shown={shownPartNow}
+                      current={nowPart}
+                    />
+                  ) : null}
+                  <NotebookCanvas
+                    record={record}
+                    blocks={canvasBlocks}
+                    partId={shownPartNow?.id ?? null}
+                    isLoading={blocksQuery.isLoading || partsView.isLoading}
+                    error={blocksQuery.error}
+                    onRetry={() => blocksQuery.refetch()}
+                    client={notebookDataClient}
+                    queryClient={queryClient}
+                    collaborationWorkspaceId={context.workspace?.id}
+                    outline={outlineControls}
+                    collaborationRole={context.workspace?.role}
+                    // EXP-04.5: a workspace viewer reads the notebook view-only
+                    // instead of being handed the editable path for the server to
+                    // refuse. GOV-01: viewer has no record.create.
+                    viewOnly={!canWrite || record.status === 'approved'}
+                    onUnsavedWorkChange={setHasUnsavedWork}
+                    onCellSelectionChange={onCellSelectionChange}
                   />
-                ) : null}
-                <NotebookCanvas
-                  record={record}
-                  blocks={canvasBlocks}
-                  partId={shownPartNow?.id ?? null}
-                  isLoading={blocksQuery.isLoading || partsView.isLoading}
-                  error={blocksQuery.error}
-                  onRetry={() => blocksQuery.refetch()}
-                  client={notebookDataClient}
-                  queryClient={queryClient}
-                  collaborationWorkspaceId={context.workspace?.id}
-                  outline={outlineControls}
-                  collaborationRole={context.workspace?.role}
-                  // EXP-04.5: a workspace viewer reads the notebook view-only
-                  // instead of being handed the editable path for the server to
-                  // refuse. GOV-01: viewer has no record.create.
-                  viewOnly={!canWrite || record.status === 'approved'}
-                  onUnsavedWorkChange={setHasUnsavedWork}
-                  onCellSelectionChange={onCellSelectionChange}
-                />
-                {embedded && shownPartNow ? (
-                  <PartFooter
-                    expId={record.id}
-                    parts={partsList}
-                    shown={shownPartNow}
-                    startedAt={record.createdAt}
-                    nameOf={userLabelForParts}
-                  />
-                ) : null}
+                  {embedded && shownPartNow ? (
+                    <PartFooter
+                      expId={record.id}
+                      parts={partsList}
+                      shown={shownPartNow}
+                      startedAt={record.createdAt}
+                      nameOf={userLabelForParts}
+                    />
+                  ) : null}
+                  {gatesHost.dialogs}
+                </GatesProvider>
               </StepNumbersProvider>
             )}
           </div>
@@ -4079,4 +4145,46 @@ export function NotebookInspector({
       tabs={tabs}
     />
   )
+}
+
+/** A part with no rule yet, so the gate dialog can open on it. */
+function partGateStub(part: PartProgress): RecordGate {
+  return {
+    gateId: `part:${part.id}`,
+    kind: 'part',
+    blockId: null,
+    partId: part.id,
+    partNumber: part.number,
+    label: part.title,
+    mode: part.gateMode ?? 'warn',
+    met: true,
+    blocking: false,
+    overridden: false,
+    overriddenAt: null,
+    overriddenByUserId: null,
+    overrideReason: null,
+    missing: [],
+    conditions: [],
+    fromTemplate: part.gateFromTemplate ?? false,
+  }
+}
+
+/** The part that holds the work a closed part waits on, with a way to go there. */
+function firstMissingPart(
+  gate: RecordGate,
+  parts: readonly PartProgress[],
+  go: (number: number) => void,
+) {
+  const missing = gate.conditions.find(
+    (condition) => !condition.met && condition.kind === 'part_done',
+  )
+  const target = missing?.partId
+    ? parts.find(
+        (part) =>
+          part.id === missing.partId || part.sourcePartId === missing.partId,
+      )
+    : null
+  return target
+    ? { number: target.number, onClick: () => go(target.number) }
+    : null
 }

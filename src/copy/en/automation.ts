@@ -210,7 +210,7 @@ export const automation = {
     hours: {
       title: 'Working hours',
       hint: 'The lab’s working day. The scheduler only places hands-on work inside it, and counts weekends as time off when these days are not ticked.',
-      timezone: 'Time zone',
+      timezone: 'Working hours time zone',
       start: 'Starts',
       end: 'Ends',
       days: 'Working days',

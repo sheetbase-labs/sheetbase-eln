@@ -1,7 +1,7 @@
 /**
  * Run quality control: a value tracked across runs, with its limits and the
  * Westgard rules that judge each new point (migration
- * 20261106235308_instrument_data_and_run_qc).
+ * 20261107011617_instrument_data_and_run_qc).
  *
  * Reads go straight to the tables under row-level security. Every change goes
  * through an RPC, and the rules are judged in the database, so a point sent in

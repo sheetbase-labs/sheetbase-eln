@@ -93,49 +93,12 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `project_follows`              | Projects a person follows. Personal tokens only: you see your own follows.                                                                                                                                                                      |
 | `plate_runs`                   | Plate runs: one plate read on an instrument, with its layout, readout, analysis settings and the last analysis (normalised values, Z-prime, hits and curves).                                                                                   |
 | `plate_worklists`              | Liquid handler worklists: the transfers from a source plate to a destination plate, and what the robot log said was moved.                                                                                                                      |
+| `instrument_run_documents`     | Instrument files converted to the Allotrope Simple Model (ASM): one vendor-neutral document per instrument run, with the converter, its version and the image that ran it.                                                                      |
+| `qc_series`                    | Quality control series: a value tracked across runs (a plate assay metric, or any value sent in), with its limits, the Westgard rules and whether it is in control.                                                                             |
+| `qc_points`                    | Quality control points: each value of a series with its distance from the mean in SD, the Westgard rules it broke and whether someone has acknowledged it.                                                                                      |
 | `agent_action_requests`        | An action an agent asked to take: what it was, what the workspace had set for it (`level`), and how it ended (`status`). A token sees only its own requests.                                                                                    |
 | `lab_watchers`                 | A scheduled review the lab turned on: stock expiring, stock low, work overdue, data missing or results off.                                                                                                                                     |
 | `lab_watcher_findings`         | Something a watcher found, with the record it is about and a suggested action. `status` is open, snoozed, dismissed or resolved.                                                                                                                |
-| Table                          | What it holds                                                                                                                                                                |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `reagent_orders`               | A reagent order: requested from a material that is running low, placed with the supplier, then received as a new lot. `status` is requested, ordered, received or cancelled. |
-| `recurring_schedules`          | A recurring experiment or booking. `kind` is `booking` or `experiment`; `status` is active, paused or ended.                                                                 |
-| `recurring_occurrences`        | One planned run of a recurring schedule and what became of it (`outcome`).                                                                                                   |
-| `instrument_service_log`       | A service, repair, calibration or other visit logged against an instrument.                                                                                                  |
-| `experiment_series`            | An experiment that heads a series: it groups other experiments that run as separate pieces of one piece of work.                                                             |
-| `experiment_series_members`    | An experiment in a series, with where it sits (`position`) and the day it is planned (`planned_on`). An experiment is in one series at most.                                 |
-| `step_timers`                  | A timer started on a protocol step. Personal tokens only: you see your own timers.                                                                                           |
-| `material_safety`              | Chemical safety information for a material: hazard pictograms, signal word, hazard statements and the safety data sheet file.                                                |
-| `material_ingredients`         | What went into a prepared solution: one row per ingredient lot, with quantity and unit.                                                                                      |
-| `stocktakes`                   | A stocktake of a freezer, shelf or box. `status` is in_progress, completed or cancelled.                                                                                     |
-| `stocktake_items`              | One item expected in or found during a stocktake, with where it should be, where it was found and how a mismatch was resolved.                                               |
-| `instrument_feeds`             | A live measurement series on an instrument (temperature, pressure and so on), with its alert limits and last value.                                                          |
-| `instrument_readings`          | One reading in an instrument feed. Large; filter by `feed_id` and `taken_at`, or use `list_instrument_feed_series` for charts.                                               |
-| `sample_workflows`             | A sample workflow: the stages a sample moves through. `status` is draft, active or archived.                                                                                 |
-| `sample_workflow_stages`       | A stage in a sample workflow, with its turnaround time, required fields and actions.                                                                                         |
-| `sample_workflow_transitions`  | Which stage a sample may move to from another stage.                                                                                                                         |
-| `sample_workflow_runs`         | A sample's journey through a workflow: its current stage, when it entered and when it is due.                                                                                |
-| `sample_workflow_events`       | The history of moves a sample made through a workflow.                                                                                                                       |
-| `request_forms`                | Which record models accept requests, their intro text and who handles them.                                                                                                  |
-| `shipments`                    | A sample shipment in or out. `direction` is inbound or outbound; `status` is draft, in_transit, received or cancelled.                                                       |
-| `shipment_items`               | An item on a shipment, with whether it arrived and in what condition.                                                                                                        |
-| `instrument_booking_rules`     | Booking limits on an instrument: longest booking and how far ahead people may book.                                                                                          |
-| `instrument_required_training` | Training protocols a person must hold before booking an instrument.                                                                                                          |
-| `field_spec_limits`            | Specification and alert limits for a numeric field on a record kind.                                                                                                         |
-| `model_incident_logs`          | Record models that are used as incident logs.                                                                                                                                |
-| `legal_holds`                  | A legal hold keeping records from deletion or archiving until it is released.                                                                                                |
-| `legal_hold_records`           | A record placed on a legal hold.                                                                                                                                             |
-| `retention_rules`              | How many months each kind of record is kept before it comes up for archiving.                                                                                                |
-| `request_details`              | What was asked and how it was decided, for each request record.                                                                                                              |
-| `record_spec_results`          | Each record's value for a field with result limits, and whether it is within spec, in the alert band or out. Personal tokens only.                                           |
-| `my_work_items`                | What is waiting on the person: reviews, tasks, assigned records and so on. Personal tokens only.                                                                             |
-| `inbox_work_items`             | The person's Inbox items with tab and type. Personal tokens only.                                                                                                            |
-| `project_follows`              | Projects a person follows. Personal tokens only: you see your own follows.                                                                                                   |
-| `plate_runs`                   | Plate runs: one plate read on an instrument, with its layout, readout, analysis settings and the last analysis (normalised values, Z-prime, hits and curves).                |
-| `plate_worklists`              | Liquid handler worklists: the transfers from a source plate to a destination plate, and what the robot log said was moved.                                                   |
-| `instrument_run_documents`     | Instrument files converted to the Allotrope Simple Model (ASM): one vendor-neutral document per instrument run, with the converter, its version and the image that ran it.   |
-| `qc_series`                    | Quality control series: a value tracked across runs (a plate assay metric, or any value sent in), with its limits, the Westgard rules and whether it is in control.          |
-| `qc_points`                    | Quality control points: each value of a series with its distance from the mean in SD, the Westgard rules it broke and whether someone has acknowledged it.                   |
 
 ## Actions
 
@@ -1226,6 +1189,7 @@ Scope: `lab:write`.
 | `p_ok` *         | bool | Whether it worked. |
 | `p_result`       | json | What it returned.  |
 | `p_error`        | text | Why it failed.     |
+
 ### `record_instrument_run_document`
 
 Keep an Allotrope document with an instrument run. Stores the ASM document an instrument file was converted to, beside the run it came from. One per run; sending it again replaces it. Returns the document. Sends `instrument.run.converted`.

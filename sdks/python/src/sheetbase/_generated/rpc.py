@@ -28,6 +28,7 @@ from sheetbase._generated.models import (
     InsertSheetInstanceBlockResult,
     InstantiateNotebookTemplateResult,
     InstrumentFeedsRow,
+    InstrumentRunDocumentsRow,
     InstrumentServiceLogRow,
     JsonValue,
     LabWatcherFindingsRow,
@@ -43,6 +44,8 @@ from sheetbase._generated.models import (
     PlateRunsRow,
     PlateWorklistsRow,
     ProjectsRow,
+    QcPointsRow,
+    QcSeriesRow,
     QuerySheetInstanceRowsResult,
     ReagentOrdersRow,
     RecordLinksRow,
@@ -90,6 +93,7 @@ class Rpc:
     """
 
     NAMES = (
+        "acknowledge_qc_point",
         "add_records_to_legal_hold",
         "add_registry_parent",
         "add_series_member",
@@ -123,6 +127,7 @@ class Rpc:
         "create_plate_run",
         "create_plate_worklist",
         "create_project",
+        "create_qc_series",
         "create_record",
         "create_record_link",
         "create_record_with_blocks",
@@ -135,6 +140,7 @@ class Rpc:
         "create_webhook_subscription",
         "delete_block",
         "delete_experiment_part",
+        "delete_qc_series",
         "delete_saved_search",
         "delete_scheduled_report",
         "delete_webhook_subscription",
@@ -187,7 +193,9 @@ class Rpc:
         "receive_reagent_order",
         "receive_shipment",
         "record_instrument_readings",
+        "record_instrument_run_document",
         "record_parts",
+        "record_qc_point",
         "record_series",
         "record_steps",
         "record_stocktake_scan",
@@ -240,6 +248,7 @@ class Rpc:
         "set_member_absence",
         "set_model_supplier_list",
         "set_part_done",
+        "set_qc_baseline",
         "set_reagent_order_price",
         "set_record_favourite",
         "set_recurring_schedule_paused",
@@ -256,12 +265,14 @@ class Rpc:
         "start_stocktake",
         "submit_request",
         "timestamp_settings",
+        "track_plate_assay_qc",
         "transition_record_status",
         "unfollow_project",
         "update_block_payload",
         "update_experiment_part",
         "update_pipeline_definition_version_draft",
         "update_plate_run",
+        "update_qc_series",
         "update_record_custom_fields",
         "update_saved_search",
         "update_sheet_instance",
@@ -280,6 +291,30 @@ class Rpc:
 
     def _call(self, name: str, body: Dict[str, Any]) -> Any:
         return self._transport.post(f"/api/db/rpc/{name}", json_body=body)
+
+    def acknowledge_qc_point(
+        self,
+        *,
+        point_id: str,
+        note: Union[str, Unset] = UNSET,
+        exclude: Union[bool, Unset] = UNSET,
+    ) -> Union["QcPointsRow", List["QcPointsRow"]]:
+        """
+        Acknowledge a quality control breach
+
+        Marks a broken point as seen, with a note, and optionally leaves it out of the limits so the series is judged again. Returns the point.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/acknowledge_qc_point``
+        """
+        body: Dict[str, Any] = {}
+        body["p_point_id"] = point_id
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        if not isinstance(exclude, Unset):
+            body["p_exclude"] = exclude
+        return self._call("acknowledge_qc_point", body)  # type: ignore[no-any-return]
 
     def add_records_to_legal_hold(self, *, hold_id: str, record_ids: List[str]) -> int:
         """
@@ -1042,6 +1077,50 @@ class Rpc:
         body["p_title"] = title
         return self._call("create_project", body)  # type: ignore[no-any-return]
 
+    def create_qc_series(
+        self,
+        *,
+        workspace_id: str,
+        name: str,
+        source_kind: Union[str, Unset] = UNSET,
+        metric: Union[str, Unset] = UNSET,
+        design_id: Union[str, Unset] = UNSET,
+        instrument_id: Union[str, Unset] = UNSET,
+        unit: Union[str, Unset] = UNSET,
+        mean: Union[float, Unset] = UNSET,
+        sd: Union[float, Unset] = UNSET,
+        rules: Union[List[str], Unset] = UNSET,
+    ) -> Union["QcSeriesRow", List["QcSeriesRow"]]:
+        """
+        Track a value for quality control
+
+        Starts a series. For a value you send in, use `manual` and add points with `record_qc_point`; for a plate assay use `plate_metric` with a `p_design_id` and `p_metric`. Give `p_mean` and `p_sd`, or set a baseline later. Returns the series.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_qc_series``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_name"] = name
+        if not isinstance(source_kind, Unset):
+            body["p_source_kind"] = source_kind
+        if not isinstance(metric, Unset):
+            body["p_metric"] = metric
+        if not isinstance(design_id, Unset):
+            body["p_design_id"] = design_id
+        if not isinstance(instrument_id, Unset):
+            body["p_instrument_id"] = instrument_id
+        if not isinstance(unit, Unset):
+            body["p_unit"] = unit
+        if not isinstance(mean, Unset):
+            body["p_mean"] = mean
+        if not isinstance(sd, Unset):
+            body["p_sd"] = sd
+        if not isinstance(rules, Unset):
+            body["p_rules"] = rules
+        return self._call("create_qc_series", body)  # type: ignore[no-any-return]
+
     def create_record(
         self,
         *,
@@ -1431,6 +1510,20 @@ class Rpc:
         if not isinstance(move_blocks_to, Unset):
             body["p_move_blocks_to"] = move_blocks_to
         return self._call("delete_experiment_part", body)  # type: ignore[no-any-return]
+
+    def delete_qc_series(self, *, series_id: str) -> None:
+        """
+        Stop tracking a series
+
+        Deletes a series and all of its points.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/delete_qc_series``
+        """
+        body: Dict[str, Any] = {}
+        body["p_series_id"] = series_id
+        return self._call("delete_qc_series", body)  # type: ignore[no-any-return]
 
     def delete_saved_search(self, *, id: str) -> None:
         """
@@ -2605,6 +2698,49 @@ class Rpc:
         body["p_readings"] = readings
         return self._call("record_instrument_readings", body)  # type: ignore[no-any-return]
 
+    def record_instrument_run_document(
+        self,
+        *,
+        run_id: str,
+        document: Dict[str, "JsonValue"],
+        converter: str,
+        converter_version: Union[str, Unset] = UNSET,
+        image_digest: Union[str, Unset] = UNSET,
+        vendor: Union[str, Unset] = UNSET,
+        technique: Union[str, Unset] = UNSET,
+        manifest: Union[str, Unset] = UNSET,
+        measurements: Union[int, Unset] = UNSET,
+        device: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Union["InstrumentRunDocumentsRow", List["InstrumentRunDocumentsRow"]]:
+        """
+        Keep an Allotrope document with an instrument run
+
+        Stores the ASM document an instrument file was converted to, beside the run it came from. One per run; sending it again replaces it. Returns the document. Sends `instrument.run.converted`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/record_instrument_run_document``
+        """
+        body: Dict[str, Any] = {}
+        body["p_run_id"] = run_id
+        body["p_document"] = document
+        body["p_converter"] = converter
+        if not isinstance(converter_version, Unset):
+            body["p_converter_version"] = converter_version
+        if not isinstance(image_digest, Unset):
+            body["p_image_digest"] = image_digest
+        if not isinstance(vendor, Unset):
+            body["p_vendor"] = vendor
+        if not isinstance(technique, Unset):
+            body["p_technique"] = technique
+        if not isinstance(manifest, Unset):
+            body["p_manifest"] = manifest
+        if not isinstance(measurements, Unset):
+            body["p_measurements"] = measurements
+        if not isinstance(device, Unset):
+            body["p_device"] = device
+        return self._call("record_instrument_run_document", body)  # type: ignore[no-any-return]
+
     def record_parts(self, *, record_id: str) -> List[Dict[str, Any]]:
         """
         List the parts of an experiment with where each stands
@@ -2618,6 +2754,35 @@ class Rpc:
         body: Dict[str, Any] = {}
         body["p_record_id"] = record_id
         return self._call("record_parts", body)  # type: ignore[no-any-return]
+
+    def record_qc_point(
+        self,
+        *,
+        series_id: str,
+        value: float,
+        at: Union[str, Unset] = UNSET,
+        label: Union[str, Unset] = UNSET,
+        instrument_run_id: Union[str, Unset] = UNSET,
+    ) -> Union["QcPointsRow", List["QcPointsRow"]]:
+        """
+        Add a value to a series
+
+        Adds a measurement and judges it against the limits and the series rules. Returns the point, with its `z` and any `violations`. Sends `qc.violation` when a rule is broken, and `qc.back_in_control` when the series recovers.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/record_qc_point``
+        """
+        body: Dict[str, Any] = {}
+        body["p_series_id"] = series_id
+        body["p_value"] = value
+        if not isinstance(at, Unset):
+            body["p_at"] = at
+        if not isinstance(label, Unset):
+            body["p_label"] = label
+        if not isinstance(instrument_run_id, Unset):
+            body["p_instrument_run_id"] = instrument_run_id
+        return self._call("record_qc_point", body)  # type: ignore[no-any-return]
 
     def record_series(self, *, record_id: str) -> List[Dict[str, Any]]:
         """
@@ -3791,6 +3956,33 @@ class Rpc:
         body["p_done"] = done
         return self._call("set_part_done", body)  # type: ignore[no-any-return]
 
+    def set_qc_baseline(
+        self,
+        *,
+        series_id: str,
+        mean: Union[float, Unset] = UNSET,
+        sd: Union[float, Unset] = UNSET,
+        first_n: Union[int, Unset] = UNSET,
+    ) -> Union["QcSeriesRow", List["QcSeriesRow"]]:
+        """
+        Set the control limits of a series
+
+        Enter `p_mean` and `p_sd`, or give `p_first_n` to take them from the first N points. Every point is judged again. Returns the series. Sends `qc.violation` or `qc.back_in_control` if the state changes.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_qc_baseline``
+        """
+        body: Dict[str, Any] = {}
+        body["p_series_id"] = series_id
+        if not isinstance(mean, Unset):
+            body["p_mean"] = mean
+        if not isinstance(sd, Unset):
+            body["p_sd"] = sd
+        if not isinstance(first_n, Unset):
+            body["p_first_n"] = first_n
+        return self._call("set_qc_baseline", body)  # type: ignore[no-any-return]
+
     def set_reagent_order_price(
         self,
         *,
@@ -4123,6 +4315,27 @@ class Rpc:
         body["p_workspace_id"] = workspace_id
         return self._call("timestamp_settings", body)  # type: ignore[no-any-return]
 
+    def track_plate_assay_qc(
+        self,
+        *,
+        design_id: str,
+        instrument_id: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Track the controls of a plate assay
+
+        Starts a series for each plate quality metric (Z-prime, signal to background, control means) of an assay design, and backfills them from its analysed runs. Returns the series.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/track_plate_assay_qc``
+        """
+        body: Dict[str, Any] = {}
+        body["p_design_id"] = design_id
+        if not isinstance(instrument_id, Unset):
+            body["p_instrument_id"] = instrument_id
+        return self._call("track_plate_assay_qc", body)  # type: ignore[no-any-return]
+
     def transition_record_status(
         self,
         *,
@@ -4269,6 +4482,36 @@ class Rpc:
         if not isinstance(expected_metadata_version, Unset):
             body["p_expected_metadata_version"] = expected_metadata_version
         return self._call("update_plate_run", body)  # type: ignore[no-any-return]
+
+    def update_qc_series(
+        self,
+        *,
+        series_id: str,
+        name: Union[str, Unset] = UNSET,
+        rules: Union[List[str], Unset] = UNSET,
+        enabled: Union[bool, Unset] = UNSET,
+        unit: Union[str, Unset] = UNSET,
+    ) -> Union["QcSeriesRow", List["QcSeriesRow"]]:
+        """
+        Change a quality control series
+
+        Renames a series, changes its rules or unit, or pauses and resumes it. Changing the rules re-judges every point. Returns the series.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/update_qc_series``
+        """
+        body: Dict[str, Any] = {}
+        body["p_series_id"] = series_id
+        if not isinstance(name, Unset):
+            body["p_name"] = name
+        if not isinstance(rules, Unset):
+            body["p_rules"] = rules
+        if not isinstance(enabled, Unset):
+            body["p_enabled"] = enabled
+        if not isinstance(unit, Unset):
+            body["p_unit"] = unit
+        return self._call("update_qc_series", body)  # type: ignore[no-any-return]
 
     def update_record_custom_fields(
         self,
@@ -4478,6 +4721,7 @@ class AsyncRpc:
     """Async counterpart of :class:`Rpc`."""
 
     NAMES = (
+        "acknowledge_qc_point",
         "add_records_to_legal_hold",
         "add_registry_parent",
         "add_series_member",
@@ -4511,6 +4755,7 @@ class AsyncRpc:
         "create_plate_run",
         "create_plate_worklist",
         "create_project",
+        "create_qc_series",
         "create_record",
         "create_record_link",
         "create_record_with_blocks",
@@ -4523,6 +4768,7 @@ class AsyncRpc:
         "create_webhook_subscription",
         "delete_block",
         "delete_experiment_part",
+        "delete_qc_series",
         "delete_saved_search",
         "delete_scheduled_report",
         "delete_webhook_subscription",
@@ -4575,7 +4821,9 @@ class AsyncRpc:
         "receive_reagent_order",
         "receive_shipment",
         "record_instrument_readings",
+        "record_instrument_run_document",
         "record_parts",
+        "record_qc_point",
         "record_series",
         "record_steps",
         "record_stocktake_scan",
@@ -4628,6 +4876,7 @@ class AsyncRpc:
         "set_member_absence",
         "set_model_supplier_list",
         "set_part_done",
+        "set_qc_baseline",
         "set_reagent_order_price",
         "set_record_favourite",
         "set_recurring_schedule_paused",
@@ -4644,12 +4893,14 @@ class AsyncRpc:
         "start_stocktake",
         "submit_request",
         "timestamp_settings",
+        "track_plate_assay_qc",
         "transition_record_status",
         "unfollow_project",
         "update_block_payload",
         "update_experiment_part",
         "update_pipeline_definition_version_draft",
         "update_plate_run",
+        "update_qc_series",
         "update_record_custom_fields",
         "update_saved_search",
         "update_sheet_instance",
@@ -4668,6 +4919,30 @@ class AsyncRpc:
 
     async def _call(self, name: str, body: Dict[str, Any]) -> Any:
         return await self._transport.post(f"/api/db/rpc/{name}", json_body=body)
+
+    async def acknowledge_qc_point(
+        self,
+        *,
+        point_id: str,
+        note: Union[str, Unset] = UNSET,
+        exclude: Union[bool, Unset] = UNSET,
+    ) -> Union["QcPointsRow", List["QcPointsRow"]]:
+        """
+        Acknowledge a quality control breach
+
+        Marks a broken point as seen, with a note, and optionally leaves it out of the limits so the series is judged again. Returns the point.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/acknowledge_qc_point``
+        """
+        body: Dict[str, Any] = {}
+        body["p_point_id"] = point_id
+        if not isinstance(note, Unset):
+            body["p_note"] = note
+        if not isinstance(exclude, Unset):
+            body["p_exclude"] = exclude
+        return await self._call("acknowledge_qc_point", body)  # type: ignore[no-any-return]
 
     async def add_records_to_legal_hold(self, *, hold_id: str, record_ids: List[str]) -> int:
         """
@@ -5430,6 +5705,50 @@ class AsyncRpc:
         body["p_title"] = title
         return await self._call("create_project", body)  # type: ignore[no-any-return]
 
+    async def create_qc_series(
+        self,
+        *,
+        workspace_id: str,
+        name: str,
+        source_kind: Union[str, Unset] = UNSET,
+        metric: Union[str, Unset] = UNSET,
+        design_id: Union[str, Unset] = UNSET,
+        instrument_id: Union[str, Unset] = UNSET,
+        unit: Union[str, Unset] = UNSET,
+        mean: Union[float, Unset] = UNSET,
+        sd: Union[float, Unset] = UNSET,
+        rules: Union[List[str], Unset] = UNSET,
+    ) -> Union["QcSeriesRow", List["QcSeriesRow"]]:
+        """
+        Track a value for quality control
+
+        Starts a series. For a value you send in, use `manual` and add points with `record_qc_point`; for a plate assay use `plate_metric` with a `p_design_id` and `p_metric`. Give `p_mean` and `p_sd`, or set a baseline later. Returns the series.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/create_qc_series``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_name"] = name
+        if not isinstance(source_kind, Unset):
+            body["p_source_kind"] = source_kind
+        if not isinstance(metric, Unset):
+            body["p_metric"] = metric
+        if not isinstance(design_id, Unset):
+            body["p_design_id"] = design_id
+        if not isinstance(instrument_id, Unset):
+            body["p_instrument_id"] = instrument_id
+        if not isinstance(unit, Unset):
+            body["p_unit"] = unit
+        if not isinstance(mean, Unset):
+            body["p_mean"] = mean
+        if not isinstance(sd, Unset):
+            body["p_sd"] = sd
+        if not isinstance(rules, Unset):
+            body["p_rules"] = rules
+        return await self._call("create_qc_series", body)  # type: ignore[no-any-return]
+
     async def create_record(
         self,
         *,
@@ -5819,6 +6138,20 @@ class AsyncRpc:
         if not isinstance(move_blocks_to, Unset):
             body["p_move_blocks_to"] = move_blocks_to
         return await self._call("delete_experiment_part", body)  # type: ignore[no-any-return]
+
+    async def delete_qc_series(self, *, series_id: str) -> None:
+        """
+        Stop tracking a series
+
+        Deletes a series and all of its points.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/delete_qc_series``
+        """
+        body: Dict[str, Any] = {}
+        body["p_series_id"] = series_id
+        return await self._call("delete_qc_series", body)  # type: ignore[no-any-return]
 
     async def delete_saved_search(self, *, id: str) -> None:
         """
@@ -6993,6 +7326,49 @@ class AsyncRpc:
         body["p_readings"] = readings
         return await self._call("record_instrument_readings", body)  # type: ignore[no-any-return]
 
+    async def record_instrument_run_document(
+        self,
+        *,
+        run_id: str,
+        document: Dict[str, "JsonValue"],
+        converter: str,
+        converter_version: Union[str, Unset] = UNSET,
+        image_digest: Union[str, Unset] = UNSET,
+        vendor: Union[str, Unset] = UNSET,
+        technique: Union[str, Unset] = UNSET,
+        manifest: Union[str, Unset] = UNSET,
+        measurements: Union[int, Unset] = UNSET,
+        device: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Union["InstrumentRunDocumentsRow", List["InstrumentRunDocumentsRow"]]:
+        """
+        Keep an Allotrope document with an instrument run
+
+        Stores the ASM document an instrument file was converted to, beside the run it came from. One per run; sending it again replaces it. Returns the document. Sends `instrument.run.converted`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/record_instrument_run_document``
+        """
+        body: Dict[str, Any] = {}
+        body["p_run_id"] = run_id
+        body["p_document"] = document
+        body["p_converter"] = converter
+        if not isinstance(converter_version, Unset):
+            body["p_converter_version"] = converter_version
+        if not isinstance(image_digest, Unset):
+            body["p_image_digest"] = image_digest
+        if not isinstance(vendor, Unset):
+            body["p_vendor"] = vendor
+        if not isinstance(technique, Unset):
+            body["p_technique"] = technique
+        if not isinstance(manifest, Unset):
+            body["p_manifest"] = manifest
+        if not isinstance(measurements, Unset):
+            body["p_measurements"] = measurements
+        if not isinstance(device, Unset):
+            body["p_device"] = device
+        return await self._call("record_instrument_run_document", body)  # type: ignore[no-any-return]
+
     async def record_parts(self, *, record_id: str) -> List[Dict[str, Any]]:
         """
         List the parts of an experiment with where each stands
@@ -7006,6 +7382,35 @@ class AsyncRpc:
         body: Dict[str, Any] = {}
         body["p_record_id"] = record_id
         return await self._call("record_parts", body)  # type: ignore[no-any-return]
+
+    async def record_qc_point(
+        self,
+        *,
+        series_id: str,
+        value: float,
+        at: Union[str, Unset] = UNSET,
+        label: Union[str, Unset] = UNSET,
+        instrument_run_id: Union[str, Unset] = UNSET,
+    ) -> Union["QcPointsRow", List["QcPointsRow"]]:
+        """
+        Add a value to a series
+
+        Adds a measurement and judges it against the limits and the series rules. Returns the point, with its `z` and any `violations`. Sends `qc.violation` when a rule is broken, and `qc.back_in_control` when the series recovers.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/record_qc_point``
+        """
+        body: Dict[str, Any] = {}
+        body["p_series_id"] = series_id
+        body["p_value"] = value
+        if not isinstance(at, Unset):
+            body["p_at"] = at
+        if not isinstance(label, Unset):
+            body["p_label"] = label
+        if not isinstance(instrument_run_id, Unset):
+            body["p_instrument_run_id"] = instrument_run_id
+        return await self._call("record_qc_point", body)  # type: ignore[no-any-return]
 
     async def record_series(self, *, record_id: str) -> List[Dict[str, Any]]:
         """
@@ -8179,6 +8584,33 @@ class AsyncRpc:
         body["p_done"] = done
         return await self._call("set_part_done", body)  # type: ignore[no-any-return]
 
+    async def set_qc_baseline(
+        self,
+        *,
+        series_id: str,
+        mean: Union[float, Unset] = UNSET,
+        sd: Union[float, Unset] = UNSET,
+        first_n: Union[int, Unset] = UNSET,
+    ) -> Union["QcSeriesRow", List["QcSeriesRow"]]:
+        """
+        Set the control limits of a series
+
+        Enter `p_mean` and `p_sd`, or give `p_first_n` to take them from the first N points. Every point is judged again. Returns the series. Sends `qc.violation` or `qc.back_in_control` if the state changes.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_qc_baseline``
+        """
+        body: Dict[str, Any] = {}
+        body["p_series_id"] = series_id
+        if not isinstance(mean, Unset):
+            body["p_mean"] = mean
+        if not isinstance(sd, Unset):
+            body["p_sd"] = sd
+        if not isinstance(first_n, Unset):
+            body["p_first_n"] = first_n
+        return await self._call("set_qc_baseline", body)  # type: ignore[no-any-return]
+
     async def set_reagent_order_price(
         self,
         *,
@@ -8511,6 +8943,27 @@ class AsyncRpc:
         body["p_workspace_id"] = workspace_id
         return await self._call("timestamp_settings", body)  # type: ignore[no-any-return]
 
+    async def track_plate_assay_qc(
+        self,
+        *,
+        design_id: str,
+        instrument_id: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Track the controls of a plate assay
+
+        Starts a series for each plate quality metric (Z-prime, signal to background, control means) of an assay design, and backfills them from its analysed runs. Returns the series.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/track_plate_assay_qc``
+        """
+        body: Dict[str, Any] = {}
+        body["p_design_id"] = design_id
+        if not isinstance(instrument_id, Unset):
+            body["p_instrument_id"] = instrument_id
+        return await self._call("track_plate_assay_qc", body)  # type: ignore[no-any-return]
+
     async def transition_record_status(
         self,
         *,
@@ -8657,6 +9110,36 @@ class AsyncRpc:
         if not isinstance(expected_metadata_version, Unset):
             body["p_expected_metadata_version"] = expected_metadata_version
         return await self._call("update_plate_run", body)  # type: ignore[no-any-return]
+
+    async def update_qc_series(
+        self,
+        *,
+        series_id: str,
+        name: Union[str, Unset] = UNSET,
+        rules: Union[List[str], Unset] = UNSET,
+        enabled: Union[bool, Unset] = UNSET,
+        unit: Union[str, Unset] = UNSET,
+    ) -> Union["QcSeriesRow", List["QcSeriesRow"]]:
+        """
+        Change a quality control series
+
+        Renames a series, changes its rules or unit, or pauses and resumes it. Changing the rules re-judges every point. Returns the series.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/update_qc_series``
+        """
+        body: Dict[str, Any] = {}
+        body["p_series_id"] = series_id
+        if not isinstance(name, Unset):
+            body["p_name"] = name
+        if not isinstance(rules, Unset):
+            body["p_rules"] = rules
+        if not isinstance(enabled, Unset):
+            body["p_enabled"] = enabled
+        if not isinstance(unit, Unset):
+            body["p_unit"] = unit
+        return await self._call("update_qc_series", body)  # type: ignore[no-any-return]
 
     async def update_record_custom_fields(
         self,

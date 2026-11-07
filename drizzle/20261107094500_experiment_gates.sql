@@ -1642,6 +1642,12 @@ BEGIN
         internal.jsonb_path_text(v_p, '$.rows[*].formula'),
         internal.jsonb_path_text(v_p, '$.rows[*].note'));
 
+    WHEN 'code_cell' THEN
+      -- The code and the names of what it reads; never the output rows.
+      v_text := concat_ws(' ', v_p ->> 'source',
+        internal.jsonb_path_text(v_p, '$.inputs[*].alias'),
+        internal.jsonb_path_text(v_p, '$.inputs[*].label'));
+
     WHEN 'gate' THEN
       v_text := concat_ws(' ', v_p ->> 'label',
         internal.jsonb_path_text(v_p, '$.conditions[*].label'),

@@ -35,6 +35,7 @@ describe('refreshAfterWrites', () => {
     qc.setQueryData(['ui-port', 'experiments', 'w'], [1])
     qc.setQueryData(['work-items'], [1])
     qc.setQueryData(['notebook', 'blocks', 'r'], [1])
+    qc.setQueryData(['sheet-instance', 'i'], [1])
     const stop = refreshAfterWrites(qc, 50)
     const rows = createDataClient(
       async () => new Response('[]', { status: 200 }),
@@ -48,6 +49,7 @@ describe('refreshAfterWrites', () => {
     expect(qc.getQueryState(['notebook', 'blocks', 'r'])?.isInvalidated).toBe(
       false,
     )
+    expect(qc.getQueryState(['sheet-instance', 'i'])?.isInvalidated).toBe(false)
     stop()
     vi.useRealTimers()
   })

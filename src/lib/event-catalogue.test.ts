@@ -543,6 +543,72 @@ const LAB_EVENTS: ReadonlyArray<{
     operation: 'update',
     payload: { change: 'back_in_control' },
   },
+  {
+    name: 'instrument.job.queued',
+    entityType: 'instrument_job',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'instrument.job.staged',
+    entityType: 'instrument_job',
+    operation: 'update',
+    payload: { change: 'staged' },
+  },
+  {
+    name: 'instrument.job.started',
+    entityType: 'instrument_job',
+    operation: 'update',
+    payload: { change: 'started' },
+  },
+  {
+    name: 'instrument.job.completed',
+    entityType: 'instrument_job',
+    operation: 'update',
+    payload: { change: 'completed' },
+  },
+  {
+    name: 'instrument.job.failed',
+    entityType: 'instrument_job',
+    operation: 'update',
+    payload: { change: 'failed' },
+  },
+  {
+    name: 'instrument.job.cancelled',
+    entityType: 'instrument_job',
+    operation: 'update',
+    payload: { change: 'cancelled' },
+  },
+  {
+    name: 'schedule.proposed',
+    entityType: 'schedule_proposal',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'schedule.accepted',
+    entityType: 'schedule_proposal',
+    operation: 'update',
+    payload: { change: 'accepted' },
+  },
+  {
+    name: 'schedule.dismissed',
+    entityType: 'schedule_proposal',
+    operation: 'update',
+    payload: { change: 'dismissed' },
+  },
+  {
+    name: 'code_cell.run',
+    entityType: 'code_cell_run',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'code_cell.reproduced',
+    entityType: 'code_cell_run',
+    operation: 'update',
+    payload: { change: 'reproduced' },
+  },
 ]
 
 describe('lab feature events', () => {

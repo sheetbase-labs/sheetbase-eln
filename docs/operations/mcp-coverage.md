@@ -151,6 +151,15 @@ and execution need a live owner browser session.
 - MCP uses bearer credentials; OAuth 2.1 discovery and dynamic client
   registration are not implemented.
 
+## Extension tools
+
+Assistant tools declared by an enabled extension (named
+`extension.<key>.<id>`, wire name with `.` as `__`) appear in `tools/list` for
+personal tokens. A read tool needs `mcp_read` and any read scope; a write tool
+needs `mcp_lab` and `lab:write`, and goes through `request_agent_action` and
+the agent action policy (default Ask). An extension tool can never sign,
+approve or attest. See [the extensions API](../api/extensions-api.md).
+
 ## Deliberate boundaries
 
 1. Administration beyond workspace AI settings stays human-only: members and

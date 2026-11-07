@@ -12,6 +12,7 @@ import { calendarFeed } from './calendar-feed'
 import { common } from './common'
 import { contracts } from './contracts'
 import { data } from './data'
+import { extensions } from './extensions'
 import { features } from './features'
 import { library } from './library'
 import { molbio } from './molbio'
@@ -38,6 +39,7 @@ export const en = {
   agentRequests,
   automation,
   planner,
+  extensions,
   features,
   people,
   calculators,

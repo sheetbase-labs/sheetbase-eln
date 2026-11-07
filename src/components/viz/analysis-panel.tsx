@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
+import { ExtensionAnalysisSection } from '#/components/viz/extension-analysis'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import {
@@ -591,6 +592,13 @@ export function AnalysisPanel({
           </p>
         ) : null}
       </div>
+
+      <ExtensionAnalysisSection
+        dataset={selectedDataset}
+        rows={rowsQuery.data?.rows}
+        flags={rowsQuery.data?.flags}
+        truncated={rowsQuery.data?.truncated ?? false}
+      />
 
       {curveCharts.map(({ group, chart }) => (
         <div key={group} className="rounded-md border p-2">

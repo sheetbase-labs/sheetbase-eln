@@ -504,6 +504,13 @@ server, so every notebook comes back in the "not updated" list.
 | `src/components/pipelines/run-reproduction.tsx` | Reads a run's reproductions and starts one through the data client and the reproduce route; covered by the run page tests and the provenance database tests.                    |
 | `src/components/settings/lineage-section.tsx`   | Reads and saves lineage endpoints through server functions that need a signed-in manager; covered by the provenance database tests and the Integrations settings click-through. |
 
+## Extensions modules without a story
+
+| Module                                         | Why no story                                                                                                                                                               |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/routes/settings/workspace/extensions.tsx` | A route that lists installs through the data client and the key route; covered by the extension database tests and the Extensions settings click-through.                  |
+| `src/components/viz/extension-analysis.tsx`    | Lists analysis kinds and runs them through the extension run route, then draws with the shared chart renderer, which has its own story; covered by the runner-point tests. |
+
 ## Robots, scheduler and code cells
 
 | Module                                               | Why no story                                                                                                            |

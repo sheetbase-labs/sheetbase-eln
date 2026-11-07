@@ -169,6 +169,16 @@ const lineageMiddleware = createMiddleware().server(async ({ next }) => {
   return next()
 })
 
+// The lab scheduler: picks up plans asked for (from the app, the API, the
+// assistant or a pipeline) and proposes where the parts of an experiment can go.
+// Guarded like the other schedulers.
+const scheduleMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startScheduleScheduler } =
+    await import('#/lib/scheduler/plan-requests.server')
+  startScheduleScheduler()
+  return next()
+})
+
 // Workspace backups: the same archive as the whole-workspace export, made on
 // each workspace's schedule and kept to the newest few. Guarded like the other
 // schedulers and never started under test runners unless explicitly enabled.
@@ -265,6 +275,7 @@ export const startInstance = createStart(() => ({
     auditVerificationMiddleware,
     timestampMiddleware,
     lineageMiddleware,
+    scheduleMiddleware,
     backupSchedulerMiddleware,
     webhookDeliveryMiddleware,
     csrfMiddleware,

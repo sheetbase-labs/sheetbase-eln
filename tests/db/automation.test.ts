@@ -7,6 +7,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { sweepScheduleRequests } from '../../src/lib/scheduler/plan-requests.server'
 import { mapEventType } from '../../src/lib/webhook-events'
 import { prepareTestDatabase } from './helpers'
 
@@ -337,6 +338,46 @@ describe('the scheduler', () => {
     await expect(owner.query(`select * from api.slip_experiment_part($1,0)`, [parts[1].part_id])).rejects.toThrow(/between 1 and 365/)
     await expect(viewer.query(`select * from api.slip_experiment_part($1,1)`, [parts[1].part_id])).rejects.toThrow()
     await owner.query(`select * from api.dismiss_schedule_proposal($1)`, [slipped.id])
+  })
+
+  it('plans a requested schedule on the server, around bookings and absences', async () => {
+    const { experiment } = await experimentWithParts()
+    const parts = (await owner.query(`select * from api.record_parts($1) order by part_number`, [experiment.id])).rows
+    await owner.query(`select * from api.update_experiment_part($1,null,0,$2)`, [parts[0].part_id, OWNER])
+    await owner.query(`select * from api.set_part_plan($1,60,0,$2::jsonb)`, [parts[0].part_id, JSON.stringify([{ resourceId: READER, minutes: 60 }])])
+    await owner.query(`select * from api.set_part_plan($1,30,1440,'[]'::jsonb)`, [parts[1].part_id])
+    // Someone else holds the reader first thing, and the owner is away on the first day.
+    const start = new Date(Date.now() + 2 * 86400_000)
+    const day = start.toISOString().slice(0, 10)
+    await migrator.query(
+      `insert into api.calendar_bookings(workspace_id,resource_id,title,status,starts_at,ends_at)
+       values ($1,$2,'Someone else','confirmed',$3,$4)`,
+      [WS, READER, `${day}T00:00:00Z`, `${day}T12:00:00Z`],
+    )
+    await migrator.query(
+      `insert into api.member_absences(workspace_id,user_id,starts_on,ends_on,created_by_user_id)
+       values ($1,$2,current_date,current_date + 1,$2)`,
+      [WS, OWNER],
+    )
+    const asked = (await owner.query(`select * from api.request_schedule_proposal($1)`, [experiment.id])).rows[0]
+    const handled = await sweepScheduleRequests({
+      connect: async () => ({ query: (text, values) => migrator.query(text, values as never) as never, end: async () => {} }),
+      now: () => new Date(),
+    })
+    expect(handled).toBeGreaterThanOrEqual(1)
+    const row = (await owner.query(`select * from api.schedule_proposals where id = $1`, [asked.id])).rows[0]
+    expect(row.status).toBe('proposed')
+    const first = row.items.find((i: { partId: string; kind: string }) => i.partId === parts[0].part_id && i.kind === 'instrument')
+    expect(first.title).toContain(experiment.identifier)
+    // Not on the days the owner is away, and not while the reader is taken.
+    const startsAt = new Date(first.startsAt).getTime()
+    expect(startsAt).toBeGreaterThanOrEqual(new Date(`${day}T00:00:00Z`).getTime())
+    const clash = startsAt < new Date(`${day}T12:00:00Z`).getTime() && first.plannedOn === day
+    expect(clash).toBe(false)
+    expect(row.conflict_count).toBe(0)
+    // The second part waits for the first and lands later.
+    const second = row.items.find((i: { partId: string }) => i.partId === parts[1].part_id)
+    expect(new Date(second.startsAt).getTime()).toBeGreaterThan(startsAt)
   })
 
   it('shows proposals only to people who can see the experiment’s workspace', async () => {

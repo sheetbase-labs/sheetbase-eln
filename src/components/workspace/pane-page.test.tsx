@@ -104,6 +104,7 @@ function setup() {
     shellCounts: {},
     shellPinned: [],
     shellHiddenPages: [],
+    shellFeatures: [],
     shellNotifications: [],
     themePref: 'system',
     labLogo: null,

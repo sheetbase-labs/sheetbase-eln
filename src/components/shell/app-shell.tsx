@@ -142,6 +142,8 @@ type ShellData = {
   pinned: { kind: string; id: string; name: string; page: string; to: string }[]
   /** Pages the lab took out of everyone's sidebar. */
   hiddenPages?: string[]
+  /** Model features switched on for at least one model: their pages show. */
+  features?: string[]
   /** Live counts keyed by nav label: Inbox, Datasets, Pipelines. */
   counts?: ShellCounts
   /** SHELL-01: the caller's active workspace and all their memberships. */
@@ -195,6 +197,7 @@ export function AppShell({
   const settingsTo = settingsHomePath(role, data.me.settingsAccess)
   const primaryItems = useMemo(() => filterNavForRole(primaryNav, role), [role])
   const hiddenPages = data.hiddenPages
+  const features = data.features
   const groups = useMemo(
     () =>
       visibleNavGroups(
@@ -203,8 +206,9 @@ export function AppShell({
           items: filterNavForRole(g.items, role),
         })),
         hiddenPages ?? [],
+        features ?? [],
       ),
-    [role, hiddenPages],
+    [role, hiddenPages, features],
   )
   /** The sidebar groups this person folded; follows them between devices. */
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set())

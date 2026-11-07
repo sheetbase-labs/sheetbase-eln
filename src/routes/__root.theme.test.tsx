@@ -84,6 +84,7 @@ async function renderRootHtml(): Promise<string> {
       shellCounts: {},
       shellPinned: [],
       shellHiddenPages: [],
+      shellFeatures: [],
       shellNotifications: [],
       themePref: 'system' as const,
       labLogo: null,

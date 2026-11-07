@@ -127,10 +127,6 @@ const ACTION_COPY = {
   'schedule.plan': 'planSchedule',
   'schedule.accept': 'acceptSchedule',
   'plan.apply': 'applyPlan',
-  'campaign.start': 'startCampaign',
-  'campaign.round': 'askRound',
-  'campaign.approve': 'approveRound',
-  'campaign.results': 'enterResults',
 } as const satisfies Record<AssistantActionKind, string>
 
 /** Button and done words for an everyday action: "Book", "Booked". */

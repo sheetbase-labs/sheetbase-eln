@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  CAMPAIGN_APPROVE_TOOL,
-  CAMPAIGN_RESULTS_TOOL,
-  CAMPAIGN_START_TOOL,
+  PLAN_TOOL,
   PLANNER_PROPOSE_TOOL_NAMES,
   isPlannerAction,
 } from './assistant-planner'
@@ -16,29 +14,13 @@ import { ASSISTANT_PROPOSE_TOOL_NAMES } from './agent-tool-catalogue'
 import type { LabToolContext } from './assistant-lab-tools.server'
 import type { DataClient } from './data-client'
 
-const RECORD = { id: 'rec-1', identifier: 'CMP-0001', title: 'Buffer screen' }
-const CAMPAIGN = {
-  record_id: 'rec-1',
-  status: 'draft',
-  layout: { plateFormat: '96_well', worklistFormat: 'csv' },
-  objectives: [{ key: 'yield', label: 'Yield', direction: 'maximise' }],
-}
-const ROUND = {
-  id: 'round-1',
-  number: 2,
-  status: 'approved',
-  trials: [{ trial: 1 }, { trial: 2 }],
-}
+const PROJECT = { id: 'proj-1', title: 'Cell assays', key: 'CA' }
 
 function context(
   rows: Partial<Record<string, unknown[]>> = {},
 ): LabToolContext {
   const defaults: Record<string, unknown[] | undefined> = {
-    model_campaign_lists: [{ model_key: 'campaign' }],
-    record_models: [{ key: 'campaign', name: 'Campaign' }],
-    records: [RECORD],
-    campaigns: [CAMPAIGN],
-    campaign_rounds: [ROUND],
+    projects: [PROJECT],
   }
   const client = {
     list: (resource: string) =>
@@ -46,14 +28,18 @@ function context(
   } as unknown as DataClient
   return { client, workspaceId: 'w', userId: 'u', timeZone: 'UTC' }
 }
+
 const base = {
-  title: 'Do it',
-  summary: 'A short summary',
-  campaign: 'CMP-0001',
+  title: 'Plan the dose response',
+  summary: 'A blank experiment with two parts',
+  goal: 'Dose response of compound X',
+  project: 'Cell assays',
+  experimentTitle: 'Compound X dose response',
+  parts: [{ title: 'Seed' }, { title: 'Read', gate: 'block' as const }],
 }
 
-describe('planner assistant cards', () => {
-  it('registers every tool with the agent catalogue and the model', () => {
+describe('planner assistant card', () => {
+  it('registers the tool with the agent catalogue and the model', () => {
     for (const name of PLANNER_PROPOSE_TOOL_NAMES) {
       expect(ASSISTANT_PROPOSE_TOOL_NAMES).toContain(name)
       expect(isPlannerProposalTool(name)).toBe(true)
@@ -63,80 +49,24 @@ describe('planner assistant cards', () => {
     )
   })
 
-  it('proposes starting a campaign that is not running', async () => {
-    const built = await buildPlannerProposal(
-      CAMPAIGN_START_TOOL,
-      base,
-      context(),
-    )
+  it('proposes creating the experiment in the named project', async () => {
+    const built = await buildPlannerProposal(PLAN_TOOL, base, context())
     expect(built.ok).toBe(true)
     if (!built.ok) return
-    expect(built.proposal.action).toEqual({
-      kind: 'campaign.start',
-      recordId: 'rec-1',
+    expect(built.proposal.action).toMatchObject({
+      kind: 'plan.apply',
+      projectId: 'proj-1',
+      plan: { experiment: { title: 'Compound X dose response' } },
     })
     expect(isPlannerAction(built.proposal.action ?? { kind: '' })).toBe(true)
-    const running = await buildPlannerProposal(
-      CAMPAIGN_START_TOOL,
-      base,
-      context({ campaigns: [{ ...CAMPAIGN, status: 'active' }] }),
-    )
-    expect(running.ok).toBe(false)
   })
 
-  it('has no card for a record with no design, or a round that is not waiting', async () => {
-    const none = await buildPlannerProposal(
-      CAMPAIGN_START_TOOL,
-      base,
-      context({ campaigns: [] }),
-    )
-    expect(none.ok).toBe(false)
-    const wrong = await buildPlannerProposal(
-      CAMPAIGN_APPROVE_TOOL,
-      base,
-      context(),
-    )
-    expect(wrong.ok).toBe(false)
-  })
-
-  it('turns objective names and condition numbers into results, and refuses unknown ones', async () => {
+  it('has no card for a project that does not exist', async () => {
     const built = await buildPlannerProposal(
-      CAMPAIGN_RESULTS_TOOL,
-      {
-        ...base,
-        results: [
-          { condition: 1, values: [{ objective: 'yield', value: 71 }] },
-        ],
-      },
-      context(),
+      PLAN_TOOL,
+      base,
+      context({ projects: [] }),
     )
-    expect(built.ok).toBe(true)
-    if (built.ok)
-      expect(built.proposal.action).toEqual({
-        kind: 'campaign.results',
-        roundId: 'round-1',
-        recordId: 'rec-1',
-        results: [{ trial: 1, results: { yield: 71 } }],
-      })
-    const bad = await buildPlannerProposal(
-      CAMPAIGN_RESULTS_TOOL,
-      {
-        ...base,
-        results: [{ condition: 9, values: [{ objective: 'yield', value: 1 }] }],
-      },
-      context(),
-    )
-    expect(bad.ok).toBe(false)
-    const badObjective = await buildPlannerProposal(
-      CAMPAIGN_RESULTS_TOOL,
-      {
-        ...base,
-        results: [
-          { condition: 1, values: [{ objective: 'purity', value: 1 }] },
-        ],
-      },
-      context(),
-    )
-    expect(badObjective.ok).toBe(false)
+    expect(built.ok).toBe(false)
   })
 })

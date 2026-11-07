@@ -3,6 +3,10 @@ import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
+import {
+  ContractImpactNotice,
+  storageUnitOf,
+} from '#/components/contracts/contract-impact-notice'
 import { Notice } from '#/components/ui/alert'
 import { Field, Input } from '#/components/ui/input'
 import { Inspector, InspectorSection, Muted } from '#/components/ui/layout'
@@ -462,6 +466,19 @@ export function RecordModelVersions({
                   })}
             </p>
             <p className="mt-1 text-label">{selected.reason}</p>
+            {selected.lifecycle === 'draft' ? (
+              <ContractImpactNotice
+                target={{ kind: 'record_model', key: modelKey }}
+                modelId={modelKey}
+                nextFields={selected.definition.fields
+                  .filter((field) => field.lifecycle === 'active')
+                  .map((field) => ({
+                    key: field.field_name,
+                    logicalType: field.logical_type,
+                    unit: storageUnitOf(field.quantity),
+                  }))}
+              />
+            ) : null}
             {selected.lifecycle === 'draft' ? (
               <div className="mt-2 flex flex-wrap gap-2">
                 {hasCapability(role, 'schema.publish') &&

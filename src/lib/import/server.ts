@@ -40,6 +40,7 @@ import {
 import type { SessionAuthContext, SessionAuthDeps } from '#/lib/request-auth'
 import { recordParserFailure } from './parser-governance.server'
 import { z } from 'zod'
+import type { ContractGateReport } from '#/lib/data-contracts/types'
 import { IMPORT_PARSERS, recogniseImportParser } from './parsers'
 import { parserLayoutSchema, readWithLayout } from './parser-layout'
 import type { ParserLayout } from './parser-layout'
@@ -1285,6 +1286,7 @@ export async function handleImportCommit(
     snapshotVersionId?: string
     datasetRevision?: number
     outcome?: Record<string, number>
+    contract?: ContractGateReport
     errors?: Array<{ code: string; rowIndex?: number }>
   }>(
     'commit_dataset_import',
@@ -1336,6 +1338,7 @@ export async function handleImportCommit(
     return Response.json({
       ok: false,
       committed: 0,
+      contract: result?.contract,
       errors:
         errors.length > 0
           ? errors

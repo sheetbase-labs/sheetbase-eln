@@ -9,6 +9,7 @@ import type {
   ContractRuleKind,
   ContractRuleResult,
   ContractStatus,
+  ContractTarget,
 } from './types'
 import { FIELD_RULE_KINDS } from './types'
 
@@ -83,7 +84,9 @@ export function modeLabel(mode: ContractMode): string {
 }
 
 export function statusLabel(status: ContractStatus | null | undefined): string {
-  return status ? t(`contracts.status.${status}`) : t('contracts.status.unchecked')
+  return status
+    ? t(`contracts.status.${status}`)
+    : t('contracts.status.unchecked')
 }
 
 /** What a rule found, in a phrase. `limit` is what the rule asked for. */
@@ -283,4 +286,14 @@ export function sameRule(a: ContractRule, b: ContractRule): boolean {
     a.maxAgeMinutes === b.maxAgeMinutes &&
     (a.units ?? []).join('|') === (b.units ?? []).join('|')
   )
+}
+
+/** The model a contract belongs to, as the target the client functions take. */
+export function contractTarget(contract: {
+  datasetSchemaId: string | null
+  recordModelKey: string | null
+}): ContractTarget {
+  return contract.datasetSchemaId
+    ? { kind: 'dataset_schema', id: contract.datasetSchemaId }
+    : { kind: 'record_model', key: contract.recordModelKey ?? '' }
 }

@@ -62,8 +62,7 @@ export interface DataContract {
 
 /** What a model is: a dataset schema (by id) or a record model (by key). */
 export type ContractTarget =
-  | { kind: 'dataset_schema'; id: string }
-  | { kind: 'record_model'; key: string }
+  { kind: 'dataset_schema'; id: string } | { kind: 'record_model'; key: string }
 
 export interface ContractSample {
   row: string

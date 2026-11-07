@@ -138,6 +138,7 @@ import { Route as ExperimentsExpIdSamplesRouteImport } from './routes/experiment
 import { Route as ExperimentsExpIdSeriesRouteImport } from './routes/experiments/$expId/series'
 import { Route as ExperimentsExpIdSummaryRouteImport } from './routes/experiments/$expId/summary'
 import { Route as ModelsModelIdIndexRouteImport } from './routes/models/$modelId/index'
+import { Route as ModelsModelIdContractRouteImport } from './routes/models/$modelId/contract'
 import { Route as ModelsModelIdDatasetsRouteImport } from './routes/models/$modelId/datasets'
 import { Route as ModelsModelIdEditRouteImport } from './routes/models/$modelId/edit'
 import { Route as ModelsModelIdFieldsRouteImport } from './routes/models/$modelId/fields'
@@ -885,6 +886,11 @@ const ModelsModelIdIndexRoute = ModelsModelIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ModelsModelIdRoute,
 } as any)
+const ModelsModelIdContractRoute = ModelsModelIdContractRouteImport.update({
+  id: '/contract',
+  path: '/contract',
+  getParentRoute: () => ModelsModelIdRoute,
+} as any)
 const ModelsModelIdDatasetsRoute = ModelsModelIdDatasetsRouteImport.update({
   id: '/datasets',
   path: '/datasets',
@@ -1546,6 +1552,7 @@ export interface FileRoutesByFullPath {
   '/experiments/$expId/samples': typeof ExperimentsExpIdSamplesRoute
   '/experiments/$expId/series': typeof ExperimentsExpIdSeriesRoute
   '/experiments/$expId/summary': typeof ExperimentsExpIdSummaryRoute
+  '/models/$modelId/contract': typeof ModelsModelIdContractRoute
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/edit': typeof ModelsModelIdEditRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
@@ -1760,6 +1767,7 @@ export interface FileRoutesByTo {
   '/experiments/$expId/samples': typeof ExperimentsExpIdSamplesRoute
   '/experiments/$expId/series': typeof ExperimentsExpIdSeriesRoute
   '/experiments/$expId/summary': typeof ExperimentsExpIdSummaryRoute
+  '/models/$modelId/contract': typeof ModelsModelIdContractRoute
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/edit': typeof ModelsModelIdEditRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
@@ -1988,6 +1996,7 @@ export interface FileRoutesById {
   '/experiments/$expId/samples': typeof ExperimentsExpIdSamplesRoute
   '/experiments/$expId/series': typeof ExperimentsExpIdSeriesRoute
   '/experiments/$expId/summary': typeof ExperimentsExpIdSummaryRoute
+  '/models/$modelId/contract': typeof ModelsModelIdContractRoute
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/edit': typeof ModelsModelIdEditRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
@@ -2218,6 +2227,7 @@ export interface FileRouteTypes {
     | '/experiments/$expId/samples'
     | '/experiments/$expId/series'
     | '/experiments/$expId/summary'
+    | '/models/$modelId/contract'
     | '/models/$modelId/datasets'
     | '/models/$modelId/edit'
     | '/models/$modelId/fields'
@@ -2432,6 +2442,7 @@ export interface FileRouteTypes {
     | '/experiments/$expId/samples'
     | '/experiments/$expId/series'
     | '/experiments/$expId/summary'
+    | '/models/$modelId/contract'
     | '/models/$modelId/datasets'
     | '/models/$modelId/edit'
     | '/models/$modelId/fields'
@@ -2659,6 +2670,7 @@ export interface FileRouteTypes {
     | '/experiments/$expId/samples'
     | '/experiments/$expId/series'
     | '/experiments/$expId/summary'
+    | '/models/$modelId/contract'
     | '/models/$modelId/datasets'
     | '/models/$modelId/edit'
     | '/models/$modelId/fields'
@@ -3783,6 +3795,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ModelsModelIdIndexRouteImport
       parentRoute: typeof ModelsModelIdRoute
     }
+    '/models/$modelId/contract': {
+      id: '/models/$modelId/contract'
+      path: '/contract'
+      fullPath: '/models/$modelId/contract'
+      preLoaderRoute: typeof ModelsModelIdContractRouteImport
+      parentRoute: typeof ModelsModelIdRoute
+    }
     '/models/$modelId/datasets': {
       id: '/models/$modelId/datasets'
       path: '/datasets'
@@ -4659,6 +4678,7 @@ const ModelsModelIdRecordsRouteWithChildren =
   ModelsModelIdRecordsRoute._addFileChildren(ModelsModelIdRecordsRouteChildren)
 
 interface ModelsModelIdRouteChildren {
+  ModelsModelIdContractRoute: typeof ModelsModelIdContractRoute
   ModelsModelIdDatasetsRoute: typeof ModelsModelIdDatasetsRoute
   ModelsModelIdEditRoute: typeof ModelsModelIdEditRoute
   ModelsModelIdFieldsRoute: typeof ModelsModelIdFieldsRoute
@@ -4671,6 +4691,7 @@ interface ModelsModelIdRouteChildren {
 }
 
 const ModelsModelIdRouteChildren: ModelsModelIdRouteChildren = {
+  ModelsModelIdContractRoute: ModelsModelIdContractRoute,
   ModelsModelIdDatasetsRoute: ModelsModelIdDatasetsRoute,
   ModelsModelIdEditRoute: ModelsModelIdEditRoute,
   ModelsModelIdFieldsRoute: ModelsModelIdFieldsRoute,

@@ -13,6 +13,8 @@ import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 import { Banner } from '#/components/ui/alert'
+import { BlockedImportDialog } from '#/components/contracts/blocked-import-dialog'
+import type { ContractGateReport } from '#/lib/data-contracts/types'
 import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
 import { FileDrop } from '#/components/ui/file-drop'
@@ -888,6 +890,8 @@ function ImportMapCheckContent({
   const [mappingReady, setMappingReady] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [blockedByContract, setBlockedByContract] =
+    useState<ContractGateReport | null>(null)
   const [saveWarning, setSaveWarning] = useState('')
   const [outcome, setOutcome] = useState<ImportCommitResponseSummary | null>(
     null,
@@ -1146,6 +1150,10 @@ function ImportMapCheckContent({
           mappingDocument,
         ),
       })
+      if (!result.ok && result.contract?.blocked) {
+        setBlockedByContract(result.contract)
+        return
+      }
       if (!result.ok) {
         setError(
           describeRejectedImport(
@@ -1359,6 +1367,14 @@ function ImportMapCheckContent({
           current={step === 'check' ? 3 : 2}
           failed={parsed === false && file.data !== undefined}
           className="mb-4"
+        />
+
+        <BlockedImportDialog
+          report={blockedByContract}
+          open={blockedByContract !== null}
+          onOpenChange={(open) => {
+            if (!open) setBlockedByContract(null)
+          }}
         />
 
         {error ? (

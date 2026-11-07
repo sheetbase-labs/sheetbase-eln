@@ -6,6 +6,7 @@
  * `create_dataset` RPC). Snapshots, archive/restore, historical query and
  * dependency inspection reuse the Core RPCs.
  */
+import type { ContractGateReport } from '#/lib/data-contracts/types'
 import type { DataClient } from './data-client'
 import { discoverObjectDependencies } from './object-dependencies'
 import type { ObjectDependency } from './object-dependencies'
@@ -71,6 +72,7 @@ export interface DatasetCommitResult {
   idempotent?: boolean
   rows?: Array<{ rowId: string; revision: number; operation: string }>
   sourceEvents?: Array<{ recordId: string | null; sourceEventId: string }>
+  contract?: ContractGateReport
   errors?: Array<{
     rowIndex?: number
     rowId?: string

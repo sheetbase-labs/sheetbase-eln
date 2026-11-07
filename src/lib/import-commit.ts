@@ -3,6 +3,7 @@
  * `validate_dataset_row_batch` / `commit_dataset_row_batch` and
  * `validate_sheet_record_batch` / `create_model_record`.
  */
+import type { ContractGateReport } from '#/lib/data-contracts/types'
 import type { DataClient } from './data-client'
 import { validateDatasetRowBatch } from './dataset-product'
 import type { DatasetCommitResult } from './dataset-product'
@@ -35,6 +36,8 @@ export interface ImportCommitReport {
   errors: Array<{ row?: number; code: string; message: string }>
   datasetRevision?: number
   schemaVersionId?: string
+  /** Set when a data contract's blocking rules refused the import. */
+  contract?: ContractGateReport
 }
 
 export async function validateAndCommitImport(
@@ -127,6 +130,7 @@ function datasetReport(
     ok: false,
     committed: 0,
     schemaVersionId,
+    contract: result.contract,
     errors: (result.errors ?? []).map((error) => ({
       row: error.rowIndex,
       code: error.code,
@@ -221,6 +225,8 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 export function describeImportRpcCode(code: string): string {
   switch (code) {
+    case 'contract_failed':
+      return 'The data contract does not allow these rows.'
     case 'required_value':
       return 'A required field is missing.'
     case 'invalid_value':

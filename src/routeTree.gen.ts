@@ -112,6 +112,7 @@ import { Route as ApiImportReviewRouteImport } from './routes/api/import/review'
 import { Route as ApiNotebookCodeCellRouteImport } from './routes/api/notebook.code-cell'
 import { Route as ApiOfficeEditorSessionRouteImport } from './routes/api/office-editor/session'
 import { Route as ApiOfficeEditorStatusRouteImport } from './routes/api/office-editor/status'
+import { Route as ApiOntologySearchRouteImport } from './routes/api/ontology/search'
 import { Route as ApiParsersConverterRouteImport } from './routes/api/parsers/converter'
 import { Route as ApiParsersRequestUpdateRouteImport } from './routes/api/parsers/request-update'
 import { Route as ApiParsersValidateRouteImport } from './routes/api/parsers/validate'
@@ -753,6 +754,11 @@ const ApiOfficeEditorSessionRoute = ApiOfficeEditorSessionRouteImport.update({
 const ApiOfficeEditorStatusRoute = ApiOfficeEditorStatusRouteImport.update({
   id: '/api/office-editor/status',
   path: '/api/office-editor/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOntologySearchRoute = ApiOntologySearchRouteImport.update({
+  id: '/api/ontology/search',
+  path: '/api/ontology/search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiParsersConverterRoute = ApiParsersConverterRouteImport.update({
@@ -1544,6 +1550,7 @@ export interface FileRoutesByFullPath {
   '/api/notebook/code-cell': typeof ApiNotebookCodeCellRoute
   '/api/office-editor/session': typeof ApiOfficeEditorSessionRoute
   '/api/office-editor/status': typeof ApiOfficeEditorStatusRoute
+  '/api/ontology/search': typeof ApiOntologySearchRoute
   '/api/parsers/converter': typeof ApiParsersConverterRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
@@ -1763,6 +1770,7 @@ export interface FileRoutesByTo {
   '/api/notebook/code-cell': typeof ApiNotebookCodeCellRoute
   '/api/office-editor/session': typeof ApiOfficeEditorSessionRoute
   '/api/office-editor/status': typeof ApiOfficeEditorStatusRoute
+  '/api/ontology/search': typeof ApiOntologySearchRoute
   '/api/parsers/converter': typeof ApiParsersConverterRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
@@ -1992,6 +2000,7 @@ export interface FileRoutesById {
   '/api/notebook/code-cell': typeof ApiNotebookCodeCellRoute
   '/api/office-editor/session': typeof ApiOfficeEditorSessionRoute
   '/api/office-editor/status': typeof ApiOfficeEditorStatusRoute
+  '/api/ontology/search': typeof ApiOntologySearchRoute
   '/api/parsers/converter': typeof ApiParsersConverterRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
@@ -2225,6 +2234,7 @@ export interface FileRouteTypes {
     | '/api/notebook/code-cell'
     | '/api/office-editor/session'
     | '/api/office-editor/status'
+    | '/api/ontology/search'
     | '/api/parsers/converter'
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
@@ -2444,6 +2454,7 @@ export interface FileRouteTypes {
     | '/api/notebook/code-cell'
     | '/api/office-editor/session'
     | '/api/office-editor/status'
+    | '/api/ontology/search'
     | '/api/parsers/converter'
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
@@ -2672,6 +2683,7 @@ export interface FileRouteTypes {
     | '/api/notebook/code-cell'
     | '/api/office-editor/session'
     | '/api/office-editor/status'
+    | '/api/ontology/search'
     | '/api/parsers/converter'
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
@@ -2882,6 +2894,7 @@ export interface RootRouteChildren {
   ApiNotebookCodeCellRoute: typeof ApiNotebookCodeCellRoute
   ApiOfficeEditorSessionRoute: typeof ApiOfficeEditorSessionRoute
   ApiOfficeEditorStatusRoute: typeof ApiOfficeEditorStatusRoute
+  ApiOntologySearchRoute: typeof ApiOntologySearchRoute
   ApiParsersConverterRoute: typeof ApiParsersConverterRoute
   ApiParsersRequestUpdateRoute: typeof ApiParsersRequestUpdateRoute
   ApiParsersValidateRoute: typeof ApiParsersValidateRoute
@@ -3638,6 +3651,13 @@ declare module '@tanstack/react-router' {
       path: '/api/office-editor/status'
       fullPath: '/api/office-editor/status'
       preLoaderRoute: typeof ApiOfficeEditorStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ontology/search': {
+      id: '/api/ontology/search'
+      path: '/api/ontology/search'
+      fullPath: '/api/ontology/search'
+      preLoaderRoute: typeof ApiOntologySearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/parsers/converter': {
@@ -5113,6 +5133,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiNotebookCodeCellRoute: ApiNotebookCodeCellRoute,
   ApiOfficeEditorSessionRoute: ApiOfficeEditorSessionRoute,
   ApiOfficeEditorStatusRoute: ApiOfficeEditorStatusRoute,
+  ApiOntologySearchRoute: ApiOntologySearchRoute,
   ApiParsersConverterRoute: ApiParsersConverterRoute,
   ApiParsersRequestUpdateRoute: ApiParsersRequestUpdateRoute,
   ApiParsersValidateRoute: ApiParsersValidateRoute,
@@ -5151,13 +5172,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

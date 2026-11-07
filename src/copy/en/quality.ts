@@ -240,6 +240,7 @@ export const quality = {
     },
     chart: {
       label: 'Levey-Jennings chart for {name}',
+      band: '{value} SD',
       mean: 'Mean',
       noLimits: 'Set limits to see how each run compares.',
       noPoints: 'No runs yet',

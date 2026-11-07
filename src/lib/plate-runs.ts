@@ -112,6 +112,7 @@ export interface NewPlateRun {
   config: PlateAssayConfig
   projectId?: string | null
   recordId?: string | null
+  designId?: string | null
 }
 
 export async function createPlateRun(
@@ -126,6 +127,7 @@ export async function createPlateRun(
     p_config: input.config,
     p_project_id: input.projectId ?? null,
     p_record_id: input.recordId ?? null,
+    p_design_id: input.designId ?? null,
   })
   return toRun(wire)
 }

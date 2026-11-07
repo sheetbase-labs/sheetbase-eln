@@ -151,12 +151,6 @@ export const LAB_AREAS = {
     'Worklists sent to robots: which robot, whether each is waiting for the agent, on the robot waiting for Start, running, complete, failed or stopped, and what the robot reported (openOnly: only jobs still open)',
   schedules:
     'Proposed schedules for the parts of experiments: whether each is waiting to be planned, proposed, accepted or dismissed, and how many slots have something in the way (openOnly: only proposals waiting to be accepted)',
-  plans:
-    'Experiment plans drawn up from a goal: whether each is waiting for the person, applied or dismissed, and the experiment it made (openOnly: only plans waiting to be applied)',
-  campaigns:
-    'Optimisation campaigns: whether each is not started, running, paused or finished, its factors, objectives and budget (openOnly: only campaigns still running or paused)',
-  campaign_rounds:
-    'Rounds of optimisation campaigns: whether each is waiting for the optimiser, for the person to approve, for results or complete, and how many conditions it has (openOnly: only rounds waiting for approval or results)',
   code_runs:
     'Runs of notebook code cells (Python or SQL): when, the language, whether it worked, and for a run done again whether the output matched (openOnly: only runs that failed or did not match)',
   lineage:
@@ -746,9 +740,6 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   schedules: 'status=eq.proposed',
   code_runs: 'or=(status.eq.error,matches.eq.false)',
   publications: 'status=neq.published',
-  plans: 'status=eq.proposed',
-  campaigns: 'status=in.(active,paused)',
-  campaign_rounds: 'status=in.(proposed,approved)',
   sample_workflows: 'status=eq.active',
   directory_sync: 'revoked_at=is.null',
   watcher_findings: 'status=eq.open',
@@ -992,29 +983,6 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'created_at.desc',
     search: [],
     page: '/experiments',
-  },
-  plans: {
-    table: 'experiment_plans',
-    select: 'id,number,project_id,goal,summary,status,source,result,created_at',
-    order: 'created_at.desc',
-    search: ['goal'],
-    page: '/plans',
-  },
-  campaigns: {
-    table: 'campaigns',
-    select:
-      'record_id,status,batch_size,max_rounds,max_runs,engine,factors,objectives,updated_at',
-    order: 'updated_at.desc',
-    search: [],
-    page: '/campaigns',
-  },
-  campaign_rounds: {
-    table: 'campaign_rounds',
-    select:
-      'id,campaign_record_id,number,status,batch_size,engine,experiment_record_id,error_message,created_at',
-    order: 'created_at.desc',
-    search: [],
-    page: '/campaigns',
   },
   code_runs: {
     table: 'code_cell_runs',

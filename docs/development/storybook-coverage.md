@@ -523,15 +523,3 @@ server, so every notebook comes back in the "not updated" list.
 | `src/components/contracts/contract-panel.tsx`         | The Contract tab: reads and writes contracts, runs and members through the data client, and has no state to show without them. |
 | `src/components/contracts/dataset-contract-badge.tsx` | Reads a dataset's standing and its contract from the server; the badge it draws has its own story (`ContractStatusBadge`).     |
 | `src/components/contracts/rule-dialog.tsx`            | Portalled form that previews a rule against stored data and saves it through the data client.                                  |
-
-## Planner and campaigns
-
-| Module                                        | Why no story                                                                                                                |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `src/components/planner/plans-page.tsx`       | Reads plans through the data client; covered by the planner database tests and the Plans click-through.                     |
-| `src/components/planner/plan-view.tsx`        | Reads a plan and applies it through the data client; covered by the planner database tests.                                 |
-| `src/components/planner/plan-dialog.tsx`      | Asks the assistant through a server function and saves the plan through the data client; covered by the planner unit tests. |
-| `src/components/planner/plan-with-ai.tsx`     | Shows a button only when a real model is connected.                                                                         |
-| `src/components/campaigns/campaigns-page.tsx` | Reads campaigns through the data client; covered by the campaign database tests and the Campaigns click-through.            |
-| `src/components/campaigns/campaign-view.tsx`  | Reads a campaign and its rounds and calls the round functions; covered by the campaign database tests.                      |
-| `src/components/campaigns/design-dialog.tsx`  | Saves a design through the data client; the design rules are covered by the campaign unit tests.                            |

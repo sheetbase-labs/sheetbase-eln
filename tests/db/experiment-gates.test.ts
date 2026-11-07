@@ -811,11 +811,18 @@ describe('a sheet that reads a dataset', () => {
     )
     const [row] = await gates(recordId)
     expect(row.missing).toEqual(['P2 has no od'])
+    const since = await mark()
     await migrator.query(
       `insert into api.dataset_row_values(row_id,field_id,ordinal,text_value) values($1,$2,0,'0.5')`,
       [rows[1], fieldOd],
     )
     expect((await gates(recordId))[0].met).toBe(true)
+    // The notice goes out as the dataset's cell is written, not at the next page load.
+    expect(
+      (await feed(since))
+        .filter((event) => event.payload.recordId === recordId)
+        .map((event) => event.wire),
+    ).toEqual(['experiment.gate_opened'])
 
     // The same dataset read below a gate that blocks: writing the dataset's
     // cells is held back like writing the sheet.

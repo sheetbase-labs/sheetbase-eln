@@ -4,13 +4,7 @@
  * record this person can see becomes a link; anything else stays plain text, so
  * a typo or another lab's number never turns into a dead link.
  */
-import { useContext } from 'react'
-import {
-  QueryClient,
-  QueryClientContext,
-  useQueries,
-  useQuery,
-} from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 
 import { notebookDataClient } from '#/lib/notebook-data'
 
@@ -73,34 +67,54 @@ async function lookUp(ref: string): Promise<string | null> {
   return source.kind ?? row.kind ?? 'record'
 }
 
-/**
- * The app's query client, or a small private one where there is none (an
- * editor rendered on its own), so identifiers still resolve.
- */
-const fallbackClient = new QueryClient()
-function useRefClient(): QueryClient {
-  return useContext(QueryClientContext) ?? fallbackClient
-}
+/** What each identifier resolved to (null: no such record), kept for the page's life. */
+const resolved = new Map<string, string | null>()
+const pending = new Map<string, Promise<void>>()
 
-const refQuery = (ref: string) => ({
-  queryKey: ['record-ref', ref],
-  queryFn: () => lookUp(ref),
-  staleTime: 5 * 60_000,
-})
+function resolve(ref: string): Promise<void> {
+  const existing = pending.get(ref)
+  if (existing) return existing
+  const task = lookUp(ref)
+    .then((kind) => {
+      resolved.set(ref, kind)
+    })
+    .catch(() => {
+      // A failed look-up stays plain text and is tried again next time.
+    })
+    .finally(() => {
+      pending.delete(ref)
+    })
+  pending.set(ref, task)
+  return task
+}
 
 /** The kind of record an identifier names, once known; null while unknown. */
 export function useRecordRef(ref: string): string | null {
-  return useQuery(refQuery(ref), useRefClient()).data ?? null
+  return useRecordRefs([ref]).get(ref) ?? null
 }
 
 /** The kinds of several identifiers at once, keyed by identifier. */
 export function useRecordRefs(refs: readonly string[]): Map<string, string> {
   const unique = [...new Set(refs)]
-  const results = useQueries({ queries: unique.map(refQuery) }, useRefClient())
+  const key = unique.join(' ')
+  const [, setVersion] = useState(0)
+  useEffect(() => {
+    let live = true
+    const missing = key
+      .split(' ')
+      .filter((ref) => ref !== '' && !resolved.has(ref))
+    if (missing.length === 0) return
+    void Promise.all(missing.map(resolve)).then(() => {
+      if (live) setVersion((version) => version + 1)
+    })
+    return () => {
+      live = false
+    }
+  }, [key])
   const known = new Map<string, string>()
-  unique.forEach((ref, index) => {
-    const kind = results[index]?.data
+  for (const ref of unique) {
+    const kind = resolved.get(ref)
     if (kind) known.set(ref, kind)
-  })
+  }
   return known
 }

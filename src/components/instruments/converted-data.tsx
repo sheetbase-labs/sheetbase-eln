@@ -97,17 +97,9 @@ export function ConvertedDataSection({
         ),
       },
       {
-        id: 'technique',
-        header: t('quality.instrumentData.columns.technique'),
-        size: 150,
-        cell: ({ row }) => (
-          <span className="text-fg-muted">{row.original.technique ?? '—'}</span>
-        ),
-      },
-      {
         id: 'measurements',
         header: t('quality.instrumentData.columns.measurements'),
-        size: 120,
+        size: 110,
         cell: ({ row }) => (
           <span className="num">{row.original.measurements}</span>
         ),
@@ -115,7 +107,7 @@ export function ConvertedDataSection({
       {
         id: 'converter',
         header: t('quality.instrumentData.columns.converter'),
-        size: 170,
+        size: 150,
         cell: ({ row }) => (
           <span className="truncate text-fg-muted">
             {row.original.converter_version
@@ -130,7 +122,7 @@ export function ConvertedDataSection({
       {
         id: 'converted',
         header: t('quality.instrumentData.columns.converted'),
-        size: 130,
+        size: 110,
         cell: ({ row }) => (
           <span className="text-fg-muted">
             {formatDate(row.original.created_at)}
@@ -140,7 +132,7 @@ export function ConvertedDataSection({
       {
         id: 'download',
         header: '',
-        size: 150,
+        size: 130,
         cell: ({ row }) => (
           <Button
             variant="quiet"

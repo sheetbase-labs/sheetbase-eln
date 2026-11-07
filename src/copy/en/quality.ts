@@ -385,7 +385,6 @@ export const quality = {
     columns: {
       run: 'Run',
       device: 'Instrument',
-      technique: 'Technique',
       measurements: 'Measurements',
       converter: 'Converter',
       converted: 'Converted',

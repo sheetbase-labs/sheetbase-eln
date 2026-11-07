@@ -17,6 +17,8 @@ export interface ExtensionWire {
   source: string
   manifest: ExtensionManifest
   status: ExtensionStatus
+  /** Runner points an administrator switched off. */
+  disabled_points: string[]
   credential_id: string | null
   created_at: string
   updated_at: string
@@ -68,6 +70,24 @@ export async function disableExtension(
   return client.rpc('disable_extension', {
     p_workspace_id: input.workspaceId,
     p_extension_id: input.extensionId,
+  })
+}
+
+/** Switch one runner point (pipeline actions, assistant tools, analysis kinds) on or off. */
+export async function setExtensionPointEnabled(
+  client: DataClient,
+  input: {
+    workspaceId: string
+    extensionId: string
+    point: string
+    enabled: boolean
+  },
+): Promise<ExtensionWire> {
+  return client.rpc('set_extension_point_enabled', {
+    p_workspace_id: input.workspaceId,
+    p_extension_id: input.extensionId,
+    p_point: input.point,
+    p_enabled: input.enabled,
   })
 }
 
@@ -125,7 +145,7 @@ export async function removeExtension(
 // ---------------------------------------------------------------------------
 
 const EXTENSION_FIELDS =
-  'id,workspace_id,key,name,version,source,manifest,status,credential_id,created_at,updated_at'
+  'id,workspace_id,key,name,version,source,manifest,status,disabled_points,credential_id,created_at,updated_at'
 
 export async function listExtensions(
   client: DataClient,

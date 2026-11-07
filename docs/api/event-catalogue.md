@@ -277,6 +277,8 @@ metadata only, never secrets).
 `agent.action.requested` (an agent asked to take an action),
 `agent.action.decided` (`event=decided`: a person approved or rejected it),
 `agent.action.completed` (`event=completed`: it ran and succeeded or failed),
+`extension.point.enabled` and `extension.point.disabled` (`change=point_enabled` or `point_disabled`: an administrator switched a part of an extension on or off),
+`extension.invoked` (`change=invoked`: an extension ran something; payload carries `extensionKey`, `point`, `itemId`, `ok` and `runner`),
 `ai.eval.completed` (a Checks run finished, with how many passed) and
 `watcher.finding.created` (a watcher found something; payload carries the
 finding kind, title and record, and starts a pipeline set to that event).

@@ -9364,6 +9364,11 @@ export const extensions = api.table(
       .notNull()
       .default(sql`'{}'::jsonb`),
     status: text('status').notNull().default('installed'),
+    /**
+     * Runner points an administrator switched off for this extension
+     * ('pipeline-actions', 'assistant-tools', 'analysis-kinds').
+     */
+    disabledPoints: text('disabled_points').array().notNull().default([]),
     /** Per-extension scoped credential (minimal manifest-declared scopes). */
     credentialId: uuid('credential_id').references(() => apiCredentials.id, {
       onDelete: 'set null',
@@ -9391,8 +9396,35 @@ export const extensions = api.table(
       'chk_extensions_status',
       sql`${table.status} IN ('installed', 'enabled', 'disabled')`,
     ),
+    check(
+      'chk_extensions_disabled_points',
+      sql`${table.disabledPoints} <@ ARRAY['pipeline-actions', 'assistant-tools', 'analysis-kinds']::text[]`,
+    ),
   ],
 )
+
+/**
+ * The signing key an extension's webhook runner checks. Sealed by the app
+ * with the same envelope as connector secrets; one per extension.
+ */
+export const extensionSecrets = internal.table('extension_secrets', {
+  extensionId: uuid('extension_id')
+    .primaryKey()
+    .references(() => extensions.id, { onDelete: 'cascade' }),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  ciphertext: bytea('ciphertext').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+  createdByUserId: text('created_by_user_id').references(() => user.id, {
+    onDelete: 'set null',
+  }),
+})
 
 export const connectorRuns = api.table(
   'connector_runs',

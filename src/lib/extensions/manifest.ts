@@ -21,6 +21,13 @@ import { VALID_SCOPES } from '../api-credential-scopes'
 import type { Scope } from '../api-credential-scopes'
 import { eventByName, resolveEventAlias } from '../event-catalogue'
 import { validateCompatRange } from './compat'
+import {
+  EXTENSION_RUNNER_POINTS,
+  parseAnalysisKinds,
+  parseAssistantTools,
+  parsePipelineActions,
+} from './points'
+import type { ExtensionRunnerContributions } from './points'
 
 /** Contribution points an extension may declare. EXT-02 registers them. */
 export const EXTENSION_CONTRIBUTION_POINTS = [
@@ -28,6 +35,7 @@ export const EXTENSION_CONTRIBUTION_POINTS = [
   'panels',
   'commands',
   'event-subscriptions',
+  ...EXTENSION_RUNNER_POINTS,
 ] as const
 
 export type ExtensionContributionPoint =
@@ -71,7 +79,7 @@ export interface ExtensionEventSubscriptionDeclaration {
   eventType: string
 }
 
-export interface ExtensionContributions {
+export interface ExtensionContributions extends ExtensionRunnerContributions {
   'object-actions'?: ExtensionNamedDeclaration[]
   panels?: ExtensionNamedDeclaration[]
   commands?: ExtensionNamedDeclaration[]
@@ -339,6 +347,15 @@ export function validateExtensionManifest(input: unknown): string[] {
         errors,
       )
     }
+    if (input.contributions['pipeline-actions'] !== undefined) {
+      parsePipelineActions(input.contributions['pipeline-actions'], errors)
+    }
+    if (input.contributions['assistant-tools'] !== undefined) {
+      parseAssistantTools(input.contributions['assistant-tools'], errors)
+    }
+    if (input.contributions['analysis-kinds'] !== undefined) {
+      parseAnalysisKinds(input.contributions['analysis-kinds'], errors)
+    }
   }
   return errors
 }
@@ -370,6 +387,24 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
   if (declared['event-subscriptions'] !== undefined) {
     contributions['event-subscriptions'] = checkEventSubscriptions(
       declared['event-subscriptions'],
+      [],
+    )!
+  }
+  if (declared['pipeline-actions'] !== undefined) {
+    contributions['pipeline-actions'] = parsePipelineActions(
+      declared['pipeline-actions'],
+      [],
+    )!
+  }
+  if (declared['assistant-tools'] !== undefined) {
+    contributions['assistant-tools'] = parseAssistantTools(
+      declared['assistant-tools'],
+      [],
+    )!
+  }
+  if (declared['analysis-kinds'] !== undefined) {
+    contributions['analysis-kinds'] = parseAnalysisKinds(
+      declared['analysis-kinds'],
       [],
     )!
   }

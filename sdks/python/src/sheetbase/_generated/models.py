@@ -156,6 +156,7 @@ __all__ = [
     "FinishAgentActionParams",
     "FoldersRow",
     "FollowProjectParams",
+    "GateOverridesRow",
     "GetWebhookEndpointHealthParams",
     "HandOverMemberWorkParams",
     "IdpGroupMappingsRow",
@@ -218,6 +219,7 @@ __all__ = [
     "NotebookUpgradeApplyResult",
     "NotebookUpgradeDecision",
     "NotebookUpgradePreview",
+    "OverrideGateParams",
     "PartPlansRow",
     "PartResourceNeedsRow",
     "PartsInRangeParams",
@@ -260,6 +262,7 @@ __all__ = [
     "ReceiveReagentOrderParams",
     "ReceiveShipmentParams",
     "RecordFieldDefinitionsRow",
+    "RecordGatesParams",
     "RecordInstrumentReadingsParams",
     "RecordInstrumentRunDocumentParams",
     "RecordLinksRow",
@@ -351,6 +354,7 @@ __all__ = [
     "SetMemberAbsenceParams",
     "SetModelSupplierListParams",
     "SetPartDoneParams",
+    "SetPartGateParams",
     "SetPartPlanParams",
     "SetQcBaselineParams",
     "SetReagentOrderPriceParams",
@@ -1296,6 +1300,9 @@ class _ExperimentPartsRowRequired(TypedDict):
     position: float
     title: str
     day_offset: int
+    gate_mode: str
+    steps_in_order: bool
+    gate_from_template: bool
     created_at: str
     updated_at: str
 
@@ -1306,6 +1313,7 @@ class ExperimentPartsRow(_ExperimentPartsRowRequired, total=False):
     opened_at: Optional[str]
     completed_at: Optional[str]
     completed_by_user_id: Optional[str]
+    opens_when: Optional[Dict[str, "JsonValue"]]
 
 
 class _ExperimentSeriesMembersRowRequired(TypedDict):
@@ -1400,6 +1408,23 @@ class FoldersRow(_FoldersRowRequired, total=False):
     """`api.folders` row (snake_case). GET-only for API keys (`api_client` has SELECT). Folder writes stay on the session path."""
     parent_id: Optional[str]
     archived_at: Optional[str]
+
+
+class _GateOverridesRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    record_id: str
+    label: str
+    missing: List[str]
+    reason: str
+    created_at: str
+
+
+class GateOverridesRow(_GateOverridesRowRequired, total=False):
+    """`api.gate_overrides` row (snake_case). Someone went on past a gate that warns, with a reason: who, when, what the gate was and what was still missing. The reviewer sees these."""
+    block_id: Optional[str]
+    part_id: Optional[str]
+    created_by_user_id: Optional[str]
 
 
 class _IdpGroupMappingsRowRequired(TypedDict):
@@ -4180,6 +4205,15 @@ class MyInstrumentTrainingGapsParams(TypedDict):
     p_instrument_id: str
 
 
+class _OverrideGateParamsRequired(TypedDict):
+    p_reason: str
+
+
+class OverrideGateParams(_OverrideGateParamsRequired, total=False):
+    p_gate_block_id: str
+    p_gate_part_id: str
+
+
 class PartsInRangeParams(TypedDict):
     p_from: str
     p_to: str
@@ -4344,6 +4378,10 @@ class _ReceiveShipmentParamsRequired(TypedDict):
 class ReceiveShipmentParams(_ReceiveShipmentParamsRequired, total=False):
     p_results: Dict[str, "JsonValue"]
     p_condition_note: str
+
+
+class RecordGatesParams(TypedDict):
+    p_record_id: str
 
 
 class RecordInstrumentReadingsParams(TypedDict):
@@ -4840,6 +4878,16 @@ class SetModelSupplierListParams(TypedDict):
 class SetPartDoneParams(TypedDict):
     p_part_id: str
     p_done: bool
+
+
+class _SetPartGateParamsRequired(TypedDict):
+    p_part_id: str
+
+
+class SetPartGateParams(_SetPartGateParamsRequired, total=False):
+    p_conditions: Dict[str, "JsonValue"]
+    p_gate_mode: str
+    p_steps_in_order: bool
 
 
 class _SetPartPlanParamsRequired(TypedDict):

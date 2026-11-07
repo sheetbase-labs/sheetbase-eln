@@ -615,6 +615,7 @@ const LAB_EVENTS: ReadonlyArray<{
     operation: 'update',
     payload: { change: 'reproduced' },
   },
+  {
     name: 'experiment.gate_overridden',
     entityType: 'gate_override',
     operation: 'create',

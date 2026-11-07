@@ -35,6 +35,8 @@ export type GateCondition =
   | { kind: 'samples_linked'; min?: number }
   | { kind: 'field_set'; field: string; label?: string }
   | { kind: 'date_reached'; date: string }
+  /** No tracked quality control series (or the one named) has a breach nobody has looked at. */
+  | { kind: 'qc_in_control'; seriesId?: string; label?: string }
 
 export type GateConditionKind = GateCondition['kind']
 
@@ -45,6 +47,7 @@ export const GATE_CONDITION_KINDS: readonly GateConditionKind[] = [
   'samples_linked',
   'field_set',
   'date_reached',
+  'qc_in_control',
 ]
 
 export const MAX_GATE_CONDITIONS = 12

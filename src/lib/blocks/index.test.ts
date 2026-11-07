@@ -472,6 +472,22 @@ describe('block payload validation (ELN-002)', () => {
     }
   })
 
+  it('checks the series of a quality control gate condition', () => {
+    const gate = (condition: Record<string, unknown>) =>
+      validateBlock({
+        type: 'gate',
+        payload: { mode: 'block', conditions: [condition] },
+      }).ok
+    expect(gate({ kind: 'qc_in_control' })).toBe(true)
+    expect(
+      gate({
+        kind: 'qc_in_control',
+        seriesId: '0198d970-e266-4000-8000-000000000030',
+      }),
+    ).toBe(true)
+    expect(gate({ kind: 'qc_in_control', seriesId: 'nope' })).toBe(false)
+  })
+
   it('validates execution state separately from a reusable procedure definition', () => {
     expect(
       validateBlock({

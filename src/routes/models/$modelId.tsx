@@ -1,6 +1,5 @@
 import { RegistrySettingsDialog } from '#/components/registry/registry-settings'
 import { SupplierListDialog } from '#/components/materials/supplier-list'
-import { ModelFeaturesDialog } from '#/components/models/model-features-dialog'
 import { ModelQualityDialog } from '#/components/results/model-quality-dialog'
 import { useQualityOptions } from '#/lib/result-quality'
 import { RequestSettingsDialog } from '#/components/requests/request-settings'
@@ -317,7 +316,6 @@ function RecordModelLayout({
   const [registryOpen, setRegistryOpen] = useState(false)
   const [suppliersOpen, setSuppliersOpen] = useState(false)
   const [qualityOpen, setQualityOpen] = useState(false)
-  const [featuresOpen, setFeaturesOpen] = useState(false)
   const quality = useQualityOptions(workspaceId ?? undefined)
   const [requestsOpen, setRequestsOpen] = useState(false)
   const recordCount = useRecordModelRecordCount(modelKey)
@@ -405,9 +403,6 @@ function RecordModelLayout({
                   </Button>
                   <Button onClick={() => setQualityOpen(true)}>
                     {t('quality.limits.button')}
-                  </Button>
-                  <Button onClick={() => setFeaturesOpen(true)}>
-                    {t('features.button')}
                   </Button>
                   <Button onClick={() => setRequestsOpen(true)}>
                     {t('requests.settings.button')}
@@ -503,9 +498,6 @@ function RecordModelLayout({
         />
         {basedOnOpen ? (
           <BasedOnDialog open onOpenChange={setBasedOnOpen} model={m} />
-        ) : null}
-        {featuresOpen ? (
-          <ModelFeaturesDialog open onOpenChange={setFeaturesOpen} model={m} />
         ) : null}
         {qualityOpen ? (
           <ModelQualityDialog

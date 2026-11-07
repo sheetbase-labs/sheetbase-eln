@@ -30,6 +30,11 @@ import {
 import { useRecordModelFields } from '#/components/models/models-data'
 import type { WorkspaceRecordModel } from '#/components/models/models-data'
 import { t } from '#/copy'
+import {
+  campaignKeys,
+  fetchCampaignModels,
+  setModelCampaignList,
+} from '#/lib/campaigns/data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   NO_LIMITS,
@@ -114,13 +119,26 @@ export function ModelQualityDialog({
     enabled: open,
   })
   const isLog = Boolean(incidentModels.data?.some((m) => m.key === model.key))
+  const campaignModels = useQuery({
+    queryKey: campaignKeys.models,
+    queryFn: () => fetchCampaignModels(client),
+    enabled: open,
+  })
+  const isCampaign = Boolean(
+    campaignModels.data?.some((m) => m.key === model.key),
+  )
 
   const [log, setLog] = useState(false)
+  const [campaignList, setCampaignList] = useState(false)
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
   useEffect(() => {
     if (!open) return
     setLog(isLog)
   }, [open, isLog])
+  useEffect(() => {
+    if (!open) return
+    setCampaignList(isCampaign)
+  }, [open, isCampaign])
   useEffect(() => {
     if (!open || !limits.data) return
     setDrafts(
@@ -138,6 +156,8 @@ export function ModelQualityDialog({
   const save = useMutation({
     mutationFn: async () => {
       if (log !== isLog) await setModelIncidentLog(client, model.key, log)
+      if (campaignList !== isCampaign)
+        await setModelCampaignList(client, model.key, campaignList)
       if (specLimitsOn) {
         const saved = new Map(
           (limits.data ?? []).map((l) => [l.fieldName, l] as const),
@@ -158,6 +178,7 @@ export function ModelQualityDialog({
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: qualityKeys.all })
+      void queryClient.invalidateQueries({ queryKey: campaignKeys.all })
       toast.success(t('quality.limits.saved'))
       onOpenChange(false)
     },
@@ -199,6 +220,22 @@ export function ModelQualityDialog({
                 </span>
                 <span className="text-label text-fg-muted">
                   {t('quality.limits.incidentTickHint')}
+                </span>
+              </span>
+            </label>
+
+            <label className="flex items-start gap-2 text-body">
+              <Checkbox
+                checked={campaignList}
+                onCheckedChange={(checked) => setCampaignList(checked === true)}
+                className="mt-0.5"
+              />
+              <span className="flex flex-col">
+                <span className="font-medium">
+                  {t('planner.models.campaignTick')}
+                </span>
+                <span className="text-label text-fg-muted">
+                  {t('planner.models.campaignTickHint')}
                 </span>
               </span>
             </label>

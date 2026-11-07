@@ -86,9 +86,6 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_rules:
     'Westgard rules to judge by, from `1-3s`, `2-2s`, `R-4s`, `4-1s` and `10x`. For a data contract, a JSON array of rules: `{ id, kind, field, mode, min, max, units, threshold, maxAgeMinutes }`, where `kind` is `required`, `unique`, `range`, `units`, `completeness`, `row_count` or `freshness` and `mode` is `warn` or `block`.',
   p_enabled: '`false` pauses judging new points.',
-  p_capability: 'The feature key, such as `campaigns`.',
-  p_settings:
-    'A JSON object of settings for the feature (replaces its settings when given).',
   p_first_n:
     'Take the limits from the first N points (mean and SD) instead of entering them.',
   p_at: 'When it was measured (default now).',
@@ -1440,14 +1437,12 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['created_at', 'ts', 1],
     ],
   },
-  model_capabilities: {
+  model_campaign_lists: {
     summary:
-      'The features switched on for each record model, such as `campaigns` (records of the model can be optimised round by round). One row per model and feature; `settings` holds what the feature keeps for that model.',
+      'The record models ticked as campaign lists: their records can be optimised round by round.',
     columns: [
       ['workspace_id', 'uuid', 1],
       ['model_key', 'text', 1],
-      ['capability', 'text', 1],
-      ['settings', 'json', 1],
       ['created_at', 'ts', 1],
       ['created_by_user_id', 'text', 1],
     ],
@@ -3141,16 +3136,14 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
     params: [['p_plan_id', 'uuid', 1]],
     result: 'row:experiment_plans',
   },
-  set_model_capability: {
-    summary: 'Switch a feature on or off for a record model',
+  set_model_campaign_list: {
+    summary: 'Tick or untick a record model as a campaign list',
     description:
-      'Turns a feature of a record model on or off; `p_capability` is the feature key, such as `campaigns`, whose records can then be set up as campaigns. `p_settings` replaces the feature’s settings when given. Needs permission to edit models. Returns whether the feature is now on.',
+      'Records of a ticked model can be set up as campaigns. Needs permission to edit models.',
     scope: 'lab:write',
     params: [
       ['p_model_key', 'text', 1],
-      ['p_capability', 'text', 1],
       ['p_enabled', 'bool', 1],
-      ['p_settings', 'json', 0],
     ],
     result: 'bool',
   },

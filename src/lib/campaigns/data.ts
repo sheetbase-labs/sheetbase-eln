@@ -4,8 +4,6 @@
  * RPC so the rules stay in the database.
  */
 import type { DataClient } from '#/lib/data-client'
-import { CAMPAIGNS_FEATURE } from '#/lib/features/registry'
-import { setModelFeature } from '#/lib/features/data'
 import { createStarterModel } from '#/lib/result-quality'
 import type { StarterModel } from '#/lib/result-quality'
 
@@ -46,13 +44,13 @@ export type CampaignListItem = CampaignRecord & {
   campaign: CampaignRow | null
 }
 
-/** The record models that have the Campaigns feature. */
+/** The record models ticked as campaign lists. */
 export async function fetchCampaignModels(
   client: DataClient,
 ): Promise<CampaignModel[]> {
   const ticked = await client.list<{ model_key: string }>(
-    'model_capabilities',
-    `?select=model_key&capability=eq.${CAMPAIGNS_FEATURE}&order=model_key.asc`,
+    'model_campaign_lists',
+    '?select=model_key&order=model_key.asc',
   )
   if (ticked.length === 0) return []
   const list = ticked.map((m) => encodeURIComponent(m.model_key)).join(',')
@@ -67,7 +65,7 @@ export async function fetchCampaignModels(
   }))
 }
 
-/** Every campaign record of the models with the feature, with its settings once it has some. */
+/** Every campaign record of the ticked models, with its settings once it has some. */
 export async function fetchCampaignList(
   client: DataClient,
   modelKeys: readonly string[],
@@ -221,5 +219,18 @@ export async function setUpCampaignModel(
   starter: StarterModel = STARTER_CAMPAIGN_MODEL,
 ): Promise<void> {
   await createStarterModel(client, starter, { incidentLog: false })
-  await setModelFeature(client, starter.key, CAMPAIGNS_FEATURE, true)
+  await client.rpc('set_model_campaign_list', {
+    p_model_key: starter.key,
+    p_enabled: true,
+  })
 }
+
+export const setModelCampaignList = (
+  client: DataClient,
+  modelKey: string,
+  enabled: boolean,
+) =>
+  client.rpc('set_model_campaign_list', {
+    p_model_key: modelKey,
+    p_enabled: enabled,
+  })

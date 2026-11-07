@@ -123,7 +123,6 @@ function buildRouter(idTemplate: string) {
       shellCounts: {},
       shellPinned: [],
       shellHiddenPages: [],
-      shellFeatures: [],
       shellNotifications: [],
       themePref: 'system' as const,
       labLogo: null,

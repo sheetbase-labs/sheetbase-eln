@@ -65,8 +65,6 @@ export interface RouterContext {
   shellPinned: ShellPinned[]
   /** Pages the lab took out of everyone's sidebar. */
   shellHiddenPages: string[]
-  /** Model features switched on for at least one model: their pages show. */
-  shellFeatures: string[]
   shellNotifications: Notification[]
   themePref: ThemePref
   /** The lab logo's version (the `?v=` of `/api/workspace-logo`); null when there is none. */
@@ -99,25 +97,19 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
       counts: {},
       pinned: [],
       hiddenPages: [],
-      features: [] as string[],
       notifications: [],
       themePref,
       labLogo: await labLogoVersion(null),
     }
   const { getShellCounts } = await import('#/lib/shell-counts.server')
-  const {
-    getShellPinned,
-    getShellNotifications,
-    getShellHiddenPages,
-    getShellFeatures,
-  } = await import('#/lib/shell-chrome.server')
-  const [counts, pinned, notifications, hiddenPages, features, labLogo] =
+  const { getShellPinned, getShellNotifications, getShellHiddenPages } =
+    await import('#/lib/shell-chrome.server')
+  const [counts, pinned, notifications, hiddenPages, labLogo] =
     await Promise.all([
       getShellCounts(context.workspace.id, context.user.id),
       getShellPinned(context.workspace.id, context.user.id),
       getShellNotifications(context.workspace.id, context.user.id),
       getShellHiddenPages(context.workspace.id),
-      getShellFeatures(context.workspace.id),
       labLogoVersion(context.workspace.id),
     ])
   return {
@@ -126,7 +118,6 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
     counts,
     pinned,
     hiddenPages,
-    features,
     notifications,
     themePref,
     labLogo,
@@ -219,7 +210,6 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       counts: shellCounts,
       pinned,
       hiddenPages,
-      features,
       notifications,
       themePref,
       labLogo,
@@ -243,7 +233,6 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       shellCounts,
       shellPinned: pinned,
       shellHiddenPages: hiddenPages,
-      shellFeatures: features,
       shellNotifications: notifications,
       themePref,
       labLogo,
@@ -272,7 +261,6 @@ function AppRoot() {
     shellCounts,
     shellPinned,
     shellHiddenPages,
-    shellFeatures,
     shellNotifications,
   } = resolvedRootContext
   // Hydration restores the dehydrated route context without re-running
@@ -347,7 +335,6 @@ function AppRoot() {
         notifications: shellNotifications,
         pinned: shellPinned,
         hiddenPages: shellHiddenPages,
-        features: shellFeatures,
         counts: shellCounts,
         workspace: auth.workspace
           ? { id: auth.workspace.id, name: auth.workspace.name }
@@ -364,7 +351,6 @@ function AppRoot() {
         notifications: [],
         pinned: [],
         hiddenPages: [],
-        features: [],
         counts: {},
         workspace: null,
         workspaces: [],

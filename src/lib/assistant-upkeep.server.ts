@@ -778,7 +778,7 @@ export async function buildUpkeepProposal(
       const dataset =
         datasets.find(
           (d) => d.name.toLowerCase() === input.dataset!.trim().toLowerCase(),
-        ) ?? (datasets.length === 1 ? datasets[0]! : null)
+        ) ?? (datasets.length === 1 ? datasets[0] : null)
       if (!dataset) {
         return fail(
           `More than one dataset matches "${input.dataset}": ${datasets.map((d) => d.name).join(', ')}. Ask which one.`,
@@ -800,7 +800,7 @@ export async function buildUpkeepProposal(
           (v) =>
             v.label.toLowerCase() ===
             (input.version ?? '').trim().toLowerCase(),
-        ) ?? versions[0]!
+        ) ?? versions[0]
       const publicationTitle =
         input.publicationTitle?.trim() || `${dataset.name} (${version.label})`
       return card(name, input, {

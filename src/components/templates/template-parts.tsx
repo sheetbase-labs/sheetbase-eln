@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { GateDialog, describeConditions } from '#/components/notebook/gates'
 import { Button } from '#/components/ui/button'
+import { Checkbox } from '#/components/ui/checkbox'
 import { Field, Input } from '#/components/ui/input'
 import { Muted, Section } from '#/components/ui/layout'
 import { TableBox } from '#/components/ui/table'
@@ -28,12 +29,17 @@ export function TemplatePartsSection({
   placements,
   editable,
   disabled = false,
+  signOff,
+  onSignOffChange,
   onChange,
 }: {
   parts: readonly TemplatePart[]
   placements: readonly NotebookTemplatePlacement[]
   editable: boolean
   disabled?: boolean
+  /** Whether each part needs a signature (the lab's default when the template says nothing). */
+  signOff?: boolean
+  onSignOffChange?: (on: boolean) => void
   onChange: (parts: TemplatePart[]) => void
 }) {
   const [ruleFor, setRuleFor] = useState<string | null>(null)
@@ -162,6 +168,19 @@ export function TemplatePartsSection({
   return (
     <Section title={t('library.templates.parts.title')} count={parts.length}>
       <Muted>{t('library.templates.parts.hint')}</Muted>
+      {onSignOffChange ? (
+        <label
+          className="flex cursor-pointer items-center gap-2 text-label"
+          title={t('notebook.partSignoff.templateSwitchHint')}
+        >
+          <Checkbox
+            checked={signOff ?? false}
+            disabled={disabled || !editable}
+            onCheckedChange={(checked) => onSignOffChange(checked)}
+          />
+          {t('notebook.partSignoff.templateSwitch')}
+        </label>
+      ) : null}
       {parts.length ? (
         <TableBox>
           <RegistryGrid

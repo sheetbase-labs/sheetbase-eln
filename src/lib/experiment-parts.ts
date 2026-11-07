@@ -30,6 +30,10 @@ export interface ExperimentPartWire {
   gate_mode?: GateMode
   steps_in_order?: boolean
   gate_from_template?: boolean
+  requires_sign_off: boolean
+  signed_off_at: string | null
+  signed_off_by_user_id: string | null
+  signoff_id: string | null
 }
 
 export interface ExperimentPart {
@@ -52,6 +56,11 @@ export interface ExperimentPart {
   stepsInOrder?: boolean
   /** The rule came from a template or protocol and stays on the experiment. */
   gateFromTemplate?: boolean
+  /** The part needs a signature before the next one opens. */
+  requiresSignOff: boolean
+  signedOffAt: string | null
+  signedOffByUserId: string | null
+  signoffId: string | null
 }
 
 export type PartState = 'done' | 'now' | 'later'
@@ -63,6 +72,10 @@ export interface PartProgress extends ExperimentPart {
   stepCount: number
   stepsDone: number
   blockCount: number
+  /** Its work is done and it only waits for a signature. */
+  awaitingSignOff: boolean
+  /** Signed: frozen until amended. */
+  signed: boolean
 }
 
 export interface PartBlockLike {
@@ -202,6 +215,10 @@ export function toExperimentPart(row: ExperimentPartWire): ExperimentPart {
     gateMode: row.gate_mode ?? 'warn',
     stepsInOrder: row.steps_in_order ?? false,
     gateFromTemplate: row.gate_from_template ?? false,
+    requiresSignOff: row.requires_sign_off ?? false,
+    signedOffAt: row.signed_off_at ?? null,
+    signedOffByUserId: row.signed_off_by_user_id ?? null,
+    signoffId: row.signoff_id ?? null,
   }
 }
 
@@ -220,7 +237,9 @@ export function fetchPartsForRecord(
 /**
  * The parts in order with where each stands. Steps decide whether a part with
  * steps is done (live from the blocks, so the page answers a tick at once); a
- * part without steps is done when it was marked so.
+ * part without steps is done when it was marked so. A part that needs a
+ * signature is finished only when it is signed: until then it stays the part
+ * to work on, and the next one waits.
  */
 export function partsProgress(
   parts: readonly ExperimentPart[],
@@ -246,8 +265,10 @@ export function partsProgress(
   let currentTaken = false
   return ordered.map((part, index) => {
     const counts = byPart.get(part.id) ?? { steps: 0, done: 0, blocks: 0 }
-    const done =
+    const workDone =
       counts.steps > 0 ? counts.done === counts.steps : part.completedAt != null
+    const signed = part.signedOffAt != null
+    const done = workDone && (!part.requiresSignOff || signed)
     const state: PartState = done
       ? 'done'
       : !currentTaken
@@ -260,6 +281,8 @@ export function partsProgress(
       stepCount: counts.steps,
       stepsDone: counts.done,
       blockCount: counts.blocks,
+      awaitingSignOff: workDone && part.requiresSignOff && !signed,
+      signed,
     }
   })
 }

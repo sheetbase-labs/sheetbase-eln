@@ -372,6 +372,12 @@ export type SignatureStepUpInput = { workspaceId: string; password: string } & (
       signatureMeaning: PostSubmissionSignatureMeaning
     }
   | {
+      purpose: 'sign-part'
+      partId: string
+      revisionDigest: string
+      signatureMeaning: 'signed' | 'witnessed'
+    }
+  | {
       purpose: 'author-submit'
       recordId: string
       revisionDigest: string

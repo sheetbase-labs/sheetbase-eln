@@ -112,6 +112,8 @@ export const notebookTemplateConfigurationSchema = z
     formatVersion: z.literal(NOTEBOOK_TEMPLATE_CONFIGURATION_FORMAT_VERSION),
     parameters: z.array(parameterSchema).max(64),
     parts: z.array(notebookTemplatePartSchema).max(60).optional(),
+    /** Each part is signed when its steps are done. Unset follows Regulated lab. */
+    signOffParts: z.boolean().optional(),
     placements: z.array(notebookTemplatePlacementSchema).max(256),
   })
   .strict()

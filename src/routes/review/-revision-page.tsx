@@ -86,6 +86,7 @@ import {
   ConfirmDialogTrigger,
 } from '#/components/ui/confirm-dialog'
 import { SignatureDialog } from '#/components/review/sign-dialogs'
+import { PartSignoffReviewSection } from '#/components/notebook/part-signoff'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { IconButton } from '#/components/ui/icon-button'
@@ -1949,6 +1950,8 @@ function ReviewInspector({
           revisionOptions={revisionOptions}
           currentRevisionId={revision.id}
         />
+
+        {recordId ? <PartSignoffReviewSection recordId={recordId} /> : null}
 
         <EvidenceExportSection revisionId={revision.id} />
 

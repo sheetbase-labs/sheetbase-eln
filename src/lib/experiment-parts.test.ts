@@ -29,6 +29,10 @@ const part = (
   openedAt: null,
   completedAt: null,
   completedByUserId: null,
+  requiresSignOff: false,
+  signedOffAt: null,
+  signedOffByUserId: null,
+  signoffId: null,
   ...extra,
 })
 
@@ -84,6 +88,78 @@ describe('partsProgress', () => {
     )
     expect(currentPart(progress)).toBeNull()
     expect(shownPart(progress, null)?.id).toBe('a')
+  })
+})
+
+describe('a part that needs a signature', () => {
+  it('stays the part to work on until it is signed, and the next waits', () => {
+    const blocks = [
+      step('s1', 'a', true),
+      step('s2', 'a', true),
+      step('s3', 'b', false),
+    ]
+    const unsigned = partsProgress(
+      [
+        part('a', 1, { requiresSignOff: true }),
+        part('b', 2, { requiresSignOff: true }),
+      ],
+      blocks,
+    )
+    expect(unsigned.map((p) => [p.state, p.awaitingSignOff, p.signed])).toEqual(
+      [
+        ['now', true, false],
+        ['later', false, false],
+      ],
+    )
+    expect(currentPart(unsigned)?.number).toBe(1)
+
+    const signed = partsProgress(
+      [
+        part('a', 1, {
+          requiresSignOff: true,
+          signedOffAt: '2026-11-03T10:00:00Z',
+          signoffId: 'sig',
+        }),
+        part('b', 2, { requiresSignOff: true }),
+      ],
+      blocks,
+    )
+    expect(signed.map((p) => [p.state, p.awaitingSignOff, p.signed])).toEqual([
+      ['done', false, true],
+      ['now', false, false],
+    ])
+  })
+
+  it('is not awaiting while its steps are still open, and a part that needs none is done with its steps', () => {
+    const blocks = [
+      step('s1', 'a', true),
+      step('s2', 'a', false),
+      step('s3', 'b', false),
+    ]
+    const progress = partsProgress(
+      [part('a', 1, { requiresSignOff: true }), part('b', 2)],
+      blocks,
+    )
+    expect(progress[0]).toMatchObject({ state: 'now', awaitingSignOff: false })
+    expect(progress[1]).toMatchObject({
+      state: 'later',
+      awaitingSignOff: false,
+    })
+    const free = partsProgress([part('a', 1)], [step('s1', 'a', true)])
+    expect(free[0]).toMatchObject({ state: 'done', awaitingSignOff: false })
+  })
+
+  it('treats a part without steps as awaiting once it was marked done', () => {
+    const progress = partsProgress(
+      [
+        part('a', 1, {
+          requiresSignOff: true,
+          completedAt: '2026-11-03T10:00:00Z',
+        }),
+      ],
+      [],
+    )
+    expect(progress[0]).toMatchObject({ state: 'now', awaitingSignOff: true })
   })
 })
 

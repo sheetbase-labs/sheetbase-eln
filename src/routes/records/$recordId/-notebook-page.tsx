@@ -68,6 +68,11 @@ import {
   SplitIntoPartsAction,
 } from '#/components/notebook/parts-menu'
 import { useRecordPartsProgress } from '#/components/notebook/use-record-parts'
+import {
+  SignedPartBanner,
+  usePartRequests,
+  usePartSignoffs,
+} from '#/components/notebook/part-signoff'
 import type { PartProgress } from '#/lib/experiment-parts'
 import type { RecordGate } from '#/lib/experiment-gates'
 import {
@@ -691,6 +696,14 @@ export function RecordNotebookPage({
         !gate.overridden,
     ) ?? null
   const nowPart = currentPart(partsList)
+  const partSignoffs = usePartSignoffs(
+    recordId,
+    partsList.some((part) => part.requiresSignOff),
+  )
+  const partRequests = usePartRequests(recordId, context.user.id)
+  const shownSignoff = shownPartNow
+    ? partSignoffs.find((row) => row.partId === shownPartNow.id)
+    : undefined
   const canvasBlocks = shownPartNow
     ? blocksOfPart(blocks, shownPartNow)
     : blocks
@@ -1221,6 +1234,24 @@ export function RecordNotebookPage({
                       current={nowPart}
                     />
                   ) : null}
+                  {shownPartNow?.signed && shownSignoff ? (
+                    <SignedPartBanner
+                      recordId={record.id}
+                      workspaceId={context.workspace?.id}
+                      part={shownPartNow}
+                      status={shownSignoff}
+                      canEdit={
+                        canWrite && !record.lockedAt && !record.archivedAt
+                      }
+                      currentUserId={context.user.id}
+                      currentUserName={context.user.name}
+                      hasCountersignRequest={partRequests.some(
+                        (request) =>
+                          request.partId === shownPartNow.id &&
+                          request.kind === 'countersign',
+                      )}
+                    />
+                  ) : null}
                   <NotebookCanvas
                     record={record}
                     blocks={canvasBlocks}
@@ -1236,7 +1267,11 @@ export function RecordNotebookPage({
                     // EXP-04.5: a workspace viewer reads the notebook view-only
                     // instead of being handed the editable path for the server to
                     // refuse. GOV-01: viewer has no record.create.
-                    viewOnly={!canWrite || record.status === 'approved'}
+                    viewOnly={
+                      !canWrite ||
+                      record.status === 'approved' ||
+                      Boolean(shownPartNow?.signed)
+                    }
                     onUnsavedWorkChange={setHasUnsavedWork}
                     onCellSelectionChange={onCellSelectionChange}
                   />
@@ -1839,6 +1874,9 @@ export function StickyRecordHeader({
           blocks={blocks}
           canEdit={canWrite && !lockedAt && !record.archivedAt}
           returned={record.status === 'returned'}
+          workspaceId={workspaceId}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
         />
       ) : null}
       {canSubmit && submitOpen && projectId && currentUserId ? (

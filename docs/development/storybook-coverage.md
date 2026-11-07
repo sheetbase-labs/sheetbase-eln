@@ -467,3 +467,12 @@ server, so every notebook comes back in the "not updated" list.
 | `src/components/plates/run-detail.tsx`       | Detail view that loads one run, its quality and its samples from the server and saves settings and archiving through the data client. |
 | `src/components/plates/worklist-dialogs.tsx` | Portalled dialogs that read plate runs and write worklists through the data client.                                                   |
 | `src/components/viz/analysis-comparison.tsx` | Controls and results for the Analyse tab; they run on a dataset loaded in Analysis Studio and render nothing without one.             |
+
+## Agent permissions, checks and lab watchers
+
+| Module                                                      | Why no story                                                                                                                          |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/settings/agent-permissions-panel.tsx`       | Settings panel that reads and saves agent permissions through the data client; its table and selects are the shared components.       |
+| `src/components/settings/ai-checks-panel.tsx`               | Settings panel that starts a run on the server and reads earlier runs through the data client.                                        |
+| `src/components/settings/lab-watchers-panel.tsx`            | Settings panel that reads watchers and findings and saves through the data client.                                                    |
+| `src/components/pipelines/agents/action-requests-board.tsx` | Board that reads the actions agents asked for and approves or rejects them through the data client, so it has no state to show alone. |

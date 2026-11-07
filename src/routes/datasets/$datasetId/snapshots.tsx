@@ -410,6 +410,8 @@ function Snapshots() {
               <SnapshotReproduce
                 runId={producingRun.data.runId}
                 pipelineId={producingRun.data.pipelineId}
+                pipelineName={producingRun.data.pipelineName}
+                runNumber={producingRun.data.runNumber}
                 canReproduce={canWrite && !tombstone}
               />
             </InspectorSection>

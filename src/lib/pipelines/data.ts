@@ -23,6 +23,7 @@ import type {
   PipelineTrialWire,
 } from './types'
 import { t } from '#/copy'
+import { runNumbers } from './run-steps'
 
 // ---------------------------------------------------------------------------
 // Definitions + versions.
@@ -487,25 +488,50 @@ export async function listPipelineRunOutputs(
 export async function getRunForDatasetVersion(
   client: DataClient,
   datasetVersionId: string,
-): Promise<{ runId: string; pipelineId: string } | null> {
+): Promise<{
+  runId: string
+  pipelineId: string
+  pipelineName: string
+  runNumber: number | null
+} | null> {
   const outputs = await client.list<{ run_id: string }>(
     'pipeline_run_outputs',
     `?select=run_id&dataset_version_id=eq.${encodeURIComponent(datasetVersionId)}&order=created_at.desc&limit=1`,
   )
-  const runId = outputs[0]?.run_id
+  const runId = outputs.at(0)?.run_id
   if (!runId) return null
   const runs = await client.list<{ definition_version_id: string }>(
     'pipeline_runs',
     `?select=definition_version_id&id=eq.${encodeURIComponent(runId)}&limit=1`,
   )
-  const versionId = runs[0]?.definition_version_id
+  const versionId = runs.at(0)?.definition_version_id
   if (!versionId) return null
   const versions = await client.list<{ definition_id: string }>(
     'pipeline_definition_versions',
     `?select=definition_id&id=eq.${encodeURIComponent(versionId)}&limit=1`,
   )
-  const pipelineId = versions[0]?.definition_id
-  return pipelineId ? { runId, pipelineId } : null
+  const pipelineId = versions.at(0)?.definition_id
+  if (!pipelineId) return null
+  const definitions = await client.list<{ name: string }>(
+    'pipeline_definitions',
+    `?select=name&id=eq.${encodeURIComponent(pipelineId)}&limit=1`,
+  )
+  const siblings = await client.list<{ id: string }>(
+    'pipeline_definition_versions',
+    `?select=id&definition_id=eq.${encodeURIComponent(pipelineId)}`,
+  )
+  const everyRun = siblings.length
+    ? await client.list<{ id: string; started_at: string }>(
+        'pipeline_runs',
+        `?select=id,started_at&definition_version_id=in.(${siblings.map((v) => v.id).join(',')})&order=started_at.asc&limit=5000`,
+      )
+    : []
+  return {
+    runId,
+    pipelineId,
+    pipelineName: definitions.at(0)?.name ?? '',
+    runNumber: runNumbers(everyRun).get(runId) ?? null,
+  }
 }
 
 /** Which Pipeline runs produced a given Dataset (Dataset page integration). */

@@ -152,7 +152,7 @@ describe('per-point switch', () => {
     const events = (
       await owner.query(
         `select payload->>'change' as change from api.change_events
-         where entity_type='extension' and entity_uuid=$1 and payload->>'change' like 'point_%' order by id`,
+         where entity_type='extension' and entity_uuid=$1 and payload->>'change' like 'point_%' order by sequence`,
         [ext.id],
       )
     ).rows

@@ -247,6 +247,12 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
     'instrument_rate.set',
   ),
   definition(
+    'request_pipeline_reproduction',
+    t('data.pipelineActions.reproduceRun'),
+    t('data.pipelineActions.reproduceRunDescription'),
+    [arg('p_run_id', 'uuid')],
+  ),
+  definition(
     'set_step_done',
     t('data.pipelineActions.finishStep'),
     t('data.pipelineActions.finishStepDescription'),

@@ -230,6 +230,9 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
 
   // Trusted timestamps. Choosing the service changes where fingerprints are
   // sent, so it needs an admin's personal token; a credential can read.
+  // The replayable event stream, as rows. GET /api/events/stream serves the
+  // same thing as CloudEvents and a live stream.
+  event_stream_page: ['admin:read'],
   timestamp_settings: ['admin:read'],
   set_timestamp_settings: ['admin:write'],
   request_signature_timestamp: ['admin:write'],

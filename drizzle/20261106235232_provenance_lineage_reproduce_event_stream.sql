@@ -615,3 +615,99 @@ ALTER FUNCTION api.set_event_stream_retention(uuid, integer) OWNER TO migrator;
 REVOKE ALL ON FUNCTION api.set_event_stream_retention(uuid, integer) FROM PUBLIC;
 --> statement-breakpoint
 GRANT ALL ON FUNCTION api.set_event_stream_retention(uuid, integer) TO authenticated;
+--> statement-breakpoint
+
+-- ---------------------------------------------------------------------------
+-- Ask for a reproduction from a pipeline step. The server picks the request up,
+-- runs it as the person who asked and records the verdict beside the run.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE api.pipeline_reproduction_requests (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    workspace_id uuid NOT NULL,
+    run_id uuid NOT NULL,
+    requested_by_user_id text NOT NULL,
+    status text DEFAULT 'pending' NOT NULL,
+    reproduction_id uuid,
+    error_message text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    handled_at timestamp with time zone,
+    CONSTRAINT pipeline_reproduction_requests_pkey PRIMARY KEY (id),
+    CONSTRAINT pipeline_reproduction_requests_run_fkey FOREIGN KEY (workspace_id, run_id) REFERENCES api.pipeline_runs(workspace_id, id) ON DELETE CASCADE,
+    CONSTRAINT pipeline_reproduction_requests_user_fkey FOREIGN KEY (requested_by_user_id) REFERENCES internal."user"(id) ON DELETE CASCADE,
+    CONSTRAINT chk_pipeline_reproduction_requests_status CHECK (status IN ('pending', 'running', 'done', 'failed'))
+);
+--> statement-breakpoint
+ALTER TABLE api.pipeline_reproduction_requests OWNER TO migrator;
+--> statement-breakpoint
+CREATE INDEX idx_pipeline_reproduction_requests_pending ON api.pipeline_reproduction_requests (created_at) WHERE status = 'pending';
+--> statement-breakpoint
+ALTER TABLE api.pipeline_reproduction_requests ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE POLICY pipeline_reproduction_requests_select ON api.pipeline_reproduction_requests FOR SELECT TO authenticated
+    USING (api.storage_member_using(workspace_id));
+--> statement-breakpoint
+GRANT SELECT ON TABLE api.pipeline_reproduction_requests TO authenticated;
+--> statement-breakpoint
+
+CREATE FUNCTION api.request_pipeline_reproduction(p_run_id uuid) RETURNS api.pipeline_reproduction_requests
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_run api.pipeline_runs;
+  v_row api.pipeline_reproduction_requests;
+BEGIN
+  SELECT * INTO v_run FROM api.pipeline_runs WHERE id = p_run_id;
+  IF v_run.id IS NULL OR api.current_user_id() IS NULL
+     OR v_run.workspace_id IS DISTINCT FROM api.current_workspace_id()
+     OR NOT api.is_workspace_writer(v_run.workspace_id) THEN
+    RAISE EXCEPTION 'workspace writer access required' USING ERRCODE = 'SB060';
+  END IF;
+  IF v_run.status <> 'succeeded' THEN
+    RAISE EXCEPTION 'only a run that finished successfully can be reproduced' USING ERRCODE = '22023';
+  END IF;
+  -- One waiting request per run and person is enough.
+  SELECT * INTO v_row FROM api.pipeline_reproduction_requests
+   WHERE run_id = p_run_id AND status = 'pending' AND requested_by_user_id = api.current_user_id();
+  IF v_row.id IS NOT NULL THEN RETURN v_row; END IF;
+  INSERT INTO api.pipeline_reproduction_requests (workspace_id, run_id, requested_by_user_id)
+  VALUES (v_run.workspace_id, v_run.id, api.current_user_id())
+  RETURNING * INTO v_row;
+  RETURN v_row;
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION api.request_pipeline_reproduction(uuid) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.request_pipeline_reproduction(uuid) FROM PUBLIC;
+--> statement-breakpoint
+GRANT ALL ON FUNCTION api.request_pipeline_reproduction(uuid) TO authenticated;
+--> statement-breakpoint
+
+-- Server side: close a request once its reproduction is kept or has failed.
+CREATE FUNCTION internal.pipeline_reproduction_request_handled(p_id uuid, p_reproduction_id uuid, p_error text) RETURNS void
+    LANGUAGE sql SET search_path TO ''
+    AS $$
+  UPDATE api.pipeline_reproduction_requests
+     SET status = CASE WHEN p_error IS NULL THEN 'done' ELSE 'failed' END,
+         reproduction_id = p_reproduction_id, error_message = left(p_error, 500), handled_at = now()
+   WHERE id = p_id;
+$$;
+--> statement-breakpoint
+ALTER FUNCTION internal.pipeline_reproduction_request_handled(uuid, uuid, text) OWNER TO migrator;
+--> statement-breakpoint
+
+-- A pipeline can ask for a run to be reproduced. The database's copy of the
+-- action catalogue (checked when a pipeline is saved) gains the action.
+DO $$
+DECLARE
+  v_def text;
+  v_added text := $added$,{"operation":"request_pipeline_reproduction","rpc":"request_pipeline_reproduction","label":"Reproduce a run","description":"Run a finished pipeline run again from its pinned version, settings and inputs in scratch space and record whether the result matches.","arguments":[{"name":"p_run_id","type":"uuid","required":true,"nullable":false}]}]$added$;
+BEGIN
+  SELECT pg_get_functiondef('internal.pipeline_action_errors(jsonb)'::regprocedure) INTO v_def;
+  IF position(']$catalogue$::jsonb' IN v_def) = 0 THEN
+    RAISE EXCEPTION 'unexpected shape for internal.pipeline_action_errors';
+  END IF;
+  v_def := replace(v_def, ']$catalogue$::jsonb', v_added || '$catalogue$::jsonb');
+  EXECUTE v_def;
+END $$;

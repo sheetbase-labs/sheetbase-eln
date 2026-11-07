@@ -1536,6 +1536,28 @@ const READ_TOOLS: AgentToolEntry[] = [
       .strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
+  {
+    name: 'sheetbase.events.read',
+    mode: 'read',
+    description:
+      'Read the workspace event stream: every change in order, after a sequence number, limited to what the person could see in the app. Use it to follow what changed since you last looked, such as pipeline runs reproduced or lineage endpoints changed. Read-only; pass the nextCursor back as after to carry on.',
+    rpc: 'event_stream_page',
+    via: 'event_stream_page',
+    capability: {
+      scopes: ['admin:read'],
+      permission: 'workspace member',
+      actor: 'workspace_actor',
+      note: 'Same permission filter as webhooks; only events the person could see.',
+    },
+    inputSchema: z
+      .object({
+        after: z.number().int().min(0).nullish(),
+        limit: z.number().int().min(1).max(500).nullish(),
+        entityTypes: z.array(z.string().max(60)).max(20).nullish(),
+      })
+      .strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
+  },
 ]
 
 /** The full bounded catalogue: operation tools + lifecycle RPCs + canonical reads. */

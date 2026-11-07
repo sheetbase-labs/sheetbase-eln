@@ -157,11 +157,15 @@ const timestampMiddleware = createMiddleware().server(async ({ next }) => {
 })
 
 // OpenLineage: sends runs, imports and worklists to each workspace's lineage
-// endpoints. Does nothing until an admin adds one. Guarded like the schedulers.
+// endpoints. Does nothing until an admin adds one. Also picks up reproductions
+// asked for by a pipeline step. Guarded like the schedulers.
 const lineageMiddleware = createMiddleware().server(async ({ next }) => {
   const { startLineageScheduler } =
     await import('#/lib/provenance/lineage-emitter.server')
   startLineageScheduler()
+  const { startReproductionScheduler } =
+    await import('#/lib/provenance/reproduction-requests.server')
+  startReproductionScheduler()
   return next()
 })
 

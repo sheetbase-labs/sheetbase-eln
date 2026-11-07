@@ -294,6 +294,22 @@ export const NOTIFICATION_EVENTS = [
     defaultEmail: false,
     defaultPush: false,
   },
+  {
+    key: 'agent_action_request',
+    label: 'An agent asks to take an action in the lab',
+    group: GROUP_OTHER,
+    source: 'inbox',
+    defaultEmail: false,
+    defaultPush: false,
+  },
+  {
+    key: 'watcher_finding',
+    label: 'A lab watcher found something',
+    group: GROUP_OTHER,
+    source: 'inbox',
+    defaultEmail: false,
+    defaultPush: false,
+  },
 ] as const satisfies readonly NotificationEventDef[]
 
 export type NotificationEventType = (typeof NOTIFICATION_EVENTS)[number]['key']

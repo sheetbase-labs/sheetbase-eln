@@ -216,14 +216,16 @@ export function parseJobsBody(raw: unknown): JobsRequest {
         )
       }
       const actual = row['actualUl']
-      const status = row['status']
+      const entryStatus = row['status']
       return {
         sourceWell: sourceWell.toUpperCase(),
         destWell: destWell.toUpperCase(),
         actualUl:
           typeof actual === 'number' && Number.isFinite(actual) ? actual : null,
         status:
-          status === 'failed' || status === 'skipped' ? status : ('ok' as const),
+          entryStatus === 'failed' || entryStatus === 'skipped'
+            ? entryStatus
+            : ('ok' as const),
       }
     })
   }
@@ -344,7 +346,7 @@ export async function runJobs(
       'plate_worklists',
       `select=transfers,source_plate,dest_plate&id=eq.${worklistId}&limit=1`,
     )
-    const list = lists[0]
+    const list = lists.at(0)
     if (!list) {
       throw new PickupError(404, 'not_found', 'That worklist is not here.')
     }

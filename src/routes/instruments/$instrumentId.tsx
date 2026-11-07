@@ -119,6 +119,8 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now as appNow } from '#/lib/clock'
 import { AddedFields } from '#/components/models/added-fields'
 import { ConvertedDataSection } from '#/components/instruments/converted-data'
+import { InstrumentTimeline } from '#/components/scheduler/instrument-timeline'
+import { RobotSection } from '#/components/instruments/robot-section'
 import { RunQcPanel } from '#/components/quality/run-qc-panel'
 import { rich, t } from '#/copy'
 
@@ -941,6 +943,17 @@ function InstrumentPage() {
             />
 
             <ConvertedDataSection instrumentId={i.id} />
+
+            <RobotSection
+              instrument={i}
+              canManage={hasCapability(
+                context.workspace?.role,
+                'instrument.manage',
+              )}
+              canRun={canRecord}
+            />
+
+            <InstrumentTimeline instrumentId={i.id} />
 
             <BookingRulesSection
               instrument={i}

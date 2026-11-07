@@ -3,7 +3,11 @@
  * (`/api/connectors/agent`).
  */
 import { t } from '#/copy'
-import type { AgentSystem, LiveSourceInput } from './agent-package'
+import type {
+  AgentSystem,
+  LiveSourceInput,
+  RobotInput,
+} from './agent-package'
 
 export interface AgentStatus {
   /** A token for an agent has been made and not replaced. */
@@ -17,6 +21,8 @@ export interface AgentStatus {
 export const agentQueryKeys = {
   liveStatus: (instrumentId: string) =>
     ['instrument-live', 'agent', instrumentId] as const,
+  robotStatus: (instrumentId: string) =>
+    ['instrument-robot', 'agent', instrumentId] as const,
   status: (connectorId: string) =>
     ['instrument-intake', 'agent', connectorId] as const,
 }
@@ -53,6 +59,27 @@ export async function fetchLiveAgentStatus(
   )
   if (!response.ok) throw await failure(response)
   return (await response.json()) as AgentStatus
+}
+
+/** Is the robot agent for this instrument running? */
+export async function fetchRobotAgentStatus(
+  instrumentId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<AgentStatus> {
+  const response = await fetchImpl(
+    `/api/connectors/agent?robot=${encodeURIComponent(instrumentId)}`,
+    { credentials: 'same-origin' },
+  )
+  if (!response.ok) throw await failure(response)
+  return (await response.json()) as AgentStatus
+}
+
+/** The robot agent: how it reaches the robot, with its access key already in. */
+export async function downloadRobotAgent(
+  input: { instrumentId: string; system: AgentSystem; robot: RobotInput },
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  return downloadZip(input, fetchImpl)
 }
 
 /** Asks for the zip and hands it to the browser as a file download. */

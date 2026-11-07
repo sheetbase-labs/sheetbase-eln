@@ -23,6 +23,16 @@ export function liveAgentTokenName(instrumentLabel: string): string {
   return `Live agent · ${instrumentLabel}`
 }
 
+/** The name of the token made for one robot's agent. */
+export function robotAgentTokenName(instrumentLabel: string): string {
+  return `Robot agent · ${instrumentLabel}`
+}
+
+/** How the agent reaches the robot: its network address, or a folder its software reads. */
+export type RobotInput =
+  | { driver: 'opentrons'; address: string }
+  | { driver: 'file'; dir: string }
+
 /** Where live readings come from: a log file the instrument keeps writing, or a network port. */
 export type LiveSourceInput =
   | { kind: 'file'; path: string; feed?: string; unit?: string }
@@ -82,6 +92,7 @@ export function agentFiles(input: {
   /** The instrument's id, needed to send live readings. */
   instrumentId?: string
   live?: LiveSourceInput[]
+  robot?: RobotInput
 }): AgentFile[] {
   const root = 'sheetbase-agent'
   const settings = JSON.stringify(
@@ -90,9 +101,11 @@ export function agentFiles(input: {
       ...(input.connectorKey ? { connector: input.connectorKey } : {}),
       ...(input.folder ? { dir: input.folder } : {}),
       credential: input.credential,
-      ...(input.live?.length
-        ? { instrumentId: input.instrumentId, live: input.live }
+      ...(input.live?.length || input.robot
+        ? { instrumentId: input.instrumentId }
         : {}),
+      ...(input.live?.length ? { live: input.live } : {}),
+      ...(input.robot ? { robot: input.robot } : {}),
     },
     null,
     2,
@@ -149,6 +162,7 @@ function readme(input: {
   folder?: string
   system: AgentSystem
   live?: LiveSourceInput[]
+  robot?: RobotInput
 }): string {
   const start =
     input.system === 'windows'
@@ -156,6 +170,26 @@ function readme(input: {
       : input.system === 'mac'
         ? 'Open "Start Sheetbase agent.command".'
         : 'Run start-sheetbase-agent.sh.'
+  if (input.robot && !input.folder) {
+    return [
+      `Sheetbase robot agent for ${input.instrumentName}`,
+      '',
+      '1. Install Node.js (version 22 or newer) from https://nodejs.org if this computer does not have it.',
+      `2. ${start}`,
+      '',
+      input.robot.driver === 'opentrons'
+        ? `It talks to the robot at ${input.robot.address}.`
+        : `It hands worklists to the robot software through ${input.robot.dir}.`,
+      '',
+      'When someone sends a worklist to the robot in Sheetbase, this agent puts the run on the robot. The run starts only when a person presses Start in Sheetbase. What the robot did goes back to Sheetbase when it finishes.',
+      '',
+      'Keep the window open while the robot is in use.',
+      '',
+      'sheetbase-agent.json holds this robot’s access key. Keep this folder to yourself.',
+      'Download the agent again from the instrument page to replace it.',
+      '',
+    ].join('\n')
+  }
   if (input.live?.length && !input.folder) {
     return [
       `Sheetbase live readings for ${input.instrumentName}`,

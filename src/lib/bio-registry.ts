@@ -281,6 +281,22 @@ export const STARTER_REGISTRIES: readonly StarterRegistry[] = [
     keyFields: ['vendor', 'catalogue_number'],
     sequenceField: null,
   },
+  {
+    key: 'reference',
+    name: 'Reference',
+    prefix: 'REF',
+    description: 'Papers the lab relies on, found by DOI.',
+    fields: [
+      { field_name: 'authors', label: 'Authors', show_in_list: true },
+      { field_name: 'journal', label: 'Journal', show_in_list: true },
+      { field_name: 'year', label: 'Year', show_in_list: true },
+      { field_name: 'doi', label: 'DOI' },
+      { field_name: 'link', label: 'Link' },
+      { field_name: 'abstract', label: 'Abstract' },
+    ],
+    keyFields: ['doi'],
+    sequenceField: null,
+  },
 ]
 
 export async function createStarterRegistry(

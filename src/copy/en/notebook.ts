@@ -481,6 +481,14 @@ export const notebook = {
         running: 'Getting that ready…',
         done: 'Got that ready',
       },
+      meaning: {
+        running: 'Searching the lab’s work by meaning…',
+        done: 'Searched the lab’s work by meaning',
+      },
+      literature: {
+        running: 'Searching the published literature…',
+        done: 'Searched the published literature',
+      },
       inbox: {
         running: 'Checking what is waiting on you…',
         done: 'Checked what is waiting on you',

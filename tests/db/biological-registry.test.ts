@@ -125,14 +125,20 @@ afterAll(async () => {
 describe('making a registry', () => {
   it('ticks a model and keeps its settings', async () => {
     const { rows } = await migrator.query(
-      `select is_registry, registry_key_fields, registry_sequence_field, lifecycle
-         from api.record_models where workspace_id = $1 and key = 'antibody'`,
+      `select c.settings, m.lifecycle
+         from api.record_models m
+         join api.model_capabilities c
+           on c.workspace_id = m.workspace_id and c.model_key = m.key and c.capability = 'registry'
+        where m.workspace_id = $1 and m.key = 'antibody'`,
       [WS],
     )
     expect(rows[0]).toEqual({
-      is_registry: true,
-      registry_key_fields: ['vendor', 'catalogue_number'],
-      registry_sequence_field: null,
+      settings: {
+        keyFields: ['vendor', 'catalogue_number'],
+        sequenceField: null,
+        structureField: null,
+        lotKind: null,
+      },
       lifecycle: 'published',
     })
   })
@@ -148,18 +154,25 @@ describe('making a registry', () => {
        values ($1,'strain','genotype','Genotype',1,'text',true,'{}','active',$2)`,
       [WS, OWNER],
     )
-    const on = await owner.query(
+    const registrySettings = async () =>
+      (
+        await migrator.query(
+          `select settings from api.model_capabilities
+            where workspace_id = $1 and model_key = 'strain' and capability = 'registry'`,
+          [WS],
+        )
+      ).rows[0]?.settings
+    await owner.query(
       `select * from api.set_model_registry('strain',true,'{genotype}',null)`,
     )
-    expect(on.rows[0].is_registry).toBe(true)
+    expect(await registrySettings()).toMatchObject({ keyFields: ['genotype'] })
     await expect(
       owner.query(`select api.set_model_registry('strain',true,'{nope}',null)`),
     ).rejects.toThrow(/no active field/)
-    const off = await owner.query(
+    await owner.query(
       `select * from api.set_model_registry('strain',false,'{}',null)`,
     )
-    expect(off.rows[0].is_registry).toBe(false)
-    expect(off.rows[0].registry_key_fields).toEqual([])
+    expect(await registrySettings()).toBeUndefined()
   })
 
   it('needs schema rights', async () => {

@@ -161,12 +161,16 @@ describe('turning on structures', () => {
   })
 
   it('keeps the structure field and the lot model, and clears them with the registry', async () => {
-    const { rows } = await owner.query(
+    await owner.query(
       `select * from api.set_model_chemistry('compound','structure','compound_lot')`,
     )
-    expect(rows[0]).toMatchObject({
-      registry_structure_field: 'structure',
-      registry_lot_kind: 'compound_lot',
+    const { rows } = await owner.query(
+      `select settings from api.model_capabilities
+        where model_key = 'compound' and capability = 'registry'`,
+    )
+    expect(rows[0].settings).toMatchObject({
+      structureField: 'structure',
+      lotKind: 'compound_lot',
     })
     await stranger.query(
       `select api.set_model_chemistry('compound','structure',null)`,

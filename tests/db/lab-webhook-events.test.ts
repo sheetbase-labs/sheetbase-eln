@@ -263,7 +263,9 @@ describe('legal holds and retention', () => {
   })
 
   it('says once how many records retention archived', async () => {
-    await owner.query(`select api.set_retention_enabled($1,true)`, [WS])
+    await owner.query(
+      `select api.set_model_capability('trial','retention',true)`,
+    )
     await owner.query(`select api.set_retention_rule('trial',1,null)`)
     await owner.query(
       `select api.create_record($1::uuid,'trial','Old run','draft',ARRAY[]::text[],'{}'::jsonb)`,
@@ -337,7 +339,9 @@ describe('sample workflows', () => {
 
 describe('incidents and registry entries', () => {
   it('says when an incident is reported', async () => {
-    await owner.query(`select api.set_model_incident_log('incident', true)`)
+    await owner.query(
+      `select api.set_model_capability('incident','incident_log',true)`,
+    )
     const since = await mark()
     await owner.query(
       `select api.create_record($1::uuid,'incident','Spill in bay 2','draft',ARRAY[]::text[],'{}'::jsonb)`,

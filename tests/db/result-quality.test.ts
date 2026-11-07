@@ -120,13 +120,15 @@ afterAll(async () => {
 })
 
 describe('result limits', () => {
-  it('judge nothing until the lab turns them on', async () => {
+  it('judge nothing until the model has the feature', async () => {
     await owner.query(
       `select * from api.set_field_spec_limits('assay','purity',90,100,95,null,null)`,
     )
     await record('assay', 'Batch 1', { purity: 99 })
     expect(await verdicts()).toEqual([])
-    await owner.query(`select api.set_spec_limits_enabled($1,true)`, [WS])
+    await owner.query(
+      `select api.set_model_capability('assay','result_limits',true)`,
+    )
     expect((await verdicts()).map((v) => v.verdict)).toEqual(['pass'])
   })
 
@@ -193,8 +195,10 @@ describe('result limits', () => {
       '42501',
     )
     await expectDenied(
-      member.query(`select api.set_spec_limits_enabled($1,false)`, [WS]),
-      'SB056',
+      member.query(
+        `select api.set_model_capability('assay','result_limits',false)`,
+      ),
+      '42501',
     )
     const seen = await stranger.query(`select * from api.record_spec_results`)
     expect(seen.rows).toEqual([])
@@ -204,13 +208,13 @@ describe('result limits', () => {
 })
 
 describe('the incident log', () => {
-  it('sets up a starter model with choices and ticks it as an incident log', async () => {
+  it('sets up a starter model with choices and gives it the Incident log feature', async () => {
     await owner.query(
       `select * from api.create_starter_model('incident','Incident','INC','Things that went wrong.',$1::jsonb,true)`,
       [JSON.stringify(INCIDENT_FIELDS)],
     )
     const logs = await owner.query(
-      `select model_key from api.model_incident_logs order by 1`,
+      `select model_key from api.model_capabilities where capability = 'incident_log' order by 1`,
     )
     expect(logs.rows).toEqual([{ model_key: 'incident' }])
     const options = await migrator.query(
@@ -229,20 +233,26 @@ describe('the incident log', () => {
   })
 
   it('can be ticked and unticked on any model, by someone who may edit models', async () => {
-    await owner.query(`select api.set_model_incident_log('assay', true)`)
-    await owner.query(`select api.set_model_incident_log('assay', false)`)
+    await owner.query(
+      `select api.set_model_capability('assay','incident_log',true)`,
+    )
+    await owner.query(
+      `select api.set_model_capability('assay','incident_log',false)`,
+    )
     const logs = await owner.query(
-      `select model_key from api.model_incident_logs`,
+      `select model_key from api.model_capabilities where capability = 'incident_log'`,
     )
     expect(logs.rows).toEqual([{ model_key: 'incident' }])
     await expectDenied(
-      viewer.query(`select api.set_model_incident_log('assay', true)`),
+      viewer.query(
+        `select api.set_model_capability('assay','incident_log',true)`,
+      ),
       '42501',
     )
   })
 
   it('keeps one lab out of another', async () => {
-    const seen = await stranger.query(`select * from api.model_incident_logs`)
+    const seen = await stranger.query(`select * from api.model_capabilities`)
     expect(seen.rows).toEqual([])
   })
 })
@@ -307,7 +317,9 @@ describe('legal holds', () => {
   })
 
   it('stay in force when the lab switches the feature off', async () => {
-    await owner.query(`select api.set_retention_enabled($1,false)`, [WS])
+    await owner.query(
+      `select api.set_model_capability('assay','legal_hold',false)`,
+    )
     await expectDenied(
       owner.query(`select api.archive_record($1, 1)`, [held.id]),
       'SB301',
@@ -374,6 +386,12 @@ describe('retention rules', () => {
     )
     await owner.query(
       `select * from api.set_retention_rule('incident',24,'Quality procedure')`,
+    )
+    expect(
+      (await owner.query(`select * from api.retention_due()`)).rows,
+    ).toEqual([])
+    await owner.query(
+      `select api.set_model_capability('incident','retention',true)`,
     )
     const due = (await owner.query(`select * from api.retention_due()`)).rows
     expect(due.map((d) => d.title)).toEqual(['Old incident'])

@@ -30,7 +30,9 @@ const ROUND = {
   trials: [{ trial: 1 }, { trial: 2 }],
 }
 
-function context(rows: Record<string, unknown[]> = {}): LabToolContext {
+function context(
+  rows: Partial<Record<string, unknown[]>> = {},
+): LabToolContext {
   const defaults: Record<string, unknown[] | undefined> = {
     model_campaign_lists: [{ model_key: 'campaign' }],
     record_models: [{ key: 'campaign', name: 'Campaign' }],

@@ -1538,3 +1538,21 @@ BEGIN
   RETURN btrim(coalesce(v_text, ''));
 END;
 $$;
+
+--> statement-breakpoint
+
+-- A pipeline can send a worklist to a robot and ask for a schedule. The
+-- database's copy of the action catalogue (checked when a pipeline is saved)
+-- gains both actions.
+DO $$
+DECLARE
+  v_def text;
+  v_added text := $added$,{"operation":"queue_instrument_job","rpc":"queue_instrument_job","label":"Send worklist to instrument","description":"Queue a planned worklist for a robot. The agent puts it on the robot and a person presses Start in Sheetbase.","arguments":[{"name":"p_instrument_id","type":"uuid","required":true,"nullable":false},{"name":"p_worklist_id","type":"uuid","required":true,"nullable":false},{"name":"p_note","type":"text","required":false,"nullable":true}]},{"operation":"request_schedule_proposal","rpc":"request_schedule_proposal","label":"Request a schedule","description":"Ask the scheduler to propose bookings for the parts of an experiment. Nothing is booked until a person accepts the proposal.","arguments":[{"name":"p_record_id","type":"uuid","required":true,"nullable":false},{"name":"p_reason","type":"text","required":false,"nullable":true},{"name":"p_slipped_part_id","type":"uuid","required":false,"nullable":true}]}]$added$;
+BEGIN
+  SELECT pg_get_functiondef('internal.pipeline_action_errors(jsonb)'::regprocedure) INTO v_def;
+  IF position(']$catalogue$::jsonb' IN v_def) = 0 THEN
+    RAISE EXCEPTION 'unexpected shape for internal.pipeline_action_errors';
+  END IF;
+  v_def := replace(v_def, ']$catalogue$::jsonb', v_added || '$catalogue$::jsonb');
+  EXECUTE v_def;
+END $$;

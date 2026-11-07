@@ -42,9 +42,18 @@ const EDITING_CACHES = new Set([
   'comments',
 ])
 
+/** Sheet grids are edited in place too; refetching one mid-edit drops the selection. */
+function isEditingCache(key: string): boolean {
+  return (
+    EDITING_CACHES.has(key) ||
+    key.startsWith('sheet-') ||
+    key === 'composed-sheet'
+  )
+}
+
 /** Writes that come from typing or cell editing, which no sidebar count shows. */
 const EDITING_PATHS =
-  /^\/(blocks?|comments?|scientific_|rpc\/\w*(block|scientific|cell|comment|row|formula|draft)\w*)/
+  /^\/(blocks?|comments?|scientific_|rpc\/\w*(block|scientific|sheet|cell|comment|row|formula|draft)\w*)/
 
 /**
  * After this tab saves something, every other cached list, count, header and
@@ -69,7 +78,7 @@ export function refreshAfterWrites(
     timer = setTimeout(() => {
       timer = null
       void queryClient.invalidateQueries({
-        predicate: (query) => !EDITING_CACHES.has(String(query.queryKey[0])),
+        predicate: (query) => !isEditingCache(String(query.queryKey[0])),
       })
       if (shellWanted && shellTimer === null) {
         shellWanted = false

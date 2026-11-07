@@ -261,8 +261,6 @@ class Rpc:
         "save_search",
         "search",
         "search_sheet_records",
-        "semantic_search",
-        "semantic_search_settings",
         "send_scheduled_report_now",
         "series_members",
         "series_rollup",
@@ -293,7 +291,6 @@ class Rpc:
         "set_step_done",
         "set_timestamp_settings",
         "set_watcher_finding_status",
-        "similar_work",
         "slip_experiment_part",
         "snapshot_dataset",
         "split_record_into_parts",
@@ -4090,44 +4087,6 @@ class Rpc:
             body["p_include_archived"] = include_archived
         return self._call("search_sheet_records", body)  # type: ignore[no-any-return]
 
-    def semantic_search(
-        self,
-        *,
-        embedding: List[float],
-        limit: Union[int, Unset] = UNSET,
-        types: Union[Optional[List[str]], Unset] = UNSET,
-    ) -> List[Dict[str, Any]]:
-        """
-        Search by meaning with your own vector
-
-        Ranks the stored passages closest to a vector you supply, through the caller’s own access, so work they cannot see never appears. The vector must be exactly 1024 numbers, unit length, made with the same model the workspace uses (see the AI settings); to search with words instead, use the MCP tool `sheetbase.search.semantic`. `p_limit` is clamped to 1–100. `p_types` limits the kinds of object (record, file, dataset, sheet, template, comment, project, analysis, deviation). Returns the closest passage per object, closest first.
-
-        Scopes: projects:read.
-
-        ``POST /api/db/rpc/semantic_search``
-        """
-        body: Dict[str, Any] = {}
-        body["p_embedding"] = embedding
-        if not isinstance(limit, Unset):
-            body["p_limit"] = limit
-        if not isinstance(types, Unset):
-            body["p_types"] = types
-        return self._call("semantic_search", body)  # type: ignore[no-any-return]
-
-    def semantic_search_settings(self, *, workspace_id: str) -> Dict[str, Any]:
-        """
-        Whether search by meaning is on for a workspace
-
-        Returns whether search by meaning and literature search are on, which embeddings model is chosen, and how many documents have been read so far.
-
-        Scopes: projects:read.
-
-        ``POST /api/db/rpc/semantic_search_settings``
-        """
-        body: Dict[str, Any] = {}
-        body["p_workspace_id"] = workspace_id
-        return self._call("semantic_search_settings", body)  # type: ignore[no-any-return]
-
     def send_scheduled_report_now(self, *, id: str) -> None:
         """
         Send a scheduled report now
@@ -4793,32 +4752,6 @@ class Rpc:
         if not isinstance(until, Unset):
             body["p_until"] = until
         return self._call("set_watcher_finding_status", body)  # type: ignore[no-any-return]
-
-    def similar_work(
-        self,
-        *,
-        object_type: str,
-        object_id: str,
-        limit: Union[int, Unset] = UNSET,
-        types: Union[Optional[List[str]], Unset] = UNSET,
-    ) -> List[Dict[str, Any]]:
-        """
-        Find work that reads like an experiment, dataset or file
-
-        Returns the work closest in meaning to one object, using the vectors already stored (no model call). Only work the caller can see appears. `p_object_type` is record, file, dataset, sheet, template, analysis, project or deviation.
-
-        Scopes: projects:read.
-
-        ``POST /api/db/rpc/similar_work``
-        """
-        body: Dict[str, Any] = {}
-        body["p_object_type"] = object_type
-        body["p_object_id"] = object_id
-        if not isinstance(limit, Unset):
-            body["p_limit"] = limit
-        if not isinstance(types, Unset):
-            body["p_types"] = types
-        return self._call("similar_work", body)  # type: ignore[no-any-return]
 
     def slip_experiment_part(
         self,
@@ -5568,8 +5501,6 @@ class AsyncRpc:
         "save_search",
         "search",
         "search_sheet_records",
-        "semantic_search",
-        "semantic_search_settings",
         "send_scheduled_report_now",
         "series_members",
         "series_rollup",
@@ -5600,7 +5531,6 @@ class AsyncRpc:
         "set_step_done",
         "set_timestamp_settings",
         "set_watcher_finding_status",
-        "similar_work",
         "slip_experiment_part",
         "snapshot_dataset",
         "split_record_into_parts",
@@ -9397,44 +9327,6 @@ class AsyncRpc:
             body["p_include_archived"] = include_archived
         return await self._call("search_sheet_records", body)  # type: ignore[no-any-return]
 
-    async def semantic_search(
-        self,
-        *,
-        embedding: List[float],
-        limit: Union[int, Unset] = UNSET,
-        types: Union[Optional[List[str]], Unset] = UNSET,
-    ) -> List[Dict[str, Any]]:
-        """
-        Search by meaning with your own vector
-
-        Ranks the stored passages closest to a vector you supply, through the caller’s own access, so work they cannot see never appears. The vector must be exactly 1024 numbers, unit length, made with the same model the workspace uses (see the AI settings); to search with words instead, use the MCP tool `sheetbase.search.semantic`. `p_limit` is clamped to 1–100. `p_types` limits the kinds of object (record, file, dataset, sheet, template, comment, project, analysis, deviation). Returns the closest passage per object, closest first.
-
-        Scopes: projects:read.
-
-        ``POST /api/db/rpc/semantic_search``
-        """
-        body: Dict[str, Any] = {}
-        body["p_embedding"] = embedding
-        if not isinstance(limit, Unset):
-            body["p_limit"] = limit
-        if not isinstance(types, Unset):
-            body["p_types"] = types
-        return await self._call("semantic_search", body)  # type: ignore[no-any-return]
-
-    async def semantic_search_settings(self, *, workspace_id: str) -> Dict[str, Any]:
-        """
-        Whether search by meaning is on for a workspace
-
-        Returns whether search by meaning and literature search are on, which embeddings model is chosen, and how many documents have been read so far.
-
-        Scopes: projects:read.
-
-        ``POST /api/db/rpc/semantic_search_settings``
-        """
-        body: Dict[str, Any] = {}
-        body["p_workspace_id"] = workspace_id
-        return await self._call("semantic_search_settings", body)  # type: ignore[no-any-return]
-
     async def send_scheduled_report_now(self, *, id: str) -> None:
         """
         Send a scheduled report now
@@ -10100,32 +9992,6 @@ class AsyncRpc:
         if not isinstance(until, Unset):
             body["p_until"] = until
         return await self._call("set_watcher_finding_status", body)  # type: ignore[no-any-return]
-
-    async def similar_work(
-        self,
-        *,
-        object_type: str,
-        object_id: str,
-        limit: Union[int, Unset] = UNSET,
-        types: Union[Optional[List[str]], Unset] = UNSET,
-    ) -> List[Dict[str, Any]]:
-        """
-        Find work that reads like an experiment, dataset or file
-
-        Returns the work closest in meaning to one object, using the vectors already stored (no model call). Only work the caller can see appears. `p_object_type` is record, file, dataset, sheet, template, analysis, project or deviation.
-
-        Scopes: projects:read.
-
-        ``POST /api/db/rpc/similar_work``
-        """
-        body: Dict[str, Any] = {}
-        body["p_object_type"] = object_type
-        body["p_object_id"] = object_id
-        if not isinstance(limit, Unset):
-            body["p_limit"] = limit
-        if not isinstance(types, Unset):
-            body["p_types"] = types
-        return await self._call("similar_work", body)  # type: ignore[no-any-return]
 
     async def slip_experiment_part(
         self,

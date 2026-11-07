@@ -176,9 +176,9 @@ describe('RecordHistoryTimeline', () => {
     expect(
       screen.getByRole('heading', { name: 'Complete history' }),
     ).toBeTruthy()
-    expect(screen.getByText('record create')).toBeTruthy()
-    expect(screen.getByText('review approve')).toBeTruthy()
-    expect(screen.getByText('signature approve-for-record')).toBeTruthy()
+    expect(screen.getByText('Record created')).toBeTruthy()
+    expect(screen.getByText('Review approve')).toBeTruthy()
+    expect(screen.getByText('Signature approve for record')).toBeTruthy()
   })
 
   it('shows a skeleton state while loading', () => {
@@ -254,7 +254,8 @@ describe('captured change facts', () => {
       },
     ])
     expect(mapped[0].target).toBe('Protocol step text')
-    // A payload without captured facts still reports the operation.
-    expect(mapped[1].target).toBe('update')
+    // A payload without captured facts has no detail: the title says it.
+    expect(mapped[1].target).toBeUndefined()
+    expect(mapped[1].title).toBe('Record updated')
   })
 })

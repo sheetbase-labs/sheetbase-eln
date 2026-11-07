@@ -44,11 +44,14 @@ from sheetbase._generated.models import (
     NotebookUpgradeApplyResult,
     NotebookUpgradeDecision,
     NotebookUpgradePreview,
+    OntologyAnnotationsRow,
     PartPlansRow,
     PipelineDefinitionVersionsRow,
     PlateRunsRow,
     PlateWorklistsRow,
     ProjectsRow,
+    PublicationTargetsRow,
+    PublicationsRow,
     QcPointsRow,
     QcSeriesRow,
     QuerySheetInstanceRowsResult,
@@ -157,11 +160,13 @@ class Rpc:
         "delete_data_contract",
         "delete_experiment_part",
         "delete_lineage_target",
+        "delete_publication_target",
         "delete_qc_series",
         "delete_saved_search",
         "delete_scheduled_report",
         "delete_webhook_subscription",
         "directory_sync_status",
+        "discard_publication",
         "dismiss_schedule_proposal",
         "dissolve_experiment_series",
         "duplicate_sheet_instance",
@@ -181,8 +186,11 @@ class Rpc:
         "instantiate_notebook_template_version",
         "instantiate_template",
         "is_record_on_hold",
+        "lake_settings",
         "leave_sample_workflow",
+        "link_ontology_term",
         "list_instrument_feed_series",
+        "list_lake_credentials",
         "list_webhook_deliveries",
         "log_instrument_service",
         "mark_reagent_ordered",
@@ -195,6 +203,7 @@ class Rpc:
         "mutate_sheet_instance_calculations",
         "mutate_sheet_instance_local_state",
         "my_instrument_training_gaps",
+        "ontology_settings",
         "parts_in_range",
         "pool_samples",
         "prepare_solution",
@@ -237,6 +246,8 @@ class Rpc:
         "report_spend_lines",
         "report_usage_lines",
         "request_agent_action",
+        "request_lake_refresh",
+        "request_publication",
         "request_reagent_order",
         "request_schedule_proposal",
         "request_signature_timestamp",
@@ -248,6 +259,8 @@ class Rpc:
         "restore_sheet_instance",
         "retention_due",
         "retry_lineage_deliveries",
+        "retry_publication",
+        "revoke_lake_credential",
         "revoke_scim_token",
         "rotate_webhook_secret",
         "run_contract_check",
@@ -256,6 +269,7 @@ class Rpc:
         "save_data_contract",
         "save_lineage_target",
         "save_plate_run_analysis",
+        "save_publication_target",
         "save_sample_workflow",
         "save_scheduled_report",
         "save_search",
@@ -274,10 +288,12 @@ class Rpc:
         "set_instrument_rate",
         "set_instrument_robot",
         "set_lab_watcher",
+        "set_lake_settings",
         "set_link_part",
         "set_material_safety",
         "set_member_absence",
         "set_model_supplier_list",
+        "set_ontology_settings",
         "set_part_done",
         "set_part_plan",
         "set_qc_baseline",
@@ -303,6 +319,7 @@ class Rpc:
         "track_plate_assay_qc",
         "transition_record_status",
         "unfollow_project",
+        "unlink_ontology_term",
         "update_block_payload",
         "update_experiment_part",
         "update_pipeline_definition_version_draft",
@@ -1718,6 +1735,20 @@ class Rpc:
         body["p_id"] = id
         return self._call("delete_lineage_target", body)  # type: ignore[no-any-return]
 
+    def delete_publication_target(self, *, id: str) -> None:
+        """
+        Remove a publishing repository
+
+        Needs integrations access. Existing publications keep their DOI.
+
+        Scopes: admin:write.
+
+        ``POST /api/db/rpc/delete_publication_target``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return self._call("delete_publication_target", body)  # type: ignore[no-any-return]
+
     def delete_qc_series(self, *, series_id: str) -> None:
         """
         Stop tracking a series
@@ -1793,6 +1824,24 @@ class Rpc:
         body: Dict[str, Any] = {}
         body["p_workspace_id"] = workspace_id
         return self._call("directory_sync_status", body)  # type: ignore[no-any-return]
+
+    def discard_publication(
+        self,
+        *,
+        id: str,
+    ) -> Union["PublicationsRow", List["PublicationsRow"]]:
+        """
+        Discard a publication draft
+
+        Only a draft that is not public can be discarded.
+
+        Scopes: projects:write.
+
+        ``POST /api/db/rpc/discard_publication``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return self._call("discard_publication", body)  # type: ignore[no-any-return]
 
     def dismiss_schedule_proposal(
         self,
@@ -2193,6 +2242,20 @@ class Rpc:
         body["p_record_id"] = record_id
         return self._call("is_record_on_hold", body)  # type: ignore[no-any-return]
 
+    def lake_settings(self, *, workspace_id: str) -> Dict[str, Any]:
+        """
+        Read the open-table settings
+
+        Whether the workspace writes open tables, whose access they follow, and how the last pass went.
+
+        Scopes: admin:read.
+
+        ``POST /api/db/rpc/lake_settings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return self._call("lake_settings", body)  # type: ignore[no-any-return]
+
     def leave_sample_workflow(
         self,
         *,
@@ -2213,6 +2276,37 @@ class Rpc:
         if not isinstance(notes, Unset):
             body["p_notes"] = notes
         return self._call("leave_sample_workflow", body)  # type: ignore[no-any-return]
+
+    def link_ontology_term(
+        self,
+        *,
+        workspace_id: str,
+        target_kind: str,
+        target_id: str,
+        ontology: str,
+        iri: str,
+        label: str,
+        short_form: Union[Optional[str], Unset] = UNSET,
+    ) -> Union["OntologyAnnotationsRow", List["OntologyAnnotationsRow"]]:
+        """
+        Attach an ontology term to a field
+
+        Needs schema access. Linking the same term twice returns the existing link.
+
+        Scopes: schema:write.
+
+        ``POST /api/db/rpc/link_ontology_term``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_target_kind"] = target_kind
+        body["p_target_id"] = target_id
+        body["p_ontology"] = ontology
+        body["p_iri"] = iri
+        body["p_label"] = label
+        if not isinstance(short_form, Unset):
+            body["p_short_form"] = short_form
+        return self._call("link_ontology_term", body)  # type: ignore[no-any-return]
 
     def list_instrument_feed_series(
         self,
@@ -2239,6 +2333,20 @@ class Rpc:
         if not isinstance(buckets, Unset):
             body["p_buckets"] = buckets
         return self._call("list_instrument_feed_series", body)  # type: ignore[no-any-return]
+
+    def list_lake_credentials(self, *, workspace_id: str) -> List[Dict[str, Any]]:
+        """
+        List table logins
+
+        Needs data access. Lists logins that can read the open tables; passwords are never returned.
+
+        Scopes: admin:read.
+
+        ``POST /api/db/rpc/list_lake_credentials``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return self._call("list_lake_credentials", body)  # type: ignore[no-any-return]
 
     def list_webhook_deliveries(
         self,
@@ -2538,6 +2646,20 @@ class Rpc:
         body: Dict[str, Any] = {}
         body["p_instrument_id"] = instrument_id
         return self._call("my_instrument_training_gaps", body)  # type: ignore[no-any-return]
+
+    def ontology_settings(self, *, workspace_id: str) -> Dict[str, Any]:
+        """
+        Read the ontology lookup settings
+
+        Whether searching the EBI Ontology Lookup Service is allowed, and which ontologies.
+
+        Scopes: admin:read.
+
+        ``POST /api/db/rpc/ontology_settings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return self._call("ontology_settings", body)  # type: ignore[no-any-return]
 
     def parts_in_range(self, *, from_: str, to: str) -> List[Dict[str, Any]]:
         """
@@ -3500,6 +3622,48 @@ class Rpc:
         body["p_idempotency_key"] = idempotency_key
         return self._call("request_agent_action", body)  # type: ignore[no-any-return]
 
+    def request_lake_refresh(self, *, workspace_id: str) -> Dict[str, Any]:
+        """
+        Ask for open tables to be refreshed now
+
+        Queues a pass; the server runs it within a minute.
+
+        Scopes: admin:write.
+
+        ``POST /api/db/rpc/request_lake_refresh``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return self._call("request_lake_refresh", body)  # type: ignore[no-any-return]
+
+    def request_publication(
+        self,
+        *,
+        target_id: str,
+        object_kind: str,
+        object_id: str,
+        title: Union[Optional[str], Unset] = UNSET,
+        license: Union[Optional[str], Unset] = UNSET,
+    ) -> Union["PublicationsRow", List["PublicationsRow"]]:
+        """
+        Ask to publish an experiment or dataset version
+
+        Packages the object as an RO-Crate (with a Workflow Run Crate when a pipeline run produced it) and sends a draft to the repository, which reserves a DOI. Nothing is public until a person publishes it in the app.
+
+        Scopes: projects:write.
+
+        ``POST /api/db/rpc/request_publication``
+        """
+        body: Dict[str, Any] = {}
+        body["p_target_id"] = target_id
+        body["p_object_kind"] = object_kind
+        body["p_object_id"] = object_id
+        if not isinstance(title, Unset):
+            body["p_title"] = title
+        if not isinstance(license, Unset):
+            body["p_license"] = license
+        return self._call("request_publication", body)  # type: ignore[no-any-return]
+
     def request_reagent_order(
         self,
         *,
@@ -3723,6 +3887,39 @@ class Rpc:
         body["p_target_id"] = target_id
         return self._call("retry_lineage_deliveries", body)  # type: ignore[no-any-return]
 
+    def retry_publication(
+        self,
+        *,
+        id: str,
+    ) -> Union["PublicationsRow", List["PublicationsRow"]]:
+        """
+        Try a failed publication again
+
+        Queues a publication that gave up.
+
+        Scopes: projects:write.
+
+        ``POST /api/db/rpc/retry_publication``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return self._call("retry_publication", body)  # type: ignore[no-any-return]
+
+    def revoke_lake_credential(self, *, workspace_id: str, credential_id: str) -> None:
+        """
+        Revoke a table login
+
+        The login stops working straight away. Making a login is done at the settings page, where the password is shown once.
+
+        Scopes: admin:write.
+
+        ``POST /api/db/rpc/revoke_lake_credential``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_credential_id"] = credential_id
+        return self._call("revoke_lake_credential", body)  # type: ignore[no-any-return]
+
     def revoke_scim_token(self, *, id: str) -> Union["ScimTokensRow", List["ScimTokensRow"]]:
         """
         Revoke a directory sync token
@@ -3917,6 +4114,42 @@ class Rpc:
         if not isinstance(expected_metadata_version, Unset):
             body["p_expected_metadata_version"] = expected_metadata_version
         return self._call("save_plate_run_analysis", body)  # type: ignore[no-any-return]
+
+    def save_publication_target(
+        self,
+        *,
+        workspace_id: str,
+        kind: str,
+        name: str,
+        base_url: str,
+        id: Union[str, Unset] = UNSET,
+        collection: Union[Optional[str], Unset] = UNSET,
+        license: Union[str, Unset] = UNSET,
+        enabled: Union[bool, Unset] = UNSET,
+    ) -> Union["PublicationTargetsRow", List["PublicationTargetsRow"]]:
+        """
+        Add or change a publishing repository
+
+        Needs integrations access. Pass `p_id` null to add one. The access token is set at the settings page, never over the API.
+
+        Scopes: admin:write.
+
+        ``POST /api/db/rpc/save_publication_target``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_kind"] = kind
+        body["p_name"] = name
+        body["p_base_url"] = base_url
+        if not isinstance(id, Unset):
+            body["p_id"] = id
+        if not isinstance(collection, Unset):
+            body["p_collection"] = collection
+        if not isinstance(license, Unset):
+            body["p_license"] = license
+        if not isinstance(enabled, Unset):
+            body["p_enabled"] = enabled
+        return self._call("save_publication_target", body)  # type: ignore[no-any-return]
 
     def save_sample_workflow(
         self,
@@ -4377,6 +4610,21 @@ class Rpc:
             body["p_params"] = params
         return self._call("set_lab_watcher", body)  # type: ignore[no-any-return]
 
+    def set_lake_settings(self, *, workspace_id: str, enabled: bool) -> Dict[str, Any]:
+        """
+        Turn open tables on or off
+
+        Needs integrations access and data access, and a personal token. The tables hold what the person who turns them on can see, so that person needs data access. Turning them off stops updates; files already written stay on storage.
+
+        Scopes: admin:write.
+
+        ``POST /api/db/rpc/set_lake_settings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_enabled"] = enabled
+        return self._call("set_lake_settings", body)  # type: ignore[no-any-return]
+
     def set_link_part(self, *, link_id: str, part_id: str) -> Dict[str, "JsonValue"]:
         """
         Move a sample, dataset or other link to another part
@@ -4463,6 +4711,29 @@ class Rpc:
         body["p_model_key"] = model_key
         body["p_enabled"] = enabled
         return self._call("set_model_supplier_list", body)  # type: ignore[no-any-return]
+
+    def set_ontology_settings(
+        self,
+        *,
+        workspace_id: str,
+        enabled: bool,
+        ontologies: Union[Optional[List[str]], Unset] = UNSET,
+    ) -> Dict[str, Any]:
+        """
+        Allow or stop ontology lookup
+
+        Needs integrations access. When on, what people type in the term search is sent to the EBI Ontology Lookup Service.
+
+        Scopes: admin:write.
+
+        ``POST /api/db/rpc/set_ontology_settings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_enabled"] = enabled
+        if not isinstance(ontologies, Unset):
+            body["p_ontologies"] = ontologies
+        return self._call("set_ontology_settings", body)  # type: ignore[no-any-return]
 
     def set_part_done(
         self,
@@ -4991,6 +5262,20 @@ class Rpc:
         body["p_project_id"] = project_id
         return self._call("unfollow_project", body)  # type: ignore[no-any-return]
 
+    def unlink_ontology_term(self, *, annotation_id: str) -> None:
+        """
+        Remove an ontology term from a field
+
+        Needs schema access.
+
+        Scopes: schema:write.
+
+        ``POST /api/db/rpc/unlink_ontology_term``
+        """
+        body: Dict[str, Any] = {}
+        body["p_annotation_id"] = annotation_id
+        return self._call("unlink_ontology_term", body)  # type: ignore[no-any-return]
+
     def update_block_payload(
         self,
         *,
@@ -5397,11 +5682,13 @@ class AsyncRpc:
         "delete_data_contract",
         "delete_experiment_part",
         "delete_lineage_target",
+        "delete_publication_target",
         "delete_qc_series",
         "delete_saved_search",
         "delete_scheduled_report",
         "delete_webhook_subscription",
         "directory_sync_status",
+        "discard_publication",
         "dismiss_schedule_proposal",
         "dissolve_experiment_series",
         "duplicate_sheet_instance",
@@ -5421,8 +5708,11 @@ class AsyncRpc:
         "instantiate_notebook_template_version",
         "instantiate_template",
         "is_record_on_hold",
+        "lake_settings",
         "leave_sample_workflow",
+        "link_ontology_term",
         "list_instrument_feed_series",
+        "list_lake_credentials",
         "list_webhook_deliveries",
         "log_instrument_service",
         "mark_reagent_ordered",
@@ -5435,6 +5725,7 @@ class AsyncRpc:
         "mutate_sheet_instance_calculations",
         "mutate_sheet_instance_local_state",
         "my_instrument_training_gaps",
+        "ontology_settings",
         "parts_in_range",
         "pool_samples",
         "prepare_solution",
@@ -5477,6 +5768,8 @@ class AsyncRpc:
         "report_spend_lines",
         "report_usage_lines",
         "request_agent_action",
+        "request_lake_refresh",
+        "request_publication",
         "request_reagent_order",
         "request_schedule_proposal",
         "request_signature_timestamp",
@@ -5488,6 +5781,8 @@ class AsyncRpc:
         "restore_sheet_instance",
         "retention_due",
         "retry_lineage_deliveries",
+        "retry_publication",
+        "revoke_lake_credential",
         "revoke_scim_token",
         "rotate_webhook_secret",
         "run_contract_check",
@@ -5496,6 +5791,7 @@ class AsyncRpc:
         "save_data_contract",
         "save_lineage_target",
         "save_plate_run_analysis",
+        "save_publication_target",
         "save_sample_workflow",
         "save_scheduled_report",
         "save_search",
@@ -5514,10 +5810,12 @@ class AsyncRpc:
         "set_instrument_rate",
         "set_instrument_robot",
         "set_lab_watcher",
+        "set_lake_settings",
         "set_link_part",
         "set_material_safety",
         "set_member_absence",
         "set_model_supplier_list",
+        "set_ontology_settings",
         "set_part_done",
         "set_part_plan",
         "set_qc_baseline",
@@ -5543,6 +5841,7 @@ class AsyncRpc:
         "track_plate_assay_qc",
         "transition_record_status",
         "unfollow_project",
+        "unlink_ontology_term",
         "update_block_payload",
         "update_experiment_part",
         "update_pipeline_definition_version_draft",
@@ -6958,6 +7257,20 @@ class AsyncRpc:
         body["p_id"] = id
         return await self._call("delete_lineage_target", body)  # type: ignore[no-any-return]
 
+    async def delete_publication_target(self, *, id: str) -> None:
+        """
+        Remove a publishing repository
+
+        Needs integrations access. Existing publications keep their DOI.
+
+        Scopes: admin:write.
+
+        ``POST /api/db/rpc/delete_publication_target``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return await self._call("delete_publication_target", body)  # type: ignore[no-any-return]
+
     async def delete_qc_series(self, *, series_id: str) -> None:
         """
         Stop tracking a series
@@ -7033,6 +7346,24 @@ class AsyncRpc:
         body: Dict[str, Any] = {}
         body["p_workspace_id"] = workspace_id
         return await self._call("directory_sync_status", body)  # type: ignore[no-any-return]
+
+    async def discard_publication(
+        self,
+        *,
+        id: str,
+    ) -> Union["PublicationsRow", List["PublicationsRow"]]:
+        """
+        Discard a publication draft
+
+        Only a draft that is not public can be discarded.
+
+        Scopes: projects:write.
+
+        ``POST /api/db/rpc/discard_publication``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return await self._call("discard_publication", body)  # type: ignore[no-any-return]
 
     async def dismiss_schedule_proposal(
         self,
@@ -7433,6 +7764,20 @@ class AsyncRpc:
         body["p_record_id"] = record_id
         return await self._call("is_record_on_hold", body)  # type: ignore[no-any-return]
 
+    async def lake_settings(self, *, workspace_id: str) -> Dict[str, Any]:
+        """
+        Read the open-table settings
+
+        Whether the workspace writes open tables, whose access they follow, and how the last pass went.
+
+        Scopes: admin:read.
+
+        ``POST /api/db/rpc/lake_settings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return await self._call("lake_settings", body)  # type: ignore[no-any-return]
+
     async def leave_sample_workflow(
         self,
         *,
@@ -7453,6 +7798,37 @@ class AsyncRpc:
         if not isinstance(notes, Unset):
             body["p_notes"] = notes
         return await self._call("leave_sample_workflow", body)  # type: ignore[no-any-return]
+
+    async def link_ontology_term(
+        self,
+        *,
+        workspace_id: str,
+        target_kind: str,
+        target_id: str,
+        ontology: str,
+        iri: str,
+        label: str,
+        short_form: Union[Optional[str], Unset] = UNSET,
+    ) -> Union["OntologyAnnotationsRow", List["OntologyAnnotationsRow"]]:
+        """
+        Attach an ontology term to a field
+
+        Needs schema access. Linking the same term twice returns the existing link.
+
+        Scopes: schema:write.
+
+        ``POST /api/db/rpc/link_ontology_term``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_target_kind"] = target_kind
+        body["p_target_id"] = target_id
+        body["p_ontology"] = ontology
+        body["p_iri"] = iri
+        body["p_label"] = label
+        if not isinstance(short_form, Unset):
+            body["p_short_form"] = short_form
+        return await self._call("link_ontology_term", body)  # type: ignore[no-any-return]
 
     async def list_instrument_feed_series(
         self,
@@ -7479,6 +7855,20 @@ class AsyncRpc:
         if not isinstance(buckets, Unset):
             body["p_buckets"] = buckets
         return await self._call("list_instrument_feed_series", body)  # type: ignore[no-any-return]
+
+    async def list_lake_credentials(self, *, workspace_id: str) -> List[Dict[str, Any]]:
+        """
+        List table logins
+
+        Needs data access. Lists logins that can read the open tables; passwords are never returned.
+
+        Scopes: admin:read.
+
+        ``POST /api/db/rpc/list_lake_credentials``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return await self._call("list_lake_credentials", body)  # type: ignore[no-any-return]
 
     async def list_webhook_deliveries(
         self,
@@ -7778,6 +8168,20 @@ class AsyncRpc:
         body: Dict[str, Any] = {}
         body["p_instrument_id"] = instrument_id
         return await self._call("my_instrument_training_gaps", body)  # type: ignore[no-any-return]
+
+    async def ontology_settings(self, *, workspace_id: str) -> Dict[str, Any]:
+        """
+        Read the ontology lookup settings
+
+        Whether searching the EBI Ontology Lookup Service is allowed, and which ontologies.
+
+        Scopes: admin:read.
+
+        ``POST /api/db/rpc/ontology_settings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return await self._call("ontology_settings", body)  # type: ignore[no-any-return]
 
     async def parts_in_range(self, *, from_: str, to: str) -> List[Dict[str, Any]]:
         """
@@ -8740,6 +9144,48 @@ class AsyncRpc:
         body["p_idempotency_key"] = idempotency_key
         return await self._call("request_agent_action", body)  # type: ignore[no-any-return]
 
+    async def request_lake_refresh(self, *, workspace_id: str) -> Dict[str, Any]:
+        """
+        Ask for open tables to be refreshed now
+
+        Queues a pass; the server runs it within a minute.
+
+        Scopes: admin:write.
+
+        ``POST /api/db/rpc/request_lake_refresh``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        return await self._call("request_lake_refresh", body)  # type: ignore[no-any-return]
+
+    async def request_publication(
+        self,
+        *,
+        target_id: str,
+        object_kind: str,
+        object_id: str,
+        title: Union[Optional[str], Unset] = UNSET,
+        license: Union[Optional[str], Unset] = UNSET,
+    ) -> Union["PublicationsRow", List["PublicationsRow"]]:
+        """
+        Ask to publish an experiment or dataset version
+
+        Packages the object as an RO-Crate (with a Workflow Run Crate when a pipeline run produced it) and sends a draft to the repository, which reserves a DOI. Nothing is public until a person publishes it in the app.
+
+        Scopes: projects:write.
+
+        ``POST /api/db/rpc/request_publication``
+        """
+        body: Dict[str, Any] = {}
+        body["p_target_id"] = target_id
+        body["p_object_kind"] = object_kind
+        body["p_object_id"] = object_id
+        if not isinstance(title, Unset):
+            body["p_title"] = title
+        if not isinstance(license, Unset):
+            body["p_license"] = license
+        return await self._call("request_publication", body)  # type: ignore[no-any-return]
+
     async def request_reagent_order(
         self,
         *,
@@ -8963,6 +9409,39 @@ class AsyncRpc:
         body["p_target_id"] = target_id
         return await self._call("retry_lineage_deliveries", body)  # type: ignore[no-any-return]
 
+    async def retry_publication(
+        self,
+        *,
+        id: str,
+    ) -> Union["PublicationsRow", List["PublicationsRow"]]:
+        """
+        Try a failed publication again
+
+        Queues a publication that gave up.
+
+        Scopes: projects:write.
+
+        ``POST /api/db/rpc/retry_publication``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return await self._call("retry_publication", body)  # type: ignore[no-any-return]
+
+    async def revoke_lake_credential(self, *, workspace_id: str, credential_id: str) -> None:
+        """
+        Revoke a table login
+
+        The login stops working straight away. Making a login is done at the settings page, where the password is shown once.
+
+        Scopes: admin:write.
+
+        ``POST /api/db/rpc/revoke_lake_credential``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_credential_id"] = credential_id
+        return await self._call("revoke_lake_credential", body)  # type: ignore[no-any-return]
+
     async def revoke_scim_token(self, *, id: str) -> Union["ScimTokensRow", List["ScimTokensRow"]]:
         """
         Revoke a directory sync token
@@ -9157,6 +9636,42 @@ class AsyncRpc:
         if not isinstance(expected_metadata_version, Unset):
             body["p_expected_metadata_version"] = expected_metadata_version
         return await self._call("save_plate_run_analysis", body)  # type: ignore[no-any-return]
+
+    async def save_publication_target(
+        self,
+        *,
+        workspace_id: str,
+        kind: str,
+        name: str,
+        base_url: str,
+        id: Union[str, Unset] = UNSET,
+        collection: Union[Optional[str], Unset] = UNSET,
+        license: Union[str, Unset] = UNSET,
+        enabled: Union[bool, Unset] = UNSET,
+    ) -> Union["PublicationTargetsRow", List["PublicationTargetsRow"]]:
+        """
+        Add or change a publishing repository
+
+        Needs integrations access. Pass `p_id` null to add one. The access token is set at the settings page, never over the API.
+
+        Scopes: admin:write.
+
+        ``POST /api/db/rpc/save_publication_target``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_kind"] = kind
+        body["p_name"] = name
+        body["p_base_url"] = base_url
+        if not isinstance(id, Unset):
+            body["p_id"] = id
+        if not isinstance(collection, Unset):
+            body["p_collection"] = collection
+        if not isinstance(license, Unset):
+            body["p_license"] = license
+        if not isinstance(enabled, Unset):
+            body["p_enabled"] = enabled
+        return await self._call("save_publication_target", body)  # type: ignore[no-any-return]
 
     async def save_sample_workflow(
         self,
@@ -9617,6 +10132,21 @@ class AsyncRpc:
             body["p_params"] = params
         return await self._call("set_lab_watcher", body)  # type: ignore[no-any-return]
 
+    async def set_lake_settings(self, *, workspace_id: str, enabled: bool) -> Dict[str, Any]:
+        """
+        Turn open tables on or off
+
+        Needs integrations access and data access, and a personal token. The tables hold what the person who turns them on can see, so that person needs data access. Turning them off stops updates; files already written stay on storage.
+
+        Scopes: admin:write.
+
+        ``POST /api/db/rpc/set_lake_settings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_enabled"] = enabled
+        return await self._call("set_lake_settings", body)  # type: ignore[no-any-return]
+
     async def set_link_part(self, *, link_id: str, part_id: str) -> Dict[str, "JsonValue"]:
         """
         Move a sample, dataset or other link to another part
@@ -9703,6 +10233,29 @@ class AsyncRpc:
         body["p_model_key"] = model_key
         body["p_enabled"] = enabled
         return await self._call("set_model_supplier_list", body)  # type: ignore[no-any-return]
+
+    async def set_ontology_settings(
+        self,
+        *,
+        workspace_id: str,
+        enabled: bool,
+        ontologies: Union[Optional[List[str]], Unset] = UNSET,
+    ) -> Dict[str, Any]:
+        """
+        Allow or stop ontology lookup
+
+        Needs integrations access. When on, what people type in the term search is sent to the EBI Ontology Lookup Service.
+
+        Scopes: admin:write.
+
+        ``POST /api/db/rpc/set_ontology_settings``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_enabled"] = enabled
+        if not isinstance(ontologies, Unset):
+            body["p_ontologies"] = ontologies
+        return await self._call("set_ontology_settings", body)  # type: ignore[no-any-return]
 
     async def set_part_done(
         self,
@@ -10230,6 +10783,20 @@ class AsyncRpc:
         body: Dict[str, Any] = {}
         body["p_project_id"] = project_id
         return await self._call("unfollow_project", body)  # type: ignore[no-any-return]
+
+    async def unlink_ontology_term(self, *, annotation_id: str) -> None:
+        """
+        Remove an ontology term from a field
+
+        Needs schema access.
+
+        Scopes: schema:write.
+
+        ``POST /api/db/rpc/unlink_ontology_term``
+        """
+        body: Dict[str, Any] = {}
+        body["p_annotation_id"] = annotation_id
+        return await self._call("unlink_ontology_term", body)  # type: ignore[no-any-return]
 
     async def update_block_payload(
         self,

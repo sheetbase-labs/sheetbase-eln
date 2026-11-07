@@ -5,6 +5,7 @@ import { SchedulePanel } from '#/components/scheduler/schedule-panel'
 import { hasCapability } from '#/lib/capability'
 import { ExperimentOverview } from '#/components/overview/overview-view'
 import { AddedFields } from '#/components/models/added-fields'
+import { SimilarWorkPanel } from '#/components/search/similar-work-panel'
 import type { ExperimentReadiness } from '#/components/overview/readiness'
 import {
   fetchBlocksForRecord,
@@ -217,6 +218,15 @@ function Overview() {
           recordId={record.id}
           parts={parts.data ?? []}
           canWrite={hasCapability(context.workspace?.role, 'record.create')}
+        />
+      }
+      similarWork={
+        <SimilarWorkPanel
+          workspaceId={record.workspace_id}
+          objectType="record"
+          objectId={record.id}
+          identifier={record.identifier}
+          title={record.title}
         />
       }
     />

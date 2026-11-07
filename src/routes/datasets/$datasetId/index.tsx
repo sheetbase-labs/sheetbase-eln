@@ -21,6 +21,7 @@ import { useUserNames } from '#/lib/user-names'
 import { useDatasetVersions } from '../$datasetId'
 import { RelationshipPanel } from '#/components/knowledge/relationship-panel'
 import { RecordLineageSection } from '#/components/knowledge/record-lineage-section'
+import { SimilarWorkPanel } from '#/components/search/similar-work-panel'
 
 /**
  * R5-SURF-01 — the dataset detail index, which is the Overview screen the
@@ -36,6 +37,7 @@ export const Route = createFileRoute('/datasets/$datasetId/')({
 
 function DatasetOverview() {
   const { datasetId } = Route.useParams()
+  const { context } = Route.useRouteContext()
   const summaries = useDatasetSummaries()
   const dataset = summaries.data?.find((d) => d.uuid === datasetId)
   if (!dataset) {
@@ -49,7 +51,12 @@ function DatasetOverview() {
       </div>
     )
   }
-  return <DatasetOverviewPanel dataset={dataset} />
+  return (
+    <DatasetOverviewPanel
+      dataset={dataset}
+      workspaceId={context.workspace?.id ?? ''}
+    />
+  )
 }
 
 /**
@@ -57,7 +64,13 @@ function DatasetOverview() {
  * it is in. The facts that only exist here — provenance, snapshot state and
  * unresolved flags — are the point; identity already sits in the frame header.
  */
-function DatasetOverviewPanel({ dataset }: { dataset: DatasetListRow }) {
+function DatasetOverviewPanel({
+  dataset,
+  workspaceId,
+}: {
+  dataset: DatasetListRow
+  workspaceId: string
+}) {
   const versions = useDatasetVersions(dataset.uuid)
   const { userLabel } = useUserNames(
     dataset.createdByUserId ? [dataset.createdByUserId] : [],
@@ -162,6 +175,13 @@ function DatasetOverviewPanel({ dataset }: { dataset: DatasetListRow }) {
       ) : null}
       <RelationshipPanel recordId={dataset.uuid} />
       <RecordLineageSection recordId={dataset.uuid} />
+      <SimilarWorkPanel
+        workspaceId={workspaceId}
+        objectType="dataset"
+        objectId={dataset.uuid}
+        identifier={dataset.id}
+        title={dataset.name}
+      />
     </div>
   )
 }

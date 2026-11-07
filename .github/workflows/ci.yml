@@ -48,6 +48,8 @@ jobs:
   # Unrelated ones merge in any order. Needs no install: it only reads git.
   migration-order:
     name: Migration order
+    # Only meaningful with a base to compare against; a push to main has none.
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

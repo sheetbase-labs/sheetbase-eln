@@ -214,3 +214,18 @@ export async function getShellHiddenPages(
     return []
   }
 }
+
+/** The model features switched on for at least one model of this lab: the
+ * sidebar shows a feature's page only while one is. A read that fails shows
+ * none. */
+export async function getShellFeatures(workspaceId: string): Promise<string[]> {
+  try {
+    const result = await db.$client.query<{ capability: string }>(
+      `select distinct capability from api.model_capabilities where workspace_id = $1`,
+      [workspaceId],
+    )
+    return result.rows.map((r) => r.capability)
+  } catch {
+    return []
+  }
+}

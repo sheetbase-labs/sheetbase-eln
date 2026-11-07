@@ -19,6 +19,7 @@ import type {
   PipelineScheduleKind,
   PipelineScheduleActivityWire,
   PipelineScheduleWire,
+  PipelineReproductionWire,
   PipelineTrialWire,
 } from './types'
 import { t } from '#/copy'
@@ -258,6 +259,60 @@ export async function tryPipelineDraft(input: {
 }
 
 // ---------------------------------------------------------------------------
+// Reproductions.
+// ---------------------------------------------------------------------------
+
+/**
+ * Reproduce a finished run: run it again from the version, parameters and
+ * inputs it pinned, into scratch, and get the verdict back. Nothing is added to
+ * the workspace except the reproduction record.
+ */
+export async function reproducePipelineRun(input: {
+  runId: string
+  tolerance?: number
+}): Promise<PipelineReproductionWire> {
+  const response = await fetch('/api/pipelines/reproduce', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok)
+    throw await readRunError(response, t('data.reproduce.couldNotReproduce'))
+  return (await response.json()) as PipelineReproductionWire
+}
+
+const REPRODUCTION_FIELDS =
+  'id,workspace_id,source_run_id,definition_version_id,status,tolerance,compared,summary,changes,error_code,error_message,duration_ms,requested_by_user_id,created_at'
+
+/** A run's reproductions, newest first. */
+export async function listPipelineReproductions(
+  client: DataClient,
+  runId: string,
+): Promise<PipelineReproductionWire[]> {
+  return client.list<PipelineReproductionWire>(
+    'pipeline_reproductions',
+    `?select=${REPRODUCTION_FIELDS}&source_run_id=eq.${encodeURIComponent(runId)}&order=created_at.desc&limit=20`,
+  )
+}
+
+/** The newest verdict for each of these runs, for the run history. */
+export async function listLatestReproductions(
+  client: DataClient,
+  runIds: string[],
+): Promise<Record<string, PipelineReproductionWire['status']>> {
+  if (runIds.length === 0) return {}
+  const rows = await client.list<
+    Pick<PipelineReproductionWire, 'source_run_id' | 'status'>
+  >(
+    'pipeline_reproductions',
+    `?select=source_run_id,status&source_run_id=in.(${runIds.map(encodeURIComponent).join(',')})&order=created_at.desc&limit=500`,
+  )
+  const latest: Record<string, PipelineReproductionWire['status']> = {}
+  for (const row of rows) latest[row.source_run_id] ??= row.status
+  return latest
+}
+
+// ---------------------------------------------------------------------------
 // Schedules.
 // ---------------------------------------------------------------------------
 
@@ -426,6 +481,31 @@ export async function listPipelineRunOutputs(
     'pipeline_run_outputs',
     `?select=${OUTPUT_FIELDS}&run_id=eq.${encodeURIComponent(runId)}&order=created_at.asc`,
   )
+}
+
+/** The run that made a Dataset Version, with the pipeline it belongs to, if any. */
+export async function getRunForDatasetVersion(
+  client: DataClient,
+  datasetVersionId: string,
+): Promise<{ runId: string; pipelineId: string } | null> {
+  const outputs = await client.list<{ run_id: string }>(
+    'pipeline_run_outputs',
+    `?select=run_id&dataset_version_id=eq.${encodeURIComponent(datasetVersionId)}&order=created_at.desc&limit=1`,
+  )
+  const runId = outputs[0]?.run_id
+  if (!runId) return null
+  const runs = await client.list<{ definition_version_id: string }>(
+    'pipeline_runs',
+    `?select=definition_version_id&id=eq.${encodeURIComponent(runId)}&limit=1`,
+  )
+  const versionId = runs[0]?.definition_version_id
+  if (!versionId) return null
+  const versions = await client.list<{ definition_id: string }>(
+    'pipeline_definition_versions',
+    `?select=definition_id&id=eq.${encodeURIComponent(versionId)}&limit=1`,
+  )
+  const pipelineId = versions[0]?.definition_id
+  return pipelineId ? { runId, pipelineId } : null
 }
 
 /** Which Pipeline runs produced a given Dataset (Dataset page integration). */

@@ -11,6 +11,9 @@ import {
   listPipelineDefinitionVersions,
   listPipelineDefinitions,
   listPipelineRunLogs,
+  getRunForDatasetVersion,
+  listLatestReproductions,
+  listPipelineReproductions,
   listPipelineRunOutputs,
   listPipelineRunPrompts,
   listLatestScheduleRuns,
@@ -175,6 +178,10 @@ export const pipelineDataQueryKeys = {
     ['ui-port', 'pipelines', 'run-prompts', id] as const,
   runOutputs: (id: string) =>
     ['ui-port', 'pipelines', 'run-outputs', id] as const,
+  reproductions: (id: string) =>
+    ['ui-port', 'pipelines', 'reproductions', id] as const,
+  latestReproductions: (ids: string[]) =>
+    ['ui-port', 'pipelines', 'reproductions-latest', ...ids] as const,
   runDeliveries: (id: string) =>
     ['ui-port', 'pipelines', 'run-deliveries', id] as const,
   schedules: (id: string) => ['ui-port', 'pipelines', 'schedules', id] as const,
@@ -760,6 +767,41 @@ export function useRunOutputs(
   return useQuery({
     queryKey: pipelineDataQueryKeys.runOutputs(runId),
     queryFn: () => listPipelineRunOutputs(client, runId),
+  })
+}
+
+/** The pipeline run that made a Dataset Version, when one did. */
+export function useRunForDatasetVersion(
+  datasetVersionId: string | undefined,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'run-for-version', datasetVersionId],
+    queryFn: () => getRunForDatasetVersion(client, datasetVersionId ?? ''),
+    enabled: Boolean(datasetVersionId),
+  })
+}
+
+/** A run's reproductions, newest first. */
+export function useRunReproductions(
+  runId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: pipelineDataQueryKeys.reproductions(runId),
+    queryFn: () => listPipelineReproductions(client, runId),
+  })
+}
+
+/** The newest reproduction verdict for each run, to badge the run history. */
+export function useLatestReproductions(
+  runIds: string[],
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: pipelineDataQueryKeys.latestReproductions(runIds),
+    queryFn: () => listLatestReproductions(client, runIds),
+    enabled: runIds.length > 0,
   })
 }
 

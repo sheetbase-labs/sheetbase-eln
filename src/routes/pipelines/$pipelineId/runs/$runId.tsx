@@ -33,8 +33,10 @@ import { RunDeliveriesPanel } from '#/components/pipelines/run-deliveries'
 import { RunLog } from '#/components/pipelines/run-log'
 import { RunStepsRail } from '#/components/pipelines/run-steps-rail'
 import { RunResult } from '#/components/pipelines/run-result'
+import { RunReproductions } from '#/components/pipelines/run-reproduction'
 import { RunAiFix } from '#/components/pipelines/run-ai-fix'
 import { TRANSFORM_TARGET } from '#/lib/pipelines/ai-fix'
+import { hasCapability } from '#/lib/capability'
 import { explainRunError } from '#/lib/pipelines/run-errors'
 import {
   answerPipelineRunPrompt,
@@ -74,6 +76,7 @@ export const Route = createFileRoute('/pipelines/$pipelineId/runs/$runId')({
 
 function RunPage() {
   const { pipelineId, runId } = Route.useParams()
+  const routeContext = Route.useRouteContext()
   const navigate = useNavigate()
   const run = usePipelineRun(runId)
   const logs = useRunLogs(runId)
@@ -523,6 +526,17 @@ function RunPage() {
               pipelineId={pipelineId}
               outputs={outputs.data ?? []}
               datasetNames={datasetNames.data ?? {}}
+            />
+          ) : null}
+
+          {r.status === 'succeeded' ? (
+            <RunReproductions
+              runId={r.id}
+              canReproduce={hasCapability(
+                routeContext.context.workspace?.role,
+                'record.create',
+              )}
+              nameOf={nameOf}
             />
           ) : null}
 

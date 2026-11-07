@@ -34,6 +34,7 @@ from sheetbase._generated.models import (
     LabWatcherFindingsRow,
     LabWatchersRow,
     LegalHoldsRow,
+    LineageTargetsRow,
     MaterializationPreview,
     MaterializationResult,
     MemberAbsencesRow,
@@ -140,6 +141,7 @@ class Rpc:
         "create_webhook_subscription",
         "delete_block",
         "delete_experiment_part",
+        "delete_lineage_target",
         "delete_qc_series",
         "delete_saved_search",
         "delete_scheduled_report",
@@ -223,10 +225,12 @@ class Rpc:
         "restore_record",
         "restore_sheet_instance",
         "retention_due",
+        "retry_lineage_deliveries",
         "revoke_scim_token",
         "rotate_webhook_secret",
         "run_lab_watcher",
         "run_saved_search",
+        "save_lineage_target",
         "save_plate_run_analysis",
         "save_sample_workflow",
         "save_scheduled_report",
@@ -237,6 +241,7 @@ class Rpc:
         "series_members",
         "series_rollup",
         "set_block_part",
+        "set_event_stream_retention",
         "set_field_spec_limits",
         "set_idp_group_mapping",
         "set_instrument_booking_rules",
@@ -1511,6 +1516,20 @@ class Rpc:
         if not isinstance(move_blocks_to, Unset):
             body["p_move_blocks_to"] = move_blocks_to
         return self._call("delete_experiment_part", body)  # type: ignore[no-any-return]
+
+    def delete_lineage_target(self, *, id: str) -> None:
+        """
+        Remove a lineage endpoint
+
+        Removes the endpoint and anything not yet sent to it. Needs permission to manage integrations.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/delete_lineage_target``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return self._call("delete_lineage_target", body)  # type: ignore[no-any-return]
 
     def delete_qc_series(self, *, series_id: str) -> None:
         """
@@ -3357,6 +3376,20 @@ class Rpc:
             body["p_kind"] = kind
         return self._call("retention_due", body)  # type: ignore[no-any-return]
 
+    def retry_lineage_deliveries(self, *, target_id: str) -> int:
+        """
+        Try failed lineage events again
+
+        Puts the failed events for an endpoint back in the queue and returns how many. Needs permission to manage integrations.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/retry_lineage_deliveries``
+        """
+        body: Dict[str, Any] = {}
+        body["p_target_id"] = target_id
+        return self._call("retry_lineage_deliveries", body)  # type: ignore[no-any-return]
+
     def revoke_scim_token(self, *, id: str) -> Union["ScimTokensRow", List["ScimTokensRow"]]:
         """
         Revoke a directory sync token
@@ -3431,6 +3464,40 @@ class Rpc:
         if not isinstance(offset, Unset):
             body["p_offset"] = offset
         return self._call("run_saved_search", body)  # type: ignore[no-any-return]
+
+    def save_lineage_target(
+        self,
+        *,
+        workspace_id: str,
+        name: str,
+        endpoint_url: str,
+        id: Union[str, Unset] = UNSET,
+        namespace: Union[str, Unset] = UNSET,
+        auth_header_name: Union[str, Unset] = UNSET,
+        enabled: Union[bool, Unset] = UNSET,
+    ) -> Union["LineageTargetsRow", List["LineageTargetsRow"]]:
+        """
+        Add or change a lineage endpoint
+
+        Adds an endpoint for OpenLineage events (or changes one when `p_id` is set). New endpoints start switched off and send only what happens after they are switched on. The header value is set in Settings, Integrations, because it is stored sealed. Needs permission to manage integrations. Sends `lineage.endpoint.created` or `lineage.endpoint.updated`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/save_lineage_target``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_name"] = name
+        body["p_endpoint_url"] = endpoint_url
+        if not isinstance(id, Unset):
+            body["p_id"] = id
+        if not isinstance(namespace, Unset):
+            body["p_namespace"] = namespace
+        if not isinstance(auth_header_name, Unset):
+            body["p_auth_header_name"] = auth_header_name
+        if not isinstance(enabled, Unset):
+            body["p_enabled"] = enabled
+        return self._call("save_lineage_target", body)  # type: ignore[no-any-return]
 
     def save_plate_run_analysis(
         self,
@@ -3682,6 +3749,21 @@ class Rpc:
         body["p_block_id"] = block_id
         body["p_part_id"] = part_id
         return self._call("set_block_part", body)  # type: ignore[no-any-return]
+
+    def set_event_stream_retention(self, *, workspace_id: str, days: int) -> int:
+        """
+        Set how long the event stream keeps events
+
+        Days of history `GET /api/events/stream` can replay, from 1 to 3650 (default 30). Returns the new value. Needs permission to manage integrations.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_event_stream_retention``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_days"] = days
+        return self._call("set_event_stream_retention", body)  # type: ignore[no-any-return]
 
     def set_field_spec_limits(
         self,
@@ -4794,6 +4876,7 @@ class AsyncRpc:
         "create_webhook_subscription",
         "delete_block",
         "delete_experiment_part",
+        "delete_lineage_target",
         "delete_qc_series",
         "delete_saved_search",
         "delete_scheduled_report",
@@ -4877,10 +4960,12 @@ class AsyncRpc:
         "restore_record",
         "restore_sheet_instance",
         "retention_due",
+        "retry_lineage_deliveries",
         "revoke_scim_token",
         "rotate_webhook_secret",
         "run_lab_watcher",
         "run_saved_search",
+        "save_lineage_target",
         "save_plate_run_analysis",
         "save_sample_workflow",
         "save_scheduled_report",
@@ -4891,6 +4976,7 @@ class AsyncRpc:
         "series_members",
         "series_rollup",
         "set_block_part",
+        "set_event_stream_retention",
         "set_field_spec_limits",
         "set_idp_group_mapping",
         "set_instrument_booking_rules",
@@ -6165,6 +6251,20 @@ class AsyncRpc:
         if not isinstance(move_blocks_to, Unset):
             body["p_move_blocks_to"] = move_blocks_to
         return await self._call("delete_experiment_part", body)  # type: ignore[no-any-return]
+
+    async def delete_lineage_target(self, *, id: str) -> None:
+        """
+        Remove a lineage endpoint
+
+        Removes the endpoint and anything not yet sent to it. Needs permission to manage integrations.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/delete_lineage_target``
+        """
+        body: Dict[str, Any] = {}
+        body["p_id"] = id
+        return await self._call("delete_lineage_target", body)  # type: ignore[no-any-return]
 
     async def delete_qc_series(self, *, series_id: str) -> None:
         """
@@ -8011,6 +8111,20 @@ class AsyncRpc:
             body["p_kind"] = kind
         return await self._call("retention_due", body)  # type: ignore[no-any-return]
 
+    async def retry_lineage_deliveries(self, *, target_id: str) -> int:
+        """
+        Try failed lineage events again
+
+        Puts the failed events for an endpoint back in the queue and returns how many. Needs permission to manage integrations.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/retry_lineage_deliveries``
+        """
+        body: Dict[str, Any] = {}
+        body["p_target_id"] = target_id
+        return await self._call("retry_lineage_deliveries", body)  # type: ignore[no-any-return]
+
     async def revoke_scim_token(self, *, id: str) -> Union["ScimTokensRow", List["ScimTokensRow"]]:
         """
         Revoke a directory sync token
@@ -8085,6 +8199,40 @@ class AsyncRpc:
         if not isinstance(offset, Unset):
             body["p_offset"] = offset
         return await self._call("run_saved_search", body)  # type: ignore[no-any-return]
+
+    async def save_lineage_target(
+        self,
+        *,
+        workspace_id: str,
+        name: str,
+        endpoint_url: str,
+        id: Union[str, Unset] = UNSET,
+        namespace: Union[str, Unset] = UNSET,
+        auth_header_name: Union[str, Unset] = UNSET,
+        enabled: Union[bool, Unset] = UNSET,
+    ) -> Union["LineageTargetsRow", List["LineageTargetsRow"]]:
+        """
+        Add or change a lineage endpoint
+
+        Adds an endpoint for OpenLineage events (or changes one when `p_id` is set). New endpoints start switched off and send only what happens after they are switched on. The header value is set in Settings, Integrations, because it is stored sealed. Needs permission to manage integrations. Sends `lineage.endpoint.created` or `lineage.endpoint.updated`.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/save_lineage_target``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_name"] = name
+        body["p_endpoint_url"] = endpoint_url
+        if not isinstance(id, Unset):
+            body["p_id"] = id
+        if not isinstance(namespace, Unset):
+            body["p_namespace"] = namespace
+        if not isinstance(auth_header_name, Unset):
+            body["p_auth_header_name"] = auth_header_name
+        if not isinstance(enabled, Unset):
+            body["p_enabled"] = enabled
+        return await self._call("save_lineage_target", body)  # type: ignore[no-any-return]
 
     async def save_plate_run_analysis(
         self,
@@ -8336,6 +8484,21 @@ class AsyncRpc:
         body["p_block_id"] = block_id
         body["p_part_id"] = part_id
         return await self._call("set_block_part", body)  # type: ignore[no-any-return]
+
+    async def set_event_stream_retention(self, *, workspace_id: str, days: int) -> int:
+        """
+        Set how long the event stream keeps events
+
+        Days of history `GET /api/events/stream` can replay, from 1 to 3650 (default 30). Returns the new value. Needs permission to manage integrations.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_event_stream_retention``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_days"] = days
+        return await self._call("set_event_stream_retention", body)  # type: ignore[no-any-return]
 
     async def set_field_spec_limits(
         self,

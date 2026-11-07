@@ -14,7 +14,9 @@ import { contractKeys, fetchContractById } from '#/lib/data-contracts/client'
 import { describeFinding, kindLabel } from '#/lib/data-contracts/rules'
 import { blockingResults } from '#/lib/data-contracts/gate'
 import type { ContractGateReport } from '#/lib/data-contracts/types'
+import { contractTarget } from '#/lib/data-contracts/rules'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { useContractFields } from './contract-data'
 
 /**
  * What an import was refused for: the blocking rules that were broken, with the
@@ -35,6 +37,11 @@ export function BlockedImportDialog({
     queryFn: () => fetchContractById(notebookDataClient, contractId ?? ''),
     enabled: open && Boolean(contractId),
   })
+  const fields = useContractFields(
+    contract.data ? contractTarget(contract.data) : null,
+  )
+  const fieldLabel = (key: string) =>
+    fields.find((field) => field.key === key)?.label ?? key
   const modelId =
     contract.data?.datasetSchemaId ?? contract.data?.recordModelKey ?? null
   const results = report ? blockingResults(report) : []
@@ -61,14 +68,18 @@ export function BlockedImportDialog({
                     {result.field
                       ? t('contracts.blocked.rule', {
                           rule: kindLabel(result.kind),
-                          field: result.field,
+                          field: fieldLabel(result.field),
                         })
                       : t('contracts.blocked.ruleNoField', {
                           rule: kindLabel(result.kind),
                         })}
                   </span>
                   <span className="text-fg-muted">
-                    {describeFinding(result, rule, result.field ?? '')}
+                    {describeFinding(
+                      result,
+                      rule,
+                      fieldLabel(result.field ?? ''),
+                    )}
                   </span>
                   {rows.length > 0 ? (
                     <span className="text-caption text-fg-muted">

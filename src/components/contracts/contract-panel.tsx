@@ -309,7 +309,7 @@ export function ContractPanel({
         <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <dt className="text-caption text-fg-muted">
-              {t('contracts.dataset.status')}
+              {t('contracts.panel.standing')}
             </dt>
             <dd>
               <ContractStatusBadge status={contract.lastStatus} />

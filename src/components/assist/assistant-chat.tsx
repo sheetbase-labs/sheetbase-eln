@@ -4,7 +4,7 @@ import {
   parseWorkspaceRequest,
   requestAssistantWorkspace,
 } from '#/lib/assistant-workspace'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Chat, useChat } from '@ai-sdk/react'
@@ -262,8 +262,15 @@ function ChatBody({
 
   // A question handed over by whoever opened the panel ("Ask the lab about
   // this") goes out once, as soon as the assistant can take it.
+  const sentPrompt = useRef<string | null>(null)
   useEffect(() => {
-    if (!initialPrompt || !ready || busy) return
+    if (!initialPrompt) {
+      sentPrompt.current = null
+      return
+    }
+    // React may run this twice in development; the question goes out once.
+    if (!ready || busy || sentPrompt.current === initialPrompt) return
+    sentPrompt.current = initialPrompt
     send(initialPrompt)
     onInitialPromptSent?.()
   }, [initialPrompt, ready])

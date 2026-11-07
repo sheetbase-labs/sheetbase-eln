@@ -41,10 +41,13 @@ function toForm(view: SemanticSettingsView): FormState {
 export function SemanticSearchSection({
   workspaceId,
   cloudAllowed,
+  assistantOn,
 }: {
   workspaceId: string
   /** The workspace has recorded consent for cloud models (assistant section). */
   cloudAllowed: boolean
+  /** The assistant switch above: search by meaning follows it. */
+  assistantOn: boolean
 }) {
   const queryClient = useQueryClient()
   const query = useQuery({
@@ -153,6 +156,12 @@ export function SemanticSearchSection({
           </Select>
         </Field>
       )}
+
+      {!assistantOn ? (
+        <Notice tone="info">
+          {t('settings.semanticSearch.needsAssistant')}
+        </Notice>
+      ) : null}
 
       {blockedByConsent ? (
         <Notice tone="warn">{t('settings.semanticSearch.needsConsent')}</Notice>

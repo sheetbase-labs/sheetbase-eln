@@ -7,7 +7,7 @@
 import { config } from 'dotenv'
 import { Client } from 'pg'
 import { expect, test } from 'playwright/test'
-import type { Locator, Page } from 'playwright/test'
+import type { Browser, BrowserContext, Locator, Page } from 'playwright/test'
 
 import { FIXTURE_USER_ID, FIXTURE_WORKSPACE_ID } from '#/db/seed/identities'
 import { signInAsDesignUser } from '../visual/sign-in'
@@ -107,6 +107,19 @@ test.beforeAll(async ({ browser }) => {
 // into the next.
 test.beforeEach(seedBlock)
 
+// Each person is a browser of their own. They are all closed when the test
+// ends: a browser left open stays in the shared room and would be a
+// collaborator the next test did not ask for.
+const people: BrowserContext[] = []
+async function newPerson(browser: Browser) {
+  const context = await browser.newContext()
+  people.push(context)
+  return context.newPage()
+}
+test.afterEach(async () => {
+  await Promise.all(people.splice(0).map((context) => context.close()))
+})
+
 test.afterAll(async () => {
   await clean()
   if (previousActiveWorkspace) {
@@ -153,17 +166,22 @@ test.describe('COLLAB-01 live co-editing', () => {
   test('two browsers type in one block, see each other live, and save the merged text', async ({
     browser,
   }) => {
-    const first = await (await browser.newContext()).newPage()
-    const second = await (await browser.newContext()).newPage()
+    const first = await newPerson(browser)
+    const second = await newPerson(browser)
     const a = await openBlock(first)
     const b = await openBlock(second)
 
     // Both have joined the shared text before either types: each shows the
     // other's presence on the block.
-    await expect(a.block.getByRole('status')).toContainText('Editing here', {
-      timeout: 15_000,
-    })
-    await expect(b.block.getByRole('status')).toContainText('Editing here')
+    await expect(a.block.getByRole('status').first()).toContainText(
+      'Editing here',
+      {
+        timeout: 15_000,
+      },
+    )
+    await expect(b.block.getByRole('status').first()).toContainText(
+      'Editing here',
+    )
 
     await a.editor.press('Control+End')
     await a.editor.pressSequentially(' Adjust to pH 7.4.')
@@ -191,14 +209,19 @@ test.describe('COLLAB-01 live co-editing', () => {
   test('a block opened while others are in the room still takes the focus', async ({
     browser,
   }) => {
-    const first = await (await browser.newContext()).newPage()
-    const second = await (await browser.newContext()).newPage()
+    const first = await newPerson(browser)
+    const second = await newPerson(browser)
     const a = await openBlock(first)
     const b = await openBlock(second)
-    await expect(a.block.getByRole('status')).toContainText('Editing here', {
-      timeout: 15_000,
-    })
-    await expect(b.block.getByRole('status')).toContainText('Editing here')
+    await expect(a.block.getByRole('status').first()).toContainText(
+      'Editing here',
+      {
+        timeout: 15_000,
+      },
+    )
+    await expect(b.block.getByRole('status').first()).toContainText(
+      'Editing here',
+    )
 
     // A second block that nobody has opened yet. The person opening it finds
     // the room already busy, so its editor is swapped for the shared one a
@@ -209,7 +232,7 @@ test.describe('COLLAB-01 live co-editing', () => {
       `INSERT INTO api.blocks(id,record_id,type,payload,"order",created_by_user_id) VALUES ($1,$2,'rich_text',$3,2,$4)`,
       [other, RECORD, richText('Second note.'), FIXTURE_USER_ID],
     )
-    const third = await (await browser.newContext()).newPage()
+    const third = await newPerson(browser)
     const c = await openBlock(third, { id: other, text: 'Second note.' })
     await c.editor.press('Control+End')
     await c.editor.pressSequentially(' Typed at once.')
@@ -221,7 +244,7 @@ test.describe('COLLAB-01 live co-editing', () => {
   test('a change saved outside the room is still offered as a conflict, never overwritten', async ({
     browser,
   }) => {
-    const page = await (await browser.newContext()).newPage()
+    const page = await newPerson(browser)
     const { editor } = await openBlock(page)
 
     // Something other than a collaborator (an import, the API, an assistant

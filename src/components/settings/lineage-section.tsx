@@ -92,6 +92,7 @@ export function LineageSection({
   const columns: RegistryColumn<LineageTargetWire>[] = [
     {
       id: 'name',
+      size: 280,
       header: t('settings.lineage.name'),
       cell: ({ row }) => (
         <span className="flex min-w-0 flex-col">
@@ -104,6 +105,7 @@ export function LineageSection({
     },
     {
       id: 'sending',
+      size: 110,
       header: t('settings.lineage.sending'),
       cell: ({ row }) => (
         <Status tone={row.original.enabled ? 'ok' : 'stored'}>
@@ -115,6 +117,7 @@ export function LineageSection({
     },
     {
       id: 'status',
+      size: 150,
       header: t('settings.lineage.status'),
       cell: ({ row }) => {
         const { failed, pending } = row.original
@@ -137,7 +140,8 @@ export function LineageSection({
     },
     {
       id: 'test',
-      header: t('settings.lineage.test'),
+      size: 230,
+      header: t('settings.lineage.lastTest'),
       cell: ({ row }) => {
         const target = row.original
         if (target.lastTestOk == null || !target.lastTestAt) {
@@ -161,9 +165,10 @@ export function LineageSection({
       ? [
           {
             id: 'actions',
+            size: 260,
             header: '',
             cell: ({ row }) => (
-              <span className="flex flex-wrap justify-end gap-1">
+              <span className="flex flex-nowrap justify-end gap-1">
                 <Button
                   size="sm"
                   disabled={test.isPending}
@@ -217,13 +222,18 @@ export function LineageSection({
           {t('settings.lineage.loadFailed')}
         </p>
       ) : targets.length ? (
-        <RegistryGrid
-          label={t('settings.lineage.tableLabel')}
-          rows={targets}
-          columns={columns}
-          getRowId={(target) => target.id}
-          selectable={false}
-        />
+        <section
+          aria-label={t('settings.lineage.tableLabel')}
+          className="flex flex-col"
+        >
+          <RegistryGrid
+            label={t('settings.lineage.tableLabel')}
+            rows={targets}
+            columns={columns}
+            getRowId={(target) => target.id}
+            selectable={false}
+          />
+        </section>
       ) : settings.isLoading ? (
         <Muted className="px-4 py-3 md:px-6">
           {t('settings.lineage.loading')}

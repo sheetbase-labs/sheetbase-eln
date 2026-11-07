@@ -484,3 +484,10 @@ server, so every notebook comes back in the "not updated" list.
 | `src/components/quality/run-qc-panel.tsx`         | Loads tracked series and points from the server and saves through the data client; the chart it draws has its own story. |
 | `src/components/instruments/converted-data.tsx`   | Lists converted instrument files from the server and downloads each document through the data client.                    |
 | `src/components/instruments/converter-picker.tsx` | Reads the converters the Python runtime offers over the network and adds a parser; shown inside the intake setup dialog. |
+
+## Provenance modules without a story
+
+| Module                                          | Why no story                                                                                                                                                                    |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/pipelines/run-reproduction.tsx` | Reads a run's reproductions and starts one through the data client and the reproduce route; covered by the run page tests and the provenance database tests.                    |
+| `src/components/settings/lineage-section.tsx`   | Reads and saves lineage endpoints through server functions that need a signed-in manager; covered by the provenance database tests and the Integrations settings click-through. |

@@ -1222,7 +1222,7 @@ export const data = {
     notFinished: 'Only a finished run can be reproduced.',
     noneYet: 'This run has not been reproduced yet.',
     viewDetails: 'See what changed',
-    producedByRun: 'Made by run {run}',
+    producedByRun: '{pipeline}, run #{run}',
     producedBy: 'Made by',
     reproduceVersion: 'Check that this snapshot can be made again.',
   },

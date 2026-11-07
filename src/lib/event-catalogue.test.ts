@@ -639,6 +639,24 @@ const LAB_EVENTS: ReadonlyArray<{
     operation: 'create',
     payload: {},
   },
+  {
+    name: 'experiment.part_signed',
+    entityType: 'part_signoff',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'experiment.part_countersigned',
+    entityType: 'part_countersign',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'experiment.part_amended',
+    entityType: 'part_amendment',
+    operation: 'create',
+    payload: {},
+  },
 ]
 
 describe('lab feature events', () => {

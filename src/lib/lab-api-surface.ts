@@ -911,6 +911,31 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['last_run_at', 'ts', 0],
       ['last_found', 'int', 0],
       ['next_run_at', 'ts', 1],
+      ['created_at', 'ts', 1],
+      ['updated_at', 'ts', 1],
+    ],
+  },
+  lab_watcher_findings: {
+    summary:
+      'Something a watcher found, with the record it is about and, where one makes sense, a suggested action. `status` is open, snoozed, dismissed or resolved (no longer true).',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['watcher_id', 'uuid', 1],
+      ['kind', 'text', 1],
+      ['object_kind', 'text', 1],
+      ['object_id', 'uuid', 0],
+      ['project_id', 'uuid', 0],
+      ['title', 'text', 1],
+      ['summary', 'text', 1],
+      ['suggested_action', 'json', 0],
+      ['status', 'text', 1],
+      ['snoozed_until', 'ts', 0],
+      ['resolved_at', 'ts', 0],
+      ['created_at', 'ts', 1],
+      ['updated_at', 'ts', 1],
+    ],
+  },
   instrument_run_documents: {
     summary:
       'Instrument files converted to the Allotrope Simple Model (ASM): one vendor-neutral document per instrument run, with the converter, its version and the image that ran it.',
@@ -959,25 +984,6 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['updated_at', 'ts', 1],
     ],
   },
-  lab_watcher_findings: {
-    summary:
-      'Something a watcher found, with the record it is about and, where one makes sense, a suggested action. `status` is open, snoozed, dismissed or resolved (no longer true).',
-    columns: [
-      ['id', 'uuid', 1],
-      ['workspace_id', 'uuid', 1],
-      ['watcher_id', 'uuid', 1],
-      ['kind', 'text', 1],
-      ['object_kind', 'text', 1],
-      ['object_id', 'uuid', 0],
-      ['project_id', 'uuid', 0],
-      ['title', 'text', 1],
-      ['summary', 'text', 1],
-      ['suggested_action', 'json', 0],
-      ['status', 'text', 1],
-      ['snoozed_until', 'ts', 0],
-      ['resolved_at', 'ts', 0],
-      ['created_at', 'ts', 1],
-      ['updated_at', 'ts', 1],
   qc_points: {
     summary:
       'Quality control points: each value of a series with its distance from the mean in SD, the Westgard rules it broke and whether someone has acknowledged it.',
@@ -2030,6 +2036,7 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
       ['p_error', 'text', 0],
     ],
     result: 'row:agent_action_requests',
+  },
   record_instrument_run_document: {
     summary: 'Keep an Allotrope document with an instrument run',
     description:

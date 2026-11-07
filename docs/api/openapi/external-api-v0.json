@@ -9407,6 +9407,336 @@
         }
       }
     },
+    "/api/db/instrument_run_documents": {
+      "get": {
+        "tags": ["Lab"],
+        "summary": "Read instrument_run_documents",
+        "operationId": "get_instrument_run_documents",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:read"],
+        "description": "GET `instrument_run_documents` through PostgREST.\n\nPagination: `limit` and `offset` query parameters.\n\nSort: `order=column.asc` or `column.desc`; repeat `order` for multiple columns.\n\nFilters: `{column}={operator}.{value}` where operator is one of `eq, neq, gt, gte, lt, lte, like, ilike, in, is, cs, cd, ov, fts, plfts, phfts, wfts, not`. Examples: `id=eq.<uuid>`, `kind=eq.experiment`, `status=in.(draft,in-progress)`.\n\nLogic: `and=(status.eq.draft,kind.eq.experiment)` and `or=(...)`.\n\nCount: send header `Prefer: count=exact` (optionally with `Range: 0-0` or `limit=0`) and read the total from `Content-Range`.\n\nColumn selection: `select=id,title`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `instrument_run_documents` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InstrumentRunDocumentsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InstrumentRunDocumentsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": ["Lab"],
+        "summary": "Headers for instrument_run_documents",
+        "operationId": "head_instrument_run_documents",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:read"],
+        "description": "Same query string and `Prefer` / `Range` headers as GET. Use with `Prefer: count=exact` to obtain `Content-Range` without a body.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `instrument_run_documents` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InstrumentRunDocumentsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InstrumentRunDocumentsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/instrument_service_log": {
       "get": {
         "tags": ["Lab"],
@@ -16496,6 +16826,666 @@
                       }
                     }
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/qc_points": {
+      "get": {
+        "tags": ["Lab"],
+        "summary": "Read qc_points",
+        "operationId": "get_qc_points",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:read"],
+        "description": "GET `qc_points` through PostgREST.\n\nPagination: `limit` and `offset` query parameters.\n\nSort: `order=column.asc` or `column.desc`; repeat `order` for multiple columns.\n\nFilters: `{column}={operator}.{value}` where operator is one of `eq, neq, gt, gte, lt, lte, like, ilike, in, is, cs, cd, ov, fts, plfts, phfts, wfts, not`. Examples: `id=eq.<uuid>`, `kind=eq.experiment`, `status=in.(draft,in-progress)`.\n\nLogic: `and=(status.eq.draft,kind.eq.experiment)` and `or=(...)`.\n\nCount: send header `Prefer: count=exact` (optionally with `Range: 0-0` or `limit=0`) and read the total from `Content-Range`.\n\nColumn selection: `select=id,title`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `qc_points` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QcPointsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QcPointsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": ["Lab"],
+        "summary": "Headers for qc_points",
+        "operationId": "head_qc_points",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:read"],
+        "description": "Same query string and `Prefer` / `Range` headers as GET. Use with `Prefer: count=exact` to obtain `Content-Range` without a body.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `qc_points` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QcPointsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QcPointsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/qc_series": {
+      "get": {
+        "tags": ["Lab"],
+        "summary": "Read qc_series",
+        "operationId": "get_qc_series",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:read"],
+        "description": "GET `qc_series` through PostgREST.\n\nPagination: `limit` and `offset` query parameters.\n\nSort: `order=column.asc` or `column.desc`; repeat `order` for multiple columns.\n\nFilters: `{column}={operator}.{value}` where operator is one of `eq, neq, gt, gte, lt, lte, like, ilike, in, is, cs, cd, ov, fts, plfts, phfts, wfts, not`. Examples: `id=eq.<uuid>`, `kind=eq.experiment`, `status=in.(draft,in-progress)`.\n\nLogic: `and=(status.eq.draft,kind.eq.experiment)` and `or=(...)`.\n\nCount: send header `Prefer: count=exact` (optionally with `Range: 0-0` or `limit=0`) and read the total from `Content-Range`.\n\nColumn selection: `select=id,title`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `qc_series` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QcSeriesRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QcSeriesRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": ["Lab"],
+        "summary": "Headers for qc_series",
+        "operationId": "head_qc_series",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:read"],
+        "description": "Same query string and `Prefer` / `Range` headers as GET. Use with `Prefer: count=exact` to obtain `Content-Range` without a body.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `qc_series` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QcSeriesRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QcSeriesRow"
+                  }
                 }
               }
             }
@@ -29255,6 +30245,140 @@
         }
       }
     },
+    "/api/db/rpc/acknowledge_qc_point": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Acknowledge a quality control breach",
+        "operationId": "rpc_acknowledge_qc_point",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Marks a broken point as seen, with a note, and optionally leaves it out of the limits so the series is judged again. Returns the point.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_point_id"],
+                "properties": {
+                  "p_point_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Quality control point id."
+                  },
+                  "p_note": {
+                    "type": "string",
+                    "description": "A note."
+                  },
+                  "p_exclude": {
+                    "type": "boolean",
+                    "description": "Leave the point out of the limits and re-judge the series."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of acknowledge_qc_point",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Acknowledge a quality control breach PostgREST returns a JSON array of composite rows by default.",
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/QcPointsRow"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/QcPointsRow"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/add_records_to_legal_hold": {
       "post": {
         "tags": ["Lab"],
@@ -30039,7 +31163,7 @@
                   "p_run_id": {
                     "type": "string",
                     "format": "uuid",
-                    "description": "Workflow run id."
+                    "description": "Run id: the workflow run, or the instrument run."
                   },
                   "p_to_stage_id": {
                     "type": "string",
@@ -33851,6 +34975,173 @@
         }
       }
     },
+    "/api/db/rpc/create_qc_series": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Track a value for quality control",
+        "operationId": "rpc_create_qc_series",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Starts a series. For a value you send in, use `manual` and add points with `record_qc_point`; for a plate assay use `plate_metric` with a `p_design_id` and `p_metric`. Give `p_mean` and `p_sd`, or set a baseline later. Returns the series.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_workspace_id", "p_name"],
+                "properties": {
+                  "p_workspace_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Your workspace id."
+                  },
+                  "p_name": {
+                    "type": "string",
+                    "description": "Name."
+                  },
+                  "p_source_kind": {
+                    "type": "string",
+                    "description": "`manual` (points are sent in) or `plate_metric` (fed by the plate runs of an assay design)."
+                  },
+                  "p_metric": {
+                    "type": "string",
+                    "description": "For a plate series: `z_prime`, `signal_to_background`, `positive_mean`, `negative_mean`, `blank_mean`, `positive_cv` or `negative_cv`."
+                  },
+                  "p_design_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Plate design the layout came from."
+                  },
+                  "p_instrument_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Instrument id."
+                  },
+                  "p_unit": {
+                    "type": "string",
+                    "description": "Unit of the quantity."
+                  },
+                  "p_mean": {
+                    "type": "number",
+                    "description": "Centre line of the control limits."
+                  },
+                  "p_sd": {
+                    "type": "number",
+                    "description": "Standard deviation (greater than 0) of the control limits."
+                  },
+                  "p_rules": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Westgard rules to judge by, from `1-3s`, `2-2s`, `R-4s`, `4-1s` and `10x`."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of create_qc_series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Track a value for quality control PostgREST returns a JSON array of composite rows by default.",
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/QcSeriesRow"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/QcSeriesRow"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/create_record": {
       "post": {
         "tags": ["Projects"],
@@ -35689,6 +36980,123 @@
                     "$ref": "#/components/schemas/JsonValue"
                   },
                   "description": "Delete a part of an experiment A JSON object."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/delete_qc_series": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Stop tracking a series",
+        "operationId": "rpc_delete_qc_series",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Deletes a series and all of its points.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_series_id"],
+                "properties": {
+                  "p_series_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Quality control series id."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of delete_qc_series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null",
+                  "nullable": true,
+                  "description": "No content."
                 }
               }
             }
@@ -38308,7 +39716,7 @@
                   "p_run_id": {
                     "type": "string",
                     "format": "uuid",
-                    "description": "Workflow run id."
+                    "description": "Run id: the workflow run, or the instrument run."
                   },
                   "p_notes": {
                     "type": "string",
@@ -43214,6 +44622,174 @@
         }
       }
     },
+    "/api/db/rpc/record_instrument_run_document": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Keep an Allotrope document with an instrument run",
+        "operationId": "rpc_record_instrument_run_document",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Stores the ASM document an instrument file was converted to, beside the run it came from. One per run; sending it again replaces it. Returns the document. Sends `instrument.run.converted`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_run_id", "p_document", "p_converter"],
+                "properties": {
+                  "p_run_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Run id: the workflow run, or the instrument run."
+                  },
+                  "p_document": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "description": "The Allotrope Simple Model document, as JSON (at most 16 MiB)."
+                  },
+                  "p_converter": {
+                    "type": "string",
+                    "description": "What made the document, for example `allotropy`."
+                  },
+                  "p_converter_version": {
+                    "type": "string",
+                    "description": "Version of the converter."
+                  },
+                  "p_image_digest": {
+                    "type": "string",
+                    "description": "The immutable image that ran the converter."
+                  },
+                  "p_vendor": {
+                    "type": "string",
+                    "description": "The instrument software the file came from."
+                  },
+                  "p_technique": {
+                    "type": "string",
+                    "description": "Measurement technique, for example `Plate Reader`."
+                  },
+                  "p_manifest": {
+                    "type": "string",
+                    "description": "The Allotrope manifest the document follows."
+                  },
+                  "p_measurements": {
+                    "type": "integer",
+                    "description": "Number of measurements in the document."
+                  },
+                  "p_device": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "description": "JSON description of the instrument that wrote the file."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of record_instrument_run_document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Keep an Allotrope document with an instrument run PostgREST returns a JSON array of composite rows by default.",
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/InstrumentRunDocumentsRow"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/InstrumentRunDocumentsRow"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/record_parts": {
       "post": {
         "tags": ["Lab"],
@@ -43307,6 +44883,150 @@
                       }
                     }
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/record_qc_point": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Add a value to a series",
+        "operationId": "rpc_record_qc_point",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Adds a measurement and judges it against the limits and the series rules. Returns the point, with its `z` and any `violations`. Sends `qc.violation` when a rule is broken, and `qc.back_in_control` when the series recovers.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_series_id", "p_value"],
+                "properties": {
+                  "p_series_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Quality control series id."
+                  },
+                  "p_value": {
+                    "type": "number",
+                    "description": "The measured value, as a number or text."
+                  },
+                  "p_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "When it was measured (default now)."
+                  },
+                  "p_label": {
+                    "type": "string",
+                    "description": "What was measured."
+                  },
+                  "p_instrument_run_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The instrument run the value came from."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of record_qc_point",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Add a value to a series PostgREST returns a JSON array of composite rows by default.",
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/QcPointsRow"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/QcPointsRow"
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -45607,7 +47327,8 @@
                 "properties": {
                   "p_workspace_id": {
                     "type": "string",
-                    "format": "uuid"
+                    "format": "uuid",
+                    "description": "Your workspace id."
                   },
                   "p_action_key": {
                     "type": "string"
@@ -46018,7 +47739,8 @@
                 "properties": {
                   "p_workspace_id": {
                     "type": "string",
-                    "format": "uuid"
+                    "format": "uuid",
+                    "description": "Your workspace id."
                   },
                   "p_action_key": {
                     "type": "string"
@@ -49846,14 +51568,16 @@
                 "properties": {
                   "p_workspace_id": {
                     "type": "string",
-                    "format": "uuid"
+                    "format": "uuid",
+                    "description": "Your workspace id."
                   },
                   "p_kind": {
                     "type": "string",
                     "description": "Kind, as listed in the app."
                   },
                   "p_enabled": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "`false` pauses judging new points."
                   },
                   "p_schedule": {
                     "type": "string"
@@ -50561,6 +52285,144 @@
                       "type": "array",
                       "items": {
                         "$ref": "#/components/schemas/ExperimentPartsRow"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/set_qc_baseline": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Set the control limits of a series",
+        "operationId": "rpc_set_qc_baseline",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Enter `p_mean` and `p_sd`, or give `p_first_n` to take them from the first N points. Every point is judged again. Returns the series. Sends `qc.violation` or `qc.back_in_control` if the state changes.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_series_id"],
+                "properties": {
+                  "p_series_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Quality control series id."
+                  },
+                  "p_mean": {
+                    "type": "number",
+                    "description": "Centre line of the control limits."
+                  },
+                  "p_sd": {
+                    "type": "number",
+                    "description": "Standard deviation (greater than 0) of the control limits."
+                  },
+                  "p_first_n": {
+                    "type": "integer",
+                    "description": "Take the limits from the first N points (mean and SD) instead of entering them."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of set_qc_baseline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Set the control limits of a series PostgREST returns a JSON array of composite rows by default.",
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/QcSeriesRow"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/QcSeriesRow"
                       }
                     }
                   ]
@@ -52732,6 +54594,130 @@
         }
       }
     },
+    "/api/db/rpc/track_plate_assay_qc": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Track the controls of a plate assay",
+        "operationId": "rpc_track_plate_assay_qc",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Starts a series for each plate quality metric (Z-prime, signal to background, control means) of an assay design, and backfills them from its analysed runs. Returns the series.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_design_id"],
+                "properties": {
+                  "p_design_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Plate design the layout came from."
+                  },
+                  "p_instrument_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Instrument id."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of track_plate_assay_qc",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "description": "Track the controls of a plate assay A JSON object."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/transition_record_status": {
       "post": {
         "tags": ["Projects"],
@@ -53501,6 +55487,151 @@
                       "type": "array",
                       "items": {
                         "$ref": "#/components/schemas/PlateRunsRow"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/update_qc_series": {
+      "post": {
+        "tags": ["Lab"],
+        "summary": "Change a quality control series",
+        "operationId": "rpc_update_qc_series",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["lab:write"],
+        "description": "Renames a series, changes its rules or unit, or pauses and resumes it. Changing the rules re-judges every point. Returns the series.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["p_series_id"],
+                "properties": {
+                  "p_series_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Quality control series id."
+                  },
+                  "p_name": {
+                    "type": "string",
+                    "description": "Name."
+                  },
+                  "p_rules": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Westgard rules to judge by, from `1-3s`, `2-2s`, `R-4s`, `4-1s` and `10x`."
+                  },
+                  "p_enabled": {
+                    "type": "boolean",
+                    "description": "`false` pauses judging new points."
+                  },
+                  "p_unit": {
+                    "type": "string",
+                    "description": "Unit of the quantity."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of update_qc_series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Change a quality control series PostgREST returns a JSON array of composite rows by default.",
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/QcSeriesRow"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/QcSeriesRow"
                       }
                     }
                   ]
@@ -65263,6 +67394,271 @@
             "format": "date-time"
           },
           "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "InstrumentRunDocumentsRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`api.instrument_run_documents` row (snake_case). Instrument files converted to the Allotrope Simple Model (ASM): one vendor-neutral document per instrument run, with the converter, its version and the image that ran it.",
+        "required": [
+          "id",
+          "workspace_id",
+          "run_id",
+          "format",
+          "converter",
+          "measurements",
+          "device",
+          "document",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "instrument_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "format": {
+            "type": "string"
+          },
+          "technique": {
+            "type": "string",
+            "nullable": true
+          },
+          "manifest": {
+            "type": "string",
+            "nullable": true
+          },
+          "vendor": {
+            "type": "string",
+            "nullable": true
+          },
+          "converter": {
+            "type": "string"
+          },
+          "converter_version": {
+            "type": "string",
+            "nullable": true
+          },
+          "image_digest": {
+            "type": "string",
+            "nullable": true
+          },
+          "measurements": {
+            "type": "integer"
+          },
+          "device": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            }
+          },
+          "document": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "QcSeriesRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`api.qc_series` row (snake_case). Quality control series: a value tracked across runs (a plate assay metric, or any value sent in), with its limits, the Westgard rules and whether it is in control.",
+        "required": [
+          "id",
+          "workspace_id",
+          "name",
+          "source_kind",
+          "rules",
+          "enabled",
+          "state",
+          "state_changed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "source_kind": {
+            "type": "string"
+          },
+          "design_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "metric": {
+            "type": "string",
+            "nullable": true
+          },
+          "instrument_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "unit": {
+            "type": "string",
+            "nullable": true
+          },
+          "mean": {
+            "type": "number",
+            "nullable": true
+          },
+          "sd": {
+            "type": "number",
+            "nullable": true
+          },
+          "baseline_n": {
+            "type": "integer",
+            "nullable": true
+          },
+          "baseline_from": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "baseline_to": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string"
+          },
+          "state_changed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "QcPointsRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`api.qc_points` row (snake_case). Quality control points: each value of a series with its distance from the mean in SD, the Westgard rules it broke and whether someone has acknowledged it.",
+        "required": [
+          "id",
+          "workspace_id",
+          "series_id",
+          "value",
+          "at",
+          "violations",
+          "excluded",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "series_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "plate_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "instrument_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "value": {
+            "type": "number"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "z": {
+            "type": "number",
+            "nullable": true
+          },
+          "violations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "excluded": {
+            "type": "boolean"
+          },
+          "acknowledged_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "acknowledged_by_user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
             "type": "string",
             "format": "date-time"
           }

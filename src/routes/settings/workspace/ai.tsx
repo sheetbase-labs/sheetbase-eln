@@ -8,6 +8,8 @@ import { Button } from '#/components/ui/button'
 import { Field, Input } from '#/components/ui/input'
 import { Muted, Section } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
+import { AgentPermissionsPanel } from '#/components/settings/agent-permissions-panel'
+import { AiChecksPanel } from '#/components/settings/ai-checks-panel'
 import { Skeleton } from '#/components/ui/skeleton'
 import { toast } from '#/components/ui/sonner'
 import {
@@ -489,6 +491,17 @@ function AiSettingsPage() {
                 <Muted>{t('settings.ai.flagsOnlyReduce')}</Muted>
               </div>
             </Section>
+
+            <AgentPermissionsPanel
+              workspaceId={workspaceId}
+              canManage={canManage}
+            />
+
+            <AiChecksPanel
+              workspaceId={workspaceId}
+              canManage={canManage}
+              aiOn={Boolean(settings?.enabled)}
+            />
 
             <Muted>
               {t('settings.ai.lastChanged')}

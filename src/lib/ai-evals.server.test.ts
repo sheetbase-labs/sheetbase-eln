@@ -53,8 +53,9 @@ describe('checks for the assistant', () => {
           yield { type: 'text', delta: last.content }
         } else {
           const question = String(
-            [...(request.messages ?? [])].reverse().find((m) => m.role === 'user')
-              ?.content,
+            [...(request.messages ?? [])]
+              .reverse()
+              .find((m) => m.role === 'user')?.content,
           )
           const key = EVAL_TASK_META.find((t) => t.prompt === question)?.key
           const tool = key ? evalTaskTool(key) : undefined
@@ -124,7 +125,9 @@ describe('fixture client', () => {
       { id: 1, name: 'Alpha', status: 'open' },
     ])
     expect(await client.list('things', '?status=not.in.(open)')).toHaveLength(1)
-    expect(await client.list('things', '?or=(name.ilike.*et*,id.eq.3)')).toHaveLength(2)
+    expect(
+      await client.list('things', '?or=(name.ilike.*et*,id.eq.3)'),
+    ).toHaveLength(2)
     expect(await client.list('things', '?limit=1')).toHaveLength(1)
   })
 

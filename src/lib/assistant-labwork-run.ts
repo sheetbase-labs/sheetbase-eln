@@ -144,7 +144,7 @@ export async function runLabworkAction(
         enabled: action.enabled,
         schedule: action.schedule,
       })
-      return { openHref: '/settings/lab/watchers' }
+      return { openHref: '/settings/account/watchers' }
     case 'timer.end':
       await endStepTimer(action.timerId, client)
       return action.recordId

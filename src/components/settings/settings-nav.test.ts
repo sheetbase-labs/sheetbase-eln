@@ -85,6 +85,7 @@ describe('SHELL-01.2 settings navigation', () => {
         'Profile',
         'My signature',
         'Out of office',
+        'Lab watchers',
         'Notifications',
         'API and SDK',
       ])
@@ -93,6 +94,7 @@ describe('SHELL-01.2 settings navigation', () => {
       expect(labels(role, 'account')).toEqual([
         'Profile',
         'Out of office',
+        'Lab watchers',
         'Notifications',
         'API and SDK',
       ])

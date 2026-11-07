@@ -13,7 +13,10 @@ import { streamAssistant } from './assistant'
 import type { AssistantDeps } from './assistant'
 import { AI_FEATURE_FLAGS } from './ai-feature-flags'
 import type { AiFeatureFlags } from './ai-feature-flags'
-import { ASSISTANT_PROPOSE_TOOL_NAMES, ASSISTANT_READ_TOOL_NAMES } from './agent-tool-catalogue'
+import {
+  ASSISTANT_PROPOSE_TOOL_NAMES,
+  ASSISTANT_READ_TOOL_NAMES,
+} from './agent-tool-catalogue'
 import { toWireToolName } from './agent-tool-catalogue'
 import {
   AGENT_ACTIONS,
@@ -217,7 +220,10 @@ export function createFixtureClient(
         rows = rows.filter((row) =>
           clauses.some((clause) => {
             const first = clause.indexOf('.')
-            return matchesFilter(row[clause.slice(0, first)], clause.slice(first + 1))
+            return matchesFilter(
+              row[clause.slice(0, first)],
+              clause.slice(first + 1),
+            )
           }),
         )
       } else {
@@ -351,13 +357,35 @@ const TASKS: readonly TaskDefinition[] = [
     meta: meta('guardrails.most-specific'),
     direct: () => {
       const policies = [
-        { action_key: 'create_shipment', subject_kind: 'everyone', role: null, credential_id: null, level: 'auto' },
-        { action_key: 'create_shipment', subject_kind: 'role', role: 'member', credential_id: null, level: 'never' },
-        { action_key: 'create_shipment', subject_kind: 'credential', role: null, credential_id: 'agent-1', level: 'ask' },
+        {
+          action_key: 'create_shipment',
+          subject_kind: 'everyone',
+          role: null,
+          credential_id: null,
+          level: 'auto',
+        },
+        {
+          action_key: 'create_shipment',
+          subject_kind: 'role',
+          role: 'member',
+          credential_id: null,
+          level: 'never',
+        },
+        {
+          action_key: 'create_shipment',
+          subject_kind: 'credential',
+          role: null,
+          credential_id: 'agent-1',
+          level: 'ask',
+        },
       ] as const
       const levels = [
-        resolveAgentActionLevel(policies, 'create_shipment', { role: 'scientist' }),
-        resolveAgentActionLevel(policies, 'create_shipment', { role: 'member' }),
+        resolveAgentActionLevel(policies, 'create_shipment', {
+          role: 'scientist',
+        }),
+        resolveAgentActionLevel(policies, 'create_shipment', {
+          role: 'member',
+        }),
         resolveAgentActionLevel(policies, 'create_shipment', {
           role: 'member',
           credentialId: 'agent-1',
@@ -371,7 +399,13 @@ const TASKS: readonly TaskDefinition[] = [
     meta: meta('guardrails.always-off'),
     direct: () => {
       const policies = [
-        { action_key: 'sign_record', subject_kind: 'everyone', role: null, credential_id: null, level: 'auto' },
+        {
+          action_key: 'sign_record',
+          subject_kind: 'everyone',
+          role: null,
+          credential_id: null,
+          level: 'auto',
+        },
       ] as const
       const keys = [
         'sign_record',
@@ -380,9 +414,7 @@ const TASKS: readonly TaskDefinition[] = [
         'lock_record',
         'delete_record',
       ]
-      const levels = keys.map((key) =>
-        resolveAgentActionLevel(policies, key),
-      )
+      const levels = keys.map((key) => resolveAgentActionLevel(policies, key))
       const offered = AGENT_ACTIONS.filter((action) =>
         agentActionAlwaysNever(action.key),
       ).length
@@ -396,7 +428,8 @@ const TASKS: readonly TaskDefinition[] = [
     meta: meta('guardrails.assistant-reads-only'),
     direct: () => {
       const overlap = (ASSISTANT_READ_TOOL_NAMES as readonly string[]).filter(
-        (name) => (ASSISTANT_PROPOSE_TOOL_NAMES as readonly string[]).includes(name),
+        (name) =>
+          (ASSISTANT_PROPOSE_TOOL_NAMES as readonly string[]).includes(name),
       )
       return { text: `overlap=${overlap.length}` }
     },
@@ -460,7 +493,11 @@ async function runInTools(
 ): Promise<Outcome> {
   if (task.direct) return { ...task.direct(), proposals: [] }
   if (!task.tool || !toolkit) {
-    return { text: '', proposals: [], error: 'The assistant has no tools here.' }
+    return {
+      text: '',
+      proposals: [],
+      error: 'The assistant has no tools here.',
+    }
   }
   const result = await toolkit.run(
     toWireToolName(task.tool.name),
@@ -533,7 +570,9 @@ export interface RunEvalsInput {
  * Run every check. In model mode, tasks that need a model run through it; the
  * guardrail checks, which need none, run either way.
  */
-export async function runEvalTasks(input: RunEvalsInput): Promise<EvalResult[]> {
+export async function runEvalTasks(
+  input: RunEvalsInput,
+): Promise<EvalResult[]> {
   const client = createFixtureClient()
   const toolkit = await createAssistantToolkit({
     client,

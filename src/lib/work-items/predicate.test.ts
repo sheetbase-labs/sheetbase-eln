@@ -67,6 +67,8 @@ describe('workItemType for the waiting states', () => {
     ['access_requested', 'admin'],
     ['access_decided', 'admin'],
     ['agent_proposal', 'agents'],
+    ['agent_action_request', 'agents'],
+    ['watcher_finding', 'lab'],
     ['invitation_accepted', 'admin'],
     ['verification_requested', 'admin'],
     ['verification_granted', 'admin'],

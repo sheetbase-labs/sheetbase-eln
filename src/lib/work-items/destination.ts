@@ -26,8 +26,9 @@ export type WorkItemLink =
   | { to: '/settings/account/signature' }
   | {
       to: '/pipelines/agents'
-      search: { view: 'proposals'; proposal?: string }
+      search: { view: 'proposals' | 'actions'; proposal?: string }
     }
+  | { to: '/settings/account/watchers' }
   | {
       to: '/settings/workspace/integrations/$connectorId'
       params: { connectorId: string }
@@ -96,6 +97,10 @@ export function itemLink(item: WorkItem): WorkItemLink {
           ...(item.sourceId ? { proposal: item.sourceId } : {}),
         },
       }
+    case 'agent_action_request':
+      return { to: '/pipelines/agents', search: { view: 'actions' } }
+    case 'watcher_finding':
+      return { to: '/settings/account/watchers' }
     case 'project_following':
       return item.projectId
         ? {

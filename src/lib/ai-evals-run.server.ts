@@ -23,7 +23,10 @@ export async function runAndRecordEvals(input: {
   toolsOnly?: boolean
 }): Promise<AiEvalRunRow> {
   const startedAt = new Date()
-  const runtime = await resolveAssistantRuntime(input.workspaceId, input.headers)
+  const runtime = await resolveAssistantRuntime(
+    input.workspaceId,
+    input.headers,
+  )
   let mode: EvalMode = 'tools'
   let profile: string | null = null
   let model: string | null = null

@@ -37,6 +37,8 @@ export type WorkItemKind =
   | 'access_requested'
   | 'access_decided'
   | 'agent_proposal'
+  | 'agent_action_request'
+  | 'watcher_finding'
   | 'invitation_accepted'
   | 'verification_requested'
   | 'verification_granted'
@@ -112,6 +114,8 @@ const KINDS: readonly WorkItemKind[] = [
   'access_requested',
   'access_decided',
   'agent_proposal',
+  'agent_action_request',
+  'watcher_finding',
   'invitation_accepted',
   'verification_requested',
   'verification_granted',
@@ -361,6 +365,8 @@ export function countByKind(
     access_requested: 0,
     access_decided: 0,
     agent_proposal: 0,
+    agent_action_request: 0,
+    watcher_finding: 0,
     invitation_accepted: 0,
     verification_requested: 0,
     verification_granted: 0,

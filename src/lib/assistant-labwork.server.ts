@@ -1029,7 +1029,7 @@ export async function buildLabworkProposal(
       const schedule = input.schedule ?? current?.schedule ?? 'daily'
       return card(name, input, {
         target: meta?.label ?? input.watcher,
-        deepLink: '/settings/lab/watchers',
+        deepLink: '/settings/account/watchers',
         changes: [
           {
             label: 'Watcher',

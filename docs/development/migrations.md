@@ -40,10 +40,11 @@ lists them (numbered, then timestamped in name order) and applies them.
   numbered one that rises with its timestamp, so "newest applied" still means
   "newest migration" for Diagnostics, the health check and the upgrade backup.
 - CI runs `pnpm db:check-order`: a PR fails if a migration it adds sorts before
-  the newest one on `main` (it was started before another migration merged), if
-  it adds a numbered migration, or if it edits the journal. The fix after a
-  rebase is to rename the file with a fresh timestamp (`pnpm db:new`, then move
-  your SQL across).
+  a newer one on `main` that touches the same table, function, view or policy
+  (order would decide the end state), if it adds a numbered migration, or if it
+  edits the journal. A late migration about different objects passes with a
+  notice and needs no rebase. For a real overlap, rename the file with a fresh
+  timestamp (`pnpm db:new`, then move your SQL across).
 - Never edit or rename a migration that is on `main`.
 
 ## Rules

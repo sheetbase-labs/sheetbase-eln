@@ -72,12 +72,15 @@ export function PartsMenu({
   parts,
   shown,
   workspaceId,
+  onEditGate,
 }: {
   recordId: string
   expId: string
   parts: readonly PartProgress[]
   shown: PartProgress
   workspaceId?: string
+  /** Change the rule that opens the shown part. */
+  onEditGate?: () => void
 }) {
   const [editing, setEditing] = React.useState<Editing>(null)
   const refresh = useRefreshParts(recordId)
@@ -139,6 +142,13 @@ export function PartsMenu({
               {shown.state === 'done'
                 ? t('notebook.parts.reopenPart')
                 : t('notebook.parts.markPartDone')}
+            </DropdownMenuItem>
+          ) : null}
+          {onEditGate ? (
+            <DropdownMenuItem icon="lock" onClick={onEditGate}>
+              {shown.opensWhen?.length
+                ? t('notebook.gates.editPart')
+                : t('notebook.gates.addToPart')}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuSeparator />

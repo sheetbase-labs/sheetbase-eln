@@ -4,7 +4,13 @@
  * record this person can see becomes a link; anything else stays plain text, so
  * a typo or another lab's number never turns into a dead link.
  */
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { useContext } from 'react'
+import {
+  QueryClient,
+  QueryClientContext,
+  useQueries,
+  useQuery,
+} from '@tanstack/react-query'
 
 import { notebookDataClient } from '#/lib/notebook-data'
 
@@ -67,6 +73,15 @@ async function lookUp(ref: string): Promise<string | null> {
   return source.kind ?? row.kind ?? 'record'
 }
 
+/**
+ * The app's query client, or a small private one where there is none (an
+ * editor rendered on its own), so identifiers still resolve.
+ */
+const fallbackClient = new QueryClient()
+function useRefClient(): QueryClient {
+  return useContext(QueryClientContext) ?? fallbackClient
+}
+
 const refQuery = (ref: string) => ({
   queryKey: ['record-ref', ref],
   queryFn: () => lookUp(ref),
@@ -75,13 +90,13 @@ const refQuery = (ref: string) => ({
 
 /** The kind of record an identifier names, once known; null while unknown. */
 export function useRecordRef(ref: string): string | null {
-  return useQuery(refQuery(ref)).data ?? null
+  return useQuery(refQuery(ref), useRefClient()).data ?? null
 }
 
 /** The kinds of several identifiers at once, keyed by identifier. */
 export function useRecordRefs(refs: readonly string[]): Map<string, string> {
   const unique = [...new Set(refs)]
-  const results = useQueries({ queries: unique.map(refQuery) })
+  const results = useQueries({ queries: unique.map(refQuery) }, useRefClient())
   const known = new Map<string, string>()
   unique.forEach((ref, index) => {
     const kind = results[index]?.data

@@ -108,6 +108,8 @@ const ACTION_COPY = {
   'pin.set': 'pin',
   'logo.set': 'setLogo',
   'logo.remove': 'removeLogo',
+  'watcher.finding': 'setFinding',
+  'watcher.set': 'setWatcher',
   'plate.analyse': 'analysePlate',
   'worklist.create': 'createWorklist',
 } as const satisfies Record<AssistantActionKind, string>

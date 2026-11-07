@@ -33,6 +33,8 @@ export const SOLUTION_PREPARE_TOOL = 'sheetbase.solution.prepare'
 export const SEARCH_SAVE_TOOL = 'sheetbase.search.save'
 export const PIN_TOOL = 'sheetbase.pin'
 export const LAB_LOGO_TOOL = 'sheetbase.lab.logo'
+export const WATCHER_FINDING_TOOL = 'sheetbase.watcher.finding'
+export const WATCHER_SET_TOOL = 'sheetbase.watcher.set'
 
 export const LABWORK_PROPOSE_TOOL_NAMES = [
   STOCKTAKE_START_TOOL,
@@ -54,6 +56,8 @@ export const LABWORK_PROPOSE_TOOL_NAMES = [
   SEARCH_SAVE_TOOL,
   PIN_TOOL,
   LAB_LOGO_TOOL,
+  WATCHER_FINDING_TOOL,
+  WATCHER_SET_TOOL,
 ] as const
 
 export type LabworkProposeToolName = (typeof LABWORK_PROPOSE_TOOL_NAMES)[number]
@@ -247,6 +251,44 @@ export const proposeBookingRulesSetSchema = z
       .describe(
         'Procedures (by identifier or title) people must be trained on. Replaces the list; [] clears it.',
       ),
+  })
+  .strict()
+
+export const proposeWatcherFindingSchema = z
+  .object({
+    title,
+    summary,
+    finding: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('The finding by words from its title.'),
+    change: z.enum(['dismiss', 'snooze', 'reopen']),
+    days: z
+      .number()
+      .int()
+      .min(1)
+      .max(90)
+      .optional()
+      .describe('How many days to snooze it for (default 7).'),
+  })
+  .strict()
+
+export const proposeWatcherSetSchema = z
+  .object({
+    title,
+    summary,
+    watcher: z
+      .enum([
+        'stock_expiring',
+        'stock_low',
+        'work_overdue',
+        'data_missing',
+        'results_off',
+      ])
+      .describe('Which review.'),
+    enabled: z.boolean(),
+    schedule: z.enum(['hourly', 'daily', 'weekly']).optional(),
   })
   .strict()
 
@@ -496,6 +538,19 @@ export type LabworkAction =
     }
   | { kind: 'logo.set'; fileRecordId: string }
   | { kind: 'logo.remove' }
+  | {
+      kind: 'watcher.finding'
+      findingId: string
+      change: 'dismiss' | 'snooze' | 'reopen'
+      days: number
+    }
+  | {
+      kind: 'watcher.set'
+      workspaceId: string
+      watcher: string
+      enabled: boolean
+      schedule: 'hourly' | 'daily' | 'weekly'
+    }
 
 export type LabworkActionKind = LabworkAction['kind']
 
@@ -520,6 +575,8 @@ const KINDS: readonly string[] = [
   'pin.set',
   'logo.set',
   'logo.remove',
+  'watcher.finding',
+  'watcher.set',
 ]
 
 export function isLabworkAction(action: {

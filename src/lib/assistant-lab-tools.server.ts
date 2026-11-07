@@ -146,6 +146,12 @@ export const LAB_AREAS = {
     'Chemical safety information on materials: hazard pictograms, signal word and hazard statements',
   directory_sync:
     'Directory sync tokens: which identity-provider connections can add and suspend people, and when each was last used',
+  watcher_findings:
+    'What the lab watchers found (stock expiring or low, work overdue, data missing, results off), with the record and a suggested action (openOnly: only those still open)',
+  agent_requests:
+    'Actions an agent asked to take and how each was handled: waiting for a person, approved, refused, done or failed (openOnly: only those waiting)',
+  ai_checks:
+    'Runs of the built-in assistant checks: when, which mode, and how many passed or failed',
 } as const
 
 export type LabArea = keyof typeof LAB_AREAS
@@ -709,6 +715,8 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   validation: 'status=eq.failed',
   sample_workflows: 'status=eq.active',
   directory_sync: 'revoked_at=is.null',
+  watcher_findings: 'status=eq.open',
+  agent_requests: 'status=eq.pending',
 }
 
 interface PlainArea {
@@ -720,6 +728,29 @@ interface PlainArea {
 }
 
 const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
+  watcher_findings: {
+    table: 'lab_watcher_findings',
+    select:
+      'id,kind,title,summary,object_kind,object_id,status,snoozed_until,created_at',
+    order: 'created_at.desc',
+    search: ['title', 'summary'],
+    page: '/inbox',
+  },
+  agent_requests: {
+    table: 'agent_action_requests',
+    select:
+      'id,action_key,summary,level,status,decision_reason,error,created_at,decided_at',
+    order: 'created_at.desc',
+    search: ['summary', 'action_key'],
+    page: '/inbox',
+  },
+  ai_checks: {
+    table: 'ai_eval_runs',
+    select: 'id,mode,trigger,status,total,passed,failed,skipped,finished_at',
+    order: 'finished_at.desc',
+    search: [],
+    page: '/settings/workspace/ai',
+  },
   directory_sync: {
     table: 'scim_tokens',
     select: 'id,label,created_at,last_used_at,revoked_at',

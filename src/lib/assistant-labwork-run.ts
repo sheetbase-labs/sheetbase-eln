@@ -16,6 +16,8 @@ import { enrolSample, leaveRun } from './sample-workflows'
 import { prepareSolution } from './solution-prep'
 import { completeStocktake, startStocktake } from './stocktake'
 import { endStepTimer } from './step-timers'
+import { setFindingStatus, setLabWatcher, snoozeUntil } from './lab-watchers'
+import type { WatcherKind } from './lab-watchers'
 import { requestShellRefresh } from './shell-refresh'
 import type { LabworkAction, LabworkActionResult } from './assistant-labwork'
 
@@ -127,6 +129,22 @@ export async function runLabworkAction(
         maxAdvanceDays: action.maxAdvanceDays,
       })
       return { openHref: '/instruments' }
+    case 'watcher.finding':
+      await setFindingStatus(client, {
+        findingId: action.findingId,
+        action: action.change,
+        until:
+          action.change === 'snooze' ? snoozeUntil(action.days) : undefined,
+      })
+      return { openHref: '/inbox' }
+    case 'watcher.set':
+      await setLabWatcher(client, {
+        workspaceId: action.workspaceId,
+        kind: action.watcher as WatcherKind,
+        enabled: action.enabled,
+        schedule: action.schedule,
+      })
+      return { openHref: '/settings/lab/watchers' }
     case 'timer.end':
       await endStepTimer(action.timerId, client)
       return action.recordId

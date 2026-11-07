@@ -17,6 +17,8 @@ import {
   STOCKTAKE_COMPLETE_TOOL,
   STOCKTAKE_START_TOOL,
   TIMER_END_TOOL,
+  WATCHER_FINDING_TOOL,
+  WATCHER_SET_TOOL,
   WORKFLOW_ENROL_TOOL,
   WORKFLOW_LEAVE_TOOL,
   proposeBookingRulesSetSchema,
@@ -36,6 +38,8 @@ import {
   proposeStocktakeCompleteSchema,
   proposeStocktakeStartSchema,
   proposeTimerEndSchema,
+  proposeWatcherFindingSchema,
+  proposeWatcherSetSchema,
   proposeWorkflowEnrolSchema,
   proposeWorkflowLeaveSchema,
 } from './assistant-labwork'
@@ -64,6 +68,7 @@ import {
   fetchBookingRules,
   fetchProtocolOptions,
 } from './booking-rules'
+import { WATCHER_SCHEDULE_LABEL, watcherMeta } from './lab-watchers'
 import type { DataClient } from './data-client'
 import { fetchModelFields } from './model-fields'
 import { keepTimeLabel, limitsProblem } from './result-quality'
@@ -193,6 +198,16 @@ export function labworkProposalDefs(): ProviderToolDef[] {
       LAB_LOGO_TOOL,
       `Propose setting the lab logo from a PNG or JPEG already uploaded to the lab, or removing it. Only administrators can. You cannot take an image from the chat. ${NOTE}`,
       proposeLabLogoSchema,
+    ),
+    toolDef(
+      WATCHER_FINDING_TOOL,
+      `Propose dismissing, snoozing or reopening something a lab watcher found. Find it first with the lab list tool (watcher_findings). ${NOTE}`,
+      proposeWatcherFindingSchema,
+    ),
+    toolDef(
+      WATCHER_SET_TOOL,
+      `Propose turning a lab watcher (stock expiring, stock low, work overdue, data missing, results off) on or off, or changing how often it looks. Findings go to the person’s Inbox. ${NOTE}`,
+      proposeWatcherSetSchema,
     ),
   ]
 }
@@ -949,6 +964,90 @@ export async function buildLabworkProposal(
           protocolIds,
           maxBookingMinutes: maxMinutes,
           maxAdvanceDays: maxDays,
+        },
+      })
+    }
+
+    case WATCHER_FINDING_TOOL: {
+      const parsed = parse(proposeWatcherFindingSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const wanted =
+        input.change === 'reopen'
+          ? 'status=in.(dismissed,snoozed)'
+          : 'status=in.(open,snoozed)'
+      const rows = await client.list<{ id: string; title: string }>(
+        'lab_watcher_findings',
+        `?${wanted}&title=ilike.${likeValue(input.finding)}&select=id,title&order=created_at.desc&limit=6`,
+      )
+      const found = pick(
+        rows,
+        input.finding,
+        'finding',
+        (row) => row.title,
+        (row) => row.title.toLowerCase() === input.finding.trim().toLowerCase(),
+      )
+      if (!found.ok) return fail(found.message)
+      const days = input.days ?? 7
+      return card(name, input, {
+        target: found.value.title,
+        deepLink: '/inbox',
+        changes: [
+          {
+            label: 'Finding',
+            before: input.change === 'reopen' ? 'Set aside' : 'Open',
+            after:
+              input.change === 'dismiss'
+                ? 'Dismissed'
+                : input.change === 'snooze'
+                  ? `Snoozed for ${days} ${days === 1 ? 'day' : 'days'}`
+                  : 'Open again',
+          },
+        ],
+        action: {
+          kind: 'watcher.finding',
+          findingId: found.value.id,
+          change: input.change,
+          days,
+        },
+      })
+    }
+
+    case WATCHER_SET_TOOL: {
+      const parsed = parse(proposeWatcherSetSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const meta = watcherMeta(input.watcher)
+      const rows = await client.list<{
+        enabled: boolean
+        schedule: 'hourly' | 'daily' | 'weekly'
+      }>(
+        'lab_watchers',
+        `?kind=eq.${input.watcher}&project_id=is.null&select=enabled,schedule&limit=1`,
+      )
+      const current = rows.at(0)
+      const schedule = input.schedule ?? current?.schedule ?? 'daily'
+      return card(name, input, {
+        target: meta?.label ?? input.watcher,
+        deepLink: '/settings/lab/watchers',
+        changes: [
+          {
+            label: 'Watcher',
+            before: current?.enabled ? 'On' : 'Off',
+            after: input.enabled ? 'On' : 'Off',
+          },
+          {
+            label: 'Looks',
+            before: current ? WATCHER_SCHEDULE_LABEL[current.schedule] : '—',
+            after: WATCHER_SCHEDULE_LABEL[schedule],
+          },
+        ],
+        action: {
+          kind: 'watcher.set',
+          workspaceId: context.workspaceId,
+          watcher: input.watcher,
+          enabled: input.enabled,
+          schedule,
         },
       })
     }

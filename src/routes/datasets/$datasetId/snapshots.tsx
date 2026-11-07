@@ -21,6 +21,8 @@ import {
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Button, buttonVariants } from '#/components/ui/button'
 import { CiteSnapshotDialog } from '#/components/datasets/cite-snapshot-dialog'
+import { SnapshotReproduce } from '#/components/pipelines/run-reproduction'
+import { useRunForDatasetVersion } from '#/components/pipelines/pipelines-data'
 import {
   Dialog,
   DialogBody,
@@ -134,6 +136,7 @@ function Snapshots() {
   const [keepTarget, setKeepTarget] = useState<SnapshotVersion | null>(null)
   const [citeTarget, setCiteTarget] = useState<SnapshotVersion | null>(null)
   const current = rows.find((v) => v.id === selected) ?? rows.at(0)
+  const producingRun = useRunForDatasetVersion(current?.id)
   const index = current ? rows.indexOf(current) : -1
   const previous = index >= 0 ? rows[index + 1] : undefined
   const keeping = describeSnapshotKeeping(current)
@@ -402,6 +405,15 @@ function Snapshots() {
               )}
             </div>
           </InspectorSection>
+          {producingRun.data ? (
+            <InspectorSection title={t('data.reproduce.producedBy')}>
+              <SnapshotReproduce
+                runId={producingRun.data.runId}
+                pipelineId={producingRun.data.pipelineId}
+                canReproduce={canWrite && !tombstone}
+              />
+            </InspectorSection>
+          ) : null}
           {canWrite && !tombstone ? (
             <InspectorSection title={t('data.datasetSnapshots.notebook')}>
               <div className="flex flex-col gap-1.5">

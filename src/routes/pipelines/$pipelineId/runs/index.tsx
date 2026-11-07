@@ -7,6 +7,7 @@ import { buttonVariants } from '#/components/ui/button'
 import { ProjectListFailure } from '#/components/projects/project-list'
 import { Muted, Section } from '#/components/ui/layout'
 import { TableBox } from '#/components/ui/table'
+import { ReproductionBadge } from '#/components/pipelines/run-reproduction'
 import { triggerLabel } from '#/lib/pipeline-schedule-form'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
@@ -19,6 +20,7 @@ import {
   runDuration,
   runStatus,
   useDefinitionRuns,
+  useLatestReproductions,
   useRunNumbers,
   usePipelineVersions,
 } from '#/components/pipelines/pipelines-data'
@@ -38,6 +40,9 @@ function PipelineRuns() {
   const runs = useDefinitionRuns(list)
   const rows = runs.data ?? []
   const numbers = useRunNumbers(list)
+  const reproductions = useLatestReproductions(
+    rows.filter((run) => run.status === 'succeeded').map((run) => run.id),
+  )
   const versionLabel = (versionId: string) => {
     const v = list.find((x) => x.id === versionId)
     return v ? `v${v.version}` : '—'
@@ -76,6 +81,24 @@ function PipelineRuns() {
       cell: ({ row }) => {
         const status = runStatus(row.original.status)
         return <Status tone={status.tone}>{status.label}</Status>
+      },
+    },
+    {
+      id: 'reproduced',
+      header: t('data.pipelineRuns.reproduced'),
+      cell: ({ row }) => {
+        const verdict = reproductions.data?.[row.original.id]
+        return verdict ? (
+          <Link
+            to="/pipelines/$pipelineId/runs/$runId"
+            params={{ pipelineId, runId: row.original.id }}
+            hash="reproduce"
+          >
+            <ReproductionBadge status={verdict} />
+          </Link>
+        ) : (
+          <span className="text-fg-muted">—</span>
+        )
       },
     },
     {

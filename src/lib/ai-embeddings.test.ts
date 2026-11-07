@@ -71,8 +71,8 @@ describe('fuseRankings', () => {
       ],
       10,
     )
-    expect(fused[0]!.item).toEqual(b)
-    expect(fused[0]!.sources).toBe(2)
+    expect(fused[0].item).toEqual(b)
+    expect(fused[0].sources).toBe(2)
   })
 
   it('keeps the same id of a different type apart', () => {

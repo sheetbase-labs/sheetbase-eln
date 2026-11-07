@@ -65,8 +65,8 @@ describe('parseEmbeddingResponse', () => {
       ],
       usage: { total_tokens: 7 },
     })
-    expect(out.vectors[0]![0]).toBe(1)
-    expect(out.vectors[1]![1]).toBe(1)
+    expect(out.vectors[0][0]).toBe(1)
+    expect(out.vectors[1][1]).toBe(1)
     expect(out.tokens).toBe(7)
   })
 

@@ -212,7 +212,7 @@ export async function sweepEmbeddingsBatch(
               chunk.text,
               hash,
               modelId,
-              vectorLiteral(vectors[index]!),
+              vectorLiteral(vectors[index]),
             ],
           )
         }

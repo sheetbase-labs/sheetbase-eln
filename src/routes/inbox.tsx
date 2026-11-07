@@ -123,7 +123,7 @@ function toneFor(kind: WorkItemKind): Tone {
     return 'lab'
   if (kind === 'agent_proposal' || kind === 'agent_action_request')
     return 'progress'
-  if (kind === 'watcher_finding') return 'warn'
+  if (kind === 'watcher_finding' || kind === 'qc_violation') return 'warn'
   if (kind === 'witness_signed') return 'review'
   // A conflict is actionable: two edits need a person to choose between them.
   if (kind === 'cell_conflict') return 'warn'
@@ -173,6 +173,8 @@ function labelFor(kind: WorkItemKind): string {
       return t('projects.inbox.kinds.agent_action_request')
     case 'watcher_finding':
       return t('projects.inbox.kinds.watcher_finding')
+    case 'qc_violation':
+      return t('projects.inbox.kinds.qc_violation')
     case 'invitation_accepted':
       return t('projects.inbox.kinds.invitation_accepted')
     case 'verification_requested':

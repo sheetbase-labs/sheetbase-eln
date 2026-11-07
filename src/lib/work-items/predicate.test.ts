@@ -69,6 +69,7 @@ describe('workItemType for the waiting states', () => {
     ['agent_proposal', 'agents'],
     ['agent_action_request', 'agents'],
     ['watcher_finding', 'lab'],
+    ['qc_violation', 'lab'],
     ['invitation_accepted', 'admin'],
     ['verification_requested', 'admin'],
     ['verification_granted', 'admin'],

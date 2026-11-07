@@ -10,8 +10,8 @@
 import { z } from 'zod'
 
 import { extractJsonObject } from '../ai-import-mapping'
-import { layoutRound } from '../campaigns/layout'
-import type { Trial } from '../campaigns/campaign'
+import { layoutRound } from './layout'
+import type { Trial } from './layout'
 import { WORKLIST_FORMATS } from '../plate-worklist'
 import type { WorklistFormat } from '../plate-worklist'
 import { FORMAT_DIMENSIONS } from '../plate-map'
@@ -102,11 +102,6 @@ export interface ExperimentPlan {
   }>
   schedule: boolean
   warnings: string[]
-}
-
-/** "PLN-0003". */
-export function planReference(number: number): string {
-  return `PLN-${String(number).padStart(4, '0')}`
 }
 
 const protocolKey = (i: number) => `t${i + 1}`

@@ -1,7 +1,6 @@
 /**
- * Plans, read and changed through the database (migration planner_and_campaigns).
- * Reads go straight to the tables under row-level security; every change is an
- * RPC so the rules stay in the database.
+ * The experiment planner's database calls: what the planner may choose from,
+ * and creating the experiment a plan describes.
  */
 import type { DataClient } from '#/lib/data-client'
 
@@ -12,9 +11,7 @@ import {
 } from './plan'
 import type { ExperimentPlan, PlannerContext } from './plan'
 
-export type PlanStatus = 'proposed' | 'applied' | 'dismissed' | 'superseded'
-
-export interface PlanResult {
+export interface PlannedExperiment {
   recordId: string
   identifier: string
   plateRunId: string | null
@@ -24,78 +21,18 @@ export interface PlanResult {
   reservations: number
 }
 
-export interface ExperimentPlanRow {
-  id: string
-  workspace_id: string
-  number: number
-  project_id: string
-  goal: string
-  summary: string
-  status: PlanStatus
-  source: 'page' | 'assistant' | 'api'
-  plan: ExperimentPlan
-  result: PlanResult | null
-  created_by_user_id: string
-  decided_by_user_id: string | null
-  decided_at: string | null
-  created_at: string
-}
-
-export const planKeys = {
-  all: ['planner'] as const,
-  list: ['planner', 'list'] as const,
-  one: (id: string) => ['planner', 'one', id] as const,
-  context: (projectId: string) => ['planner', 'context', projectId] as const,
-}
-
-export function fetchPlans(client: DataClient): Promise<ExperimentPlanRow[]> {
-  return client.list<ExperimentPlanRow>(
-    'experiment_plans',
-    '?select=*&order=created_at.desc&limit=200',
-  )
-}
-
-export async function fetchPlan(
+/**
+ * Create the experiment a plan describes, with its parts, plate, worklist, the
+ * samples set aside and, when asked, a request for a schedule. It is one
+ * database call: everything is made, or nothing is.
+ */
+export function createPlannedExperiment(
   client: DataClient,
-  id: string,
-): Promise<ExperimentPlanRow | null> {
-  const rows = await client.list<ExperimentPlanRow>(
-    'experiment_plans',
-    `?select=*&id=eq.${encodeURIComponent(id)}&limit=1`,
-  )
-  return rows[0] ?? null
-}
-
-export function createPlan(
-  client: DataClient,
-  input: {
-    projectId: string
-    goal: string
-    plan: ExperimentPlan
-    source: 'page' | 'assistant' | 'api'
-  },
-): Promise<ExperimentPlanRow> {
-  return client.rpc<ExperimentPlanRow>('create_experiment_plan', {
+  input: { projectId: string; plan: ExperimentPlan },
+): Promise<PlannedExperiment> {
+  return client.rpc<PlannedExperiment>('create_planned_experiment', {
     p_project_id: input.projectId,
-    p_goal: input.goal,
     p_plan: input.plan,
-    p_source: input.source,
-  })
-}
-
-export function applyPlan(
-  client: DataClient,
-  planId: string,
-): Promise<PlanResult> {
-  return client.rpc<PlanResult>('apply_experiment_plan', { p_plan_id: planId })
-}
-
-export function dismissPlan(
-  client: DataClient,
-  planId: string,
-): Promise<ExperimentPlanRow> {
-  return client.rpc<ExperimentPlanRow>('dismiss_experiment_plan', {
-    p_plan_id: planId,
   })
 }
 

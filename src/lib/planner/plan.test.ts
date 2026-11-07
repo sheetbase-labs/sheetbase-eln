@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  parsePlanAnswer,
-  planReference,
-  plannerInstruction,
-  plateCounts,
-} from './plan'
+import { parsePlanAnswer, plannerInstruction, plateCounts } from './plan'
 import type { PlannerContext } from './plan'
 
 const context: PlannerContext = {
@@ -229,8 +224,4 @@ describe('parsePlanAnswer', () => {
       parsePlanAnswer('Here you go: ' + JSON.stringify(answer), 'g', context),
     ).not.toBeNull()
   })
-})
-
-describe('planReference', () => {
-  it('pads the number', () => expect(planReference(7)).toBe('PLN-0007'))
 })

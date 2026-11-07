@@ -20,6 +20,8 @@ export async function sweepLakes(
   const conn = await deps.connect()
   let due: Array<{ workspace_id: string; exporter_user_id: string }> = []
   try {
+    // Logins belong to people with data access; drop the ones whose owner lost it.
+    await conn.query(`SELECT internal.lake_revoke_orphaned_credentials()`)
     due = (
       await conn.query<{ workspace_id: string; exporter_user_id: string }>(
         `SELECT workspace_id, exporter_user_id FROM internal.lake_due_workspaces()`,

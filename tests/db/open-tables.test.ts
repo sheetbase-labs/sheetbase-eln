@@ -402,6 +402,39 @@ describe('lake logins', () => {
     )
     expect(list.rows[0].status).toBe('revoked')
   })
+
+  it('are revoked when their owner stops having data access', async () => {
+    const owner = await as(OWNER)
+    const made = await owner.query<{ id: string; username: string }>(
+      `SELECT id, username FROM api.create_lake_credential($1,'demoted')`,
+      [WS],
+    )
+    await migrator.query(
+      `update api.workspace_memberships set role='viewer' where workspace_id=$1 and user_id=$2`,
+      [WS, OWNER],
+    )
+    try {
+      const swept = await migrator.query<{ n: number }>(
+        `SELECT internal.lake_revoke_orphaned_credentials() n`,
+      )
+      expect(swept.rows[0].n).toBeGreaterThanOrEqual(1)
+      const role = await migrator.query<{ rolcanlogin: boolean }>(
+        `select rolcanlogin from pg_roles where rolname=$1`,
+        [made.rows[0].username],
+      )
+      expect(role.rows[0].rolcanlogin).toBe(false)
+      const row = await migrator.query<{ revoked_at: string | null }>(
+        `select revoked_at from internal.lake_credentials where id=$1`,
+        [made.rows[0].id],
+      )
+      expect(row.rows[0].revoked_at).not.toBeNull()
+    } finally {
+      await migrator.query(
+        `update api.workspace_memberships set role='owner' where workspace_id=$1 and user_id=$2`,
+        [WS, OWNER],
+      )
+    }
+  })
 })
 
 describe('publishing', () => {

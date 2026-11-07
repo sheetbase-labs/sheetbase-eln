@@ -38,13 +38,19 @@ later only means rewriting the metadata; the data files stay.
 
 ## Who sees what
 
-Parquet files carry no row-level security. The export therefore runs as the
-person who turned open tables on, through the reporting views and the
-row-level rules that person is subject to. The tables contain what that person
-can see, and a table login reads all of it. Only data-access roles (and
-owners and admins) can make logins, and a login stops working when its owner
-loses data access or is suspended. A person who needs a narrower view should
-use a SQL login on the reporting views instead.
+Open tables are a data steward feature. They are off until someone with data
+access (the Data steward role by default, configurable under Settings, plus
+owners and admins) switches them on, and only people with data access can make
+logins, see the connection snippets or read the tables through the API.
+
+Parquet files carry no row-level security, so there is one set of files per
+workspace, not one per member. The export runs as the person who turned open
+tables on, through the reporting views and the row-level rules that person is
+subject to, and a table login reads all of it. A login stops working when its
+owner loses data access or is suspended: the app refuses its file requests at
+once, and the background pass revokes the login and its database role within a
+minute. A person who needs a narrower view should use a SQL login on the
+reporting views instead, which keeps each person's own row rules.
 
 Logins read the catalogue through a read-only database user, and the files
 through a bearer token. Revoking a login stops both immediately.

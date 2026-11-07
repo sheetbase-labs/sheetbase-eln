@@ -10,6 +10,7 @@ import { automation } from './automation'
 import { calculators } from './calculators'
 import { calendarFeed } from './calendar-feed'
 import { common } from './common'
+import { contracts } from './contracts'
 import { data } from './data'
 import { library } from './library'
 import { notebook } from './notebook'
@@ -42,6 +43,7 @@ export const en = {
   projects,
   registry,
   quality,
+  contracts,
   requests,
   shipments,
   plates,

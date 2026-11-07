@@ -438,6 +438,12 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
     t('data.pipelineActions.restoreArchivedDatasetExpected'),
     [arg('p_dataset_id', 'uuid'), arg('p_expected_revision', 'bigint')],
   ),
+  definition(
+    'run_contract_check',
+    t('data.pipelineActions.checkContract'),
+    t('data.pipelineActions.checkContractDescription'),
+    [arg('p_contract_id', 'uuid'), arg('p_dataset_id', 'uuid', false, true)],
+  ),
 ]
 const actionName = /^[a-z][a-z0-9_]{0,47}$/
 export function validatePipelineActions(value: unknown): string[] {

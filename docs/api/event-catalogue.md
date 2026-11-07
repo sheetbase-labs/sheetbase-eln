@@ -189,6 +189,22 @@ The token itself is on the `signature_timestamps` resource; see
 The full results are on the `validation_runs` resource; see
 [`validation-api.md`](validation-api.md).
 
+### Data contracts (`stable`, webhook, SSE and pipeline triggers)
+
+| Event                       | Produced by                                    | Payload highlights                                                                          |
+| --------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `contract.created`          | `data_contract` + `create`                     | `contractId`, `name`, `version`, `lifecycle`                                                |
+| `contract.updated`          | `data_contract` + `update`, `effect: saved`    | `contractId`, `name`, `version`, `lifecycle`                                                |
+| `contract.deleted`          | `data_contract` + `delete`                     | `contractId`, `name`                                                                        |
+| `contract.check.completed`  | `data_contract_run` + `create`                 | `runId`, `contractId`, `status`, `trigger`, `datasetId`, `rowsChecked`, `failedRules`, `blocked` |
+| `contract.breached`         | `data_contract` + `update`, `effect: breached` | `contractId`, `status`, `previousStatus`, `datasetId`, `runId`                              |
+| `contract.restored`         | `data_contract` + `update`, `effect: restored` | `contractId`, `status`, `previousStatus`, `datasetId`, `runId`                              |
+
+`contract.breached` fires once when a contract's standing gets worse and
+`contract.restored` once when it passes again, not on every failing check. The
+findings of each check are on the `data_contract_runs` resource; see
+[`data-contracts-api.md`](data-contracts-api.md).
+
 ### Pipeline (`provisional`, SSE only)
 
 `pipeline.created` / `pipeline.updated` / `pipeline.deleted`

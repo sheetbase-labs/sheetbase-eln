@@ -14,6 +14,12 @@ import { signInAsDesignUser } from '../visual/sign-in'
 
 config({ path: ['.env.local', '.env'] })
 
+// The first visit to a page makes the dev server compile it, which on a cold
+// CI runner can take most of the default 30 seconds before anything is typed.
+// The compile is warmed in beforeAll (below) and the test gets the same room
+// the other journey specs have, so a slow runner cannot end it half way.
+test.setTimeout(90_000)
+
 const PROJECT = '68000000-0000-4000-8000-000000000011'
 const RECORD = '68000000-0000-4000-8000-000000000012'
 const BLOCK = '68000000-0000-4000-8000-000000000014'
@@ -35,6 +41,15 @@ async function savedText(): Promise<string> {
     [BLOCK],
   )
   return JSON.stringify(saved.rows[0]?.payload ?? {})
+}
+
+/** The block, back to its saved starting text. */
+async function seedBlock() {
+  await admin.query(`DELETE FROM api.blocks WHERE record_id=$1`, [RECORD])
+  await admin.query(
+    `INSERT INTO api.blocks(id,record_id,type,payload,"order",created_by_user_id) VALUES ($1,$2,'rich_text',$3,1,$4)`,
+    [BLOCK, RECORD, richText('Buffer: 50 mM Tris.'), FIXTURE_USER_ID],
+  )
 }
 
 async function clean() {
@@ -71,11 +86,26 @@ test.beforeAll(async () => {
     `INSERT INTO api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id) VALUES ($1,$2,$3,'experiment','EXP-2026-0201','Shared buffer prep','in_progress',$4)`,
     [RECORD, FIXTURE_WORKSPACE_ID, PROJECT, FIXTURE_USER_ID],
   )
-  await admin.query(
-    `INSERT INTO api.blocks(id,record_id,type,payload,"order",created_by_user_id) VALUES ($1,$2,'rich_text',$3,1,$4)`,
-    [BLOCK, RECORD, richText('Buffer: 50 mM Tris.'), FIXTURE_USER_ID],
-  )
 })
+
+// Compile the sign-in and record routes once, outside the timed test.
+test.beforeAll(async ({ browser }) => {
+  test.setTimeout(120_000)
+  await seedBlock()
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  await signInAsDesignUser(page, FIXTURE_USER_ID)
+  await page.goto(`/records/${RECORD}`)
+  await page
+    .locator(`#block-${BLOCK}`)
+    .getByText('Buffer: 50 mM Tris.')
+    .waitFor({ timeout: 90_000 })
+  await context.close()
+})
+
+// Every test starts from the same saved text, so one test's edits never leak
+// into the next.
+test.beforeEach(seedBlock)
 
 test.afterAll(async () => {
   await clean()

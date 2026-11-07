@@ -36,7 +36,7 @@ END $$;
 --> statement-breakpoint
 
 INSERT INTO internal.webhook_event_names (name) VALUES
-  ('pipeline.run.reproduced'), ('lineage.endpoint.updated'), ('lineage.delivery_failed')
+  ('pipeline.run.reproduced'), ('lineage.endpoint.created'), ('lineage.endpoint.updated'), ('lineage.delivery_failed')
 ON CONFLICT DO NOTHING;
 --> statement-breakpoint
 

@@ -68,7 +68,11 @@ docker image inspect sheetbase-pipeline-python:build --format '{{json .RepoDiges
 ```
 
 `requirements.txt` pins NumPy 2.2.6, pandas 2.2.3, SciPy 1.15.3 and their
-transitive Python dependencies. Package installation happens only while building
+transitive Python dependencies, and `allotropy` 0.1.151 (with its pinned
+dependencies), which converts instrument files to the Allotrope Simple Model.
+It is used by `converters/allotropy_convert.py`, which the app sends to the
+runner when an instrument's parser is an Allotrope converter (see
+[instrument-data-api.md](../api/instrument-data-api.md)). Package installation happens only while building
 the image. Runtime jobs cannot install packages from a network. Publish the
 reviewed image through the normal authorized image-delivery flow and configure
 its `repository@sha256:...` reference. A mutable tag is rejected. For local Docker

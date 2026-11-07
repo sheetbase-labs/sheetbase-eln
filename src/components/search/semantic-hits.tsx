@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { ObjectLink } from '#/components/ui/object-link'
 import { Link, useNavigate } from '@tanstack/react-router'
 
 import { RegistryGrid } from '#/components/inventory/registry-grid'
@@ -44,11 +45,7 @@ export function SemanticHitsTable({
         id: 'title',
         header: t('projects.searchMeaning.columns.name'),
         cell: ({ row }) => (
-          <Link
-            to={row.original.deepLink}
-            className="inline-flex max-w-full items-center gap-1.5 text-fg hover:text-link"
-            onClick={(event) => event.stopPropagation()}
-          >
+          <span className="inline-flex max-w-full items-center gap-1.5">
             <SearchResultIcon
               result={{
                 resultType: row.original.type,
@@ -56,11 +53,24 @@ export function SemanticHitsTable({
                 matchedField: 'description',
               }}
             />
-            <span className="mono shrink-0 text-fg-muted">
-              {row.original.identifier}
-            </span>
-            <span className="truncate">{row.original.title}</span>
-          </Link>
+            <ObjectLink
+              kind={
+                row.original.type === 'record'
+                  ? row.original.kind
+                  : row.original.type
+              }
+              id={row.original.id}
+              identifier={row.original.identifier}
+              className="shrink-0 text-fg-muted"
+            />
+            <Link
+              to={row.original.deepLink}
+              className="truncate text-fg hover:text-link"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {row.original.title}
+            </Link>
+          </span>
         ),
       },
       {

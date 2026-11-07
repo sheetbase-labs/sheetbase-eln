@@ -26,6 +26,9 @@ approval ledger. A flag or scope can only reduce access.
 | Validation runs        | `validation_runs`                                                                                                         | `admin:read`                    |
 | Agent permissions      | `agent_action_policies`, `ai_eval_runs`, `ai_eval_results`                                                                | `admin:read`                    |
 | Provenance             | `pipeline_reproductions`, `lineage_targets`, `lineage_deliveries`                                                         | `lab:read`                      |
+| Robots                 | `instrument_robot_settings`, `instrument_jobs`                                                                            | `lab:read`                      |
+| Scheduler              | `scheduler_settings`, `part_plans`, `part_resource_needs`, `schedule_proposals`                                           | `lab:read`                      |
+| Code cells             | `code_cell_runs`                                                                                                          | `lab:read`                      |
 
 The tool fixes the projected columns from the published row schema, allows
 equality filters only, caps rows per resource, and returns `nextOffset`. Pipeline
@@ -48,6 +51,19 @@ Reproducing a run is `POST /api/pipelines/reproduce` and, in the assistant, the
 “Reproduce run” card (`sheetbase.pipeline.reproduce`).
 Logging readings is `record_storage_readings` through `sheetbase.lab.act`, the
 same call loggers and scripts make over the API.
+
+Robots, the scheduler and code cells use the same two tools. Robots are set up and
+sent worklists with `set_instrument_robot`, `clear_instrument_robot`,
+`queue_instrument_job` and `cancel_instrument_job` through `sheetbase.lab.act`;
+`start_instrument_job` is there too, but starting a job is the act of the person
+at the robot. The scheduler is `set_part_plan`, `request_schedule_proposal`,
+`accept_schedule_proposal`, `dismiss_schedule_proposal`, `slip_experiment_part` and
+`set_scheduler_settings`. A code cell is a notebook block, so an agent writes one
+with `sheetbase.notebook_block.insert` (type `code_cell`) and reads its runs from
+`code_cell_runs`; running one happens in the app, where the person sees it. In the
+assistant they are the “Send to robot”, “Plan schedule” and “Accept and book” cards
+(`sheetbase.robot.send_worklist`, `sheetbase.schedule.plan`,
+`sheetbase.schedule.accept`).
 
 The admin read tool covers the tables that are not on the external allowlist:
 workspace settings/counts, members, credential metadata (owner only),

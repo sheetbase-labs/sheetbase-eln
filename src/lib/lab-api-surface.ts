@@ -232,6 +232,27 @@ export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_parts:
     'The parts to make, in order: each `{title, first_block_id, day_offset}`. A part runs from its first block to the next part’s.',
   p_favourite: '`true` to pin, `false` to unpin.',
+  p_driver:
+    '`opentrons` (the robot is on the network) or `file` (its software reads a folder).',
+  p_worklist_format:
+    'The worklist file the robot reads: `opentrons` for an Opentrons robot; `csv`, `echo`, `tecan_gwl` or `hamilton` for a file robot. Leave out to use the driver’s own.',
+  p_labware:
+    'JSON labware for the worklist file: `opentronsSourceLabware`, `opentronsDestLabware`, `opentronsPipette`, `opentronsTiprack`, `opentronsMount`, `liquidClass`, `tecanSourceType`, `tecanDestType`, `echoSourceType`.',
+  p_job_id: 'Robot job id.',
+  p_proposal_id: 'Schedule proposal id.',
+  p_hands_on_minutes:
+    'Minutes a person is at the bench for the part (0 to 1440).',
+  p_wait_after_minutes:
+    'Minutes to wait after the part before the next can start, such as an incubation (0 to 525600).',
+  p_needs:
+    'JSON array of the instruments the part needs: each `{ resourceId, minutes }`, where `resourceId` is the instrument id.',
+  p_slipped_part_id: 'For a re-plan: the part that ran late.',
+  p_work_start_minute:
+    'Minutes after midnight the working day starts (540 is 09:00).',
+  p_work_end_minute:
+    'Minutes after midnight the working day ends (1020 is 17:00).',
+  p_work_days: 'Working days as ISO weekdays: 1 is Monday, 7 is Sunday.',
+  p_version_id: 'Dataset version id.',
 }
 
 export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
@@ -1065,6 +1086,136 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['last_error', 'text', 0],
       ['delivered_at', 'ts', 0],
       ['created_at', 'ts', 1],
+    ],
+  },
+  instrument_robot_settings: {
+    summary:
+      'An instrument that is a robot: how it is reached (`driver` is opentrons or file), the worklist file format it reads and the labware that file names.',
+    columns: [
+      ['instrument_id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['driver', 'text', 1],
+      ['worklist_format', 'text', 1],
+      ['labware', 'json', 1],
+      ['updated_at', 'ts', 1],
+      ['updated_by_user_id', 'text', 0],
+    ],
+  },
+  instrument_jobs: {
+    summary:
+      'A worklist sent to a robot. `status` goes queued, staged (on the robot, waiting for a person to press Start), starting, running, then complete, failed or cancelled. `log` is what happened, and `result` the transfers the robot reported; completing a job completes the worklist and records the stock it used.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['number', 'int', 1],
+      ['instrument_id', 'uuid', 1],
+      ['worklist_id', 'uuid', 1],
+      ['record_id', 'uuid', 0],
+      ['driver', 'text', 1],
+      ['worklist_format', 'text', 1],
+      ['labware', 'json', 1],
+      ['status', 'text', 1],
+      ['cancel_requested', 'bool', 1],
+      ['note', 'text', 0],
+      ['remote_ref', 'text', 0],
+      ['log', 'json', 1],
+      ['error_message', 'text', 0],
+      ['result', 'json', 0],
+      ['agent_seen_at', 'ts', 0],
+      ['queued_by_user_id', 'text', 1],
+      ['started_by_user_id', 'text', 0],
+      ['started_at', 'ts', 0],
+      ['finished_at', 'ts', 0],
+      ['created_at', 'ts', 1],
+      ['updated_at', 'ts', 1],
+    ],
+  },
+  scheduler_settings: {
+    summary:
+      'The lab’s working day for the scheduler: time zone, the minutes after midnight it starts and ends, and the ISO weekdays that are worked.',
+    columns: [
+      ['workspace_id', 'uuid', 1],
+      ['timezone', 'text', 1],
+      ['work_start_minute', 'int', 1],
+      ['work_end_minute', 'int', 1],
+      ['work_days', 'int[]', 1],
+      ['updated_at', 'ts', 1],
+      ['updated_by_user_id', 'text', 0],
+    ],
+  },
+  part_plans: {
+    summary:
+      'How long a part of an experiment takes: the hands-on minutes and the wait after it before the next part can start.',
+    columns: [
+      ['part_id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['hands_on_minutes', 'int', 1],
+      ['wait_after_minutes', 'int', 1],
+      ['updated_at', 'ts', 1],
+      ['updated_by_user_id', 'text', 0],
+    ],
+  },
+  part_resource_needs: {
+    summary:
+      'An instrument a part needs and for how many minutes. `resource_id` is the instrument id.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['part_id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['resource_id', 'uuid', 1],
+      ['minutes', 'int', 1],
+      ['position', 'int', 1],
+    ],
+  },
+  schedule_proposals: {
+    summary:
+      'A proposed schedule for an experiment’s parts. `status` is requested, planning, proposed, accepted, dismissed, superseded or failed. `items` lists each slot with its instrument, person, times and what stands in its way. Nothing is booked until `accept_schedule_proposal`.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['number', 'int', 1],
+      ['record_id', 'uuid', 1],
+      ['status', 'text', 1],
+      ['reason', 'text', 1],
+      ['slipped_part_id', 'uuid', 0],
+      ['anchor_on', 'date', 1],
+      ['items', 'json', 1],
+      ['conflict_count', 'int', 1],
+      ['error_message', 'text', 0],
+      ['requested_by_user_id', 'text', 1],
+      ['decided_by_user_id', 'text', 0],
+      ['decided_at', 'ts', 0],
+      ['created_at', 'ts', 1],
+      ['planned_at', 'ts', 0],
+    ],
+  },
+  code_cell_runs: {
+    summary:
+      'Every run of a notebook code cell, kept with its code, the digests of the dataset versions it read, the first rows of the output and its digest, and the runtime it ran in (an image digest for Python). A run that reproduces another has `reproduces_run_id` and says whether the output `matches`.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['number', 'int', 1],
+      ['block_id', 'uuid', 0],
+      ['record_id', 'uuid', 1],
+      ['language', 'text', 1],
+      ['source', 'text', 1],
+      ['source_sha256', 'text', 1],
+      ['inputs', 'json', 1],
+      ['parameters', 'json', 1],
+      ['status', 'text', 1],
+      ['output', 'json', 0],
+      ['output_digest', 'text', 0],
+      ['runtime', 'text', 0],
+      ['environment', 'json', 0],
+      ['logs', 'json', 1],
+      ['error_message', 'text', 0],
+      ['duration_ms', 'int', 0],
+      ['reproduces_run_id', 'uuid', 0],
+      ['matches', 'bool', 0],
+      ['diff', 'json', 0],
+      ['ran_by_user_id', 'text', 1],
+      ['ran_at', 'ts', 1],
     ],
   },
 }
@@ -2250,5 +2401,130 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
       ['p_days', 'int', 1],
     ],
     result: 'int',
+  },
+  set_instrument_robot: {
+    summary: 'Make an instrument a robot, or change how it is reached',
+    description:
+      'Sets how worklists reach the instrument: `opentrons` (the robot is on the network) or `file` (its own software reads a folder), the worklist file it reads and the labware that file names. The folder agent on the lab computer does the rest. Needs permission to manage instruments. Returns the settings.',
+    scope: 'lab:write',
+    params: [
+      ['p_instrument_id', 'uuid', 1],
+      ['p_driver', 'text', 1],
+      ['p_worklist_format', 'text', 0],
+      ['p_labware', 'json', 0],
+    ],
+    result: 'row:instrument_robot_settings',
+  },
+  clear_instrument_robot: {
+    summary: 'Stop treating an instrument as a robot',
+    description:
+      'Removes the robot settings. Jobs already sent stay on record. Needs permission to manage instruments.',
+    scope: 'lab:write',
+    params: [['p_instrument_id', 'uuid', 1]],
+    result: 'void',
+  },
+  queue_instrument_job: {
+    summary: 'Send a worklist to a robot',
+    description:
+      'Queues a planned worklist for a robot. The folder agent puts it on the robot and the job waits, staged, until a person starts it. A worklist has one open job at a time. Sends `instrument.job.queued`.',
+    scope: 'lab:write',
+    params: [
+      ['p_instrument_id', 'uuid', 1],
+      ['p_worklist_id', 'uuid', 1],
+      ['p_note', 'text', 0],
+    ],
+    result: 'row:instrument_jobs',
+  },
+  start_instrument_job: {
+    summary: 'Start a staged robot job',
+    description:
+      'A person starts the job once it is on the robot and the deck is ready. Only a staged job can be started; a script or an assistant cannot start one for you, because the person starting it is at the robot. Sends `instrument.job.started`.',
+    scope: 'lab:write',
+    params: [['p_job_id', 'uuid', 1]],
+    result: 'row:instrument_jobs',
+  },
+  cancel_instrument_job: {
+    summary: 'Stop a robot job',
+    description:
+      'Cancels a queued or staged job at once, and asks the agent to stop a running one. Sends `instrument.job.cancelled` when it has stopped.',
+    scope: 'lab:write',
+    params: [['p_job_id', 'uuid', 1]],
+    result: 'row:instrument_jobs',
+  },
+  set_scheduler_settings: {
+    summary: 'Set the lab’s working hours',
+    description:
+      'The working day the scheduler places hands-on work in: time zone, start and end (minutes after midnight) and the days worked. Needs access to manage General settings.',
+    scope: 'lab:write',
+    params: [
+      ['p_workspace_id', 'uuid', 1],
+      ['p_timezone', 'text', 1],
+      ['p_work_start_minute', 'int', 1],
+      ['p_work_end_minute', 'int', 1],
+      ['p_work_days', 'int[]', 1],
+    ],
+    result: 'row:scheduler_settings',
+  },
+  set_part_plan: {
+    summary: 'Say how long a part takes and what it needs',
+    description:
+      'Sets a part’s hands-on time, the wait after it, and the instruments it needs (each with minutes). The list replaces the part’s earlier one. The scheduler plans from this.',
+    scope: 'lab:write',
+    params: [
+      ['p_part_id', 'uuid', 1],
+      ['p_hands_on_minutes', 'int', 0],
+      ['p_wait_after_minutes', 'int', 0],
+      ['p_needs', 'json', 0],
+    ],
+    result: 'row:part_plans',
+  },
+  request_schedule_proposal: {
+    summary: 'Ask for a proposed schedule for an experiment',
+    description:
+      'Asks the planner to lay the experiment’s parts out on instruments and people, respecting working hours, absences, each instrument’s booking rules and the waits between parts. Returns a proposal in `requested`; read it again until it is `proposed` (or `failed`). Nothing is booked. Sends `schedule.proposed` when the plan is ready.',
+    scope: 'lab:write',
+    params: [
+      ['p_record_id', 'uuid', 1],
+      ['p_reason', 'text', 0],
+      ['p_slipped_part_id', 'uuid', 0],
+    ],
+    result: 'row:schedule_proposals',
+  },
+  accept_schedule_proposal: {
+    summary: 'Accept a proposed schedule and book it',
+    description:
+      'Books each instrument slot (as the person accepting), replaces the bookings of an earlier accepted plan and moves the parts to the days planned. A slot that cannot be booked is listed in `skipped` with the reason, not hidden. Returns `{ proposalId, booked, skipped }`. Sends `schedule.accepted`.',
+    scope: 'lab:write',
+    params: [['p_proposal_id', 'uuid', 1]],
+    result: 'json',
+  },
+  dismiss_schedule_proposal: {
+    summary: 'Dismiss a proposed schedule',
+    description: 'Leaves the schedule as it is. Sends `schedule.dismissed`.',
+    scope: 'lab:write',
+    params: [['p_proposal_id', 'uuid', 1]],
+    result: 'row:schedule_proposals',
+  },
+  slip_experiment_part: {
+    summary: 'A part ran late: re-plan the rest',
+    description:
+      'Moves the part and the parts after it later by a number of days and asks for a new proposal; nothing is booked until it is accepted.',
+    scope: 'lab:write',
+    params: [
+      ['p_part_id', 'uuid', 1],
+      ['p_days', 'int', 1],
+    ],
+    result: 'row:schedule_proposals',
+  },
+  dataset_version_rows_json: {
+    summary: 'Read a dataset version as rows',
+    description:
+      'The columns and up to `p_limit` rows (default 50000) of one dataset version, as JSON: `{ versionId, datasetId, label, columns, rowCount, truncated, rows }`. Code cells read their inputs this way.',
+    scope: 'lab:read',
+    params: [
+      ['p_version_id', 'uuid', 1],
+      ['p_limit', 'int', 0],
+    ],
+    result: 'json',
   },
 }

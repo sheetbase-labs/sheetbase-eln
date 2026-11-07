@@ -21,6 +21,7 @@ import {
   IncomingWebhooks,
   OutgoingWebhooks,
 } from '#/components/settings/webhook-sections'
+import { LineageSection } from '#/components/settings/lineage-section'
 import { CreateWebhookDialog } from '#/components/settings/create-webhook-dialog'
 import { RegisterConnectorDialog } from '#/components/integrations/register-connector-dialog'
 import { createDataClient } from '#/lib/data-client'
@@ -188,6 +189,7 @@ function IntegrationsList() {
             </h2>
           </SettingsBody>
           <IncomingWebhooks workspaceId={workspaceId} />
+          <LineageSection workspaceId={workspaceId} canManage={canManage} />
         </>
       ) : null}
       {webhookOpen ? (

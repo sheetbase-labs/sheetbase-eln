@@ -412,7 +412,7 @@ DECLARE
 BEGIN
   SELECT * INTO t FROM api.publication_targets WHERE id = p_target_id;
   IF t.id IS NULL OR api.current_user_id() IS NULL OR t.workspace_id IS DISTINCT FROM api.current_workspace_id()
-     OR NOT api.is_workspace_member(t.workspace_id) THEN
+     OR NOT api.is_workspace_writer(t.workspace_id) THEN
     RAISE EXCEPTION 'repository not found' USING ERRCODE = 'SB127';
   END IF;
   IF NOT t.enabled OR NOT t.token_set THEN

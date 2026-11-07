@@ -126,6 +126,14 @@ export const NOTIFICATION_EVENTS = [
     defaultPush: true,
   },
   {
+    key: 'part_signoff_request',
+    label: 'Someone asks you to sign or countersign a part',
+    group: GROUP_DATA,
+    source: 'notification',
+    defaultEmail: false,
+    defaultPush: true,
+  },
+  {
     key: 'instrument_booking',
     label: 'Instrument booking confirmed or changed',
     group: GROUP_LAB,

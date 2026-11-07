@@ -191,6 +191,8 @@ export interface NotebookDocumentProps {
     options?: { datasetSchemaId?: string; payload?: Record<string, unknown> },
   ) => Promise<string | undefined>
   readOnly?: boolean
+  /** A signed part is locked for everyone: no access request or comment bar applies. */
+  partLocked?: boolean
   /** NOTE-02: anchors of currently collapsed sections (route presentation state). */
   collapsedSections?: ReadonlySet<string>
   /** NOTE-02: toggle a section's collapsed state. Absent on read-only canvases. */
@@ -261,6 +263,7 @@ function NotebookDocumentContent({
   onMoveBlock,
   onReplaceBlock,
   readOnly,
+  partLocked = false,
   collaborationWorkspaceId,
   collaborationRole = 'viewer',
   frozenSheetEvidence,
@@ -628,7 +631,8 @@ function NotebookDocumentContent({
   // view-only reader gets the actions they still have. Archived records are
   // neither: they are read-only for everyone and no access request applies.
   const isSigned = record.lockedAt !== null
-  const viewerActions = isReadOnly && record.archivedAt === null && !isSigned
+  const viewerActions =
+    isReadOnly && record.archivedAt === null && !isSigned && !partLocked
   // A signed section only reads where a query client exists — presentational
   // and pre-hydration renders must not open a connection.
   const hasQueryClient = React.useContext(QueryClientContext) !== undefined

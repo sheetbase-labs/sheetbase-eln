@@ -1476,6 +1476,112 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       ),
     },
   },
+  semantic_search: {
+    summary: 'Search by meaning with your own vector',
+    description:
+      'Ranks the stored passages closest to a vector you supply, through the caller’s own access, so work they cannot see never appears. The vector must be exactly 1024 numbers, unit length, made with the same model the workspace uses (see the AI settings); to search with words instead, use the MCP tool `sheetbase.search.semantic`. `p_limit` is clamped to 1–100. `p_types` limits the kinds of object (record, file, dataset, sheet, template, comment, project, analysis, deviation). Returns the closest passage per object, closest first.',
+    required: ['p_embedding'],
+    properties: {
+      p_embedding: {
+        type: 'array',
+        items: { type: 'number' },
+        minItems: 1024,
+        maxItems: 1024,
+        description: 'The query as exactly 1024 numbers.',
+      },
+      p_limit: int('How many objects, clamped 1–100.', {
+        minimum: 1,
+        maximum: 100,
+        default: 20,
+      }),
+      p_types: {
+        ...TEXT_ARRAY,
+        nullable: true,
+        description: 'Kinds of object to include. Omit for the usual set.',
+      },
+    },
+    result: {
+      type: 'array',
+      items: obj(
+        {
+          object_type: TEXT,
+          object_id: UUID,
+          title: TEXT,
+          identifier: TEXT,
+          kind: TEXT,
+          status: TEXT,
+          archived: BOOL,
+          deep_link: TEXT,
+          project_id: UUID,
+          parent_type: TEXT,
+          parent_id: UUID,
+          passage: TEXT,
+          chunk_no: { type: 'integer' },
+          similarity: { type: 'number' },
+        },
+        ['object_type', 'object_id', 'similarity'],
+      ),
+    },
+  },
+  similar_work: {
+    summary: 'Find work that reads like an experiment, dataset or file',
+    description:
+      'Returns the work closest in meaning to one object, using the vectors already stored (no model call). Only work the caller can see appears. `p_object_type` is record, file, dataset, sheet, template, analysis, project or deviation.',
+    required: ['p_object_type', 'p_object_id'],
+    properties: {
+      p_object_type: text('Kind of object.'),
+      p_object_id: uuid('The object’s UUID.'),
+      p_limit: int('How many, clamped 1–50.', {
+        minimum: 1,
+        maximum: 50,
+        default: 8,
+      }),
+      p_types: {
+        ...TEXT_ARRAY,
+        nullable: true,
+        description: 'Kinds of object to include.',
+      },
+    },
+    result: {
+      type: 'array',
+      items: obj(
+        {
+          object_type: TEXT,
+          object_id: UUID,
+          title: TEXT,
+          identifier: TEXT,
+          kind: TEXT,
+          status: TEXT,
+          archived: BOOL,
+          deep_link: TEXT,
+          project_id: UUID,
+          parent_type: TEXT,
+          parent_id: UUID,
+          passage: TEXT,
+          chunk_no: { type: 'integer' },
+          similarity: { type: 'number' },
+        },
+        ['object_type', 'object_id', 'similarity'],
+      ),
+    },
+  },
+  semantic_search_settings: {
+    summary: 'Whether search by meaning is on for a workspace',
+    description:
+      'Returns whether search by meaning and literature search are on, which embeddings model is chosen, and how many documents have been read so far.',
+    required: ['p_workspace_id'],
+    properties: { p_workspace_id: uuid('Workspace UUID.') },
+    result: obj(
+      {
+        enabled: BOOL,
+        profile: { ...TEXT, nullable: true },
+        literatureEnabled: BOOL,
+        indexedDocuments: BIGINT,
+        totalDocuments: BIGINT,
+      },
+      ['enabled', 'literatureEnabled', 'indexedDocuments', 'totalDocuments'],
+    ),
+  },
   run_saved_search: {
     summary: 'Run a saved search',
     description:

@@ -33,6 +33,7 @@ export const PAGE_AI_TASKS = [
   'explain_data',
   'suggest_chart',
   'draft_pipeline',
+  'plan_experiment',
 ] as const
 
 export type PageAiTask = (typeof PAGE_AI_TASKS)[number]
@@ -58,6 +59,8 @@ const TASK_INSTRUCTIONS: Record<PageAiTask, string> = {
     'Choose a chart type and fields that show the supplied dataset best. Use only the chart types and field ids supplied. Reply with JSON only, exactly in the shape the instruction describes.',
   draft_pipeline:
     'Draft a data pipeline from the plain-English description: its inputs, parameters, SQL steps and where the result goes. Use only the schema, dataset and column names supplied and write SQL a person can read and change. Never invent columns. Reply with JSON only, exactly in the shape the instruction describes.',
+  plan_experiment:
+    'Plan the experiment the person describes: the protocol to start from, its parts with realistic bench and instrument times, a plate with conditions and controls, whether a liquid handler worklist is needed, and which samples to set aside. Use only the protocols, instruments and samples supplied, named by their keys, and never invent steps, volumes or samples; say in warnings what you assumed. Reply with JSON only, exactly in the shape the instruction describes.',
   explain_data:
     'Explain what the supplied data shows for a bench scientist, in a few short sentences. Quote numbers and units exactly as supplied, name the trend or outliers you can see, and say what the data does not show. Do not invent values, causes or sample names. Reply with the explanation only.',
 }

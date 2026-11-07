@@ -95,6 +95,8 @@ export interface ExperimentOverviewProps {
   projectName?: string | null
   /** Panels for the fields the workspace added to Experiment. */
   addedFields?: React.ReactNode
+  /** The scheduler for an experiment in parts, shown under the parts table. */
+  schedule?: React.ReactNode
 }
 
 /** The Objective section when the notebook has one, otherwise every prose
@@ -360,6 +362,7 @@ export function ExperimentOverview({
   reviewerIds,
   projectName = null,
   addedFields = null,
+  schedule = null,
 }: ExperimentOverviewProps) {
   const navigate = useNavigate()
   const protocolSteps = protocolStepProgress(blocks)
@@ -447,6 +450,7 @@ export function ExperimentOverview({
             userLabel={userLabel}
           />
         ) : null}
+        {parts.length > 0 ? schedule : null}
 
         <Section
           title={t('projects.overview.protocol.title')}

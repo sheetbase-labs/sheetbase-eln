@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
+import { SchedulePanel } from '#/components/scheduler/schedule-panel'
+import { hasCapability } from '#/lib/capability'
 import { ExperimentOverview } from '#/components/overview/overview-view'
 import { AddedFields } from '#/components/models/added-fields'
 import type { ExperimentReadiness } from '#/components/overview/readiness'
@@ -34,6 +36,7 @@ interface FollowedByRecord {
 
 function Overview() {
   const { expId } = Route.useParams()
+  const { context } = Route.useRouteContext()
   const { data: record } = useExperimentRecord(expId)
   const links = useExperimentLinks(expId)
 
@@ -209,6 +212,13 @@ function Overview() {
       reviewerIds={submission.data?.assigned_reviewer_user_ids}
       projectName={project.data?.title ?? null}
       addedFields={<AddedFields modelKey="experiment" objectId={record.id} />}
+      schedule={
+        <SchedulePanel
+          recordId={record.id}
+          parts={parts.data ?? []}
+          canWrite={hasCapability(context.workspace?.role, 'record.create')}
+        />
+      }
     />
   )
 }

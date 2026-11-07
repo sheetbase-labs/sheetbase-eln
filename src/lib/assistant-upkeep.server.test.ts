@@ -605,6 +605,102 @@ describe('validation run card', () => {
   })
 })
 
+describe('data contract cards', () => {
+  const contract = {
+    id: 'c1',
+    name: 'Assay plate reads',
+    last_status: 'fail',
+    dataset_schema_id: 's1',
+    record_model_key: null,
+  }
+
+  it('proposes a check of the contract that matches the name', async () => {
+    const { ctx } = context({ data_contracts: [contract] })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.contract.check',
+        { ...base, contract: 'assay plate' },
+        ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: {
+        target: 'Assay plate reads',
+        deepLink: '/models/s1/contract',
+        action: { kind: 'contract.check', contractId: 'c1' },
+      },
+    })
+  })
+
+  it('says so when no contract or several match', async () => {
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.contract.check',
+        { ...base, contract: 'nothing' },
+        context({}).ctx,
+      ),
+    ).toMatchObject({ ok: false })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.contract.check',
+        { ...base, contract: 'plate' },
+        context({
+          data_contracts: [
+            contract,
+            { ...contract, id: 'c2', name: 'Plate map' },
+          ],
+        }).ctx,
+      ),
+    ).toMatchObject({ ok: false })
+  })
+
+  it('proposes a rule and refuses one the form would refuse', async () => {
+    const { ctx } = context({ data_contracts: [contract] })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.contract.add_rule',
+        {
+          ...base,
+          contract: 'Assay plate reads',
+          kind: 'range',
+          field: 'od600',
+          min: 0,
+          max: 4,
+          mode: 'block',
+        },
+        ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: {
+        action: {
+          kind: 'contract.rule_add',
+          contractId: 'c1',
+          rule: {
+            kind: 'range',
+            field: 'od600',
+            min: 0,
+            max: 4,
+            mode: 'block',
+          },
+        },
+      },
+    })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.contract.add_rule',
+        {
+          ...base,
+          contract: 'Assay plate reads',
+          kind: 'range',
+          field: 'od600',
+        },
+        ctx,
+      ),
+    ).toMatchObject({ ok: false })
+  })
+})
+
 describe('trusted timestamp cards', () => {
   const withSettings = (rows: Rows, settings: unknown) => {
     const made = context(rows)

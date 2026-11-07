@@ -20,6 +20,7 @@ from sheetbase._generated.models import (
     BlocksRow,
     CompositionAdoptionApplyResult,
     CompositionAdoptionPreview,
+    DataContractsRow,
     DatasetVersionsRow,
     DatasetsRow,
     ExperimentPartsRow,
@@ -101,6 +102,7 @@ class Rpc:
     NAMES = (
         "accept_schedule_proposal",
         "acknowledge_qc_point",
+        "add_contract_rule",
         "add_records_to_legal_hold",
         "add_registry_parent",
         "add_series_member",
@@ -123,6 +125,9 @@ class Rpc:
         "cancel_reagent_order",
         "cancel_shipment",
         "cancel_stocktake",
+        "check_dataset_contract",
+        "check_record_batch_contract",
+        "check_record_contract",
         "clear_instrument_robot",
         "commit_dataset_row_batch",
         "commit_sheet_record_batch",
@@ -149,6 +154,7 @@ class Rpc:
         "create_webhook_subscription",
         "dataset_version_rows_json",
         "delete_block",
+        "delete_data_contract",
         "delete_experiment_part",
         "delete_lineage_target",
         "delete_qc_series",
@@ -164,10 +170,12 @@ class Rpc:
         "end_step_timer",
         "enrol_sample_in_workflow",
         "event_stream_page",
+        "export_data_contract_odcs",
         "finish_agent_action",
         "follow_project",
         "get_webhook_endpoint_health",
         "hand_over_member_work",
+        "import_data_contract_odcs",
         "insert_block",
         "insert_sheet_instance_block",
         "instantiate_notebook_template_version",
@@ -190,6 +198,7 @@ class Rpc:
         "parts_in_range",
         "pool_samples",
         "prepare_solution",
+        "preview_contract_rules",
         "preview_member_handover",
         "preview_notebook_template_upgrade",
         "preview_sheet_instance_composition_adoption",
@@ -216,6 +225,7 @@ class Rpc:
         "record_storage_readings",
         "register_replacement_lot",
         "registry_find_duplicates",
+        "remove_contract_rule",
         "remove_idp_group_mapping",
         "remove_instrument_feed",
         "remove_registry_parent",
@@ -240,8 +250,10 @@ class Rpc:
         "retry_lineage_deliveries",
         "revoke_scim_token",
         "rotate_webhook_secret",
+        "run_contract_check",
         "run_lab_watcher",
         "run_saved_search",
+        "save_data_contract",
         "save_lineage_target",
         "save_plate_run_analysis",
         "save_sample_workflow",
@@ -352,6 +364,26 @@ class Rpc:
         if not isinstance(exclude, Unset):
             body["p_exclude"] = exclude
         return self._call("acknowledge_qc_point", body)  # type: ignore[no-any-return]
+
+    def add_contract_rule(
+        self,
+        *,
+        contract_id: str,
+        rule: Dict[str, "JsonValue"],
+    ) -> Union["DataContractsRow", List["DataContractsRow"]]:
+        """
+        Add a rule to a data contract
+
+        Adds one rule, such as a required field or a range. An id is made if you leave it out. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/add_contract_rule``
+        """
+        body: Dict[str, Any] = {}
+        body["p_contract_id"] = contract_id
+        body["p_rule"] = rule
+        return self._call("add_contract_rule", body)  # type: ignore[no-any-return]
 
     def add_records_to_legal_hold(self, *, hold_id: str, record_ids: List[str]) -> int:
         """
@@ -812,6 +844,63 @@ class Rpc:
         body: Dict[str, Any] = {}
         body["p_stocktake_id"] = stocktake_id
         return self._call("cancel_stocktake", body)  # type: ignore[no-any-return]
+
+    def check_dataset_contract(
+        self,
+        *,
+        dataset_id: str,
+        rows: Dict[str, "JsonValue"],
+        trigger: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Check rows against a dataset’s contract before committing them
+
+        Checks a batch of rows, in the shape of `commit_dataset_row_batch`, against the contract on the dataset’s schema and records a run. If `blocked` is true a block-mode rule found a problem and the rows should not be committed. Imports do this themselves; call it before committing from a pipeline or script.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/check_dataset_contract``
+        """
+        body: Dict[str, Any] = {}
+        body["p_dataset_id"] = dataset_id
+        body["p_rows"] = rows
+        if not isinstance(trigger, Unset):
+            body["p_trigger"] = trigger
+        return self._call("check_dataset_contract", body)  # type: ignore[no-any-return]
+
+    def check_record_batch_contract(
+        self,
+        *,
+        record_model_key: str,
+        rows: Dict[str, "JsonValue"],
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Check records about to be created against their model’s contract
+
+        Advisory: rows are `{ values: { field_name: value } }`. Nothing is recorded.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/check_record_batch_contract``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_model_key"] = record_model_key
+        body["p_rows"] = rows
+        return self._call("check_record_batch_contract", body)  # type: ignore[no-any-return]
+
+    def check_record_contract(self, *, record_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Does a record meet its model’s contract?
+
+        Advisory: lists the rules a record breaks. Nothing is recorded and nothing is blocked.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/check_record_contract``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        return self._call("check_record_contract", body)  # type: ignore[no-any-return]
 
     def clear_instrument_robot(self, *, instrument_id: str) -> None:
         """
@@ -1580,6 +1669,20 @@ class Rpc:
         body["p_expected_structure_version"] = expected_structure_version
         return self._call("delete_block", body)  # type: ignore[no-any-return]
 
+    def delete_data_contract(self, *, contract_id: str) -> None:
+        """
+        Delete a data contract
+
+        Deletes the contract and its run history. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/delete_data_contract``
+        """
+        body: Dict[str, Any] = {}
+        body["p_contract_id"] = contract_id
+        return self._call("delete_data_contract", body)  # type: ignore[no-any-return]
+
     def delete_experiment_part(
         self,
         *,
@@ -1849,6 +1952,20 @@ class Rpc:
             body["p_entity_types"] = entity_types
         return self._call("event_stream_page", body)  # type: ignore[no-any-return]
 
+    def export_data_contract_odcs(self, *, contract_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Export a data contract as ODCS
+
+        Returns the contract as an Open Data Contract Standard (v3.1) document, as JSON. Save it as YAML to keep it in git.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/export_data_contract_odcs``
+        """
+        body: Dict[str, Any] = {}
+        body["p_contract_id"] = contract_id
+        return self._call("export_data_contract_odcs", body)  # type: ignore[no-any-return]
+
     def finish_agent_action(
         self,
         *,
@@ -1933,6 +2050,30 @@ class Rpc:
         body["p_to_user_id"] = to_user_id
         body["p_selection"] = selection
         return self._call("hand_over_member_work", body)  # type: ignore[no-any-return]
+
+    def import_data_contract_odcs(
+        self,
+        *,
+        odcs: Dict[str, "JsonValue"],
+        dataset_schema_id: Union[str, Unset] = UNSET,
+        record_model_key: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Import a data contract from ODCS
+
+        Reads an ODCS v3.1 document and makes or replaces the contract it describes. The target is the dataset schema or record model named by the document unless you give one. Returns the contract and a list of what was left out. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/import_data_contract_odcs``
+        """
+        body: Dict[str, Any] = {}
+        body["p_odcs"] = odcs
+        if not isinstance(dataset_schema_id, Unset):
+            body["p_dataset_schema_id"] = dataset_schema_id
+        if not isinstance(record_model_key, Unset):
+            body["p_record_model_key"] = record_model_key
+        return self._call("import_data_contract_odcs", body)  # type: ignore[no-any-return]
 
     def insert_block(
         self,
@@ -2478,6 +2619,29 @@ class Rpc:
         if not isinstance(note, Unset):
             body["p_note"] = note
         return self._call("prepare_solution", body)  # type: ignore[no-any-return]
+
+    def preview_contract_rules(
+        self,
+        *,
+        contract_id: str,
+        rules: Dict[str, "JsonValue"],
+        dataset_id: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        See what a change of rules would find
+
+        Checks the data as it stands against rules you are thinking of, without saving them or recording a run. Needs an owner, admin or steward.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/preview_contract_rules``
+        """
+        body: Dict[str, Any] = {}
+        body["p_contract_id"] = contract_id
+        body["p_rules"] = rules
+        if not isinstance(dataset_id, Unset):
+            body["p_dataset_id"] = dataset_id
+        return self._call("preview_contract_rules", body)  # type: ignore[no-any-return]
 
     def preview_member_handover(
         self,
@@ -3085,6 +3249,26 @@ class Rpc:
             body["p_exclude_id"] = exclude_id
         return self._call("registry_find_duplicates", body)  # type: ignore[no-any-return]
 
+    def remove_contract_rule(
+        self,
+        *,
+        contract_id: str,
+        rule_id: str,
+    ) -> Union["DataContractsRow", List["DataContractsRow"]]:
+        """
+        Remove a rule from a data contract
+
+        Removes one rule by its id. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/remove_contract_rule``
+        """
+        body: Dict[str, Any] = {}
+        body["p_contract_id"] = contract_id
+        body["p_rule_id"] = rule_id
+        return self._call("remove_contract_rule", body)  # type: ignore[no-any-return]
+
     def remove_idp_group_mapping(self, *, id: str) -> None:
         """
         Remove a sign-in group mapping
@@ -3576,6 +3760,27 @@ class Rpc:
             body["p_new_secret"] = new_secret
         return self._call("rotate_webhook_secret", body)  # type: ignore[no-any-return]
 
+    def run_contract_check(
+        self,
+        *,
+        contract_id: str,
+        dataset_id: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Check a data contract now
+
+        Checks the stored data against the contract and keeps the result as a run: every active dataset under a dataset schema contract (or the one named), or the records of a model. Returns the standing and the runs.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/run_contract_check``
+        """
+        body: Dict[str, Any] = {}
+        body["p_contract_id"] = contract_id
+        if not isinstance(dataset_id, Unset):
+            body["p_dataset_id"] = dataset_id
+        return self._call("run_contract_check", body)  # type: ignore[no-any-return]
+
     def run_lab_watcher(self, *, watcher_id: str) -> int:
         """
         Run a lab watcher now
@@ -3613,6 +3818,46 @@ class Rpc:
         if not isinstance(offset, Unset):
             body["p_offset"] = offset
         return self._call("run_saved_search", body)  # type: ignore[no-any-return]
+
+    def save_data_contract(
+        self,
+        *,
+        dataset_schema_id: Union[str, Unset] = UNSET,
+        record_model_key: Union[str, Unset] = UNSET,
+        rules: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        name: Union[str, Unset] = UNSET,
+        description: Union[str, Unset] = UNSET,
+        owner_user_id: Union[str, Unset] = UNSET,
+        lifecycle: Union[str, Unset] = UNSET,
+        schedule_minutes: Union[int, Unset] = UNSET,
+    ) -> Union["DataContractsRow", List["DataContractsRow"]]:
+        """
+        Make or change a data contract
+
+        Makes the contract on a dataset schema or a record model, or changes it. Anything left out keeps its value. A change of rules makes a new version. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/save_data_contract``
+        """
+        body: Dict[str, Any] = {}
+        if not isinstance(dataset_schema_id, Unset):
+            body["p_dataset_schema_id"] = dataset_schema_id
+        if not isinstance(record_model_key, Unset):
+            body["p_record_model_key"] = record_model_key
+        if not isinstance(rules, Unset):
+            body["p_rules"] = rules
+        if not isinstance(name, Unset):
+            body["p_name"] = name
+        if not isinstance(description, Unset):
+            body["p_description"] = description
+        if not isinstance(owner_user_id, Unset):
+            body["p_owner_user_id"] = owner_user_id
+        if not isinstance(lifecycle, Unset):
+            body["p_lifecycle"] = lifecycle
+        if not isinstance(schedule_minutes, Unset):
+            body["p_schedule_minutes"] = schedule_minutes
+        return self._call("save_data_contract", body)  # type: ignore[no-any-return]
 
     def save_lineage_target(
         self,
@@ -5097,6 +5342,7 @@ class AsyncRpc:
     NAMES = (
         "accept_schedule_proposal",
         "acknowledge_qc_point",
+        "add_contract_rule",
         "add_records_to_legal_hold",
         "add_registry_parent",
         "add_series_member",
@@ -5119,6 +5365,9 @@ class AsyncRpc:
         "cancel_reagent_order",
         "cancel_shipment",
         "cancel_stocktake",
+        "check_dataset_contract",
+        "check_record_batch_contract",
+        "check_record_contract",
         "clear_instrument_robot",
         "commit_dataset_row_batch",
         "commit_sheet_record_batch",
@@ -5145,6 +5394,7 @@ class AsyncRpc:
         "create_webhook_subscription",
         "dataset_version_rows_json",
         "delete_block",
+        "delete_data_contract",
         "delete_experiment_part",
         "delete_lineage_target",
         "delete_qc_series",
@@ -5160,10 +5410,12 @@ class AsyncRpc:
         "end_step_timer",
         "enrol_sample_in_workflow",
         "event_stream_page",
+        "export_data_contract_odcs",
         "finish_agent_action",
         "follow_project",
         "get_webhook_endpoint_health",
         "hand_over_member_work",
+        "import_data_contract_odcs",
         "insert_block",
         "insert_sheet_instance_block",
         "instantiate_notebook_template_version",
@@ -5186,6 +5438,7 @@ class AsyncRpc:
         "parts_in_range",
         "pool_samples",
         "prepare_solution",
+        "preview_contract_rules",
         "preview_member_handover",
         "preview_notebook_template_upgrade",
         "preview_sheet_instance_composition_adoption",
@@ -5212,6 +5465,7 @@ class AsyncRpc:
         "record_storage_readings",
         "register_replacement_lot",
         "registry_find_duplicates",
+        "remove_contract_rule",
         "remove_idp_group_mapping",
         "remove_instrument_feed",
         "remove_registry_parent",
@@ -5236,8 +5490,10 @@ class AsyncRpc:
         "retry_lineage_deliveries",
         "revoke_scim_token",
         "rotate_webhook_secret",
+        "run_contract_check",
         "run_lab_watcher",
         "run_saved_search",
+        "save_data_contract",
         "save_lineage_target",
         "save_plate_run_analysis",
         "save_sample_workflow",
@@ -5348,6 +5604,26 @@ class AsyncRpc:
         if not isinstance(exclude, Unset):
             body["p_exclude"] = exclude
         return await self._call("acknowledge_qc_point", body)  # type: ignore[no-any-return]
+
+    async def add_contract_rule(
+        self,
+        *,
+        contract_id: str,
+        rule: Dict[str, "JsonValue"],
+    ) -> Union["DataContractsRow", List["DataContractsRow"]]:
+        """
+        Add a rule to a data contract
+
+        Adds one rule, such as a required field or a range. An id is made if you leave it out. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/add_contract_rule``
+        """
+        body: Dict[str, Any] = {}
+        body["p_contract_id"] = contract_id
+        body["p_rule"] = rule
+        return await self._call("add_contract_rule", body)  # type: ignore[no-any-return]
 
     async def add_records_to_legal_hold(self, *, hold_id: str, record_ids: List[str]) -> int:
         """
@@ -5808,6 +6084,63 @@ class AsyncRpc:
         body: Dict[str, Any] = {}
         body["p_stocktake_id"] = stocktake_id
         return await self._call("cancel_stocktake", body)  # type: ignore[no-any-return]
+
+    async def check_dataset_contract(
+        self,
+        *,
+        dataset_id: str,
+        rows: Dict[str, "JsonValue"],
+        trigger: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Check rows against a dataset’s contract before committing them
+
+        Checks a batch of rows, in the shape of `commit_dataset_row_batch`, against the contract on the dataset’s schema and records a run. If `blocked` is true a block-mode rule found a problem and the rows should not be committed. Imports do this themselves; call it before committing from a pipeline or script.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/check_dataset_contract``
+        """
+        body: Dict[str, Any] = {}
+        body["p_dataset_id"] = dataset_id
+        body["p_rows"] = rows
+        if not isinstance(trigger, Unset):
+            body["p_trigger"] = trigger
+        return await self._call("check_dataset_contract", body)  # type: ignore[no-any-return]
+
+    async def check_record_batch_contract(
+        self,
+        *,
+        record_model_key: str,
+        rows: Dict[str, "JsonValue"],
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Check records about to be created against their model’s contract
+
+        Advisory: rows are `{ values: { field_name: value } }`. Nothing is recorded.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/check_record_batch_contract``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_model_key"] = record_model_key
+        body["p_rows"] = rows
+        return await self._call("check_record_batch_contract", body)  # type: ignore[no-any-return]
+
+    async def check_record_contract(self, *, record_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Does a record meet its model’s contract?
+
+        Advisory: lists the rules a record breaks. Nothing is recorded and nothing is blocked.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/check_record_contract``
+        """
+        body: Dict[str, Any] = {}
+        body["p_record_id"] = record_id
+        return await self._call("check_record_contract", body)  # type: ignore[no-any-return]
 
     async def clear_instrument_robot(self, *, instrument_id: str) -> None:
         """
@@ -6576,6 +6909,20 @@ class AsyncRpc:
         body["p_expected_structure_version"] = expected_structure_version
         return await self._call("delete_block", body)  # type: ignore[no-any-return]
 
+    async def delete_data_contract(self, *, contract_id: str) -> None:
+        """
+        Delete a data contract
+
+        Deletes the contract and its run history. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/delete_data_contract``
+        """
+        body: Dict[str, Any] = {}
+        body["p_contract_id"] = contract_id
+        return await self._call("delete_data_contract", body)  # type: ignore[no-any-return]
+
     async def delete_experiment_part(
         self,
         *,
@@ -6845,6 +7192,20 @@ class AsyncRpc:
             body["p_entity_types"] = entity_types
         return await self._call("event_stream_page", body)  # type: ignore[no-any-return]
 
+    async def export_data_contract_odcs(self, *, contract_id: str) -> Dict[str, "JsonValue"]:
+        """
+        Export a data contract as ODCS
+
+        Returns the contract as an Open Data Contract Standard (v3.1) document, as JSON. Save it as YAML to keep it in git.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/export_data_contract_odcs``
+        """
+        body: Dict[str, Any] = {}
+        body["p_contract_id"] = contract_id
+        return await self._call("export_data_contract_odcs", body)  # type: ignore[no-any-return]
+
     async def finish_agent_action(
         self,
         *,
@@ -6929,6 +7290,30 @@ class AsyncRpc:
         body["p_to_user_id"] = to_user_id
         body["p_selection"] = selection
         return await self._call("hand_over_member_work", body)  # type: ignore[no-any-return]
+
+    async def import_data_contract_odcs(
+        self,
+        *,
+        odcs: Dict[str, "JsonValue"],
+        dataset_schema_id: Union[str, Unset] = UNSET,
+        record_model_key: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Import a data contract from ODCS
+
+        Reads an ODCS v3.1 document and makes or replaces the contract it describes. The target is the dataset schema or record model named by the document unless you give one. Returns the contract and a list of what was left out. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/import_data_contract_odcs``
+        """
+        body: Dict[str, Any] = {}
+        body["p_odcs"] = odcs
+        if not isinstance(dataset_schema_id, Unset):
+            body["p_dataset_schema_id"] = dataset_schema_id
+        if not isinstance(record_model_key, Unset):
+            body["p_record_model_key"] = record_model_key
+        return await self._call("import_data_contract_odcs", body)  # type: ignore[no-any-return]
 
     async def insert_block(
         self,
@@ -7474,6 +7859,29 @@ class AsyncRpc:
         if not isinstance(note, Unset):
             body["p_note"] = note
         return await self._call("prepare_solution", body)  # type: ignore[no-any-return]
+
+    async def preview_contract_rules(
+        self,
+        *,
+        contract_id: str,
+        rules: Dict[str, "JsonValue"],
+        dataset_id: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        See what a change of rules would find
+
+        Checks the data as it stands against rules you are thinking of, without saving them or recording a run. Needs an owner, admin or steward.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/preview_contract_rules``
+        """
+        body: Dict[str, Any] = {}
+        body["p_contract_id"] = contract_id
+        body["p_rules"] = rules
+        if not isinstance(dataset_id, Unset):
+            body["p_dataset_id"] = dataset_id
+        return await self._call("preview_contract_rules", body)  # type: ignore[no-any-return]
 
     async def preview_member_handover(
         self,
@@ -8081,6 +8489,26 @@ class AsyncRpc:
             body["p_exclude_id"] = exclude_id
         return await self._call("registry_find_duplicates", body)  # type: ignore[no-any-return]
 
+    async def remove_contract_rule(
+        self,
+        *,
+        contract_id: str,
+        rule_id: str,
+    ) -> Union["DataContractsRow", List["DataContractsRow"]]:
+        """
+        Remove a rule from a data contract
+
+        Removes one rule by its id. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/remove_contract_rule``
+        """
+        body: Dict[str, Any] = {}
+        body["p_contract_id"] = contract_id
+        body["p_rule_id"] = rule_id
+        return await self._call("remove_contract_rule", body)  # type: ignore[no-any-return]
+
     async def remove_idp_group_mapping(self, *, id: str) -> None:
         """
         Remove a sign-in group mapping
@@ -8572,6 +9000,27 @@ class AsyncRpc:
             body["p_new_secret"] = new_secret
         return await self._call("rotate_webhook_secret", body)  # type: ignore[no-any-return]
 
+    async def run_contract_check(
+        self,
+        *,
+        contract_id: str,
+        dataset_id: Union[str, Unset] = UNSET,
+    ) -> Dict[str, "JsonValue"]:
+        """
+        Check a data contract now
+
+        Checks the stored data against the contract and keeps the result as a run: every active dataset under a dataset schema contract (or the one named), or the records of a model. Returns the standing and the runs.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/run_contract_check``
+        """
+        body: Dict[str, Any] = {}
+        body["p_contract_id"] = contract_id
+        if not isinstance(dataset_id, Unset):
+            body["p_dataset_id"] = dataset_id
+        return await self._call("run_contract_check", body)  # type: ignore[no-any-return]
+
     async def run_lab_watcher(self, *, watcher_id: str) -> int:
         """
         Run a lab watcher now
@@ -8609,6 +9058,46 @@ class AsyncRpc:
         if not isinstance(offset, Unset):
             body["p_offset"] = offset
         return await self._call("run_saved_search", body)  # type: ignore[no-any-return]
+
+    async def save_data_contract(
+        self,
+        *,
+        dataset_schema_id: Union[str, Unset] = UNSET,
+        record_model_key: Union[str, Unset] = UNSET,
+        rules: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        name: Union[str, Unset] = UNSET,
+        description: Union[str, Unset] = UNSET,
+        owner_user_id: Union[str, Unset] = UNSET,
+        lifecycle: Union[str, Unset] = UNSET,
+        schedule_minutes: Union[int, Unset] = UNSET,
+    ) -> Union["DataContractsRow", List["DataContractsRow"]]:
+        """
+        Make or change a data contract
+
+        Makes the contract on a dataset schema or a record model, or changes it. Anything left out keeps its value. A change of rules makes a new version. Needs an owner, admin or steward.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/save_data_contract``
+        """
+        body: Dict[str, Any] = {}
+        if not isinstance(dataset_schema_id, Unset):
+            body["p_dataset_schema_id"] = dataset_schema_id
+        if not isinstance(record_model_key, Unset):
+            body["p_record_model_key"] = record_model_key
+        if not isinstance(rules, Unset):
+            body["p_rules"] = rules
+        if not isinstance(name, Unset):
+            body["p_name"] = name
+        if not isinstance(description, Unset):
+            body["p_description"] = description
+        if not isinstance(owner_user_id, Unset):
+            body["p_owner_user_id"] = owner_user_id
+        if not isinstance(lifecycle, Unset):
+            body["p_lifecycle"] = lifecycle
+        if not isinstance(schedule_minutes, Unset):
+            body["p_schedule_minutes"] = schedule_minutes
+        return await self._call("save_data_contract", body)  # type: ignore[no-any-return]
 
     async def save_lineage_target(
         self,

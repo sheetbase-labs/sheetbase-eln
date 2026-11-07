@@ -32,6 +32,9 @@ from sheetbase._generated.models import (
     BlocksRowInsert,
     BlocksRowPatch,
     CodeCellRunsRow,
+    DataContractDatasetStatusRow,
+    DataContractRunsRow,
+    DataContractsRow,
     DatasetSchemaDefinitionsRow,
     DatasetSchemaVersionFieldsRow,
     DatasetSchemaVersionsRow,
@@ -333,6 +336,60 @@ class AsyncCodeCellRunsTable(AsyncReadableTable[CodeCellRunsRow]):
     Scopes: lab:read.
     """
     name = "code_cell_runs"
+
+
+class DataContractDatasetStatusTable(ReadableTable[DataContractDatasetStatusRow]):
+    """
+    ``/api/db/data_contract_dataset_status`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "data_contract_dataset_status"
+
+
+class AsyncDataContractDatasetStatusTable(AsyncReadableTable[DataContractDatasetStatusRow]):
+    """
+    ``/api/db/data_contract_dataset_status`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "data_contract_dataset_status"
+
+
+class DataContractRunsTable(ReadableTable[DataContractRunsRow]):
+    """
+    ``/api/db/data_contract_runs`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "data_contract_runs"
+
+
+class AsyncDataContractRunsTable(AsyncReadableTable[DataContractRunsRow]):
+    """
+    ``/api/db/data_contract_runs`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "data_contract_runs"
+
+
+class DataContractsTable(ReadableTable[DataContractsRow]):
+    """
+    ``/api/db/data_contracts`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "data_contracts"
+
+
+class AsyncDataContractsTable(AsyncReadableTable[DataContractsRow]):
+    """
+    ``/api/db/data_contracts`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "data_contracts"
 
 
 class DatasetSchemaDefinitionsTable(ReadableTable[DatasetSchemaDefinitionsRow]):
@@ -1946,6 +2003,9 @@ class Tables:
         "ai_eval_runs",
         "blocks",
         "code_cell_runs",
+        "data_contract_dataset_status",
+        "data_contract_runs",
+        "data_contracts",
         "dataset_schema_definitions",
         "dataset_schema_version_fields",
         "dataset_schema_versions",
@@ -2047,6 +2107,9 @@ class Tables:
         self.ai_eval_runs = AiEvalRunsTable(transport)
         self.blocks = BlocksTable(transport)
         self.code_cell_runs = CodeCellRunsTable(transport)
+        self.data_contract_dataset_status = DataContractDatasetStatusTable(transport)
+        self.data_contract_runs = DataContractRunsTable(transport)
+        self.data_contracts = DataContractsTable(transport)
         self.dataset_schema_definitions = DatasetSchemaDefinitionsTable(transport)
         self.dataset_schema_version_fields = DatasetSchemaVersionFieldsTable(transport)
         self.dataset_schema_versions = DatasetSchemaVersionsTable(transport)
@@ -2159,6 +2222,9 @@ class AsyncTables:
         "ai_eval_runs",
         "blocks",
         "code_cell_runs",
+        "data_contract_dataset_status",
+        "data_contract_runs",
+        "data_contracts",
         "dataset_schema_definitions",
         "dataset_schema_version_fields",
         "dataset_schema_versions",
@@ -2260,6 +2326,9 @@ class AsyncTables:
         self.ai_eval_runs = AsyncAiEvalRunsTable(transport)
         self.blocks = AsyncBlocksTable(transport)
         self.code_cell_runs = AsyncCodeCellRunsTable(transport)
+        self.data_contract_dataset_status = AsyncDataContractDatasetStatusTable(transport)
+        self.data_contract_runs = AsyncDataContractRunsTable(transport)
+        self.data_contracts = AsyncDataContractsTable(transport)
         self.dataset_schema_definitions = AsyncDatasetSchemaDefinitionsTable(transport)
         self.dataset_schema_version_fields = AsyncDatasetSchemaVersionFieldsTable(transport)
         self.dataset_schema_versions = AsyncDatasetSchemaVersionsTable(transport)

@@ -617,6 +617,18 @@ export const workspaceSettings = api.table(
       .default(
         sql`'{"assistant": true, "mcp_read": true, "mcp_draft": true, "mcp_workflow": false, "mcp_admin_read": false, "mcp_admin_propose": false, "mcp_lab": false}'::jsonb`,
       ),
+    /**
+     * Search by meaning. Off until an owner names an embeddings profile (a
+     * deployment provider, which can be local); literature search sends the
+     * typed query to public indexes and is a separate opt-in.
+     */
+    semanticSearchEnabled: boolean('semantic_search_enabled')
+      .notNull()
+      .default(false),
+    embeddingsProfile: text('embeddings_profile'),
+    literatureSearchEnabled: boolean('literature_search_enabled')
+      .notNull()
+      .default(false),
     integrationSettings: jsonb('integration_settings')
       .notNull()
       .default(sql`'{}'`),

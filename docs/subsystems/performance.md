@@ -32,7 +32,7 @@ stack as the VPS deployment:
 CPU              Apple M2 Pro (10 cores)
 RAM              32 GiB
 OS               darwin 25.5.0
-PostgreSQL       18.6 (postgres:18-alpine, Docker/OrbStack)
+PostgreSQL       18.6 (postgres:18-alpine plus pgvector, Docker/OrbStack)
 Node             v26.0.0
 container/native Docker (OrbStack) for PostgreSQL/PostgREST; native Node
 commit SHA       85270d9 (canonical PLAT-05 baseline; per-run reports embed their SHA)

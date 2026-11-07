@@ -86,6 +86,7 @@ import { Route as SheetsNewRouteImport } from './routes/sheets/new'
 import { Route as SignInTwoFactorRouteImport } from './routes/sign-in_.two-factor'
 import { Route as StocktakeStocktakeIdRouteImport } from './routes/stocktake_.$stocktakeId'
 import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$templateId'
+import { Route as ApiAiEvalsRouteImport } from './routes/api/ai/evals'
 import { Route as ApiAssistantChatRouteImport } from './routes/api/assistant.chat'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAvatarsUserIdRouteImport } from './routes/api/avatars/$userId'
@@ -614,6 +615,11 @@ const TemplatesTemplateIdRoute = TemplatesTemplateIdRouteImport.update({
   id: '/$templateId',
   path: '/$templateId',
   getParentRoute: () => TemplatesRoute,
+} as any)
+const ApiAiEvalsRoute = ApiAiEvalsRouteImport.update({
+  id: '/api/ai/evals',
+  path: '/api/ai/evals',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAssistantChatRoute = ApiAssistantChatRouteImport.update({
   id: '/api/assistant/chat',
@@ -1456,6 +1462,7 @@ export interface FileRoutesByFullPath {
   '/import/': typeof ImportIndexRoute
   '/review/': typeof ReviewIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/api/ai/evals': typeof ApiAiEvalsRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatars/$userId': typeof ApiAvatarsUserIdRoute
@@ -1665,6 +1672,7 @@ export interface FileRoutesByTo {
   '/import': typeof ImportIndexRoute
   '/review': typeof ReviewIndexRoute
   '/settings': typeof SettingsIndexRoute
+  '/api/ai/evals': typeof ApiAiEvalsRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatars/$userId': typeof ApiAvatarsUserIdRoute
@@ -1884,6 +1892,7 @@ export interface FileRoutesById {
   '/import/': typeof ImportIndexRoute
   '/review/': typeof ReviewIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/api/ai/evals': typeof ApiAiEvalsRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/avatars/$userId': typeof ApiAvatarsUserIdRoute
@@ -2107,6 +2116,7 @@ export interface FileRouteTypes {
     | '/import/'
     | '/review/'
     | '/settings/'
+    | '/api/ai/evals'
     | '/api/assistant/chat'
     | '/api/auth/$'
     | '/api/avatars/$userId'
@@ -2316,6 +2326,7 @@ export interface FileRouteTypes {
     | '/import'
     | '/review'
     | '/settings'
+    | '/api/ai/evals'
     | '/api/assistant/chat'
     | '/api/auth/$'
     | '/api/avatars/$userId'
@@ -2534,6 +2545,7 @@ export interface FileRouteTypes {
     | '/import/'
     | '/review/'
     | '/settings/'
+    | '/api/ai/evals'
     | '/api/assistant/chat'
     | '/api/auth/$'
     | '/api/avatars/$userId'
@@ -2734,6 +2746,7 @@ export interface RootRouteChildren {
   SignInTwoFactorRoute: typeof SignInTwoFactorRoute
   StocktakeStocktakeIdRoute: typeof StocktakeStocktakeIdRoute
   ReviewIndexRoute: typeof ReviewIndexRoute
+  ApiAiEvalsRoute: typeof ApiAiEvalsRoute
   ApiAssistantChatRoute: typeof ApiAssistantChatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiAvatarsUserIdRoute: typeof ApiAvatarsUserIdRoute
@@ -3328,6 +3341,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/templates/$templateId'
       preLoaderRoute: typeof TemplatesTemplateIdRouteImport
       parentRoute: typeof TemplatesRoute
+    }
+    '/api/ai/evals': {
+      id: '/api/ai/evals'
+      path: '/api/ai/evals'
+      fullPath: '/api/ai/evals'
+      preLoaderRoute: typeof ApiAiEvalsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/assistant/chat': {
       id: '/api/assistant/chat'
@@ -4882,6 +4902,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignInTwoFactorRoute: SignInTwoFactorRoute,
   StocktakeStocktakeIdRoute: StocktakeStocktakeIdRoute,
   ReviewIndexRoute: ReviewIndexRoute,
+  ApiAiEvalsRoute: ApiAiEvalsRoute,
   ApiAssistantChatRoute: ApiAssistantChatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiAvatarsUserIdRoute: ApiAvatarsUserIdRoute,
@@ -4939,3 +4960,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

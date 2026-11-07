@@ -111,6 +111,12 @@ export const EVENT_NAMES = [
   'member.role_changed_by_groups',
   'member.passkey_added',
   'member.passkey_removed',
+  'agent.policy.changed',
+  'agent.action.requested',
+  'agent.action.decided',
+  'agent.action.completed',
+  'ai.eval.completed',
+  'watcher.finding.created',
   // Lab features: stock, shipping, requests, holds, workflows.
   'reagent.order.requested',
   'reagent.order.placed',

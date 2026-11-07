@@ -117,6 +117,15 @@ const absenceCoverMiddleware = createMiddleware().server(async ({ next }) => {
   return next()
 })
 
+// Lab watchers: scheduled reviews of the lab that leave findings in the Inbox.
+// Guarded like the other schedulers.
+const labWatcherMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startLabWatcherScheduler } =
+    await import('#/lib/lab-watcher-scheduler.server')
+  startLabWatcherScheduler()
+  return next()
+})
+
 // Step timers: writes the bell notification for a timer that has ended, for
 // people with no page open. Guarded like the other schedulers.
 const stepTimerMiddleware = createMiddleware().server(async ({ next }) => {
@@ -238,6 +247,7 @@ export const startInstance = createStart(() => ({
     reagentExpirySchedulerMiddleware,
     recurringWorkMiddleware,
     absenceCoverMiddleware,
+    labWatcherMiddleware,
     stepTimerMiddleware,
     auditVerificationMiddleware,
     timestampMiddleware,

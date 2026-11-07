@@ -1272,6 +1272,7 @@ export function RecordNotebookPage({
                       record.status === 'approved' ||
                       Boolean(shownPartNow?.signed)
                     }
+                    partLocked={Boolean(shownPartNow?.signed)}
                     onUnsavedWorkChange={setHasUnsavedWork}
                     onCellSelectionChange={onCellSelectionChange}
                   />
@@ -2395,6 +2396,7 @@ export function NotebookCanvas({
   collaborationRole = 'viewer',
   outline,
   viewOnly = false,
+  partLocked = false,
   onCellSelectionChange,
 }: {
   record: NotebookRecord
@@ -2423,6 +2425,8 @@ export function NotebookCanvas({
    * editable path that only the server would refuse.
    */
   viewOnly?: boolean
+  /** The shown part is signed: read-only for everyone, so no access prompt. */
+  partLocked?: boolean
   /**
    * EXP-04.4: the selected Sheet cell, lifted to the route so the inspector
    * can describe it. The view-only path publishes too — a viewer may select a
@@ -2486,6 +2490,7 @@ export function NotebookCanvas({
         record={record}
         blocks={blocks}
         readOnly
+        partLocked={partLocked}
         collaborationWorkspaceId={collaborationWorkspaceId}
         onSaveBlock={async () => ({ ok: true })}
         onInsertBlock={async () => undefined}

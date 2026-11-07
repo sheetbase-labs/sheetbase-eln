@@ -40,6 +40,8 @@ export const VALIDATION_RUN_TOOL = 'sheetbase.validation.run'
 export const PIPELINE_REPRODUCE_TOOL = 'sheetbase.pipeline.reproduce'
 export const CONTRACT_CHECK_TOOL = 'sheetbase.contract.check'
 export const CONTRACT_RULE_ADD_TOOL = 'sheetbase.contract.add_rule'
+export const OPEN_TABLES_SET_TOOL = 'sheetbase.open_tables.set'
+export const PUBLICATION_REQUEST_TOOL = 'sheetbase.publication.request'
 
 export const UPKEEP_PROPOSE_TOOL_NAMES = [
   PROJECT_CREATE_TOOL,
@@ -63,6 +65,8 @@ export const UPKEEP_PROPOSE_TOOL_NAMES = [
   PIPELINE_REPRODUCE_TOOL,
   CONTRACT_CHECK_TOOL,
   CONTRACT_RULE_ADD_TOOL,
+  OPEN_TABLES_SET_TOOL,
+  PUBLICATION_REQUEST_TOOL,
 ] as const
 
 export type UpkeepProposeToolName = (typeof UPKEEP_PROPOSE_TOOL_NAMES)[number]
@@ -274,6 +278,61 @@ export const proposeTimestampsRetrySchema = z
   })
   .strict()
 
+export const proposeOpenTablesSetSchema = z
+  .object({
+    title,
+    summary,
+    enabled: z
+      .boolean()
+      .describe(
+        'true to write the workspace’s data as open tables (Parquet files analysts can query in DuckDB, Polars or Spark); false to stop.',
+      ),
+  })
+  .strict()
+
+export const proposePublicationRequestSchema = z
+  .object({
+    title,
+    summary,
+    kind: z
+      .enum(['experiment', 'dataset_version'])
+      .describe('What to publish.'),
+    experiment: z
+      .string()
+      .max(200)
+      .optional()
+      .describe(
+        'For an experiment: its identifier such as EXP-12, or its title.',
+      ),
+    dataset: z
+      .string()
+      .max(200)
+      .optional()
+      .describe('For a dataset version: the dataset’s name.'),
+    version: z
+      .string()
+      .max(200)
+      .optional()
+      .describe(
+        'For a dataset version: the version label. Defaults to the newest.',
+      ),
+    repository: z
+      .string()
+      .max(120)
+      .optional()
+      .describe(
+        'The repository’s name as set up in the app. Optional when there is only one.',
+      ),
+    publicationTitle: z
+      .string()
+      .max(200)
+      .optional()
+      .describe(
+        'Title for the published record. Defaults to the experiment or version name.',
+      ),
+  })
+  .strict()
+
 export const proposeValidationRunSchema = z.object({ title, summary }).strict()
 
 export const proposePipelineReproduceSchema = z
@@ -468,6 +527,15 @@ export type UpkeepAction =
   | { kind: 'pipeline.reproduce'; runId: string; definitionId: string }
   | { kind: 'contract.check'; contractId: string }
   | { kind: 'contract.rule_add'; contractId: string; rule: ContractRuleInput }
+  | { kind: 'open_tables.set'; workspaceId: string; enabled: boolean }
+  | {
+      kind: 'publication.request'
+      targetId: string
+      objectKind: 'experiment' | 'dataset_version'
+      objectId: string
+      title: string
+      license: string
+    }
 
 export type UpkeepActionKind = UpkeepAction['kind']
 
@@ -494,6 +562,8 @@ const KINDS: readonly string[] = [
   'pipeline.reproduce',
   'contract.check',
   'contract.rule_add',
+  'open_tables.set',
+  'publication.request',
 ]
 
 export function isUpkeepAction(action: {

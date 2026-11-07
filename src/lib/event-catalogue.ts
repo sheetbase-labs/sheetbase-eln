@@ -94,6 +94,7 @@ export type CatalogueIntroducedIn =
   | 'agents-01'
   | 'prov-01'
   | 'contract-01'
+  | 'data-01'
 
 /** Which consumers can observe the event today. */
 export interface EventConsumerMap {
@@ -1640,6 +1641,153 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     consumers: webhookSse,
   },
   {
+    name: 'lake.table.updated',
+    family: 'administration',
+    summary:
+      'An open table was written or refreshed. The payload names the table, its row count and the snapshot.',
+    producer: {
+      entityType: 'lake_table',
+      operation: 'update',
+      when: { key: 'action', equals: 'lake-table-updated' },
+    },
+    wireName: 'lake.table.updated',
+    status: 'stable',
+    introducedIn: 'data-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'lake.settings.updated',
+    family: 'administration',
+    summary:
+      'Open tables were turned on or off.',
+    producer: {
+      entityType: 'lake_table',
+      operation: 'update',
+      when: { key: 'action', equals: 'lake-settings' },
+    },
+    wireName: 'lake.settings.updated',
+    status: 'stable',
+    introducedIn: 'data-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'publication.created',
+    family: 'compliance',
+    summary:
+      'Someone asked to publish an experiment or dataset version to a repository.',
+    producer: {
+      entityType: 'publication',
+      operation: 'create',
+    },
+    wireName: 'publication.created',
+    status: 'stable',
+    introducedIn: 'data-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'publication.drafted',
+    family: 'compliance',
+    summary:
+      'The repository holds a draft with a reserved DOI, waiting for a person to publish it.',
+    producer: {
+      entityType: 'publication',
+      operation: 'update',
+      when: { key: 'action', equals: 'publication-drafted' },
+    },
+    wireName: 'publication.drafted',
+    status: 'stable',
+    introducedIn: 'data-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'publication.published',
+    family: 'compliance',
+    summary:
+      'A record was published with a DOI. This cannot be undone.',
+    producer: {
+      entityType: 'publication',
+      operation: 'update',
+      when: { key: 'action', equals: 'publication-published' },
+    },
+    wireName: 'publication.published',
+    status: 'stable',
+    introducedIn: 'data-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'publication.failed',
+    family: 'compliance',
+    summary:
+      'Publishing gave up after several tries. The payload carries the repository’s reason.',
+    producer: {
+      entityType: 'publication',
+      operation: 'update',
+      when: { key: 'action', equals: 'publication-failed' },
+    },
+    wireName: 'publication.failed',
+    status: 'stable',
+    introducedIn: 'data-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'publication_target.updated',
+    family: 'administration',
+    summary:
+      'A publishing repository was added or changed.',
+    producer: {
+      entityType: 'publication_target',
+      operation: 'update',
+      when: { key: 'action', equals: 'target-saved' },
+    },
+    wireName: 'publication_target.updated',
+    status: 'stable',
+    introducedIn: 'data-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'ontology.term.linked',
+    family: 'administration',
+    summary:
+      'A standard ontology term was attached to a field or vocabulary term.',
+    producer: {
+      entityType: 'ontology_annotation',
+      operation: 'create',
+    },
+    wireName: 'ontology.term.linked',
+    status: 'stable',
+    introducedIn: 'data-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'ontology.term.unlinked',
+    family: 'administration',
+    summary:
+      'A standard ontology term was removed from a field or vocabulary term.',
+    producer: {
+      entityType: 'ontology_annotation',
+      operation: 'delete',
+    },
+    wireName: 'ontology.term.unlinked',
+    status: 'stable',
+    introducedIn: 'data-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'ontology.settings.updated',
+    family: 'administration',
+    summary:
+      'Ontology lookup was turned on or off for the workspace.',
+    producer: {
+      entityType: 'ontology_annotation',
+      operation: 'update',
+      when: { key: 'action', equals: 'ontology-settings' },
+    },
+    wireName: 'ontology.settings.updated',
+    status: 'stable',
+    introducedIn: 'data-01',
+    consumers: webhookSse,
+  },
+  {
     name: 'validation.run_completed',
     family: 'compliance',
     summary:
@@ -2616,6 +2764,16 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
   'signature.timestamped': 'A signature is timestamped',
   'signature.timestamp_failed': 'A signature’s timestamp gives up',
   'workspace.timestamping.updated': 'The time-stamping service changes',
+  'lake.table.updated': 'An open table is refreshed',
+  'lake.settings.updated': 'Open tables are turned on or off',
+  'publication.created': 'Someone asks to publish',
+  'publication.drafted': 'A repository draft is ready',
+  'publication.published': 'A record is published with a DOI',
+  'publication.failed': 'Publishing gives up',
+  'publication_target.updated': 'A publishing repository changes',
+  'ontology.term.linked': 'A standard term is attached',
+  'ontology.term.unlinked': 'A standard term is removed',
+  'ontology.settings.updated': 'Ontology lookup is turned on or off',
   'order.priced': 'An order’s price is set',
   'order.price_removed': 'An order’s price is removed',
   'instrument.rate_set': 'An instrument’s rate is set',

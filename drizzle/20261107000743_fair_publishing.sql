@@ -416,7 +416,7 @@ BEGIN
     RAISE EXCEPTION 'repository not found' USING ERRCODE = 'SB127';
   END IF;
   IF NOT t.enabled OR NOT t.token_set THEN
-    RAISE EXCEPTION 'this repository is off or has no token yet (Settings > Integrations)' USING ERRCODE = '22023';
+    RAISE EXCEPTION 'this repository is off or has no token yet (Settings > Open data)' USING ERRCODE = '22023';
   END IF;
   IF p_object_kind = 'experiment' THEN
     IF NOT internal.can_access_object('record', p_object_id, 'edit') THEN
@@ -663,3 +663,20 @@ END $$;
 ALTER FUNCTION internal.record_publication_failure(uuid, text, text) OWNER TO migrator;
 --> statement-breakpoint
 REVOKE ALL ON FUNCTION internal.record_publication_failure(uuid, text, text) FROM PUBLIC;
+--> statement-breakpoint
+
+-- A pipeline can prepare a repository draft for a dataset version or an
+-- experiment. Making the draft public stays a person's second step in the app,
+-- so there is no pipeline action for it.
+DO $$
+DECLARE
+  v_def text;
+  v_added text := $added$,{"operation":"request_publication","rpc":"request_publication","label":"Prepare a repository draft","description":"Package an experiment or dataset version as an RO-Crate and send a draft to a publishing repository. A person publishes it from the app.","arguments":[{"name":"p_target_id","type":"uuid","required":true,"nullable":false},{"name":"p_object_kind","type":"text","required":true,"nullable":false},{"name":"p_object_id","type":"uuid","required":true,"nullable":false},{"name":"p_title","type":"text","required":false,"nullable":true},{"name":"p_license","type":"text","required":false,"nullable":true}]}$added$;
+BEGIN
+  SELECT pg_get_functiondef('internal.pipeline_action_errors(jsonb)'::regprocedure) INTO v_def;
+  IF position(']$catalogue$::jsonb' IN v_def) = 0 THEN
+    RAISE EXCEPTION 'unexpected shape for internal.pipeline_action_errors';
+  END IF;
+  v_def := replace(v_def, ']$catalogue$::jsonb', v_added || ']$catalogue$::jsonb');
+  EXECUTE v_def;
+END $$;

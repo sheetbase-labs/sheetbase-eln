@@ -181,6 +181,10 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.group_role.set',
   'sheetbase.group_role.remove',
   'sheetbase.scim_token.revoke',
+  // Open data: turn open tables on, publish a dataset version or experiment as
+  // a repository draft (assistant-upkeep.ts).
+  'sheetbase.open_tables.set',
+  'sheetbase.publication.request',
   // Trusted timestamps: choose the time-stamping service, or ask again for a
   // signature whose timestamp gave up (assistant-upkeep.ts).
   'sheetbase.timestamps.set',
@@ -1463,6 +1467,22 @@ const READ_TOOLS: AgentToolEntry[] = [
       permission: 'members access',
       actor: 'workspace_actor',
       note: 'Ordinary canonical read; only people with members access see it.',
+    },
+    inputSchema: z.object({ workspaceId }).strict(),
+    errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
+  },
+  {
+    name: 'sheetbase.open_tables.status',
+    mode: 'read',
+    description:
+      'Whether the workspace writes open tables (Parquet files with DuckLake catalogue tables, readable from DuckDB, Polars or Spark), how the last pass went and how many tables exist. The tables themselves are the `lake_tables` table. Read-only.',
+    rpc: 'lake_settings',
+    via: 'lake_settings',
+    capability: {
+      scopes: ['admin:read'],
+      permission: 'workspace member',
+      actor: 'workspace_actor',
+      note: 'Ordinary canonical read.',
     },
     inputSchema: z.object({ workspaceId }).strict(),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],

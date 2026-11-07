@@ -205,6 +205,12 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   agent_action_policies: { read: 'admin:read' },
   ai_eval_runs: { read: 'admin:read' },
   ai_eval_results: { read: 'admin:read' },
+  // Open tables, ontology links and publishing. Read only; turning them on,
+  // linking terms and asking to publish go through the calls below.
+  lake_tables: { read: 'datasets:read' },
+  ontology_annotations: { read: 'schema:read' },
+  publication_targets: { read: 'admin:read' },
+  publications: { read: 'reviews:read' },
 }
 
 /**
@@ -237,6 +243,26 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
   set_timestamp_settings: ['admin:write'],
   request_signature_timestamp: ['admin:write'],
   workspace_signing_key: ['reviews:read'],
+
+  // Open tables. Turning them on changes whose data is written to storage, so
+  // it needs an admin's personal token. Making a login hands out a secret and
+  // stays with a person at the settings page.
+  lake_settings: ['admin:read'],
+  set_lake_settings: ['admin:write'],
+  request_lake_refresh: ['admin:write'],
+  list_lake_credentials: ['admin:read'],
+  revoke_lake_credential: ['admin:write'],
+  // Ontology terms and publishing. Publishing for good is a person's second
+  // step in the app, so only asking, discarding and retrying are here.
+  ontology_settings: ['admin:read'],
+  set_ontology_settings: ['admin:write'],
+  link_ontology_term: ['schema:write'],
+  unlink_ontology_term: ['schema:write'],
+  save_publication_target: ['admin:write'],
+  delete_publication_target: ['admin:write'],
+  request_publication: ['projects:write'],
+  discard_publication: ['projects:write'],
+  retry_publication: ['projects:write'],
 
   create_project: ['projects:write'],
   create_record: ['projects:write'],

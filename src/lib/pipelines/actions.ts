@@ -465,6 +465,18 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
     ],
   ),
   definition(
+    'request_publication',
+    t('data.pipelineActions.requestPublication'),
+    t('data.pipelineActions.requestPublicationDescription'),
+    [
+      arg('p_target_id', 'uuid'),
+      arg('p_object_kind', 'text'),
+      arg('p_object_id', 'uuid'),
+      arg('p_title', 'text', false, true),
+      arg('p_license', 'text', false, true),
+    ],
+  ),
+  definition(
     'restore_dataset',
     t('data.pipelineActions.restoreDataset'),
     t('data.pipelineActions.restoreArchivedDatasetExpected'),

@@ -49,6 +49,7 @@ from sheetbase._generated.models import (
     InstrumentRatesRow,
     InstrumentReadingsRow,
     InstrumentRequiredTrainingRow,
+    InstrumentRunDocumentsRow,
     InstrumentServiceLogRow,
     LabWatcherFindingsRow,
     LabWatchersRow,
@@ -72,6 +73,8 @@ from sheetbase._generated.models import (
     ProjectsRow,
     ProjectsRowInsert,
     ProjectsRowPatch,
+    QcPointsRow,
+    QcSeriesRow,
     ReagentOrderPricesRow,
     ReagentOrdersRow,
     RecordFieldDefinitionsRow,
@@ -616,6 +619,24 @@ class AsyncInstrumentRequiredTrainingTable(AsyncReadableTable[InstrumentRequired
     name = "instrument_required_training"
 
 
+class InstrumentRunDocumentsTable(ReadableTable[InstrumentRunDocumentsRow]):
+    """
+    ``/api/db/instrument_run_documents`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_run_documents"
+
+
+class AsyncInstrumentRunDocumentsTable(AsyncReadableTable[InstrumentRunDocumentsRow]):
+    """
+    ``/api/db/instrument_run_documents`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_run_documents"
+
+
 class InstrumentServiceLogTable(ReadableTable[InstrumentServiceLogRow]):
     """
     ``/api/db/instrument_service_log`` (GET, HEAD).
@@ -1000,6 +1021,42 @@ class AsyncProjectsTable(
     Scopes: projects:read, projects:write.
     """
     name = "projects"
+
+
+class QcPointsTable(ReadableTable[QcPointsRow]):
+    """
+    ``/api/db/qc_points`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "qc_points"
+
+
+class AsyncQcPointsTable(AsyncReadableTable[QcPointsRow]):
+    """
+    ``/api/db/qc_points`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "qc_points"
+
+
+class QcSeriesTable(ReadableTable[QcSeriesRow]):
+    """
+    ``/api/db/qc_series`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "qc_series"
+
+
+class AsyncQcSeriesTable(AsyncReadableTable[QcSeriesRow]):
+    """
+    ``/api/db/qc_series`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "qc_series"
 
 
 class ReagentOrderPricesTable(ReadableTable[ReagentOrderPricesRow]):
@@ -1715,6 +1772,7 @@ class Tables:
         "instrument_rates",
         "instrument_readings",
         "instrument_required_training",
+        "instrument_run_documents",
         "instrument_service_log",
         "lab_watcher_findings",
         "lab_watchers",
@@ -1736,6 +1794,8 @@ class Tables:
         "plate_worklists",
         "project_follows",
         "projects",
+        "qc_points",
+        "qc_series",
         "reagent_order_prices",
         "reagent_orders",
         "record_field_definitions",
@@ -1803,6 +1863,7 @@ class Tables:
         self.instrument_rates = InstrumentRatesTable(transport)
         self.instrument_readings = InstrumentReadingsTable(transport)
         self.instrument_required_training = InstrumentRequiredTrainingTable(transport)
+        self.instrument_run_documents = InstrumentRunDocumentsTable(transport)
         self.instrument_service_log = InstrumentServiceLogTable(transport)
         self.lab_watcher_findings = LabWatcherFindingsTable(transport)
         self.lab_watchers = LabWatchersTable(transport)
@@ -1824,6 +1885,8 @@ class Tables:
         self.plate_worklists = PlateWorklistsTable(transport)
         self.project_follows = ProjectFollowsTable(transport)
         self.projects = ProjectsTable(transport)
+        self.qc_points = QcPointsTable(transport)
+        self.qc_series = QcSeriesTable(transport)
         self.reagent_order_prices = ReagentOrderPricesTable(transport)
         self.reagent_orders = ReagentOrdersTable(transport)
         self.record_field_definitions = RecordFieldDefinitionsTable(transport)
@@ -1902,6 +1965,7 @@ class AsyncTables:
         "instrument_rates",
         "instrument_readings",
         "instrument_required_training",
+        "instrument_run_documents",
         "instrument_service_log",
         "lab_watcher_findings",
         "lab_watchers",
@@ -1923,6 +1987,8 @@ class AsyncTables:
         "plate_worklists",
         "project_follows",
         "projects",
+        "qc_points",
+        "qc_series",
         "reagent_order_prices",
         "reagent_orders",
         "record_field_definitions",
@@ -1990,6 +2056,7 @@ class AsyncTables:
         self.instrument_rates = AsyncInstrumentRatesTable(transport)
         self.instrument_readings = AsyncInstrumentReadingsTable(transport)
         self.instrument_required_training = AsyncInstrumentRequiredTrainingTable(transport)
+        self.instrument_run_documents = AsyncInstrumentRunDocumentsTable(transport)
         self.instrument_service_log = AsyncInstrumentServiceLogTable(transport)
         self.lab_watcher_findings = AsyncLabWatcherFindingsTable(transport)
         self.lab_watchers = AsyncLabWatchersTable(transport)
@@ -2011,6 +2078,8 @@ class AsyncTables:
         self.plate_worklists = AsyncPlateWorklistsTable(transport)
         self.project_follows = AsyncProjectFollowsTable(transport)
         self.projects = AsyncProjectsTable(transport)
+        self.qc_points = AsyncQcPointsTable(transport)
+        self.qc_series = AsyncQcSeriesTable(transport)
         self.reagent_order_prices = AsyncReagentOrderPricesTable(transport)
         self.reagent_orders = AsyncReagentOrdersTable(transport)
         self.record_field_definitions = AsyncRecordFieldDefinitionsTable(transport)

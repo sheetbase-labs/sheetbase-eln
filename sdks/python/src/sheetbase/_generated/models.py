@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 
 __all__ = [
+    "AcknowledgeQcPointParams",
     "AddRecordsToLegalHoldParams",
     "AddRegistryParentParams",
     "AddSeriesMemberParams",
@@ -95,6 +96,7 @@ __all__ = [
     "CreatePlateRunParams",
     "CreatePlateWorklistParams",
     "CreateProjectParams",
+    "CreateQcSeriesParams",
     "CreateRecordLinkParams",
     "CreateRecordParams",
     "CreateRecordWithBlocksParams",
@@ -113,6 +115,7 @@ __all__ = [
     "DatasetsRowInsert",
     "DeleteBlockParams",
     "DeleteExperimentPartParams",
+    "DeleteQcSeriesParams",
     "DeleteSavedSearchParams",
     "DeleteScheduledReportParams",
     "DeleteWebhookSubscriptionParams",
@@ -151,6 +154,7 @@ __all__ = [
     "InstrumentRatesRow",
     "InstrumentReadingsRow",
     "InstrumentRequiredTrainingRow",
+    "InstrumentRunDocumentsRow",
     "InstrumentServiceLogRow",
     "IsRecordOnHoldParams",
     "JsonObjectMap",
@@ -214,6 +218,8 @@ __all__ = [
     "ProjectsRowPatch",
     "ProposeAgentOperationParams",
     "ProxyError",
+    "QcPointsRow",
+    "QcSeriesRow",
     "QueryDatasetRowsParams",
     "QueryDatasetVersionRowsParams",
     "QueryDatasetVersionTransferParams",
@@ -227,11 +233,13 @@ __all__ = [
     "ReceiveShipmentParams",
     "RecordFieldDefinitionsRow",
     "RecordInstrumentReadingsParams",
+    "RecordInstrumentRunDocumentParams",
     "RecordLinksRow",
     "RecordLinksRowInsert",
     "RecordLinksRowPatch",
     "RecordModelsRow",
     "RecordPartsParams",
+    "RecordQcPointParams",
     "RecordSeriesParams",
     "RecordSpecResultsRow",
     "RecordStepsParams",
@@ -305,6 +313,7 @@ __all__ = [
     "SetMemberAbsenceParams",
     "SetModelSupplierListParams",
     "SetPartDoneParams",
+    "SetQcBaselineParams",
     "SetReagentOrderPriceParams",
     "SetRecordFavouriteParams",
     "SetRecurringSchedulePausedParams",
@@ -375,12 +384,14 @@ __all__ = [
     "TokenError",
     "TokenExchangeRequest",
     "TokenExchangeResponse",
+    "TrackPlateAssayQcParams",
     "TransitionRecordStatusParams",
     "UnfollowProjectParams",
     "UpdateBlockPayloadParams",
     "UpdateExperimentPartParams",
     "UpdatePipelineDefinitionVersionDraftParams",
     "UpdatePlateRunParams",
+    "UpdateQcSeriesParams",
     "UpdateRecordCustomFieldsParams",
     "UpdateSavedSearchParams",
     "UpdateSheetInstanceParams",
@@ -1380,6 +1391,29 @@ class InstrumentRequiredTrainingRow(TypedDict):
     workspace_id: str
 
 
+class _InstrumentRunDocumentsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    run_id: str
+    format: str
+    converter: str
+    measurements: int
+    device: Dict[str, "JsonValue"]
+    document: Dict[str, "JsonValue"]
+    created_at: str
+
+
+class InstrumentRunDocumentsRow(_InstrumentRunDocumentsRowRequired, total=False):
+    """`api.instrument_run_documents` row (snake_case). Instrument files converted to the Allotrope Simple Model (ASM): one vendor-neutral document per instrument run, with the converter, its version and the image that ran it."""
+    instrument_id: Optional[str]
+    technique: Optional[str]
+    manifest: Optional[str]
+    vendor: Optional[str]
+    converter_version: Optional[str]
+    image_digest: Optional[str]
+    created_by_user_id: Optional[str]
+
+
 class _InstrumentServiceLogRowRequired(TypedDict):
     id: str
     workspace_id: str
@@ -1905,6 +1939,55 @@ class ProjectsRowPatch(TypedDict, total=False):
 
 class ProxyError(TypedDict):
     error: Dict[str, Any]
+
+
+class _QcPointsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    series_id: str
+    value: float
+    at: str
+    violations: List[str]
+    excluded: bool
+    created_at: str
+
+
+class QcPointsRow(_QcPointsRowRequired, total=False):
+    """`api.qc_points` row (snake_case). Quality control points: each value of a series with its distance from the mean in SD, the Westgard rules it broke and whether someone has acknowledged it."""
+    plate_run_id: Optional[str]
+    instrument_run_id: Optional[str]
+    label: Optional[str]
+    z: Optional[float]
+    acknowledged_at: Optional[str]
+    acknowledged_by_user_id: Optional[str]
+    note: Optional[str]
+
+
+class _QcSeriesRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    name: str
+    source_kind: str
+    rules: List[str]
+    enabled: bool
+    state: str
+    state_changed_at: str
+    created_at: str
+    updated_at: str
+
+
+class QcSeriesRow(_QcSeriesRowRequired, total=False):
+    """`api.qc_series` row (snake_case). Quality control series: a value tracked across runs (a plate assay metric, or any value sent in), with its limits, the Westgard rules and whether it is in control."""
+    design_id: Optional[str]
+    metric: Optional[str]
+    instrument_id: Optional[str]
+    unit: Optional[str]
+    mean: Optional[float]
+    sd: Optional[float]
+    baseline_n: Optional[int]
+    baseline_from: Optional[str]
+    baseline_to: Optional[str]
+    created_by_user_id: Optional[str]
 
 
 class _QuerySheetInstanceRowsResultRequired(TypedDict):
@@ -3086,6 +3169,15 @@ class WebhookSubscriptionsRow(_WebhookSubscriptionsRowRequired, total=False):
     updated_by_credential_id: Optional[str]
 
 
+class _AcknowledgeQcPointParamsRequired(TypedDict):
+    p_point_id: str
+
+
+class AcknowledgeQcPointParams(_AcknowledgeQcPointParamsRequired, total=False):
+    p_note: str
+    p_exclude: bool
+
+
 class AddRecordsToLegalHoldParams(TypedDict):
     p_hold_id: str
     p_record_ids: List[str]
@@ -3329,6 +3421,22 @@ class CreateProjectParams(TypedDict):
     p_title: str
 
 
+class _CreateQcSeriesParamsRequired(TypedDict):
+    p_workspace_id: str
+    p_name: str
+
+
+class CreateQcSeriesParams(_CreateQcSeriesParamsRequired, total=False):
+    p_source_kind: str
+    p_metric: str
+    p_design_id: str
+    p_instrument_id: str
+    p_unit: str
+    p_mean: float
+    p_sd: float
+    p_rules: List[str]
+
+
 class CreateRecordParams(TypedDict):
     p_project_id: str
     p_kind: str
@@ -3462,6 +3570,10 @@ class _DeleteExperimentPartParamsRequired(TypedDict):
 
 class DeleteExperimentPartParams(_DeleteExperimentPartParamsRequired, total=False):
     p_move_blocks_to: str
+
+
+class DeleteQcSeriesParams(TypedDict):
+    p_series_id: str
 
 
 class DeleteSavedSearchParams(TypedDict):
@@ -3842,8 +3954,35 @@ class RecordInstrumentReadingsParams(TypedDict):
     p_readings: Dict[str, "JsonValue"]
 
 
+class _RecordInstrumentRunDocumentParamsRequired(TypedDict):
+    p_run_id: str
+    p_document: Dict[str, "JsonValue"]
+    p_converter: str
+
+
+class RecordInstrumentRunDocumentParams(_RecordInstrumentRunDocumentParamsRequired, total=False):
+    p_converter_version: str
+    p_image_digest: str
+    p_vendor: str
+    p_technique: str
+    p_manifest: str
+    p_measurements: int
+    p_device: Dict[str, "JsonValue"]
+
+
 class RecordPartsParams(TypedDict):
     p_record_id: str
+
+
+class _RecordQcPointParamsRequired(TypedDict):
+    p_series_id: str
+    p_value: float
+
+
+class RecordQcPointParams(_RecordQcPointParamsRequired, total=False):
+    p_at: str
+    p_label: str
+    p_instrument_run_id: str
 
 
 class RecordSeriesParams(TypedDict):
@@ -4241,6 +4380,16 @@ class SetPartDoneParams(TypedDict):
     p_done: bool
 
 
+class _SetQcBaselineParamsRequired(TypedDict):
+    p_series_id: str
+
+
+class SetQcBaselineParams(_SetQcBaselineParamsRequired, total=False):
+    p_mean: float
+    p_sd: float
+    p_first_n: int
+
+
 class _SetReagentOrderPriceParamsRequired(TypedDict):
     p_order_id: str
     p_total_price: Optional[float]
@@ -4354,6 +4503,14 @@ class TimestampSettingsParams(TypedDict):
     p_workspace_id: str
 
 
+class _TrackPlateAssayQcParamsRequired(TypedDict):
+    p_design_id: str
+
+
+class TrackPlateAssayQcParams(_TrackPlateAssayQcParamsRequired, total=False):
+    p_instrument_id: str
+
+
 class TransitionRecordStatusParams(TypedDict):
     p_record_id: str
     p_target_status: str
@@ -4399,6 +4556,17 @@ class UpdatePlateRunParams(_UpdatePlateRunParamsRequired, total=False):
     p_readout: Dict[str, "JsonValue"]
     p_config: Dict[str, "JsonValue"]
     p_expected_metadata_version: int
+
+
+class _UpdateQcSeriesParamsRequired(TypedDict):
+    p_series_id: str
+
+
+class UpdateQcSeriesParams(_UpdateQcSeriesParamsRequired, total=False):
+    p_name: str
+    p_rules: List[str]
+    p_enabled: bool
+    p_unit: str
 
 
 class UpdateRecordCustomFieldsParams(TypedDict):

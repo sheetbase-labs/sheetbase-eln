@@ -1,5 +1,5 @@
 /**
- * Instrument data and run quality control (migration 20261106235308): ASM
+ * Instrument data and run quality control (migration 20261107011617): ASM
  * documents kept with an instrument run, and Westgard-judged quality control
  * series fed by plate runs or sent in by hand.
  * Runs against a freshly migrated sheetbase_test database.

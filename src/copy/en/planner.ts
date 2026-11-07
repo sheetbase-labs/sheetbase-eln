@@ -71,6 +71,10 @@ export const planner = {
     minutes: '{count} min',
     noWait: 'None',
     noInstruments: 'None',
+    gate: {
+      warn: 'Opens when the part before is done; you can go on with a reason',
+      block: 'Opens only when the part before is done',
+    },
     noParts: 'No parts: the experiment is created as one piece.',
     plate: 'Plate',
     plateSummary:

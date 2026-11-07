@@ -47,6 +47,7 @@ const answer = {
     },
     {
       title: 'Read the plate',
+      gate: 'block',
       day: 1,
       handsOnMinutes: 30,
       instruments: [

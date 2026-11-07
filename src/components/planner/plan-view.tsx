@@ -243,6 +243,11 @@ export function PlanView({
                     <TableRow key={`${part.title}-${i}`}>
                       <TableCell className="font-medium">
                         {part.title}
+                        {part.gate ? (
+                          <span className="ml-2 text-label font-normal text-fg-muted">
+                            {t(`planner.view.gate.${part.gate}`)}
+                          </span>
+                        ) : null}
                       </TableCell>
                       <TableCell>
                         {t('planner.view.day', { count: part.dayOffset + 1 })}

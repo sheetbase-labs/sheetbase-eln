@@ -59,6 +59,8 @@ export interface PlanPart {
   dayOffset: number
   handsOnMinutes: number
   waitAfterMinutes: number
+  /** Opens when the part before it is done: a gate that warns or blocks. */
+  gate?: 'warn' | 'block'
   needs: PlanPartNeed[]
 }
 
@@ -140,7 +142,7 @@ export function plannerInstruction(
       ),
     context.samples.length === 0 ? '(none)' : '',
     '',
-    'Reply with JSON only: {"summary":"<two sentences: what will be done and why this way>","rationale":"<one or two sentences on the choices>","experimentTitle":"<short title>","protocol":"<protocol key or null>","parts":[{"title":"<what is done>","day":<days from the start, 0 first>,"handsOnMinutes":<minutes at the bench>,"waitMinutes":<minutes to wait afterwards, such as an incubation>,"instruments":[{"key":"<instrument key>","minutes":<minutes on the instrument>}]}],"plate":{"format":"96_well|384_well|24_well","conditions":[{"label":"<what is in these wells>","count":<how many different conditions of this kind>}],"replicates":<wells per condition>,"blanks":<n>,"negatives":<n>,"positives":<n>,"volumeUl":<microlitres per well or null>} or null,"worklist":{"format":"csv|echo|tecan_gwl|hamilton|opentrons","sourcePlate":"<name of the plate the liquid handler takes from>"} or null,"samples":[{"key":"<sample key>","quantity":<amount to set aside>}],"schedule":<true to ask for a schedule on the instruments>,"warnings":["<anything the person should check>"]}.',
+    'Reply with JSON only: {"summary":"<two sentences: what will be done and why this way>","rationale":"<one or two sentences on the choices>","experimentTitle":"<short title>","protocol":"<protocol key or null>","parts":[{"title":"<what is done>","day":<days from the start, 0 first>,"handsOnMinutes":<minutes at the bench>,"waitMinutes":<minutes to wait afterwards, such as an incubation>,"gate":"<warn or block, only when this part must wait until the part before it is done, such as a read that needs the incubation finished; otherwise leave out>","instruments":[{"key":"<instrument key>","minutes":<minutes on the instrument>}]}],"plate":{"format":"96_well|384_well|24_well","conditions":[{"label":"<what is in these wells>","count":<how many different conditions of this kind>}],"replicates":<wells per condition>,"blanks":<n>,"negatives":<n>,"positives":<n>,"volumeUl":<microlitres per well or null>} or null,"worklist":{"format":"csv|echo|tecan_gwl|hamilton|opentrons","sourcePlate":"<name of the plate the liquid handler takes from>"} or null,"samples":[{"key":"<sample key>","quantity":<amount to set aside>}],"schedule":<true to ask for a schedule on the instruments>,"warnings":["<anything the person should check>"]}.',
     'Rules: use only protocols, instruments and samples listed above and refer to them by key; leave a field out when nothing listed fits instead of guessing. Plan only what the goal asks for; do not invent steps, volumes or samples. A part that needs an instrument names it; give every part a realistic hands-on time. Use a plate only when the goal involves one, and a worklist only when a liquid handler is asked for. Say in "warnings" what you assumed.',
   ]
     .filter((line, index, all) => line !== '' || all[index - 1] !== '')
@@ -162,6 +164,7 @@ const answerSchema = z.object({
         day: z.number().min(0).max(3650).optional().nullable(),
         handsOnMinutes: z.number().min(0).max(1440).optional().nullable(),
         waitMinutes: z.number().min(0).max(525_600).optional().nullable(),
+        gate: z.enum(['warn', 'block']).optional().nullable(),
         instruments: z
           .array(
             z.object({
@@ -351,6 +354,7 @@ export function parsePlanAnswer(
       dayOffset: Math.round(part.day ?? index),
       handsOnMinutes: Math.round(part.handsOnMinutes ?? 60),
       waitAfterMinutes: Math.round(part.waitMinutes ?? 0),
+      ...(part.gate && index > 0 ? { gate: part.gate } : {}),
       needs,
     }
   })

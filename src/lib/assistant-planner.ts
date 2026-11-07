@@ -64,6 +64,12 @@ export const proposePlanSchema = z
           day: z.number().min(0).max(3650).optional(),
           handsOnMinutes: z.number().min(0).max(1440).optional(),
           waitMinutes: z.number().min(0).max(525_600).optional(),
+          gate: z
+            .enum(['warn', 'block'])
+            .optional()
+            .describe(
+              'Set when this part must wait until the part before it is done: warn lets the person go on with a reason, block does not.',
+            ),
           instruments: z
             .array(
               z.object({

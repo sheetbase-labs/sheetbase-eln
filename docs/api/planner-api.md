@@ -26,6 +26,9 @@ POST /api/db/rpc/create_experiment_plan
   "p_source": "api" }
 ```
 
+A part after the first may carry `"gate": "warn"` or `"block"`: on apply it opens
+only when the part before it is done (a gate, as on any multi-part experiment).
+
 Every id is checked when the plan is saved (the protocol is an active protocol,
 instruments are live, samples have stock), and the plate and worklist must be
 valid, so a bad plan is refused here and not half way through applying it.

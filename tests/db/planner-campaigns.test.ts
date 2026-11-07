@@ -118,6 +118,7 @@ describe('plans', () => {
       { title: 'Prepare dilutions', dayOffset: 0, handsOnMinutes: 45, waitAfterMinutes: 0, needs: [] },
       {
         title: 'Read the plate',
+        gate: 'block',
         dayOffset: 1,
         handsOnMinutes: 30,
         waitAfterMinutes: 60,
@@ -198,6 +199,11 @@ describe('plans', () => {
 
     const parts = await owner.query(`select * from api.record_parts($1) order by part_number`, [result.recordId])
     expect(parts.rows.map((p: { title: string }) => p.title)).toEqual(['Prepare dilutions', 'Read the plate'])
+    const gated = await owner.query(`select opens_when, gate_mode from api.experiment_parts where id = $1`, [
+      parts.rows[1].part_id,
+    ])
+    expect(gated.rows[0].gate_mode).toBe('block')
+    expect(gated.rows[0].opens_when).toEqual([{ kind: 'part_done', partId: parts.rows[0].part_id }])
     const needs = await migrator.query(`select minutes, resource_id from api.part_resource_needs where part_id = $1`, [
       parts.rows[1].part_id,
     ])

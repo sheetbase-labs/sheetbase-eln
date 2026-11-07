@@ -262,6 +262,7 @@ export async function buildPlannerProposal(
           day: part.day ?? 0,
           handsOnMinutes: part.handsOnMinutes ?? 30,
           waitMinutes: part.waitMinutes ?? 0,
+          ...(part.gate ? { gate: part.gate } : {}),
           instruments,
         })
       }
@@ -323,7 +324,13 @@ export async function buildPlannerProposal(
           before: null,
           after:
             plan.parts.length > 0
-              ? plan.parts.map((p) => p.title).join(', ')
+              ? plan.parts
+                  .map((p) =>
+                    p.gate
+                      ? `${p.title} (opens when the part before is done)`
+                      : p.title,
+                  )
+                  .join(', ')
               : 'One piece',
         },
       ]

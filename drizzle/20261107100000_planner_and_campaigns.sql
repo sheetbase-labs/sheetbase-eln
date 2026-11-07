@@ -146,6 +146,9 @@ BEGIN
     IF jsonb_typeof(v_part) <> 'object' OR char_length(btrim(coalesce(v_part ->> 'title', ''))) NOT BETWEEN 1 AND 200 THEN
       RAISE EXCEPTION 'every part needs a title of up to 200 characters' USING ERRCODE = '22023';
     END IF;
+    IF v_part ->> 'gate' IS NOT NULL AND v_part ->> 'gate' NOT IN ('warn', 'block') THEN
+      RAISE EXCEPTION 'a part''s gate warns or blocks' USING ERRCODE = '22023';
+    END IF;
     IF jsonb_typeof(coalesce(v_part -> 'needs', '[]'::jsonb)) <> 'array' THEN
       RAISE EXCEPTION 'a part''s needs are a list' USING ERRCODE = '22023';
     END IF;
@@ -273,6 +276,7 @@ DECLARE
   v_made jsonb;
   v_part jsonb;
   v_part_row jsonb;
+  v_prev_part uuid;
   v_run api.plate_runs;
   v_wl api.plate_worklists;
   v_proposal api.schedule_proposals;
@@ -321,6 +325,14 @@ BEGIN
                 'resourceId', n ->> 'instrumentId',
                 'minutes', coalesce(NULLIF(n ->> 'minutes', '')::integer, 30))), '[]'::jsonb)
          FROM jsonb_array_elements(coalesce(v_part -> 'needs', '[]'::jsonb)) n));
+    -- A part that opens when the one before it is done (a gate that warns or blocks).
+    IF v_prev_part IS NOT NULL AND NULLIF(v_part ->> 'gate', '') IS NOT NULL THEN
+      PERFORM api.set_part_gate(
+        (v_part_row ->> 'id')::uuid,
+        jsonb_build_array(jsonb_build_object('kind', 'part_done', 'partId', v_prev_part)),
+        v_part ->> 'gate', NULL);
+    END IF;
+    v_prev_part := (v_part_row ->> 'id')::uuid;
   END LOOP;
 
   IF jsonb_typeof(v_plan -> 'plate') = 'object' THEN

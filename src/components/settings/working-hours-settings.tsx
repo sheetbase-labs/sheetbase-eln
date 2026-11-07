@@ -11,6 +11,7 @@ import { Field, Input } from '#/components/ui/input'
 import { toast } from '#/components/ui/sonner'
 import { t } from '#/copy'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { Section } from '#/components/ui/layout'
 import { isIanaTimeZone } from '#/lib/pipeline-schedule'
 import {
   fetchSchedulerSettings,
@@ -75,7 +76,9 @@ export function WorkingHoursSettings({
         days: [...days].sort(),
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.settings })
+      void queryClient.invalidateQueries({
+        queryKey: scheduleQueryKeys.settings,
+      })
       toast.success(t('automation.schedule.hours.saved'))
     },
     onError: (e: unknown) =>
@@ -87,10 +90,7 @@ export function WorkingHoursSettings({
   })
 
   return (
-    <div className="flex flex-col gap-3">
-      <h3 className="text-label font-medium text-fg">
-        {t('automation.schedule.hours.title')}
-      </h3>
+    <Section title={t('automation.schedule.hours.title')}>
       <p className="m-0 text-label text-fg-muted">
         {t('automation.schedule.hours.hint')}
       </p>
@@ -155,6 +155,6 @@ export function WorkingHoursSettings({
           </Button>
         </div>
       ) : null}
-    </div>
+    </Section>
   )
 }

@@ -457,6 +457,10 @@ export const notebook = {
         running: 'Checking freezer and room readings…',
         done: 'Checked freezer and room readings',
       },
+      sequence: {
+        running: 'Working on the sequence…',
+        done: 'Worked on the sequence',
+      },
       canonical: {
         running: 'Looking up {resource}…',
         done: 'Looked up {resource}',
@@ -2909,6 +2913,10 @@ export const notebook = {
     codeCellLabel: 'Code cell',
     codeCellDescription:
       'Run Python or SQL on dataset versions. The code, its output and the runtime it ran in stay with the notebook, and a signed result can be run again.',
+    sequenceLabel: 'Sequence',
+    sequenceDescription:
+      'A DNA sequence you can edit, cut with enzymes, design primers for, clone into and check against Sanger reads.',
+    sequenceSummary: '{title} — {length} bases',
     pipelineOutputLabel: 'Pipeline output',
     referenceAPipelineRunDescription:
       'Reference a pipeline run and pin the dataset version it produced into the notebook.',

@@ -1338,7 +1338,13 @@ function NotebookDocumentContent({
                   (isSelected || hasUnsavedDraft || opensForWriting) ? (
                   <BlockEditor
                     block={block}
-                    onInsertBelow={(type) => void handleInsert(type, block.id)}
+                    onInsertBelow={(type, payload) =>
+                      void handleInsert(
+                        type,
+                        block.id,
+                        payload ? { payload } : undefined,
+                      )
+                    }
                     headingAnchorPrefix={`section-${block.id}`}
                     hiddenRichTextNodeIndexes={hiddenNodeIndexesByBlockId.get(
                       block.id,

@@ -7,7 +7,7 @@ import {
   saveFieldLimits,
   saveRetentionRule,
 } from './result-quality'
-import { createRegistryEntry } from './bio-registry'
+import { addParent, asRole, createRegistryEntry } from './bio-registry'
 import { addCompoundLot, registerCompound } from './compound-registry'
 import { setBookingRules } from './booking-rules'
 import { endRepeat, setRepeatPaused } from './recurring'
@@ -100,6 +100,10 @@ export async function runLabworkAction(
         customFields: action.customFields,
         allowDuplicate: false,
       })
+      if (made?.id) {
+        for (const parent of action.parents ?? [])
+          await addParent(client, made.id, parent.recordId, asRole(parent.role))
+      }
       return { openHref: made?.id ? `/records/${made.id}` : '/registry' }
     }
     case 'compound.register': {

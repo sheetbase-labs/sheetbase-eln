@@ -231,6 +231,73 @@ describe('registry, workflows and rules', () => {
     ).toMatchObject({ ok: false })
   })
 
+  it('registers a sequence by fingerprint with its parents', async () => {
+    const rows = {
+      record_models: [
+        {
+          key: 'construct',
+          name: 'Construct',
+          registry_sequence_field: 'sequence_fingerprint',
+        },
+      ],
+      projects: [{ id: 'p1', key: 'VAC', title: 'Vaccine A' }],
+      records: [{ id: 'v1', identifier: 'CON-1', title: 'pUC19' }],
+    }
+    const seq = 'GAATTCGCTAGCAAGCTTGGATCCGTCGACCTGCAGG'
+    const input = {
+      registry: 'construct',
+      name: 'pTest',
+      project: 'VAC',
+      sequence: seq,
+      parents: [{ record: 'CON-1', role: 'vector' }],
+    }
+    const first = await build('sheetbase.registry.add', input, context(rows))
+    expect(first).toMatchObject({
+      ok: true,
+      proposal: {
+        action: {
+          kind: 'registry.add',
+          parents: [{ recordId: 'v1', role: 'vector' }],
+          customFields: { shape: 'circular', sequence_length: '37' },
+        },
+      },
+    })
+    // The same circle written from another start and strand is the same entry.
+    const rc = [...seq]
+      .reverse()
+      .map((c) => ({ A: 'T', C: 'G', G: 'C', T: 'A' })[c] ?? c)
+      .join('')
+    const again = await build(
+      'sheetbase.registry.add',
+      { ...input, sequence: rc.slice(7) + rc.slice(0, 7) },
+      context(rows),
+    )
+    const fp = (r: unknown) =>
+      (r as { proposal: { action: { customFields: Record<string, string> } } })
+        .proposal.action.customFields.sequence_fingerprint
+    expect(fp(first)).toMatch(/^seq:/)
+    expect(fp(again)).toBe(fp(first))
+  })
+
+  it('refuses a sequence for a registry that keeps none', async () => {
+    const rows = {
+      record_models: [{ key: 'cell_line', name: 'Cell line' }],
+      projects: [{ id: 'p1', key: 'VAC', title: 'Vaccine A' }],
+    }
+    expect(
+      await build(
+        'sheetbase.registry.add',
+        {
+          registry: 'cell line',
+          name: 'X',
+          project: 'VAC',
+          sequence: 'GAATTCGCTAGCAAGCTTGG',
+        },
+        context(rows),
+      ),
+    ).toMatchObject({ ok: false })
+  })
+
   it('enrols a sample, and refuses when it is already in the workflow', async () => {
     const rows = {
       records: [s1],

@@ -116,6 +116,7 @@ import { PipelineOutputBlockEditor } from './pipeline-output-block-editor'
 import { CodeCellBlockEditor } from './code-cell-block'
 import { DatasetImportBlockEditor } from './dataset-import-block'
 import { ReactionEditor, StructureEditor } from './chemistry-block'
+import { SequenceEditor } from './sequence-block'
 import { AnalysisChartPicker } from './analysis-chart-picker'
 import {
   analysisDefinitionQueryKeys,
@@ -163,7 +164,7 @@ export type { AutosaveStatus, SaveResult }
 export interface BlockEditorProps {
   block: NotebookBlock
   /** Insert a new block without replacing this block's evidence. */
-  onInsertBelow?: (type: string) => void
+  onInsertBelow?: (type: string, payload?: Record<string, unknown>) => void
   /**
    * Persist a validated payload. Returns a structured result so the
    * editor's autosave state machine can branch on conflict / validation /
@@ -276,6 +277,8 @@ function BlockEditorBody(props: BlockEditorProps) {
       return <StructureEditor {...props} />
     case 'reaction':
       return <ReactionEditor {...props} />
+    case 'sequence':
+      return <SequenceEditor {...props} />
     case 'signature_request':
       return <SignatureRequestEditor {...props} />
     case 'corrective_actions':

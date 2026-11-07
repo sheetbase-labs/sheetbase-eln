@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import type { StructureDescriptor } from './compound-registry'
+import { PARENT_ROLES } from './bio-registry'
 
 /**
  * Running the lab from the assistant: counting storage, holding and releasing
@@ -187,6 +188,41 @@ export const proposeRegistryAddSchema = z
       .optional()
       .describe(
         'Field values by field name, only those the person gave. Do not invent any.',
+      ),
+    sequence: z
+      .string()
+      .min(1)
+      .max(400_000)
+      .optional()
+      .describe(
+        'The DNA of a construct or other sequence entry, as bases. The registry stores its fingerprint so the same sequence is never entered twice. Only when the person gave or pointed to the sequence.',
+      ),
+    topology: z
+      .enum(['linear', 'circular'])
+      .optional()
+      .describe('With a sequence: default circular.'),
+    parents: z
+      .array(
+        z
+          .object({
+            record: z
+              .string()
+              .min(1)
+              .max(200)
+              .describe('A registry entry by identifier (CON-3) or name.'),
+            role: z
+              .enum(PARENT_ROLES)
+              .optional()
+              .describe(
+                'What it was to the new entry: vector, insert, backbone, parent. Default parent.',
+              ),
+          })
+          .strict(),
+      )
+      .max(12)
+      .optional()
+      .describe(
+        'Entries this one was built from, such as the vector and insert of a cloning product.',
       ),
   })
   .strict()
@@ -540,6 +576,7 @@ export type LabworkAction =
       recordKind: string
       title: string
       customFields: Record<string, unknown>
+      parents?: { recordId: string; role: string }[]
     }
   | {
       kind: 'compound.register'

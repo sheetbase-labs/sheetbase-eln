@@ -121,6 +121,7 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
   structure: t('projects.revisionDocument.structure'),
   reaction: t('projects.revisionDocument.reaction'),
   code_cell: t('projects.revisionDocument.codeCell'),
+  sequence: t('projects.revisionDocument.sequence'),
   file: t('projects.revisionDocument.file'),
   linked_record: t('projects.revisionDocument.linkedRecord'),
   protocol_reference: t('projects.revisionDocument.protocolReference'),

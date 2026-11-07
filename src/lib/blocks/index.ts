@@ -27,6 +27,7 @@ import {
   MAX_STORED_OUTPUT_ROWS,
   isCodeCellLanguage,
 } from '../code-cells/code-cell'
+import { sequenceIssues } from '../sequence-block'
 import { CONCLUSION_VERDICTS } from '../conclusion-block'
 import { validatePlateMapPayload } from '../plate-map'
 import { PAYLOAD_SCHEMA_VERSION } from './schema-version'
@@ -908,6 +909,7 @@ const validators: Record<BlockType, (payload: unknown) => FieldErrors> = {
   structure: (payload) => chemistryErrors(structureIssues(payload)),
   reaction: (payload) => chemistryErrors(reactionIssues(payload)),
   code_cell: validateCodeCell,
+  sequence: (payload) => chemistryErrors(sequenceIssues(payload)),
   dataset_import: validateDatasetImport,
   rich_text: validateRichText,
   checklist: validateChecklist,

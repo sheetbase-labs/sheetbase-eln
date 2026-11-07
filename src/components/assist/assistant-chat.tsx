@@ -483,6 +483,10 @@ function lookupLabel(
       return t(`notebook.assistantPanel.lookup.bench.${phase}`)
     case 'sheetbase.inbox.read':
       return t(`notebook.assistantPanel.lookup.inbox.${phase}`)
+    case 'sheetbase.search.semantic':
+      return t(`notebook.assistantPanel.lookup.meaning.${phase}`)
+    case 'sheetbase.literature.search':
+      return t(`notebook.assistantPanel.lookup.literature.${phase}`)
     case 'sheetbase.experiment.start':
     case 'sheetbase.record.assign':
     case 'sheetbase.record.ask':

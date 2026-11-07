@@ -85,6 +85,9 @@ export const ASSISTANT_READ_TOOL_NAMES = [
   'sheetbase.parts.read',
   // What holds work back in an experiment and why, read only (assistant-planning.server.ts).
   'sheetbase.gates.read',
+  // Search by meaning over the lab's own work, and (when the workspace allows it) published papers (semantic-tools.server.ts).
+  'sheetbase.search.semantic',
+  'sheetbase.literature.search',
 ] as const
 
 export type AssistantReadToolName = (typeof ASSISTANT_READ_TOOL_NAMES)[number]

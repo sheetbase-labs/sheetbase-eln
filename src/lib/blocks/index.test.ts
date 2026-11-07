@@ -450,6 +450,10 @@ describe('block payload validation (ELN-002)', () => {
         meaning: 'reviewed',
         note: 'Please review the clarification runs.',
       },
+      gate: {
+        mode: 'warn',
+        conditions: [{ kind: 'samples_linked', min: 2 }],
+      },
       corrective_actions: {
         items: [
           {

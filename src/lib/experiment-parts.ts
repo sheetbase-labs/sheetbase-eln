@@ -11,6 +11,7 @@
  * in step.
  */
 import type { DataClient } from '#/lib/data-client'
+import type { GateCondition, GateMode } from '#/lib/experiment-gates'
 import { notebookOutline } from '#/lib/notebook-outline'
 
 export interface ExperimentPartWire {
@@ -24,6 +25,11 @@ export interface ExperimentPartWire {
   opened_at: string | null
   completed_at: string | null
   completed_by_user_id: string | null
+  source_part_id?: string | null
+  opens_when?: GateCondition[] | null
+  gate_mode?: GateMode
+  steps_in_order?: boolean
+  gate_from_template?: boolean
 }
 
 export interface ExperimentPart {
@@ -37,6 +43,15 @@ export interface ExperimentPart {
   openedAt: string | null
   completedAt: string | null
   completedByUserId: string | null
+  /** The part of a template or protocol this one was made from. */
+  sourcePartId?: string | null
+  /** The rule that opens the part (see experiment-gates.ts), if it has one. */
+  opensWhen?: GateCondition[] | null
+  gateMode?: GateMode
+  /** The steps of the part are done in order. */
+  stepsInOrder?: boolean
+  /** The rule came from a template or protocol and stays on the experiment. */
+  gateFromTemplate?: boolean
 }
 
 export type PartState = 'done' | 'now' | 'later'
@@ -182,6 +197,11 @@ export function toExperimentPart(row: ExperimentPartWire): ExperimentPart {
     openedAt: row.opened_at,
     completedAt: row.completed_at,
     completedByUserId: row.completed_by_user_id,
+    sourcePartId: row.source_part_id ?? null,
+    opensWhen: row.opens_when ?? null,
+    gateMode: row.gate_mode ?? 'warn',
+    stepsInOrder: row.steps_in_order ?? false,
+    gateFromTemplate: row.gate_from_template ?? false,
   }
 }
 

@@ -9,12 +9,39 @@ const key = z.string().regex(/^[a-z][a-z0-9_]{0,59}$/)
 const label = z.string().trim().min(1).max(200)
 const order = z.number().int().positive()
 
+/**
+ * What a template can ask of a part before it opens. A template has no tables
+ * or steps of its own to point at yet, so it waits on an earlier part, on
+ * samples being linked or on a field being set.
+ */
+export const templateGateConditionSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('part_done'), partId: uuid }).strict(),
+  z
+    .object({
+      kind: z.literal('samples_linked'),
+      min: z.number().int().min(1).max(10000).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('field_set'),
+      field: z.enum(['reviewer', 'assignee', 'planned_end']),
+      label: z.string().trim().max(200).optional(),
+    })
+    .strict(),
+])
+
 /** A part of the experiment a template makes: one day of a longer notebook. */
 export const notebookTemplatePartSchema = z
   .object({
     id: uuid,
     title: label,
     dayOffset: z.number().int().min(0).max(3650),
+    /** The part opens when all of these hold. Stays on every experiment made from the template. */
+    opensWhen: z.array(templateGateConditionSchema).max(12).optional(),
+    gateMode: z.enum(['warn', 'block']).optional(),
+    /** The steps of the part are done in order. */
+    stepsInOrder: z.boolean().optional(),
   })
   .strict()
 
@@ -37,6 +64,7 @@ const narrativePlacementSchema = z
       'procedure_step',
       'protocol_reference',
       'materials',
+      'gate',
     ]),
     payload: z.record(z.string(), z.unknown()),
   })

@@ -927,6 +927,98 @@ const validators: Record<BlockType, (payload: unknown) => FieldErrors> = {
   pipeline_output: validatePipelineOutput,
   signature_request: validateSignatureRequest,
   corrective_actions: validateCorrectiveActions,
+  gate: validateGate,
+}
+
+const GATE_KINDS = [
+  'table_filled',
+  'step_done',
+  'part_done',
+  'samples_linked',
+  'field_set',
+  'date_reached',
+]
+
+/** A gate holds back what is below it: 1 to 12 conditions and a mode. */
+function validateGate(payload: unknown): FieldErrors {
+  if (!isObject(payload)) {
+    return [
+      { code: 'invalid_payload_shape', message: 'payload must be an object' },
+    ]
+  }
+  const errors: FieldErrors = []
+  if (payload.mode !== 'warn' && payload.mode !== 'block') {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'mode',
+      message: 'mode must be warn or block',
+    })
+  }
+  if (
+    payload.label !== undefined &&
+    (!isString(payload.label) || payload.label.length > 200)
+  ) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'label',
+      message: 'label must be text of at most 200 characters',
+    })
+  }
+  const conditions = payload.conditions
+  if (
+    !Array.isArray(conditions) ||
+    conditions.length < 1 ||
+    conditions.length > 12
+  ) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'conditions',
+      message: 'a gate needs between 1 and 12 conditions',
+    })
+  } else {
+    conditions.forEach((condition, i) => {
+      if (
+        !isObject(condition) ||
+        !GATE_KINDS.includes(String(condition.kind))
+      ) {
+        errors.push({
+          code: 'invalid_field_value',
+          field: `conditions[${i}]`,
+          message: `kind must be one of ${GATE_KINDS.join(', ')}`,
+        })
+        return
+      }
+      const needsBlock =
+        condition.kind === 'table_filled' || condition.kind === 'step_done'
+      if (needsBlock && !isUuid(condition.blockId)) {
+        errors.push({
+          code: 'invalid_field_value',
+          field: `conditions[${i}].blockId`,
+          message: 'blockId must be a UUID',
+        })
+      }
+      if (condition.kind === 'part_done' && !isUuid(condition.partId)) {
+        errors.push({
+          code: 'invalid_field_value',
+          field: `conditions[${i}].partId`,
+          message: 'partId must be a UUID',
+        })
+      }
+      if (
+        condition.kind === 'date_reached' &&
+        !(
+          isString(condition.date) && /^\d{4}-\d{2}-\d{2}$/.test(condition.date)
+        )
+      ) {
+        errors.push({
+          code: 'invalid_field_value',
+          field: `conditions[${i}].date`,
+          message: 'date must be YYYY-MM-DD',
+        })
+      }
+    })
+  }
+  return errors
 }
 
 // Upload pins are saved together; receipt pins are added together after commit.

@@ -272,19 +272,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
         title={t('library.models.recordModelNew.new', {
           name: model.data?.name ?? 'record',
         })}
-        action={
-          <span className="text-label text-fg-muted">
-            {t('library.models.recordModelNew.model', {
-              name: model.data?.name ?? modelKey,
-            })}
-            {model.data ? ` v${model.data.current_version}` : ''}
-          </span>
-        }
       >
-        <p className="m-0 text-label text-fg-muted">
-          {t('library.models.recordModelNew.thisFormIsGeneratedFrom')}
-        </p>
-
         {loading ? (
           <p className="text-label text-fg-muted">
             {t('library.models.recordModelNew.loadingFields')}

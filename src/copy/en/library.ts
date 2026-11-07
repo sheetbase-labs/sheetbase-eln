@@ -1422,9 +1422,6 @@ export const library = {
         'There’s no model with the key “{modelKey}” in this workspace.',
       backToModels: 'Back to models',
       new: 'New {name}',
-      model: 'Model {name}',
-      thisFormIsGeneratedFrom:
-        'This form comes from the model. The model decides the fields, types, units and rules, so changing the model changes this form.',
       loadingFields: 'Loading fields…',
       thisModelHasNoActive: 'This model has no active fields yet.',
       name: 'Name *',

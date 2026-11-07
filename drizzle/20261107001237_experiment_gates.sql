@@ -257,6 +257,75 @@ REVOKE ALL ON FUNCTION internal.gate_conditions_valid(p_conditions jsonb) FROM P
 -- one object per condition: {kind, met, soft, text, blockId?, partId?}. `text`
 -- says what is missing in words and is empty once the condition is met. A date
 -- condition is `soft`: it warns but never blocks.
+-- The rows of a sheet that reads a dataset are the dataset's rows. `has_column` is
+-- false when the dataset has no such column; the cells are what the dataset holds.
+CREATE FUNCTION internal.gate_dataset_grid(p_workspace_id uuid, p_dataset_id uuid, p_version_id uuid, p_column text,
+    OUT has_column boolean, OUT total integer, OUT nonempty integer, OUT filled integer, OUT names text[])
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_schema uuid;
+  v_first uuid;
+  v_field uuid;
+BEGIN
+  has_column := false; total := 0; nonempty := 0; filled := 0; names := '{}';
+  IF p_version_id IS NOT NULL THEN
+    SELECT v.schema_version_id INTO v_schema FROM api.dataset_versions v
+     WHERE v.id = p_version_id AND v.dataset_id = p_dataset_id AND v.workspace_id = p_workspace_id;
+  ELSE
+    SELECT d.schema_version_id INTO v_schema FROM api.datasets d
+     WHERE d.id = p_dataset_id AND d.workspace_id = p_workspace_id;
+  END IF;
+  IF v_schema IS NULL THEN
+    RETURN;
+  END IF;
+  SELECT f.field_id INTO v_first FROM api.dataset_schema_version_fields f
+   WHERE f.schema_version_id = v_schema AND f.lifecycle = 'active' ORDER BY f.display_order LIMIT 1;
+  IF p_column IS NOT NULL THEN
+    SELECT f.field_id INTO v_field FROM api.dataset_schema_version_fields f
+     WHERE f.schema_version_id = v_schema AND f.lifecycle = 'active'
+       AND (lower(btrim(f.label)) = lower(p_column) OR lower(f.key) = lower(p_column))
+     LIMIT 1;
+    has_column := v_field IS NOT NULL;
+  ELSE
+    has_column := true;
+  END IF;
+  WITH rws AS (
+    SELECT r.id AS row_id, row_number() OVER (ORDER BY r.created_at, r.id)::integer AS ord
+      FROM api.dataset_rows r
+     WHERE p_version_id IS NULL AND r.dataset_id = p_dataset_id AND r.status = 'recorded'
+    UNION ALL
+    SELECT vr.row_id, row_number() OVER (ORDER BY vr.row_id)::integer
+      FROM api.dataset_version_rows vr WHERE vr.dataset_version_id = p_version_id),
+  vals AS (
+    SELECT row_id, field_id,
+           nullif(btrim(coalesce(text_value, integer_value::text, numeric_value::text, boolean_value::text,
+                                 date_value::text, timestamp_value::text, category_option_id::text, reference_id::text, '')), '') AS v
+      FROM api.dataset_row_values WHERE p_version_id IS NULL
+    UNION ALL
+    SELECT row_id, field_id,
+           nullif(btrim(coalesce(text_value, integer_value::text, numeric_value::text, boolean_value::text,
+                                 date_value::text, timestamp_value::text, category_option_id::text, reference_id::text, '')), '')
+      FROM api.dataset_version_values WHERE dataset_version_id = p_version_id),
+  grid AS (
+    SELECT w.ord,
+           coalesce((SELECT x.v FROM vals x WHERE x.row_id = w.row_id AND x.field_id = v_first AND x.v IS NOT NULL LIMIT 1), 'Row ' || w.ord) AS name,
+           CASE WHEN v_field IS NULL THEN NULL
+                ELSE (SELECT x.v FROM vals x WHERE x.row_id = w.row_id AND x.field_id = v_field AND x.v IS NOT NULL LIMIT 1) END AS cell,
+           EXISTS (SELECT 1 FROM vals x WHERE x.row_id = w.row_id AND x.v IS NOT NULL) AS any_cell
+      FROM rws w)
+  SELECT count(*)::integer, (count(*) FILTER (WHERE any_cell))::integer,
+         (count(*) FILTER (WHERE cell IS NOT NULL))::integer,
+         coalesce(array_agg(name ORDER BY ord) FILTER (WHERE cell IS NULL), '{}')
+    INTO total, nonempty, filled, names FROM grid;
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION internal.gate_dataset_grid(p_workspace_id uuid, p_dataset_id uuid, p_version_id uuid, p_column text) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION internal.gate_dataset_grid(p_workspace_id uuid, p_dataset_id uuid, p_version_id uuid, p_column text) FROM PUBLIC;
+--> statement-breakpoint
+
 CREATE FUNCTION internal.eval_gate_conditions(p_record_id uuid, p_conditions jsonb) RETURNS jsonb
     LANGUAGE plpgsql STABLE SECURITY DEFINER
     SET search_path TO ''
@@ -284,6 +353,9 @@ DECLARE
   v_instance jsonb;
   v_field_id text;
   v_first_field text;
+  v_binding jsonb;
+  v_ds record;
+  v_use_ds boolean;
 BEGIN
   IF p_conditions IS NULL OR jsonb_typeof(p_conditions) <> 'array' THEN
     RETURN v_out;
@@ -337,6 +409,26 @@ BEGIN
              LIMIT 1;
             v_idx := CASE WHEN v_field_id IS NULL THEN NULL ELSE 1 END;
           END IF;
+          -- A sheet that reads a dataset has its rows there. Its own columns
+          -- come first; a column it doesn't have is looked for in the dataset.
+          v_binding := NULL;
+          v_use_ds := false;
+          IF v_column IS NULL OR v_field_id IS NULL THEN
+            SELECT x.value INTO v_binding
+              FROM jsonb_array_elements(coalesce(v_instance->'bindings', '[]'::jsonb)) x
+             WHERE x.value->>'kind' = 'dataset' LIMIT 1;
+          END IF;
+          IF v_binding IS NOT NULL AND (v_column IS NOT NULL OR jsonb_array_length(coalesce(v_instance->'localFields', '[]'::jsonb)) = 0) THEN
+            SELECT * INTO v_ds FROM internal.gate_dataset_grid(
+              v_record.workspace_id, internal.gate_uuid(v_binding->>'datasetId'),
+              CASE WHEN v_binding->'policy'->>'mode' = 'version' THEN internal.gate_uuid(v_binding->'policy'->>'datasetVersionId') END,
+              v_column);
+            v_use_ds := v_ds.total IS NOT NULL;
+          END IF;
+          IF v_use_ds THEN
+            v_total := v_ds.total; v_nonempty := v_ds.nonempty; v_filled := v_ds.filled; v_names := v_ds.names;
+            v_idx := CASE WHEN v_ds.has_column THEN 1 END;
+          ELSE
           WITH grid AS (
             SELECT row_number() OVER (ORDER BY coalesce(nullif(btrim(coalesce(r.value->>v_first_field, '')), ''), r.key))::integer AS ord,
                    coalesce(nullif(btrim(coalesce(r.value->>v_first_field, '')), ''), 'Row') AS name,
@@ -348,6 +440,7 @@ BEGIN
                  (count(*) FILTER (WHERE cell IS NOT NULL))::integer,
                  coalesce(array_agg(CASE WHEN name = 'Row' THEN 'Row ' || ord ELSE name END ORDER BY ord) FILTER (WHERE cell IS NULL), '{}')
             INTO v_total, v_nonempty, v_filled, v_names FROM grid;
+          END IF;
         END IF;
         IF v_column IS NOT NULL AND v_idx IS NULL THEN
           v_text := v_label || ' has no ' || v_column || ' column';
@@ -766,6 +859,10 @@ DECLARE
   v_status record;
   v_number integer;
 BEGIN
+  -- A protocol only describes the gates; nothing is held back while writing it.
+  IF EXISTS (SELECT 1 FROM api.records WHERE id = p_record_id AND kind = 'protocol_template') THEN
+    RETURN;
+  END IF;
   IF p_part_id IS NOT NULL THEN
     SELECT * INTO v_part FROM api.experiment_parts WHERE id = p_part_id;
     IF v_part.id IS NOT NULL AND v_part.opens_when IS NOT NULL AND v_part.gate_mode = 'block' THEN
@@ -828,6 +925,9 @@ BEGIN
     RETURN NEW;
   END IF;
   IF TG_OP = 'UPDATE' AND OLD.payload IS NOT DISTINCT FROM NEW.payload THEN
+    RETURN NEW;
+  END IF;
+  IF EXISTS (SELECT 1 FROM api.records WHERE id = NEW.record_id AND kind = 'protocol_template') THEN
     RETURN NEW;
   END IF;
   -- Steps in order: a step is not done before the ones above it in its part.
@@ -1570,3 +1670,120 @@ BEGIN
   v_def := replace(v_def, ']$catalogue$::jsonb', v_added || '$catalogue$::jsonb');
   EXECUTE v_def;
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- Pinning a protocol brings its gates along with its steps
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION api.pin_protocol_reference(p_block_id uuid, p_protocol_record_id uuid, p_expected_block_version integer, p_expected_structure_version integer) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE b api.blocks; exp api.records; prot api.records; r api.revisions; actor text:=api.current_user_id(); copied jsonb; copied_gates jsonb; v_gate api.blocks; v_gate_ids uuid[]; v_conds jsonb; step_count int; spacing int; block_count int; min_order real; max_order real; staging_offset real;
+BEGIN
+ IF p_block_id IS NOT NULL THEN PERFORM internal.assert_object_access('block',p_block_id,'edit'); END IF;
+ IF p_protocol_record_id IS NOT NULL THEN PERFORM internal.assert_object_access('record',p_protocol_record_id,'view'); END IF;
+ SELECT * INTO b FROM api.blocks WHERE id=p_block_id FOR UPDATE;
+ SELECT * INTO exp FROM api.records WHERE id=b.record_id FOR UPDATE;
+ SELECT * INTO prot FROM api.records WHERE id=p_protocol_record_id FOR UPDATE;
+ IF actor IS NULL OR b.id IS NULL OR exp.id IS NULL OR prot.id IS NULL
+   OR exp.workspace_id IS DISTINCT FROM api.current_workspace_id() OR NOT api.is_workspace_writer(exp.workspace_id)
+   OR b.type<>'protocol_reference' OR b.payload<>'{}'::jsonb OR exp.kind<>'experiment' OR exp.deleted_at IS NOT NULL
+   OR prot.kind<>'protocol_template' OR prot.deleted_at IS NOT NULL OR prot.workspace_id<>exp.workspace_id THEN RAISE EXCEPTION 'protocol pin rejected' USING ERRCODE='42501'; END IF;
+ IF p_expected_block_version IS NULL OR b.version IS DISTINCT FROM p_expected_block_version THEN RAISE EXCEPTION 'block version mismatch' USING ERRCODE='SB001'; END IF;
+ IF p_expected_structure_version IS NULL OR exp.structure_version IS DISTINCT FROM p_expected_structure_version THEN RAISE EXCEPTION 'structure version mismatch' USING ERRCODE='SB001'; END IF;
+ INSERT INTO api.revisions(record_id,structure_version,metadata_version,metadata_snapshot,block_snapshot,reason,created_by_user_id)
+ SELECT prot.id,prot.structure_version,prot.metadata_version,jsonb_build_object('id',prot.id,'identifier',prot.identifier,'title',prot.title,'status',prot.status,'properties',prot.properties,'tags',prot.tags,'metadataVersion',prot.metadata_version),
+   COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x."order") FILTER(WHERE x.id IS NOT NULL),'[]'), 'manual',actor FROM api.blocks x WHERE x.record_id=prot.id RETURNING * INTO r;
+ SELECT count(*)::int INTO step_count FROM jsonb_array_elements(r.block_snapshot) s WHERE s->>'type' IN ('procedure_step','gate');
+ spacing := step_count + 1;
+ UPDATE api.blocks SET payload=jsonb_build_object('protocolRecordId',prot.id,'protocolIdentifier',prot.identifier,'protocolTitle',prot.title,'protocolRevisionId',r.id,
+   'version',COALESCE(prot.properties->>'version',prot.metadata_version::text),'approvalStatus',prot.status,'pinnedAt',r.created_at,'pinnedByUserId',actor),version=version+1,updated_by_user_id=actor WHERE id=b.id RETURNING * INTO b;
+ -- Stage every existing order above both the old and final ranges, avoiding
+ -- immediate unique-constraint collisions even for very sparse old orders.
+ SELECT count(*)::int,min("order"),max("order") INTO block_count,min_order,max_order
+ FROM api.blocks WHERE record_id=exp.id;
+ staging_offset := greatest(max_order,block_count*spacing)-min_order+1;
+ UPDATE api.blocks SET "order"="order"+staging_offset WHERE record_id=exp.id;
+ WITH ordered AS (SELECT id,row_number() OVER(ORDER BY "order",id)*spacing AS n FROM api.blocks WHERE record_id=exp.id)
+ UPDATE api.blocks x SET "order"=ordered.n FROM ordered WHERE x.id=ordered.id;
+ -- Steps and gates keep their place relative to each other: one running
+ -- number over both, steps first so a gate lands in the part of the step above.
+ WITH ins AS (INSERT INTO api.blocks(record_id,type,payload,payload_schema_version,"order",created_by_user_id)
+   SELECT exp.id,'procedure_step', s->'payload' || jsonb_build_object('sourceProtocolRevisionId',r.id,'sourceStepBlockId',s->>'id','completed',false,'note','','completedAt',NULL,'completedByUserId',NULL),1,
+     (SELECT "order" FROM api.blocks WHERE id=b.id)+n,actor
+   FROM (SELECT s,row_number() OVER(ORDER BY (s->>'order')::real) AS n FROM jsonb_array_elements(r.block_snapshot) s WHERE s->>'type' IN ('procedure_step','gate')) q(s,n)
+   WHERE s->>'type'='procedure_step' RETURNING *)
+ SELECT COALESCE(jsonb_agg(to_jsonb(ins) ORDER BY ins."order"),'[]') INTO copied FROM ins;
+ -- A protocol's gates come across held back (pending) so nothing checks them
+ -- half way, then are released as gates from the protocol: they can't be
+ -- changed or removed in the experiment. A condition that waits on a step
+ -- points at the copied step through its source step; one that waits on
+ -- something that doesn't come across is left out.
+ WITH ins AS (INSERT INTO api.blocks(record_id,type,payload,payload_schema_version,"order",created_by_user_id)
+   SELECT exp.id,'gate',
+     (s->'payload') || jsonb_build_object('pending',true,'conditions',COALESCE((
+        SELECT jsonb_agg(c.value ORDER BY c.ord) FROM jsonb_array_elements(COALESCE(s->'payload'->'conditions','[]'::jsonb)) WITH ORDINALITY c(value,ord)
+         WHERE NOT (c.value ? 'blockId') OR EXISTS (
+           SELECT 1 FROM jsonb_array_elements(r.block_snapshot) st WHERE st->>'type'='procedure_step' AND st->>'id'=c.value->>'blockId')),'[]'::jsonb)),
+     1,(SELECT "order" FROM api.blocks WHERE id=b.id)+n,actor
+   FROM (SELECT s,row_number() OVER(ORDER BY (s->>'order')::real) AS n FROM jsonb_array_elements(r.block_snapshot) s WHERE s->>'type' IN ('procedure_step','gate')) q(s,n)
+   WHERE s->>'type'='gate' RETURNING id)
+ SELECT COALESCE(array_agg(id),'{}') INTO v_gate_ids FROM ins;
+ FOR v_gate IN SELECT * FROM api.blocks g WHERE g.id=ANY(v_gate_ids) ORDER BY g."order" LOOP
+   IF internal.gate_conditions_valid(v_gate.payload->'conditions') THEN
+     UPDATE api.blocks SET payload=(v_gate.payload-'pending')||jsonb_build_object('fromTemplate',true),version=version+1 WHERE id=v_gate.id;
+   ELSE
+     DELETE FROM api.blocks WHERE id=v_gate.id;
+   END IF;
+ END LOOP;
+ SELECT COALESCE(jsonb_agg(to_jsonb(g) ORDER BY g."order"),'[]') INTO copied_gates FROM api.blocks g WHERE g.id=ANY(v_gate_ids);
+ INSERT INTO api.record_links(source_record_id,target_record_id,target_kind,target_identifier,link_type,created_by_user_id)
+ VALUES(exp.id,prot.id,prot.kind,prot.identifier,'protocol',actor) ON CONFLICT(source_record_id,target_identifier,link_type) DO UPDATE SET target_record_id=EXCLUDED.target_record_id,target_kind=EXCLUDED.target_kind;
+ UPDATE api.records SET structure_version=exp.structure_version+1,updated_by_user_id=actor WHERE id=exp.id;
+ RETURN jsonb_build_object('block',to_jsonb(b),'revision',to_jsonb(r),'copied_steps',copied,'copied_gates',copied_gates,'structure_version',exp.structure_version+1);
+END $$;
+--> statement-breakpoint
+
+-- ---------------------------------------------------------------------------
+-- A sheet that reads a dataset: writing the dataset's cells is writing the sheet
+-- ---------------------------------------------------------------------------
+
+-- A closed gate that blocks holds back the sheets below it, however the cells
+-- get changed: through the sheet or straight into the dataset it reads.
+CREATE FUNCTION internal.enforce_dataset_gates() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  v_dataset uuid;
+  v_block api.blocks;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM api.blocks WHERE type = 'gate') THEN
+    RETURN NULL;
+  END IF;
+  FOR v_dataset IN
+    SELECT DISTINCT r.dataset_id FROM changed c JOIN api.dataset_rows r ON r.id = c.row_id
+  LOOP
+    FOR v_block IN
+      SELECT b.* FROM api.blocks b
+        JOIN api.sheet_instances i ON i.id = internal.gate_uuid(b.payload->>'instanceId')
+       WHERE b.type = 'sheet'
+         AND i.state->'bindings' @> jsonb_build_array(jsonb_build_object('kind', 'dataset', 'datasetId', v_dataset::text))
+         AND EXISTS (SELECT 1 FROM api.blocks g WHERE g.record_id = b.record_id AND g.type = 'gate')
+    LOOP
+      PERFORM internal.assert_gates_open(v_block.record_id, v_block.part_id, v_block."order", v_block.id);
+    END LOOP;
+  END LOOP;
+  RETURN NULL;
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION internal.enforce_dataset_gates() OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION internal.enforce_dataset_gates() FROM PUBLIC;
+--> statement-breakpoint
+CREATE TRIGGER enforce_dataset_gates_insert AFTER INSERT ON api.dataset_row_values
+  REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION internal.enforce_dataset_gates();
+--> statement-breakpoint
+CREATE TRIGGER enforce_dataset_gates_update AFTER UPDATE ON api.dataset_row_values
+  REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION internal.enforce_dataset_gates();
+--> statement-breakpoint

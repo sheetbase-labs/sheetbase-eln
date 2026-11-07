@@ -710,6 +710,144 @@ describe('conditions', () => {
   })
 })
 
+describe('a sheet that reads a dataset', () => {
+  it('is read from the dataset, and its cells are held back by a gate above it', async () => {
+    const { recordId } = await experiment('Dataset sheet')
+    const schemaDef = crypto.randomUUID()
+    const schemaVersion = crypto.randomUUID()
+    const fieldName = crypto.randomUUID()
+    const fieldOd = crypto.randomUUID()
+    const dataset = crypto.randomUUID()
+    await migrator.query(
+      `insert into api.dataset_schema_definitions(id,workspace_id,key,name,lifecycle) values($1,$2,$3,'Reads','draft')`,
+      [schemaDef, WS, `gate_reads_${schemaDef.replaceAll('-', '')}`],
+    )
+    await migrator.query(
+      `insert into api.dataset_schema_versions(id,schema_id,version,lifecycle) values($1,$2,1,'draft')`,
+      [schemaVersion, schemaDef],
+    )
+    await migrator.query(
+      `insert into api.dataset_schema_version_fields(id,schema_version_id,field_id,key,label,logical_type,nullable,validation,quantity,display_order) values
+        (gen_random_uuid(),$1,$2,'plate','Plate','text',true,'{}'::jsonb,null,1),
+        (gen_random_uuid(),$1,$3,'od','OD','text',true,'{}'::jsonb,null,2)`,
+      [schemaVersion, fieldName, fieldOd],
+    )
+    await migrator.query(
+      `update api.dataset_schema_versions set lifecycle='active', published_at=now() where id=$1`,
+      [schemaVersion],
+    )
+    await migrator.query(
+      `insert into api.datasets(id,workspace_id,schema_version_id,name) values($1,$2,$3,'Reads')`,
+      [dataset, WS, schemaVersion],
+    )
+    const rows = [crypto.randomUUID(), crypto.randomUUID()]
+    for (const id of rows) {
+      await migrator.query(
+        `insert into api.dataset_rows(id,dataset_id,workspace_id) values($1,$2,$3)`,
+        [id, dataset, WS],
+      )
+    }
+    await migrator.query(
+      `insert into api.dataset_row_values(row_id,field_id,ordinal,text_value) values
+        ($1,$3,0,'P1'),($2,$3,0,'P2'),($1,$4,0,'0.4')`,
+      [rows[0], rows[1], fieldName, fieldOd],
+    )
+    await migrator.query(
+      `select set_config('sheetbase.sheet_instance_write','rpc-v1',false)`,
+    )
+    const state = {
+      bindings: [
+        {
+          bindingId: crypto.randomUUID(),
+          parameterId: crypto.randomUUID(),
+          kind: 'dataset',
+          datasetId: dataset,
+          policy: { mode: 'live' },
+        },
+      ],
+      provenance: { createdFrom: 'ad_hoc' },
+      presentation: {
+        sorts: [],
+        density: 'standard',
+        filters: [],
+        columnOrder: [],
+        columnWidths: {},
+        hiddenColumnIds: [],
+        frozenColumnCount: 0,
+      },
+      calculationOverrides: {},
+      localFields: [],
+      localValues: {},
+    }
+    const instanceId = (
+      await migrator.query(
+        `insert into api.sheet_instances(workspace_id,name,created_by_user_id,state)
+         values ($1,'Dataset reads',$2,$3::jsonb) returning id`,
+        [WS, OWNER, JSON.stringify(state)],
+      )
+    ).rows[0].id as string
+    const sheet = (
+      await owner.query(
+        `select api.insert_block($1,'sheet',$2::jsonb) as result`,
+        [recordId, JSON.stringify({ instanceId })],
+      )
+    ).rows[0].result.block as { id: string }
+    await insert(
+      recordId,
+      'gate',
+      {
+        mode: 'block',
+        label: 'Read',
+        conditions: [
+          {
+            kind: 'table_filled',
+            blockId: sheet.id,
+            column: 'od',
+            label: 'The sheet',
+          },
+        ],
+      },
+      sheet.id,
+    )
+    const [row] = await gates(recordId)
+    expect(row.missing).toEqual(['P2 has no od'])
+    await migrator.query(
+      `insert into api.dataset_row_values(row_id,field_id,ordinal,text_value) values($1,$2,0,'0.5')`,
+      [rows[1], fieldOd],
+    )
+    expect((await gates(recordId))[0].met).toBe(true)
+
+    // The same dataset read below a gate that blocks: writing the dataset's
+    // cells is held back like writing the sheet.
+    const { recordId: other } = await experiment('Dataset sheet below a gate')
+    const top = await insert(other, 'rich_text', DOC)
+    const below = (
+      await owner.query(
+        `select api.insert_block($1,'sheet',$2::jsonb,1,$3) as result`,
+        [other, JSON.stringify({ instanceId }), top.id],
+      )
+    ).rows[0].result.block as { id: string }
+    expect(below.id).toBeTruthy()
+    await insert(
+      other,
+      'gate',
+      {
+        mode: 'block',
+        label: 'Samples',
+        conditions: [{ kind: 'samples_linked', min: 1 }],
+      },
+      top.id,
+    )
+    await refused(
+      migrator.query(
+        `update api.dataset_row_values set text_value='0.6' where row_id=$1 and field_id=$2`,
+        [rows[1], fieldOd],
+      ),
+      'SB150',
+    )
+  })
+})
+
 describe('the rule that opens a part', () => {
   it('holds a part back until the part before is done, and blocks its steps', async () => {
     const { recordId, stepIds } = await experiment('Parts gate', [
@@ -970,5 +1108,109 @@ describe('gates from a template', () => {
     expect(rows[1].conditions[0]).toMatchObject({ blockId: table[0].id })
     await fillTable(table[0].id, [['P1', '61']])
     expect((await gates(recordId))[1].met).toBe(true)
+  })
+
+  it('come across when a protocol is pinned, in place, and stay', async () => {
+    const protocol = crypto.randomUUID()
+    await migrator.query(
+      `insert into api.records(id,workspace_id,kind,identifier,title,status,created_by_user_id)
+       values($1,$2,'protocol_template',$3,'Gated protocol','active',$4)`,
+      [protocol, WS, `PRT-${protocol}`, OWNER],
+    )
+    const stepOne = crypto.randomUUID()
+    const table = crypto.randomUUID()
+    const rows: [string, string, object, number][] = [
+      [stepOne, 'procedure_step', { text: 'Seed', stepNumber: 1 }, 1],
+      [
+        crypto.randomUUID(),
+        'gate',
+        {
+          label: 'Seeding done',
+          mode: 'block',
+          conditions: [
+            { kind: 'step_done', blockId: stepOne },
+            { kind: 'table_filled', blockId: table },
+          ],
+        },
+        2,
+      ],
+      [
+        crypto.randomUUID(),
+        'procedure_step',
+        { text: 'Treat', stepNumber: 2 },
+        3,
+      ],
+    ]
+    for (const [id, type, payload, order] of rows) {
+      await migrator.query(
+        `insert into api.blocks(id,record_id,type,payload,"order",created_by_user_id)
+         values($1,$2,$3,$4::jsonb,$5,$6)`,
+        [id, protocol, type, JSON.stringify(payload), order, OWNER],
+      )
+    }
+    const { rows: made } = await owner.query(
+      `select id from api.create_record($1::uuid,'experiment','Pinned gates')`,
+      [PROJECT],
+    )
+    const recordId = made[0].id as string
+    const pin = (
+      await owner.query(
+        `select api.insert_block($1,'protocol_reference','{}'::jsonb) as result`,
+        [recordId],
+      )
+    ).rows[0].result.block as { id: string; version: number }
+    const structure = (
+      await migrator.query(
+        `select structure_version from api.records where id=$1`,
+        [recordId],
+      )
+    ).rows[0].structure_version as number
+    const pinned = (
+      await owner.query(
+        `select api.pin_protocol_reference($1,$2,$3,$4) as result`,
+        [pin.id, protocol, pin.version, structure],
+      )
+    ).rows[0].result as { copied_gates: { id: string }[] }
+    expect(pinned.copied_gates).toHaveLength(1)
+    const { rows: page } = await migrator.query(
+      `select id, type, payload from api.blocks
+        where record_id=$1 and type <> 'protocol_reference' order by "order"`,
+      [recordId],
+    )
+    expect(page.map((b) => b.type)).toEqual([
+      'procedure_step',
+      'gate',
+      'procedure_step',
+    ])
+    const gate = page[1]
+    expect(gate.payload.pending).toBeUndefined()
+    expect(gate.payload.fromTemplate).toBe(true)
+    // Only the condition on a step comes across; it resolves to the copied step.
+    expect(gate.payload.conditions).toEqual([
+      { kind: 'step_done', blockId: stepOne },
+    ])
+    const status = (
+      await owner.query(`select * from api.record_gates($1)`, [recordId])
+    ).rows[0]
+    expect(status.met).toBe(false)
+    expect(status.from_template).toBe(true)
+    // The step below the gate is held back until the step above is done.
+    const below = (
+      await migrator.query(`select version from api.blocks where id=$1`, [
+        page[2].id,
+      ])
+    ).rows[0].version as number
+    await refused(
+      owner.query(`select api.update_block_payload($1,$2::jsonb,$3)`, [
+        page[2].id,
+        JSON.stringify({ ...page[2].payload, completed: true }),
+        below,
+      ]),
+      'SB150',
+    )
+    await refused(
+      owner.query(`delete from api.blocks where id=$1`, [gate.id]),
+      'SB152',
+    )
   })
 })

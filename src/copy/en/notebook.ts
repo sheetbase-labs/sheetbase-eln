@@ -3095,6 +3095,10 @@ export const notebook = {
     edit: 'Edit gate',
     editShort: 'Edit',
     openLine: '{label} is open.',
+    protocolBlocks:
+      'Experiments made from this protocol are held here until then.',
+    protocolWarns:
+      'Experiments made from this protocol are warned here until then.',
     openPartLine: 'Part {number} is open.',
     wentOn: 'Went on without it: {reason}',
     wentOnBy: '{name} went on anyway: {reason}',

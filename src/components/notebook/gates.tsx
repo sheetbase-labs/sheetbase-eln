@@ -55,6 +55,8 @@ export interface GatesState {
   stepWaits: ReadonlyMap<string, number>
   /** The page can change gates and go on past them. */
   canEdit: boolean
+  /** A protocol: gates are written down for the experiments made from it, and hold nothing here. */
+  describeOnly: boolean
   /** What the page has loaded, for the words of a condition. */
   context: GateContext
   nameOf: (userId: string | null) => string
@@ -281,6 +283,33 @@ export function GateBlockView({
   const mode: GateMode = payload.mode === 'block' ? 'block' : 'warn'
   const fromTemplate = payload.fromTemplate === true
   const context: GateContext = state?.context ?? { blocks: [], parts: [] }
+
+  if (gate && state?.describeOnly) {
+    return (
+      <div
+        data-gate="described"
+        className="flex items-start gap-2 rounded-md border border-dashed border-border bg-surface-muted px-3 py-2 text-label text-fg-muted"
+      >
+        <Icon name="lock" size={14} className="mt-0.5 shrink-0" />
+        <span className="min-w-0 flex-1">
+          {t('notebook.gates.opensWhen', {
+            label,
+            conditions: describeConditions(conditions, context),
+          })}{' '}
+          {mode === 'block'
+            ? t('notebook.gates.protocolBlocks')
+            : t('notebook.gates.protocolWarns')}
+        </span>
+        {state.canEdit ? (
+          <IconButton
+            label={t('notebook.gates.edit')}
+            icon="edit"
+            onClick={() => state.edit(gate)}
+          />
+        ) : null}
+      </div>
+    )
+  }
 
   if (!gate || !state) {
     // Read away from the live page (history, review): say what it was.

@@ -39,12 +39,15 @@ export function useNotebookGates({
   parts,
   canEdit,
   enabled,
+  describeOnly = false,
 }: {
   recordId: string
   blocks: readonly NotebookBlock[]
   parts: readonly PartProgress[]
   canEdit: boolean
   enabled: boolean
+  /** A protocol: gates are shown as written, and hold nothing back. */
+  describeOnly?: boolean
 }): { state: GatesState | null; dialogs: React.ReactNode } {
   const queryClient = useQueryClient()
   const refresh = useRefreshGates(recordId)
@@ -121,16 +124,21 @@ export function useNotebookGates({
   }, [query.data, blocks, parts, context])
 
   const held = React.useMemo(
-    () => blocksBehindGates(context.blocks, gates),
-    [context.blocks, gates],
+    () =>
+      describeOnly
+        ? new Map<string, RecordGate>()
+        : blocksBehindGates(context.blocks, gates),
+    [context.blocks, gates, describeOnly],
   )
   const stepWaits = React.useMemo(
     () =>
-      stepWaitsOnStep(
-        context.blocks,
-        new Set(parts.filter((p) => p.stepsInOrder).map((p) => p.id)),
-      ),
-    [context.blocks, parts],
+      describeOnly
+        ? new Map<string, number>()
+        : stepWaitsOnStep(
+            context.blocks,
+            new Set(parts.filter((p) => p.stepsInOrder).map((p) => p.id)),
+          ),
+    [context.blocks, parts, describeOnly],
   )
 
   const targetsFor = React.useCallback(
@@ -158,6 +166,7 @@ export function useNotebookGates({
             held,
             stepWaits,
             canEdit,
+            describeOnly,
             context,
             nameOf,
             goOn: setGoingOn,
@@ -170,6 +179,7 @@ export function useNotebookGates({
       held,
       stepWaits,
       canEdit,
+      describeOnly,
       context,
       nameOf,
       show,

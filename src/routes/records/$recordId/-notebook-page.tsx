@@ -679,6 +679,7 @@ export function RecordNotebookPage({
       !record.archivedAt,
     ),
     enabled: !historicalRevisionId,
+    describeOnly: record?.kind === 'protocol_template',
   })
   const shownPartNow = shownPart(partsList, requestedPart)
   const lockedPartGate =

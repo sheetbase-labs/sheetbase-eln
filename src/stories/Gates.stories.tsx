@@ -48,6 +48,7 @@ function state(gates: RecordGate[]): GatesState {
     held: new Map(),
     stepWaits: new Map(),
     canEdit: true,
+    describeOnly: false,
     context: {
       blocks: [
         {

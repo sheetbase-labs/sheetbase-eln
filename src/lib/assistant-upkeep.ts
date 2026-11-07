@@ -31,6 +31,7 @@ export const SCIM_TOKEN_REVOKE_TOOL = 'sheetbase.scim_token.revoke'
 export const TIMESTAMPS_SET_TOOL = 'sheetbase.timestamps.set'
 export const TIMESTAMPS_RETRY_TOOL = 'sheetbase.timestamps.retry'
 export const VALIDATION_RUN_TOOL = 'sheetbase.validation.run'
+export const PIPELINE_REPRODUCE_TOOL = 'sheetbase.pipeline.reproduce'
 
 export const UPKEEP_PROPOSE_TOOL_NAMES = [
   PROJECT_CREATE_TOOL,
@@ -51,6 +52,7 @@ export const UPKEEP_PROPOSE_TOOL_NAMES = [
   TIMESTAMPS_SET_TOOL,
   TIMESTAMPS_RETRY_TOOL,
   VALIDATION_RUN_TOOL,
+  PIPELINE_REPRODUCE_TOOL,
 ] as const
 
 export type UpkeepProposeToolName = (typeof UPKEEP_PROPOSE_TOOL_NAMES)[number]
@@ -264,6 +266,28 @@ export const proposeTimestampsRetrySchema = z
 
 export const proposeValidationRunSchema = z.object({ title, summary }).strict()
 
+export const proposePipelineReproduceSchema = z
+  .object({
+    title,
+    summary,
+    pipeline: z
+      .string()
+      .min(1)
+      .max(120)
+      .optional()
+      .describe(
+        'The pipeline by name or identifier such as PL-0014. Reproduces its latest finished run.',
+      ),
+    runId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe(
+        'A particular finished run, taken from a read of the pipeline runs. Use instead of pipeline.',
+      ),
+  })
+  .strict()
+
 export const proposeGroupRoleSetSchema = z
   .object({
     title,
@@ -383,6 +407,7 @@ export type UpkeepAction =
     }
   | { kind: 'timestamps.retry'; signatureId: string }
   | { kind: 'validation.run' }
+  | { kind: 'pipeline.reproduce'; runId: string; definitionId: string }
 
 export type UpkeepActionKind = UpkeepAction['kind']
 
@@ -406,6 +431,7 @@ const KINDS: readonly string[] = [
   'timestamps.set',
   'timestamps.retry',
   'validation.run',
+  'pipeline.reproduce',
 ]
 
 export function isUpkeepAction(action: {

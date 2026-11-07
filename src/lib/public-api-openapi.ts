@@ -620,6 +620,135 @@ export function buildExternalApiOpenApi(): ExternalApiOpenApi {
     },
   }
 
+  const jsonError = {
+    content: {
+      'application/json': {
+        schema: {
+          type: 'object',
+          properties: {
+            error: {
+              type: 'object',
+              properties: {
+                code: { type: 'string' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+    },
+  }
+  paths['/api/pipelines/reproduce'] = {
+    post: {
+      tags: ['Pipelines'],
+      summary: 'Reproduce a finished pipeline run',
+      operationId: 'reproducePipelineRun',
+      description:
+        'Runs a finished pipeline run again in scratch space from its pinned version, parameters, inputs and image digest, compares the result with the original and records a Matches, Differs or Failed verdict (`pipeline_reproductions`). Nothing is published or changed. Needs `pipelines:write` and a personal token, and sends `pipeline.run.reproduced`. See docs/api/provenance-api.md.',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['runId'],
+              properties: {
+                runId: { type: 'string', format: 'uuid' },
+                tolerance: {
+                  type: 'number',
+                  minimum: 0,
+                  maximum: 1,
+                  description:
+                    'How close two numbers must be to count as equal (default 1e-9).',
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': {
+          description: 'The verdict.',
+          content: {
+            'application/json': {
+              schema: { type: 'object', additionalProperties: true },
+            },
+          },
+        },
+        '401': { description: 'Not signed in.', ...jsonError },
+        '403': {
+          description: 'Not a member who can run pipelines.',
+          ...jsonError,
+        },
+        '404': { description: 'No such run.', ...jsonError },
+        '409': { description: 'The run has not finished.', ...jsonError },
+        '429': { description: 'Rate limited.', ...jsonError },
+      },
+    },
+  }
+  paths['/api/events/stream'] = {
+    get: {
+      tags: ['Events'],
+      summary: 'Read the workspace event stream',
+      operationId: 'readEventStream',
+      description:
+        'Every catalogued change in the workspace, in order, as CloudEvents 1.0. Returns a JSON page by default, or a live Server-Sent Events stream when the request says `Accept: text/event-stream`. `after` (or `Last-Event-ID`) is the sequence of the last event you handled. You only see events you could see in the app. Needs `admin:read`. See docs/api/event-stream.md.',
+      parameters: [
+        {
+          name: 'after',
+          in: 'query',
+          required: false,
+          schema: { type: 'integer', minimum: 0 },
+          description:
+            'Last sequence handled. A JSON read without it starts at the oldest kept event; a live stream starts at the newest.',
+        },
+        {
+          name: 'limit',
+          in: 'query',
+          required: false,
+          schema: { type: 'integer', minimum: 1, maximum: 1000, default: 200 },
+        },
+        {
+          name: 'types',
+          in: 'query',
+          required: false,
+          schema: { type: 'string' },
+          description:
+            'Comma-separated event names, such as `pipeline.run.reproduced,sample.created`.',
+        },
+      ],
+      responses: {
+        '200': {
+          description: 'A page of CloudEvents, or a stream of them.',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  events: { type: 'array', items: { type: 'object' } },
+                  nextCursor: { type: 'integer' },
+                  hasMore: { type: 'boolean' },
+                  earliest: { type: ['integer', 'null'] },
+                  latest: { type: ['integer', 'null'] },
+                  retentionDays: { type: 'integer' },
+                },
+              },
+            },
+            'text/event-stream': { schema: { type: 'string' } },
+          },
+        },
+        '401': { description: 'Not signed in.', ...jsonError },
+        '403': { description: 'The token lacks admin:read.', ...jsonError },
+        '410': {
+          description:
+            '`cursor_expired`: the position is older than the events kept.',
+          ...jsonError,
+        },
+        '429': { description: 'Rate limited.', ...jsonError },
+      },
+    },
+  }
+
   for (const resource of Object.keys(EXTERNAL_TABLE_ACCESS).sort()) {
     paths[`/api/db/${resource}`] = tableOperations(resource)
   }
@@ -670,6 +799,11 @@ export function buildExternalApiOpenApi(): ExternalApiOpenApi {
         name: 'Lab',
         description:
           'Reagent orders, recurring work, instrument service and feeds, stocktakes, shipments, requests, sample workflows, registry entries, result limits, legal holds, retention and follows. Reads need lab:read; actions need lab:write and run as the person a personal token belongs to.',
+      },
+      {
+        name: 'Events',
+        description:
+          'The replayable event stream: JSON pages and live Server-Sent Events, as CloudEvents 1.0.',
       },
       {
         name: 'Pipelines',

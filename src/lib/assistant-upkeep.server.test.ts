@@ -715,3 +715,55 @@ describe('trusted timestamp cards', () => {
     ])
   })
 })
+
+describe('reproduce run card', () => {
+  const definition = { id: 'd1', name: 'Scale titres', display_id: 'PL-0001' }
+  const run = {
+    id: 'r1',
+    status: 'succeeded',
+    definition_version_id: 'v1',
+    created_at: '2026-11-06T10:00:00Z',
+  }
+
+  it('finds the latest finished run of a pipeline by name', async () => {
+    const { ctx, calls } = context({
+      pipeline_definitions: [definition],
+      pipeline_definition_versions: [{ id: 'v1' }],
+      pipeline_runs: [run],
+    })
+    const outcome = await buildUpkeepProposal(
+      'sheetbase.pipeline.reproduce',
+      { ...base, pipeline: 'scale titres' },
+      ctx,
+    )
+    expect(outcome).toMatchObject({
+      ok: true,
+      proposal: {
+        action: { kind: 'pipeline.reproduce', runId: 'r1', definitionId: 'd1' },
+      },
+    })
+    expect(calls.some((c) => c.includes('status=eq.succeeded'))).toBe(true)
+  })
+
+  it('asks which pipeline when none is named, and refuses an unfinished run', async () => {
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.pipeline.reproduce',
+        { ...base },
+        context({}).ctx,
+      ),
+    ).toMatchObject({ ok: false })
+    const unfinished = context({
+      pipeline_runs: [{ ...run, status: 'failed' }],
+      pipeline_definition_versions: [{ definition_id: 'd1' }],
+      pipeline_definitions: [definition],
+    })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.pipeline.reproduce',
+        { ...base, runId: '11111111-1111-4111-8111-111111111111' },
+        unfinished.ctx,
+      ),
+    ).toMatchObject({ ok: false })
+  })
+})

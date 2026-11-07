@@ -80,6 +80,7 @@ const ACTION_COPY = {
   'timestamps.set': 'setTimestamps',
   'timestamps.retry': 'retryTimestamp',
   'validation.run': 'runValidation',
+  'pipeline.reproduce': 'reproduceRun',
   'notifications.read': 'markRead',
   'reagent.ordered': 'markOrdered',
   'reagent.cancel': 'cancelOrder',

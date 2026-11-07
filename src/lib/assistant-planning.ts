@@ -36,6 +36,7 @@ export const PART_ADD_TOOL = 'sheetbase.part.add'
 export const PART_UPDATE_TOOL = 'sheetbase.part.update'
 export const PART_DONE_TOOL = 'sheetbase.part.complete'
 export const GATE_GO_ON_TOOL = 'sheetbase.gate.go_on'
+export const PART_SIGNOFF_REQUEST_TOOL = 'sheetbase.part.request_signoff'
 
 export const PLANNING_PROPOSE_TOOL_NAMES = [
   EXPERIMENT_START_TOOL,
@@ -53,6 +54,7 @@ export const PLANNING_PROPOSE_TOOL_NAMES = [
   PART_UPDATE_TOOL,
   PART_DONE_TOOL,
   GATE_GO_ON_TOOL,
+  PART_SIGNOFF_REQUEST_TOOL,
 ] as const
 
 export type PlanningProposeToolName =
@@ -216,6 +218,19 @@ export const proposeGateGoOnSchema = z
       .describe(
         'Why the person is going on before it is open, in their words. Ask them if they have not said. It is kept with the experiment and shown to the reviewer.',
       ),
+  })
+  .strict()
+
+export const proposePartSignoffRequestSchema = z
+  .object({
+    title,
+    summary,
+    record: named('The experiment by identifier (EXP-12) or title.'),
+    part: partWords,
+    person: named(
+      'The person to ask, by name: to sign a finished part, or to countersign one that is signed.',
+    ),
+    note: z.string().min(1).max(500).optional().describe('A line for them.'),
   })
   .strict()
 
@@ -480,6 +495,12 @@ export type PlanningAction =
       reason: string
     }
   | {
+      kind: 'part.signoff_request'
+      partId: string
+      userId: string
+      note: string | null
+    }
+  | {
       kind: 'step.result'
       blockId: string
       label: string
@@ -537,6 +558,7 @@ export function isPlanningAction(action: {
     'part.update',
     'part.done',
     'gate.go_on',
+    'part.signoff_request',
     'shipment.create',
     'shipment.receive',
   ].includes(action.kind)

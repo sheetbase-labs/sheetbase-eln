@@ -51,6 +51,7 @@ function fakeClient(
     seriesMembers?: Array<Record<string, unknown>>
     parts?: Array<Record<string, unknown>>
     gates?: Array<Record<string, unknown>>
+    signoffs?: Array<Record<string, unknown>>
   } = {},
 ) {
   const client = {
@@ -104,6 +105,8 @@ function fakeClient(
       if (name === 'series_rollup') {
         return Promise.resolve({ total: 2, approved: 1, samples: 3 })
       }
+      if (name === 'record_part_signoffs')
+        return Promise.resolve(data.signoffs ?? [])
       if (name === 'record_parts') return Promise.resolve(data.parts ?? [])
       if (name === 'workspace_members_list') {
         return Promise.resolve([
@@ -536,6 +539,68 @@ describe('parts', () => {
     expect(body.partsDone).toBe(1)
     expect(body.parts[0].doneBy).toBe('Priya Shah')
     expect(body.parts[1]).toMatchObject({ day: 1, current: true })
+  })
+
+  it('says which parts need a signature and who signed', async () => {
+    const read = await readParts(
+      { record: 'EXP-12' },
+      context(
+        fakeClient({
+          parts,
+          signoffs: [
+            {
+              part_id: 'part-1',
+              requires_sign_off: true,
+              awaiting_sign_off: false,
+              signed: true,
+              signed_at: '2026-11-03T10:00:00Z',
+              signed_by_user_id: 'user-priya',
+              countersigned_by: ['user-sam'],
+              countersign_requested_from: [],
+              sign_requested_from: [],
+              amendment_count: 0,
+            },
+          ],
+        }),
+      ),
+    )
+    const body = JSON.parse(read.text)
+    expect(body.parts[0]).toMatchObject({
+      needsSignature: true,
+      signed: true,
+      signedBy: 'Priya Shah',
+      countersignedBy: ['Sam Lee'],
+    })
+    expect(body.parts[1].needsSignature).toBeUndefined()
+  })
+
+  it('proposes asking someone to sign a finished part, not signing it', async () => {
+    const signoffs = [
+      {
+        part_id: 'part-2',
+        requires_sign_off: true,
+        awaiting_sign_off: true,
+        signed: false,
+        amendment_count: 0,
+      },
+    ]
+    const built = await buildPlanningProposal(
+      'sheetbase.part.request_signoff',
+      { title: 'Ask', summary: 's', record: 'EXP-12', person: 'Sam' },
+      context(fakeClient({ parts, signoffs })),
+    )
+    expect(built.ok && built.proposal.action).toEqual({
+      kind: 'part.signoff_request',
+      partId: 'part-2',
+      userId: 'user-sam',
+      note: null,
+    })
+    const none = await buildPlanningProposal(
+      'sheetbase.part.request_signoff',
+      { title: 'Ask', summary: 's', record: 'EXP-12', person: 'Sam' },
+      context(fakeClient({ parts })),
+    )
+    expect(none.ok).toBe(false)
   })
 
   it('adds a part on a day', async () => {

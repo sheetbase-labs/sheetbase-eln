@@ -143,6 +143,7 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.part.update',
   'sheetbase.part.complete',
   'sheetbase.gate.go_on',
+  'sheetbase.part.request_signoff',
   'sheetbase.shipment.send',
   'sheetbase.shipment.receive',
   // Keeping the lab tidy from a card: start a project, follow something, mark

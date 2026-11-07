@@ -400,8 +400,11 @@ function LakeLogins({
             value={engine}
             onValueChange={(v) => setEngine(v as typeof engine)}
             items={[
+              // copy-ignore-next-line
               { key: 'duckdb', label: 'DuckDB' },
+              // copy-ignore-next-line
               { key: 'polars', label: 'Polars' },
+              // copy-ignore-next-line
               { key: 'spark', label: 'Spark' },
             ]}
           />

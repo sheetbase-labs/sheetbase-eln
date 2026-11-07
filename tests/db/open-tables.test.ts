@@ -12,7 +12,6 @@
  *  - a publication goes queued -> draft -> published, and only a person can
  *    make the draft public.
  */
-// @requirement FAIR-01
 import { createHash } from 'node:crypto'
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'

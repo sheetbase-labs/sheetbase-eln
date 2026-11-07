@@ -26,6 +26,7 @@ import {
   partQueryKeys,
   setPartDone,
 } from '#/lib/experiment-parts'
+import { gateRefusal } from '#/lib/experiment-gates'
 import type { PartProgress } from '#/lib/experiment-parts'
 import { currentStep, instrumentNamedBy, stepProgress } from '#/lib/step-status'
 import type { StepBlockLike, StepProgress } from '#/lib/step-status'
@@ -236,7 +237,10 @@ function RunningStep({
         }),
       )
     },
-    onError: () => toast.error(t('notebook.currentStep.couldNotFinish')),
+    onError: (error) =>
+      toast.error(
+        gateRefusal(error)?.message ?? t('notebook.currentStep.couldNotFinish'),
+      ),
   })
   const evidence = [
     stepEvidence(step, timerRunning),

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { GateDialog, describeConditions } from '#/components/notebook/gates'
 import { Button } from '#/components/ui/button'
 import { Field, Input } from '#/components/ui/input'
 import { Muted, Section } from '#/components/ui/layout'
@@ -11,6 +12,7 @@ import type {
   NotebookTemplatePlacement,
 } from '#/lib/notebook-template'
 import { t } from '#/copy'
+import type { GateCondition } from '#/lib/experiment-gates'
 
 export type TemplatePart = NonNullable<
   NotebookTemplateConfiguration['parts']
@@ -34,6 +36,28 @@ export function TemplatePartsSection({
   disabled?: boolean
   onChange: (parts: TemplatePart[]) => void
 }) {
+  const [ruleFor, setRuleFor] = useState<string | null>(null)
+  const gateContext = {
+    blocks: [],
+    parts: parts.map((part, index) => ({
+      id: part.id,
+      number: index + 1,
+      title: part.title,
+      state: 'later' as const,
+    })),
+  }
+  const ruleOf = (part: TemplatePart) =>
+    [
+      part.opensWhen?.length
+        ? describeConditions(part.opensWhen as GateCondition[], gateContext)
+        : t('library.templates.parts.opensImmediately'),
+      part.gateMode === 'block' && part.opensWhen?.length
+        ? t('library.templates.parts.blocksNote')
+        : null,
+      part.stepsInOrder ? t('library.templates.parts.inOrderNote') : null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
   const sectionCount = (partId: string) =>
     placements.filter(
       (placement) => 'partId' in placement && placement.partId === partId,
@@ -64,6 +88,11 @@ export function TemplatePartsSection({
       cell: ({ row }) => row.original.dayOffset,
     },
     {
+      id: 'opens',
+      header: t('library.templates.parts.columns.opens'),
+      cell: ({ row }) => ruleOf(row.original),
+    },
+    {
       id: 'sections',
       header: t('library.templates.parts.columns.sections'),
       meta: { cellClassName: 'num' },
@@ -76,6 +105,17 @@ export function TemplatePartsSection({
             header: t('library.templates.parts.columns.actions'),
             cell: ({ row }) => (
               <span className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="quiet"
+                  disabled={disabled}
+                  aria-label={t('library.templates.parts.editRule', {
+                    title: row.original.title,
+                  })}
+                  onClick={() => setRuleFor(row.original.id)}
+                >
+                  {t('notebook.gates.addToPart')}
+                </Button>
                 <Button
                   size="sm"
                   variant="quiet"
@@ -135,6 +175,55 @@ export function TemplatePartsSection({
       ) : (
         <Muted>{t('library.templates.parts.none')}</Muted>
       )}
+      {editable && ruleFor
+        ? (() => {
+            const index = parts.findIndex((part) => part.id === ruleFor)
+            const part = parts[index] as TemplatePart | undefined
+            if (!part) return null
+            const save = (patch: Partial<TemplatePart>) => {
+              onChange(
+                parts.map((p) => (p.id === part.id ? { ...p, ...patch } : p)),
+              )
+              setRuleFor(null)
+            }
+            return (
+              <GateDialog
+                part={index + 1}
+                named={false}
+                canStepsInOrder
+                removable={Boolean(part.opensWhen?.length)}
+                kinds={['part_done', 'samples_linked', 'field_set']}
+                initial={{
+                  mode: part.gateMode ?? 'warn',
+                  conditions: part.opensWhen ?? [],
+                  stepsInOrder: part.stepsInOrder ?? false,
+                }}
+                targets={{
+                  tables: [],
+                  steps: [],
+                  parts: parts.slice(0, index).map((p, i) => ({
+                    id: p.id,
+                    number: i + 1,
+                    title: p.title,
+                  })),
+                }}
+                onSave={(draft) =>
+                  save({
+                    opensWhen: draft.conditions.length
+                      ? (draft.conditions as TemplatePart['opensWhen'])
+                      : undefined,
+                    gateMode: draft.conditions.length ? draft.mode : undefined,
+                    stepsInOrder: draft.stepsInOrder || undefined,
+                  })
+                }
+                onRemove={() =>
+                  save({ opensWhen: undefined, gateMode: undefined })
+                }
+                onClose={() => setRuleFor(null)}
+              />
+            )
+          })()
+        : null}
       {editable ? (
         <AddPartForm
           disabled={disabled}

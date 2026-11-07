@@ -69,6 +69,7 @@ import {
 } from './notebook-viewer-actions'
 import { ScientificWorkbookProvider } from './scientific-workbook-provider'
 import { LiveBlockComments } from '#/components/notebook/live-block-comments'
+import { GateDialog, useGates } from '#/components/notebook/gates'
 import { hasCapability } from '#/lib/capability'
 import { PresenceSync } from '#/components/collaboration/use-set-presence'
 import { BlockCoEditBadge } from '#/components/collaboration/presence-co-editing'
@@ -433,6 +434,45 @@ function NotebookDocumentContent({
     updateBlockHash(block.id)
   }
 
+  const gates = useGates()
+  // A gate needs something to wait on before it can exist, so the dialog comes first.
+  const [gateTarget, setGateTarget] = React.useState<{
+    afterBlockId?: string
+    replace?: NotebookBlockData
+  } | null>(null)
+
+  async function handleGateInsert(draft: {
+    label: string
+    mode: 'warn' | 'block'
+    conditions: unknown[]
+  }) {
+    const target = gateTarget
+    if (!target) return
+    const payload = {
+      ...(draft.label.trim() ? { label: draft.label.trim() } : {}),
+      mode: draft.mode,
+      conditions: draft.conditions,
+    }
+    try {
+      const newId =
+        target.replace && onReplaceBlock
+          ? await onReplaceBlock(target.replace, 'gate', { payload })
+          : await onInsertBlock('gate', target.afterBlockId, { payload })
+      if (newId) selectAndFocus(newId)
+      setUndo(null)
+      setGateTarget(null)
+    } catch (err) {
+      setGateTarget(null)
+      setErrorById((prev) => ({
+        ...prev,
+        __insert:
+          err instanceof Error
+            ? err.message
+            : t('notebook.notebookDocument.couldNotInsertThe'),
+      }))
+    }
+  }
+
   const [calculatorTarget, setCalculatorTarget] = React.useState<{
     afterBlockId?: string
     replace?: NotebookBlockData
@@ -469,6 +509,10 @@ function NotebookDocumentContent({
   ) {
     if (type === CALCULATOR_PICKER_TYPE) {
       setCalculatorTarget({ afterBlockId })
+      return undefined
+    }
+    if (type === 'gate') {
+      setGateTarget({ afterBlockId })
       return undefined
     }
     try {
@@ -817,6 +861,10 @@ function NotebookDocumentContent({
       setCalculatorTarget({ afterBlockId: block.id, replace: block })
       return
     }
+    if (type === 'gate') {
+      setGateTarget({ afterBlockId: block.id, replace: block })
+      return
+    }
     try {
       const newId = onReplaceBlock
         ? await onReplaceBlock(block, type)
@@ -1129,6 +1177,7 @@ function NotebookDocumentContent({
                     // without re-reading that decision.
                     'w-full',
                     isMoving && 'opacity-60',
+                    gates?.held.has(block.id) && 'opacity-45',
                     // NOTE-02: collapsed sections are removed from view but
                     // restored in print, so printed structure stays complete.
                     isHiddenSection && 'hidden print:contents',
@@ -1140,6 +1189,11 @@ function NotebookDocumentContent({
                         ? 'end'
                         : 'middle'
                     : undefined,
+                  'data-held-by': gates?.held.get(block.id)?.gateId,
+                  title: gates?.held.has(block.id)
+                    ? t('notebook.gates.laterHeld')
+                    : undefined,
+                  ...(gates?.held.has(block.id) ? { inert: true } : {}),
                   tabIndex: isReadOnly ? undefined : 0,
                   role: isReadOnly ? undefined : 'group',
                   'aria-label': canMove
@@ -1494,6 +1548,17 @@ function NotebookDocumentContent({
         <NotebookSignedSection recordId={record.id} />
       ) : null}
 
+      {gateTarget && gates ? (
+        <GateDialog
+          targets={gates.targetsFor(
+            gateTarget.afterBlockId
+              ? (blockById.get(gateTarget.afterBlockId)?.order ?? 0) + 0.5
+              : undefined,
+          )}
+          onSave={(draft) => handleGateInsert(draft)}
+          onClose={() => setGateTarget(null)}
+        />
+      ) : null}
       {calculatorTarget ? (
         <BenchCalculatorDialog
           open

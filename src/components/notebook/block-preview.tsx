@@ -137,6 +137,7 @@ import {
   fetchSheetInstance,
   sheetInstanceDataClient,
 } from '#/lib/sheet-instance-data'
+import { GateBlockView, StepWaitNote } from '#/components/notebook/gates'
 import { sheetBlockInstanceId } from '#/lib/sheet-block'
 
 /**
@@ -274,6 +275,10 @@ function renderPayload(
       return renderLinkedRecord(payload)
     case 'procedure_step':
       return renderProcedureStep(payload, blockId)
+    case 'gate':
+      return (
+        <GateBlockView blockId={blockId} payload={asObject(payload) ?? {}} />
+      )
     case 'protocol_reference':
       return <ProtocolReferencePreview payload={payload} />
     case 'materials':
@@ -575,6 +580,7 @@ function ProcedureStepView({
           {text}
         </p>
         {note ? <p className="mt-1 text-xs text-fg-muted">{note}</p> : null}
+        {completed ? null : <StepWaitNote blockId={blockId} />}
         {durationSeconds !== null && isExecution && !completed && blockId ? (
           <StepTimerControl
             blockId={blockId}

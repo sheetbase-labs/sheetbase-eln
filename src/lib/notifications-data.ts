@@ -13,6 +13,8 @@ export interface NotificationItem {
   body: string | null
   recordId: string | null
   projectId: string | null
+  /** A page to open when the notification is not about a record. */
+  link?: string | null
   createdAt: string
   readAt: string | null
 }
@@ -24,6 +26,7 @@ interface NotificationWire {
   body: string | null
   record_id: string | null
   project_id: string | null
+  link?: string | null
   created_at: string
   read_at: string | null
 }
@@ -42,6 +45,7 @@ function toItem(row: NotificationWire): NotificationItem {
     body: row.body,
     recordId: row.record_id,
     projectId: row.project_id,
+    link: row.link ?? null,
     createdAt: row.created_at,
     readAt: row.read_at,
   }
@@ -53,7 +57,7 @@ export async function fetchMyNotifications(
 ): Promise<NotificationItem[]> {
   const rows = await client.list<NotificationWire>(
     'my_notifications',
-    `?select=id,event_type,title,body,record_id,project_id,created_at,read_at&order=created_at.desc&limit=${limit}`,
+    `?select=id,event_type,title,body,record_id,project_id,link,created_at,read_at&order=created_at.desc&limit=${limit}`,
   )
   return rows.map((row) => toItem(row))
 }
@@ -130,7 +134,7 @@ export function notificationDestination(
   item: NotificationItem,
   latestReviews: ReadonlyMap<string, LatestReview> = new Map(),
 ): string | undefined {
-  if (!item.recordId) return undefined
+  if (!item.recordId) return item.link ?? undefined
   if (REVIEW_EVENTS.has(item.eventType)) {
     const review = latestReviews.get(item.recordId)
     if (review && review.state !== 'returned') {

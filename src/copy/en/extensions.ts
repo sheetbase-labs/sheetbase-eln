@@ -30,8 +30,7 @@ export const extensions = {
       'analysis-kinds': 'Analyses',
     },
     pointHint: {
-      'pipeline-actions':
-        'Steps a pipeline can take after its data is ready.',
+      'pipeline-actions': 'Steps a pipeline can take after its data is ready.',
       'assistant-tools':
         'Tools the assistant and other agents can use. Anything that changes something waits for a person.',
       'analysis-kinds': 'Ways to analyse a dataset, next to the built-in ones.',
@@ -78,7 +77,8 @@ export const extensions = {
       useSample: 'Use the sample',
       manifestLabel: 'Extension description',
       keyLabel: 'Name in this workspace',
-      keyHint: 'Lowercase letters, numbers and hyphens. It is part of each tool’s name, so keep it short.',
+      keyHint:
+        'Lowercase letters, numbers and hyphens. It is part of each tool’s name, so keep it short.',
       untrusted:
         'This extension isn’t from a web address. I know where it came from and want to add it.',
       problems: 'This can’t be added yet',

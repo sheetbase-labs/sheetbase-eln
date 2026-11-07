@@ -157,7 +157,8 @@ export function ExtensionAnalysisSection({
 
   const run = useMutation<Outcome, Error, void>({
     mutationFn: async () => {
-      if (!active || !rows) throw new Error(t('extensions.analysis.needsDataset'))
+      if (!active || !rows)
+        throw new Error(t('extensions.analysis.needsDataset'))
       const body = {
         kind: 'analysis',
         extensionKey: active.extensionKey,
@@ -186,8 +187,7 @@ export function ExtensionAnalysisSection({
         body: JSON.stringify(body),
       })
       const answer = (await response.json().catch(() => null)) as
-        | (Outcome & { error?: string })
-        | null
+        (Outcome & { error?: string }) | null
       if (!response.ok || !answer)
         throw new Error(answer?.error ?? t('common.errors.generic'))
       return answer
@@ -219,7 +219,9 @@ export function ExtensionAnalysisSection({
         >
           {t('extensions.analysis.heading')}
         </h3>
-        <p className="text-xs text-fg-muted">{t('extensions.analysis.intro')}</p>
+        <p className="text-xs text-fg-muted">
+          {t('extensions.analysis.intro')}
+        </p>
       </div>
       <div className="flex flex-wrap items-center gap-1">
         {kinds.map((kind) => (
@@ -338,7 +340,9 @@ export function ExtensionAnalysisSection({
           ) : (
             <div className="max-h-80 overflow-auto rounded-md border">
               <Table>
-                <caption className="sr-only">{active.declaration.title}</caption>
+                <caption className="sr-only">
+                  {active.declaration.title}
+                </caption>
                 <TableHeader>
                   <TableRow>
                     {run.data.columns.map((column) => (

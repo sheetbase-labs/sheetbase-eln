@@ -73,6 +73,39 @@ export const settings = {
       'Every project created from now on can be viewed by this group. It can’t edit, review or manage, and existing projects aren’t changed. A role never adds someone to a group.',
     onlyWorkspaceAdmin: 'Only an admin can change this default.',
   },
+  semanticSearch: {
+    title: 'Search by meaning',
+    intro:
+      'Find notebooks, files and comments that talk about the same thing in different words, answer questions across the lab, and see earlier work like what is on the page. Text is read in the background, only while this is on.',
+    enable: 'Search by meaning',
+    enableBody:
+      'Read the text of notebooks, files, datasets and comments so a question finds what it means, not only the words it uses.',
+    model: 'Model that reads the text',
+    modelHint:
+      'Set up by whoever runs this installation. A model on your own network keeps the text inside the lab.',
+    noModels:
+      'No model for reading text is set up on this installation yet, so this stays off. Whoever runs the installation can add one.',
+    chooseModel: 'Choose a model',
+    cloud: 'cloud',
+    local: 'on your network',
+    needsConsent:
+      'This model sends text to a cloud provider. Allow that for this lab in the assistant section above first.',
+    literature: 'Search published papers',
+    literatureBody:
+      'Let the assistant and the search page look up papers on Europe PMC, PubMed and OpenAlex. Only the words you search for are sent, never your notebooks.',
+    progress: 'Read so far',
+    progressValue: '{indexed} of {total} items',
+    progressWaiting: 'Waiting for the first items to be read.',
+    progressOff: 'Nothing is read while this is off.',
+    reread: 'Read everything again',
+    rereadDone: 'Everything will be read again',
+    rereadConfirm:
+      'Throw away what has been read and read everything again? Search by meaning is limited until it catches up.',
+    save: 'Save',
+    saved: 'Search settings saved',
+    couldNotSave: 'The search settings could not be saved',
+    rereadFailed: 'Reading again could not be started',
+  },
   ai: {
     aiSettingsSavedToast: 'AI settings saved',
     aiAccessFlagsToast: 'AI access flags saved',

@@ -311,9 +311,16 @@ CREATE FUNCTION internal.apply_template_part_signoff() RETURNS trigger
     AS $$
 DECLARE
   v_config jsonb;
+  v_on boolean;
 BEGIN
   SELECT configuration INTO v_config FROM api.notebook_template_versions WHERE id = NEW.template_version_id;
-  IF v_config IS NOT NULL AND v_config->'signOffParts' = 'true'::jsonb THEN
+  -- Unset means the lab's default: on in a regulated lab.
+  IF v_config IS NOT NULL AND v_config ? 'signOffParts' THEN
+    v_on := v_config->'signOffParts' = 'true'::jsonb;
+  ELSE
+    v_on := internal.is_regulated_lab((SELECT r.workspace_id FROM api.records r WHERE r.id = NEW.record_id));
+  END IF;
+  IF v_on THEN
     UPDATE api.experiment_parts SET requires_sign_off = true
      WHERE record_id = NEW.record_id AND signed_off_at IS NULL;
   END IF;
@@ -683,40 +690,34 @@ ALTER FUNCTION internal.assert_part_signer(p_record_id uuid, p_permission text) 
 REVOKE ALL ON FUNCTION internal.assert_part_signer(p_record_id uuid, p_permission text) FROM PUBLIC;
 --> statement-breakpoint
 
--- Sign a part, or countersign it. The caller has proved who they are with a
--- fresh password (or, in the demo, their typed name) for exactly this part and
--- exactly this digest; the grant is spent here. Signing a part freezes it and
--- opens the next. People named in `p_countersign_user_ids` are asked to
--- countersign; that is a request, not a gate.
-CREATE FUNCTION api.sign_experiment_part(p_part_id uuid, p_meaning text, p_confirmation_phrase text, p_expected_digest text, p_signing_token text, p_countersign_user_ids text[] DEFAULT '{}'::text[], p_due_at timestamp with time zone DEFAULT NULL) RETURNS jsonb
+-- Whether this person may sign (or countersign) this part right now, against
+-- this digest. The password check asks it before issuing a grant, and signing
+-- asks it again before using the grant, so the two cannot disagree.
+CREATE FUNCTION internal.assert_part_signature_target(p_part_id uuid, p_meaning text, p_digest text) RETURNS api.experiment_parts
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
 DECLARE
   w uuid := api.current_workspace_id();
   a text := api.current_user_id();
-  session_id text := api.claim_probe()->>'session_id';
   v_part api.experiment_parts;
-  v_record api.records;
   v_signed api.experiment_part_signoffs;
-  v_row api.experiment_part_signoffs;
-  v_snapshot jsonb;
   v_digest text;
-  v_name text;
-  v_grant internal.signature_grants;
-  v_method text;
-  v_witness text;
 BEGIN
   IF p_meaning IS NULL OR p_meaning NOT IN ('signed', 'witnessed') THEN
     RAISE EXCEPTION 'a part is signed or countersigned' USING ERRCODE = '22023';
   END IF;
-  SELECT * INTO v_part FROM api.experiment_parts WHERE id = p_part_id AND workspace_id = w FOR UPDATE;
+  SELECT * INTO v_part FROM api.experiment_parts WHERE id = p_part_id AND workspace_id = w;
   IF v_part.id IS NULL THEN
     RAISE EXCEPTION 'part not found' USING ERRCODE = '42501';
   END IF;
-  v_record := internal.assert_part_signer(v_part.record_id, CASE WHEN p_meaning = 'signed' THEN 'edit' ELSE 'view' END);
+  PERFORM internal.assert_part_signer(v_part.record_id, CASE WHEN p_meaning = 'signed' THEN 'edit' ELSE 'view' END);
   IF NOT v_part.requires_sign_off THEN
     RAISE EXCEPTION 'this part is not set up for sign-off' USING ERRCODE = 'SB152';
+  END IF;
+  v_digest := internal.revision_integrity_digest(internal.part_snapshot(p_part_id));
+  IF p_digest IS NULL OR p_digest !~ '^[0-9a-f]{64}$' OR p_digest <> v_digest THEN
+    RAISE EXCEPTION 'the part changed since it was shown to you' USING ERRCODE = 'SB001';
   END IF;
   IF p_meaning = 'signed' THEN
     IF v_part.signed_off_at IS NOT NULL THEN
@@ -731,24 +732,57 @@ BEGIN
       RAISE EXCEPTION 'the part has to be signed before it can be countersigned' USING ERRCODE = 'SB152';
     END IF;
     IF a = v_signed.signer_user_id THEN
-      RAISE EXCEPTION 'a countersign has to come from someone other than the signer' USING ERRCODE = '42501';
+      RAISE EXCEPTION 'a countersign has to come from someone other than the signer' USING ERRCODE = 'SB152';
+    END IF;
+    IF v_digest <> v_signed.snapshot_digest THEN
+      RAISE EXCEPTION 'the part no longer matches what was signed' USING ERRCODE = 'SB001';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM api.experiment_part_requests q
                     WHERE q.part_id = p_part_id AND q.kind = 'countersign' AND q.signoff_id = v_signed.id
                       AND q.requested_user_id = a AND q.fulfilled_at IS NULL) THEN
-      RAISE EXCEPTION 'an explicit request to countersign is required' USING ERRCODE = '42501';
+      RAISE EXCEPTION 'an explicit request to countersign is required' USING ERRCODE = 'SB152';
     END IF;
+  END IF;
+  RETURN v_part;
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION internal.assert_part_signature_target(p_part_id uuid, p_meaning text, p_digest text) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION internal.assert_part_signature_target(p_part_id uuid, p_meaning text, p_digest text) FROM PUBLIC;
+--> statement-breakpoint
+
+-- Sign a part, or countersign it. The caller has proved who they are with a
+-- fresh password (or, in the demo, their typed name) for exactly this part and
+-- exactly this digest; the grant is spent here. Signing a part freezes it and
+-- opens the next. People named in `p_countersign_user_ids` are asked to
+-- countersign; that is a request, not a gate.
+CREATE FUNCTION api.sign_experiment_part(p_part_id uuid, p_meaning text, p_confirmation_phrase text, p_expected_digest text, p_signing_token text, p_countersign_user_ids text[] DEFAULT '{}'::text[], p_due_at timestamp with time zone DEFAULT NULL) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  w uuid := api.current_workspace_id();
+  a text := api.current_user_id();
+  session_id text := api.claim_probe()->>'session_id';
+  v_part api.experiment_parts;
+  v_signed api.experiment_part_signoffs;
+  v_row api.experiment_part_signoffs;
+  v_snapshot jsonb;
+  v_digest text;
+  v_name text;
+  v_grant internal.signature_grants;
+  v_method text;
+  v_witness text;
+BEGIN
+  PERFORM 1 FROM api.experiment_parts WHERE id = p_part_id AND workspace_id = w FOR UPDATE;
+  v_part := internal.assert_part_signature_target(p_part_id, p_meaning, p_expected_digest);
+  v_digest := p_expected_digest;
+  IF p_meaning = 'witnessed' THEN
+    SELECT * INTO v_signed FROM api.experiment_part_signoffs WHERE id = v_part.signoff_id;
   END IF;
   -- Same lock order as password issuance and certification withdrawal.
   PERFORM internal.signature_identity(w, a, session_id);
   v_snapshot := internal.part_snapshot(p_part_id);
-  v_digest := internal.revision_integrity_digest(v_snapshot);
-  IF p_expected_digest IS NULL OR p_expected_digest !~ '^[0-9a-f]{64}$' OR p_expected_digest <> v_digest THEN
-    RAISE EXCEPTION 'the part changed since it was shown to you' USING ERRCODE = 'SB001';
-  END IF;
-  IF p_meaning = 'witnessed' AND v_digest <> v_signed.snapshot_digest THEN
-    RAISE EXCEPTION 'the part no longer matches what was signed' USING ERRCODE = 'SB001';
-  END IF;
   SELECT name INTO v_name FROM internal."user" WHERE id = a;
   IF v_name IS NULL OR btrim(lower(p_confirmation_phrase)) IS DISTINCT FROM btrim(lower(v_name)) THEN
     RAISE EXCEPTION 'confirmation phrase does not match signer name' USING ERRCODE = 'SB009';

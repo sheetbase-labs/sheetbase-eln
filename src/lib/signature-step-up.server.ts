@@ -34,6 +34,16 @@ const inputSchema = z.discriminatedUnion('purpose', [
     .strict(),
   z
     .object({
+      purpose: z.literal('sign-part'),
+      workspaceId,
+      password,
+      partId: z.uuid(),
+      revisionDigest: z.string().regex(/^[0-9a-f]{64}$/),
+      signatureMeaning: z.enum(['signed', 'witnessed']),
+    })
+    .strict(),
+  z
+    .object({
       purpose: z.literal('author-submit'),
       workspaceId,
       password,
@@ -81,7 +91,12 @@ const realDeps: SignatureStepUpDeps = { database: db, authentication: auth }
 /** What the demo takes in place of a password; the typed name is the proof. */
 const DEMO_PLACEHOLDER = 'demo-signature'
 /** Demo purposes. Credentials are never enrolled or recovered in a demo. */
-const DEMO_PURPOSES = new Set(['sign', 'author-submit', 'practice'])
+const DEMO_PURPOSES = new Set([
+  'sign',
+  'sign-part',
+  'author-submit',
+  'practice',
+])
 const hash = (token: string) => createHash('sha256').update(token).digest('hex')
 const reply = (status: number, body: object) => {
   if (status >= 500) annotateRequest({ error: body })
@@ -211,6 +226,7 @@ export async function handleSignatureStepUp(
     if (!certification) throw new Error('Missing independent verification')
     if (
       input.purpose === 'sign' ||
+      input.purpose === 'sign-part' ||
       input.purpose === 'practice' ||
       input.purpose === 'author-submit'
     ) {
@@ -273,6 +289,15 @@ export async function handleSignatureStepUp(
         input.signatureMeaning,
         input.revisionDigest,
       ])
+    }
+    let partRecordId: string | null = null
+    if (input.purpose === 'sign-part') {
+      const target = await client.query<{ record_id: string }>(
+        'SELECT record_id FROM internal.assert_part_signature_target($1,$2,$3)',
+        [input.partId, input.signatureMeaning, input.revisionDigest],
+      )
+      partRecordId = target.rows[0]?.record_id ?? null
+      if (!partRecordId) throw new Error('Part signing target unavailable')
     }
     if (
       input.purpose === 'enroll-request' ||
@@ -471,15 +496,23 @@ export async function handleSignatureStepUp(
       workspaceId: input.workspaceId,
       purpose: input.purpose,
       submissionId: input.purpose === 'sign' ? input.submissionId : null,
+      partId: input.purpose === 'sign-part' ? input.partId : null,
       revisionDigest:
-        input.purpose === 'sign' || input.purpose === 'author-submit'
+        input.purpose === 'sign' ||
+        input.purpose === 'sign-part' ||
+        input.purpose === 'author-submit'
           ? input.revisionDigest
           : null,
-      recordId: input.purpose === 'author-submit' ? input.recordId : null,
+      recordId:
+        input.purpose === 'author-submit'
+          ? input.recordId
+          : input.purpose === 'sign-part'
+            ? partRecordId
+            : null,
       signatureMeaning:
         input.purpose === 'author-submit'
           ? 'authored'
-          : input.purpose === 'sign'
+          : input.purpose === 'sign' || input.purpose === 'sign-part'
             ? input.signatureMeaning
             : null,
       submissionArguments,
@@ -498,6 +531,14 @@ export async function handleSignatureStepUp(
     })
   } catch (error) {
     if (transaction) await client.query('ROLLBACK')
+    // A part that cannot be signed says why, in the words the database used.
+    if (
+      input.purpose === 'sign-part' &&
+      error instanceof Error &&
+      'code' in error &&
+      ['SB001', 'SB006', 'SB011', 'SB152', '22023'].includes(String(error.code))
+    )
+      return reply(403, { message: error.message })
     if (
       error instanceof Error &&
       'code' in error &&
@@ -541,6 +582,7 @@ async function insertGrant(
     purpose: string
     authorizationId?: string
     submissionId?: string | null
+    partId?: string | null
     revisionDigest?: string | null
     recordId?: string | null
     signatureMeaning?: string | null
@@ -550,8 +592,8 @@ async function insertGrant(
 ): Promise<string> {
   const result = await client.query<{ expires_at: Date }>(
     `INSERT INTO internal.signature_grants
-    (token_hash,user_id,session_id,workspace_id,purpose,authorization_id,submission_id,revision_digest,record_id,signature_meaning,submission_arguments,auth_method,expires_at)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,clock_timestamp()+interval '5 minutes') RETURNING expires_at`,
+    (token_hash,user_id,session_id,workspace_id,purpose,authorization_id,submission_id,revision_digest,record_id,signature_meaning,submission_arguments,auth_method,part_id,expires_at)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,clock_timestamp()+interval '5 minutes') RETURNING expires_at`,
     [
       input.tokenHash,
       input.userId,
@@ -565,6 +607,7 @@ async function insertGrant(
       input.signatureMeaning ?? null,
       input.submissionArguments ?? null,
       input.authMethod ?? 'password',
+      input.partId ?? null,
     ],
   )
   const row = result.rows.at(0)

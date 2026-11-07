@@ -37,6 +37,7 @@ import type {
 } from '#/lib/notebook-template'
 import type { Parameter } from '#/lib/parameter'
 import { formatDate } from '#/lib/format-date'
+import { useRegulatedLab } from '#/lib/regulated-lab'
 import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the template's Sections view reads the stored
@@ -283,6 +284,8 @@ function withOrders(
 
 function TemplateSections() {
   const { templateId } = Route.useParams()
+  const { context } = Route.useRouteContext()
+  const { regulated } = useRegulatedLab(context.workspace?.id)
   const queryClient = useQueryClient()
   const versions = useTemplateVersions(templateId)
   const template = useTemplate(templateId)
@@ -611,6 +614,10 @@ function TemplateSections() {
           placements={draft ? draft.placements : placements}
           editable={Boolean(draft)}
           disabled={save.isPending}
+          signOff={(draft ?? config).signOffParts ?? regulated}
+          onSignOffChange={(on) => {
+            if (draft) setDraft({ ...draft, signOffParts: on })
+          }}
           onChange={setParts}
         />
 

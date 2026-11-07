@@ -58,6 +58,10 @@ const part = (
   openedAt: null,
   completedAt: null,
   completedByUserId: null,
+  requiresSignOff: false,
+  signedOffAt: null,
+  signedOffByUserId: null,
+  signoffId: null,
   ...extra,
 })
 

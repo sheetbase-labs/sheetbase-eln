@@ -34,6 +34,8 @@ import {
 } from '#/lib/experiment-parts'
 import type { PartProgress, SplitPoint } from '#/lib/experiment-parts'
 import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
+import { AmendPartDialog } from '#/components/notebook/part-signoff'
+import { partSignoffQueryKeys, setPartsSignOff } from '#/lib/part-signoff'
 import { useUserNames } from '#/lib/user-names'
 import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
 
@@ -44,6 +46,9 @@ function useRefreshParts(recordId: string) {
     await Promise.all([
       queryClient.invalidateQueries({
         queryKey: partQueryKeys.forRecord(recordId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: partSignoffQueryKeys.forRecord(recordId),
       }),
       queryClient.invalidateQueries({
         queryKey: notebookQueryKeys.blocks(recordId),
@@ -59,6 +64,7 @@ type Editing =
   | { kind: 'add' }
   | { kind: 'edit'; part: PartProgress }
   | { kind: 'delete'; part: PartProgress }
+  | { kind: 'amend'; part: PartProgress }
   | null
 
 /**
@@ -104,6 +110,22 @@ export function PartsMenu({
     },
     onError: () => toast.error(t('notebook.parts.couldNotChange')),
   })
+  const requiresSignOff = parts.some((part) => part.requiresSignOff)
+  const signOff = useMutation({
+    mutationFn: (required: boolean) =>
+      setPartsSignOff(notebookDataClient, recordId, required),
+    onSuccess: async (_row, required) => {
+      await refresh()
+      toast.success(
+        t(
+          required
+            ? 'notebook.partSignoff.requiredToast'
+            : 'notebook.partSignoff.notRequiredToast',
+        ),
+      )
+    },
+    onError: () => toast.error(t('notebook.parts.couldNotChange')),
+  })
   const index = parts.findIndex((part) => part.id === shown.id)
   const before = index > 0 ? parts[index - 1] : null
   const beforeThat = index > 1 ? parts[index - 2] : null
@@ -129,14 +151,34 @@ export function PartsMenu({
           </DropdownMenuItem>
           <DropdownMenuItem
             icon="edit"
+            disabled={shown.signed}
             onClick={() => setEditing({ kind: 'edit', part: shown })}
           >
             {t('notebook.parts.renamePart')}
           </DropdownMenuItem>
+          {shown.signed ? (
+            <DropdownMenuItem
+              icon="lock"
+              onClick={() => setEditing({ kind: 'amend', part: shown })}
+            >
+              {t('notebook.partSignoff.amendOpen', {
+                number: String(shown.number),
+              })}
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem
+            icon="lock"
+            disabled={signOff.isPending}
+            onClick={() => signOff.mutate(!requiresSignOff)}
+          >
+            {requiresSignOff
+              ? t('notebook.partSignoff.stopRequiring')
+              : t('notebook.partSignoff.require')}
+          </DropdownMenuItem>
           {shown.stepCount === 0 ? (
             <DropdownMenuItem
               icon="check"
-              disabled={done.isPending}
+              disabled={done.isPending || shown.signed}
               onClick={() => done.mutate(shown.state !== 'done')}
             >
               {shown.state === 'done'
@@ -154,14 +196,14 @@ export function PartsMenu({
           <DropdownMenuSeparator />
           <DropdownMenuItem
             icon="arrowUp"
-            disabled={!before || move.isPending}
+            disabled={!before || move.isPending || shown.signed}
             onClick={() => move.mutate(beforeThat ? beforeThat.id : null)}
           >
             {t('notebook.parts.moveEarlier')}
           </DropdownMenuItem>
           <DropdownMenuItem
             icon="arrowDown"
-            disabled={!after || move.isPending}
+            disabled={!after || move.isPending || shown.signed}
             onClick={() => after && move.mutate(after.id)}
           >
             {t('notebook.parts.moveLater')}
@@ -170,6 +212,7 @@ export function PartsMenu({
           <DropdownMenuItem
             icon="x"
             danger
+            disabled={shown.signed}
             onClick={() => setEditing({ kind: 'delete', part: shown })}
           >
             {t('notebook.parts.deletePart')}
@@ -201,6 +244,13 @@ export function PartsMenu({
           part={editing.part}
           onClose={() => setEditing(null)}
           onSaved={refresh}
+        />
+      ) : null}
+      {editing?.kind === 'amend' ? (
+        <AmendPartDialog
+          recordId={recordId}
+          part={editing.part}
+          onClose={() => setEditing(null)}
         />
       ) : null}
       {editing?.kind === 'delete' ? (

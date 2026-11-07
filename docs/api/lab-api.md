@@ -586,7 +586,7 @@ Scope: `lab:write`.
 
 ### `record_gates`
 
-List the gates of an experiment and what each still waits on. Every gate in page order: the "opens when" rule of each part, then the gate blocks. `met` is true when every condition holds. `blocking` is true when the gate holds work back now: it is unmet, set to `block`, and not only waiting on a date. `missing` says what is still to do, in words, and `conditions` has the answer for each condition. `overridden` is true when someone went on past a gate that warns.
+List the gates of an experiment and what each still waits on. Every gate in page order: the "opens when" rule of each part, then the gate blocks. `met` is true when every condition holds. `blocking` is true when the gate holds work back now: it is unmet, set to `block`, and not only waiting on a date. `missing` says what is still to do, in words, and `conditions` has the answer for each condition. `overridden` is true when someone went on past a gate that warns. A protocol can hold gate blocks too: they hold nothing while the protocol is written, and come across with its steps when the protocol is pinned to an experiment, as gates from the protocol that cannot be changed or removed there.
 
 Scope: `lab:read`.
 

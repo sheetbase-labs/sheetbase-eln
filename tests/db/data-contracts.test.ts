@@ -118,7 +118,7 @@ async function contract() {
 async function events(effect?: string) {
   const { rows } = await migrator.query(
     `select entity_type, payload from api.change_events
-      where workspace_id = $1 and entity_type in ('data_contract','data_contract_run')
+      where workspace_id = $1 and entity_type in ('data_contract','data_contract_run','data_contract_standing')
         and ($2::text is null or payload->>'effect' = $2)
       order by sequence`,
     [WS, effect ?? null],

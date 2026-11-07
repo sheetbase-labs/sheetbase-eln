@@ -29,6 +29,7 @@ function PlatesRoute() {
   return (
     <PlatesPage
       canWrite={hasCapability(context.workspace?.role, 'record.create')}
+      workspaceId={context.workspace?.id ?? ''}
       runId={run}
       onOpenRun={(id) => void navigate({ search: { run: id } })}
     />

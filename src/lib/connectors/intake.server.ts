@@ -27,7 +27,10 @@ import { ingestInstrumentPayload } from './instrument-ingestion'
 import { recordRunSampleResults, sampleResultsFromPayload } from './run-results'
 import { detectParserId } from './instrument-parsers'
 import { ConverterError } from './converter.server'
-import { ParserResolutionError, resolveParserVersion } from './parser-resolution'
+import {
+  ParserResolutionError,
+  resolveParserVersion,
+} from './parser-resolution'
 import type { ResolvedParser } from './parser-resolution'
 import { TabularIngestionError } from './tabular-ingestion'
 import type { ConnectorWire } from './types'
@@ -513,7 +516,8 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
       asm = {
         kept,
         measurements: converted.measurements,
-        converter: `${converted.converter} ${converted.converterVersion}`.trim(),
+        converter:
+          `${converted.converter} ${converted.converterVersion}`.trim(),
       }
     }
     // The dataset gets its project and owner, and, when the samples already

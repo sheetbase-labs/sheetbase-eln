@@ -26,7 +26,9 @@ const bodySchema = z
   .strict()
 
 /** The format a parser row carries, from the files the converter reads. */
-export function parserFormatFor(vendor: ConverterVendor): 'csv' | 'xlsx' | 'json' {
+export function parserFormatFor(
+  vendor: ConverterVendor,
+): 'csv' | 'xlsx' | 'json' {
   const extensions = vendor.extensions.toLowerCase().split(',')
   if (extensions.includes('json') && extensions.length === 1) return 'json'
   if (extensions.includes('xlsx') && !extensions.includes('csv')) return 'xlsx'

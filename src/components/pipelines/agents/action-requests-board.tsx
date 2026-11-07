@@ -35,6 +35,7 @@ import type {
   AgentActionRequestStatus,
 } from '#/lib/agent-action-policy'
 import { formatDate } from '#/lib/format-date'
+import { requestShellRefresh } from '#/lib/shell-refresh'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 const client = notebookDataClient
@@ -69,6 +70,7 @@ export function ActionRequestsBoard({
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: agentActionKeys.requests })
     void queryClient.invalidateQueries({ queryKey: ['work-items'] })
+    requestShellRefresh()
   }
   const approve = useMutation({
     mutationFn: (request: AgentActionRequestRow) =>

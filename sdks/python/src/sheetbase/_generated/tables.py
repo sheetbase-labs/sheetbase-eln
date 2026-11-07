@@ -41,9 +41,6 @@ from sheetbase._generated.models import (
     DatasetVersionsRow,
     DatasetsRow,
     DatasetsRowInsert,
-    ExperimentPartAmendmentsRow,
-    ExperimentPartRequestsRow,
-    ExperimentPartSignoffsRow,
     ExperimentPartsRow,
     ExperimentSeriesMembersRow,
     ExperimentSeriesRow,
@@ -489,60 +486,6 @@ class AsyncDatasetsTable(
     Scopes: datasets:read, datasets:write.
     """
     name = "datasets"
-
-
-class ExperimentPartAmendmentsTable(ReadableTable[ExperimentPartAmendmentsRow]):
-    """
-    ``/api/db/experiment_part_amendments`` (GET, HEAD).
-
-    Scopes: lab:read.
-    """
-    name = "experiment_part_amendments"
-
-
-class AsyncExperimentPartAmendmentsTable(AsyncReadableTable[ExperimentPartAmendmentsRow]):
-    """
-    ``/api/db/experiment_part_amendments`` (GET, HEAD).
-
-    Scopes: lab:read.
-    """
-    name = "experiment_part_amendments"
-
-
-class ExperimentPartRequestsTable(ReadableTable[ExperimentPartRequestsRow]):
-    """
-    ``/api/db/experiment_part_requests`` (GET, HEAD).
-
-    Scopes: lab:read.
-    """
-    name = "experiment_part_requests"
-
-
-class AsyncExperimentPartRequestsTable(AsyncReadableTable[ExperimentPartRequestsRow]):
-    """
-    ``/api/db/experiment_part_requests`` (GET, HEAD).
-
-    Scopes: lab:read.
-    """
-    name = "experiment_part_requests"
-
-
-class ExperimentPartSignoffsTable(ReadableTable[ExperimentPartSignoffsRow]):
-    """
-    ``/api/db/experiment_part_signoffs`` (GET, HEAD).
-
-    Scopes: lab:read.
-    """
-    name = "experiment_part_signoffs"
-
-
-class AsyncExperimentPartSignoffsTable(AsyncReadableTable[ExperimentPartSignoffsRow]):
-    """
-    ``/api/db/experiment_part_signoffs`` (GET, HEAD).
-
-    Scopes: lab:read.
-    """
-    name = "experiment_part_signoffs"
 
 
 class ExperimentPartsTable(ReadableTable[ExperimentPartsRow]):
@@ -2068,9 +2011,6 @@ class Tables:
         "dataset_schema_versions",
         "dataset_versions",
         "datasets",
-        "experiment_part_amendments",
-        "experiment_part_requests",
-        "experiment_part_signoffs",
         "experiment_parts",
         "experiment_series",
         "experiment_series_members",
@@ -2175,9 +2115,6 @@ class Tables:
         self.dataset_schema_versions = DatasetSchemaVersionsTable(transport)
         self.dataset_versions = DatasetVersionsTable(transport)
         self.datasets = DatasetsTable(transport)
-        self.experiment_part_amendments = ExperimentPartAmendmentsTable(transport)
-        self.experiment_part_requests = ExperimentPartRequestsTable(transport)
-        self.experiment_part_signoffs = ExperimentPartSignoffsTable(transport)
         self.experiment_parts = ExperimentPartsTable(transport)
         self.experiment_series = ExperimentSeriesTable(transport)
         self.experiment_series_members = ExperimentSeriesMembersTable(transport)
@@ -2293,9 +2230,6 @@ class AsyncTables:
         "dataset_schema_versions",
         "dataset_versions",
         "datasets",
-        "experiment_part_amendments",
-        "experiment_part_requests",
-        "experiment_part_signoffs",
         "experiment_parts",
         "experiment_series",
         "experiment_series_members",
@@ -2400,9 +2334,6 @@ class AsyncTables:
         self.dataset_schema_versions = AsyncDatasetSchemaVersionsTable(transport)
         self.dataset_versions = AsyncDatasetVersionsTable(transport)
         self.datasets = AsyncDatasetsTable(transport)
-        self.experiment_part_amendments = AsyncExperimentPartAmendmentsTable(transport)
-        self.experiment_part_requests = AsyncExperimentPartRequestsTable(transport)
-        self.experiment_part_signoffs = AsyncExperimentPartSignoffsTable(transport)
         self.experiment_parts = AsyncExperimentPartsTable(transport)
         self.experiment_series = AsyncExperimentSeriesTable(transport)
         self.experiment_series_members = AsyncExperimentSeriesMembersTable(transport)

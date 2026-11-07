@@ -200,7 +200,11 @@ export function Schedule() {
   const membersQuery = useWorkspaceMemberNames()
   const meId = context.user.id
   const memberNames = membersQuery.data
-  const bookings = [...(bookingsQuery.data ?? []), ...added]
+  // A booking made here is shown at once and then arrives from the refetch
+  // too: keep one of them.
+  const fetched = bookingsQuery.data ?? []
+  const fetchedIds = new Set(fetched.map((b) => b.id))
+  const bookings = [...fetched, ...added.filter((b) => !fetchedIds.has(b.id))]
     .filter((b) => !cancelledIds.has(b.id))
     .map((b) => edited.get(b.id) ?? b)
     .map((b) => ({

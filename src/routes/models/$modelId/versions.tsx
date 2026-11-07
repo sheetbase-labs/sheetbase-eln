@@ -31,6 +31,10 @@ import {
   useModelVersionFields,
   useModelVersions,
 } from '#/components/models/models-data'
+import {
+  ContractImpactNotice,
+  storageUnitOf,
+} from '#/components/contracts/contract-impact-notice'
 import { buildVersionImpacts } from '#/components/models/model-version-impact'
 import {
   approvalStatus,
@@ -310,6 +314,19 @@ function DatasetModelVersions() {
         >
           {t('library.models.versions.theWorkspacesPublicationPolicyCould')}
         </Notice>
+      ) : null}
+      {draft ? (
+        <ContractImpactNotice
+          target={{ kind: 'dataset_schema', id: modelId }}
+          modelId={modelId}
+          nextFields={(fieldsByVersion.get(draft.id) ?? [])
+            .filter((field) => field.lifecycle === 'active')
+            .map((field) => ({
+              key: field.key,
+              logicalType: field.logical_type,
+              unit: storageUnitOf(field.quantity),
+            }))}
+        />
       ) : null}
       {panelVersion ? (
         <ModelApprovalPanel

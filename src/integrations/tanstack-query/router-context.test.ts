@@ -36,7 +36,7 @@ describe('refreshAfterWrites', () => {
     qc.setQueryData(['work-items'], [1])
     qc.setQueryData(['notebook', 'blocks', 'r'], [1])
     qc.setQueryData(['sheet-instance', 'i'], [1])
-    const stop = refreshAfterWrites(qc, 50)
+    const stop = refreshAfterWrites(qc, 50, 0)
     const rows = createDataClient(
       async () => new Response('[]', { status: 200 }),
     )
@@ -59,7 +59,7 @@ describe('refreshAfterWrites', () => {
     const qc = new QueryClient()
     const heard = vi.fn()
     window.addEventListener('sheetbase:shell-refresh', heard)
-    const stop = refreshAfterWrites(qc, 50)
+    const stop = refreshAfterWrites(qc, 50, 0)
     const rows = createDataClient(
       async () => new Response('[]', { status: 200 }),
     )

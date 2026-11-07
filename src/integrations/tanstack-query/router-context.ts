@@ -60,12 +60,16 @@ const EDITING_PATHS =
  * sidebar row that could show it is marked stale (and refetched when on
  * screen). Without this each mutation has to remember every other place that
  * shows its data, and the ones it forgets keep the old value until a reload.
- * Writes that arrive in a burst are folded into one refresh.
+ * Writes that arrive in a burst are folded into one refresh, and refreshes
+ * are spaced out: a long import or review makes many writes, and refetching
+ * every open view after each one would swamp the server's rate limit.
  */
 export function refreshAfterWrites(
   queryClient: QueryClient,
-  delayMs = 250,
+  delayMs = 400,
+  minIntervalMs = 6000,
 ): () => void {
+  let lastRun = 0
   let timer: ReturnType<typeof setTimeout> | null = null
   let shellTimer: ReturnType<typeof setTimeout> | null = null
   let shellWanted = false
@@ -77,8 +81,10 @@ export function refreshAfterWrites(
     if (EDITING_PATHS.test(path)) return
     shellWanted = true
     if (timer !== null) return
+    const wait = Math.max(delayMs, lastRun + minIntervalMs - Date.now())
     timer = setTimeout(() => {
       timer = null
+      lastRun = Date.now()
       void queryClient.invalidateQueries({
         predicate: (query) => !isEditingCache(String(query.queryKey[0])),
       })
@@ -94,7 +100,7 @@ export function refreshAfterWrites(
           }
         }, 3000)
       }
-    }, delayMs)
+    }, wait)
   })
   return () => {
     stop()

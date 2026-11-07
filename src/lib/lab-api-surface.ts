@@ -13,6 +13,12 @@
  * can read the workspace-wide tables.
  */
 
+import {
+  labRpcsFromOperations,
+  paramNotesFromOperations,
+} from './operations/descriptor'
+import { CORE_OPERATIONS } from './operations/registry'
+
 /** Column or parameter type. */
 export type LabType =
   | 'uuid'
@@ -48,7 +54,7 @@ export interface LabRpc {
   readonly result: string
 }
 
-export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
+const LAB_PARAM_NOTES_BASE: Readonly<Record<string, string>> = {
   p_name: 'Name.',
   p_format:
     'Plate format, such as `96_well` or `384_well`; or a worklist file format.',
@@ -1505,7 +1511,7 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
   },
 }
 
-export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
+const LAB_RPCS_HAND_WRITTEN: Readonly<Record<string, LabRpc>> = {
   request_reagent_order: {
     summary: 'Request a reagent order',
     description:
@@ -3141,105 +3147,19 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
     params: [['p_plan_id', 'uuid', 1]],
     result: 'row:experiment_plans',
   },
-  set_model_capability: {
-    summary: 'Switch a feature on or off for a record model',
-    description:
-      'Turns a feature of a record model on or off; `p_capability` is the feature key, such as `campaigns`, whose records can then be set up as campaigns. `p_settings` replaces the feature’s settings when given. Needs permission to edit models. Returns whether the feature is now on.',
-    scope: 'lab:write',
-    params: [
-      ['p_model_key', 'text', 1],
-      ['p_capability', 'text', 1],
-      ['p_enabled', 'bool', 1],
-      ['p_settings', 'json', 0],
-    ],
-    result: 'bool',
-  },
-  configure_campaign: {
-    summary: 'Set up or change a campaign’s design, budget and plate',
-    description:
-      'Saves the factors, objectives, budget and plate layout for a record of a campaign model. The factors and objectives are fixed once a round has been asked for; the budget, layout and the rest can still change. Returns the campaign.',
-    scope: 'lab:write',
-    params: [
-      ['p_record_id', 'uuid', 1],
-      ['p_factors', 'json', 1],
-      ['p_objectives', 'json', 1],
-      ['p_batch_size', 'int', 0],
-      ['p_max_rounds', 'int', 0],
-      ['p_max_runs', 'int', 0],
-      ['p_engine', 'text', 0],
-      ['p_layout', 'json', 0],
-      ['p_template_record_id', 'uuid', 0],
-      ['p_auto_propose', 'bool', 0],
-      ['p_seed', 'int', 0],
-    ],
-    result: 'row:campaigns',
-  },
-  start_campaign: {
-    summary: 'Start or resume a campaign',
-    description:
-      'Makes the campaign active and asks for its first round, or for the next one when it is resumed. The optimiser works the round out in the background; a person approves it. Returns the campaign.',
-    scope: 'lab:write',
-    params: [['p_record_id', 'uuid', 1]],
-    result: 'row:campaigns',
-  },
-  set_campaign_status: {
-    summary: 'Pause or finish a campaign',
-    description:
-      '`p_status` is `paused` or `finished`. Finishing sets aside a round that is waiting for a person; results already in are kept. Returns the campaign.',
-    scope: 'lab:write',
-    params: [
-      ['p_record_id', 'uuid', 1],
-      ['p_status', 'text', 1],
-    ],
-    result: 'row:campaigns',
-  },
-  request_campaign_round: {
-    summary: 'Ask for the next round',
-    description:
-      'Queues the next round when none is waiting and budget is left. The optimiser works it out in the background and the round waits for a person to approve it. Returns the round.',
-    scope: 'lab:write',
-    params: [['p_record_id', 'uuid', 1]],
-    result: 'row:campaign_rounds',
-  },
-  approve_campaign_round: {
-    summary: 'Approve a proposed round',
-    description:
-      'Makes the round’s experiment (joined to the campaign’s series), its plate and, when the campaign has a liquid handler, its worklist. Only a person decides this. Returns the round.',
-    scope: 'lab:write',
-    params: [['p_round_id', 'uuid', 1]],
-    result: 'row:campaign_rounds',
-  },
-  reject_campaign_round: {
-    summary: 'Reject a proposed round',
-    description:
-      'Sets the round’s conditions aside so the optimiser can propose another. A rejected round does not use up the budget. Returns the round.',
-    scope: 'lab:write',
-    params: [
-      ['p_round_id', 'uuid', 1],
-      ['p_reason', 'text', 0],
-    ],
-    result: 'row:campaign_rounds',
-  },
-  record_campaign_results: {
-    summary: 'Enter the results of a round',
-    description:
-      'Takes each condition’s result for each objective. The round is complete when every condition has every result, and the next round is asked for when the campaign does that automatically. Returns the round.',
-    scope: 'lab:write',
-    params: [
-      ['p_round_id', 'uuid', 1],
-      ['p_results', 'json', 1],
-    ],
-    result: 'row:campaign_rounds',
-  },
-  pull_campaign_round_results: {
-    summary: 'Read an objective from the round’s plate',
-    description:
-      'Fills one objective for each condition from the readings on the round’s plate: the mean of the condition’s wells. Returns the round.',
-    scope: 'lab:write',
-    params: [
-      ['p_round_id', 'uuid', 1],
-      ['p_objective_key', 'text', 1],
-    ],
-    result: 'row:campaign_rounds',
-  },
+}
+
+/**
+ * Every lab action the API offers. Hand-written entries above, plus those
+ * generated from operation declarations (`#/lib/operations`); an operation
+ * with a summary needs no entry here.
+ */
+export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
+  ...paramNotesFromOperations(CORE_OPERATIONS),
+  ...LAB_PARAM_NOTES_BASE,
+}
+
+export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
+  ...LAB_RPCS_HAND_WRITTEN,
+  ...labRpcsFromOperations(CORE_OPERATIONS),
 }

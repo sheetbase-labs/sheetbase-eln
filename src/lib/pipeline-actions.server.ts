@@ -1,6 +1,6 @@
+import { pipelineActions } from './operations/registry'
 import type { ExecConnection } from './pipeline-execute.server'
 import {
-  PIPELINE_ACTIONS,
   PIPELINE_ACTION_ROW_LIMIT,
   validatePipelineActions,
 } from './pipelines/actions'
@@ -224,8 +224,9 @@ export async function executePipelineActions(
   actions: PipelineAction[],
   context: PipelineActionContext,
 ): Promise<Record<string, unknown>> {
-  const errors = validatePipelineActions(actions)
+  const errors = validatePipelineActions(actions, run.workspaceId)
   if (errors.length) throw new Error(errors.join(' '))
+  const available = pipelineActions(run.workspaceId)
   const results: Record<string, unknown> = {}
   if (!actions.length) return results
   const identity = await conn.query<{ workspace_id: string; user_id: string }>(
@@ -246,7 +247,7 @@ export async function executePipelineActions(
       scope: Record<string, unknown>,
       suffix: string,
     ): Promise<unknown> => {
-      const definition = PIPELINE_ACTIONS.find(
+      const definition = available.find(
         (entry) => entry.operation === action.operation,
       )!
       const resolved = resolvePipelineActionValue(

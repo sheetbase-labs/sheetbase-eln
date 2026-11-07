@@ -23,6 +23,8 @@
  * renamed, so aliases are retired only with an explicit migration.
  */
 
+import { eventEntriesFrom } from './operations/descriptor'
+import { CORE_OPERATIONS } from './operations/registry'
 import type { ChangeEventInput } from './webhook-events'
 
 /** Payload schema version pinned by this catalogue revision. */
@@ -2708,134 +2710,8 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     notes:
       'Payload carries planId, reference, projectId, goal, summary, status, source and recordId (the experiment, once the plan is applied).',
   },
-  {
-    name: 'campaign.started',
-    family: 'record',
-    summary:
-      'An optimisation campaign was started and its first round asked for.',
-    producer: {
-      entityType: 'campaign',
-      operation: 'create',
-    },
-    wireName: 'campaign.started',
-    status: 'stable',
-    introducedIn: 'lab-01',
-    consumers: webhookSsePipeline,
-    notes: 'Payload carries campaignId, status and rounds.',
-  },
-  {
-    name: 'campaign.finished',
-    family: 'record',
-    summary:
-      'An optimisation campaign finished: it spent its rounds or runs, or a person finished it.',
-    producer: {
-      entityType: 'campaign',
-      operation: 'update',
-      when: { key: 'change', equals: 'finished' },
-    },
-    wireName: 'campaign.finished',
-    status: 'stable',
-    introducedIn: 'lab-01',
-    consumers: webhookSsePipeline,
-    notes: 'Payload carries campaignId, status and rounds.',
-  },
-  {
-    name: 'campaign.round.proposed',
-    family: 'record',
-    summary:
-      'The optimiser proposed a round of conditions for a campaign. Nothing is made until a person approves it.',
-    producer: {
-      entityType: 'campaign_round',
-      operation: 'create',
-    },
-    wireName: 'campaign.round.proposed',
-    status: 'stable',
-    introducedIn: 'lab-01',
-    consumers: webhookSsePipeline,
-    notes:
-      'Payload carries roundId, campaignId, number, status, trials, engine, experimentId, plateRunId and best (the best result so far).',
-  },
-  {
-    name: 'campaign.round.approved',
-    family: 'record',
-    summary:
-      'A campaign round was approved: its experiment, plate run and worklist were made.',
-    producer: {
-      entityType: 'campaign_round',
-      operation: 'update',
-      when: { key: 'change', equals: 'approved' },
-    },
-    wireName: 'campaign.round.approved',
-    status: 'stable',
-    introducedIn: 'lab-01',
-    consumers: webhookSsePipeline,
-    notes:
-      'Payload carries roundId, campaignId, number, status, trials, engine, experimentId, plateRunId and best (the best result so far).',
-  },
-  {
-    name: 'campaign.round.rejected',
-    family: 'record',
-    summary: 'A campaign round was rejected and its conditions set aside.',
-    producer: {
-      entityType: 'campaign_round',
-      operation: 'update',
-      when: { key: 'change', equals: 'rejected' },
-    },
-    wireName: 'campaign.round.rejected',
-    status: 'stable',
-    introducedIn: 'lab-01',
-    consumers: webhookSsePipeline,
-    notes:
-      'Payload carries roundId, campaignId, number, status, trials, engine, experimentId, plateRunId and best (the best result so far).',
-  },
-  {
-    name: 'campaign.round.completed',
-    family: 'record',
-    summary:
-      'Every result of a campaign round is in, and the next round was asked for or the campaign finished.',
-    producer: {
-      entityType: 'campaign_round',
-      operation: 'update',
-      when: { key: 'change', equals: 'completed' },
-    },
-    wireName: 'campaign.round.completed',
-    status: 'stable',
-    introducedIn: 'lab-01',
-    consumers: webhookSsePipeline,
-    notes:
-      'Payload carries roundId, campaignId, number, status, trials, engine, experimentId, plateRunId and best (the best result so far).',
-  },
-  {
-    name: 'model.feature.enabled',
-    family: 'administration',
-    summary:
-      'A feature, such as Campaigns, was switched on for a record model.',
-    producer: {
-      entityType: 'model_capability',
-      operation: 'update',
-      when: { key: 'change', equals: 'enabled' },
-    },
-    wireName: 'model.feature.enabled',
-    status: 'stable',
-    introducedIn: 'lab-01',
-    consumers: webhookSsePipeline,
-    notes: 'Payload carries modelKey and feature.',
-  },
-  {
-    name: 'model.feature.disabled',
-    family: 'administration',
-    summary: 'A feature was switched off for a record model.',
-    producer: {
-      entityType: 'model_capability',
-      operation: 'update',
-      when: { key: 'change', equals: 'disabled' },
-    },
-    wireName: 'model.feature.disabled',
-    status: 'stable',
-    introducedIn: 'lab-01',
-    consumers: webhookSsePipeline,
-    notes: 'Payload carries modelKey and feature.',
-  },
+  // -- declared with their operations (`#/lib/operations`) ---------------
+  ...eventEntriesFrom(CORE_OPERATIONS, webhookSsePipeline),
 ])
 
 /**

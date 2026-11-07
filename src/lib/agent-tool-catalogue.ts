@@ -37,10 +37,19 @@ import { z } from 'zod'
 
 import type { Scope } from './api-credential-scopes'
 import type { AgentOperationKind } from './agent-operations'
+import { assistantToolsFrom } from './operations/descriptor'
+import { CORE_OPERATIONS } from './operations/registry'
 import { parameterUuidSchema } from './parameter'
 
-/** Operation tools: the executable vocabulary shared with workflows/gateway. */
-export const AGENT_OPERATION_TOOL_NAMES = [
+/**
+ * Operation tools: the executable vocabulary shared with workflows/gateway.
+ * Generated from the operation declarations (`#/lib/operations`); to add one,
+ * declare an operation whose `assistant.vocabulary` is `operation`.
+ */
+export const AGENT_OPERATION_TOOL_NAMES = assistantToolsFrom(
+  CORE_OPERATIONS,
+  'operation',
+) as unknown as readonly [
   'sheetbase.dataset_schema.draft',
   'sheetbase.sheet_definition.draft',
   'sheetbase.sheet_definition.update_draft',
@@ -48,7 +57,7 @@ export const AGENT_OPERATION_TOOL_NAMES = [
   'sheetbase.pipeline_definition.version_draft',
   'sheetbase.pipeline_definition.update_draft',
   'sheetbase.dataset_rows.commit',
-] as const
+]
 
 /**
  * Read-only tools the in-app assistant may offer a model. These are a subset
@@ -103,7 +112,11 @@ export type AssistantReadToolName = (typeof ASSISTANT_READ_TOOL_NAMES)[number]
  * the person applies or dismisses, and Apply goes through the ordinary
  * propose, approve and execute path.
  */
-export const ASSISTANT_PROPOSE_TOOL_NAMES = [
+/**
+ * Tools not yet declared as operations. Campaigns and model features are; the
+ * rest move across as their operations are declared (`#/lib/operations`).
+ */
+const ASSISTANT_PROPOSE_TOOLS_UNDECLARED = [
   'sheetbase.notebook_block.insert',
   'sheetbase.notebook_block.update',
   'sheetbase.record.custom_fields.update',
@@ -178,12 +191,7 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   // The planner and optimisation campaigns (assistant-planner.ts): a plan is made
   // and applied from one card; a person approves each campaign round.
   'sheetbase.planner.plan_experiment',
-  'sheetbase.campaign.start',
-  'sheetbase.campaign.request_round',
-  'sheetbase.campaign.approve_round',
-  'sheetbase.campaign.enter_results',
   // Switch a feature on or off for a record model (assistant-planner.ts).
-  'sheetbase.model.set_feature',
   // The person's own out of office, set or cancelled from a card.
   'sheetbase.absence.set',
   'sheetbase.absence.cancel',
@@ -236,6 +244,11 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   'sheetbase.watcher.finding',
   'sheetbase.watcher.set',
 ] as const
+
+export const ASSISTANT_PROPOSE_TOOL_NAMES: readonly string[] = [
+  ...ASSISTANT_PROPOSE_TOOLS_UNDECLARED,
+  ...assistantToolsFrom(CORE_OPERATIONS, 'propose'),
+]
 
 /** Model APIs only allow letters, digits, `_` and `-` in a function name. */
 export function toWireToolName(name: string): string {

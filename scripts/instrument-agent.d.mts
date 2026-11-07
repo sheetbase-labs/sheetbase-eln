@@ -113,7 +113,10 @@ export interface RobotDriver {
   }>
   stop(job: RobotJob): Promise<void>
 }
-export declare function opentronsEntries(run: unknown, commands: unknown[] | undefined): Array<{
+export declare function opentronsEntries(
+  run: unknown,
+  commands: unknown[] | undefined,
+): Array<{
   sourceWell: string
   destWell: string
   actualUl: number

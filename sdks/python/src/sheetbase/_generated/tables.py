@@ -31,6 +31,7 @@ from sheetbase._generated.models import (
     BlocksRow,
     BlocksRowInsert,
     BlocksRowPatch,
+    CodeCellRunsRow,
     DatasetSchemaDefinitionsRow,
     DatasetSchemaVersionFieldsRow,
     DatasetSchemaVersionsRow,
@@ -46,9 +47,11 @@ from sheetbase._generated.models import (
     InboxWorkItemsRow,
     InstrumentBookingRulesRow,
     InstrumentFeedsRow,
+    InstrumentJobsRow,
     InstrumentRatesRow,
     InstrumentReadingsRow,
     InstrumentRequiredTrainingRow,
+    InstrumentRobotSettingsRow,
     InstrumentRunDocumentsRow,
     InstrumentServiceLogRow,
     LabWatcherFindingsRow,
@@ -64,6 +67,8 @@ from sheetbase._generated.models import (
     MyWorkItemsRow,
     NotebookTemplateVersionsRow,
     NotebookTemplatesRow,
+    PartPlansRow,
+    PartResourceNeedsRow,
     PipelineDefinitionVersionsRow,
     PipelineDefinitionsRow,
     PipelineReproductionsRow,
@@ -102,7 +107,9 @@ from sheetbase._generated.models import (
     SampleWorkflowTransitionsRow,
     SampleWorkflowsRow,
     SavedSearchesRow,
+    ScheduleProposalsRow,
     ScheduledReportsRow,
+    SchedulerSettingsRow,
     ScimGroupMembersRow,
     ScimGroupsRow,
     ScimTokensRow,
@@ -308,6 +315,24 @@ class AsyncBlocksTable(
     Scopes: projects:read, projects:write.
     """
     name = "blocks"
+
+
+class CodeCellRunsTable(ReadableTable[CodeCellRunsRow]):
+    """
+    ``/api/db/code_cell_runs`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "code_cell_runs"
+
+
+class AsyncCodeCellRunsTable(AsyncReadableTable[CodeCellRunsRow]):
+    """
+    ``/api/db/code_cell_runs`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "code_cell_runs"
 
 
 class DatasetSchemaDefinitionsTable(ReadableTable[DatasetSchemaDefinitionsRow]):
@@ -568,6 +593,24 @@ class AsyncInstrumentFeedsTable(AsyncReadableTable[InstrumentFeedsRow]):
     name = "instrument_feeds"
 
 
+class InstrumentJobsTable(ReadableTable[InstrumentJobsRow]):
+    """
+    ``/api/db/instrument_jobs`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_jobs"
+
+
+class AsyncInstrumentJobsTable(AsyncReadableTable[InstrumentJobsRow]):
+    """
+    ``/api/db/instrument_jobs`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_jobs"
+
+
 class InstrumentRatesTable(ReadableTable[InstrumentRatesRow]):
     """
     ``/api/db/instrument_rates`` (GET, HEAD).
@@ -620,6 +663,24 @@ class AsyncInstrumentRequiredTrainingTable(AsyncReadableTable[InstrumentRequired
     Scopes: lab:read.
     """
     name = "instrument_required_training"
+
+
+class InstrumentRobotSettingsTable(ReadableTable[InstrumentRobotSettingsRow]):
+    """
+    ``/api/db/instrument_robot_settings`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_robot_settings"
+
+
+class AsyncInstrumentRobotSettingsTable(AsyncReadableTable[InstrumentRobotSettingsRow]):
+    """
+    ``/api/db/instrument_robot_settings`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "instrument_robot_settings"
 
 
 class InstrumentRunDocumentsTable(ReadableTable[InstrumentRunDocumentsRow]):
@@ -890,6 +951,42 @@ class AsyncNotebookTemplatesTable(AsyncReadableTable[NotebookTemplatesRow]):
     Scopes: templates:read.
     """
     name = "notebook_templates"
+
+
+class PartPlansTable(ReadableTable[PartPlansRow]):
+    """
+    ``/api/db/part_plans`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "part_plans"
+
+
+class AsyncPartPlansTable(AsyncReadableTable[PartPlansRow]):
+    """
+    ``/api/db/part_plans`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "part_plans"
+
+
+class PartResourceNeedsTable(ReadableTable[PartResourceNeedsRow]):
+    """
+    ``/api/db/part_resource_needs`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "part_resource_needs"
+
+
+class AsyncPartResourceNeedsTable(AsyncReadableTable[PartResourceNeedsRow]):
+    """
+    ``/api/db/part_resource_needs`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "part_resource_needs"
 
 
 class PipelineDefinitionVersionsTable(ReadableTable[PipelineDefinitionVersionsRow]):
@@ -1492,6 +1589,24 @@ class AsyncSavedSearchesTable(AsyncReadableTable[SavedSearchesRow]):
     name = "saved_searches"
 
 
+class ScheduleProposalsTable(ReadableTable[ScheduleProposalsRow]):
+    """
+    ``/api/db/schedule_proposals`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "schedule_proposals"
+
+
+class AsyncScheduleProposalsTable(AsyncReadableTable[ScheduleProposalsRow]):
+    """
+    ``/api/db/schedule_proposals`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "schedule_proposals"
+
+
 class ScheduledReportsTable(ReadableTable[ScheduledReportsRow]):
     """
     ``/api/db/scheduled_reports`` (GET, HEAD).
@@ -1508,6 +1623,24 @@ class AsyncScheduledReportsTable(AsyncReadableTable[ScheduledReportsRow]):
     Scopes: facility:read.
     """
     name = "scheduled_reports"
+
+
+class SchedulerSettingsTable(ReadableTable[SchedulerSettingsRow]):
+    """
+    ``/api/db/scheduler_settings`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "scheduler_settings"
+
+
+class AsyncSchedulerSettingsTable(AsyncReadableTable[SchedulerSettingsRow]):
+    """
+    ``/api/db/scheduler_settings`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "scheduler_settings"
 
 
 class ScimGroupMembersTable(ReadableTable[ScimGroupMembersRow]):
@@ -1812,6 +1945,7 @@ class Tables:
         "ai_eval_results",
         "ai_eval_runs",
         "blocks",
+        "code_cell_runs",
         "dataset_schema_definitions",
         "dataset_schema_version_fields",
         "dataset_schema_versions",
@@ -1826,9 +1960,11 @@ class Tables:
         "inbox_work_items",
         "instrument_booking_rules",
         "instrument_feeds",
+        "instrument_jobs",
         "instrument_rates",
         "instrument_readings",
         "instrument_required_training",
+        "instrument_robot_settings",
         "instrument_run_documents",
         "instrument_service_log",
         "lab_watcher_findings",
@@ -1844,6 +1980,8 @@ class Tables:
         "my_work_items",
         "notebook_template_versions",
         "notebook_templates",
+        "part_plans",
+        "part_resource_needs",
         "pipeline_definition_versions",
         "pipeline_definitions",
         "pipeline_reproductions",
@@ -1876,7 +2014,9 @@ class Tables:
         "sample_workflow_transitions",
         "sample_workflows",
         "saved_searches",
+        "schedule_proposals",
         "scheduled_reports",
+        "scheduler_settings",
         "scim_group_members",
         "scim_groups",
         "scim_tokens",
@@ -1906,6 +2046,7 @@ class Tables:
         self.ai_eval_results = AiEvalResultsTable(transport)
         self.ai_eval_runs = AiEvalRunsTable(transport)
         self.blocks = BlocksTable(transport)
+        self.code_cell_runs = CodeCellRunsTable(transport)
         self.dataset_schema_definitions = DatasetSchemaDefinitionsTable(transport)
         self.dataset_schema_version_fields = DatasetSchemaVersionFieldsTable(transport)
         self.dataset_schema_versions = DatasetSchemaVersionsTable(transport)
@@ -1920,9 +2061,11 @@ class Tables:
         self.inbox_work_items = InboxWorkItemsTable(transport)
         self.instrument_booking_rules = InstrumentBookingRulesTable(transport)
         self.instrument_feeds = InstrumentFeedsTable(transport)
+        self.instrument_jobs = InstrumentJobsTable(transport)
         self.instrument_rates = InstrumentRatesTable(transport)
         self.instrument_readings = InstrumentReadingsTable(transport)
         self.instrument_required_training = InstrumentRequiredTrainingTable(transport)
+        self.instrument_robot_settings = InstrumentRobotSettingsTable(transport)
         self.instrument_run_documents = InstrumentRunDocumentsTable(transport)
         self.instrument_service_log = InstrumentServiceLogTable(transport)
         self.lab_watcher_findings = LabWatcherFindingsTable(transport)
@@ -1938,6 +2081,8 @@ class Tables:
         self.my_work_items = MyWorkItemsTable(transport)
         self.notebook_template_versions = NotebookTemplateVersionsTable(transport)
         self.notebook_templates = NotebookTemplatesTable(transport)
+        self.part_plans = PartPlansTable(transport)
+        self.part_resource_needs = PartResourceNeedsTable(transport)
         self.pipeline_definition_versions = PipelineDefinitionVersionsTable(transport)
         self.pipeline_definitions = PipelineDefinitionsTable(transport)
         self.pipeline_reproductions = PipelineReproductionsTable(transport)
@@ -1970,7 +2115,9 @@ class Tables:
         self.sample_workflow_transitions = SampleWorkflowTransitionsTable(transport)
         self.sample_workflows = SampleWorkflowsTable(transport)
         self.saved_searches = SavedSearchesTable(transport)
+        self.schedule_proposals = ScheduleProposalsTable(transport)
         self.scheduled_reports = ScheduledReportsTable(transport)
+        self.scheduler_settings = SchedulerSettingsTable(transport)
         self.scim_group_members = ScimGroupMembersTable(transport)
         self.scim_groups = ScimGroupsTable(transport)
         self.scim_tokens = ScimTokensTable(transport)
@@ -2011,6 +2158,7 @@ class AsyncTables:
         "ai_eval_results",
         "ai_eval_runs",
         "blocks",
+        "code_cell_runs",
         "dataset_schema_definitions",
         "dataset_schema_version_fields",
         "dataset_schema_versions",
@@ -2025,9 +2173,11 @@ class AsyncTables:
         "inbox_work_items",
         "instrument_booking_rules",
         "instrument_feeds",
+        "instrument_jobs",
         "instrument_rates",
         "instrument_readings",
         "instrument_required_training",
+        "instrument_robot_settings",
         "instrument_run_documents",
         "instrument_service_log",
         "lab_watcher_findings",
@@ -2043,6 +2193,8 @@ class AsyncTables:
         "my_work_items",
         "notebook_template_versions",
         "notebook_templates",
+        "part_plans",
+        "part_resource_needs",
         "pipeline_definition_versions",
         "pipeline_definitions",
         "pipeline_reproductions",
@@ -2075,7 +2227,9 @@ class AsyncTables:
         "sample_workflow_transitions",
         "sample_workflows",
         "saved_searches",
+        "schedule_proposals",
         "scheduled_reports",
+        "scheduler_settings",
         "scim_group_members",
         "scim_groups",
         "scim_tokens",
@@ -2105,6 +2259,7 @@ class AsyncTables:
         self.ai_eval_results = AsyncAiEvalResultsTable(transport)
         self.ai_eval_runs = AsyncAiEvalRunsTable(transport)
         self.blocks = AsyncBlocksTable(transport)
+        self.code_cell_runs = AsyncCodeCellRunsTable(transport)
         self.dataset_schema_definitions = AsyncDatasetSchemaDefinitionsTable(transport)
         self.dataset_schema_version_fields = AsyncDatasetSchemaVersionFieldsTable(transport)
         self.dataset_schema_versions = AsyncDatasetSchemaVersionsTable(transport)
@@ -2119,9 +2274,11 @@ class AsyncTables:
         self.inbox_work_items = AsyncInboxWorkItemsTable(transport)
         self.instrument_booking_rules = AsyncInstrumentBookingRulesTable(transport)
         self.instrument_feeds = AsyncInstrumentFeedsTable(transport)
+        self.instrument_jobs = AsyncInstrumentJobsTable(transport)
         self.instrument_rates = AsyncInstrumentRatesTable(transport)
         self.instrument_readings = AsyncInstrumentReadingsTable(transport)
         self.instrument_required_training = AsyncInstrumentRequiredTrainingTable(transport)
+        self.instrument_robot_settings = AsyncInstrumentRobotSettingsTable(transport)
         self.instrument_run_documents = AsyncInstrumentRunDocumentsTable(transport)
         self.instrument_service_log = AsyncInstrumentServiceLogTable(transport)
         self.lab_watcher_findings = AsyncLabWatcherFindingsTable(transport)
@@ -2137,6 +2294,8 @@ class AsyncTables:
         self.my_work_items = AsyncMyWorkItemsTable(transport)
         self.notebook_template_versions = AsyncNotebookTemplateVersionsTable(transport)
         self.notebook_templates = AsyncNotebookTemplatesTable(transport)
+        self.part_plans = AsyncPartPlansTable(transport)
+        self.part_resource_needs = AsyncPartResourceNeedsTable(transport)
         self.pipeline_definition_versions = AsyncPipelineDefinitionVersionsTable(transport)
         self.pipeline_definitions = AsyncPipelineDefinitionsTable(transport)
         self.pipeline_reproductions = AsyncPipelineReproductionsTable(transport)
@@ -2169,7 +2328,9 @@ class AsyncTables:
         self.sample_workflow_transitions = AsyncSampleWorkflowTransitionsTable(transport)
         self.sample_workflows = AsyncSampleWorkflowsTable(transport)
         self.saved_searches = AsyncSavedSearchesTable(transport)
+        self.schedule_proposals = AsyncScheduleProposalsTable(transport)
         self.scheduled_reports = AsyncScheduledReportsTable(transport)
+        self.scheduler_settings = AsyncSchedulerSettingsTable(transport)
         self.scim_group_members = AsyncScimGroupMembersTable(transport)
         self.scim_groups = AsyncScimGroupsTable(transport)
         self.scim_tokens = AsyncScimTokensTable(transport)

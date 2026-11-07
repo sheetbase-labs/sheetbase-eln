@@ -55,53 +55,60 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 
 ## Tables
 
-| Table                          | What it holds                                                                                                                                                                                                                                   |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `reagent_orders`               | A reagent order: requested from a material that is running low, placed with the supplier, then received as a new lot. `status` is requested, ordered, received or cancelled.                                                                    |
-| `recurring_schedules`          | A recurring experiment or booking. `kind` is `booking` or `experiment`; `status` is active, paused or ended.                                                                                                                                    |
-| `recurring_occurrences`        | One planned run of a recurring schedule and what became of it (`outcome`).                                                                                                                                                                      |
-| `instrument_service_log`       | A service, repair, calibration or other visit logged against an instrument.                                                                                                                                                                     |
-| `experiment_series`            | An experiment that heads a series: it groups other experiments that run as separate pieces of one piece of work.                                                                                                                                |
-| `experiment_series_members`    | An experiment in a series, with where it sits (`position`) and the day it is planned (`planned_on`). An experiment is in one series at most.                                                                                                    |
-| `experiment_parts`             | A part of an experiment that runs over several days: its own page of the notebook, on a day counted from the start of the experiment. Parts run in `position` order. A part is done when all its steps are, or when it was marked done by hand. |
-| `step_timers`                  | A timer started on a protocol step. Personal tokens only: you see your own timers.                                                                                                                                                              |
-| `material_safety`              | Chemical safety information for a material: hazard pictograms, signal word, hazard statements and the safety data sheet file.                                                                                                                   |
-| `material_ingredients`         | What went into a prepared solution: one row per ingredient lot, with quantity and unit.                                                                                                                                                         |
-| `stocktakes`                   | A stocktake of a freezer, shelf or box. `status` is in_progress, completed or cancelled.                                                                                                                                                        |
-| `stocktake_items`              | One item expected in or found during a stocktake, with where it should be, where it was found and how a mismatch was resolved.                                                                                                                  |
-| `instrument_feeds`             | A live measurement series on an instrument (temperature, pressure and so on), with its alert limits and last value.                                                                                                                             |
-| `instrument_readings`          | One reading in an instrument feed. Large; filter by `feed_id` and `taken_at`, or use `list_instrument_feed_series` for charts.                                                                                                                  |
-| `sample_workflows`             | A sample workflow: the stages a sample moves through. `status` is draft, active or archived.                                                                                                                                                    |
-| `sample_workflow_stages`       | A stage in a sample workflow, with its turnaround time, required fields and actions.                                                                                                                                                            |
-| `sample_workflow_transitions`  | Which stage a sample may move to from another stage.                                                                                                                                                                                            |
-| `sample_workflow_runs`         | A sample's journey through a workflow: its current stage, when it entered and when it is due.                                                                                                                                                   |
-| `sample_workflow_events`       | The history of moves a sample made through a workflow.                                                                                                                                                                                          |
-| `request_forms`                | Which record models accept requests, their intro text and who handles them.                                                                                                                                                                     |
-| `shipments`                    | A sample shipment in or out. `direction` is inbound or outbound; `status` is draft, in_transit, received or cancelled.                                                                                                                          |
-| `shipment_items`               | An item on a shipment, with whether it arrived and in what condition.                                                                                                                                                                           |
-| `instrument_booking_rules`     | Booking limits on an instrument: longest booking and how far ahead people may book.                                                                                                                                                             |
-| `instrument_required_training` | Training protocols a person must hold before booking an instrument.                                                                                                                                                                             |
-| `field_spec_limits`            | Specification and alert limits for a numeric field on a record kind.                                                                                                                                                                            |
-| `model_incident_logs`          | Record models that are used as incident logs.                                                                                                                                                                                                   |
-| `legal_holds`                  | A legal hold keeping records from deletion or archiving until it is released.                                                                                                                                                                   |
-| `legal_hold_records`           | A record placed on a legal hold.                                                                                                                                                                                                                |
-| `retention_rules`              | How many months each kind of record is kept before it comes up for archiving.                                                                                                                                                                   |
-| `request_details`              | What was asked and how it was decided, for each request record.                                                                                                                                                                                 |
-| `record_spec_results`          | Each record's value for a field with result limits, and whether it is within spec, in the alert band or out. Personal tokens only.                                                                                                              |
-| `my_work_items`                | What is waiting on the person: reviews, tasks, assigned records and so on. Personal tokens only.                                                                                                                                                |
-| `inbox_work_items`             | The person's Inbox items with tab and type. Personal tokens only.                                                                                                                                                                               |
-| `project_follows`              | Projects a person follows. Personal tokens only: you see your own follows.                                                                                                                                                                      |
-| `plate_runs`                   | Plate runs: one plate read on an instrument, with its layout, readout, analysis settings and the last analysis (normalised values, Z-prime, hits and curves).                                                                                   |
-| `plate_worklists`              | Liquid handler worklists: the transfers from a source plate to a destination plate, and what the robot log said was moved.                                                                                                                      |
-| `instrument_run_documents`     | Instrument files converted to the Allotrope Simple Model (ASM): one vendor-neutral document per instrument run, with the converter, its version and the image that ran it.                                                                      |
-| `qc_series`                    | Quality control series: a value tracked across runs (a plate assay metric, or any value sent in), with its limits, the Westgard rules and whether it is in control.                                                                             |
-| `qc_points`                    | Quality control points: each value of a series with its distance from the mean in SD, the Westgard rules it broke and whether someone has acknowledged it.                                                                                      |
-| `agent_action_requests`        | An action an agent asked to take: what it was, what the workspace had set for it (`level`), and how it ended (`status`). A token sees only its own requests.                                                                                    |
-| `lab_watchers`                 | A scheduled review the lab turned on: stock expiring, stock low, work overdue, data missing or results off.                                                                                                                                     |
-| `lab_watcher_findings`         | Something a watcher found, with the record it is about and a suggested action. `status` is open, snoozed, dismissed or resolved.                                                                                                                |
-| `pipeline_reproductions`       | Pipeline runs run again from their pinned version, parameters and inputs and compared with the original: matches, differs or failed, and the first differences. Start one with `POST /api/pipelines/reproduce`.                                 |
-| `lineage_targets`              | Where lineage events (OpenLineage) are sent: address, namespace, header name and whether it is on. The header value is never shown. People who manage integrations only.                                                                        |
-| `lineage_deliveries`           | Each lineage event waiting to go to, or sent to, an endpoint, with its attempts and last error. People who manage integrations only.                                                                                                            |
+| Table                          | What it holds                                                                                                                                                                                                                                                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `reagent_orders`               | A reagent order: requested from a material that is running low, placed with the supplier, then received as a new lot. `status` is requested, ordered, received or cancelled.                                                                                                                                       |
+| `recurring_schedules`          | A recurring experiment or booking. `kind` is `booking` or `experiment`; `status` is active, paused or ended.                                                                                                                                                                                                       |
+| `recurring_occurrences`        | One planned run of a recurring schedule and what became of it (`outcome`).                                                                                                                                                                                                                                         |
+| `instrument_service_log`       | A service, repair, calibration or other visit logged against an instrument.                                                                                                                                                                                                                                        |
+| `experiment_series`            | An experiment that heads a series: it groups other experiments that run as separate pieces of one piece of work.                                                                                                                                                                                                   |
+| `experiment_series_members`    | An experiment in a series, with where it sits (`position`) and the day it is planned (`planned_on`). An experiment is in one series at most.                                                                                                                                                                       |
+| `experiment_parts`             | A part of an experiment that runs over several days: its own page of the notebook, on a day counted from the start of the experiment. Parts run in `position` order. A part is done when all its steps are, or when it was marked done by hand.                                                                    |
+| `step_timers`                  | A timer started on a protocol step. Personal tokens only: you see your own timers.                                                                                                                                                                                                                                 |
+| `material_safety`              | Chemical safety information for a material: hazard pictograms, signal word, hazard statements and the safety data sheet file.                                                                                                                                                                                      |
+| `material_ingredients`         | What went into a prepared solution: one row per ingredient lot, with quantity and unit.                                                                                                                                                                                                                            |
+| `stocktakes`                   | A stocktake of a freezer, shelf or box. `status` is in_progress, completed or cancelled.                                                                                                                                                                                                                           |
+| `stocktake_items`              | One item expected in or found during a stocktake, with where it should be, where it was found and how a mismatch was resolved.                                                                                                                                                                                     |
+| `instrument_feeds`             | A live measurement series on an instrument (temperature, pressure and so on), with its alert limits and last value.                                                                                                                                                                                                |
+| `instrument_readings`          | One reading in an instrument feed. Large; filter by `feed_id` and `taken_at`, or use `list_instrument_feed_series` for charts.                                                                                                                                                                                     |
+| `sample_workflows`             | A sample workflow: the stages a sample moves through. `status` is draft, active or archived.                                                                                                                                                                                                                       |
+| `sample_workflow_stages`       | A stage in a sample workflow, with its turnaround time, required fields and actions.                                                                                                                                                                                                                               |
+| `sample_workflow_transitions`  | Which stage a sample may move to from another stage.                                                                                                                                                                                                                                                               |
+| `sample_workflow_runs`         | A sample's journey through a workflow: its current stage, when it entered and when it is due.                                                                                                                                                                                                                      |
+| `sample_workflow_events`       | The history of moves a sample made through a workflow.                                                                                                                                                                                                                                                             |
+| `request_forms`                | Which record models accept requests, their intro text and who handles them.                                                                                                                                                                                                                                        |
+| `shipments`                    | A sample shipment in or out. `direction` is inbound or outbound; `status` is draft, in_transit, received or cancelled.                                                                                                                                                                                             |
+| `shipment_items`               | An item on a shipment, with whether it arrived and in what condition.                                                                                                                                                                                                                                              |
+| `instrument_booking_rules`     | Booking limits on an instrument: longest booking and how far ahead people may book.                                                                                                                                                                                                                                |
+| `instrument_required_training` | Training protocols a person must hold before booking an instrument.                                                                                                                                                                                                                                                |
+| `field_spec_limits`            | Specification and alert limits for a numeric field on a record kind.                                                                                                                                                                                                                                               |
+| `model_incident_logs`          | Record models that are used as incident logs.                                                                                                                                                                                                                                                                      |
+| `legal_holds`                  | A legal hold keeping records from deletion or archiving until it is released.                                                                                                                                                                                                                                      |
+| `legal_hold_records`           | A record placed on a legal hold.                                                                                                                                                                                                                                                                                   |
+| `retention_rules`              | How many months each kind of record is kept before it comes up for archiving.                                                                                                                                                                                                                                      |
+| `request_details`              | What was asked and how it was decided, for each request record.                                                                                                                                                                                                                                                    |
+| `record_spec_results`          | Each record's value for a field with result limits, and whether it is within spec, in the alert band or out. Personal tokens only.                                                                                                                                                                                 |
+| `my_work_items`                | What is waiting on the person: reviews, tasks, assigned records and so on. Personal tokens only.                                                                                                                                                                                                                   |
+| `inbox_work_items`             | The person's Inbox items with tab and type. Personal tokens only.                                                                                                                                                                                                                                                  |
+| `project_follows`              | Projects a person follows. Personal tokens only: you see your own follows.                                                                                                                                                                                                                                         |
+| `plate_runs`                   | Plate runs: one plate read on an instrument, with its layout, readout, analysis settings and the last analysis (normalised values, Z-prime, hits and curves).                                                                                                                                                      |
+| `plate_worklists`              | Liquid handler worklists: the transfers from a source plate to a destination plate, and what the robot log said was moved.                                                                                                                                                                                         |
+| `instrument_run_documents`     | Instrument files converted to the Allotrope Simple Model (ASM): one vendor-neutral document per instrument run, with the converter, its version and the image that ran it.                                                                                                                                         |
+| `qc_series`                    | Quality control series: a value tracked across runs (a plate assay metric, or any value sent in), with its limits, the Westgard rules and whether it is in control.                                                                                                                                                |
+| `qc_points`                    | Quality control points: each value of a series with its distance from the mean in SD, the Westgard rules it broke and whether someone has acknowledged it.                                                                                                                                                         |
+| `agent_action_requests`        | An action an agent asked to take: what it was, what the workspace had set for it (`level`), and how it ended (`status`). A token sees only its own requests.                                                                                                                                                       |
+| `lab_watchers`                 | A scheduled review the lab turned on: stock expiring, stock low, work overdue, data missing or results off.                                                                                                                                                                                                        |
+| `lab_watcher_findings`         | Something a watcher found, with the record it is about and a suggested action. `status` is open, snoozed, dismissed or resolved.                                                                                                                                                                                   |
+| `pipeline_reproductions`       | Pipeline runs run again from their pinned version, parameters and inputs and compared with the original: matches, differs or failed, and the first differences. Start one with `POST /api/pipelines/reproduce`.                                                                                                    |
+| `lineage_targets`              | Where lineage events (OpenLineage) are sent: address, namespace, header name and whether it is on. The header value is never shown. People who manage integrations only.                                                                                                                                           |
+| `lineage_deliveries`           | Each lineage event waiting to go to, or sent to, an endpoint, with its attempts and last error. People who manage integrations only.                                                                                                                                                                               |
+| `instrument_robot_settings`    | An instrument that is a robot: how it is reached (`driver` is opentrons or file), the worklist file format it reads and the labware that file names.                                                                                                                                                               |
+| `instrument_jobs`              | A worklist sent to a robot. `status` goes queued, staged (on the robot, waiting for a person to press Start), starting, running, then complete, failed or cancelled. `log` is what happened, and `result` the transfers the robot reported; completing a job completes the worklist and records the stock it used. |
+| `scheduler_settings`           | The lab’s working day for the scheduler: time zone, the minutes after midnight it starts and ends, and the ISO weekdays that are worked.                                                                                                                                                                           |
+| `part_plans`                   | How long a part of an experiment takes: the hands-on minutes and the wait after it before the next part can start.                                                                                                                                                                                                 |
+| `part_resource_needs`          | An instrument a part needs and for how many minutes. `resource_id` is the instrument id.                                                                                                                                                                                                                           |
+| `schedule_proposals`           | A proposed schedule for an experiment’s parts. `status` is requested, planning, proposed, accepted, dismissed, superseded or failed. `items` lists each slot with its instrument, person, times and what stands in its way. Nothing is booked until `accept_schedule_proposal`.                                    |
+| `code_cell_runs`               | Every run of a notebook code cell, kept with its code, the digests of the dataset versions it read, the first rows of the output and its digest, and the runtime it ran in (an image digest for Python). A run that reproduces another has `reproduces_run_id` and says whether the output `matches`.              |
 
 ## Actions
 
@@ -1351,3 +1358,139 @@ Scope: `lab:write`.
 | ------------------ | ---- | --- |
 | `p_workspace_id` * | uuid |     |
 | `p_days` *         | int  |     |
+
+### `set_instrument_robot`
+
+Make an instrument a robot, or change how it is reached. Sets how worklists reach the instrument: `opentrons` (the robot is on the network) or `file` (its own software reads a folder), the worklist file it reads and the labware that file names. The folder agent on the lab computer does the rest. Needs permission to manage instruments. Returns the settings.
+
+Scope: `lab:write`.
+
+| Argument            | Type |                                                                                                                                                                                                                      |
+| ------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `p_instrument_id` * | uuid | Instrument id.                                                                                                                                                                                                       |
+| `p_driver` *        | text | `opentrons` (the robot is on the network) or `file` (its software reads a folder).                                                                                                                                   |
+| `p_worklist_format` | text | The worklist file the robot reads: `opentrons` for an Opentrons robot; `csv`, `echo`, `tecan_gwl` or `hamilton` for a file robot. Leave out to use the driver’s own.                                                 |
+| `p_labware`         | json | JSON labware for the worklist file: `opentronsSourceLabware`, `opentronsDestLabware`, `opentronsPipette`, `opentronsTiprack`, `opentronsMount`, `liquidClass`, `tecanSourceType`, `tecanDestType`, `echoSourceType`. |
+
+### `clear_instrument_robot`
+
+Stop treating an instrument as a robot. Removes the robot settings. Jobs already sent stay on record. Needs permission to manage instruments.
+
+Scope: `lab:write`.
+
+| Argument            | Type |                |
+| ------------------- | ---- | -------------- |
+| `p_instrument_id` * | uuid | Instrument id. |
+
+### `queue_instrument_job`
+
+Send a worklist to a robot. Queues a planned worklist for a robot. The folder agent puts it on the robot and the job waits, staged, until a person starts it. A worklist has one open job at a time. Sends `instrument.job.queued`.
+
+Scope: `lab:write`.
+
+| Argument            | Type |                |
+| ------------------- | ---- | -------------- |
+| `p_instrument_id` * | uuid | Instrument id. |
+| `p_worklist_id` *   | uuid | Worklist id.   |
+| `p_note`            | text | A note.        |
+
+### `start_instrument_job`
+
+Start a staged robot job. A person starts the job once it is on the robot and the deck is ready. Only a staged job can be started; a script or an assistant cannot start one for you, because the person starting it is at the robot. Sends `instrument.job.started`.
+
+Scope: `lab:write`.
+
+| Argument     | Type |               |
+| ------------ | ---- | ------------- |
+| `p_job_id` * | uuid | Robot job id. |
+
+### `cancel_instrument_job`
+
+Stop a robot job. Cancels a queued or staged job at once, and asks the agent to stop a running one. Sends `instrument.job.cancelled` when it has stopped.
+
+Scope: `lab:write`.
+
+| Argument     | Type |               |
+| ------------ | ---- | ------------- |
+| `p_job_id` * | uuid | Robot job id. |
+
+### `set_scheduler_settings`
+
+Set the lab’s working hours. The working day the scheduler places hands-on work in: time zone, start and end (minutes after midnight) and the days worked. Needs access to manage General settings.
+
+Scope: `lab:write`.
+
+| Argument                | Type  |                                                               |
+| ----------------------- | ----- | ------------------------------------------------------------- |
+| `p_workspace_id` *      | uuid  | Your workspace id.                                            |
+| `p_timezone` *          | text  | IANA time zone, such as `Europe/London`.                      |
+| `p_work_start_minute` * | int   | Minutes after midnight the working day starts (540 is 09:00). |
+| `p_work_end_minute` *   | int   | Minutes after midnight the working day ends (1020 is 17:00).  |
+| `p_work_days` *         | int[] | Working days as ISO weekdays: 1 is Monday, 7 is Sunday.       |
+
+### `set_part_plan`
+
+Say how long a part takes and what it needs. Sets a part’s hands-on time, the wait after it, and the instruments it needs (each with minutes). The list replaces the part’s earlier one. The scheduler plans from this.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                                                                                        |
+| ---------------------- | ---- | ---------------------------------------------------------------------------------------------------------------------- |
+| `p_part_id` *          | uuid | The part of the experiment.                                                                                            |
+| `p_hands_on_minutes`   | int  | Minutes a person is at the bench for the part (0 to 1440).                                                             |
+| `p_wait_after_minutes` | int  | Minutes to wait after the part before the next can start, such as an incubation (0 to 525600).                         |
+| `p_needs`              | json | JSON array of the instruments the part needs: each `{ resourceId, minutes }`, where `resourceId` is the instrument id. |
+
+### `request_schedule_proposal`
+
+Ask for a proposed schedule for an experiment. Asks the planner to lay the experiment’s parts out on instruments and people, respecting working hours, absences, each instrument’s booking rules and the waits between parts. Returns a proposal in `requested`; read it again until it is `proposed` (or `failed`). Nothing is booked. Sends `schedule.proposed` when the plan is ready.
+
+Scope: `lab:write`.
+
+| Argument            | Type |                                        |
+| ------------------- | ---- | -------------------------------------- |
+| `p_record_id` *     | uuid | Record id.                             |
+| `p_reason`          | text | Why, in a sentence.                    |
+| `p_slipped_part_id` | uuid | For a re-plan: the part that ran late. |
+
+### `accept_schedule_proposal`
+
+Accept a proposed schedule and book it. Books each instrument slot (as the person accepting), replaces the bookings of an earlier accepted plan and moves the parts to the days planned. A slot that cannot be booked is listed in `skipped` with the reason, not hidden. Returns `{ proposalId, booked, skipped }`. Sends `schedule.accepted`.
+
+Scope: `lab:write`.
+
+| Argument          | Type |                       |
+| ----------------- | ---- | --------------------- |
+| `p_proposal_id` * | uuid | Schedule proposal id. |
+
+### `dismiss_schedule_proposal`
+
+Dismiss a proposed schedule. Leaves the schedule as it is. Sends `schedule.dismissed`.
+
+Scope: `lab:write`.
+
+| Argument          | Type |                       |
+| ----------------- | ---- | --------------------- |
+| `p_proposal_id` * | uuid | Schedule proposal id. |
+
+### `slip_experiment_part`
+
+A part ran late: re-plan the rest. Moves the part and the parts after it later by a number of days and asks for a new proposal; nothing is booked until it is accepted.
+
+Scope: `lab:write`.
+
+| Argument      | Type |                             |
+| ------------- | ---- | --------------------------- |
+| `p_part_id` * | uuid | The part of the experiment. |
+| `p_days` *    | int  |                             |
+
+### `dataset_version_rows_json`
+
+Read a dataset version as rows. The columns and up to `p_limit` rows (default 50000) of one dataset version, as JSON: `{ versionId, datasetId, label, columns, rowCount, truncated, rows }`. Code cells read their inputs this way.
+
+Scope: `lab:read`.
+
+| Argument         | Type |                     |
+| ---------------- | ---- | ------------------- |
+| `p_version_id` * | uuid | Dataset version id. |
+| `p_limit`        | int  |                     |

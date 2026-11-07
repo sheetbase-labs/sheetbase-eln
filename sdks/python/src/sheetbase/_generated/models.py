@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 
 __all__ = [
+    "AcceptScheduleProposalParams",
     "AcknowledgeQcPointParams",
     "AddRecordsToLegalHoldParams",
     "AddRegistryParentParams",
@@ -75,11 +76,14 @@ __all__ = [
     "BlocksRowInsert",
     "BlocksRowPatch",
     "CancelAgentWorkflowParams",
+    "CancelInstrumentJobParams",
     "CancelMemberAbsenceParams",
     "CancelPlateWorklistParams",
     "CancelReagentOrderParams",
     "CancelShipmentParams",
     "CancelStocktakeParams",
+    "ClearInstrumentRobotParams",
+    "CodeCellRunsRow",
     "CommitDatasetRowBatchParams",
     "CommitSheetRecordBatchParams",
     "CompletePlateWorklistParams",
@@ -110,6 +114,7 @@ __all__ = [
     "DatasetSchemaDefinitionsRow",
     "DatasetSchemaVersionFieldsRow",
     "DatasetSchemaVersionsRow",
+    "DatasetVersionRowsJsonParams",
     "DatasetVersionsRow",
     "DatasetsRow",
     "DatasetsRowInsert",
@@ -121,6 +126,7 @@ __all__ = [
     "DeleteScheduledReportParams",
     "DeleteWebhookSubscriptionParams",
     "DirectorySyncStatusParams",
+    "DismissScheduleProposalParams",
     "DissolveExperimentSeriesParams",
     "DuplicateSheetInstanceBlockParams",
     "DuplicateSheetInstanceParams",
@@ -153,9 +159,11 @@ __all__ = [
     "InstantiateTemplateParams",
     "InstrumentBookingRulesRow",
     "InstrumentFeedsRow",
+    "InstrumentJobsRow",
     "InstrumentRatesRow",
     "InstrumentReadingsRow",
     "InstrumentRequiredTrainingRow",
+    "InstrumentRobotSettingsRow",
     "InstrumentRunDocumentsRow",
     "InstrumentServiceLogRow",
     "IsRecordOnHoldParams",
@@ -200,6 +208,8 @@ __all__ = [
     "NotebookUpgradeApplyResult",
     "NotebookUpgradeDecision",
     "NotebookUpgradePreview",
+    "PartPlansRow",
+    "PartResourceNeedsRow",
     "PartsInRangeParams",
     "PipelineDefinitionVersionsRow",
     "PipelineDefinitionsRow",
@@ -231,6 +241,7 @@ __all__ = [
     "QuerySheetInstanceRowsParams",
     "QuerySheetInstanceRowsResult",
     "QueryStorageReadingsParams",
+    "QueueInstrumentJobParams",
     "ReadSheetInstanceCalculationResultsParams",
     "ReagentOrderPricesRow",
     "ReagentOrdersRow",
@@ -271,6 +282,7 @@ __all__ = [
     "RequestDetailsRow",
     "RequestFormsRow",
     "RequestReagentOrderParams",
+    "RequestScheduleProposalParams",
     "RequestSignatureTimestampParams",
     "ResolveAgentActionLevelParams",
     "ResolveSheetInstanceRowIdentityParams",
@@ -298,7 +310,9 @@ __all__ = [
     "SaveScheduledReportParams",
     "SaveSearchParams",
     "SavedSearchesRow",
+    "ScheduleProposalsRow",
     "ScheduledReportsRow",
+    "SchedulerSettingsRow",
     "ScimGroupMembersRow",
     "ScimGroupsRow",
     "ScimTokensRow",
@@ -315,18 +329,21 @@ __all__ = [
     "SetInstrumentFeedLimitsParams",
     "SetInstrumentOutOfServiceParams",
     "SetInstrumentRateParams",
+    "SetInstrumentRobotParams",
     "SetLabWatcherParams",
     "SetLinkPartParams",
     "SetMaterialSafetyParams",
     "SetMemberAbsenceParams",
     "SetModelSupplierListParams",
     "SetPartDoneParams",
+    "SetPartPlanParams",
     "SetQcBaselineParams",
     "SetReagentOrderPriceParams",
     "SetRecordFavouriteParams",
     "SetRecurringSchedulePausedParams",
     "SetSampleWorkflowStatusParams",
     "SetScheduledReportActiveParams",
+    "SetSchedulerSettingsParams",
     "SetSeriesMemberDayParams",
     "SetStepDoneParams",
     "SetTimestampSettingsParams",
@@ -377,9 +394,11 @@ __all__ = [
     "ShipmentItemsRow",
     "ShipmentsRow",
     "SignatureTimestampsRow",
+    "SlipExperimentPartParams",
     "SnapshotDatasetParams",
     "SplitRecordIntoPartsParams",
     "StartExperimentSeriesParams",
+    "StartInstrumentJobParams",
     "StartStepTimerParams",
     "StartStocktakeParams",
     "StepTimersRow",
@@ -1035,6 +1054,36 @@ class BlocksRowPatch(TypedDict, total=False):
     version: int
 
 
+class _CodeCellRunsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    number: int
+    record_id: str
+    language: str
+    source: str
+    source_sha256: str
+    inputs: Dict[str, "JsonValue"]
+    parameters: Dict[str, "JsonValue"]
+    status: str
+    logs: Dict[str, "JsonValue"]
+    ran_by_user_id: str
+    ran_at: str
+
+
+class CodeCellRunsRow(_CodeCellRunsRowRequired, total=False):
+    """`api.code_cell_runs` row (snake_case). Every run of a notebook code cell, kept with its code, the digests of the dataset versions it read, the first rows of the output and its digest, and the runtime it ran in (an image digest for Python). A run that reproduces another has `reproduces_run_id` and says whether the output `matches`."""
+    block_id: Optional[str]
+    output: Optional[Dict[str, "JsonValue"]]
+    output_digest: Optional[str]
+    runtime: Optional[str]
+    environment: Optional[Dict[str, "JsonValue"]]
+    error_message: Optional[str]
+    duration_ms: Optional[int]
+    reproduces_run_id: Optional[str]
+    matches: Optional[bool]
+    diff: Optional[Dict[str, "JsonValue"]]
+
+
 class CompositionAdoptionApplyResultIncompatible(TypedDict):
     status: Literal["incompatible"]
     preview: "CompositionAdoptionPreview"
@@ -1369,6 +1418,36 @@ class InstrumentFeedsRow(_InstrumentFeedsRowRequired, total=False):
     last_at: Optional[str]
 
 
+class _InstrumentJobsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    number: int
+    instrument_id: str
+    worklist_id: str
+    driver: str
+    worklist_format: str
+    labware: Dict[str, "JsonValue"]
+    status: str
+    cancel_requested: bool
+    log: Dict[str, "JsonValue"]
+    queued_by_user_id: str
+    created_at: str
+    updated_at: str
+
+
+class InstrumentJobsRow(_InstrumentJobsRowRequired, total=False):
+    """`api.instrument_jobs` row (snake_case). A worklist sent to a robot. `status` goes queued, staged (on the robot, waiting for a person to press Start), starting, running, then complete, failed or cancelled. `log` is what happened, and `result` the transfers the robot reported; completing a job completes the worklist and records the stock it used."""
+    record_id: Optional[str]
+    note: Optional[str]
+    remote_ref: Optional[str]
+    error_message: Optional[str]
+    result: Optional[Dict[str, "JsonValue"]]
+    agent_seen_at: Optional[str]
+    started_by_user_id: Optional[str]
+    started_at: Optional[str]
+    finished_at: Optional[str]
+
+
 class _InstrumentRatesRowRequired(TypedDict):
     instrument_id: str
     workspace_id: str
@@ -1397,6 +1476,20 @@ class InstrumentRequiredTrainingRow(TypedDict):
     instrument_id: str
     protocol_record_id: str
     workspace_id: str
+
+
+class _InstrumentRobotSettingsRowRequired(TypedDict):
+    instrument_id: str
+    workspace_id: str
+    driver: str
+    worklist_format: str
+    labware: Dict[str, "JsonValue"]
+    updated_at: str
+
+
+class InstrumentRobotSettingsRow(_InstrumentRobotSettingsRowRequired, total=False):
+    """`api.instrument_robot_settings` row (snake_case). An instrument that is a robot: how it is reached (`driver` is opentrons or file), the worklist file format it reads and the labware that file names."""
+    updated_by_user_id: Optional[str]
 
 
 class _InstrumentRunDocumentsRowRequired(TypedDict):
@@ -1786,6 +1879,29 @@ class NotebookUpgradePreview(TypedDict):
     targetVersionId: str
     automatic: List[Dict[str, Any]]
     conflicts: List[Dict[str, Any]]
+
+
+class _PartPlansRowRequired(TypedDict):
+    part_id: str
+    workspace_id: str
+    hands_on_minutes: int
+    wait_after_minutes: int
+    updated_at: str
+
+
+class PartPlansRow(_PartPlansRowRequired, total=False):
+    """`api.part_plans` row (snake_case). How long a part of an experiment takes: the hands-on minutes and the wait after it before the next part can start."""
+    updated_by_user_id: Optional[str]
+
+
+class PartResourceNeedsRow(TypedDict):
+    """`api.part_resource_needs` row (snake_case). An instrument a part needs and for how many minutes. `resource_id` is the instrument id."""
+    id: str
+    part_id: str
+    workspace_id: str
+    resource_id: str
+    minutes: int
+    position: int
 
 
 class _PipelineDefinitionVersionsRowRequired(TypedDict):
@@ -2537,6 +2653,29 @@ class SavedSearchesRow(_SavedSearchesRowRequired, total=False):
     arguments: Optional[Dict[str, "JsonValue"]]
 
 
+class _ScheduleProposalsRowRequired(TypedDict):
+    id: str
+    workspace_id: str
+    number: int
+    record_id: str
+    status: str
+    reason: str
+    anchor_on: str
+    items: Dict[str, "JsonValue"]
+    conflict_count: int
+    requested_by_user_id: str
+    created_at: str
+
+
+class ScheduleProposalsRow(_ScheduleProposalsRowRequired, total=False):
+    """`api.schedule_proposals` row (snake_case). A proposed schedule for an experiment’s parts. `status` is requested, planning, proposed, accepted, dismissed, superseded or failed. `items` lists each slot with its instrument, person, times and what stands in its way. Nothing is booked until `accept_schedule_proposal`."""
+    slipped_part_id: Optional[str]
+    error_message: Optional[str]
+    decided_by_user_id: Optional[str]
+    decided_at: Optional[str]
+    planned_at: Optional[str]
+
+
 class _ScheduledReportsRowRequired(TypedDict):
     id: str
     workspace_id: str
@@ -2563,6 +2702,20 @@ class ScheduledReportsRow(_ScheduledReportsRowRequired, total=False):
     last_run_at: Optional[str]
     last_result: Optional[str]
     last_recipient_count: Optional[int]
+
+
+class _SchedulerSettingsRowRequired(TypedDict):
+    workspace_id: str
+    timezone: str
+    work_start_minute: int
+    work_end_minute: int
+    work_days: List[int]
+    updated_at: str
+
+
+class SchedulerSettingsRow(_SchedulerSettingsRowRequired, total=False):
+    """`api.scheduler_settings` row (snake_case). The lab’s working day for the scheduler: time zone, the minutes after midnight it starts and ends, and the ISO weekdays that are worked."""
+    updated_by_user_id: Optional[str]
 
 
 class ScimGroupMembersRow(TypedDict):
@@ -3242,6 +3395,10 @@ class WebhookSubscriptionsRow(_WebhookSubscriptionsRowRequired, total=False):
     updated_by_credential_id: Optional[str]
 
 
+class AcceptScheduleProposalParams(TypedDict):
+    p_proposal_id: str
+
+
 class _AcknowledgeQcPointParamsRequired(TypedDict):
     p_point_id: str
 
@@ -3358,6 +3515,10 @@ class CancelAgentWorkflowParams(TypedDict):
     p_reason: str
 
 
+class CancelInstrumentJobParams(TypedDict):
+    p_job_id: str
+
+
 class CancelMemberAbsenceParams(TypedDict):
     p_absence_id: str
 
@@ -3384,6 +3545,10 @@ class CancelShipmentParams(_CancelShipmentParamsRequired, total=False):
 
 class CancelStocktakeParams(TypedDict):
     p_stocktake_id: str
+
+
+class ClearInstrumentRobotParams(TypedDict):
+    p_instrument_id: str
 
 
 class CommitDatasetRowBatchParams(TypedDict):
@@ -3632,6 +3797,14 @@ class CreateWebhookSubscriptionParams(_CreateWebhookSubscriptionParamsRequired, 
     p_rate_limit_per_minute: int
 
 
+class _DatasetVersionRowsJsonParamsRequired(TypedDict):
+    p_version_id: str
+
+
+class DatasetVersionRowsJsonParams(_DatasetVersionRowsJsonParamsRequired, total=False):
+    p_limit: int
+
+
 class DeleteBlockParams(TypedDict):
     p_block_id: str
     p_expected_structure_version: int
@@ -3668,6 +3841,10 @@ class DeleteWebhookSubscriptionParams(TypedDict):
 
 class DirectorySyncStatusParams(TypedDict):
     p_workspace_id: str
+
+
+class DismissScheduleProposalParams(TypedDict):
+    p_proposal_id: str
 
 
 class DissolveExperimentSeriesParams(TypedDict):
@@ -4008,6 +4185,15 @@ class QueryStorageReadingsParams(TypedDict, total=False):
     p_limit: int
 
 
+class _QueueInstrumentJobParamsRequired(TypedDict):
+    p_instrument_id: str
+    p_worklist_id: str
+
+
+class QueueInstrumentJobParams(_QueueInstrumentJobParamsRequired, total=False):
+    p_note: str
+
+
 class ReadSheetInstanceCalculationResultsParams(TypedDict):
     p_instance_id: str
     p_row_keys: List[str]
@@ -4196,6 +4382,15 @@ class _RequestReagentOrderParamsRequired(TypedDict):
 class RequestReagentOrderParams(_RequestReagentOrderParamsRequired, total=False):
     p_unit: str
     p_note: str
+
+
+class _RequestScheduleProposalParamsRequired(TypedDict):
+    p_record_id: str
+
+
+class RequestScheduleProposalParams(_RequestScheduleProposalParamsRequired, total=False):
+    p_reason: str
+    p_slipped_part_id: str
 
 
 class RequestSignatureTimestampParams(TypedDict):
@@ -4435,6 +4630,16 @@ class SetInstrumentRateParams(_SetInstrumentRateParamsRequired, total=False):
     p_currency: Optional[str]
 
 
+class _SetInstrumentRobotParamsRequired(TypedDict):
+    p_instrument_id: str
+    p_driver: str
+
+
+class SetInstrumentRobotParams(_SetInstrumentRobotParamsRequired, total=False):
+    p_worklist_format: str
+    p_labware: Dict[str, "JsonValue"]
+
+
 class _SetLabWatcherParamsRequired(TypedDict):
     p_workspace_id: str
     p_kind: str
@@ -4485,6 +4690,16 @@ class SetPartDoneParams(TypedDict):
     p_done: bool
 
 
+class _SetPartPlanParamsRequired(TypedDict):
+    p_part_id: str
+
+
+class SetPartPlanParams(_SetPartPlanParamsRequired, total=False):
+    p_hands_on_minutes: int
+    p_wait_after_minutes: int
+    p_needs: Dict[str, "JsonValue"]
+
+
 class _SetQcBaselineParamsRequired(TypedDict):
     p_series_id: str
 
@@ -4525,6 +4740,14 @@ class SetScheduledReportActiveParams(TypedDict):
     p_active: bool
 
 
+class SetSchedulerSettingsParams(TypedDict):
+    p_workspace_id: str
+    p_timezone: str
+    p_work_start_minute: int
+    p_work_end_minute: int
+    p_work_days: List[int]
+
+
 class _SetSeriesMemberDayParamsRequired(TypedDict):
     p_member_record_id: str
 
@@ -4561,6 +4784,11 @@ class SetWatcherFindingStatusParams(_SetWatcherFindingStatusParamsRequired, tota
     p_until: str
 
 
+class SlipExperimentPartParams(TypedDict):
+    p_part_id: str
+    p_days: int
+
+
 class SnapshotDatasetParams(TypedDict):
     p_dataset_id: str
     p_expected_dataset_revision: int
@@ -4574,6 +4802,10 @@ class SplitRecordIntoPartsParams(TypedDict):
 
 class StartExperimentSeriesParams(TypedDict):
     p_record_id: str
+
+
+class StartInstrumentJobParams(TypedDict):
+    p_job_id: str
 
 
 class _StartStepTimerParamsRequired(TypedDict):

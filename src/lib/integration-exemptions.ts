@@ -25,6 +25,15 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
     'Plate layout templates are authored in the app; rewritten in 0104 only to accept the larger plate formats.',
   can_run_validation:
     'Tells the Validation page whether this person may start a run; starting one is for a signed-in person in the app, and finished runs are on validation_runs.',
+  // Robots, the scheduler and code cells.
+  schedule_proposal_bookings:
+    'Which bookings an accepted proposal made, so a later plan can replace them; the bookings themselves are on the calendar and the proposal on schedule_proposals.',
+  agent_instrument_jobs:
+    'The folder agent next to a robot asks for its open jobs here, through POST /api/connectors/jobs with its own token; people read jobs on instrument_jobs.',
+  agent_report_instrument_job:
+    'The folder agent reports a job moving on and what the robot did, through POST /api/connectors/jobs; people and scripts use queue, start and cancel.',
+  record_code_cell_run:
+    'Written by the server when a code cell has run in the app, so a run always carries what really ran; the runs are on code_cell_runs.',
   // Provenance (lineage events and reproducing runs).
   pipeline_reproduction_requests:
     'The queue behind the Reproduce run pipeline action; the finished reproductions are on pipeline_reproductions.',

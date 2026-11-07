@@ -189,7 +189,11 @@ function IntegrationsList() {
             </h2>
           </SettingsBody>
           <IncomingWebhooks workspaceId={workspaceId} />
-          <LineageSection workspaceId={workspaceId} canManage={canManage} />
+          <LineageSection
+            workspaceId={workspaceId}
+            canManage={canManage}
+            dataAccess={Boolean(context.dataAccess)}
+          />
         </>
       ) : null}
       {webhookOpen ? (

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { createDraft, publishDraft, RepositoryError } from './repositories'
+import {
+  assertRepositoryUrl,
+  createDraft,
+  publishDraft,
+  RepositoryError,
+} from './repositories'
 import type { DepositMeta, RepoFetch } from './repositories'
 import { licenseById } from './licenses'
 
@@ -134,5 +139,23 @@ describe('InvenioRDM', () => {
     expect(
       calls.map((c) => `${c.method} ${new URL(c.url).pathname}`),
     ).toContain('PUT /api/records/abcd-1234/draft/files/growth.zip/content')
+  })
+})
+
+describe('repository addresses', () => {
+  it('allows a lab’s own server and refuses metadata services and credentials', () => {
+    expect(() =>
+      assertRepositoryUrl('https://repo.lab.internal/api'),
+    ).not.toThrow()
+    expect(() => assertRepositoryUrl('http://192.168.1.20:8080')).not.toThrow()
+    expect(() => assertRepositoryUrl('http://169.254.169.254/latest')).toThrow(
+      /not allowed/,
+    )
+    expect(() =>
+      assertRepositoryUrl('https://user:pw@repo.example.org'),
+    ).toThrow(/not allowed/)
+    expect(() => assertRepositoryUrl('ftp://repo.example.org')).toThrow(
+      /not allowed/,
+    )
   })
 })

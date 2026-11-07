@@ -237,6 +237,11 @@ describe('what each block type contributes', () => {
       formula: 'C9H8O4',
       molfile: 'not words',
     },
+    gate: {
+      label: 'zebra confluence check',
+      mode: 'warn',
+      conditions: [{ kind: 'samples_linked', min: 2 }],
+    },
     reaction: {
       title: 'zebrafinch acetylation',
       rows: [{ id: 'r1', role: 'reactant', name: 'Salicylic acid' }],

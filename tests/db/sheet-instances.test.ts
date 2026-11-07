@@ -737,8 +737,11 @@ describe('Sheet Instance durability and authority', () => {
       { tgname: 'change_event_sheet_instances', tgenabled: 'O', count: 1 },
       // SET-01.3: the workspace editing rule is enforced on this table too.
       { tgname: 'enforce_change_reason', tgenabled: 'O', count: 1 },
+      // Gates: a sheet's cells can open or hold back a gate.
+      { tgname: 'enforce_sheet_gates', tgenabled: 'O', count: 1 },
       { tgname: 'guard_sheet_instance', tgenabled: 'O', count: 1 },
       { tgname: 'prevent_sheet_display_id_change', tgenabled: 'O', count: 1 },
+      { tgname: 'refresh_gates_sheet', tgenabled: 'O', count: 1 },
       // The search index follows the sheet.
       { tgname: 'search_sync_ad', tgenabled: 'O', count: 1 },
       { tgname: 'search_sync_ai', tgenabled: 'O', count: 1 },

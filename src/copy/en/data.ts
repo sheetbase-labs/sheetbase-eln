@@ -2990,6 +2990,9 @@ export const data = {
       'Workspace-built integration using the generic run model.',
   },
   pipelineActions: {
+    reproduceRun: 'Reproduce a run',
+    reproduceRunDescription:
+      'Run a finished pipeline run again from its pinned version, settings and inputs in scratch space and record whether the result matches.',
     addPlateRun: 'Add a plate run',
     addPlateRunDescription:
       'Add a plate read with its layout and readings, to be checked against its own controls on the Plates page.',

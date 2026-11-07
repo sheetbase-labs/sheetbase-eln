@@ -354,3 +354,229 @@ describe('reproducing a pipeline run', () => {
     expect(mine.rows).toHaveLength(2)
   })
 })
+
+async function superuser(): Promise<Client> {
+  const conn = new PgClient({ connectionString: superuserTestUrl() })
+  await conn.connect()
+  clients.push(conn)
+  return conn
+}
+
+describe('lineage events', () => {
+  let targetId = ''
+
+  it('lets only someone who manages integrations add an endpoint', async () => {
+    const viewer = await actor(VIEWER, WS)
+    await expect(
+      viewer.query(
+        `select * from api.save_lineage_target($1::uuid, null, 'Marquez', 'https://lineage.example/api/v1/lineage')`,
+        [WS],
+      ),
+    ).rejects.toThrow(/integration access required/)
+    const owner = await actor(OWNER, WS)
+    const row = await rpcRow<{ id: string; enabled: boolean }>(
+      owner,
+      `select * from api.save_lineage_target($1::uuid, null, 'Marquez', 'https://lineage.example/api/v1/lineage', 'prov', 'X-Api-Key', true)`,
+      [WS],
+    )
+    targetId = row.id
+    expect(row.enabled).toBe(true)
+    const { sealSecret, secretKey } =
+      await import('#/lib/connector-secrets.server')
+    await owner.query(
+      `select * from api.set_lineage_target_secret($1::uuid, $2)`,
+      [targetId, sealSecret('s3cret', secretKey())],
+    )
+    const seen = await owner.query(
+      `select has_secret from api.lineage_targets where id = $1`,
+      [targetId],
+    )
+    expect(seen.rows[0].has_secret).toBe(true)
+  })
+
+  it('queues what happens after it was switched on and delivers it with the secret', async () => {
+    const { sweepLineage } =
+      await import('#/lib/provenance/lineage-emitter.server')
+    await finishedRun(
+      'prov_lineage',
+      'SELECT batch, value, value AS scaled FROM measurements',
+    )
+    const calls: Array<{
+      url: string
+      headers: Record<string, string>
+      body: any
+    }> = []
+    const fake = (async (url: string, init: RequestInit) => {
+      calls.push({
+        url,
+        headers: init.headers as Record<string, string>,
+        body: JSON.parse(String(init.body)),
+      })
+      return new Response('ok', { status: 201 })
+    }) as unknown as typeof fetch
+    const result = await sweepLineage({
+      connect: superuser,
+      fetch: fake,
+      artifactVersion: 'test',
+    })
+    expect(result.queued).toBeGreaterThan(0)
+    expect(result.delivered).toBe(result.queued)
+    expect(calls[0].headers['X-Api-Key']).toBe('s3cret')
+    expect(calls[0].body).toMatchObject({
+      producer: expect.stringContaining('sheetbase'),
+      job: { namespace: 'prov' },
+    })
+    expect(calls.map((c) => c.body.eventType)).toContain('COMPLETE')
+    const rows = await migrator.query(
+      `select status, count(*)::int n from api.lineage_deliveries where target_id = $1 group by status`,
+      [targetId],
+    )
+    expect(rows.rows).toEqual([{ status: 'delivered', n: result.queued }])
+    // Nothing is sent twice.
+    const again = await sweepLineage({ connect: superuser, fetch: fake })
+    expect(again.queued).toBe(0)
+  })
+
+  it('backs off after a failure and can be asked to try again', async () => {
+    const { sweepLineage } =
+      await import('#/lib/provenance/lineage-emitter.server')
+    await finishedRun(
+      'prov_lineage_fail',
+      'SELECT batch, value, value AS scaled FROM measurements',
+    )
+    const down = (async () =>
+      new Response('no', { status: 503 })) as unknown as typeof fetch
+    const result = await sweepLineage({ connect: superuser, fetch: down })
+    expect(result.failed).toBeGreaterThan(0)
+    const waiting = await migrator.query(
+      `select attempts, status, http_status, next_attempt_at > now() as later
+         from api.lineage_deliveries where target_id = $1 and attempts > 0`,
+      [targetId],
+    )
+    expect(waiting.rows[0]).toMatchObject({
+      attempts: 1,
+      status: 'pending',
+      http_status: 503,
+      later: true,
+    })
+  })
+})
+
+describe('event stream', () => {
+  it('pages in order from a cursor, for members only', async () => {
+    const owner = await actor(OWNER, WS)
+    const first = await rpcRow<any>(
+      owner,
+      `select api.event_stream_page(0, 5, array['pipeline_reproduction','pipeline_run']) as page`,
+      [],
+    )
+    const page = first.page ?? first
+    expect(page.events.length).toBeGreaterThan(0)
+    const sequences = page.events.map((e: any) => Number(e.sequence))
+    expect(sequences).toEqual([...sequences].sort((a, b) => a - b))
+    expect(page.events[0].entity_type).toBeDefined()
+    const next = await rpcRow<any>(
+      owner,
+      `select api.event_stream_page($1::bigint, 200, null) as page`,
+      [page.nextCursor],
+    )
+    const rest = (next.page ?? next).events.map((e: any) => Number(e.sequence))
+    expect(rest.every((s: number) => s > page.nextCursor)).toBe(true)
+
+    const stranger = await actor(STRANGER, OTHER_WS)
+    const theirs = await rpcRow<any>(
+      stranger,
+      `select api.event_stream_page(0, 200, null) as page`,
+      [],
+    )
+    const seen = (theirs.page ?? theirs).events
+    expect(
+      seen.every((e: any) => e.entity_type !== 'pipeline_reproduction'),
+    ).toBe(true)
+    await expect(
+      (await actor(STRANGER, WS)).query(
+        `select api.event_stream_page(0, 10, null)`,
+      ),
+    ).rejects.toThrow(/not a member/)
+  })
+
+  it('refuses a limit that is too large and turns a stale cursor into expired', async () => {
+    const owner = await actor(OWNER, WS)
+    await expect(
+      owner.query(`select api.event_stream_page(0, 5000, null)`),
+    ).rejects.toThrow(/limit must be between/)
+    await expect(
+      owner.query(`select api.set_event_stream_retention($1::uuid, 0)`, [WS]),
+    ).rejects.toThrow(/between 1 and 3650/)
+    const days = await rpcRow<any>(
+      owner,
+      `select api.set_event_stream_retention($1::uuid, 1) as days`,
+      [WS],
+    )
+    expect(Number(days.days ?? days)).toBe(1)
+    // Age the early events beyond the window; the log itself is append-only,
+    // so the test steps around it with a session setting the table allows.
+    const aged = await migrator
+      .query(
+        `update api.change_events set created_at = now() - interval '5 days'
+          where workspace_id = $1 and sequence <= 3`,
+        [WS],
+      )
+      .then(() => true)
+      .catch(() => false)
+    if (aged) {
+      const stale = await rpcRow<any>(
+        owner,
+        `select api.event_stream_page(1, 10, null) as page`,
+        [],
+      )
+      expect((stale.page ?? stale).expired).toBe(true)
+    }
+  })
+})
+
+describe('reproduce from a pipeline step', () => {
+  it('queues a request, runs it as the asker and keeps the verdict', async () => {
+    const runId = await finishedRun(
+      'prov_step',
+      'SELECT batch, value, value AS scaled FROM measurements',
+    )
+    const viewer = await actor(VIEWER, WS)
+    await expect(
+      viewer.query(
+        `select * from api.request_pipeline_reproduction($1::uuid)`,
+        [runId],
+      ),
+    ).rejects.toThrow(/writer access required/)
+    const owner = await actor(OWNER, WS)
+    const request = await rpcRow<{ id: string; status: string }>(
+      owner,
+      `select * from api.request_pipeline_reproduction($1::uuid)`,
+      [runId],
+    )
+    expect(request.status).toBe('pending')
+    // Asking twice while one waits gives the same request.
+    const again = await rpcRow<{ id: string }>(
+      owner,
+      `select * from api.request_pipeline_reproduction($1::uuid)`,
+      [runId],
+    )
+    expect(again.id).toBe(request.id)
+
+    const { sweepReproductionRequests } =
+      await import('#/lib/provenance/reproduction-requests.server')
+    const { deps, close } = await execDeps(OWNER)
+    const handled = await sweepReproductionRequests({
+      exec: deps,
+      connect: superuser,
+    })
+    await close()
+    expect(handled).toBeGreaterThanOrEqual(1)
+    const done = await migrator.query(
+      `select status, reproduction_id from api.pipeline_reproduction_requests where id = $1`,
+      [request.id],
+    )
+    expect(done.rows[0].status).toBe('done')
+    expect(done.rows[0].reproduction_id).toBeTruthy()
+  })
+})

@@ -84,6 +84,8 @@ const ACTION_COPY = {
   'pipeline.reproduce': 'reproduceRun',
   'contract.check': 'checkContract',
   'contract.rule_add': 'addContractRule',
+  'open_tables.set': 'setOpenTables',
+  'publication.request': 'requestPublication',
   'notifications.read': 'markRead',
   'reagent.ordered': 'markOrdered',
   'reagent.cancel': 'cancelOrder',

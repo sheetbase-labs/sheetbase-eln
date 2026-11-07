@@ -45,6 +45,10 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
     'Stores the sealed header value of a lineage endpoint; secrets are never taken or returned over the API.',
   record_lineage_test:
     'Written by the server after a test send to a lineage endpoint; the result shows on lineage_targets.',
+  create_lake_credential:
+    'Hands out a table login secret, shown once to the person who makes it.',
+  publish_publication:
+    'Makes a repository record public with a DOI, which cannot be undone; a person confirms it in the app after seeing the draft.',
   create_scim_token:
     'Hands out a directory sync secret, shown once to the person who makes it.',
   // Search by meaning.

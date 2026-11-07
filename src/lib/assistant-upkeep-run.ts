@@ -20,6 +20,7 @@ import {
   requestSignatureTimestamp,
   setTimestampSettings,
 } from './timestamps/client'
+import { requestPublication, setLakeSettings } from './open-data/client'
 import type { UpkeepAction, UpkeepActionResult } from './assistant-upkeep'
 
 /** Runs an upkeep card's action. Loaded only in the browser, when a button is pressed. */
@@ -97,6 +98,23 @@ export async function runUpkeepAction(
     case 'contract.rule_add':
       await addRule(client, action.contractId, action.rule)
       return { openHref: '/models' }
+    case 'open_tables.set':
+      await setLakeSettings(client, action.workspaceId, action.enabled)
+      return { openHref: '/settings/workspace/open-data' }
+    case 'publication.request':
+      await requestPublication(client, {
+        targetId: action.targetId,
+        kind: action.objectKind,
+        objectId: action.objectId,
+        title: action.title,
+        license: action.license,
+      })
+      return {
+        openHref:
+          action.objectKind === 'experiment'
+            ? `/experiments/${action.objectId}`
+            : undefined,
+      }
     case 'validation.run':
       await startValidationRun()
       return { openHref: '/settings/workspace/validation' }

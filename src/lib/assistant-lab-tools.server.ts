@@ -155,6 +155,10 @@ export const LAB_AREAS = {
     'Runs of notebook code cells (Python or SQL): when, the language, whether it worked, and for a run done again whether the output matched (openOnly: only runs that failed or did not match)',
   lineage:
     'Where lineage events are sent (OpenLineage endpoints): whether each is on and whether its last test passed',
+  open_tables:
+    'Open tables: the workspace’s data written as Parquet files for DuckDB, Polars and Spark: table name, what it comes from, rows, status and when it was last updated. Only people with data access see them',
+  publications:
+    'Publications to a repository (Zenodo, Figshare, InvenioRDM, Dataverse): what was sent, its status and DOI (openOnly: only those not yet published)',
   safety:
     'Chemical safety information on materials: hazard pictograms, signal word and hazard statements',
   directory_sync:
@@ -735,6 +739,7 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   robot_jobs: 'status=in.(queued,staged,starting,running)',
   schedules: 'status=eq.proposed',
   code_runs: 'or=(status.eq.error,matches.eq.false)',
+  publications: 'status=neq.published',
   sample_workflows: 'status=eq.active',
   directory_sync: 'revoked_at=is.null',
   watcher_findings: 'status=eq.open',
@@ -933,6 +938,21 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'created_at.desc',
     search: ['authority_name'],
     page: '/settings/workspace/audit',
+  },
+  open_tables: {
+    table: 'lake_tables',
+    select:
+      'table_name,source_label,source_kind,status,row_count,last_snapshot_at',
+    order: 'table_name.asc',
+    search: ['table_name', 'source_label'],
+    page: '/settings/workspace/open-data',
+  },
+  publications: {
+    table: 'publications',
+    select: 'id,title,object_kind,status,doi,record_url,created_at',
+    order: 'created_at.desc',
+    search: ['title', 'doi'],
+    page: '/settings/workspace/open-data',
   },
   validation: {
     table: 'validation_runs',

@@ -88,6 +88,20 @@ export const STREAM_ENTITY_TYPES: readonly string[] = Object.freeze([
   ),
 ])
 
+/** The kinds of change behind some event names, to narrow the database scan. */
+export function entityTypesFor(names: ReadonlySet<string>): readonly string[] {
+  if (names.size === 0) return STREAM_ENTITY_TYPES
+  return [
+    ...new Set(
+      EVENT_CATALOGUE.flatMap((entry) =>
+        names.has(entry.name) && entry.producer !== null
+          ? [entry.producer.entityType]
+          : [],
+      ),
+    ),
+  ]
+}
+
 /** Every catalogue name, for the `types` filter. */
 export function knownEventNames(): Set<string> {
   return new Set(EVENT_CATALOGUE.map((entry) => entry.name))

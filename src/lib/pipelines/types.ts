@@ -1,4 +1,5 @@
 import type { ResultPreview } from './result-preview'
+import type { DiffExample } from './reproduce-diff'
 /**
  * AUTO-01/02/03 — Pipeline wire types. PostgREST snake_case shapes; see
  * docs/subsystems/pipelines.md for the contract.
@@ -68,6 +69,55 @@ export interface PipelineRunWire {
   finished_at: string | null
   actor_user_id: string | null
   actor_credential_id: string | null
+  created_at: string
+}
+
+export type PipelineReproductionStatus = 'matches' | 'differs' | 'failed'
+
+/** What a reproduction found, in numbers. Row detail is in `changes`. */
+export interface PipelineReproductionSummary {
+  /** The reproduced rows hash to exactly what the run recorded. */
+  identical: boolean
+  /** Digest of the run's recorded result and of the reproduced one. */
+  originalDigest: string | null
+  reproducedDigest: string | null
+  /** Each pinned input, and whether its rows still read the same as when the run used them. */
+  inputs: Array<{
+    name: string
+    datasetVersionId: string
+    unchanged: boolean | null
+  }>
+  originalRows: number
+  reproducedRows: number
+  matchedRows: number
+  addedRows: number
+  removedRows: number
+  changedRows: number
+  changedCells: number
+  columnsAdded: string[]
+  columnsRemoved: string[]
+  changedColumns: Record<string, number>
+  largestDelta: Record<string, number>
+  /** More changes than `changes` holds. */
+  truncated: boolean
+  /** Set when only part of the result could be compared. */
+  note?: string
+}
+
+export interface PipelineReproductionWire {
+  id: string
+  workspace_id: string
+  source_run_id: string
+  definition_version_id: string
+  status: PipelineReproductionStatus
+  tolerance: number | string
+  compared: 'dataset_version' | 'preview' | 'digest' | null
+  summary: PipelineReproductionSummary | Record<string, never>
+  changes: DiffExample[]
+  error_code: string | null
+  error_message: string | null
+  duration_ms: number | null
+  requested_by_user_id: string | null
   created_at: string
 }
 

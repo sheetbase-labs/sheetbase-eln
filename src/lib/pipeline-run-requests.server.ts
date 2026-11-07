@@ -10,10 +10,17 @@ import { PooledClient } from '#/db/pool.server'
 import { annotateRequest } from '#/lib/request-log'
 import type { QueryResultRow } from 'pg'
 
+import { db } from '#/db/client.server'
 import { env } from '#/env.server'
+import {
+  hasScope,
+  readBearerToken,
+  verifyExternalCredential,
+} from '#/lib/external-token'
 import { getAppSession } from '#/lib/auth'
 import { createRateLimiter } from '#/lib/rate-limit'
 import {
+  reproducePipelineRun,
   tryPipelineDraft,
   validatePipelineResume,
 } from './pipeline-execute.server'
@@ -38,6 +45,11 @@ import type { PipelineRunWire } from './pipelines/types'
 
 export interface PipelineRunRequestDeps {
   getSession: (headers: Headers) => Promise<{ user: { id: string } } | null>
+  /**
+   * A personal API token holding `pipelines:write`, as the person it belongs to.
+   * Service credentials have no person to attribute a reproduction to.
+   */
+  getTokenUser?: (headers: Headers) => Promise<{ user: { id: string } } | null>
   connect: () => Promise<ExecConnection>
   /** Called after something is queued so a local worker looks right away. */
   wake?: () => void
@@ -281,6 +293,85 @@ export async function handlePipelineTryDraft(
   return Response.json(report, { headers: { 'Cache-Control': 'no-store' } })
 }
 
+const reproduceLimiter = createRateLimiter({
+  maxRequests: 20,
+  windowSeconds: 60,
+})
+
+/**
+ * POST /api/pipelines/reproduce — run a finished run again from what it pinned,
+ * into scratch, and answer with the reproduction: Matches or Differs, with a
+ * summary and the first differences. The re-run is rolled back; only the verdict
+ * is kept. Body: `{ runId, tolerance? }`. A signed-in session or a personal API
+ * token with `pipelines:write` may call it.
+ */
+export async function handlePipelineReproduce(
+  request: Request,
+  deps: PipelineRunRequestDeps = defaultDeps,
+): Promise<Response> {
+  const caller =
+    (await deps.getSession(request.headers)) ??
+    (deps.getTokenUser ? await deps.getTokenUser(request.headers) : null)
+  if (!caller) {
+    return responseError(401, 'unauthenticated', 'Authentication is required.')
+  }
+  const decision = reproduceLimiter.hit(`reproduce:${caller.user.id}`)
+  if (!decision.allowed) {
+    return responseError(
+      429,
+      'rate_limited',
+      `Too many reproductions. Try again in ${decision.retryAfterSeconds ?? 60} seconds.`,
+    )
+  }
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return responseError(
+      400,
+      'invalid_request',
+      'A JSON request body is required.',
+    )
+  }
+  if (
+    !isRecord(body) ||
+    typeof body.runId !== 'string' ||
+    !UUID.test(body.runId)
+  ) {
+    return responseError(400, 'invalid_request', 'A valid runId is required.')
+  }
+  const tolerance =
+    typeof body.tolerance === 'number' &&
+    Number.isFinite(body.tolerance) &&
+    body.tolerance >= 0 &&
+    body.tolerance <= 1
+      ? body.tolerance
+      : undefined
+  const report = await reproducePipelineRun(
+    caller.user.id,
+    { runId: body.runId, tolerance },
+    pipelineExecuteDeps(deps),
+  )
+  if (!report.ok) {
+    const status =
+      report.errorCode === 'run_not_found'
+        ? 404
+        : report.errorCode === 'workspace_membership_required'
+          ? 403
+          : report.errorCode === 'run_not_finished'
+            ? 409
+            : 500
+    return responseError(
+      status,
+      report.errorCode ?? 'pipeline_internal',
+      report.errorMessage ?? 'The run could not be reproduced.',
+    )
+  }
+  return Response.json(report.reproduction, {
+    headers: { 'Cache-Control': 'no-store' },
+  })
+}
+
 export interface PipelineRunStateBody {
   run: PipelineRunWire
   job: PipelineJobState | null
@@ -432,6 +523,23 @@ function pipelineExecuteDeps(
 
 const defaultDeps: PipelineRunRequestDeps = {
   getSession: getAppSession,
+  async getTokenUser(headers) {
+    const token = readBearerToken(headers)
+    if (!token) return null
+    try {
+      const claims = await verifyExternalCredential(
+        db,
+        token,
+        env.PGRST_JWT_SECRET,
+      )
+      if (!('sub' in claims) || !hasScope(claims.scopes, 'pipelines:write')) {
+        return null
+      }
+      return { user: { id: claims.sub } }
+    } catch {
+      return null
+    }
+  },
   async connect() {
     const client = new PooledClient({
       connectionString: env.DATABASE_URL,

@@ -1980,7 +1980,9 @@ export const dataContracts = api.table(
     }),
     version: integer('version').notNull().default(1),
     lifecycle: text('lifecycle').notNull().default('active'),
-    rules: jsonb('rules').notNull().default(sql`'[]'::jsonb`),
+    rules: jsonb('rules')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     scheduleMinutes: integer('schedule_minutes'),
     nextCheckAt: timestamp('next_check_at', {
       withTimezone: true,
@@ -2037,7 +2039,9 @@ export const dataContractRuns = api.table(
       .default(0),
     failedRules: integer('failed_rules').notNull().default(0),
     blocked: boolean('blocked').notNull().default(false),
-    results: jsonb('results').notNull().default(sql`'[]'::jsonb`),
+    results: jsonb('results')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     createdByUserId: text('created_by_user_id'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()

@@ -11,7 +11,11 @@ import {
   DialogHeader,
 } from '#/components/ui/dialog'
 import { contractKeys, fetchContractById } from '#/lib/data-contracts/client'
-import { describeFinding, kindLabel, contractTarget  } from '#/lib/data-contracts/rules'
+import {
+  describeFinding,
+  kindLabel,
+  contractTarget,
+} from '#/lib/data-contracts/rules'
 import { blockingResults } from '#/lib/data-contracts/gate'
 import type { ContractGateReport } from '#/lib/data-contracts/types'
 import { notebookDataClient } from '#/lib/notebook-data'

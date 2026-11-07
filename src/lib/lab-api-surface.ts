@@ -915,6 +915,47 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['updated_at', 'ts', 1],
     ],
   },
+  pipeline_reproductions: {
+    summary:
+      'A finished pipeline run run again from its pinned version, parameters and inputs, and compared with the original. `status` is matches, differs or failed; `compared` says what it was compared against (the output dataset version, the stored preview, or the content digest); `summary` has the counts and `changes` the first differences.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['source_run_id', 'uuid', 1],
+      ['definition_version_id', 'uuid', 1],
+      ['status', 'text', 1],
+      ['tolerance', 'num', 1],
+      ['compared', 'text', 0],
+      ['summary', 'json', 1],
+      ['changes', 'json', 1],
+      ['error_code', 'text', 0],
+      ['error_message', 'text', 0],
+      ['duration_ms', 'int', 0],
+      ['requested_by_user_id', 'text', 0],
+      ['created_at', 'ts', 1],
+    ],
+  },
+  lineage_targets: {
+    summary:
+      'A place lineage events (OpenLineage) are sent: its address, namespace, the name of the header it signs with (the value is never shown) and whether it is switched on. Only people who manage integrations see these.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['name', 'text', 1],
+      ['endpoint_url', 'text', 1],
+      ['namespace', 'text', 1],
+      ['auth_header_name', 'text', 1],
+      ['has_secret', 'bool', 1],
+      ['enabled', 'bool', 1],
+      ['last_sequence', 'bigint', 1],
+      ['last_test_at', 'ts', 0],
+      ['last_test_ok', 'bool', 0],
+      ['last_test_message', 'text', 0],
+      ['created_by_user_id', 'text', 0],
+      ['created_at', 'ts', 1],
+      ['updated_at', 'ts', 1],
+    ],
+  },
   lab_watcher_findings: {
     summary:
       'Something a watcher found, with the record it is about and, where one makes sense, a suggested action. `status` is open, snoozed, dismissed or resolved (no longer true).',
@@ -1002,6 +1043,27 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['acknowledged_at', 'ts', 0],
       ['acknowledged_by_user_id', 'text', 0],
       ['note', 'text', 0],
+      ['created_at', 'ts', 1],
+    ],
+  },
+  lineage_deliveries: {
+    summary:
+      'Each lineage event waiting to go to, or sent to, an endpoint. `status` is pending, delivered or failed; a failed one can be tried again with `retry_lineage_deliveries`.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['target_id', 'uuid', 1],
+      ['change_event_id', 'uuid', 1],
+      ['event_type', 'text', 1],
+      ['job_name', 'text', 1],
+      ['run_id', 'uuid', 1],
+      ['body', 'json', 1],
+      ['status', 'text', 1],
+      ['attempts', 'int', 1],
+      ['next_attempt_at', 'ts', 1],
+      ['http_status', 'int', 0],
+      ['last_error', 'text', 0],
+      ['delivered_at', 'ts', 0],
       ['created_at', 'ts', 1],
     ],
   },
@@ -2145,5 +2207,48 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
       ['p_exclude', 'bool', 0],
     ],
     result: 'row:qc_points',
+  },
+  save_lineage_target: {
+    summary: 'Add or change a lineage endpoint',
+    description:
+      'Adds an endpoint for OpenLineage events (or changes one when `p_id` is set). New endpoints start switched off and send only what happens after they are switched on. The header value is set in Settings, Integrations, because it is stored sealed. Needs permission to manage integrations. Sends `lineage.endpoint.created` or `lineage.endpoint.updated`.',
+    scope: 'lab:write',
+    params: [
+      ['p_workspace_id', 'uuid', 1],
+      ['p_id', 'uuid', 0],
+      ['p_name', 'text', 1],
+      ['p_endpoint_url', 'text', 1],
+      ['p_namespace', 'text', 0],
+      ['p_auth_header_name', 'text', 0],
+      ['p_enabled', 'bool', 0],
+    ],
+    result: 'row:lineage_targets',
+  },
+  delete_lineage_target: {
+    summary: 'Remove a lineage endpoint',
+    description:
+      'Removes the endpoint and anything not yet sent to it. Needs permission to manage integrations.',
+    scope: 'lab:write',
+    params: [['p_id', 'uuid', 1]],
+    result: 'void',
+  },
+  retry_lineage_deliveries: {
+    summary: 'Try failed lineage events again',
+    description:
+      'Puts the failed events for an endpoint back in the queue and returns how many. Needs permission to manage integrations.',
+    scope: 'lab:write',
+    params: [['p_target_id', 'uuid', 1]],
+    result: 'int',
+  },
+  set_event_stream_retention: {
+    summary: 'Set how long the event stream keeps events',
+    description:
+      'Days of history `GET /api/events/stream` can replay, from 1 to 3650 (default 30). Returns the new value. Needs permission to manage integrations.',
+    scope: 'lab:write',
+    params: [
+      ['p_workspace_id', 'uuid', 1],
+      ['p_days', 'int', 1],
+    ],
+    result: 'int',
   },
 }

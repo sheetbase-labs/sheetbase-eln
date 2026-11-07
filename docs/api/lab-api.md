@@ -99,6 +99,9 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `agent_action_requests`        | An action an agent asked to take: what it was, what the workspace had set for it (`level`), and how it ended (`status`). A token sees only its own requests.                                                                                    |
 | `lab_watchers`                 | A scheduled review the lab turned on: stock expiring, stock low, work overdue, data missing or results off.                                                                                                                                     |
 | `lab_watcher_findings`         | Something a watcher found, with the record it is about and a suggested action. `status` is open, snoozed, dismissed or resolved.                                                                                                                |
+| `pipeline_reproductions`       | Pipeline runs run again from their pinned version, parameters and inputs and compared with the original: matches, differs or failed, and the first differences. Start one with `POST /api/pipelines/reproduce`.                                 |
+| `lineage_targets`              | Where lineage events (OpenLineage) are sent: address, namespace, header name and whether it is on. The header value is never shown. People who manage integrations only.                                                                        |
+| `lineage_deliveries`           | Each lineage event waiting to go to, or sent to, an endpoint, with its attempts and last error. People who manage integrations only.                                                                                                            |
 
 ## Actions
 
@@ -1301,3 +1304,50 @@ Scope: `lab:write`.
 | `p_point_id` * | uuid | Quality control point id.                                  |
 | `p_note`       | text | A note.                                                    |
 | `p_exclude`    | bool | Leave the point out of the limits and re-judge the series. |
+
+### `save_lineage_target`
+
+Add or change a lineage endpoint. Adds an endpoint for OpenLineage events (or changes one when `p_id` is set). New endpoints start switched off and send only what happens after they are switched on. The header value is set in Settings, Integrations, because it is stored sealed. Needs permission to manage integrations. Sends `lineage.endpoint.created` or `lineage.endpoint.updated`.
+
+Scope: `lab:write`.
+
+| Argument             | Type |                                                                      |
+| -------------------- | ---- | -------------------------------------------------------------------- |
+| `p_workspace_id` *   | uuid |                                                                      |
+| `p_id`               | uuid |                                                                      |
+| `p_name` *           | text | Name.                                                                |
+| `p_endpoint_url` *   | text | Where events are posted (http or https).                             |
+| `p_namespace`        | text | Groups jobs and datasets in the other service (default `sheetbase`). |
+| `p_auth_header_name` | text | Header the secret is sent in (default `Authorization`).              |
+| `p_enabled`          | bool | Switch sending on.                                                   |
+
+### `delete_lineage_target`
+
+Remove a lineage endpoint. Removes the endpoint and anything not yet sent to it. Needs permission to manage integrations.
+
+Scope: `lab:write`.
+
+| Argument | Type |     |
+| -------- | ---- | --- |
+| `p_id` * | uuid |     |
+
+### `retry_lineage_deliveries`
+
+Try failed lineage events again. Puts the failed events for an endpoint back in the queue and returns how many. Needs permission to manage integrations.
+
+Scope: `lab:write`.
+
+| Argument        | Type |     |
+| --------------- | ---- | --- |
+| `p_target_id` * | uuid |     |
+
+### `set_event_stream_retention`
+
+Set how long the event stream keeps events. Days of history `GET /api/events/stream` can replay, from 1 to 3650 (default 30). Returns the new value. Needs permission to manage integrations.
+
+Scope: `lab:write`.
+
+| Argument           | Type |     |
+| ------------------ | ---- | --- |
+| `p_workspace_id` * | uuid |     |
+| `p_days` *         | int  |     |

@@ -92,6 +92,7 @@ export type CatalogueIntroducedIn =
   | 'scim-01'
   | 'trust-01'
   | 'agents-01'
+  | 'prov-01'
 
 /** Which consumers can observe the event today. */
 export interface EventConsumerMap {
@@ -1021,6 +1022,57 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     status: 'provisional',
     introducedIn: 'event-01',
     consumers: sseOnly,
+  },
+  {
+    name: 'pipeline.run.reproduced',
+    family: 'pipeline',
+    summary:
+      'A finished Pipeline run was run again from its pinned version, parameters and inputs, and the result compared.',
+    producer: { entityType: 'pipeline_reproduction', operation: 'create' },
+    wireName: 'pipeline.run.reproduced',
+    status: 'stable',
+    introducedIn: 'prov-01',
+    consumers: webhookSse,
+    notes:
+      'data.status is matches, differs or failed; data.runId names the original run.',
+  },
+  {
+    name: 'lineage.endpoint.created',
+    family: 'administration',
+    summary: 'A lineage endpoint was added.',
+    producer: { entityType: 'lineage_target', operation: 'create' },
+    wireName: null,
+    status: 'provisional',
+    introducedIn: 'prov-01',
+    consumers: sseOnly,
+  },
+  {
+    name: 'lineage.endpoint.updated',
+    family: 'administration',
+    summary: 'A lineage endpoint was changed, switched on or off, or removed.',
+    producer: {
+      entityType: 'lineage_target',
+      operation: 'update',
+      when: { key: 'action', notEquals: 'lineage-delivery-failed' },
+    },
+    wireName: 'lineage.endpoint.updated',
+    status: 'stable',
+    introducedIn: 'prov-01',
+    consumers: webhookSse,
+  },
+  {
+    name: 'lineage.delivery_failed',
+    family: 'administration',
+    summary: 'A lineage event could not be delivered after repeated tries.',
+    producer: {
+      entityType: 'lineage_target',
+      operation: 'update',
+      when: { key: 'action', equals: 'lineage-delivery-failed' },
+    },
+    wireName: 'lineage.delivery_failed',
+    status: 'stable',
+    introducedIn: 'prov-01',
+    consumers: webhookSse,
   },
   // -- administration ---------------------------------------------------------
   {
@@ -2256,6 +2308,10 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
   'approval.returned': 'An approval is returned for changes',
   'approval.withdrawn': 'An approval request is withdrawn',
   'pipeline.run.completed': 'A pipeline run finishes',
+  'pipeline.run.reproduced': 'A pipeline run is reproduced',
+  'lineage.endpoint.created': 'A lineage endpoint is added',
+  'lineage.endpoint.updated': 'A lineage endpoint changes',
+  'lineage.delivery_failed': 'A lineage event can’t be delivered',
   'pipeline.run.created': 'A pipeline run starts',
   'pipeline.run.updated': 'A pipeline run changes',
   'reagent.order.requested': 'A reagent reorder is requested',

@@ -157,7 +157,7 @@ export function fetchRobotSettings(
 ): Promise<RobotSettingsWire[]> {
   return client.list<RobotSettingsWire>(
     'instrument_robot_settings',
-    'select=*&order=updated_at.desc',
+    '?select=*&order=updated_at.desc',
   )
 }
 
@@ -170,9 +170,13 @@ export function fetchInstrumentJobs(
     order: 'created_at.desc',
     limit: String(filter.limit ?? 50),
   })
-  if (filter.instrumentId) query.set('instrument_id', `eq.${filter.instrumentId}`)
+  if (filter.instrumentId)
+    query.set('instrument_id', `eq.${filter.instrumentId}`)
   if (filter.worklistId) query.set('worklist_id', `eq.${filter.worklistId}`)
-  return client.list<InstrumentJobWire>('instrument_jobs', query.toString())
+  return client.list<InstrumentJobWire>(
+    'instrument_jobs',
+    `?${query.toString()}`,
+  )
 }
 
 export function saveRobotSettings(

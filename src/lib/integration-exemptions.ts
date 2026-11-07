@@ -25,6 +25,17 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
     'Plate layout templates are authored in the app; rewritten in 0104 only to accept the larger plate formats.',
   can_run_validation:
     'Tells the Validation page whether this person may start a run; starting one is for a signed-in person in the app, and finished runs are on validation_runs.',
+  // Provenance (lineage events and reproducing runs).
+  pipeline_reproduction_requests:
+    'The queue behind the Reproduce run pipeline action; the finished reproductions are on pipeline_reproductions.',
+  request_pipeline_reproduction:
+    'Queues a reproduction for the app to run; tokens start one with POST /api/pipelines/reproduce and the pipeline action calls this for signed-in people.',
+  record_pipeline_reproduction:
+    'Written by the server when a reproduction finishes; not for callers.',
+  set_lineage_target_secret:
+    'Stores the sealed header value of a lineage endpoint; secrets are never taken or returned over the API.',
+  record_lineage_test:
+    'Written by the server after a test send to a lineage endpoint; the result shows on lineage_targets.',
   create_scim_token:
     'Hands out a directory sync secret, shown once to the person who makes it.',
   // Personal devices and display settings.

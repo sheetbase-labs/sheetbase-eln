@@ -149,6 +149,12 @@ async function asExporter<T>(
 ): Promise<T> {
   await conn.query('BEGIN READ ONLY')
   try {
+    // Reads run with the least privilege that can read the reporting views, and
+    // row level security sees the exporter's claims.
+    const ready = (
+      await conn.query<{ ready: boolean }>(`SELECT internal.reporting_ready() AS ready`)
+    ).rows[0]?.ready
+    await conn.query(`SET LOCAL ROLE ${ready ? 'reporting_owner' : 'authenticated'}`)
     await conn.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
       JSON.stringify({
         role: 'authenticated',
@@ -165,11 +171,17 @@ async function asExporter<T>(
   }
 }
 
-async function modelViewSources(
+interface ViewInfo {
+  view_name: string
+  model_name: string
+  columns: Array<{ name: string; type: string }>
+}
+
+/** What views the workspace has and their columns; read before the role switch. */
+async function discoverViews(
   conn: LakeConnection,
   workspaceId: string,
-): Promise<LakeSource[]> {
-  const suffix = `_${workspaceId.replaceAll('-', '').slice(-6)}`
+): Promise<ViewInfo[]> {
   const views = (
     await conn.query<{ view_name: string; model_name: string }>(
       `SELECT view_name, model_name FROM internal.reporting_views
@@ -177,7 +189,7 @@ async function modelViewSources(
       [workspaceId],
     )
   ).rows
-  const sources: LakeSource[] = []
+  const out: ViewInfo[] = []
   for (const view of views) {
     const columns = (
       await conn.query<{ name: string; type: string }>(
@@ -189,7 +201,20 @@ async function modelViewSources(
         [view.view_name],
       )
     ).rows
-    if (columns.length === 0) continue
+    if (columns.length > 0) out.push({ ...view, columns })
+  }
+  return out
+}
+
+async function modelViewSources(
+  conn: LakeConnection,
+  workspaceId: string,
+  views: ViewInfo[],
+): Promise<LakeSource[]> {
+  const suffix = `_${workspaceId.replaceAll('-', '').slice(-6)}`
+  const sources: LakeSource[] = []
+  for (const view of views) {
+    const columns = view.columns
     const lakeColumns: LakeColumn[] = columns.map((c) => ({
       name: c.name,
       type: postgresType(c.type),
@@ -412,6 +437,7 @@ export async function refreshWorkspaceLake(
     ).rows[0].s
 
     // What the exporter may see right now.
+    const views = await discoverViews(conn, workspaceId)
     const sources = await asExporter(conn, workspaceId, exporterUserId, async () => {
       const allowed = (
         await conn.query<{ ok: boolean }>(`SELECT api.has_data_access($1) AS ok`, [
@@ -424,7 +450,7 @@ export async function refreshWorkspaceLake(
         )
       }
       return [
-        ...(await modelViewSources(conn, workspaceId)),
+        ...(await modelViewSources(conn, workspaceId, views)),
         ...(await datasetSources(conn)),
       ]
     })

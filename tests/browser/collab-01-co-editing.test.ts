@@ -133,11 +133,17 @@ function plainText(editor: Locator): Promise<string> {
   })
 }
 
-async function openBlock(page: Page) {
+async function openBlock(
+  page: Page,
+  which: { id: string; text: string } = {
+    id: BLOCK,
+    text: 'Buffer: 50 mM Tris.',
+  },
+) {
   await signInAsDesignUser(page, FIXTURE_USER_ID)
   await page.goto(`/records/${RECORD}`)
-  const block = page.locator(`#block-${BLOCK}`)
-  await block.getByText('Buffer: 50 mM Tris.').click()
+  const block = page.locator(`#block-${which.id}`)
+  await block.getByText(which.text).click()
   const editor = block.getByRole('textbox', { name: 'Text content' })
   await expect(editor).toBeFocused({ timeout: 15_000 })
   return { block, editor }
@@ -180,6 +186,36 @@ test.describe('COLLAB-01 live co-editing', () => {
     await expect.poll(savedText, { timeout: 15_000 }).toContain(expected)
     await expect(first.locator('[data-conflict-banner]')).toHaveCount(0)
     await expect(second.locator('[data-conflict-banner]')).toHaveCount(0)
+  })
+
+  test('a block opened while others are in the room still takes the focus', async ({
+    browser,
+  }) => {
+    const first = await (await browser.newContext()).newPage()
+    const second = await (await browser.newContext()).newPage()
+    const a = await openBlock(first)
+    const b = await openBlock(second)
+    await expect(a.block.getByRole('status')).toContainText('Editing here', {
+      timeout: 15_000,
+    })
+    await expect(b.block.getByRole('status')).toContainText('Editing here')
+
+    // A second block that nobody has opened yet. The person opening it finds
+    // the room already busy, so its editor is swapped for the shared one a
+    // moment after the click. They must still be left in it, ready to type,
+    // rather than looking at an editor that has lost the focus.
+    const other = '68000000-0000-4000-8000-000000000015'
+    await admin.query(
+      `INSERT INTO api.blocks(id,record_id,type,payload,"order",created_by_user_id) VALUES ($1,$2,'rich_text',$3,2,$4)`,
+      [other, RECORD, richText('Second note.'), FIXTURE_USER_ID],
+    )
+    const third = await (await browser.newContext()).newPage()
+    const c = await openBlock(third, { id: other, text: 'Second note.' })
+    await c.editor.press('Control+End')
+    await c.editor.pressSequentially(' Typed at once.')
+    await expect
+      .poll(() => plainText(c.editor))
+      .toBe('Second note. Typed at once.')
   })
 
   test('a change saved outside the room is still offered as a conflict, never overwritten', async ({

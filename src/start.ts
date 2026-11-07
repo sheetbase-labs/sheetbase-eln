@@ -86,6 +86,16 @@ const sampleHoldSchedulerMiddleware = createMiddleware().server(
   },
 )
 
+// Scheduled data-contract checks: runs the contracts whose time has come.
+const contractSchedulerMiddleware = createMiddleware().server(
+  async ({ next }) => {
+    const { startContractScheduler } =
+      await import('#/lib/data-contracts/scheduler.server')
+    startContractScheduler()
+    return next()
+  },
+)
+
 // WORK-03.2: reagent expiry sweep, the producer for the material_expiring
 // notification. Writes one system change event per lot inside the warning
 // window; guarded like the other schedulers and never started under test
@@ -267,6 +277,7 @@ export const startInstance = createStart(() => ({
     datasetRetentionSchedulerMiddleware,
     fileTextBackfillMiddleware,
     sampleHoldSchedulerMiddleware,
+    contractSchedulerMiddleware,
     reagentExpirySchedulerMiddleware,
     recurringWorkMiddleware,
     absenceCoverMiddleware,

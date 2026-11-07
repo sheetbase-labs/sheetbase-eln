@@ -24,8 +24,7 @@ export const contractKeys = {
       'target',
       target.kind === 'dataset_schema' ? target.id : target.key,
     ] as const,
-  runs: (contractId: string) =>
-    ['data-contracts', 'runs', contractId] as const,
+  runs: (contractId: string) => ['data-contracts', 'runs', contractId] as const,
   datasetStatus: (datasetId: string) =>
     ['data-contracts', 'dataset', datasetId] as const,
   record: (recordId: string, version: number | string) =>
@@ -61,7 +60,7 @@ export function toContract(row: ContractWire): DataContract {
     ownerUserId: row.owner_user_id,
     version: row.version,
     lifecycle: row.lifecycle,
-    rules: row.rules ?? [],
+    rules: row.rules,
     scheduleMinutes: row.schedule_minutes,
     nextCheckAt: row.next_check_at,
     lastStatus: row.last_status,
@@ -97,7 +96,7 @@ export function toRun(row: RunWire): ContractRun {
     rowsChecked: Number(row.rows_checked),
     failedRules: row.failed_rules,
     blocked: row.blocked,
-    results: row.results ?? [],
+    results: row.results,
     createdAt: row.created_at,
   }
 }
@@ -114,6 +113,17 @@ export async function fetchContracts(
     `?select=${CONTRACT_COLUMNS}&lifecycle=neq.retired&limit=500`,
   )
   return rows.map(toContract)
+}
+
+export async function fetchContractById(
+  client: Pick<DataClient, 'list'>,
+  contractId: string,
+): Promise<DataContract | null> {
+  const rows = await client.list<ContractWire>(
+    'data_contracts',
+    `?id=eq.${encodeURIComponent(contractId)}&select=${CONTRACT_COLUMNS}&limit=1`,
+  )
+  return rows[0] ? toContract(rows[0]) : null
 }
 
 export async function fetchContractForTarget(
@@ -264,7 +274,7 @@ export async function fetchDatasetStatus(
     'data_contract_dataset_status',
     `?dataset_id=eq.${encodeURIComponent(datasetId)}&select=*&limit=1`,
   )
-  const row = rows[0]
+  const row = rows.at(0)
   return row
     ? {
         contractId: row.contract_id,

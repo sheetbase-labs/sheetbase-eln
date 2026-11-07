@@ -16,6 +16,7 @@ import { ExplainThis } from '#/components/assist/explain-this'
 import { PageHeader } from '#/components/ui/layout'
 import { Button } from '#/components/ui/button'
 import { Tabs } from '#/components/ui/tabs'
+import { DatasetContractBadge } from '#/components/contracts/dataset-contract-badge'
 import { Status } from '#/components/ui/status'
 import {
   datasetValidation,
@@ -219,6 +220,7 @@ function DatasetLayout() {
             <span>
               {t('data.datasetPage.datasetSchema')} {dataset.model}
             </span>
+            <DatasetContractBadge datasetId={dataset.uuid} />
             {dataset.experimentId ? (
               <ObjectLink kind="experiment" identifier={dataset.experimentId} />
             ) : null}

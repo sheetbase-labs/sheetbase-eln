@@ -84,6 +84,11 @@ vi.mock('@tanstack/react-router', () => ({
   },
 }))
 
+// The run behind a snapshot is read from the server; none here.
+vi.mock('#/components/pipelines/pipelines-data', () => ({
+  useRunForDatasetVersion: () => ({ data: null }),
+}))
+
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal()),
   notebookDataClient: dataClient,

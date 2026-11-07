@@ -348,10 +348,14 @@ export function RunReproductions({
 export function SnapshotReproduce({
   runId,
   pipelineId,
+  pipelineName,
+  runNumber,
   canReproduce,
 }: {
   runId: string
   pipelineId: string
+  pipelineName: string
+  runNumber: number | null
   canReproduce: boolean
 }) {
   const [verdict, setVerdict] = useState<PipelineReproductionWire | null>(null)
@@ -363,7 +367,10 @@ export function SnapshotReproduce({
         params={{ pipelineId, runId }}
         className="underline"
       >
-        {t('data.reproduce.producedByRun', { run: runId.slice(0, 8) })}
+        {t('data.reproduce.producedByRun', {
+          pipeline: pipelineName,
+          run: runNumber ?? '',
+        })}
       </Link>
       <Muted>{t('data.reproduce.reproduceVersion')}</Muted>
       {canReproduce ? (

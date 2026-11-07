@@ -61,6 +61,7 @@ const notifications = vi.hoisted(() => ({
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useParams: () => ({ pipelineId: 'PL-0003', runId: 'run-1' }),
+    useRouteContext: () => ({ context: { workspace: { role: 'owner' } } }),
     options: config,
   }),
   Link: ({ children }: { children: React.ReactNode }) => (

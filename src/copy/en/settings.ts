@@ -2782,6 +2782,7 @@ export const settings = {
     testOk: 'Test passed',
     testFailed: 'Test failed',
     test: 'Send test',
+    lastTest: 'Last test',
     testing: 'Sending…',
     retry: 'Retry failed',
     retried: {

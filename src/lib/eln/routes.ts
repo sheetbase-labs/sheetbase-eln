@@ -50,7 +50,7 @@ const DATASET_ROW_CAP = 100_000
 
 class UpstreamError extends Error {}
 
-interface RecordWire {
+export interface RecordWire {
   id: string
   workspace_id: string
   project_id: string | null
@@ -93,7 +93,7 @@ interface SignatureWire {
   signed_at: string
 }
 
-const RECORD_SELECT =
+export const RECORD_SELECT =
   'id,workspace_id,project_id,identifier,title,kind,status,tags,properties,custom_fields,created_at'
 
 function rows<T>(body: unknown): T[] {
@@ -232,11 +232,11 @@ function citedDatasets(
   return [...seen].map(([datasetId, versionId]) => ({ datasetId, versionId }))
 }
 
-interface ExportBudget {
+export interface ExportBudget {
   remainingFileBytes: number
 }
 
-async function collectExperiment(
+export async function collectExperiment(
   record: RecordWire,
   context: SessionAuthContext,
   storage: ObjectStorage,

@@ -213,12 +213,6 @@
       "typescript": "generic"
     },
     {
-      "resource": "model_incident_logs",
-      "methods": ["GET", "HEAD"],
-      "python": "generic",
-      "typescript": "generic"
-    },
-    {
       "resource": "my_work_items",
       "methods": ["GET", "HEAD"],
       "python": "generic",

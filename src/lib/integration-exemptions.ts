@@ -113,7 +113,6 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
   set_model_chemistry: 'Changes what a record model is; people only.',
   index_record_structure:
     'Internal re-index run by the app after it reads a drawing; token callers use set_record_structure.',
-  set_model_incident_log: 'Changes what a record model is; people only.',
   set_request_form:
     'Decides which models accept requests and who handles them; admin setting.',
   // Attestation and policy decisions made by a person in the app.
@@ -123,9 +122,6 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
   apply_retention:
     'Archives records in bulk; a person confirms it in the app. retention_due lists what is due.',
   set_retention_rule: 'Retention policy is set by an admin in Settings.',
-  set_retention_enabled: 'Turns retention on for the workspace; admin setting.',
-  set_spec_limits_enabled:
-    'Turns result limits on for the workspace; admin setting.',
   // Agent permissions (agent guardrails): the guardrails are a person's to set
   // and decide, never an agent's.
   set_agent_action_policy:

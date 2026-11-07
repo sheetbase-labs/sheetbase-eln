@@ -894,15 +894,6 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['updated_by_user_id', 'text', 0],
     ],
   },
-  model_incident_logs: {
-    summary: 'Record models that are used as incident logs.',
-    columns: [
-      ['workspace_id', 'uuid', 1],
-      ['model_key', 'text', 1],
-      ['created_at', 'ts', 1],
-      ['created_by_user_id', 'text', 1],
-    ],
-  },
   legal_holds: {
     summary:
       'A legal hold keeping records from deletion or archiving until it is released.',
@@ -1442,7 +1433,7 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
   },
   model_capabilities: {
     summary:
-      'The features switched on for each record model, such as `campaigns` (records of the model can be optimised round by round). One row per model and feature; `settings` holds what the feature keeps for that model.',
+      'The features switched on for each record model: `campaigns`, `registry`, `incident_log`, `result_limits`, `legal_hold` and `retention`. One row per model and feature; `settings` holds what the feature keeps for that model (a registry keeps `keyFields`, `sequenceField`, `structureField` and `lotKind`).',
     columns: [
       ['workspace_id', 'uuid', 1],
       ['model_key', 'text', 1],
@@ -3144,7 +3135,7 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
   set_model_capability: {
     summary: 'Switch a feature on or off for a record model',
     description:
-      'Turns a feature of a record model on or off; `p_capability` is the feature key, such as `campaigns`, whose records can then be set up as campaigns. `p_settings` replaces the feature’s settings when given. Needs permission to edit models. Returns whether the feature is now on.',
+      'Turns a feature of a record model on or off; `p_capability` is the feature key: `campaigns`, `registry`, `incident_log`, `result_limits`, `legal_hold` or `retention`. `p_settings` replaces the feature’s settings when given (a registry keeps `keyFields`, `sequenceField`, `structureField` and `lotKind`, checked against the model’s fields). Needs permission to edit models. Returns whether the feature is now on.',
     scope: 'lab:write',
     params: [
       ['p_model_key', 'text', 1],

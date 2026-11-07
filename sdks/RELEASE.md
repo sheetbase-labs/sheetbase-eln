@@ -41,9 +41,9 @@ release_ → _Run workflow_.
 
 ## Release procedure
 
-1. **Update the compatibility record.** If the contract changed, regenerate
-   and commit `docs/api/openapi/external-api-v0.json` (`pnpm openapi:generate`),
-   update `sdks/support-matrix.json` and `SUPPORT_MATRIX.md`, and adjust both
+1. **Update the compatibility record.** If the contract changed, run
+   `pnpm generate` (the contract `docs/api/openapi/external-api-v0.json` and the
+   Python SDK's `_generated/` folder are derived and not committed), update `sdks/support-matrix.json` and `SUPPORT_MATRIX.md`, and adjust both
    SDKs. The root matrix test fails until every decision is explicit.
 2. **Bump both package versions** in
    `sdks/typescript/package.json` (`version`, keep `src/version.ts` `VERSION`
@@ -113,7 +113,7 @@ ecosystems differ in byte-level determinism:
 - **Python (wheel/sdist):** reproducible. Hatchling normalises archive
   member metadata (timestamps, ordering), so `uv build` on the same commit
   produces byte-identical distributions.
-- **TypeScript (`npm pack`):** *not* byte-reproducible across checkouts.
+- **TypeScript (`npm pack`):** _not_ byte-reproducible across checkouts.
   npm does not normalise tarball mtimes/uids, so a fresh clone can produce a
   differently-encoded tarball for identical content. Treat npm artifacts as
   content-verified (clean build + standalone import smoke test), never

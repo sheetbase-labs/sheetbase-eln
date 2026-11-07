@@ -17,5 +17,7 @@ export default defineConfig({
     testTimeout: 30_000,
     hookTimeout: 60_000,
     setupFiles: ['tests/api/setup.ts'],
+    // Generates the uncommitted route tree and API contract when missing.
+    globalSetup: ['tests/global-generate.ts'],
   },
 })

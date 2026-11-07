@@ -44,3 +44,11 @@ docs-site/dist
 docs-site/.blume
 docs-site/.blume-verify
 __pycache__/
+
+# Derived from source by `pnpm generate` (CI and the vitest global setup run it).
+# Committing them made every PR that touched a route or a public endpoint
+# conflict with every other one, so each merge forced a rebase and a full CI
+# run. Never commit these.
+src/routeTree.gen.ts
+docs/api/openapi/external-api-v0.json
+sdks/python/src/sheetbase/_generated/

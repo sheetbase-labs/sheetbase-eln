@@ -72,13 +72,13 @@ independent copies. The notebook design/QA pilot is defined in
 
 ## Database
 
-| Command                     | Purpose                                                                                                                     |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm db:migrate`           | Apply Drizzle migrations                                                                                                    |
-| `pnpm db:new <name>`        | Create an empty timestamp-named migration in `drizzle/`; write the SQL by hand |
-| `pnpm db:seed:demo`         | Seed demo data                                                                                                              |
-| `pnpm db:seed:month`        | Seed month-scale data                                                                                                       |
-| `pnpm db:fresh`             | Reset + migrate + seed                                                                                                      |
+| Command              | Purpose                                                                        |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `pnpm db:migrate`    | Apply Drizzle migrations                                                       |
+| `pnpm db:new <name>` | Create an empty timestamp-named migration in `drizzle/`; write the SQL by hand |
+| `pnpm db:seed:demo`  | Seed demo data                                                                 |
+| `pnpm db:seed:month` | Seed month-scale data                                                          |
+| `pnpm db:fresh`      | Reset + migrate + seed                                                         |
 
 Migrations are in `drizzle/`: the numbered history `0000_baseline.sql` to
 `0108_*` (listed in the frozen `drizzle/meta/_journal.json`), then
@@ -188,7 +188,8 @@ For Amp orb-specific setup (system PostgreSQL, no Docker), see `docs/development
 ## Project conventions
 
 - **TypeScript paths:** `#/` maps to `src/`.
-- **Routing:** TanStack Router with committed generated route tree; run `pnpm generate-routes` after route-file changes. It wraps `tsr generate` and re-adds the SSR registration block that the raw generator strips, so commit its output rather than `tsr generate`'s.
+- **Routing:** TanStack Router. The generated route tree, the OpenAPI contract and the Python SDK's `_generated/` layer are git-ignored: never commit them (two PRs touching them forced a rebase on every merge). `pnpm generate` makes all three; `pnpm typecheck` and the vitest layers generate what is missing, and CI generates them after install. `pnpm generate-routes` wraps `tsr generate` and re-adds the SSR registration block the raw generator strips.
+- **Parallel PRs:** do not rebase or push just to follow main. Rebase only for a real merge conflict. GitHub's merge queue tests each PR on top of main and merges it, so a green PR is queued, not updated. A shared file that every feature edits (a registry list, a generated file) is a design fault: add one file per feature instead.
 - **API boundary:** browser data goes through the same-origin `/api/db/*` proxy, never directly to PostgREST.
 - **Auth:** Better Auth with GitHub OAuth and database-backed sessions.
 - **Testing:** Vitest for unit/integration, Playwright for E2E, real PostgreSQL for DB tests.
@@ -197,8 +198,9 @@ For Amp orb-specific setup (system PostgreSQL, no Docker), see `docs/development
   parallel branches never collide) and write the SQL by hand. Never number a
   migration, never touch `_journal.json`, never run plain `pnpm db:generate` (no
   snapshot baseline, so it emits a full-schema migration). CI fails a PR whose new
-  migration sorts before one already on main; after a rebase, rename the file
-  with a fresh `pnpm db:new` timestamp.
+  migration sorts before a newer one on main only when the two touch the same
+  table, function or policy; otherwise it merges as it is. For a real overlap,
+  rename the file with a fresh `pnpm db:new` timestamp.
 - **Deployment:** image references are digest-pinned.
 
 ## Integrations: every feature, every surface

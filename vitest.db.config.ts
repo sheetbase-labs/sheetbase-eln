@@ -13,6 +13,8 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/db/**/*.test.ts'],
     setupFiles: ['tests/db/setup.ts'],
+    // Generates the uncommitted route tree and API contract when missing.
+    globalSetup: ['tests/global-generate.ts'],
     // Each worker clones the migrated template into its own database, so files
     // run in parallel without sharing state (see tests/db/helpers.ts).
     fileParallelism: true,

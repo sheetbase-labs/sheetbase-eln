@@ -2,6 +2,10 @@ name: CI
 
 on:
   pull_request:
+  # GitHub's merge queue tests each PR on top of main plus the PRs ahead of it,
+  # so a PR never has to be rebased by hand just because another one merged.
+  # The required checks must run for this event too or the queue waits forever.
+  merge_group:
   push:
     branches: [main]
   workflow_dispatch:
@@ -38,12 +42,12 @@ jobs:
       - uses: ./.github/actions/install
       - run: ${{ matrix.command }}
 
-  # A migration added by a PR must sort after the newest one on main, so a branch
-  # started before another migration merged gets caught here rather than applied
-  # out of order. Needs no install: it only reads git and file names.
+  # Migration names must be timestamped, and a migration that sorts before one
+  # already on main is only a problem when the two touch the same table,
+  # function or view (a database that has moved past it would apply it late).
+  # Unrelated ones merge in any order. Needs no install: it only reads git.
   migration-order:
     name: Migration order
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -53,7 +57,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
-      - run: node scripts/check-migrations.mjs origin/${{ github.base_ref }}
+      - name: Check against the base branch
+        env:
+          BASE: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || format('origin/{0}', github.base_ref) }}
+        run: node scripts/check-migrations.mjs "$BASE"
 
   unit:
     name: Unit and component tests (${{ matrix.shard }})
@@ -108,8 +115,9 @@ jobs:
         run: docker compose --env-file .env.ci-compose down -v
 
   # The Python SDK's typed layer is generated from the OpenAPI contract, which
-  # is itself generated from src/lib/public-api-*. Regenerate both and fail on
-  # any difference, so a new public endpoint always reaches the SDK.
+  # is itself generated from src/lib/public-api-*. Neither is committed: the
+  # install action generates both, so a new public endpoint always reaches the
+  # SDK without a file for two PRs to conflict on.
   python-sdk:
     name: Python SDK
     runs-on: ubuntu-latest
@@ -118,13 +126,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/install
       - uses: astral-sh/setup-uv@v6
-      - name: OpenAPI contract and Python SDK are up to date
+      - name: The contract and the generated layer are in place
         run: |
-          pnpm openapi:generate
-          git diff --exit-code -- docs/api/openapi sdks/python/src/sheetbase/_generated || {
-            echo "::error::Run pnpm openapi:generate and commit the OpenAPI file and the regenerated Python SDK."
-            exit 1
-          }
+          test -s docs/api/openapi/external-api-v0.json
+          test -s sdks/python/src/sheetbase/_generated/rpc.py
       - name: Tests (Python 3.10)
         working-directory: sdks/python
         run: >-

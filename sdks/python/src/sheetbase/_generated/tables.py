@@ -59,7 +59,6 @@ from sheetbase._generated.models import (
     InstrumentServiceLogRow,
     LabWatcherFindingsRow,
     LabWatchersRow,
-    LakeTablesRow,
     LegalHoldRecordsRow,
     LegalHoldsRow,
     LineageDeliveriesRow,
@@ -71,7 +70,6 @@ from sheetbase._generated.models import (
     MyWorkItemsRow,
     NotebookTemplateVersionsRow,
     NotebookTemplatesRow,
-    OntologyAnnotationsRow,
     PartPlansRow,
     PartResourceNeedsRow,
     PipelineDefinitionVersionsRow,
@@ -86,8 +84,6 @@ from sheetbase._generated.models import (
     ProjectsRow,
     ProjectsRowInsert,
     ProjectsRowPatch,
-    PublicationTargetsRow,
-    PublicationsRow,
     QcPointsRow,
     QcSeriesRow,
     ReagentOrderPricesRow,
@@ -816,24 +812,6 @@ class AsyncLabWatchersTable(AsyncReadableTable[LabWatchersRow]):
     name = "lab_watchers"
 
 
-class LakeTablesTable(ReadableTable[LakeTablesRow]):
-    """
-    ``/api/db/lake_tables`` (GET, HEAD).
-
-    Scopes: datasets:read.
-    """
-    name = "lake_tables"
-
-
-class AsyncLakeTablesTable(AsyncReadableTable[LakeTablesRow]):
-    """
-    ``/api/db/lake_tables`` (GET, HEAD).
-
-    Scopes: datasets:read.
-    """
-    name = "lake_tables"
-
-
 class LegalHoldRecordsTable(ReadableTable[LegalHoldRecordsRow]):
     """
     ``/api/db/legal_hold_records`` (GET, HEAD).
@@ -1030,24 +1008,6 @@ class AsyncNotebookTemplatesTable(AsyncReadableTable[NotebookTemplatesRow]):
     Scopes: templates:read.
     """
     name = "notebook_templates"
-
-
-class OntologyAnnotationsTable(ReadableTable[OntologyAnnotationsRow]):
-    """
-    ``/api/db/ontology_annotations`` (GET, HEAD).
-
-    Scopes: schema:read.
-    """
-    name = "ontology_annotations"
-
-
-class AsyncOntologyAnnotationsTable(AsyncReadableTable[OntologyAnnotationsRow]):
-    """
-    ``/api/db/ontology_annotations`` (GET, HEAD).
-
-    Scopes: schema:read.
-    """
-    name = "ontology_annotations"
 
 
 class PartPlansTable(ReadableTable[PartPlansRow]):
@@ -1272,42 +1232,6 @@ class AsyncProjectsTable(
     Scopes: projects:read, projects:write.
     """
     name = "projects"
-
-
-class PublicationTargetsTable(ReadableTable[PublicationTargetsRow]):
-    """
-    ``/api/db/publication_targets`` (GET, HEAD).
-
-    Scopes: admin:read.
-    """
-    name = "publication_targets"
-
-
-class AsyncPublicationTargetsTable(AsyncReadableTable[PublicationTargetsRow]):
-    """
-    ``/api/db/publication_targets`` (GET, HEAD).
-
-    Scopes: admin:read.
-    """
-    name = "publication_targets"
-
-
-class PublicationsTable(ReadableTable[PublicationsRow]):
-    """
-    ``/api/db/publications`` (GET, HEAD).
-
-    Scopes: reviews:read.
-    """
-    name = "publications"
-
-
-class AsyncPublicationsTable(AsyncReadableTable[PublicationsRow]):
-    """
-    ``/api/db/publications`` (GET, HEAD).
-
-    Scopes: reviews:read.
-    """
-    name = "publications"
 
 
 class QcPointsTable(ReadableTable[QcPointsRow]):
@@ -2105,7 +2029,6 @@ class Tables:
         "instrument_service_log",
         "lab_watcher_findings",
         "lab_watchers",
-        "lake_tables",
         "legal_hold_records",
         "legal_holds",
         "lineage_deliveries",
@@ -2117,7 +2040,6 @@ class Tables:
         "my_work_items",
         "notebook_template_versions",
         "notebook_templates",
-        "ontology_annotations",
         "part_plans",
         "part_resource_needs",
         "pipeline_definition_versions",
@@ -2130,8 +2052,6 @@ class Tables:
         "plate_worklists",
         "project_follows",
         "projects",
-        "publication_targets",
-        "publications",
         "qc_points",
         "qc_series",
         "reagent_order_prices",
@@ -2213,7 +2133,6 @@ class Tables:
         self.instrument_service_log = InstrumentServiceLogTable(transport)
         self.lab_watcher_findings = LabWatcherFindingsTable(transport)
         self.lab_watchers = LabWatchersTable(transport)
-        self.lake_tables = LakeTablesTable(transport)
         self.legal_hold_records = LegalHoldRecordsTable(transport)
         self.legal_holds = LegalHoldsTable(transport)
         self.lineage_deliveries = LineageDeliveriesTable(transport)
@@ -2225,7 +2144,6 @@ class Tables:
         self.my_work_items = MyWorkItemsTable(transport)
         self.notebook_template_versions = NotebookTemplateVersionsTable(transport)
         self.notebook_templates = NotebookTemplatesTable(transport)
-        self.ontology_annotations = OntologyAnnotationsTable(transport)
         self.part_plans = PartPlansTable(transport)
         self.part_resource_needs = PartResourceNeedsTable(transport)
         self.pipeline_definition_versions = PipelineDefinitionVersionsTable(transport)
@@ -2238,8 +2156,6 @@ class Tables:
         self.plate_worklists = PlateWorklistsTable(transport)
         self.project_follows = ProjectFollowsTable(transport)
         self.projects = ProjectsTable(transport)
-        self.publication_targets = PublicationTargetsTable(transport)
-        self.publications = PublicationsTable(transport)
         self.qc_points = QcPointsTable(transport)
         self.qc_series = QcSeriesTable(transport)
         self.reagent_order_prices = ReagentOrderPricesTable(transport)
@@ -2332,7 +2248,6 @@ class AsyncTables:
         "instrument_service_log",
         "lab_watcher_findings",
         "lab_watchers",
-        "lake_tables",
         "legal_hold_records",
         "legal_holds",
         "lineage_deliveries",
@@ -2344,7 +2259,6 @@ class AsyncTables:
         "my_work_items",
         "notebook_template_versions",
         "notebook_templates",
-        "ontology_annotations",
         "part_plans",
         "part_resource_needs",
         "pipeline_definition_versions",
@@ -2357,8 +2271,6 @@ class AsyncTables:
         "plate_worklists",
         "project_follows",
         "projects",
-        "publication_targets",
-        "publications",
         "qc_points",
         "qc_series",
         "reagent_order_prices",
@@ -2440,7 +2352,6 @@ class AsyncTables:
         self.instrument_service_log = AsyncInstrumentServiceLogTable(transport)
         self.lab_watcher_findings = AsyncLabWatcherFindingsTable(transport)
         self.lab_watchers = AsyncLabWatchersTable(transport)
-        self.lake_tables = AsyncLakeTablesTable(transport)
         self.legal_hold_records = AsyncLegalHoldRecordsTable(transport)
         self.legal_holds = AsyncLegalHoldsTable(transport)
         self.lineage_deliveries = AsyncLineageDeliveriesTable(transport)
@@ -2452,7 +2363,6 @@ class AsyncTables:
         self.my_work_items = AsyncMyWorkItemsTable(transport)
         self.notebook_template_versions = AsyncNotebookTemplateVersionsTable(transport)
         self.notebook_templates = AsyncNotebookTemplatesTable(transport)
-        self.ontology_annotations = AsyncOntologyAnnotationsTable(transport)
         self.part_plans = AsyncPartPlansTable(transport)
         self.part_resource_needs = AsyncPartResourceNeedsTable(transport)
         self.pipeline_definition_versions = AsyncPipelineDefinitionVersionsTable(transport)
@@ -2465,8 +2375,6 @@ class AsyncTables:
         self.plate_worklists = AsyncPlateWorklistsTable(transport)
         self.project_follows = AsyncProjectFollowsTable(transport)
         self.projects = AsyncProjectsTable(transport)
-        self.publication_targets = AsyncPublicationTargetsTable(transport)
-        self.publications = AsyncPublicationsTable(transport)
         self.qc_points = AsyncQcPointsTable(transport)
         self.qc_series = AsyncQcSeriesTable(transport)
         self.reagent_order_prices = AsyncReagentOrderPricesTable(transport)

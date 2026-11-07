@@ -112,7 +112,6 @@ import { Route as ApiImportReviewRouteImport } from './routes/api/import/review'
 import { Route as ApiNotebookCodeCellRouteImport } from './routes/api/notebook.code-cell'
 import { Route as ApiOfficeEditorSessionRouteImport } from './routes/api/office-editor/session'
 import { Route as ApiOfficeEditorStatusRouteImport } from './routes/api/office-editor/status'
-import { Route as ApiOntologySearchRouteImport } from './routes/api/ontology/search'
 import { Route as ApiParsersConverterRouteImport } from './routes/api/parsers/converter'
 import { Route as ApiParsersRequestUpdateRouteImport } from './routes/api/parsers/request-update'
 import { Route as ApiParsersValidateRouteImport } from './routes/api/parsers/validate'
@@ -190,7 +189,6 @@ import { Route as SettingsWorkspaceClientsRouteImport } from './routes/settings/
 import { Route as SettingsWorkspaceDiagnosticsRouteImport } from './routes/settings/workspace/diagnostics'
 import { Route as SettingsWorkspaceIntegrationsRouteImport } from './routes/settings/workspace/integrations'
 import { Route as SettingsWorkspaceMembersRouteImport } from './routes/settings/workspace/members'
-import { Route as SettingsWorkspaceOpenDataRouteImport } from './routes/settings/workspace/open-data'
 import { Route as SettingsWorkspaceRolesRouteImport } from './routes/settings/workspace/roles'
 import { Route as SettingsWorkspaceSignaturesRouteImport } from './routes/settings/workspace/signatures'
 import { Route as SettingsWorkspaceUsageRouteImport } from './routes/settings/workspace/usage'
@@ -235,7 +233,6 @@ import { Route as ApiExportRecordIdElnRouteImport } from './routes/api/export/re
 import { Route as ApiExportRevisionIdBundleRouteImport } from './routes/api/export/revision/$id/bundle'
 import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
 import { Route as ApiExportRevisionIdPdfRouteImport } from './routes/api/export/revision/$id/pdf'
-import { Route as ApiLakeFilesWorkspaceIdSplatRouteImport } from './routes/api/lake/files/$workspaceId/$'
 import { Route as ApiWopiFilesFileIdIndexRouteImport } from './routes/api/wopi/files/$fileId/index'
 import { Route as ApiWopiFilesFileIdContentsRouteImport } from './routes/api/wopi/files/$fileId/contents'
 import { Route as SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRouteImport } from './routes/settings/workspace/integrations/webhooks.$subscriptionId'
@@ -756,11 +753,6 @@ const ApiOfficeEditorStatusRoute = ApiOfficeEditorStatusRouteImport.update({
   path: '/api/office-editor/status',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiOntologySearchRoute = ApiOntologySearchRouteImport.update({
-  id: '/api/ontology/search',
-  path: '/api/ontology/search',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiParsersConverterRoute = ApiParsersConverterRouteImport.update({
   id: '/api/parsers/converter',
   path: '/api/parsers/converter',
@@ -1166,12 +1158,6 @@ const SettingsWorkspaceMembersRoute =
     path: '/workspace/members',
     getParentRoute: () => SettingsRoute,
   } as any)
-const SettingsWorkspaceOpenDataRoute =
-  SettingsWorkspaceOpenDataRouteImport.update({
-    id: '/workspace/open-data',
-    path: '/workspace/open-data',
-    getParentRoute: () => SettingsRoute,
-  } as any)
 const SettingsWorkspaceRolesRoute = SettingsWorkspaceRolesRouteImport.update({
   id: '/workspace/roles',
   path: '/workspace/roles',
@@ -1422,12 +1408,6 @@ const ApiExportRevisionIdPdfRoute = ApiExportRevisionIdPdfRouteImport.update({
   path: '/api/export/revision/$id/pdf',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiLakeFilesWorkspaceIdSplatRoute =
-  ApiLakeFilesWorkspaceIdSplatRouteImport.update({
-    id: '/api/lake/files/$workspaceId/$',
-    path: '/api/lake/files/$workspaceId/$',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiWopiFilesFileIdIndexRoute = ApiWopiFilesFileIdIndexRouteImport.update({
   id: '/api/wopi/files/$fileId/',
   path: '/api/wopi/files/$fileId/',
@@ -1550,7 +1530,6 @@ export interface FileRoutesByFullPath {
   '/api/notebook/code-cell': typeof ApiNotebookCodeCellRoute
   '/api/office-editor/session': typeof ApiOfficeEditorSessionRoute
   '/api/office-editor/status': typeof ApiOfficeEditorStatusRoute
-  '/api/ontology/search': typeof ApiOntologySearchRoute
   '/api/parsers/converter': typeof ApiParsersConverterRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
@@ -1619,7 +1598,6 @@ export interface FileRoutesByFullPath {
   '/settings/workspace/diagnostics': typeof SettingsWorkspaceDiagnosticsRoute
   '/settings/workspace/integrations': typeof SettingsWorkspaceIntegrationsRouteWithChildren
   '/settings/workspace/members': typeof SettingsWorkspaceMembersRoute
-  '/settings/workspace/open-data': typeof SettingsWorkspaceOpenDataRoute
   '/settings/workspace/roles': typeof SettingsWorkspaceRolesRoute
   '/settings/workspace/signatures': typeof SettingsWorkspaceSignaturesRoute
   '/settings/workspace/usage': typeof SettingsWorkspaceUsageRoute
@@ -1673,7 +1651,6 @@ export interface FileRoutesByFullPath {
   '/api/export/revision/$id/bundle': typeof ApiExportRevisionIdBundleRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
-  '/api/lake/files/$workspaceId/$': typeof ApiLakeFilesWorkspaceIdSplatRoute
   '/api/wopi/files/$fileId/contents': typeof ApiWopiFilesFileIdContentsRoute
   '/settings/workspace/integrations/webhooks/$subscriptionId': typeof SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRoute
   '/api/wopi/files/$fileId/': typeof ApiWopiFilesFileIdIndexRoute
@@ -1770,7 +1747,6 @@ export interface FileRoutesByTo {
   '/api/notebook/code-cell': typeof ApiNotebookCodeCellRoute
   '/api/office-editor/session': typeof ApiOfficeEditorSessionRoute
   '/api/office-editor/status': typeof ApiOfficeEditorStatusRoute
-  '/api/ontology/search': typeof ApiOntologySearchRoute
   '/api/parsers/converter': typeof ApiParsersConverterRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
@@ -1836,7 +1812,6 @@ export interface FileRoutesByTo {
   '/settings/workspace/diagnostics': typeof SettingsWorkspaceDiagnosticsRoute
   '/settings/workspace/integrations': typeof SettingsWorkspaceIntegrationsRouteWithChildren
   '/settings/workspace/members': typeof SettingsWorkspaceMembersRoute
-  '/settings/workspace/open-data': typeof SettingsWorkspaceOpenDataRoute
   '/settings/workspace/roles': typeof SettingsWorkspaceRolesRoute
   '/settings/workspace/signatures': typeof SettingsWorkspaceSignaturesRoute
   '/settings/workspace/usage': typeof SettingsWorkspaceUsageRoute
@@ -1890,7 +1865,6 @@ export interface FileRoutesByTo {
   '/api/export/revision/$id/bundle': typeof ApiExportRevisionIdBundleRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
-  '/api/lake/files/$workspaceId/$': typeof ApiLakeFilesWorkspaceIdSplatRoute
   '/api/wopi/files/$fileId/contents': typeof ApiWopiFilesFileIdContentsRoute
   '/settings/workspace/integrations/webhooks/$subscriptionId': typeof SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRoute
   '/api/wopi/files/$fileId': typeof ApiWopiFilesFileIdIndexRoute
@@ -2000,7 +1974,6 @@ export interface FileRoutesById {
   '/api/notebook/code-cell': typeof ApiNotebookCodeCellRoute
   '/api/office-editor/session': typeof ApiOfficeEditorSessionRoute
   '/api/office-editor/status': typeof ApiOfficeEditorStatusRoute
-  '/api/ontology/search': typeof ApiOntologySearchRoute
   '/api/parsers/converter': typeof ApiParsersConverterRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
@@ -2069,7 +2042,6 @@ export interface FileRoutesById {
   '/settings/workspace/diagnostics': typeof SettingsWorkspaceDiagnosticsRoute
   '/settings/workspace/integrations': typeof SettingsWorkspaceIntegrationsRouteWithChildren
   '/settings/workspace/members': typeof SettingsWorkspaceMembersRoute
-  '/settings/workspace/open-data': typeof SettingsWorkspaceOpenDataRoute
   '/settings/workspace/roles': typeof SettingsWorkspaceRolesRoute
   '/settings/workspace/signatures': typeof SettingsWorkspaceSignaturesRoute
   '/settings/workspace/usage': typeof SettingsWorkspaceUsageRoute
@@ -2123,7 +2095,6 @@ export interface FileRoutesById {
   '/api/export/revision/$id/bundle': typeof ApiExportRevisionIdBundleRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
-  '/api/lake/files/$workspaceId/$': typeof ApiLakeFilesWorkspaceIdSplatRoute
   '/api/wopi/files/$fileId/contents': typeof ApiWopiFilesFileIdContentsRoute
   '/settings/workspace/integrations/webhooks/$subscriptionId': typeof SettingsWorkspaceIntegrationsWebhooksSubscriptionIdRoute
   '/api/wopi/files/$fileId/': typeof ApiWopiFilesFileIdIndexRoute
@@ -2234,7 +2205,6 @@ export interface FileRouteTypes {
     | '/api/notebook/code-cell'
     | '/api/office-editor/session'
     | '/api/office-editor/status'
-    | '/api/ontology/search'
     | '/api/parsers/converter'
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
@@ -2303,7 +2273,6 @@ export interface FileRouteTypes {
     | '/settings/workspace/diagnostics'
     | '/settings/workspace/integrations'
     | '/settings/workspace/members'
-    | '/settings/workspace/open-data'
     | '/settings/workspace/roles'
     | '/settings/workspace/signatures'
     | '/settings/workspace/usage'
@@ -2357,7 +2326,6 @@ export interface FileRouteTypes {
     | '/api/export/revision/$id/bundle'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
-    | '/api/lake/files/$workspaceId/$'
     | '/api/wopi/files/$fileId/contents'
     | '/settings/workspace/integrations/webhooks/$subscriptionId'
     | '/api/wopi/files/$fileId/'
@@ -2454,7 +2422,6 @@ export interface FileRouteTypes {
     | '/api/notebook/code-cell'
     | '/api/office-editor/session'
     | '/api/office-editor/status'
-    | '/api/ontology/search'
     | '/api/parsers/converter'
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
@@ -2520,7 +2487,6 @@ export interface FileRouteTypes {
     | '/settings/workspace/diagnostics'
     | '/settings/workspace/integrations'
     | '/settings/workspace/members'
-    | '/settings/workspace/open-data'
     | '/settings/workspace/roles'
     | '/settings/workspace/signatures'
     | '/settings/workspace/usage'
@@ -2574,7 +2540,6 @@ export interface FileRouteTypes {
     | '/api/export/revision/$id/bundle'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
-    | '/api/lake/files/$workspaceId/$'
     | '/api/wopi/files/$fileId/contents'
     | '/settings/workspace/integrations/webhooks/$subscriptionId'
     | '/api/wopi/files/$fileId'
@@ -2683,7 +2648,6 @@ export interface FileRouteTypes {
     | '/api/notebook/code-cell'
     | '/api/office-editor/session'
     | '/api/office-editor/status'
-    | '/api/ontology/search'
     | '/api/parsers/converter'
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
@@ -2752,7 +2716,6 @@ export interface FileRouteTypes {
     | '/settings/workspace/diagnostics'
     | '/settings/workspace/integrations'
     | '/settings/workspace/members'
-    | '/settings/workspace/open-data'
     | '/settings/workspace/roles'
     | '/settings/workspace/signatures'
     | '/settings/workspace/usage'
@@ -2806,7 +2769,6 @@ export interface FileRouteTypes {
     | '/api/export/revision/$id/bundle'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
-    | '/api/lake/files/$workspaceId/$'
     | '/api/wopi/files/$fileId/contents'
     | '/settings/workspace/integrations/webhooks/$subscriptionId'
     | '/api/wopi/files/$fileId/'
@@ -2894,7 +2856,6 @@ export interface RootRouteChildren {
   ApiNotebookCodeCellRoute: typeof ApiNotebookCodeCellRoute
   ApiOfficeEditorSessionRoute: typeof ApiOfficeEditorSessionRoute
   ApiOfficeEditorStatusRoute: typeof ApiOfficeEditorStatusRoute
-  ApiOntologySearchRoute: typeof ApiOntologySearchRoute
   ApiParsersConverterRoute: typeof ApiParsersConverterRoute
   ApiParsersRequestUpdateRoute: typeof ApiParsersRequestUpdateRoute
   ApiParsersValidateRoute: typeof ApiParsersValidateRoute
@@ -2925,7 +2886,6 @@ export interface RootRouteChildren {
   ApiExportRevisionIdBundleRoute: typeof ApiExportRevisionIdBundleRoute
   ApiExportRevisionIdPackageRoute: typeof ApiExportRevisionIdPackageRoute
   ApiExportRevisionIdPdfRoute: typeof ApiExportRevisionIdPdfRoute
-  ApiLakeFilesWorkspaceIdSplatRoute: typeof ApiLakeFilesWorkspaceIdSplatRoute
   ApiWopiFilesFileIdContentsRoute: typeof ApiWopiFilesFileIdContentsRoute
   ApiWopiFilesFileIdIndexRoute: typeof ApiWopiFilesFileIdIndexRoute
 }
@@ -3653,13 +3613,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOfficeEditorStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/ontology/search': {
-      id: '/api/ontology/search'
-      path: '/api/ontology/search'
-      fullPath: '/api/ontology/search'
-      preLoaderRoute: typeof ApiOntologySearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/parsers/converter': {
       id: '/api/parsers/converter'
       path: '/api/parsers/converter'
@@ -4199,13 +4152,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsWorkspaceMembersRouteImport
       parentRoute: typeof SettingsRoute
     }
-    '/settings/workspace/open-data': {
-      id: '/settings/workspace/open-data'
-      path: '/workspace/open-data'
-      fullPath: '/settings/workspace/open-data'
-      preLoaderRoute: typeof SettingsWorkspaceOpenDataRouteImport
-      parentRoute: typeof SettingsRoute
-    }
     '/settings/workspace/roles': {
       id: '/settings/workspace/roles'
       path: '/workspace/roles'
@@ -4512,13 +4458,6 @@ declare module '@tanstack/react-router' {
       path: '/api/export/revision/$id/pdf'
       fullPath: '/api/export/revision/$id/pdf'
       preLoaderRoute: typeof ApiExportRevisionIdPdfRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/lake/files/$workspaceId/$': {
-      id: '/api/lake/files/$workspaceId/$'
-      path: '/api/lake/files/$workspaceId/$'
-      fullPath: '/api/lake/files/$workspaceId/$'
-      preLoaderRoute: typeof ApiLakeFilesWorkspaceIdSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/wopi/files/$fileId/': {
@@ -4947,7 +4886,6 @@ interface SettingsRouteChildren {
   SettingsWorkspaceDiagnosticsRoute: typeof SettingsWorkspaceDiagnosticsRoute
   SettingsWorkspaceIntegrationsRoute: typeof SettingsWorkspaceIntegrationsRouteWithChildren
   SettingsWorkspaceMembersRoute: typeof SettingsWorkspaceMembersRoute
-  SettingsWorkspaceOpenDataRoute: typeof SettingsWorkspaceOpenDataRoute
   SettingsWorkspaceRolesRoute: typeof SettingsWorkspaceRolesRoute
   SettingsWorkspaceSignaturesRoute: typeof SettingsWorkspaceSignaturesRoute
   SettingsWorkspaceUsageRoute: typeof SettingsWorkspaceUsageRoute
@@ -4980,7 +4918,6 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsWorkspaceIntegrationsRoute:
     SettingsWorkspaceIntegrationsRouteWithChildren,
   SettingsWorkspaceMembersRoute: SettingsWorkspaceMembersRoute,
-  SettingsWorkspaceOpenDataRoute: SettingsWorkspaceOpenDataRoute,
   SettingsWorkspaceRolesRoute: SettingsWorkspaceRolesRoute,
   SettingsWorkspaceSignaturesRoute: SettingsWorkspaceSignaturesRoute,
   SettingsWorkspaceUsageRoute: SettingsWorkspaceUsageRoute,
@@ -5133,7 +5070,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiNotebookCodeCellRoute: ApiNotebookCodeCellRoute,
   ApiOfficeEditorSessionRoute: ApiOfficeEditorSessionRoute,
   ApiOfficeEditorStatusRoute: ApiOfficeEditorStatusRoute,
-  ApiOntologySearchRoute: ApiOntologySearchRoute,
   ApiParsersConverterRoute: ApiParsersConverterRoute,
   ApiParsersRequestUpdateRoute: ApiParsersRequestUpdateRoute,
   ApiParsersValidateRoute: ApiParsersValidateRoute,
@@ -5165,10 +5101,19 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExportRevisionIdBundleRoute: ApiExportRevisionIdBundleRoute,
   ApiExportRevisionIdPackageRoute: ApiExportRevisionIdPackageRoute,
   ApiExportRevisionIdPdfRoute: ApiExportRevisionIdPdfRoute,
-  ApiLakeFilesWorkspaceIdSplatRoute: ApiLakeFilesWorkspaceIdSplatRoute,
   ApiWopiFilesFileIdContentsRoute: ApiWopiFilesFileIdContentsRoute,
   ApiWopiFilesFileIdIndexRoute: ApiWopiFilesFileIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

@@ -429,7 +429,7 @@ function Snapshots() {
               </div>
             </InspectorSection>
           ) : null}
-          {canWrite && !tombstone && current ? (
+          {canWrite && !tombstone ? (
             <InspectorSection title={t('openData.publish.action')}>
               <div className="flex flex-wrap items-center gap-2">
                 <PublishControl

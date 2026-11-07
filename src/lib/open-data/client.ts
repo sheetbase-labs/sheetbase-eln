@@ -63,7 +63,8 @@ export interface OntologySettings {
 
 export interface OntologyAnnotation {
   id: string
-  target_kind: 'model_field' | 'schema_field' | 'definition_field' | 'vocabulary_term'
+  target_kind:
+    'model_field' | 'schema_field' | 'definition_field' | 'vocabulary_term'
   target_id: string
   ontology: string
   iri: string
@@ -125,16 +126,21 @@ export const openDataKeys = {
   lakeTables: (ws: string) => ['lake-tables', ws] as const,
   lakeLogins: (ws: string) => ['lake-logins', ws] as const,
   ontology: (ws: string) => ['ontology-settings', ws] as const,
-  annotations: (kind: string, id: string) => ['ontology-annotations', kind, id] as const,
+  annotations: (kind: string, id: string) =>
+    ['ontology-annotations', kind, id] as const,
   targets: (ws: string) => ['publication-targets', ws] as const,
-  publications: (kind: string, id: string) => ['publications', kind, id] as const,
+  publications: (kind: string, id: string) =>
+    ['publications', kind, id] as const,
 }
 
 export const fetchLakeSettings = (c: Rpc, ws: string) =>
   c.rpc<LakeSettings>('lake_settings', { p_workspace_id: ws })
 
 export const setLakeSettings = (c: Rpc, ws: string, enabled: boolean) =>
-  c.rpc<LakeSettings>('set_lake_settings', { p_workspace_id: ws, p_enabled: enabled })
+  c.rpc<LakeSettings>('set_lake_settings', {
+    p_workspace_id: ws,
+    p_enabled: enabled,
+  })
 
 export const requestLakeRefresh = (c: Rpc, ws: string) =>
   c.rpc<LakeSettings>('request_lake_refresh', { p_workspace_id: ws })
@@ -153,16 +159,22 @@ export async function createLakeLogin(
   ws: string,
   input: { name: string; expiresAt: string | null },
 ): Promise<LakeLoginSecret> {
-  const rows = await c.rpc<LakeLoginSecret[] | LakeLoginSecret>('create_lake_credential', {
-    p_workspace_id: ws,
-    p_name: input.name,
-    p_expires_at: input.expiresAt,
-  })
+  const rows = await c.rpc<LakeLoginSecret[] | LakeLoginSecret>(
+    'create_lake_credential',
+    {
+      p_workspace_id: ws,
+      p_name: input.name,
+      p_expires_at: input.expiresAt,
+    },
+  )
   return Array.isArray(rows) ? rows[0] : rows
 }
 
 export const revokeLakeLogin = (c: Rpc, ws: string, id: string) =>
-  c.rpc<void>('revoke_lake_credential', { p_workspace_id: ws, p_credential_id: id })
+  c.rpc<void>('revoke_lake_credential', {
+    p_workspace_id: ws,
+    p_credential_id: id,
+  })
 
 export const fetchOntologySettings = (c: Rpc, ws: string) =>
   c.rpc<OntologySettings>('ontology_settings', { p_workspace_id: ws })
@@ -186,7 +198,12 @@ export const fetchAnnotations = (c: Lister, kind: string, id: string) =>
 
 export const linkOntologyTerm = (
   c: Rpc,
-  input: { workspaceId: string; kind: OntologyAnnotation['target_kind']; targetId: string; term: OntologyTermHit },
+  input: {
+    workspaceId: string
+    kind: OntologyAnnotation['target_kind']
+    targetId: string
+    term: OntologyTermHit
+  },
 ) =>
   c.rpc<OntologyAnnotation>('link_ontology_term', {
     p_workspace_id: input.workspaceId,
@@ -201,10 +218,18 @@ export const linkOntologyTerm = (
 export const unlinkOntologyTerm = (c: Rpc, id: string) =>
   c.rpc<void>('unlink_ontology_term', { p_annotation_id: id })
 
-export async function searchOntology(query: string, signal?: AbortSignal): Promise<OntologyTermHit[]> {
-  const res = await fetch(`/api/ontology/search?q=${encodeURIComponent(query)}`, { signal })
+export async function searchOntology(
+  query: string,
+  signal?: AbortSignal,
+): Promise<OntologyTermHit[]> {
+  const res = await fetch(
+    `/api/ontology/search?q=${encodeURIComponent(query)}`,
+    { signal },
+  )
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { message?: string } | null
+    const body = (await res.json().catch(() => null)) as {
+      message?: string
+    } | null
     throw new Error(body?.message ?? 'Ontology search is not available.')
   }
   return ((await res.json()) as { terms: OntologyTermHit[] }).terms
@@ -254,7 +279,13 @@ export const fetchPublications = (c: Lister, kind: string, objectId: string) =>
 
 export const requestPublication = (
   c: Rpc,
-  input: { targetId: string; kind: Publication['object_kind']; objectId: string; title: string; license: string },
+  input: {
+    targetId: string
+    kind: Publication['object_kind']
+    objectId: string
+    title: string
+    license: string
+  },
 ) =>
   c.rpc<Publication>('request_publication', {
     p_target_id: input.targetId,

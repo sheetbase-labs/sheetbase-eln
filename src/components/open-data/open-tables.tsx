@@ -54,7 +54,11 @@ import {
   revokeLakeLogin,
   setLakeSettings,
 } from '#/lib/open-data/client'
-import type { LakeLogin, LakeLoginSecret, LakeTable } from '#/lib/open-data/client'
+import type {
+  LakeLogin,
+  LakeLoginSecret,
+  LakeTable,
+} from '#/lib/open-data/client'
 import { t } from '#/copy'
 
 const dataClient = createDataClient()
@@ -66,7 +70,12 @@ function formatBytes(n: number): string {
   return `${(n / 1024 ** 3).toFixed(2)} GB`
 }
 
-const TABLE_TONE = { ready: 'ok', pending: 'warn', failed: 'bad', retired: 'draft' } as const
+const TABLE_TONE = {
+  ready: 'ok',
+  pending: 'warn',
+  failed: 'bad',
+  retired: 'draft',
+} as const
 const tableStatus = (s: LakeTable['status']) =>
   s === 'ready'
     ? t('openData.tables.statusReady')
@@ -101,16 +110,22 @@ export function OpenTablesSection({
     refetchInterval: 15_000,
   })
   const refreshAll = () => {
-    void queryClient.invalidateQueries({ queryKey: openDataKeys.lake(workspaceId) })
-    void queryClient.invalidateQueries({ queryKey: openDataKeys.lakeTables(workspaceId) })
+    void queryClient.invalidateQueries({
+      queryKey: openDataKeys.lake(workspaceId),
+    })
+    void queryClient.invalidateQueries({
+      queryKey: openDataKeys.lakeTables(workspaceId),
+    })
   }
   const toggle = useMutation({
-    mutationFn: (enabled: boolean) => setLakeSettings(dataClient, workspaceId, enabled),
+    mutationFn: (enabled: boolean) =>
+      setLakeSettings(dataClient, workspaceId, enabled),
     onSuccess: () => {
       toast(t('openData.tables.saved'))
       refreshAll()
     },
-    onError: (e) => toast(`${t('openData.tables.failed')}: ${describeAdminError(e)}`),
+    onError: (e) =>
+      toast(`${t('openData.tables.failed')}: ${describeAdminError(e)}`),
   })
   const refresh = useMutation({
     mutationFn: () => requestLakeRefresh(dataClient, workspaceId),
@@ -118,7 +133,8 @@ export function OpenTablesSection({
       toast(t('openData.tables.refreshQueued'))
       refreshAll()
     },
-    onError: (e) => toast(`${t('openData.tables.failed')}: ${describeAdminError(e)}`),
+    onError: (e) =>
+      toast(`${t('openData.tables.failed')}: ${describeAdminError(e)}`),
   })
 
   const enabled = settings.data?.enabled === true
@@ -131,7 +147,12 @@ export function OpenTablesSection({
       count={enabled ? rows.length : undefined}
       action={
         enabled && editable ? (
-          <Button size="sm" icon="refresh" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
+          <Button
+            size="sm"
+            icon="refresh"
+            disabled={refresh.isPending}
+            onClick={() => refresh.mutate()}
+          >
             {t('openData.tables.refresh')}
           </Button>
         ) : null
@@ -163,30 +184,52 @@ export function OpenTablesSection({
                 <TableRow>
                   <TableHead>{t('openData.tables.columns.table')}</TableHead>
                   <TableHead>{t('openData.tables.columns.from')}</TableHead>
-                  <TableHead className="text-right">{t('openData.tables.columns.rows')}</TableHead>
-                  <TableHead className="text-right">{t('openData.tables.columns.size')}</TableHead>
+                  <TableHead className="text-right">
+                    {t('openData.tables.columns.rows')}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t('openData.tables.columns.size')}
+                  </TableHead>
                   <TableHead>{t('openData.tables.columns.updated')}</TableHead>
                   <TableHead>{t('openData.tables.columns.status')}</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody loading={tables.isPending} empty={t('openData.tables.empty')} colSpan={6}>
+              <TableBody
+                loading={tables.isPending}
+                empty={t('openData.tables.empty')}
+                colSpan={6}
+              >
                 {rows.map((row) => (
                   <TableRow key={row.id}>
                     <TableCell>
-                      {dataAccess ? <code>{row.table_name}</code> : row.source_label}
+                      {dataAccess ? (
+                        <code>{row.table_name}</code>
+                      ) : (
+                        row.source_label
+                      )}
                     </TableCell>
                     <TableCell title={row.source_label}>
                       {row.source_kind === 'dataset'
                         ? t('openData.tables.kindDataset')
                         : t('openData.tables.kindModel')}
-                                      {' · '}
+                      {' · '}
                       {row.source_label}
                     </TableCell>
-                    <TableCell className="text-right">{row.row_count.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{formatBytes(row.byte_size)}</TableCell>
-                    <TableCell>{row.last_snapshot_at ? formatDate(row.last_snapshot_at) : '—'}</TableCell>
+                    <TableCell className="text-right">
+                      {row.row_count.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatBytes(row.byte_size)}
+                    </TableCell>
+                    <TableCell>
+                      {row.last_snapshot_at
+                        ? formatDate(row.last_snapshot_at)
+                        : '—'}
+                    </TableCell>
                     <TableCell title={row.last_error ?? undefined}>
-                      <Status tone={TABLE_TONE[row.status]}>{tableStatus(row.status)}</Status>
+                      <Status tone={TABLE_TONE[row.status]}>
+                        {tableStatus(row.status)}
+                      </Status>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -196,9 +239,14 @@ export function OpenTablesSection({
           {dataAccess ? (
             <LakeLogins
               workspaceId={workspaceId}
-              canIssue={settings.data?.canIssueLogins === true && rows.some((r) => r.status === 'ready')}
+              canIssue={
+                settings.data?.canIssueLogins === true &&
+                rows.some((r) => r.status === 'ready')
+              }
               hasTables={rows.some((r) => r.status === 'ready')}
-              firstTable={rows.find((r) => r.status === 'ready')?.table_name ?? null}
+              firstTable={
+                rows.find((r) => r.status === 'ready')?.table_name ?? null
+              }
             />
           ) : null}
         </>
@@ -238,7 +286,9 @@ function LakeLogins({
   const [createOpen, setCreateOpen] = useState(false)
   const [name, setName] = useState('')
   const [expiry, setExpiry] = useState('90')
-  const [revealed, setRevealed] = useState<(LakeLoginSecret & { name: string }) | null>(null)
+  const [revealed, setRevealed] = useState<
+    (LakeLoginSecret & { name: string }) | null
+  >(null)
   const [revoking, setRevoking] = useState<LakeLogin | null>(null)
   const [engine, setEngine] = useState<'duckdb' | 'polars' | 'spark'>('duckdb')
 
@@ -252,13 +302,17 @@ function LakeLogins({
     enabled: hasTables,
   })
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: openDataKeys.lakeLogins(workspaceId) })
+    queryClient.invalidateQueries({
+      queryKey: openDataKeys.lakeLogins(workspaceId),
+    })
 
   const create = useMutation({
     mutationFn: () =>
       createLakeLogin(dataClient, workspaceId, {
         name: name.trim(),
-        expiresAt: expiry ? new Date(Date.now() + Number(expiry) * 86_400_000).toISOString() : null,
+        expiresAt: expiry
+          ? new Date(Date.now() + Number(expiry) * 86_400_000).toISOString()
+          : null,
       }),
     onSuccess: (secret) => {
       setRevealed({ ...secret, name: name.trim() })
@@ -268,7 +322,8 @@ function LakeLogins({
     },
   })
   const revoke = useMutation({
-    mutationFn: (login: LakeLogin) => revokeLakeLogin(dataClient, workspaceId, login.id),
+    mutationFn: (login: LakeLogin) =>
+      revokeLakeLogin(dataClient, workspaceId, login.id),
     onSuccess: () => void invalidate(),
     onError: (e) => toast(describeAdminError(e)),
   })
@@ -318,8 +373,14 @@ function LakeLogins({
           <Notice tone="warn" className="p-0">
             {t('openData.logins.copyNow')}
           </Notice>
-          <Secret value={revealed.username} copyLabel={t('openData.logins.copyUser')} />
-          <Secret value={revealed.secret} copyLabel={t('openData.logins.copyPassword')} />
+          <Secret
+            value={revealed.username}
+            copyLabel={t('openData.logins.copyUser')}
+          />
+          <Secret
+            value={revealed.secret}
+            copyLabel={t('openData.logins.copyPassword')}
+          />
           <div>
             <Button size="sm" onClick={() => setRevealed(null)}>
               {t('openData.logins.stored')}
@@ -329,7 +390,9 @@ function LakeLogins({
       ) : null}
       {snippets ? (
         <div className="flex flex-col gap-2">
-          <h3 className="text-label font-medium">{t('openData.logins.connect')}</h3>
+          <h3 className="text-label font-medium">
+            {t('openData.logins.connect')}
+          </h3>
           <Tabs
             mode="state"
             variant="segment"
@@ -345,13 +408,20 @@ function LakeLogins({
           <CodeBlock
             label={t('openData.logins.connect')}
             language={engine === 'duckdb' ? 'sql' : 'python'}
-            code={snippets[engine].replaceAll('<table>', firstTable ?? '<table>')}
+            code={snippets[engine].replaceAll(
+              '<table>',
+              firstTable ?? '<table>',
+            )}
             maxHeight="lg"
           />
         </div>
       ) : null}
-      {create.error ? <Notice tone="bad">{describeAdminError(create.error)}</Notice> : null}
-      {rows.length === 0 && logins.isSuccess ? <Muted>{t('openData.logins.none')}</Muted> : null}
+      {create.error ? (
+        <Notice tone="bad">{describeAdminError(create.error)}</Notice>
+      ) : null}
+      {rows.length === 0 && logins.isSuccess ? (
+        <Muted>{t('openData.logins.none')}</Muted>
+      ) : null}
       {rows.length ? (
         <TableBox>
           <Table caption={t('openData.logins.title')}>
@@ -368,13 +438,26 @@ function LakeLogins({
               {rows.map((login) => (
                 <TableRow key={login.id}>
                   <TableCell title={login.username}>
-                    {login.name} <Status tone={login.status === 'active' ? 'ok' : 'warn'}>{LOGIN_LABEL[login.status]}</Status>
+                    {login.name}{' '}
+                    <Status tone={login.status === 'active' ? 'ok' : 'warn'}>
+                      {LOGIN_LABEL[login.status]}
+                    </Status>
                   </TableCell>
                   <TableCell>{formatDate(login.created_at)}</TableCell>
-                  <TableCell>{login.expires_at ? formatDate(login.expires_at) : t('openData.logins.never')}</TableCell>
-                  <TableCell>{login.last_used_at ? formatDate(login.last_used_at) : '—'}</TableCell>
+                  <TableCell>
+                    {login.expires_at
+                      ? formatDate(login.expires_at)
+                      : t('openData.logins.never')}
+                  </TableCell>
+                  <TableCell>
+                    {login.last_used_at ? formatDate(login.last_used_at) : '—'}
+                  </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="quiet" onClick={() => setRevoking(login)}>
+                    <Button
+                      size="sm"
+                      variant="quiet"
+                      onClick={() => setRevoking(login)}
+                    >
                       {t('openData.logins.revoke')}
                     </Button>
                   </TableCell>
@@ -419,8 +502,14 @@ function LakeLogins({
               </Field>
             </DialogBody>
             <DialogFooter>
-              <DialogClose render={<Button type="button" />}>{t('common.actions.cancel')}</DialogClose>
-              <Button type="submit" variant="primary" disabled={!name.trim() || create.isPending}>
+              <DialogClose render={<Button type="button" />}>
+                {t('common.actions.cancel')}
+              </DialogClose>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={!name.trim() || create.isPending}
+              >
                 {t('openData.logins.createLogin')}
               </Button>
             </DialogFooter>
@@ -428,14 +517,23 @@ function LakeLogins({
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog open={revoking !== null} onOpenChange={(o) => (o ? null : setRevoking(null))}>
+      <ConfirmDialog
+        open={revoking !== null}
+        onOpenChange={(o) => (o ? null : setRevoking(null))}
+      >
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
-            <ConfirmDialogTitle>{t('openData.logins.revokeTitle')}</ConfirmDialogTitle>
-            <ConfirmDialogDescription>{t('openData.logins.revokeBody')}</ConfirmDialogDescription>
+            <ConfirmDialogTitle>
+              {t('openData.logins.revokeTitle')}
+            </ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              {t('openData.logins.revokeBody')}
+            </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
-            <ConfirmDialogCancel>{t('common.actions.cancel')}</ConfirmDialogCancel>
+            <ConfirmDialogCancel>
+              {t('common.actions.cancel')}
+            </ConfirmDialogCancel>
             <ConfirmDialogAction
               variant="danger-fill"
               onClick={() => {

@@ -76,7 +76,10 @@ describe('SHELL-01.2 settings navigation', () => {
           l !== 'Sidebar',
       ),
     )
-    expect(labels('steward', 'workspace')).toEqual(['Integrations'])
+    expect(labels('steward', 'workspace')).toEqual([
+      'Integrations',
+      'Open data',
+    ])
   })
 
   it('offers the personal account sections, and My signature only to people who sign', () => {

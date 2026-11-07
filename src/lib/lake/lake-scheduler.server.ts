@@ -98,7 +98,10 @@ export function startLakeScheduler(
   }
   bootTimer = setTimeout(() => void tick(), 20_000)
   bootTimer.unref()
-  timer = setInterval(() => void tick(), options.intervalMs ?? LAKE_SWEEP_INTERVAL_MS)
+  timer = setInterval(
+    () => void tick(),
+    options.intervalMs ?? LAKE_SWEEP_INTERVAL_MS,
+  )
   timer.unref()
 }
 

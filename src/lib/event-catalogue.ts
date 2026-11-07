@@ -1658,8 +1658,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
   {
     name: 'lake.settings.updated',
     family: 'administration',
-    summary:
-      'Open tables were turned on or off.',
+    summary: 'Open tables were turned on or off.',
     producer: {
       entityType: 'lake_table',
       operation: 'update',
@@ -1702,8 +1701,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
   {
     name: 'publication.published',
     family: 'compliance',
-    summary:
-      'A record was published with a DOI. This cannot be undone.',
+    summary: 'A record was published with a DOI. This cannot be undone.',
     producer: {
       entityType: 'publication',
       operation: 'update',
@@ -1732,8 +1730,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
   {
     name: 'publication_target.updated',
     family: 'administration',
-    summary:
-      'A publishing repository was added or changed.',
+    summary: 'A publishing repository was added or changed.',
     producer: {
       entityType: 'publication_target',
       operation: 'update',
@@ -1775,8 +1772,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
   {
     name: 'ontology.settings.updated',
     family: 'administration',
-    summary:
-      'Ontology lookup was turned on or off for the workspace.',
+    summary: 'Ontology lookup was turned on or off for the workspace.',
     producer: {
       entityType: 'ontology_annotation',
       operation: 'update',

@@ -12,7 +12,8 @@ export const setPublicationTokenFn = createServerFn({ method: 'POST' })
   .validator((input: { targetId: string; token: string }) => input)
   .handler(async ({ data }) => {
     const token = data.token.trim()
-    if (!/^[0-9a-f-]{36}$/i.test(data.targetId)) throw new Error('Unknown repository.')
+    if (!/^[0-9a-f-]{36}$/i.test(data.targetId))
+      throw new Error('Unknown repository.')
     if (token.length < 8 || token.length > 500) {
       throw new Error('Paste the access token the repository gave you.')
     }

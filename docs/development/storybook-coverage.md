@@ -476,3 +476,11 @@ server, so every notebook comes back in the "not updated" list.
 | `src/components/settings/ai-checks-panel.tsx`               | Settings panel that starts a run on the server and reads earlier runs through the data client.                                        |
 | `src/components/settings/lab-watchers-panel.tsx`            | Settings panel that reads watchers and findings and saves through the data client.                                                    |
 | `src/components/pipelines/agents/action-requests-board.tsx` | Board that reads the actions agents asked for and approves or rejects them through the data client, so it has no state to show alone. |
+
+## Run quality control and instrument data
+
+| Module                                            | Why no story                                                                                                             |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `src/components/quality/run-qc-panel.tsx`         | Loads tracked series and points from the server and saves through the data client; the chart it draws has its own story. |
+| `src/components/instruments/converted-data.tsx`   | Lists converted instrument files from the server and downloads each document through the data client.                    |
+| `src/components/instruments/converter-picker.tsx` | Reads the converters the Python runtime offers over the network and adds a parser; shown inside the intake setup dialog. |

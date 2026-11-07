@@ -171,6 +171,12 @@
       "typescript": "generic"
     },
     {
+      "resource": "instrument_run_documents",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "instrument_service_log",
       "methods": ["GET", "HEAD"],
       "python": "generic",
@@ -281,6 +287,18 @@
     {
       "resource": "projects",
       "methods": ["GET", "HEAD", "POST", "PATCH"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "qc_points",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "qc_series",
+      "methods": ["GET", "HEAD"],
       "python": "generic",
       "typescript": "generic"
     },
@@ -497,6 +515,12 @@
   ],
   "rpcs": [
     {
+      "name": "acknowledge_qc_point",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "add_records_to_legal_hold",
       "resource": "lab",
       "python": "generic",
@@ -689,6 +713,12 @@
       "typescript": "resource"
     },
     {
+      "name": "create_qc_series",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "create_record",
       "resource": "records",
       "python": "resource",
@@ -755,6 +785,12 @@
       "typescript": "resource"
     },
     {
+      "name": "delete_qc_series",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "delete_saved_search",
       "resource": "search",
       "python": "resource",
@@ -773,16 +809,16 @@
       "typescript": "resource"
     },
     {
-      "name": "dissolve_experiment_series",
-      "resource": "lab",
-      "python": "generic",
-      "typescript": "generic"
-    },
-    {
       "name": "directory_sync_status",
       "resource": "people",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "dissolve_experiment_series",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "duplicate_sheet_instance",
@@ -1044,6 +1080,18 @@
     },
     {
       "name": "record_instrument_readings",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "record_instrument_run_document",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "record_qc_point",
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"
@@ -1313,6 +1361,12 @@
       "typescript": "resource"
     },
     {
+      "name": "set_qc_baseline",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "set_reagent_order_price",
       "resource": "facility",
       "python": "resource",
@@ -1385,6 +1439,12 @@
       "typescript": "generic"
     },
     {
+      "name": "track_plate_assay_qc",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "transition_record_status",
       "resource": "records",
       "python": "resource",
@@ -1410,6 +1470,12 @@
     },
     {
       "name": "update_plate_run",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "update_qc_series",
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"

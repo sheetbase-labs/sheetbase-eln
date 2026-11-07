@@ -139,7 +139,7 @@ describe('the endpoint', () => {
       request({ action: 'report', instrumentId: INSTRUMENT, jobId: JOB, status: 'staged' }),
       deps((async () => {
         throw new Error('this job is cancelled')
-      }) as never),
+      })),
     )
     expect(response.status).toBe(422)
   })

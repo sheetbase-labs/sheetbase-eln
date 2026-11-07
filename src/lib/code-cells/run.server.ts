@@ -34,8 +34,7 @@ import type {
   CodeCellRunRequest,
 } from './code-cell'
 
-const UUID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const INPUT_ROW_LIMIT = 50_000
 const SQL_ROW_LIMIT = 10_000
 const SQL_TIMEOUT_SECONDS = 15
@@ -103,7 +102,9 @@ export function sha256(text: string): string {
   return `sha256:${createHash('sha256').update(text).digest('hex')}`
 }
 
-export function digestRows(rows: ReadonlyArray<Record<string, unknown>>): string {
+export function digestRows(
+  rows: ReadonlyArray<Record<string, unknown>>,
+): string {
   return sha256(canonicalJson(rows))
 }
 
@@ -161,9 +162,8 @@ export async function runSandboxSql(input: {
   inputs: LoadedInput[]
 }): Promise<ExecutionResult> {
   const statement = singleSelect(input.source)
-  const { connectPipelineSandbox, SandboxUnavailableError } = await import(
-    '../pipeline-sandbox.server'
-  )
+  const { connectPipelineSandbox, SandboxUnavailableError } =
+    await import('../pipeline-sandbox.server')
   let conn
   try {
     conn = await connectPipelineSandbox()
@@ -205,9 +205,10 @@ export async function runSandboxSql(input: {
     await conn.query('ROLLBACK')
     return {
       rows: result.rows.slice(0, SQL_ROW_LIMIT).map((r) => r.doc),
-      logs: result.rows.length > SQL_ROW_LIMIT
-        ? [`Only the first ${SQL_ROW_LIMIT} rows are kept.`]
-        : [],
+      logs:
+        result.rows.length > SQL_ROW_LIMIT
+          ? [`Only the first ${SQL_ROW_LIMIT} rows are kept.`]
+          : [],
       runtime: 'postgres-sandbox',
       environment: null,
     }
@@ -229,9 +230,8 @@ export async function runPython(input: {
   source: string
   inputs: Record<string, Array<Record<string, unknown>>>
 }): Promise<ExecutionResult> {
-  const { executePythonTransform, PipelinePythonError } = await import(
-    '../pipeline-python.server'
-  )
+  const { executePythonTransform, PipelinePythonError } =
+    await import('../pipeline-python.server')
   try {
     const result = await executePythonTransform({
       statement: input.source,
@@ -254,9 +254,7 @@ export async function runPython(input: {
       throw new CodeCellError(
         422,
         'code_failed',
-        error.line
-          ? `${error.message} (line ${error.line})`
-          : error.message,
+        error.line ? `${error.message} (line ${error.line})` : error.message,
       )
     }
     throw error
@@ -340,20 +338,36 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
   const body = raw as Record<string, unknown>
   const action = body['action']
   if (action !== 'run' && action !== 'reproduce') {
-    throw new CodeCellError(400, 'invalid_request', 'action must be run or reproduce.')
+    throw new CodeCellError(
+      400,
+      'invalid_request',
+      'action must be run or reproduce.',
+    )
   }
   const recordId = body['recordId']
   if (typeof recordId !== 'string' || !UUID.test(recordId)) {
-    throw new CodeCellError(400, 'invalid_request', 'recordId must be an experiment id.')
+    throw new CodeCellError(
+      400,
+      'invalid_request',
+      'recordId must be an experiment id.',
+    )
   }
   const blockId = body['blockId']
-  if (blockId !== undefined && blockId !== null && (typeof blockId !== 'string' || !UUID.test(blockId))) {
-    throw new CodeCellError(400, 'invalid_request', 'blockId must be a block id.')
+  if (
+    blockId !== undefined &&
+    blockId !== null &&
+    (typeof blockId !== 'string' || !UUID.test(blockId))
+  ) {
+    throw new CodeCellError(
+      400,
+      'invalid_request',
+      'blockId must be a block id.',
+    )
   }
   const out: CodeCellRunRequest = {
     action,
     recordId,
-    blockId: (blockId) ?? null,
+    blockId: blockId ?? null,
   }
   if (action === 'reproduce') {
     const runId = body['runId']
@@ -364,17 +378,33 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
     return out
   }
   if (!isCodeCellLanguage(body['language'])) {
-    throw new CodeCellError(400, 'invalid_request', 'language must be python or sql.')
+    throw new CodeCellError(
+      400,
+      'invalid_request',
+      'language must be python or sql.',
+    )
   }
   out.language = body['language']
   const source = body['source']
-  if (typeof source !== 'string' || source.trim() === '' || source.length > MAX_CODE_CELL_SOURCE) {
-    throw new CodeCellError(400, 'invalid_request', 'Write some code to run (up to 50,000 characters).')
+  if (
+    typeof source !== 'string' ||
+    source.trim() === '' ||
+    source.length > MAX_CODE_CELL_SOURCE
+  ) {
+    throw new CodeCellError(
+      400,
+      'invalid_request',
+      'Write some code to run (up to 50,000 characters).',
+    )
   }
   out.source = source
   const inputs = body['inputs'] ?? []
   if (!Array.isArray(inputs) || inputs.length > MAX_CODE_CELL_INPUTS) {
-    throw new CodeCellError(400, 'invalid_request', `A cell reads up to ${MAX_CODE_CELL_INPUTS} datasets.`)
+    throw new CodeCellError(
+      400,
+      'invalid_request',
+      `A cell reads up to ${MAX_CODE_CELL_INPUTS} datasets.`,
+    )
   }
   const seen = new Set<string>()
   out.inputs = inputs.map((entry: unknown) => {
@@ -382,14 +412,26 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
     const alias = row['alias']
     const versionId = row['datasetVersionId']
     if (typeof alias !== 'string' || !CODE_CELL_ALIAS.test(alias)) {
-      throw new CodeCellError(400, 'invalid_request', 'Name each input with letters, digits and underscores.')
+      throw new CodeCellError(
+        400,
+        'invalid_request',
+        'Name each input with letters, digits and underscores.',
+      )
     }
     if (seen.has(alias)) {
-      throw new CodeCellError(400, 'invalid_request', `The name ${alias} is used twice.`)
+      throw new CodeCellError(
+        400,
+        'invalid_request',
+        `The name ${alias} is used twice.`,
+      )
     }
     seen.add(alias)
     if (typeof versionId !== 'string' || !UUID.test(versionId)) {
-      throw new CodeCellError(400, 'invalid_request', `${alias} needs a dataset version.`)
+      throw new CodeCellError(
+        400,
+        'invalid_request',
+        `${alias} needs a dataset version.`,
+      )
     }
     return { alias, datasetVersionId: versionId }
   })
@@ -460,7 +502,10 @@ export async function runCodeCell(
   if (original) {
     if (failure || !execution) {
       matches = false
-    } else if (original.output_digest && original.output_digest === outputDigest) {
+    } else if (
+      original.output_digest &&
+      original.output_digest === outputDigest
+    ) {
       matches = true
     } else {
       diff = diffResultRows(original.output?.rows ?? [], stored)
@@ -468,42 +513,43 @@ export async function runCodeCell(
     }
   }
 
-  const recorded = await client.rpc<{ id: string; number: number; ran_at: string }>(
-    'record_code_cell_run',
-    {
-      p_record_id: request.recordId,
-      p_block_id: blockId,
-      p_language: language,
-      p_source: source,
-      p_source_sha256: sourceDigest,
-      p_inputs: inputs.map((i) => ({
-        alias: i.alias,
-        datasetVersionId: i.datasetVersionId,
-        label: i.label,
-        rowCount: i.rowCount,
-        digest: i.digest,
-      })),
-      p_parameters: {},
-      p_status: failure ? 'failed' : 'succeeded',
-      p_output: execution
-        ? {
-            columns: columns.map((name) => ({ name })),
-            rows: stored,
-            rowCount: rows.length,
-            truncated: rows.length > stored.length,
-          }
-        : null,
-      p_output_digest: outputDigest,
-      p_runtime: execution?.runtime ?? null,
-      p_environment: execution?.environment ?? null,
-      p_logs: execution?.logs ?? [],
-      p_error: failure,
-      p_duration_ms: duration,
-      p_reproduces_run_id: original?.id ?? null,
-      p_matches: matches,
-      p_diff: diff,
-    },
-  )
+  const recorded = await client.rpc<{
+    id: string
+    number: number
+    ran_at: string
+  }>('record_code_cell_run', {
+    p_record_id: request.recordId,
+    p_block_id: blockId,
+    p_language: language,
+    p_source: source,
+    p_source_sha256: sourceDigest,
+    p_inputs: inputs.map((i) => ({
+      alias: i.alias,
+      datasetVersionId: i.datasetVersionId,
+      label: i.label,
+      rowCount: i.rowCount,
+      digest: i.digest,
+    })),
+    p_parameters: {},
+    p_status: failure ? 'failed' : 'succeeded',
+    p_output: execution
+      ? {
+          columns: columns.map((name) => ({ name })),
+          rows: stored,
+          rowCount: rows.length,
+          truncated: rows.length > stored.length,
+        }
+      : null,
+    p_output_digest: outputDigest,
+    p_runtime: execution?.runtime ?? null,
+    p_environment: execution?.environment ?? null,
+    p_logs: execution?.logs ?? [],
+    p_error: failure,
+    p_duration_ms: duration,
+    p_reproduces_run_id: original?.id ?? null,
+    p_matches: matches,
+    p_diff: diff,
+  })
 
   return {
     runId: recorded.id,

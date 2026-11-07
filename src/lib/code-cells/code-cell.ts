@@ -127,9 +127,7 @@ export async function requestCodeCellRun(
     body: JSON.stringify(request),
   })
   const body = (await response.json().catch(() => null)) as
-    | CodeCellOutput
-    | { error?: { message?: string } }
-    | null
+    CodeCellOutput | { error?: { message?: string } } | null
   if (!response.ok || !body || 'error' in body) {
     const message =
       body && 'error' in body && body.error?.message

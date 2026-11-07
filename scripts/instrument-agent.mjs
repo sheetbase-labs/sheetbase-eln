@@ -679,7 +679,11 @@ export function opentronsEntries(run, commands) {
       const destWell = String(params.wellName ?? '').toUpperCase()
       const last = entries.at(-1)
       const moved = ok && pending.ok ? Number(params.volume ?? 0) : 0
-      if (last && last.sourceWell === pending.well && last.destWell === destWell) {
+      if (
+        last &&
+        last.sourceWell === pending.well &&
+        last.destWell === destWell
+      ) {
         last.actualUl += moved
         if (!(ok && pending.ok)) last.status = 'failed'
       } else {
@@ -723,8 +727,11 @@ export function createOpentronsDriver(config, deps = {}) {
       // not JSON
     }
     if (!response.ok) {
-      const detail = json?.errors?.[0]?.detail ?? json?.message ?? text.slice(0, 200)
-      const failure = new Error(`The robot answered ${response.status}: ${detail}`)
+      const detail =
+        json?.errors?.[0]?.detail ?? json?.message ?? text.slice(0, 200)
+      const failure = new Error(
+        `The robot answered ${response.status}: ${detail}`,
+      )
       failure.robotStatus = response.status
       throw failure
     }
@@ -872,9 +879,7 @@ export function createRobotRunner(options, deps = {}) {
     if (response.status === 401 && attempt === 0) return post(body, 1)
     const json = await response.json().catch(() => null)
     if (!response.ok) {
-      const error = new Error(
-        json?.error?.message ?? `HTTP ${response.status}`,
-      )
+      const error = new Error(json?.error?.message ?? `HTTP ${response.status}`)
       error.status = response.status
       throw error
     }
@@ -884,7 +889,9 @@ export function createRobotRunner(options, deps = {}) {
   async function report(job, status, extra = {}) {
     await post({ action: 'report', jobId: job.id, status, ...extra })
     told.set(job.id, status)
-    log(`IJ-${String(job.number).padStart(4, '0')}: ${status}${extra.message ? ` (${extra.message})` : ''}`)
+    log(
+      `IJ-${String(job.number).padStart(4, '0')}: ${status}${extra.message ? ` (${extra.message})` : ''}`,
+    )
   }
 
   async function step(job) {

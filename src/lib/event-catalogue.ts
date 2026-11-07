@@ -2169,7 +2169,8 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
   {
     name: 'instrument.job.staged',
     family: 'instrument',
-    summary: 'The folder agent put a job on the robot, where it waits for a person to start it.',
+    summary:
+      'The folder agent put a job on the robot, where it waits for a person to start it.',
     producer: {
       entityType: 'instrument_job',
       operation: 'update',
@@ -2201,7 +2202,8 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
   {
     name: 'instrument.job.completed',
     family: 'instrument',
-    summary: 'A robot finished a job and its log was read back; result has the transfers by status and the samples withdrawn.',
+    summary:
+      'A robot finished a job and its log was read back; result has the transfers by status and the samples withdrawn.',
     producer: {
       entityType: 'instrument_job',
       operation: 'update',
@@ -2249,7 +2251,8 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
   {
     name: 'schedule.proposed',
     family: 'booking',
-    summary: 'The planner proposed a schedule for an experiment. Nothing is booked until a person accepts it.',
+    summary:
+      'The planner proposed a schedule for an experiment. Nothing is booked until a person accepts it.',
     producer: {
       entityType: 'schedule_proposal',
       operation: 'create',
@@ -2296,7 +2299,8 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
   {
     name: 'code_cell.run',
     family: 'record',
-    summary: 'A notebook code cell was run; the code, inputs, image and output digest are kept.',
+    summary:
+      'A notebook code cell was run; the code, inputs, image and output digest are kept.',
     producer: {
       entityType: 'code_cell_run',
       operation: 'create',
@@ -2311,7 +2315,8 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
   {
     name: 'code_cell.reproduced',
     family: 'record',
-    summary: 'A code cell run was run again from its pinned inputs; matches says whether the output came out the same.',
+    summary:
+      'A code cell run was run again from its pinned inputs; matches says whether the output came out the same.',
     producer: {
       entityType: 'code_cell_run',
       operation: 'update',

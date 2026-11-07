@@ -71,7 +71,10 @@ function CodeCellOutputView({
 }) {
   const shown = output.rows.slice(0, PREVIEW_ROWS)
   return (
-    <div className="flex flex-col gap-2" aria-label={t('automation.codeCell.outputLabel')}>
+    <div
+      className="flex flex-col gap-2"
+      aria-label={t('automation.codeCell.outputLabel')}
+    >
       <p className="m-0 flex flex-wrap items-center gap-2 text-label text-fg-muted">
         <span className="mono">{output.reference}</span>
         {t('automation.codeCell.ranAt', {
@@ -83,7 +86,9 @@ function CodeCellOutputView({
           </Badge>
         ) : null}
       </p>
-      {stale ? <Notice tone="warn">{t('automation.codeCell.stale')}</Notice> : null}
+      {stale ? (
+        <Notice tone="warn">{t('automation.codeCell.stale')}</Notice>
+      ) : null}
       {output.status === 'error' ? (
         <Notice tone="bad">
           {t('automation.codeCell.failed', {
@@ -155,7 +160,12 @@ function Provenance({ output }: { output: CodeCellOutput }) {
           : (output.runtime ?? '—')}
       </dd>
       {output.inputs.map((input) => (
-        <FragmentRow key={input.alias} label={t('automation.codeCell.provenance.input', { alias: input.alias })}>
+        <FragmentRow
+          key={input.alias}
+          label={t('automation.codeCell.provenance.input', {
+            alias: input.alias,
+          })}
+        >
           {input.label} · {shortDigest(input.digest)}
         </FragmentRow>
       ))}
@@ -287,7 +297,9 @@ export function CodeCellBlockEditor({
   // The block changed underneath (another person, a conflict resolved).
   useEffect(() => {
     if (dirty.current) return
-    setLanguage(isCodeCellLanguage(initial.language) ? initial.language : 'python')
+    setLanguage(
+      isCodeCellLanguage(initial.language) ? initial.language : 'python',
+    )
     setSource(initial.source ?? '')
     setInputs(initial.inputs ?? [])
     setOutput(initial.output ?? null)
@@ -345,7 +357,9 @@ export function CodeCellBlockEditor({
     setLanguage(next)
     const starterOther = starterSource(next === 'python' ? 'sql' : 'python')
     const nextSource =
-      source.trim() === '' || source === starterOther ? starterSource(next) : source
+      source.trim() === '' || source === starterOther
+        ? starterSource(next)
+        : source
     setSource(nextSource)
     void persist({ language: next, source: nextSource, inputs, output })
   }
@@ -400,9 +414,7 @@ export function CodeCellBlockEditor({
                 dirty.current = true
                 setSource(event.target.value)
               }}
-              onBlur={() =>
-                void persist({ language, source, inputs, output })
-              }
+              onBlur={() => void persist({ language, source, inputs, output })}
             />
           ) : (
             <textarea
@@ -449,14 +461,18 @@ export function CodeCellBlockEditor({
                     ),
                   )
                 }
-                onBlur={() => void persist({ language, source, inputs, output })}
+                onBlur={() =>
+                  void persist({ language, source, inputs, output })
+                }
               />
               <Select
                 aria-label={t('automation.codeCell.versionLabel')}
                 value={input.datasetVersionId}
                 disabled={readOnly}
                 onChange={(event) => {
-                  const chosen = options.find((o) => o.id === event.target.value)
+                  const chosen = options.find(
+                    (o) => o.id === event.target.value,
+                  )
                   changeInputs(
                     inputs.map((x, i) =>
                       i === index
@@ -471,9 +487,13 @@ export function CodeCellBlockEditor({
                   )
                 }}
               >
-                <option value="">{t('automation.codeCell.chooseVersion')}</option>
+                <option value="">
+                  {t('automation.codeCell.chooseVersion')}
+                </option>
                 {options
-                  .filter((o) => o.id === input.datasetVersionId || !taken.has(o.id))
+                  .filter(
+                    (o) => o.id === input.datasetVersionId || !taken.has(o.id),
+                  )
                   .map((o) => (
                     <option key={o.id} value={o.id}>
                       {o.label}
@@ -490,7 +510,9 @@ export function CodeCellBlockEditor({
                 <Button
                   size="sm"
                   variant="quiet"
-                  onClick={() => changeInputs(inputs.filter((_, i) => i !== index))}
+                  onClick={() =>
+                    changeInputs(inputs.filter((_, i) => i !== index))
+                  }
                 >
                   {t('automation.codeCell.removeInput')}
                 </Button>
@@ -505,7 +527,8 @@ export function CodeCellBlockEditor({
                   setInputs((c) => [
                     ...c,
                     {
-                      alias: c.length === 0 ? 'samples' : `input${c.length + 1}`,
+                      alias:
+                        c.length === 0 ? 'samples' : `input${c.length + 1}`,
                       datasetVersionId: '',
                     },
                   ])

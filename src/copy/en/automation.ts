@@ -175,8 +175,7 @@ export const automation = {
       accepting: 'Booking…',
       dismiss: 'Dismiss',
       accepted: 'Booked {booked} slots for {reference}',
-      acceptedSkipped:
-        '{skipped} slots could not be booked: {reasons}',
+      acceptedSkipped: '{skipped} slots could not be booked: {reasons}',
       couldNotAccept: 'Could not book the schedule.',
       dismissed: '{reference} dismissed',
       couldNotDismiss: 'Could not dismiss the proposal.',
@@ -190,7 +189,8 @@ export const automation = {
     conflicts: {
       no_slot: 'No free time found in the next three months.',
       no_working_day: 'No working day available.',
-      max_booking_exceeded: 'Longer than this instrument allows for one booking.',
+      max_booking_exceeded:
+        'Longer than this instrument allows for one booking.',
       too_far_ahead: 'Further ahead than this instrument can be booked.',
       out_of_service: 'The instrument is out of service.',
       not_qualified: 'Not qualified to use this instrument.',
@@ -257,14 +257,16 @@ export const automation = {
     reproducing: 'Reproducing…',
     couldNotRun: 'The code could not be run.',
     ranAt: 'ran {when}',
-    stale: 'The code or inputs changed since this output. Run it again to update.',
+    stale:
+      'The code or inputs changed since this output. Run it again to update.',
     notRun: 'Not run yet.',
     failed: 'The run failed: {message}',
     rows: {
       one: '{count} row',
       other: '{count} rows',
     },
-    firstRows: 'First {shown} of {count} rows. The full result is kept with the run.',
+    firstRows:
+      'First {shown} of {count} rows. The full result is kept with the run.',
     noRows: 'The code returned no rows.',
     outputLabel: 'Output of the last run',
     logs: 'Printed',

@@ -33,7 +33,9 @@ interface ClaimedProposal {
 }
 
 const asDate = (value: unknown): string =>
-  value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10)
+  value instanceof Date
+    ? value.toISOString().slice(0, 10)
+    : String(value).slice(0, 10)
 
 /** Everything the planner reads for one experiment. */
 export async function loadPlanInput(
@@ -200,12 +202,17 @@ export async function loadPlanInput(
           AND (NOT internal.instrument_qualified(r.id, u) OR g.protocol_record_id IS NOT NULL)`,
       [resourceIds, people],
     )
-    for (const row of gapRows) gaps.set(`${row.resource_id}:${row.user_id}`, row.reason)
+    for (const row of gapRows)
+      gaps.set(`${row.resource_id}:${row.user_id}`, row.reason)
   }
 
   const absences = new Map<string, Array<readonly [string, string]>>()
   if (people.length > 0) {
-    const { rows } = await q<{ user_id: string; starts_on: unknown; ends_on: unknown }>(
+    const { rows } = await q<{
+      user_id: string
+      starts_on: unknown
+      ends_on: unknown
+    }>(
       `SELECT user_id, starts_on, ends_on FROM api.member_absences
         WHERE workspace_id = $1 AND user_id = ANY($2::text[]) AND cancelled_at IS NULL AND ends_on >= current_date`,
       [proposal.workspace_id, people],
@@ -222,7 +229,10 @@ export async function loadPlanInput(
     identifier,
     input: {
       anchorOn: asDate(proposal.anchor_on),
-      notBefore: Math.max(notBefore, localToEpoch(asDate(proposal.anchor_on), 0, hours.timezone)),
+      notBefore: Math.max(
+        notBefore,
+        localToEpoch(asDate(proposal.anchor_on), 0, hours.timezone),
+      ),
       hours,
       parts,
       busy,

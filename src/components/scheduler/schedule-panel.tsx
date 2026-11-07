@@ -218,9 +218,7 @@ export function SchedulePanel({
       action={
         canWrite ? (
           <Tooltip
-            content={
-              planned ? undefined : t('automation.schedule.needsPlans')
-            }
+            content={planned ? undefined : t('automation.schedule.needsPlans')}
           >
             <span>
               <Button
@@ -326,7 +324,9 @@ function ProposalView({
       }
     },
     onError: (e: unknown) =>
-      toast.error(messageOf(e, t('automation.schedule.proposal.couldNotAccept'))),
+      toast.error(
+        messageOf(e, t('automation.schedule.proposal.couldNotAccept')),
+      ),
   })
   const dismiss = useMutation({
     mutationFn: () => dismissProposal(client, proposal.id),
@@ -515,8 +515,13 @@ function PartPlanDialog({
   const queryClient = useQueryClient()
   const [handsOn, setHandsOn] = useState(String(plan?.hands_on_minutes ?? 60))
   const [wait, setWait] = useState(String(plan?.wait_after_minutes ?? 0))
-  const [rows, setRows] = useState<Array<{ resourceId: string; minutes: string }>>(
-    needs.map((n) => ({ resourceId: n.resource_id, minutes: String(n.minutes) })),
+  const [rows, setRows] = useState<
+    Array<{ resourceId: string; minutes: string }>
+  >(
+    needs.map((n) => ({
+      resourceId: n.resource_id,
+      minutes: String(n.minutes),
+    })),
   )
 
   const whole = (text: string, min: number) => {
@@ -551,7 +556,9 @@ function PartPlanDialog({
       onClose()
     },
     onError: (e: unknown) =>
-      toast.error(messageOf(e, t('automation.schedule.planDialog.couldNotSave'))),
+      toast.error(
+        messageOf(e, t('automation.schedule.planDialog.couldNotSave')),
+      ),
   })
 
   const taken = new Set(rows.map((r) => r.resourceId))
@@ -726,7 +733,9 @@ function SlipDialog({
             </p>
             <Field
               label={t('automation.schedule.slip.days')}
-              error={invalid ? t('automation.schedule.slip.problemDays') : undefined}
+              error={
+                invalid ? t('automation.schedule.slip.problemDays') : undefined
+              }
             >
               <Input
                 inputMode="numeric"

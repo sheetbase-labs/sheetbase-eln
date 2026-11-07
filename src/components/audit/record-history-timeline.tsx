@@ -48,6 +48,50 @@ function actorLabel(
   return nameOf?.(actorUserId) ?? actorUserId.slice(0, 8)
 }
 
+const PAST_TENSE: Record<string, string> = {
+  create: 'created',
+  update: 'updated',
+  delete: 'deleted',
+  archive: 'archived',
+  restore: 'restored',
+  move: 'moved',
+  link: 'linked',
+  unlink: 'unlinked',
+  lock: 'locked',
+  amend: 'amended',
+  quarantine: 'quarantined',
+  resolve: 'resolved',
+  reopen: 'reopened',
+  suspend: 'suspended',
+  revoke: 'revoked',
+}
+
+function words(value: string): string {
+  return value.replace(/[_-]+/g, ' ').trim()
+}
+
+function sentence(value: string): string {
+  const text = words(value)
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+/**
+ * The timeline names events the way the database stores them ("registry_entry
+ * create", "review approve"). Said in plain words: "Registry entry created".
+ */
+function friendlyTitle(event: TimelineEventWire): string {
+  if (event.type === 'change_event') {
+    const entity =
+      typeof event.eventType === 'string'
+        ? event.eventType
+        : (event.title.split(' ')[0] ?? '')
+    const operation = String(event.operation ?? '')
+    const done = PAST_TENSE[operation] ?? words(operation)
+    return sentence(`${words(entity)} ${done}`.trim()) || sentence(event.title)
+  }
+  return sentence(event.title)
+}
+
 function pickIcon(event: TimelineEventWire) {
   switch (event.type) {
     case 'signature':
@@ -98,14 +142,15 @@ function detailPhrase(event: TimelineEventWire): string {
         }
         if (labels.length > 0) return labels.join(', ')
       }
-      return String(event.operation ?? '')
+      // The title already says what happened.
+      return ''
     }
     case 'revision':
       return String(event.reason ?? '')
     case 'submission':
       return String(event.state ?? '')
     case 'decision':
-      return String(event.decision ?? '')
+      return words(String(event.decision ?? ''))
     case 'check':
       return String(event.overallStatus ?? '')
     case 'signature':
@@ -127,7 +172,7 @@ export function mapTimelineEvents(
   return events.map((event) => ({
     id: `${event.type}-${event.id}`,
     type: event.type,
-    title: event.title,
+    title: friendlyTitle(event),
     actor: {
       name: actorLabel(
         event.actorUserId,

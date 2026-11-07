@@ -87,7 +87,7 @@ export function fetchProposals(
 ): Promise<ScheduleProposalWire[]> {
   return client.list<ScheduleProposalWire>(
     'schedule_proposals',
-    `select=*&record_id=eq.${encodeURIComponent(recordId)}&order=created_at.desc&limit=10`,
+    `?select=*&record_id=eq.${encodeURIComponent(recordId)}&order=created_at.desc&limit=10`,
   )
 }
 
@@ -100,11 +100,11 @@ export async function fetchPartPlans(
   const [plans, needs] = await Promise.all([
     client.list<PartPlanWire>(
       'part_plans',
-      `select=part_id,hands_on_minutes,wait_after_minutes&part_id=in.(${list})`,
+      `?select=part_id,hands_on_minutes,wait_after_minutes&part_id=in.(${list})`,
     ),
     client.list<PartNeedWire>(
       'part_resource_needs',
-      `select=*&part_id=in.(${list})&order=position.asc`,
+      `?select=*&part_id=in.(${list})&order=position.asc`,
     ),
   ])
   return { plans, needs }
@@ -117,7 +117,7 @@ export async function fetchSchedulerSettings(
     (
       await client.list<SchedulerSettingsWire>(
         'scheduler_settings',
-        'select=*&limit=1',
+        '?select=*&limit=1',
       )
     ).at(0) ?? null
   )

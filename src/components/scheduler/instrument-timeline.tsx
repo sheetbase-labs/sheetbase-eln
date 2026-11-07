@@ -70,37 +70,31 @@ export function InstrumentTimeline({ instrumentId }: { instrumentId: string }) {
         ),
         client.list<ScheduleProposalWire>(
           'schedule_proposals',
-          'select=id,items&status=eq.proposed&limit=50',
+          '?select=id,items&status=eq.proposed&limit=50',
         ),
       ])
       const proposed = proposals.flatMap((p) =>
         p.items
           .filter(
             (item) =>
-              item.resourceId === instrumentId &&
-              item.startsAt &&
-              item.endsAt,
+              item.resourceId === instrumentId && item.startsAt && item.endsAt,
           )
-          .map(
-            (item): Slot => ({
-              key: `${p.id}-${item.partId}`,
-              title: `${item.partNumber}. ${item.partTitle}`,
-              start: Date.parse(item.startsAt as string),
-              end: Date.parse(item.endsAt as string),
-              proposed: true,
-            }),
-          ),
+          .map((item): Slot => ({
+            key: `${p.id}-${item.partId}`,
+            title: `${item.partNumber}. ${item.partTitle}`,
+            start: Date.parse(item.startsAt as string),
+            end: Date.parse(item.endsAt as string),
+            proposed: true,
+          })),
       )
       return [
-        ...bookings.map(
-          (b): Slot => ({
-            key: b.id,
-            title: b.title,
-            start: Date.parse(b.starts_at),
-            end: Date.parse(b.ends_at),
-            proposed: false,
-          }),
-        ),
+        ...bookings.map((b): Slot => ({
+          key: b.id,
+          title: b.title,
+          start: Date.parse(b.starts_at),
+          end: Date.parse(b.ends_at),
+          proposed: false,
+        })),
         ...proposed,
       ]
     },

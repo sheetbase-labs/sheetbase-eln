@@ -484,7 +484,7 @@ export async function runCodeCell(
         digest: i.digest,
       })),
       p_parameters: {},
-      p_status: failure ? 'error' : 'ok',
+      p_status: failure ? 'failed' : 'succeeded',
       p_output: execution
         ? {
             columns: columns.map((name) => ({ name })),

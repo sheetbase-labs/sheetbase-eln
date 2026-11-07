@@ -1250,7 +1250,7 @@ CREATE TABLE api.code_cell_runs (
     CONSTRAINT chk_code_cell_runs_language CHECK (language IN ('python', 'sql')),
     CONSTRAINT chk_code_cell_runs_status CHECK (status IN ('succeeded', 'failed')),
     CONSTRAINT chk_code_cell_runs_source CHECK (length(source) BETWEEN 1 AND 40000),
-    CONSTRAINT chk_code_cell_runs_digest CHECK (source_sha256 ~ '^[0-9a-f]{64}$' AND (output_digest IS NULL OR output_digest ~ '^[0-9a-f]{64}$'))
+    CONSTRAINT chk_code_cell_runs_digest CHECK (source_sha256 ~ '^(sha256:)?[0-9a-f]{64}$' AND (output_digest IS NULL OR output_digest ~ '^(sha256:)?[0-9a-f]{64}$'))
 );
 --> statement-breakpoint
 ALTER TABLE api.code_cell_runs OWNER TO migrator;

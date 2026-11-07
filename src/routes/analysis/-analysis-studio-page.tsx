@@ -2311,7 +2311,7 @@ export function AnalysisPreview({
           )}
         </button>
         {dataPreviewOpen ? (
-          <div className="max-h-40 overflow-hidden">
+          <div className="flex max-h-48 min-h-0 flex-col">
             <DataTableAlternative
               materialised={analysisMaterialised}
               loading={datasetQuery.isLoading}

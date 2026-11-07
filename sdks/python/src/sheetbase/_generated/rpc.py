@@ -151,6 +151,7 @@ class Rpc:
         "end_recurring_schedule",
         "end_step_timer",
         "enrol_sample_in_workflow",
+        "event_stream_page",
         "finish_agent_action",
         "follow_project",
         "get_webhook_endpoint_health",
@@ -1701,6 +1702,31 @@ class Rpc:
         body["p_record_id"] = record_id
         body["p_workflow_id"] = workflow_id
         return self._call("enrol_sample_in_workflow", body)  # type: ignore[no-any-return]
+
+    def event_stream_page(
+        self,
+        *,
+        after: Union[int, Unset] = UNSET,
+        limit: Union[int, Unset] = UNSET,
+        entity_types: Union[List[str], Unset] = UNSET,
+    ) -> Dict[str, Any]:
+        """
+        Read a page of the event stream
+
+        Changes in the workspace in order, after the sequence in `p_after`, that the caller could see in the app. Returns `events` (rows with `sequence`, `entity_type`, `operation` and `payload`), `nextCursor`, `hasMore`, the `earliest` and `latest` kept, `expired` (the cursor is older than the events kept) and `retentionDays`. `GET /api/events/stream` serves the same thing as CloudEvents and a live stream.
+
+        Scopes: admin:read.
+
+        ``POST /api/db/rpc/event_stream_page``
+        """
+        body: Dict[str, Any] = {}
+        if not isinstance(after, Unset):
+            body["p_after"] = after
+        if not isinstance(limit, Unset):
+            body["p_limit"] = limit
+        if not isinstance(entity_types, Unset):
+            body["p_entity_types"] = entity_types
+        return self._call("event_stream_page", body)  # type: ignore[no-any-return]
 
     def finish_agent_action(
         self,
@@ -4779,6 +4805,7 @@ class AsyncRpc:
         "end_recurring_schedule",
         "end_step_timer",
         "enrol_sample_in_workflow",
+        "event_stream_page",
         "finish_agent_action",
         "follow_project",
         "get_webhook_endpoint_health",
@@ -6329,6 +6356,31 @@ class AsyncRpc:
         body["p_record_id"] = record_id
         body["p_workflow_id"] = workflow_id
         return await self._call("enrol_sample_in_workflow", body)  # type: ignore[no-any-return]
+
+    async def event_stream_page(
+        self,
+        *,
+        after: Union[int, Unset] = UNSET,
+        limit: Union[int, Unset] = UNSET,
+        entity_types: Union[List[str], Unset] = UNSET,
+    ) -> Dict[str, Any]:
+        """
+        Read a page of the event stream
+
+        Changes in the workspace in order, after the sequence in `p_after`, that the caller could see in the app. Returns `events` (rows with `sequence`, `entity_type`, `operation` and `payload`), `nextCursor`, `hasMore`, the `earliest` and `latest` kept, `expired` (the cursor is older than the events kept) and `retentionDays`. `GET /api/events/stream` serves the same thing as CloudEvents and a live stream.
+
+        Scopes: admin:read.
+
+        ``POST /api/db/rpc/event_stream_page``
+        """
+        body: Dict[str, Any] = {}
+        if not isinstance(after, Unset):
+            body["p_after"] = after
+        if not isinstance(limit, Unset):
+            body["p_limit"] = limit
+        if not isinstance(entity_types, Unset):
+            body["p_entity_types"] = entity_types
+        return await self._call("event_stream_page", body)  # type: ignore[no-any-return]
 
     async def finish_agent_action(
         self,

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { ObjectLink } from '#/components/ui/object-link'
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/ui/button'
@@ -78,12 +79,17 @@ export function SimilarWorkPanel({
                     matchedField: 'description',
                   }}
                 />
+                <ObjectLink
+                  kind={hit.type === 'record' ? hit.kind : hit.type}
+                  id={hit.id}
+                  identifier={hit.identifier}
+                  className="shrink-0 text-fg-muted"
+                />
                 <Link
                   to={hit.deepLink}
                   className="min-w-0 flex-1 truncate text-fg hover:text-link"
                   title={hit.passage}
                 >
-                  <span className="mono text-fg-muted">{hit.identifier}</span>{' '}
                   {hit.title}
                 </Link>
                 <Status tone={toneFor(hit.similarity)}>

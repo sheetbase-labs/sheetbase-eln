@@ -760,3 +760,35 @@ END $$;
 ALTER FUNCTION internal.lake_token_workspace(text) OWNER TO migrator;
 --> statement-breakpoint
 REVOKE ALL ON FUNCTION internal.lake_token_workspace(text) FROM PUBLIC;
+--> statement-breakpoint
+
+-- Open tables are a data-access feature. When a login's owner stops having
+-- data access (role changed, suspended, removed), the login is revoked, and the
+-- database role stops being able to connect, so nothing is left to read the
+-- catalogue with.
+CREATE FUNCTION internal.lake_revoke_orphaned_credentials() RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+DECLARE
+  l internal.lake_credentials;
+  n integer := 0;
+BEGIN
+  FOR l IN
+    SELECT * FROM internal.lake_credentials x
+     WHERE x.revoked_at IS NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM api.workspace_memberships m
+          WHERE m.workspace_id = x.workspace_id AND m.user_id = x.user_id AND m.suspended_at IS NULL
+            AND (m.role IN ('owner', 'admin') OR m.role = ANY (internal.data_access_roles(x.workspace_id))))
+  LOOP
+    UPDATE internal.lake_credentials SET revoked_at = now() WHERE internal.lake_credentials.id = l.id;
+    EXECUTE format('ALTER ROLE %I NOLOGIN', l.role_name);
+    n := n + 1;
+  END LOOP;
+  RETURN n;
+END $$;
+--> statement-breakpoint
+ALTER FUNCTION internal.lake_revoke_orphaned_credentials() OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION internal.lake_revoke_orphaned_credentials() FROM PUBLIC;

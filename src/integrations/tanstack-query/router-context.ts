@@ -72,8 +72,10 @@ export function refreshAfterWrites(
   const stop = onRowsChanged((path) => {
     // The sidebar's counts, pinned items and bell come from the shell, which is
     // loaded separately from the queries. Writes from a notebook or a grid
-    // arrive many times a minute and cannot change them, so they skip it.
-    if (!EDITING_PATHS.test(path)) shellWanted = true
+    // arrive many times a minute and cannot change them, and nothing else on
+    // screen shows them, so they skip the refresh altogether.
+    if (EDITING_PATHS.test(path)) return
+    shellWanted = true
     if (timer !== null) return
     timer = setTimeout(() => {
       timer = null

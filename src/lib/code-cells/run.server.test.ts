@@ -84,7 +84,9 @@ describe('digests', () => {
 describe('singleSelect', () => {
   it('accepts a select and drops the trailing semicolon', () => {
     expect(singleSelect('-- hi\nSELECT 1;')).toBe('-- hi\nSELECT 1')
-    expect(singleSelect('with a as (select 1) select * from a')).toContain('with')
+    expect(singleSelect('with a as (select 1) select * from a')).toContain(
+      'with',
+    )
   })
   it('refuses writes and several statements', () => {
     expect(() => singleSelect('DROP TABLE samples')).toThrow(CodeCellError)
@@ -140,7 +142,11 @@ describe('runCodeCell', () => {
       {
         executePython: vi.fn(),
         executeSql: vi.fn(async () => {
-          throw new CodeCellError(422, 'code_failed', 'relation "nope" does not exist')
+          throw new CodeCellError(
+            422,
+            'code_failed',
+            'relation "nope" does not exist',
+          )
         }),
       },
     )
@@ -154,7 +160,13 @@ describe('runCodeCell', () => {
     await expect(
       runCodeCell(
         client,
-        { action: 'run', recordId: RECORD, language: 'python', source: 'x', inputs: [] },
+        {
+          action: 'run',
+          recordId: RECORD,
+          language: 'python',
+          source: 'x',
+          inputs: [],
+        },
         {
           executePython: vi.fn(async () => {
             throw new CodeCellError(503, 'runner_unavailable', 'not configured')
@@ -186,8 +198,15 @@ describe('runCodeCell', () => {
       { action: 'reproduce', recordId: RECORD, runId: RUN },
       { executePython: python(rows), executeSql: vi.fn() },
     )
-    expect(a.reproducedFrom).toEqual({ runId: RUN, reference: 'CC-0003', matches: true })
-    expect(same.recorded[0]).toMatchObject({ p_reproduces_run_id: RUN, p_matches: true })
+    expect(a.reproducedFrom).toEqual({
+      runId: RUN,
+      reference: 'CC-0003',
+      matches: true,
+    })
+    expect(same.recorded[0]).toMatchObject({
+      p_reproduces_run_id: RUN,
+      p_matches: true,
+    })
 
     const changed = fakeClient({ original })
     const b = await runCodeCell(
@@ -232,7 +251,10 @@ describe('handleCodeCell', () => {
       deps(client),
     )
     expect(response.status).toBe(200)
-    expect(await response.json()).toMatchObject({ status: 'ok', reference: 'CC-0007' })
+    expect(await response.json()).toMatchObject({
+      status: 'ok',
+      reference: 'CC-0007',
+    })
   })
 
   it('refuses a bad request before reading any data', async () => {

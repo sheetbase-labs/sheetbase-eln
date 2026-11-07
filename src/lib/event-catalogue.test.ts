@@ -525,6 +525,24 @@ const LAB_EVENTS: ReadonlyArray<{
     operation: 'delete',
     payload: {},
   },
+  {
+    name: 'instrument.run.converted',
+    entityType: 'instrument_run_document',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'qc.violation',
+    entityType: 'qc_violation',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'qc.back_in_control',
+    entityType: 'qc_series',
+    operation: 'update',
+    payload: { change: 'back_in_control' },
+  },
 ]
 
 describe('lab feature events', () => {

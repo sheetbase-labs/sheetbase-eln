@@ -2948,6 +2948,15 @@ export const data = {
       'Complete a worklist with what the robot really moved, optionally taking it out of the source samples.',
     archivePlateRun: 'Archive a plate run',
     archivePlateRunDescription: 'Take a plate run off the Plates list.',
+    keepAsmDocument: 'Keep the Allotrope document of a run',
+    keepAsmDocumentDescription:
+      'Store the Allotrope document a Python step converted from an instrument file against its instrument run.',
+    addQcPoint: 'Add a quality control point',
+    addQcPointDescription:
+      'Add a value to a tracked quality control series; it is judged against the series’ limits and rules.',
+    acknowledgeQcPoint: 'Acknowledge a quality control breach',
+    acknowledgeQcPointDescription:
+      'Note what was done about a point that broke a rule, optionally leaving it out of the limits.',
     insertNotebookBlock: 'Insert a notebook block',
     insertBlockIntoNotebook:
       'Insert a block into a notebook record, after a named block. A step may propose this instead of doing it.',

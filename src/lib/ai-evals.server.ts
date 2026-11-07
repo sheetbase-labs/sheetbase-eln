@@ -16,8 +16,8 @@ import type { AiFeatureFlags } from './ai-feature-flags'
 import {
   ASSISTANT_PROPOSE_TOOL_NAMES,
   ASSISTANT_READ_TOOL_NAMES,
+  toWireToolName,
 } from './agent-tool-catalogue'
-import { toWireToolName } from './agent-tool-catalogue'
 import {
   AGENT_ACTIONS,
   agentActionAlwaysNever,
@@ -252,7 +252,7 @@ export function createFixtureClient(
     insert: refuse,
     patch: refuse,
     remove: refuse,
-  } as unknown as DataClient
+  }
 }
 
 // ---------------------------------------------------------------------------

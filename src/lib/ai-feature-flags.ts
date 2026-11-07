@@ -90,7 +90,7 @@ export const AI_FEATURE_FLAGS: readonly AiFeatureFlagDefinition[] = [
     key: 'mcp_lab',
     label: 'Agents can act in the lab',
     description:
-      'Connected agents can order reagents, receive deliveries, log samples and service visits, run stocktakes and the other lab actions, as the person who connected them and within what that person is allowed to do. Unlike proposals these happen straight away.',
+      'Connected agents can order reagents, receive deliveries, log samples and service visits, run stocktakes and the other lab actions, as the person who connected them and within what that person is allowed to do. What happens to each action (runs now, waits for approval, or is refused) is set under Agent permissions below.',
     defaultValue: false,
     risk: 'privileged',
   },

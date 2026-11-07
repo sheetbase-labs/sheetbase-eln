@@ -15,7 +15,6 @@ const flags = Object.fromEntries(
 ) as AiFeatureFlags
 
 function client(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rpc: (...args: any[]) => any = vi.fn(async () => ({ id: ORDER_ID })),
 ): DataClient {
   return {
@@ -25,7 +24,7 @@ function client(
     insert: vi.fn(),
     patch: vi.fn(),
     remove: vi.fn(),
-  } as unknown as DataClient
+  }
 }
 
 function ctx(overrides: Partial<McpContext> = {}): McpContext {

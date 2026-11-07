@@ -76,6 +76,7 @@ export const agents = {
   },
   watchers: {
     title: 'Lab watchers',
+    reviews: 'What to watch',
     subtitle:
       'Watchers look over the lab on a schedule and leave a finding in your Inbox when something needs a person. They work the same with AI switched off.',
     viewOnly: 'Only an administrator can change watchers.',

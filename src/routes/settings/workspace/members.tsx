@@ -448,6 +448,10 @@ function Members() {
     {
       id: 'username',
       header: 'Username',
+      meta: {
+        headerClassName: 'hide-in-narrow-pane',
+        cellClassName: 'hide-in-narrow-pane',
+      },
       cell: ({ row }) =>
         row.original.username ? (
           <span className="mono">{row.original.username}</span>
@@ -798,7 +802,7 @@ function Members() {
           </>
         }
       >
-        {context.workspace?.name ?? 'Workspace'}
+        {context.workspace?.name ?? 'Workspace'}{' '}
         {t('settings.members.rolesDecideWhat')}
       </SettingsHeader>
       <div
@@ -843,77 +847,79 @@ function Members() {
           </Button>
         ) : null}
       </div>
-      <div className="min-h-[14rem] flex-1 overflow-auto max-md:pb-20">
-        {rows.length || members.isLoading ? (
-          <RegistryGrid
-            label={t('settings.members.members')}
-            rows={shownRows}
-            columns={memberColumns}
-            getRowId={(member) => member.id}
-            isLoading={members.isLoading}
-            selectable={false}
-          />
-        ) : (
-          <div className="px-4 py-4 md:px-6">
-            <EmptyState
-              icon="user"
-              title={t('settings.members.members2')}
-              description={t('settings.members.invitePeopleWorkDescription')}
-              action={
-                canManage ? (
-                  <Button
-                    variant="primary"
-                    onClick={() => setDialog({ kind: 'invite' })}
-                  >
-                    {t('settings.members.invitePeople')}
-                  </Button>
-                ) : undefined
-              }
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <div className="shrink-0 overflow-x-auto">
+          {rows.length || members.isLoading ? (
+            <RegistryGrid
+              label={t('settings.members.members')}
+              rows={shownRows}
+              columns={memberColumns}
+              getRowId={(member) => member.id}
+              isLoading={members.isLoading}
+              selectable={false}
+            />
+          ) : (
+            <div className="px-4 py-4 md:px-6">
+              <EmptyState
+                icon="user"
+                title={t('settings.members.members2')}
+                description={t('settings.members.invitePeopleWorkDescription')}
+                action={
+                  canManage ? (
+                    <Button
+                      variant="primary"
+                      onClick={() => setDialog({ kind: 'invite' })}
+                    >
+                      {t('settings.members.invitePeople')}
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </div>
+          )}
+        </div>
+        <div className="shrink-0 border-t border-border-subtle px-4 py-4 max-md:pb-20 md:px-6">
+          <div className="mb-6">
+            <JoinDomainsSection
+              workspaceId={workspaceId}
+              canManage={canManage}
+              ownEmail={context.user.email}
             />
           </div>
-        )}
-      </div>
-      <div className="max-h-[55%] shrink-0 overflow-auto border-t border-border-subtle px-4 py-4 md:px-6">
-        <div className="mb-6">
-          <JoinDomainsSection
-            workspaceId={workspaceId}
-            canManage={canManage}
-            ownEmail={context.user.email}
-          />
+          <div className="mb-6">
+            <SignInGroupsSection
+              workspaceId={workspaceId}
+              canManage={canManage}
+            />
+          </div>
+          <div className="mb-6">
+            <DirectorySyncSection
+              workspaceId={workspaceId}
+              canManage={canManage}
+            />
+          </div>
+          <Section
+            title={t('settings.members.invitations')}
+            count={pending.length}
+          >
+            {pending.length ? (
+              <TableBox>
+                <RegistryGrid
+                  label={t('settings.members.pendingInvitations')}
+                  rows={pending}
+                  columns={invitationColumns}
+                  getRowId={(invitation) => invitation.id}
+                  selectable={false}
+                />
+              </TableBox>
+            ) : (
+              <Muted>{t('settings.members.pendingInvitations2')}</Muted>
+            )}
+          </Section>
+          <p className="mt-3 text-label text-fg-muted">
+            {WORKSPACE_ROLE_DESCRIPTIONS[memberRole ?? 'viewer']}
+          </p>
         </div>
-        <div className="mb-6">
-          <SignInGroupsSection
-            workspaceId={workspaceId}
-            canManage={canManage}
-          />
-        </div>
-        <div className="mb-6">
-          <DirectorySyncSection
-            workspaceId={workspaceId}
-            canManage={canManage}
-          />
-        </div>
-        <Section
-          title={t('settings.members.invitations')}
-          count={pending.length}
-        >
-          {pending.length ? (
-            <TableBox>
-              <RegistryGrid
-                label={t('settings.members.pendingInvitations')}
-                rows={pending}
-                columns={invitationColumns}
-                getRowId={(invitation) => invitation.id}
-                selectable={false}
-              />
-            </TableBox>
-          ) : (
-            <Muted>{t('settings.members.pendingInvitations2')}</Muted>
-          )}
-        </Section>
-        <p className="mt-3 text-label text-fg-muted">
-          {WORKSPACE_ROLE_DESCRIPTIONS[memberRole ?? 'viewer']}
-        </p>
       </div>
 
       {dialog?.kind === 'groups' ? (

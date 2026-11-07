@@ -212,7 +212,7 @@ function Profile() {
             name={name}
             initials={initials.trim().toUpperCase() || initialsOf(name)}
           />
-          <div className="grid w-full grid-cols-1 gap-x-5 gap-y-3.5 md:w-auto md:grid-cols-[250px_250px]">
+          <div className="grid w-full grid-cols-1 gap-x-5 gap-y-3.5 md:w-auto md:grid-cols-[250px_minmax(250px,22rem)]">
             <Field
               label={t('settings.profile.fullName')}
               hint={t('settings.profile.printedSignedRecordsHint')}
@@ -281,6 +281,7 @@ function Profile() {
               <div className="relative">
                 <Input
                   value={user.email}
+                  title={user.email}
                   readOnly
                   className="bg-surface-muted pr-[72px] text-fg-muted"
                 />

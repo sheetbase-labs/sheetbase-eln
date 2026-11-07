@@ -112,6 +112,8 @@ const ACTION_COPY = {
   'watcher.set': 'setWatcher',
   'plate.analyse': 'analysePlate',
   'worklist.create': 'createWorklist',
+  'qc.set_baseline': 'setQcBaseline',
+  'qc.acknowledge': 'acknowledgeQc',
 } as const satisfies Record<AssistantActionKind, string>
 
 /** Button and done words for an everyday action: "Book", "Booked". */

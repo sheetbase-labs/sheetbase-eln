@@ -138,6 +138,9 @@ export const LAB_AREAS = {
     'Plate runs: readings checked against their own controls, with quality (Z-prime), hits and status',
   worklists:
     'Worklists for liquid handlers made from plate runs, and whether they are done',
+  qc: 'Quality control series: tracked values across runs, their limits and whether each is in control (openOnly: only those out of control)',
+  converted_data:
+    'Instrument files converted to the Allotrope (ASM) format, kept with their runs',
   timestamps:
     'Trusted timestamps on signatures: which are stamped, waiting or gave up (openOnly: only those not yet stamped)',
   validation:
@@ -711,6 +714,7 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   readings: 'limit_state=neq.ok',
   plate_runs: 'status=neq.archived',
   worklists: 'status=eq.planned',
+  qc: 'state=eq.out_of_control',
   timestamps: 'status=neq.stamped',
   validation: 'status=eq.failed',
   sample_workflows: 'status=eq.active',
@@ -780,6 +784,22 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'number.desc',
     search: ['name'],
     page: '/plates',
+  },
+  qc: {
+    table: 'qc_series',
+    select:
+      'id,name,source_kind,metric,unit,mean,sd,rules,enabled,state,state_changed_at,instrument_id,design_id',
+    order: 'state.asc,name.asc',
+    search: ['name'],
+    page: '/plates',
+  },
+  converted_data: {
+    table: 'instrument_run_documents',
+    select:
+      'id,run_id,instrument_id,technique,vendor,converter,converter_version,measurements,created_at',
+    order: 'created_at.desc',
+    search: ['technique', 'vendor', 'converter'],
+    page: '/instruments',
   },
   worklists: {
     table: 'plate_worklists',

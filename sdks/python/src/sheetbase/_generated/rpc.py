@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from sheetbase._http import AsyncHttpTransport, HttpTransport
 from sheetbase._unset import UNSET, Unset
 from sheetbase._generated.models import (
+    AgentActionRequestsRow,
     AgentOperation,
     AgentOperationProposalsRow,
     AgentProvenance,
@@ -29,6 +30,8 @@ from sheetbase._generated.models import (
     InstrumentFeedsRow,
     InstrumentServiceLogRow,
     JsonValue,
+    LabWatcherFindingsRow,
+    LabWatchersRow,
     LegalHoldsRow,
     MaterializationPreview,
     MaterializationResult,
@@ -142,6 +145,7 @@ class Rpc:
         "end_recurring_schedule",
         "end_step_timer",
         "enrol_sample_in_workflow",
+        "finish_agent_action",
         "follow_project",
         "get_webhook_endpoint_health",
         "hand_over_member_work",
@@ -200,8 +204,10 @@ class Rpc:
         "report_project_status",
         "report_spend_lines",
         "report_usage_lines",
+        "request_agent_action",
         "request_reagent_order",
         "request_signature_timestamp",
+        "resolve_agent_action_level",
         "resolve_sheet_instance_row_identity",
         "resolve_stocktake_item",
         "restore_dataset",
@@ -210,6 +216,7 @@ class Rpc:
         "retention_due",
         "revoke_scim_token",
         "rotate_webhook_secret",
+        "run_lab_watcher",
         "run_saved_search",
         "save_plate_run_analysis",
         "save_sample_workflow",
@@ -227,6 +234,7 @@ class Rpc:
         "set_instrument_feed_limits",
         "set_instrument_out_of_service",
         "set_instrument_rate",
+        "set_lab_watcher",
         "set_link_part",
         "set_material_safety",
         "set_member_absence",
@@ -240,6 +248,7 @@ class Rpc:
         "set_series_member_day",
         "set_step_done",
         "set_timestamp_settings",
+        "set_watcher_finding_status",
         "snapshot_dataset",
         "split_record_into_parts",
         "start_experiment_series",
@@ -1600,6 +1609,32 @@ class Rpc:
         body["p_workflow_id"] = workflow_id
         return self._call("enrol_sample_in_workflow", body)  # type: ignore[no-any-return]
 
+    def finish_agent_action(
+        self,
+        *,
+        request_id: str,
+        ok: bool,
+        result: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        error: Union[str, Unset] = UNSET,
+    ) -> Union["AgentActionRequestsRow", List["AgentActionRequestsRow"]]:
+        """
+        Record how an agent action ended
+
+        Marks an approved request as succeeded or failed once the action has been run. Only the person who approved it, or the requester when the action was Auto, can call it.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/finish_agent_action``
+        """
+        body: Dict[str, Any] = {}
+        body["p_request_id"] = request_id
+        body["p_ok"] = ok
+        if not isinstance(result, Unset):
+            body["p_result"] = result
+        if not isinstance(error, Unset):
+            body["p_error"] = error
+        return self._call("finish_agent_action", body)  # type: ignore[no-any-return]
+
     def follow_project(self, *, project_id: str) -> str:
         """
         Follow a project
@@ -2918,6 +2953,34 @@ class Rpc:
         body["p_to"] = to
         return self._call("report_usage_lines", body)  # type: ignore[no-any-return]
 
+    def request_agent_action(
+        self,
+        *,
+        workspace_id: str,
+        action_key: str,
+        arguments: Dict[str, "JsonValue"],
+        summary: str,
+        provenance: Dict[str, "JsonValue"],
+        idempotency_key: str,
+    ) -> Union["AgentActionRequestsRow", List["AgentActionRequestsRow"]]:
+        """
+        Ask to take an action
+
+        Records an action an agent wants to take and returns the request. What happens next depends on the workspace setting for that action: `refused` (Never), `pending` (Ask: a person approves it in the Inbox) or `approved` (Auto: the caller runs it now). Signing, submitting for review, amending, locking and deleting are always refused.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/request_agent_action``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_action_key"] = action_key
+        body["p_arguments"] = arguments
+        body["p_summary"] = summary
+        body["p_provenance"] = provenance
+        body["p_idempotency_key"] = idempotency_key
+        return self._call("request_agent_action", body)  # type: ignore[no-any-return]
+
     def request_reagent_order(
         self,
         *,
@@ -2961,6 +3024,29 @@ class Rpc:
         body: Dict[str, Any] = {}
         body["p_signature_id"] = signature_id
         return self._call("request_signature_timestamp", body)  # type: ignore[no-any-return]
+
+    def resolve_agent_action_level(
+        self,
+        *,
+        workspace_id: str,
+        action_key: str,
+        credential_id: Union[str, Unset] = UNSET,
+    ) -> str:
+        """
+        What an agent may do with an action
+
+        Returns `auto`, `ask` or `never` for an action, for the caller: a setting for this credential beats one for the caller’s role, which beats the one for everyone, and with none the answer is `ask`. Signing, submitting for review, amending, locking and deleting are always `never`.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/resolve_agent_action_level``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_action_key"] = action_key
+        if not isinstance(credential_id, Unset):
+            body["p_credential_id"] = credential_id
+        return self._call("resolve_agent_action_level", body)  # type: ignore[no-any-return]
 
     def resolve_sheet_instance_row_identity(
         self,
@@ -3116,6 +3202,20 @@ class Rpc:
         if not isinstance(new_secret, Unset):
             body["p_new_secret"] = new_secret
         return self._call("rotate_webhook_secret", body)  # type: ignore[no-any-return]
+
+    def run_lab_watcher(self, *, watcher_id: str) -> int:
+        """
+        Run a lab watcher now
+
+        Looks straight away instead of waiting for the schedule. Returns how many new findings were made. Sends `watcher.finding.created` for each.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/run_lab_watcher``
+        """
+        body: Dict[str, Any] = {}
+        body["p_watcher_id"] = watcher_id
+        return self._call("run_lab_watcher", body)  # type: ignore[no-any-return]
 
     def run_saved_search(
         self,
@@ -3553,6 +3653,37 @@ class Rpc:
             body["p_currency"] = currency
         return self._call("set_instrument_rate", body)  # type: ignore[no-any-return]
 
+    def set_lab_watcher(
+        self,
+        *,
+        workspace_id: str,
+        kind: str,
+        enabled: bool,
+        schedule: Union[str, Unset] = UNSET,
+        project_id: Union[str, Unset] = UNSET,
+        params: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Union["LabWatchersRow", List["LabWatchersRow"]]:
+        """
+        Turn a lab watcher on or off
+
+        Sets a watcher: `p_kind` is `stock_expiring`, `stock_low`, `work_overdue`, `data_missing` or `results_off`; `p_schedule` is `hourly`, `daily` or `weekly`; `p_project_id` limits it to one project; `p_params` can set `days` (how soon counts as soon) or `sigma` (how far off a result must be). Returns the watcher.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_lab_watcher``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_kind"] = kind
+        body["p_enabled"] = enabled
+        if not isinstance(schedule, Unset):
+            body["p_schedule"] = schedule
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        if not isinstance(params, Unset):
+            body["p_params"] = params
+        return self._call("set_lab_watcher", body)  # type: ignore[no-any-return]
+
     def set_link_part(self, *, link_id: str, part_id: str) -> Dict[str, "JsonValue"]:
         """
         Move a sample, dataset or other link to another part
@@ -3825,6 +3956,29 @@ class Rpc:
         if not isinstance(url, Unset):
             body["p_url"] = url
         return self._call("set_timestamp_settings", body)  # type: ignore[no-any-return]
+
+    def set_watcher_finding_status(
+        self,
+        *,
+        finding_id: str,
+        action: str,
+        until: Union[str, Unset] = UNSET,
+    ) -> Union["LabWatcherFindingsRow", List["LabWatcherFindingsRow"]]:
+        """
+        Dismiss or snooze a watcher finding
+
+        `p_action` is `dismiss`, `snooze` (with `p_until`, a time in the future) or `reopen`. Returns the finding.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_watcher_finding_status``
+        """
+        body: Dict[str, Any] = {}
+        body["p_finding_id"] = finding_id
+        body["p_action"] = action
+        if not isinstance(until, Unset):
+            body["p_until"] = until
+        return self._call("set_watcher_finding_status", body)  # type: ignore[no-any-return]
 
     def snapshot_dataset(
         self,
@@ -4379,6 +4533,7 @@ class AsyncRpc:
         "end_recurring_schedule",
         "end_step_timer",
         "enrol_sample_in_workflow",
+        "finish_agent_action",
         "follow_project",
         "get_webhook_endpoint_health",
         "hand_over_member_work",
@@ -4437,8 +4592,10 @@ class AsyncRpc:
         "report_project_status",
         "report_spend_lines",
         "report_usage_lines",
+        "request_agent_action",
         "request_reagent_order",
         "request_signature_timestamp",
+        "resolve_agent_action_level",
         "resolve_sheet_instance_row_identity",
         "resolve_stocktake_item",
         "restore_dataset",
@@ -4447,6 +4604,7 @@ class AsyncRpc:
         "retention_due",
         "revoke_scim_token",
         "rotate_webhook_secret",
+        "run_lab_watcher",
         "run_saved_search",
         "save_plate_run_analysis",
         "save_sample_workflow",
@@ -4464,6 +4622,7 @@ class AsyncRpc:
         "set_instrument_feed_limits",
         "set_instrument_out_of_service",
         "set_instrument_rate",
+        "set_lab_watcher",
         "set_link_part",
         "set_material_safety",
         "set_member_absence",
@@ -4477,6 +4636,7 @@ class AsyncRpc:
         "set_series_member_day",
         "set_step_done",
         "set_timestamp_settings",
+        "set_watcher_finding_status",
         "snapshot_dataset",
         "split_record_into_parts",
         "start_experiment_series",
@@ -5837,6 +5997,32 @@ class AsyncRpc:
         body["p_workflow_id"] = workflow_id
         return await self._call("enrol_sample_in_workflow", body)  # type: ignore[no-any-return]
 
+    async def finish_agent_action(
+        self,
+        *,
+        request_id: str,
+        ok: bool,
+        result: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+        error: Union[str, Unset] = UNSET,
+    ) -> Union["AgentActionRequestsRow", List["AgentActionRequestsRow"]]:
+        """
+        Record how an agent action ended
+
+        Marks an approved request as succeeded or failed once the action has been run. Only the person who approved it, or the requester when the action was Auto, can call it.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/finish_agent_action``
+        """
+        body: Dict[str, Any] = {}
+        body["p_request_id"] = request_id
+        body["p_ok"] = ok
+        if not isinstance(result, Unset):
+            body["p_result"] = result
+        if not isinstance(error, Unset):
+            body["p_error"] = error
+        return await self._call("finish_agent_action", body)  # type: ignore[no-any-return]
+
     async def follow_project(self, *, project_id: str) -> str:
         """
         Follow a project
@@ -7155,6 +7341,34 @@ class AsyncRpc:
         body["p_to"] = to
         return await self._call("report_usage_lines", body)  # type: ignore[no-any-return]
 
+    async def request_agent_action(
+        self,
+        *,
+        workspace_id: str,
+        action_key: str,
+        arguments: Dict[str, "JsonValue"],
+        summary: str,
+        provenance: Dict[str, "JsonValue"],
+        idempotency_key: str,
+    ) -> Union["AgentActionRequestsRow", List["AgentActionRequestsRow"]]:
+        """
+        Ask to take an action
+
+        Records an action an agent wants to take and returns the request. What happens next depends on the workspace setting for that action: `refused` (Never), `pending` (Ask: a person approves it in the Inbox) or `approved` (Auto: the caller runs it now). Signing, submitting for review, amending, locking and deleting are always refused.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/request_agent_action``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_action_key"] = action_key
+        body["p_arguments"] = arguments
+        body["p_summary"] = summary
+        body["p_provenance"] = provenance
+        body["p_idempotency_key"] = idempotency_key
+        return await self._call("request_agent_action", body)  # type: ignore[no-any-return]
+
     async def request_reagent_order(
         self,
         *,
@@ -7198,6 +7412,29 @@ class AsyncRpc:
         body: Dict[str, Any] = {}
         body["p_signature_id"] = signature_id
         return await self._call("request_signature_timestamp", body)  # type: ignore[no-any-return]
+
+    async def resolve_agent_action_level(
+        self,
+        *,
+        workspace_id: str,
+        action_key: str,
+        credential_id: Union[str, Unset] = UNSET,
+    ) -> str:
+        """
+        What an agent may do with an action
+
+        Returns `auto`, `ask` or `never` for an action, for the caller: a setting for this credential beats one for the caller’s role, which beats the one for everyone, and with none the answer is `ask`. Signing, submitting for review, amending, locking and deleting are always `never`.
+
+        Scopes: lab:read.
+
+        ``POST /api/db/rpc/resolve_agent_action_level``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_action_key"] = action_key
+        if not isinstance(credential_id, Unset):
+            body["p_credential_id"] = credential_id
+        return await self._call("resolve_agent_action_level", body)  # type: ignore[no-any-return]
 
     async def resolve_sheet_instance_row_identity(
         self,
@@ -7353,6 +7590,20 @@ class AsyncRpc:
         if not isinstance(new_secret, Unset):
             body["p_new_secret"] = new_secret
         return await self._call("rotate_webhook_secret", body)  # type: ignore[no-any-return]
+
+    async def run_lab_watcher(self, *, watcher_id: str) -> int:
+        """
+        Run a lab watcher now
+
+        Looks straight away instead of waiting for the schedule. Returns how many new findings were made. Sends `watcher.finding.created` for each.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/run_lab_watcher``
+        """
+        body: Dict[str, Any] = {}
+        body["p_watcher_id"] = watcher_id
+        return await self._call("run_lab_watcher", body)  # type: ignore[no-any-return]
 
     async def run_saved_search(
         self,
@@ -7790,6 +8041,37 @@ class AsyncRpc:
             body["p_currency"] = currency
         return await self._call("set_instrument_rate", body)  # type: ignore[no-any-return]
 
+    async def set_lab_watcher(
+        self,
+        *,
+        workspace_id: str,
+        kind: str,
+        enabled: bool,
+        schedule: Union[str, Unset] = UNSET,
+        project_id: Union[str, Unset] = UNSET,
+        params: Union[Dict[str, "JsonValue"], Unset] = UNSET,
+    ) -> Union["LabWatchersRow", List["LabWatchersRow"]]:
+        """
+        Turn a lab watcher on or off
+
+        Sets a watcher: `p_kind` is `stock_expiring`, `stock_low`, `work_overdue`, `data_missing` or `results_off`; `p_schedule` is `hourly`, `daily` or `weekly`; `p_project_id` limits it to one project; `p_params` can set `days` (how soon counts as soon) or `sigma` (how far off a result must be). Returns the watcher.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_lab_watcher``
+        """
+        body: Dict[str, Any] = {}
+        body["p_workspace_id"] = workspace_id
+        body["p_kind"] = kind
+        body["p_enabled"] = enabled
+        if not isinstance(schedule, Unset):
+            body["p_schedule"] = schedule
+        if not isinstance(project_id, Unset):
+            body["p_project_id"] = project_id
+        if not isinstance(params, Unset):
+            body["p_params"] = params
+        return await self._call("set_lab_watcher", body)  # type: ignore[no-any-return]
+
     async def set_link_part(self, *, link_id: str, part_id: str) -> Dict[str, "JsonValue"]:
         """
         Move a sample, dataset or other link to another part
@@ -8062,6 +8344,29 @@ class AsyncRpc:
         if not isinstance(url, Unset):
             body["p_url"] = url
         return await self._call("set_timestamp_settings", body)  # type: ignore[no-any-return]
+
+    async def set_watcher_finding_status(
+        self,
+        *,
+        finding_id: str,
+        action: str,
+        until: Union[str, Unset] = UNSET,
+    ) -> Union["LabWatcherFindingsRow", List["LabWatcherFindingsRow"]]:
+        """
+        Dismiss or snooze a watcher finding
+
+        `p_action` is `dismiss`, `snooze` (with `p_until`, a time in the future) or `reopen`. Returns the finding.
+
+        Scopes: lab:write.
+
+        ``POST /api/db/rpc/set_watcher_finding_status``
+        """
+        body: Dict[str, Any] = {}
+        body["p_finding_id"] = finding_id
+        body["p_action"] = action
+        if not isinstance(until, Unset):
+            body["p_until"] = until
+        return await self._call("set_watcher_finding_status", body)  # type: ignore[no-any-return]
 
     async def snapshot_dataset(
         self,

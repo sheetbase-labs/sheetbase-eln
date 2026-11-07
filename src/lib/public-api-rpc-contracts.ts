@@ -262,6 +262,49 @@ const memberAbsenceRow = ref('MemberAbsencesRow')
 const groupMappingRow = ref('IdpGroupMappingsRow')
 const scimTokenRow = ref('ScimTokensRow')
 const signatureTimestampRow = ref('SignatureTimestampsRow')
+const ontologyAnnotationRow = ref('OntologyAnnotationsRow')
+const publicationTargetRow = ref('PublicationTargetsRow')
+const publicationRow = ref('PublicationsRow')
+
+const lakeSettingsResult: JsonSchema = obj(
+  {
+    enabled: bool('Whether open tables are written.'),
+    exporterUserId: { type: ['string', 'null'], description: 'Whose access the tables follow.' },
+    lastRunAt: { type: ['string', 'null'], description: 'When the last pass finished.' },
+    lastStatus: { type: ['string', 'null'] },
+    lastError: { type: ['string', 'null'] },
+    refreshRequestedAt: { type: ['string', 'null'] },
+    canIssueLogins: bool('Whether this installation can issue table logins.'),
+    tableCount: int('Tables written, not counting retired ones.'),
+  },
+  ['enabled'],
+  'Open-table settings and the last pass.',
+)
+
+const ontologySettingsResult: JsonSchema = obj(
+  {
+    enabled: bool('Whether ontology search is allowed.'),
+    ontologies: { type: 'array', items: { type: 'string' }, description: 'Ontologies that may be searched.' },
+  },
+  ['enabled'],
+  'Ontology lookup settings.',
+)
+
+const lakeLoginRow = obj(
+  {
+    id: uuid('Login UUID.'),
+    name: text('Name given to the login.'),
+    username: text('The database user name.'),
+    user_id: text('Who owns it.'),
+    created_at: { type: 'string', format: 'date-time' },
+    expires_at: { type: ['string', 'null'], format: 'date-time' },
+    revoked_at: { type: ['string', 'null'], format: 'date-time' },
+    last_used_at: { type: ['string', 'null'], format: 'date-time' },
+    status: { type: 'string', enum: ['active', 'expired', 'revoked', 'suspended'] },
+  },
+  ['id', 'name', 'username', 'status'],
+  'A table login. The password is never returned.',
+)
 
 const timestampSettingsResult: JsonSchema = obj(
   {
@@ -548,6 +591,147 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
     properties: { p_signature_id: uuid('Signature UUID.') },
     result: pgrstRow(signatureTimestampRow, 'The timestamp record.'),
   },
+  lake_settings: {
+    summary: 'Read the open-table settings',
+    description:
+      'Whether the workspace writes open tables, whose access they follow, and how the last pass went.',
+    required: ['p_workspace_id'],
+    properties: { p_workspace_id: uuid('Workspace UUID.') },
+    result: lakeSettingsResult,
+  },
+  set_lake_settings: {
+    summary: 'Turn open tables on or off',
+    description:
+      'Needs integrations access and data access, and a personal token. The tables hold what the person who turns them on can see, so that person needs data access. Turning them off stops updates; files already written stay on storage.',
+    required: ['p_workspace_id', 'p_enabled'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_enabled: bool('false stops writing open tables.'),
+    },
+    result: lakeSettingsResult,
+  },
+  request_lake_refresh: {
+    summary: 'Ask for open tables to be refreshed now',
+    description: 'Queues a pass; the server runs it within a minute.',
+    required: ['p_workspace_id'],
+    properties: { p_workspace_id: uuid('Workspace UUID.') },
+    result: lakeSettingsResult,
+  },
+  list_lake_credentials: {
+    summary: 'List table logins',
+    description: 'Needs data access. Lists logins that can read the open tables; passwords are never returned.',
+    required: ['p_workspace_id'],
+    properties: { p_workspace_id: uuid('Workspace UUID.') },
+    result: { type: 'array', items: lakeLoginRow },
+  },
+  revoke_lake_credential: {
+    summary: 'Revoke a table login',
+    description: 'The login stops working straight away. Making a login is done at the settings page, where the password is shown once.',
+    required: ['p_workspace_id', 'p_credential_id'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_credential_id: uuid('Login UUID.'),
+    },
+    result: { description: 'No content.', type: 'null' },
+  },
+  ontology_settings: {
+    summary: 'Read the ontology lookup settings',
+    description: 'Whether searching the EBI Ontology Lookup Service is allowed, and which ontologies.',
+    required: ['p_workspace_id'],
+    properties: { p_workspace_id: uuid('Workspace UUID.') },
+    result: ontologySettingsResult,
+  },
+  set_ontology_settings: {
+    summary: 'Allow or stop ontology lookup',
+    description:
+      'Needs integrations access. When on, what people type in the term search is sent to the EBI Ontology Lookup Service.',
+    required: ['p_workspace_id', 'p_enabled'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_enabled: bool('false turns lookup off.'),
+      p_ontologies: {
+        type: ['array', 'null'],
+        items: { type: 'string' },
+        description: 'Short names of the ontologies to search. Null keeps the current list.',
+      },
+    },
+    result: ontologySettingsResult,
+  },
+  link_ontology_term: {
+    summary: 'Attach an ontology term to a field',
+    description: 'Needs schema access. Linking the same term twice returns the existing link.',
+    required: ['p_workspace_id', 'p_target_kind', 'p_target_id', 'p_ontology', 'p_iri', 'p_label'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_target_kind: text('`model_field`, `schema_field`, `definition_field` or `vocabulary_term`.'),
+      p_target_id: uuid('The field or term UUID.'),
+      p_ontology: text('Short ontology name, for example `chebi`.'),
+      p_iri: text('The term’s IRI.'),
+      p_label: text('The term’s label.'),
+      p_short_form: text('The term’s short id, for example `CHEBI_15377`.', { nullable: true }),
+    },
+    result: pgrstRow(ontologyAnnotationRow, 'The link.'),
+  },
+  unlink_ontology_term: {
+    summary: 'Remove an ontology term from a field',
+    description: 'Needs schema access.',
+    required: ['p_annotation_id'],
+    properties: { p_annotation_id: uuid('Link UUID.') },
+    result: { description: 'No content.', type: 'null' },
+  },
+  save_publication_target: {
+    summary: 'Add or change a publishing repository',
+    description:
+      'Needs integrations access. Pass `p_id` null to add one. The access token is set at the settings page, never over the API.',
+    required: ['p_workspace_id', 'p_kind', 'p_name', 'p_base_url'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_id: uuid('Repository UUID to change, or null to add.'),
+      p_kind: text('`zenodo`, `invenio`, `figshare` or `dataverse`.'),
+      p_name: text('A name people recognise.'),
+      p_base_url: text('The repository’s web address.'),
+      p_collection: text('Dataverse alias or InvenioRDM community.', { nullable: true }),
+      p_license: text('Default licence id, for example `cc-by-4.0`.'),
+      p_enabled: bool('Whether it is offered when publishing.'),
+    },
+    result: pgrstRow(publicationTargetRow, 'The repository.'),
+  },
+  delete_publication_target: {
+    summary: 'Remove a publishing repository',
+    description: 'Needs integrations access. Existing publications keep their DOI.',
+    required: ['p_id'],
+    properties: { p_id: uuid('Repository UUID.') },
+    result: { description: 'No content.', type: 'null' },
+  },
+  request_publication: {
+    summary: 'Ask to publish an experiment or dataset version',
+    description:
+      'Packages the object as an RO-Crate (with a Workflow Run Crate when a pipeline run produced it) and sends a draft to the repository, which reserves a DOI. Nothing is public until a person publishes it in the app.',
+    required: ['p_target_id', 'p_object_kind', 'p_object_id'],
+    properties: {
+      p_target_id: uuid('Repository UUID.'),
+      p_object_kind: text('`experiment` or `dataset_version`.'),
+      p_object_id: uuid('The experiment or dataset version UUID.'),
+      p_title: text('Title of the record. Defaults to the object’s name.', { nullable: true }),
+      p_license: text('Licence id. Defaults to the repository’s.', { nullable: true }),
+    },
+    result: pgrstRow(publicationRow, 'The publication, queued.'),
+  },
+  discard_publication: {
+    summary: 'Discard a publication draft',
+    description: 'Only a draft that is not public can be discarded.',
+    required: ['p_id'],
+    properties: { p_id: uuid('Publication UUID.') },
+    result: pgrstRow(publicationRow, 'The publication.'),
+  },
+  retry_publication: {
+    summary: 'Try a failed publication again',
+    description: 'Queues a publication that gave up.',
+    required: ['p_id'],
+    properties: { p_id: uuid('Publication UUID.') },
+    result: pgrstRow(publicationRow, 'The publication.'),
+  },
+
   workspace_signing_key: {
     summary: 'Read the key that signs export bundles',
     description:

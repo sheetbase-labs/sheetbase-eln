@@ -15,6 +15,10 @@ import {
   CONTRACT_RULE_ADD_TOOL,
   proposeContractCheckSchema,
   proposeContractRuleAddSchema,
+  OPEN_TABLES_SET_TOOL,
+  PUBLICATION_REQUEST_TOOL,
+  proposeOpenTablesSetSchema,
+  proposePublicationRequestSchema,
   TIMESTAMPS_SET_TOOL,
   proposeTimestampsRetrySchema,
   proposeValidationRunSchema,
@@ -69,6 +73,8 @@ import type { LabToolContext } from './assistant-lab-tools.server'
 import type { AssistantProposal, ProposalChange } from './assistant-proposals'
 import type { DataClient } from './data-client'
 import { fetchTimestampSettings } from './timestamps/client'
+import { fetchLakeSettings, fetchPublicationTargets } from './open-data/client'
+import { licenseById } from './publishing/licenses'
 import { shipmentReference } from './shipments'
 import { toHandoverItems } from './handover'
 import type { HandoverItemWire } from './handover'
@@ -179,6 +185,16 @@ export function upkeepProposalDefs(): ProviderToolDef[] {
       TIMESTAMPS_RETRY_TOOL,
       `Propose asking again for a timestamp on a signature whose timestamp gave up. List the timestamps area first for its id. ${NOTE}`,
       proposeTimestampsRetrySchema,
+    ),
+    toolDef(
+      OPEN_TABLES_SET_TOOL,
+      `Propose turning open tables on or off: the workspace’s data written as Parquet files on its own storage, so analysts can query it in DuckDB, Polars or Spark. The tables hold what the person can see, so they need data access. For people who manage integrations. ${NOTE}`,
+      proposeOpenTablesSetSchema,
+    ),
+    toolDef(
+      PUBLICATION_REQUEST_TOOL,
+      `Propose publishing an experiment or a dataset version to a repository (Zenodo, Figshare, InvenioRDM or Dataverse) with a DOI. The card only prepares a draft; making it public is a separate confirmation the person gives in the app. Say which repository, and never invent a title. ${NOTE}`,
+      proposePublicationRequestSchema,
     ),
     toolDef(
       VALIDATION_RUN_TOOL,
@@ -662,6 +678,155 @@ export async function buildUpkeepProposal(
         action: {
           kind: 'timestamps.retry',
           signatureId: input.signatureId,
+        },
+      })
+    }
+
+    case OPEN_TABLES_SET_TOOL: {
+      const parsed = parse(proposeOpenTablesSetSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const current = await fetchLakeSettings(client, workspaceId)
+      if (current.enabled === input.enabled) {
+        return fail(
+          input.enabled
+            ? 'Open tables are already on.'
+            : 'Open tables are already off.',
+        )
+      }
+      return card(name, input, {
+        target: 'Open tables',
+        deepLink: '/settings/workspace/open-data',
+        changes: [
+          {
+            label: 'Open tables',
+            before: current.enabled ? 'On' : 'Off',
+            after: input.enabled ? 'On, as you' : 'Off',
+          },
+        ],
+        action: {
+          kind: 'open_tables.set',
+          workspaceId,
+          enabled: input.enabled,
+        },
+      })
+    }
+
+    case PUBLICATION_REQUEST_TOOL: {
+      const parsed = parse(proposePublicationRequestSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const targets = (await fetchPublicationTargets(client)).filter(
+        (t) => t.enabled && t.token_set,
+      )
+      if (targets.length === 0) {
+        return fail(
+          'No repository is set up to publish to. An admin adds one in Settings > Open data.',
+        )
+      }
+      const wanted = input.repository?.trim().toLowerCase()
+      const matches = wanted
+        ? targets.filter((t) => t.name.toLowerCase().includes(wanted))
+        : targets
+      if (matches.length !== 1) {
+        return fail(
+          matches.length === 0
+            ? `No repository is called "${input.repository}". Choices: ${targets.map((t) => t.name).join(', ')}.`
+            : `Which repository? ${matches.map((t) => t.name).join(', ')}.`,
+        )
+      }
+      const target = matches[0]!
+      if (input.kind === 'experiment') {
+        if (!input.experiment) return fail('Which experiment?')
+        const found = await findExperiment(client, input.experiment)
+        if (typeof found === 'string') return fail(found)
+        const publicationTitle = input.publicationTitle?.trim() || found.title
+        return card(name, input, {
+          target: `${found.identifier} ${found.title}`,
+          deepLink: `/experiments/${found.id}`,
+          changes: [
+            { label: 'Repository', before: null, after: target.name },
+            { label: 'Title', before: null, after: publicationTitle },
+            {
+              label: 'Licence',
+              before: null,
+              after: licenseById(target.license).name,
+            },
+            {
+              label: 'Next',
+              before: null,
+              after: 'Prepare a draft; you publish it from the experiment',
+            },
+          ],
+          action: {
+            kind: 'publication.request',
+            targetId: target.id,
+            objectKind: 'experiment',
+            objectId: found.id,
+            title: publicationTitle,
+            license: target.license,
+          },
+        })
+      }
+      if (!input.dataset) return fail('Which dataset?')
+      const datasets = await client.list<{ id: string; name: string }>(
+        'datasets',
+        `?name=ilike.${likeValue(input.dataset)}&select=id,name&order=updated_at.desc&limit=5`,
+      )
+      if (datasets.length === 0)
+        return fail(`No dataset matches "${input.dataset}".`)
+      const dataset =
+        datasets.find(
+          (d) => d.name.toLowerCase() === input.dataset!.trim().toLowerCase(),
+        ) ?? (datasets.length === 1 ? datasets[0]! : null)
+      if (!dataset) {
+        return fail(
+          `More than one dataset matches "${input.dataset}": ${datasets.map((d) => d.name).join(', ')}. Ask which one.`,
+        )
+      }
+      const versions = await client.list<{ id: string; label: string }>(
+        'dataset_versions',
+        `?dataset_id=eq.${dataset.id}${input.version ? `&label=ilike.${likeValue(input.version)}` : ''}&select=id,label&order=created_at.desc&limit=5`,
+      )
+      if (versions.length === 0) {
+        return fail(
+          input.version
+            ? `${dataset.name} has no version "${input.version}".`
+            : `${dataset.name} has no saved version yet. Save one on its Snapshots tab first.`,
+        )
+      }
+      const version =
+        versions.find(
+          (v) =>
+            v.label.toLowerCase() ===
+            (input.version ?? '').trim().toLowerCase(),
+        ) ?? versions[0]!
+      const publicationTitle =
+        input.publicationTitle?.trim() || `${dataset.name} (${version.label})`
+      return card(name, input, {
+        target: `${dataset.name} · ${version.label}`,
+        deepLink: `/datasets/${dataset.id}/snapshots`,
+        changes: [
+          { label: 'Repository', before: null, after: target.name },
+          { label: 'Title', before: null, after: publicationTitle },
+          {
+            label: 'Licence',
+            before: null,
+            after: licenseById(target.license).name,
+          },
+          {
+            label: 'Next',
+            before: null,
+            after: 'Prepare a draft; you publish it from the snapshot',
+          },
+        ],
+        action: {
+          kind: 'publication.request',
+          targetId: target.id,
+          objectKind: 'dataset_version',
+          objectId: version.id,
+          title: publicationTitle,
+          license: target.license,
         },
       })
     }

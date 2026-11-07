@@ -191,6 +191,24 @@ see it. A schedule's own bookkeeping (next run, last result) does not emit.
 The token itself is on the `signature_timestamps` resource; see
 [`trusted-timestamps-api.md`](trusted-timestamps-api.md).
 
+### Open tables, ontology and publishing (`stable`, webhook and SSE)
+
+| Event                        | Produced by                                                          | Payload highlights                                                       |
+| ---------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `lake.table.updated`         | `lake_table` + `update`, when `action` is `lake-table-updated`       | `tableName`, `label`, `rowCount`, `snapshotId`                           |
+| `lake.settings.updated`      | `lake_table` + `update`, when `action` is `lake-settings`            | `enabled`                                                                |
+| `publication.created`        | `publication` + `create`                                             | `objectKind`, `objectId`. `recordId` is the experiment when there is one |
+| `publication.drafted`        | `publication` + `update`, when `action` is `publication-drafted`     | `objectKind`, `objectId`, `doi` (reserved), `draftUrl`                   |
+| `publication.published`      | `publication` + `update`, when `action` is `publication-published`   | `objectKind`, `objectId`, `doi`, `recordUrl`                             |
+| `publication.failed`         | `publication` + `update`, when `action` is `publication-failed`      | `objectKind`, `objectId`, `error`. Sent once, after the fifth failed try |
+| `publication_target.updated` | `publication_target` + `update`, when `action` is `target-saved`     | `kind`, `name`, `enabled`                                                |
+| `ontology.term.linked`       | `ontology_annotation` + `create`                                     | `targetKind`, `targetId`, `iri`, `label`, `ontology`                     |
+| `ontology.term.unlinked`     | `ontology_annotation` + `delete`                                     | `targetKind`, `targetId`, `iri`, `label`                                 |
+| `ontology.settings.updated`  | `ontology_annotation` + `update`, when `action` is `ontology-settings` | `enabled`                                                              |
+
+See [`open-tables-api.md`](open-tables-api.md) and
+[`publishing-api.md`](publishing-api.md).
+
 ### Validation (`stable`, webhook and SSE)
 
 | Event                      | Produced by                 | Payload highlights                                             |

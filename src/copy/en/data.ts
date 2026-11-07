@@ -3013,6 +3013,9 @@ export const data = {
     completeWorklist: 'Complete a worklist',
     completeWorklistDescription:
       'Complete a worklist with what the robot really moved, optionally taking it out of the source samples.',
+    requestPublication: 'Prepare a repository draft',
+    requestPublicationDescription:
+      'Package an experiment or dataset version and send a draft to a publishing repository. A person publishes it from the app.',
     archivePlateRun: 'Archive a plate run',
     archivePlateRunDescription: 'Take a plate run off the Plates list.',
     keepAsmDocument: 'Keep the Allotrope document of a run',

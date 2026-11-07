@@ -200,6 +200,16 @@ export const notebook = {
         applying: 'Adding…',
         applied: 'Rule added',
       },
+      setOpenTables: {
+        apply: 'Save open tables',
+        applying: 'Saving…',
+        applied: 'Saved',
+      },
+      requestPublication: {
+        apply: 'Prepare draft',
+        applying: 'Preparing…',
+        applied: 'Draft requested',
+      },
       runValidation: {
         apply: 'Run checks',
         applying: 'Running…',

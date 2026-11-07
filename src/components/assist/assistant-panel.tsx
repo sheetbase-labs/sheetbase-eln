@@ -9,6 +9,7 @@ import {
   OPEN_ASSISTANT_EVENT,
   contextFromPathname,
 } from '#/lib/assistant-context'
+import type { OpenAssistantDetail } from '#/lib/assistant-context'
 import { pageFromPathname } from './assistant-page'
 
 // The chat library loads when the panel first opens, not with the shell.
@@ -35,6 +36,8 @@ export function AssistantPanel({
   role: string | null
 }) {
   const [open, setOpen] = useState(false)
+  // A question the opener asked for, sent once the chat is ready.
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
@@ -49,7 +52,12 @@ export function AssistantPanel({
   useKeyboardInset(open)
 
   useEffect(() => {
-    const onOpen = () => setOpen(true)
+    const onOpen = (event: Event) => {
+      const detail = (event as CustomEvent<OpenAssistantDetail | undefined>)
+        .detail
+      if (detail?.prompt) setPendingPrompt(detail.prompt)
+      setOpen(true)
+    }
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'j') {
         event.preventDefault()
@@ -87,6 +95,8 @@ export function AssistantPanel({
                 role={role}
                 context={context}
                 page={page}
+                initialPrompt={pendingPrompt}
+                onInitialPromptSent={() => setPendingPrompt(null)}
               />
             </Suspense>
           </SheetContent>

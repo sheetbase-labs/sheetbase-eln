@@ -97,6 +97,8 @@ export interface ExperimentOverviewProps {
   addedFields?: React.ReactNode
   /** The scheduler for an experiment in parts, shown under the parts table. */
   schedule?: React.ReactNode
+  /** "Have we done this before?": earlier work that reads like this. */
+  similarWork?: React.ReactNode
 }
 
 /** The Objective section when the notebook has one, otherwise every prose
@@ -363,6 +365,7 @@ export function ExperimentOverview({
   projectName = null,
   addedFields = null,
   schedule = null,
+  similarWork = null,
 }: ExperimentOverviewProps) {
   const navigate = useNavigate()
   const protocolSteps = protocolStepProgress(blocks)
@@ -825,6 +828,8 @@ export function ExperimentOverview({
         </InspectorSection>
 
         {addedFields}
+
+        {similarWork}
 
         <InspectorSection title={t('projects.overview.linked.title')}>
           {upstream.length || followedBy.length ? (

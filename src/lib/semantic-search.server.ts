@@ -17,6 +17,7 @@ import { isCloudProvider } from './ai-providers/types'
 import type { ProviderDeps, ProviderProfile } from './ai-providers/types'
 import type { DataClient } from './data-client'
 import { executeSearch } from './search'
+export { fetchSimilarWork as similarWork } from './similar-work'
 import type { RpcSearchResult, SearchResultType } from './search'
 
 export type SemanticUnavailableReason =
@@ -256,26 +257,4 @@ export async function hybridSearch(
     }
   })
   return { hits, meaning }
-}
-
-/** Work that reads like an object, from its stored vectors; needs no provider call. */
-export async function similarWork(
-  client: DataClient,
-  objectType: SearchResultType,
-  objectId: string,
-  options: { limit?: number; types?: readonly SearchResultType[] } = {},
-): Promise<SemanticHit[]> {
-  const raw = await client.rpc<SemanticHitWire | SemanticHitWire[] | null>(
-    'similar_work',
-    {
-      p_object_type: objectType,
-      p_object_id: objectId,
-      p_limit: options.limit ?? 8,
-      p_types: options.types?.length ? [...options.types] : null,
-    },
-  )
-  const rows = raw === null ? [] : Array.isArray(raw) ? raw : [raw]
-  return rows
-    .map(toSemanticHit)
-    .filter((hit) => hit.similarity >= MIN_SIMILARITY)
 }

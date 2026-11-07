@@ -109,12 +109,17 @@ export default function AssistantChat({
   role,
   context,
   page = null,
+  initialPrompt = null,
+  onInitialPromptSent,
 }: {
   workspaceId: string | null
   role: string | null
   context: AssistantPageContext | null
   /** The page by name, for list pages such as the Schedule. */
   page?: AssistantPage | null
+  /** A question to send as soon as the assistant is ready. */
+  initialPrompt?: string | null
+  onInitialPromptSent?: () => void
 }) {
   const settingsQuery = useQuery({
     queryKey: ['ai-settings', workspaceId],
@@ -199,6 +204,8 @@ export default function AssistantChat({
       context={context}
       page={page}
       ready={ready}
+      initialPrompt={initialPrompt}
+      onInitialPromptSent={onInitialPromptSent}
     />
   )
 }
@@ -208,11 +215,15 @@ function ChatBody({
   context,
   page,
   ready,
+  initialPrompt,
+  onInitialPromptSent,
 }: {
   workspaceId: string
   context: AssistantPageContext | null
   page: AssistantPage | null
   ready: boolean
+  initialPrompt: string | null
+  onInitialPromptSent?: () => void
 }) {
   next.workspaceId = workspaceId
   next.objectRefs = context ? [{ kind: context.kind, id: context.id }] : []
@@ -248,6 +259,15 @@ function ChatBody({
     setDraft('')
     void sendMessage({ text: question })
   }
+
+  // A question handed over by whoever opened the panel ("Ask the lab about
+  // this") goes out once, as soon as the assistant can take it.
+  useEffect(() => {
+    if (!initialPrompt || !ready || busy) return
+    send(initialPrompt)
+    onInitialPromptSent?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPrompt, ready])
 
   function newChat() {
     stop()

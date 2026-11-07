@@ -118,7 +118,9 @@ export function RunQcPanel({
       return
     }
     if (!selectedId || !series.some((s) => s.id === selectedId))
-      setSelectedId((series.find((s) => s.state === 'out_of_control') ?? series[0]).id)
+      setSelectedId(
+        (series.find((s) => s.state === 'out_of_control') ?? series[0]).id,
+      )
   }, [series, selectedId])
   const selected = series.find((s) => s.id === selectedId) ?? null
 
@@ -304,14 +306,18 @@ function SeriesDetail({
         header: t('quality.runQc.breaks.columns.run'),
         size: 110,
         cell: ({ row }) => (
-          <span className="mono text-fg-muted">{row.original.label ?? '—'}</span>
+          <span className="mono text-fg-muted">
+            {row.original.label ?? '—'}
+          </span>
         ),
       },
       {
         id: 'value',
         header: t('quality.runQc.breaks.columns.value'),
         size: 90,
-        cell: ({ row }) => <span className="num">{short(row.original.value)}</span>,
+        cell: ({ row }) => (
+          <span className="num">{short(row.original.value)}</span>
+        ),
       },
       {
         id: 'sd',
@@ -332,7 +338,9 @@ function SeriesDetail({
         header: t('quality.runQc.breaks.columns.rules'),
         size: 150,
         cell: ({ row }) => (
-          <span title={row.original.violations.map((r) => ruleLabel(r)).join('\n')}>
+          <span
+            title={row.original.violations.map((r) => ruleLabel(r)).join('\n')}
+          >
             {row.original.violations.join(', ')}
           </span>
         ),
@@ -345,7 +353,9 @@ function SeriesDetail({
           if (point.acknowledged_at)
             return (
               <span className="truncate text-fg-muted" title={point.note ?? ''}>
-                {point.excluded ? `${t('quality.runQc.breaks.leftOut')} · ` : ''}
+                {point.excluded
+                  ? `${t('quality.runQc.breaks.leftOut')} · `
+                  : ''}
                 {point.note ?? t('quality.runQc.breaks.acknowledged')}
               </span>
             )
@@ -512,7 +522,9 @@ function TrackValueDialog({
   const meanValue = number(mean)
   const sdValue = number(sd)
   const limitsGiven = mean.trim() !== '' || sd.trim() !== ''
-  const nameError = name.trim() ? null : t('quality.runQc.trackDialog.nameRequired')
+  const nameError = name.trim()
+    ? null
+    : t('quality.runQc.trackDialog.nameRequired')
   const sdError =
     limitsGiven && (sdValue === null || sdValue <= 0)
       ? t('quality.runQc.trackDialog.sdRequired')
@@ -657,7 +669,9 @@ function TrackAssayDialog({
                 value={designId}
                 onChange={(event) => setDesignId(event.target.value)}
               >
-                <option value="">{t('quality.runQc.assayDialog.choose')}</option>
+                <option value="">
+                  {t('quality.runQc.assayDialog.choose')}
+                </option>
                 {options.map((design) => (
                   <option key={design.id} value={design.id}>
                     {design.name}
@@ -699,9 +713,13 @@ function LimitsDialog({
   const [mode, setMode] = useState<'enter' | 'first'>(
     pointCount >= 5 && series.mean === null ? 'first' : 'enter',
   )
-  const [mean, setMean] = useState(series.mean === null ? '' : short(series.mean))
+  const [mean, setMean] = useState(
+    series.mean === null ? '' : short(series.mean),
+  )
   const [sd, setSd] = useState(series.sd === null ? '' : short(series.sd))
-  const [count, setCount] = useState(String(Math.min(Math.max(pointCount, 5), 20)))
+  const [count, setCount] = useState(
+    String(Math.min(Math.max(pointCount, 5), 20)),
+  )
   const [touched, setTouched] = useState(false)
   const meanValue = number(mean)
   const sdValue = number(sd)
@@ -745,16 +763,15 @@ function LimitsDialog({
         <DialogBody>
           <RadioGroup
             value={mode}
-            onValueChange={(next) => setMode(next === 'first' ? 'first' : 'enter')}
+            onValueChange={(next) =>
+              setMode(next === 'first' ? 'first' : 'enter')
+            }
           >
             <Choice
               value="enter"
               title={t('quality.runQc.limitsDialog.enter')}
             />
-            <Choice
-              value="first"
-              title={t('quality.runQc.limitsDialog.first')}
-            >
+            <Choice value="first" title={t('quality.runQc.limitsDialog.first')}>
               {t('quality.runQc.limitsDialog.firstBody')}
             </Choice>
           </RadioGroup>
@@ -854,7 +871,9 @@ function RulesDialog({
                 onCheckedChange={(checked) =>
                   setRules((current) =>
                     checked
-                      ? QC_RULES.filter((r) => r === rule || current.includes(r))
+                      ? QC_RULES.filter(
+                          (r) => r === rule || current.includes(r),
+                        )
                       : current.filter((r) => r !== rule),
                   )
                 }
@@ -894,7 +913,8 @@ function ValueDialog({
   const [label, setLabel] = useState('')
   const [touched, setTouched] = useState(false)
   const parsed = number(value)
-  const error = parsed === null ? t('quality.runQc.valueDialog.valueRequired') : null
+  const error =
+    parsed === null ? t('quality.runQc.valueDialog.valueRequired') : null
   const save = useMutation({
     mutationFn: () =>
       recordQcPoint(client, { seriesId: series.id, value: parsed!, label }),
@@ -977,7 +997,8 @@ function AcknowledgeDialog({
   const [note, setNote] = useState('')
   const [exclude, setExclude] = useState(false)
   const save = useMutation({
-    mutationFn: () => acknowledgeQcPoint(client, { pointId: point.id, note, exclude }),
+    mutationFn: () =>
+      acknowledgeQcPoint(client, { pointId: point.id, note, exclude }),
     onSuccess: () => {
       toast.success(t('quality.runQc.acknowledgeDialog.saved'))
       onDone()

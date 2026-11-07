@@ -46,7 +46,10 @@ export function LeveyJenningsChart({
   const sd = series.sd
 
   const line = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'}${px(i).toFixed(1)},${py(p.value).toFixed(1)}`)
+    .map(
+      (p, i) =>
+        `${i === 0 ? 'M' : 'L'}${px(i).toFixed(1)},${py(p.value).toFixed(1)}`,
+    )
     .join(' ')
 
   return (
@@ -117,7 +120,9 @@ export function LeveyJenningsChart({
                 fill="currentColor"
                 fillOpacity={0.8}
               >
-                {k > 0 ? `+${k}` : `−${Math.abs(k)}`} SD
+                {t('quality.runQc.chart.band', {
+                  value: k > 0 ? `+${k}` : `−${Math.abs(k)}`,
+                })}
               </text>
             ) : isMean ? (
               <text

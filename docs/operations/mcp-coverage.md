@@ -24,6 +24,7 @@ approval ledger. A flag or scope can only reduce access.
 | Webhooks               | `webhook_subscriptions`, `webhook_deliveries`                                                                             | `webhooks:read`                 |
 | Trusted timestamps     | `signature_timestamps`                                                                                                    | `reviews:read`                  |
 | Validation runs        | `validation_runs`                                                                                                         | `admin:read`                    |
+| Agent permissions      | `agent_action_policies`, `ai_eval_runs`, `ai_eval_results`                                                                | `admin:read`                    |
 
 The tool fixes the projected columns from the published row schema, allows
 equality filters only, caps rows per resource, and returns `nextOffset`. Pipeline

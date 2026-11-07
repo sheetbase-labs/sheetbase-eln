@@ -32,6 +32,8 @@ import {
   useRecordModelRecordCount,
   useRecordModelVersionList,
 } from '#/components/models/record-model-data'
+import { ContractStatusBadge } from '#/components/contracts/contract-status'
+import { useContractForTarget } from '#/components/contracts/contract-data'
 import { BuiltInModelLayout } from '#/components/models/built-in-model-layout'
 import {
   BasedOnDialog,
@@ -118,6 +120,7 @@ function DatasetModelLayout({
   const fields = useModelFields(latest?.id)
   const versionIds = (versions.data ?? []).map((v) => v.id)
   const datasets = useModelDatasets(versionIds)
+  const contract = useContractForTarget({ kind: 'dataset_schema', id: modelId })
 
   const m = definition.data
   if (!m) {
@@ -202,6 +205,11 @@ function DatasetModelLayout({
             </span>
             <span>{t('library.models.overview.key', { key: m.key })}</span>
             <TableSubtypeOf id={m.id} />
+            {contract.data ? (
+              <span className="text-fg">
+                <ContractStatusBadge status={contract.data.lastStatus} />
+              </span>
+            ) : null}
             <span className="max-lg:hidden">
               {latest
                 ? t('library.models.overview.versionV', {
@@ -263,6 +271,13 @@ function DatasetModelLayout({
                   params,
                 },
               },
+              {
+                label: t('contracts.tab'),
+                link: {
+                  to: '/models/$modelId/contract',
+                  params,
+                },
+              },
             ]}
           />
         }
@@ -308,6 +323,10 @@ function RecordModelLayout({
   )
   const draftVersion = recordVersions.data?.find((v) => v.lifecycle === 'draft')
   const builtIn = useBuiltInModelKind(modelKey)
+  const contract = useContractForTarget({
+    kind: 'record_model',
+    key: modelKey,
+  })
 
   const trail: Crumb[] = [
     { label: t('library.models.overview.models'), link: { to: '/models' } },
@@ -337,6 +356,11 @@ function RecordModelLayout({
                       version: draftVersion.version,
                     })}
                   </Status>
+                </span>
+              ) : null}
+              {contract.data ? (
+                <span className="text-fg">
+                  <ContractStatusBadge status={contract.data.lastStatus} />
                 </span>
               ) : null}
               {m.parent_key ? (
@@ -442,6 +466,13 @@ function RecordModelLayout({
                   label: t('library.models.overview.usage'),
                   link: {
                     to: '/models/$modelId/usage',
+                    params,
+                  },
+                },
+                {
+                  label: t('contracts.tab'),
+                  link: {
+                    to: '/models/$modelId/contract',
                     params,
                   },
                 },

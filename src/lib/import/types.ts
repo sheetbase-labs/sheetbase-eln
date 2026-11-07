@@ -1,3 +1,4 @@
+import type { ContractGateReport } from '#/lib/data-contracts/types'
 /**
  * DSET-05 — shared wire types for the import flow (browser ↔ /api/import).
  * Field names stay snake_case where they mirror a database row (conventions).
@@ -121,6 +122,8 @@ export interface ImportCommitResponse {
   snapshotVersionId?: string
   datasetRevision?: number
   outcome?: Record<string, number>
+  /** Set when a data contract's blocking rules refused the import. */
+  contract?: ContractGateReport
   errors: Array<{ row?: number; code: string; message: string }>
 }
 

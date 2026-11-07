@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
@@ -27,7 +26,8 @@ import {
 import { RecordModelEditDialog } from './record-model-edit-dialog'
 import { rich, t } from '#/copy'
 import { hasCapability } from '#/lib/capability'
-import { campaignKeys, fetchCampaignModels } from '#/lib/campaigns/data'
+import { useModelFeatures } from '#/lib/features/data'
+import { CAMPAIGNS_FEATURE } from '#/lib/features/registry'
 import {
   RegistryLineage,
   RegistryRetireButton,
@@ -153,13 +153,11 @@ export function RecordModelRecord({
   const structureField = isRegistry
     ? (model.data?.registry_structure_field ?? null)
     : null
-  const campaignModels = useQuery({
-    queryKey: campaignKeys.models,
-    queryFn: () => fetchCampaignModels(notebookDataClient),
-    staleTime: 30_000,
-  })
+  const modelFeatures = useModelFeatures()
   const isCampaign = Boolean(
-    campaignModels.data?.some((m) => m.key === modelKey),
+    modelFeatures.data?.some(
+      (f) => f.model_key === modelKey && f.capability === CAMPAIGNS_FEATURE,
+    ),
   )
   const canWrite = hasCapability(role, 'record.create')
 

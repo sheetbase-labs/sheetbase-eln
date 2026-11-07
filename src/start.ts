@@ -73,6 +73,17 @@ const fileTextBackfillMiddleware = createMiddleware().server(
   },
 )
 
+// Search by meaning: read new and changed text into vectors for workspaces
+// that turned it on. Guarded like the other sweeps.
+const embeddingIndexerMiddleware = createMiddleware().server(
+  async ({ next }) => {
+    const { startEmbeddingIndexer } =
+      await import('#/lib/embedding-index.server')
+    startEmbeddingIndexer()
+    return next()
+  },
+)
+
 // LAB-02 step 1: sample hold-limit sweep. Calls
 // api.sweep_sample_hold_limits on an interval with the privileged app
 // connection; guarded like the pipeline/dataset schedulers and never started
@@ -276,6 +287,7 @@ export const startInstance = createStart(() => ({
     pushSchedulerMiddleware,
     datasetRetentionSchedulerMiddleware,
     fileTextBackfillMiddleware,
+    embeddingIndexerMiddleware,
     sampleHoldSchedulerMiddleware,
     contractSchedulerMiddleware,
     reagentExpirySchedulerMiddleware,

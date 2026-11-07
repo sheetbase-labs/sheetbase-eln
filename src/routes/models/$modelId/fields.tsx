@@ -344,7 +344,7 @@ function ModelFields() {
             <OntologyTerms
               key={sel.field_id}
               workspaceId={context.workspace?.id ?? ''}
-              kind="model_field"
+              kind="schema_field"
               targetId={sel.field_id}
               canEdit={hasCapability(context.workspace?.role, 'record.create')}
             />

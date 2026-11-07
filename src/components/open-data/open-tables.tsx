@@ -41,7 +41,6 @@ import { CheckRow } from '#/components/settings/settings-page'
 import { toast } from '#/components/ui/sonner'
 import { createDataClient } from '#/lib/data-client'
 import { formatDate } from '#/lib/format-date'
-import { describeAdminError } from '#/lib/workspace-admin'
 import { getSqlConnectionFn, sqlConnectionQueryKey } from '#/lib/sql-access'
 import {
   createLakeLogin,
@@ -53,6 +52,7 @@ import {
   requestLakeRefresh,
   revokeLakeLogin,
   setLakeSettings,
+  describeOpenDataError,
 } from '#/lib/open-data/client'
 import type {
   LakeLogin,
@@ -125,7 +125,7 @@ export function OpenTablesSection({
       refreshAll()
     },
     onError: (e) =>
-      toast(`${t('openData.tables.failed')}: ${describeAdminError(e)}`),
+      toast(`${t('openData.tables.failed')}: ${describeOpenDataError(e)}`),
   })
   const refresh = useMutation({
     mutationFn: () => requestLakeRefresh(dataClient, workspaceId),
@@ -134,7 +134,7 @@ export function OpenTablesSection({
       refreshAll()
     },
     onError: (e) =>
-      toast(`${t('openData.tables.failed')}: ${describeAdminError(e)}`),
+      toast(`${t('openData.tables.failed')}: ${describeOpenDataError(e)}`),
   })
 
   const enabled = settings.data?.enabled === true
@@ -325,7 +325,7 @@ function LakeLogins({
     mutationFn: (login: LakeLogin) =>
       revokeLakeLogin(dataClient, workspaceId, login.id),
     onSuccess: () => void invalidate(),
-    onError: (e) => toast(describeAdminError(e)),
+    onError: (e) => toast(describeOpenDataError(e)),
   })
 
   const rows = (logins.data ?? []).filter((l) => l.status !== 'revoked')
@@ -417,7 +417,7 @@ function LakeLogins({
         </div>
       ) : null}
       {create.error ? (
-        <Notice tone="bad">{describeAdminError(create.error)}</Notice>
+        <Notice tone="bad">{describeOpenDataError(create.error)}</Notice>
       ) : null}
       {rows.length === 0 && logins.isSuccess ? (
         <Muted>{t('openData.logins.none')}</Muted>

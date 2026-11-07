@@ -29,7 +29,6 @@ import { Status } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
 import { createDataClient } from '#/lib/data-client'
 import { formatDate } from '#/lib/format-date'
-import { describeAdminError } from '#/lib/workspace-admin'
 import {
   discardPublication,
   fetchPublicationTargets,
@@ -38,6 +37,7 @@ import {
   publishPublication,
   requestPublication,
   retryPublication,
+  describeOpenDataError,
 } from '#/lib/open-data/client'
 import type { Publication, PublicationStatus } from '#/lib/open-data/client'
 import { PUBLICATION_LICENSES, licenseById } from '#/lib/publishing/licenses'
@@ -148,7 +148,7 @@ export function PublishControl({
           : retryPublication(dataClient, input.id),
     onSuccess: () => void invalidate(),
     onError: (e) =>
-      toast(`${t('openData.publish.failed')}: ${describeAdminError(e)}`),
+      toast(`${t('openData.publish.failed')}: ${describeOpenDataError(e)}`),
   })
 
   // Nothing to offer: no repository is ready and nothing was published.
@@ -233,7 +233,9 @@ export function PublishControl({
                   </Select>
                 </Field>
                 {start.error ? (
-                  <Notice tone="bad">{describeAdminError(start.error)}</Notice>
+                  <Notice tone="bad">
+                    {describeOpenDataError(start.error)}
+                  </Notice>
                 ) : null}
                 <div>
                   <Button

@@ -36,7 +36,6 @@ import {
 import { CheckRow } from '#/components/settings/settings-page'
 import { toast } from '#/components/ui/sonner'
 import { createDataClient } from '#/lib/data-client'
-import { describeAdminError } from '#/lib/workspace-admin'
 import {
   deletePublicationTarget,
   fetchOntologySettings,
@@ -44,6 +43,7 @@ import {
   openDataKeys,
   savePublicationTarget,
   setOntologySettings,
+  describeOpenDataError,
 } from '#/lib/open-data/client'
 import type { PublicationTarget, RepositoryKind } from '#/lib/open-data/client'
 import {
@@ -81,7 +81,7 @@ export function OntologySection({
       toast(t('openData.ontology.saved'))
     },
     onError: (e) =>
-      toast(`${t('openData.ontology.failed')}: ${describeAdminError(e)}`),
+      toast(`${t('openData.ontology.failed')}: ${describeOpenDataError(e)}`),
   })
   const enabled = settings.data?.enabled === true
   const parsed = shown
@@ -209,7 +209,7 @@ export function RepositoriesSection({
       await invalidate()
       toast(t('openData.repos.removed'))
     },
-    onError: (e) => toast(describeAdminError(e)),
+    onError: (e) => toast(describeOpenDataError(e)),
   })
 
   const rows = targets.data ?? []
@@ -418,7 +418,7 @@ export function RepositoriesSection({
                 {save.error ? (
                   <p role="alert" className="text-label text-danger">
                     {t('openData.repos.failed')}:{' '}
-                    {describeAdminError(save.error)}
+                    {describeOpenDataError(save.error)}
                   </p>
                 ) : null}
               </DialogBody>

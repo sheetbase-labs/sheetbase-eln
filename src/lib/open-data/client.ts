@@ -2,6 +2,7 @@
  * Open tables, ontology lookup and publishing as the app reads and changes
  * them. Each function is a thin wrapper over one RPC or one table read.
  */
+import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 
 type Rpc = Pick<DataClient, 'rpc'>
@@ -341,4 +342,24 @@ ${duckdb.replace('SELECT * FROM lab.main.<table> LIMIT 10;', "COPY (SELECT * FRO
 """)
 df = spark.read.parquet("/tmp/<table>.parquet")`
   return { duckdb, polars, spark, filesUrl }
+}
+
+/**
+ * What went wrong, in words a scientist can act on. The database's own
+ * messages for these calls are already plain; only a raw constraint failure
+ * needs rewording.
+ */
+export function describeOpenDataError(error: unknown): string {
+  if (!(error instanceof DataClientError)) {
+    return error instanceof Error
+      ? error.message
+      : 'That didn’t work. Try again.'
+  }
+  if (/duplicate key/i.test(error.message)) {
+    return 'A repository with that name already exists.'
+  }
+  if (error.code === '42501' && error.message.trim() === '') {
+    return 'You don’t have access to do that.'
+  }
+  return error.message
 }

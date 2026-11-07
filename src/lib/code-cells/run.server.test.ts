@@ -121,7 +121,7 @@ describe('runCodeCell', () => {
     expect(recorded[0]).toMatchObject({
       p_block_id: BLOCK,
       p_language: 'python',
-      p_status: 'ok',
+      p_status: 'succeeded',
       p_output_digest: out.outputDigest,
     })
   })
@@ -146,7 +146,7 @@ describe('runCodeCell', () => {
     )
     expect(out.status).toBe('error')
     expect(out.errorMessage).toContain('nope')
-    expect(recorded[0]).toMatchObject({ p_status: 'error', p_output: null })
+    expect(recorded[0]).toMatchObject({ p_status: 'failed', p_output: null })
   })
 
   it('does not record a run when the runner is not there', async () => {

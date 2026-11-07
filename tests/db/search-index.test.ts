@@ -241,6 +241,12 @@ describe('what each block type contributes', () => {
       title: 'zebrafinch acetylation',
       rows: [{ id: 'r1', role: 'reactant', name: 'Salicylic acid' }],
     },
+    code_cell: {
+      language: 'sql',
+      source: 'select * from zebra',
+      inputs: [{ alias: 'zebra', label: 'Readings' }],
+      output: null,
+    },
   }
 
   it('has a sample for every block type', () => {

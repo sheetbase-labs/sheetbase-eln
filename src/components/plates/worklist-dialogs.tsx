@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   SendToRobotDialog,
   WorklistJobLine,
+  useWorklistOpenJob,
 } from '#/components/instruments/robot-section'
 import { RecordPickerDialog } from '#/components/record-picker/record-picker'
 import { Button } from '#/components/ui/button'
@@ -377,6 +378,7 @@ export function WorklistDialog({
   const [picking, setPicking] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [sending, setSending] = useState(false)
+  const openJob = useWorklistOpenJob(worklist?.id)
 
   useEffect(() => {
     setSending(false)
@@ -607,7 +609,9 @@ export function WorklistDialog({
                       {t(`plates.worklists.statuses.${worklist.status}`)}
                     </Status>
                   </p>
-                  {isPlanned ? <WorklistJobLine worklistId={worklist.id} /> : null}
+                  {isPlanned ? (
+                    <WorklistJobLine worklistId={worklist.id} />
+                  ) : null}
                   {worklist.withdrawals ? (
                     <div className="flex flex-col gap-1 text-label">
                       {worklist.withdrawals.withdrawn.length > 0 ? (
@@ -707,7 +711,10 @@ export function WorklistDialog({
                   {t('plates.worklist.download')}
                 </Button>
                 {canWrite && isPlanned ? (
-                  <Button onClick={() => setSending(true)}>
+                  <Button
+                    disabled={openJob !== null}
+                    onClick={() => setSending(true)}
+                  >
                     {t('automation.robot.send.button')}
                   </Button>
                 ) : null}

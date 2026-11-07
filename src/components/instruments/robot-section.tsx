@@ -43,7 +43,22 @@ import {
   fetchRobotAgentStatus,
 } from '#/lib/connectors/agent-client'
 import { formatRelativeTime, notebookDataClient } from '#/lib/notebook-data'
-import { FILE_ROBOT_FORMATS, ROBOT_DRIVERS, isOpenJob, isRobotDriver, jobReference, labwareFieldsFor, queueJob, robotQueryKeys, fetchInstrumentJobs, fetchRobotSettings, saveRobotSettings, clearRobotSettings, startJob, cancelJob } from '#/lib/robots'
+import {
+  FILE_ROBOT_FORMATS,
+  ROBOT_DRIVERS,
+  isOpenJob,
+  isRobotDriver,
+  jobReference,
+  labwareFieldsFor,
+  queueJob,
+  robotQueryKeys,
+  fetchInstrumentJobs,
+  fetchRobotSettings,
+  saveRobotSettings,
+  clearRobotSettings,
+  startJob,
+  cancelJob,
+} from '#/lib/robots'
 import type {
   InstrumentJobWire,
   RobotDriver,
@@ -207,7 +222,11 @@ export function RobotSection({
           />
           {canManage ? (
             <div>
-              <Button variant="quiet" size="sm" onClick={() => setRemoving(true)}>
+              <Button
+                variant="quiet"
+                size="sm"
+                onClick={() => setRemoving(true)}
+              >
                 {t('automation.robot.remove')}
               </Button>
             </div>
@@ -243,7 +262,9 @@ export function RobotSection({
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
-            <ConfirmDialogCancel>{t('common.actions.cancel')}</ConfirmDialogCancel>
+            <ConfirmDialogCancel>
+              {t('common.actions.cancel')}
+            </ConfirmDialogCancel>
             <ConfirmDialogAction
               disabled={remove.isPending}
               onClick={() => remove.mutate()}
@@ -261,7 +282,9 @@ function LabwareSummary({ robot }: { robot: RobotSettingsWire }) {
   const fields = labwareFieldsFor(robot.driver, robot.worklist_format)
   const values = fields
     .map((key) => robot.labware[key])
-    .filter((value): value is string => typeof value === 'string' && value !== '')
+    .filter(
+      (value): value is string => typeof value === 'string' && value !== '',
+    )
   return (
     <span className="text-fg-muted">
       {values.length > 0 ? (
@@ -475,7 +498,9 @@ function RobotSetupDialog({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
-  const [driver, setDriver] = useState<RobotDriver>(current?.driver ?? 'opentrons')
+  const [driver, setDriver] = useState<RobotDriver>(
+    current?.driver ?? 'opentrons',
+  )
   const [format, setFormat] = useState<WorklistFormat>(
     current?.worklist_format ?? 'opentrons',
   )
@@ -670,7 +695,9 @@ function RobotAgentDialog({
             <Field label={t('automation.robot.system')}>
               <Select
                 value={system}
-                onChange={(event) => setSystem(event.target.value as AgentSystem)}
+                onChange={(event) =>
+                  setSystem(event.target.value as AgentSystem)
+                }
               >
                 {AGENT_SYSTEMS.map((entry) => (
                   <option key={entry.value} value={entry.value}>
@@ -741,9 +768,14 @@ export function useRobotInstruments() {
       )
       const byId = new Map(names.map((row) => [row.id, row]))
       return settings
-        .map((row) => ({ settings: row, instrument: byId.get(row.instrument_id) }))
+        .map((row) => ({
+          settings: row,
+          instrument: byId.get(row.instrument_id),
+        }))
         .filter(
-          (entry): entry is {
+          (
+            entry,
+          ): entry is {
             settings: RobotSettingsWire
             instrument: NonNullable<typeof entry.instrument>
           } => Boolean(entry.instrument && !entry.instrument.retired_at),
@@ -843,15 +875,21 @@ export function SendToRobotDialog({
 }
 
 /** Where a worklist is on a robot, when a job for it is open. */
-export function WorklistJobLine({ worklistId }: { worklistId: string }) {
+/** The job a worklist is on right now, if a robot has not finished with it. */
+export function useWorklistOpenJob(worklistId: string | undefined) {
   const jobs = useQuery({
-    queryKey: robotQueryKeys.jobsForWorklist(worklistId),
+    queryKey: robotQueryKeys.jobsForWorklist(worklistId ?? ''),
     queryFn: () => fetchInstrumentJobs(client, { worklistId, limit: 5 }),
+    enabled: Boolean(worklistId),
     refetchInterval: 5_000,
     staleTime: 2_000,
   })
+  return (jobs.data ?? []).find((j) => isOpenJob(j.status)) ?? null
+}
+
+export function WorklistJobLine({ worklistId }: { worklistId: string }) {
   const robots = useRobotInstruments()
-  const job = (jobs.data ?? []).find((j) => isOpenJob(j.status))
+  const job = useWorklistOpenJob(worklistId)
   if (!job) return null
   const name =
     robots.data?.find((o) => o.instrument.id === job.instrument_id)?.instrument

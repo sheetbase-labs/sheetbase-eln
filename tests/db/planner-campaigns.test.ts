@@ -163,6 +163,17 @@ describe('plans', () => {
     await expect(bad({ samples: [{ recordId: READER, quantity: 0 }] })).rejects.toThrow(/quantity above zero/)
   })
 
+  it('is refused for an archived project', async () => {
+    await migrator.query(`update api.projects set archived_at = now() where id = $1`, [PROJECT])
+    try {
+      await expect(
+        owner.query(`select * from api.create_experiment_plan($1,'Late',$2::jsonb)`, [PROJECT, JSON.stringify(plan())]),
+      ).rejects.toThrow(/archived/)
+    } finally {
+      await migrator.query(`update api.projects set archived_at = null where id = $1`, [PROJECT])
+    }
+  })
+
   it('is for people who can write, in this workspace', async () => {
     await expect(
       viewer.query(`select * from api.create_experiment_plan($1,'Nope',$2::jsonb)`, [PROJECT, JSON.stringify(plan())]),

@@ -556,7 +556,13 @@ export function CampaignView({
                           <TableCell>
                             {r.engine
                               ? t('planner.campaign.roundEngine', {
-                                  engine: r.engine,
+                                  engine:
+                                    r.engine === 'baybe' ||
+                                    r.engine === 'builtin'
+                                      ? t(
+                                          `planner.campaign.engines.${r.engine}`,
+                                        )
+                                      : r.engine,
                                   version: r.engine_version ?? '',
                                 })
                               : ''}
@@ -946,9 +952,11 @@ function ResultsDialog({
     onSuccess: (row) => {
       onSaved()
       toast.success(
-        row.status === 'completed'
+        row.status === 'completed' && campaign.auto_propose
           ? t('planner.campaign.resultsSavedComplete')
-          : t('planner.campaign.resultsSaved'),
+          : row.status === 'completed'
+            ? t('planner.campaign.resultsSavedDone')
+            : t('planner.campaign.resultsSaved'),
       )
       onClose()
     },

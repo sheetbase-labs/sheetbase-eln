@@ -90,12 +90,13 @@ export function buildSpace(factors: readonly Factor[]): Space {
         if (f.kind === 'continuous') {
           const min = f.min ?? 0
           const max = f.max ?? 1
-          out.push(((Number(value) - min) / (max - min)) as number)
+          out.push((Number(value) - min) / (max - min))
         } else if (f.kind === 'discrete') {
           const values = sortedValues(f)
           out.push(nearestIndex(values, Number(value)) / (values.length - 1))
         } else {
-          for (const choice of f.values ?? []) out.push(choice === value ? 1 : 0)
+          for (const choice of f.values ?? [])
+            out.push(choice === value ? 1 : 0)
         }
       }
       return out
@@ -108,9 +109,9 @@ export function buildSpace(factors: readonly Factor[]): Space {
           const max = f.max ?? 1
           trial[f.key] = roundTo(min + random() * (max - min), min, max)
         } else {
-          const values = (f.kind === 'discrete'
-            ? sortedValues(f)
-            : (f.values ?? [])) as FactorValue[]
+          const values = (
+            f.kind === 'discrete' ? sortedValues(f) : (f.values ?? [])
+          ) as FactorValue[]
           trial[f.key] = values[Math.floor(random() * values.length)]
         }
       }
@@ -131,7 +132,8 @@ export function buildSpace(factors: readonly Factor[]): Space {
           const values = sortedValues(f)
           const at = nearestIndex(values, Number(trial[f.key]))
           const step = random() < 0.5 ? -1 : 1
-          out[f.key] = values[Math.min(values.length - 1, Math.max(0, at + step))]
+          out[f.key] =
+            values[Math.min(values.length - 1, Math.max(0, at + step))]
         } else if (random() < 0.15) {
           const values = f.values ?? []
           out[f.key] = values[Math.floor(random() * values.length)]
@@ -271,11 +273,13 @@ function normalPdf(x: number): number {
 
 /** Standard normal CDF (Abramowitz and Stegun 7.1.26). */
 function normalCdf(x: number): number {
-  const t = 1 / (1 + 0.3275911 * Math.abs(x) / Math.SQRT2)
+  const t = 1 / (1 + (0.3275911 * Math.abs(x)) / Math.SQRT2)
   const poly =
     t *
     (0.254829592 +
-      t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))))
+      t *
+        (-0.284496736 +
+          t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))))
   const erf = 1 - poly * Math.exp(-(x * x) / 2)
   return 0.5 * (1 + (x >= 0 ? erf : -erf))
 }
@@ -364,19 +368,18 @@ function learn(
     picked.push(chosen.trial)
     // Believe the prediction: add the pick as if its result had come back.
     const predicted = chosen.sumVZ
-    const diagonal = Math.sqrt(
-      Math.max(1 + noise - chosen.sumVV, 1e-9),
-    )
+    const diagonal = Math.sqrt(Math.max(1 + noise - chosen.sumVV, 1e-9))
     const row = [...chosen.v, diagonal]
     L.push(row)
-    const zNew = (predicted - chosen.v.reduce((s, vi, i) => s + vi * z[i], 0)) / diagonal
+    const zNew =
+      (predicted - chosen.v.reduce((s, vi, i) => s + vi * z[i], 0)) / diagonal
     z.push(zNew)
     const pickedX = chosen.x
     for (const c of candidates) {
       if (c.taken) continue
       const kc = kernel(c.x, pickedX, space.dims, ell)
       const vNew =
-        (kc - c.v.reduce((s, vi, i) => s + vi * chosen!.v[i], 0)) / diagonal
+        (kc - c.v.reduce((s, vi, i) => s + vi * chosen.v[i], 0)) / diagonal
       c.v.push(vNew)
       c.sumVZ += vNew * zNew
       c.sumVV += vNew * vNew

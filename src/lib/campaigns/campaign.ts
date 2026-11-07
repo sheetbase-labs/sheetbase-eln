@@ -237,7 +237,8 @@ export function scoreObservations(
     )
     const weight = objective.weight ?? 1
     raw.forEach((x, i) => {
-      scores[i] += (weight * (spread > 0 ? (x - mean) / spread : 0)) / totalWeight
+      scores[i] +=
+        (weight * (spread > 0 ? (x - mean) / spread : 0)) / totalWeight
     })
   }
   return scores

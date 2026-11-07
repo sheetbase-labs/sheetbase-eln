@@ -8,7 +8,12 @@ import { mulberry32 } from '#/lib/plate-designer'
 const factors: Factor[] = [
   { key: 'temp', label: 'Temperature', kind: 'continuous', min: 20, max: 40 },
   { key: 'ph', label: 'pH', kind: 'discrete', values: [6, 6.5, 7, 7.5, 8] },
-  { key: 'buffer', label: 'Buffer', kind: 'categorical', values: ['a', 'b', 'c'] },
+  {
+    key: 'buffer',
+    label: 'Buffer',
+    kind: 'categorical',
+    values: ['a', 'b', 'c'],
+  },
 ]
 const maximise: Objective[] = [
   { key: 'yield', label: 'Yield', direction: 'maximise' },
@@ -76,8 +81,20 @@ describe('proposeBatch', () => {
       batchSize: 6,
       seed: 5,
     }).trials.map((t) => ({ factors: t, values: { yield: yieldOf(t) } }))
-    const a = proposeBatch({ factors, objectives: maximise, observations, batchSize: 5, seed: 9 })
-    const b = proposeBatch({ factors, objectives: maximise, observations, batchSize: 5, seed: 9 })
+    const a = proposeBatch({
+      factors,
+      objectives: maximise,
+      observations,
+      batchSize: 5,
+      seed: 9,
+    })
+    const b = proposeBatch({
+      factors,
+      objectives: maximise,
+      observations,
+      batchSize: 5,
+      seed: 9,
+    })
     expect(a).toEqual(b)
     expect(a.strategy).toBe('expected-improvement')
     expect(a.trials).toHaveLength(5)
@@ -91,7 +108,13 @@ describe('proposeBatch', () => {
       batchSize: 8,
       seed: 2,
     }).trials.map((t) => ({ factors: t, values: { yield: yieldOf(t) } }))
-    const next = proposeBatch({ factors, objectives: maximise, observations, batchSize: 10, seed: 3 })
+    const next = proposeBatch({
+      factors,
+      objectives: maximise,
+      observations,
+      batchSize: 10,
+      seed: 3,
+    })
     const tried = new Set(observations.map((o) => JSON.stringify(o.factors)))
     const keys = new Set(next.trials.map((t) => JSON.stringify(t)))
     expect(keys.size).toBe(next.trials.length)
@@ -116,7 +139,13 @@ describe('proposeBatch', () => {
       batchSize: 5,
       seed: 4,
     }).trials.map((t) => ({ factors: t, values: { yield: 50 } }))
-    const next = proposeBatch({ factors, objectives: maximise, observations, batchSize: 4, seed: 1 })
+    const next = proposeBatch({
+      factors,
+      objectives: maximise,
+      observations,
+      batchSize: 4,
+      seed: 1,
+    })
     expect(next.strategy).toBe('space-filling')
   })
 
@@ -136,16 +165,34 @@ describe('proposeBatch', () => {
       factors: t,
       values: { yield: yieldOf(t), cost: 5 + i, ph_out: 6 + i * 0.3 },
     }))
-    const next = proposeBatch({ factors, objectives, observations, batchSize: 3, seed: 12 })
+    const next = proposeBatch({
+      factors,
+      objectives,
+      observations,
+      batchSize: 3,
+      seed: 12,
+    })
     expect(next.trials).toHaveLength(3)
   })
 
   it('refuses an empty design', () => {
     expect(() =>
-      proposeBatch({ factors: [], objectives: maximise, observations: [], batchSize: 2, seed: 1 }),
+      proposeBatch({
+        factors: [],
+        objectives: maximise,
+        observations: [],
+        batchSize: 2,
+        seed: 1,
+      }),
     ).toThrow(/no factors/)
     expect(() =>
-      proposeBatch({ factors, objectives: maximise, observations: [], batchSize: 0, seed: 1 }),
+      proposeBatch({
+        factors,
+        objectives: maximise,
+        observations: [],
+        batchSize: 0,
+        seed: 1,
+      }),
     ).toThrow(/empty/)
   })
 })
@@ -165,6 +212,9 @@ describe('scoring', () => {
       obs,
     )
     expect(scores[2]).toBeGreaterThan(scores[0])
-    expect(bestObservation([{ key: 'a', label: 'A', direction: 'minimise' }], obs)?.index).toBe(0)
+    expect(
+      bestObservation([{ key: 'a', label: 'A', direction: 'minimise' }], obs)
+        ?.index,
+    ).toBe(0)
   })
 })

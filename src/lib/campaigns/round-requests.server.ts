@@ -149,7 +149,10 @@ async function loadObservations(
 }
 
 /** The numbers a fresh Number() would lose: factors come back as the optimiser made them. */
-function trialsOf(factors: readonly Factor[], proposed: TrialFactors[]): Trial[] {
+function trialsOf(
+  factors: readonly Factor[],
+  proposed: TrialFactors[],
+): Trial[] {
   return proposed.map((values, i) => {
     const clean: TrialFactors = {}
     for (const f of factors) clean[f.key] = values[f.key]
@@ -180,7 +183,7 @@ export async function sweepCampaignRounds(deps: RoundDeps): Promise<number> {
           `SELECT * FROM api.campaigns WHERE record_id = $1`,
           [round.campaign_record_id],
         )
-        const campaign = campaigns[0]
+        const campaign = campaigns[0] as CampaignRow | undefined
         if (!campaign) throw new Error('The campaign is gone.')
         const observations = await loadObservations(
           conn,
@@ -195,7 +198,7 @@ export async function sweepCampaignRounds(deps: RoundDeps): Promise<number> {
         })
         const made = layoutRound(
           trialsOf(campaign.factors, engine.trials),
-          campaign.layout ?? {},
+          campaign.layout,
           campaign.seed + round.number,
         )
         trials = made.trials

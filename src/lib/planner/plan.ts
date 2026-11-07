@@ -116,7 +116,9 @@ export function plannerInstruction(
   context: PlannerContext,
 ): string {
   const quantity = (s: PlannerSample) =>
-    s.quantity === null ? 'amount unknown' : `${s.quantity} ${s.unit ?? ''}`.trim()
+    s.quantity === null
+      ? 'amount unknown'
+      : `${s.quantity} ${s.unit ?? ''}`.trim()
   return [
     `Goal: ${JSON.stringify(goal.trim())}`,
     'Protocols you may start the experiment from (key | identifier | title):',
@@ -321,7 +323,10 @@ export function parsePlanAnswer(
   let protocol: PlannerProtocol | undefined
   if (answer.protocol) {
     protocol = protocolByKey.get(answer.protocol)
-    if (!protocol) warnings.push('A protocol the plan named was not found, so it starts blank.')
+    if (!protocol)
+      warnings.push(
+        'A protocol the plan named was not found, so it starts blank.',
+      )
   }
 
   const parts: PlanPart[] = answer.parts.map((part, index) => {
@@ -357,7 +362,9 @@ export function parsePlanAnswer(
     const format: PlateFormat =
       asked in FORMAT_DIMENSIONS ? (asked as PlateFormat) : '96_well'
     if (asked !== format)
-      warnings.push(`A plate format “${asked}” is not supported, so a 96-well plate is used.`)
+      warnings.push(
+        `A plate format “${asked}” is not supported, so a 96-well plate is used.`,
+      )
     const wantsWorklist = Boolean(answer.worklist)
     const volumeUl = answer.plate.volumeUl ?? (wantsWorklist ? 20 : undefined)
     try {
@@ -379,11 +386,11 @@ export function parsePlanAnswer(
       )
       plate = { name: `${title} plate`, format, wells: laid.wells }
       if (wantsWorklist && laid.transfers.length > 0) {
-        const asked = answer.worklist?.format ?? 'csv'
+        const askedFormat = answer.worklist?.format ?? 'csv'
         const worklistFormat: WorklistFormat = (
           WORKLIST_FORMATS as readonly string[]
-        ).includes(asked)
-          ? (asked as WorklistFormat)
+        ).includes(askedFormat)
+          ? (askedFormat as WorklistFormat)
           : 'csv'
         worklist = {
           format: worklistFormat,

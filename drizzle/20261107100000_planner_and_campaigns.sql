@@ -199,6 +199,9 @@ BEGIN
     RAISE EXCEPTION 'project not found in active workspace' USING ERRCODE = '42501';
   END IF;
   PERFORM internal.assert_object_access('project', p_project_id, 'edit');
+  IF internal.project_is_archived(p_project_id) THEN
+    RAISE EXCEPTION 'project is archived' USING ERRCODE = 'SB004';
+  END IF;
   IF coalesce(p_source, 'api') NOT IN ('page', 'assistant', 'api') THEN
     RAISE EXCEPTION 'unknown source' USING ERRCODE = '22023';
   END IF;

@@ -67,7 +67,7 @@ export async function proposeWithBaybe(input: {
         seed: input.seed,
       },
     })
-    const row = result.rows[0]
+    const row = result.rows[0] as Record<string, unknown> | undefined
     const trials = Array.isArray(row?.['trials'])
       ? (row['trials'] as TrialFactors[])
       : []

@@ -65,7 +65,8 @@ export function layoutRound(
 ): { plate: RoundPlate | null; trials: Trial[] } {
   const format = layout.plateFormat
   if (!format) return { plate: null, trials: [...trials] }
-  if (!isPlateFormat(format)) throw new Error('That plate format is not supported.')
+  if (!isPlateFormat(format))
+    throw new Error('That plate format is not supported.')
   const { rows, cols } = FORMAT_DIMENSIONS[format]
   const needed = wellsNeeded(layout, trials.length)
   if (needed > plateWellCount(format))
@@ -99,7 +100,8 @@ export function layoutRound(
     }
   const order = shuffleWithSeed(free, seed)
   const replicates = Math.max(1, layout.replicates ?? 1)
-  const volume = layout.volumeUl && layout.volumeUl > 0 ? layout.volumeUl : undefined
+  const volume =
+    layout.volumeUl && layout.volumeUl > 0 ? layout.volumeUl : undefined
   const transfers: LaidOutTransfer[] = []
   const placed = trials.map((trial) => {
     const own = order.splice(0, replicates)

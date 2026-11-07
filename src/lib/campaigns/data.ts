@@ -97,7 +97,9 @@ export async function fetchCampaign(
       `?select=*&record_id=eq.${encodeURIComponent(recordId)}&limit=1`,
     ),
   ])
-  return records[0] ? { record: records[0], campaign: campaigns[0] ?? null } : null
+  return records[0]
+    ? { record: records[0], campaign: campaigns[0] ?? null }
+    : null
 }
 
 export function fetchRounds(

@@ -2650,6 +2650,35 @@ export const projects = {
     browseTitle: 'Results',
     browseBody: 'Everything that matches your filters',
   },
+  searchMeaning: {
+    toggle: 'Search by meaning',
+    toggleTip:
+      'Also find work that talks about the same thing in different words.',
+    heading: 'Close in meaning',
+    headingNote: 'Found by what it says, not the words you typed.',
+    off: 'Searching by meaning is off for this lab.',
+    columns: {
+      name: 'Name',
+      type: 'Type',
+      why: 'Why it came up',
+      closeness: 'Closeness',
+    },
+    veryClose: 'Very close',
+    close: 'Close',
+    related: 'Related',
+    nothingYet:
+      'Nothing close in meaning yet. It fills in as the text is read.',
+    unavailable: 'Searching by meaning is not available right now.',
+    similarTitle: 'Have we done this before?',
+    similarNote: 'Earlier work that reads like this.',
+    similarEmpty: 'Nothing like this has been found in the lab yet.',
+    similarOff:
+      'Turn on search by meaning in Settings, AI, to see similar work.',
+    similarLoading: 'Looking for similar work…',
+    askAbout: 'Ask the lab about this',
+    askPrompt:
+      'Have we done anything like {identifier}, {title}, before? List the closest earlier work and what came of it.',
+  },
   searchPage: {
     sortBy: 'Sort: {by}',
     anyProject: 'any project',

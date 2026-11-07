@@ -42,6 +42,12 @@ import { Chip } from '#/components/ui/chip'
 import { ListHeader, PHONE_SCROLL_ROW } from '#/components/inventory/list'
 import { SearchResultIcon } from '#/components/search/result-icon'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
+import { SemanticHitsTable } from '#/components/search/semantic-hits'
+import {
+  getSemanticSettingsFn,
+  hybridSearchFn,
+} from '#/lib/semantic-search-actions'
+import type { SemanticHit } from '#/lib/ai-embeddings'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { MobileList, stickyCol } from '#/components/projects/mobile-list'
 import { now } from '#/lib/clock'
@@ -185,6 +191,24 @@ function statusLabel(status: string, kind?: string): string {
   return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+const MEANING_KEY = 'sheetbase.search.byMeaning'
+
+function readMeaningPreference(): boolean {
+  try {
+    return window.localStorage.getItem(MEANING_KEY) !== 'off'
+  } catch {
+    return true
+  }
+}
+
+function writeMeaningPreference(on: boolean): void {
+  try {
+    window.localStorage.setItem(MEANING_KEY, on ? 'on' : 'off')
+  } catch {
+    // The choice just won't be remembered.
+  }
+}
+
 function SearchPage() {
   const platform = usePlatform()
   const search = Route.useSearch()
@@ -239,6 +263,47 @@ function SearchPage() {
     },
     0,
     SEARCH_PAGE_SIZE,
+  )
+
+  // Search by meaning: on by default wherever the lab has turned it on, and a
+  // per-person switch. It adds what the words missed; it never hides a result.
+  const workspaceId = context.workspace?.id ?? ''
+  const [meaningOn, setMeaningOn] = useState(readMeaningPreference)
+  const semanticSettings = useQuery({
+    queryKey: ['semantic-settings', workspaceId],
+    queryFn: () => getSemanticSettingsFn({ data: { workspaceId } }),
+    enabled: Boolean(workspaceId),
+    staleTime: 60_000,
+  })
+  const meaningAvailable = semanticSettings.data?.settings.enabled === true
+  const meaningQuery = useQuery({
+    queryKey: ['semantic-hits', workspaceId, q.trim()],
+    queryFn: () =>
+      hybridSearchFn({ data: { workspaceId, query: q.trim(), limit: 20 } }),
+    enabled:
+      meaningAvailable && meaningOn && q.trim().length > 0 && filterCount === 0,
+    staleTime: 30_000,
+  })
+  const meaningExtras = useMemo<SemanticHit[]>(
+    () =>
+      (meaningQuery.data?.hits ?? [])
+        .filter((hit) => hit.byMeaning && !hit.byWords)
+        .map((hit) => ({
+          type: hit.type,
+          id: hit.id,
+          title: hit.title,
+          identifier: hit.identifier,
+          kind: hit.kind,
+          status: hit.status,
+          archived: hit.archived,
+          deepLink: hit.deepLink,
+          projectId: null,
+          parentType: null,
+          parentId: null,
+          passage: hit.context,
+          similarity: hit.similarity ?? 0,
+        })),
+    [meaningQuery.data],
   )
 
   const query = useInfiniteQuery({
@@ -635,6 +700,23 @@ function SearchPage() {
             </Button>
           </>
         ) : null}
+        {meaningAvailable ? (
+          <Button
+            variant="quiet"
+            size="sm"
+            aria-pressed={meaningOn}
+            icon={meaningOn ? 'check' : undefined}
+            title={t('projects.searchMeaning.toggleTip')}
+            className={cn(meaningOn && 'bg-selection hover:bg-selection')}
+            onClick={() => {
+              const next = !meaningOn
+              setMeaningOn(next)
+              writeMeaningPreference(next)
+            }}
+          >
+            {t('projects.searchMeaning.toggle')}
+          </Button>
+        ) : null}
         <Button
           size="sm"
           variant={builderOpen ? 'secondary' : 'quiet'}
@@ -847,6 +929,35 @@ function SearchPage() {
               loading={query.isFetchingNextPage}
               onLoadMore={() => void query.fetchNextPage()}
             />
+
+            {meaningAvailable && meaningOn && active && filterCount === 0 ? (
+              <section
+                className="mb-6 flex flex-col gap-2"
+                aria-label={t('projects.searchMeaning.heading')}
+                data-testid="search-by-meaning"
+              >
+                <div className="flex items-baseline gap-2 px-4 md:px-6">
+                  <h2 className="m-0 text-body font-medium text-fg">
+                    {t('projects.searchMeaning.heading')}
+                  </h2>
+                  <span className="text-label text-fg-muted">
+                    {t('projects.searchMeaning.headingNote')}
+                  </span>
+                </div>
+                {meaningQuery.isPending ? null : meaningExtras.length > 0 ? (
+                  <SemanticHitsTable
+                    hits={meaningExtras}
+                    label={t('projects.searchMeaning.heading')}
+                  />
+                ) : (
+                  <p className="m-0 px-4 text-label text-fg-muted md:px-6">
+                    {meaningQuery.data?.meaning.used === false
+                      ? meaningQuery.data.meaning.message
+                      : t('projects.searchMeaning.nothingYet')}
+                  </p>
+                )}
+              </section>
+            ) : null}
           </>
         )}
       </div>

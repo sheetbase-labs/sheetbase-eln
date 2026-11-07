@@ -2999,6 +2999,9 @@ export const data = {
     reproduceRun: 'Reproduce a run',
     reproduceRunDescription:
       'Run a finished pipeline run again from its pinned version, settings and inputs in scratch space and record whether the result matches.',
+    checkContract: 'Check a data contract',
+    checkContractDescription:
+      'Check a data contract against its data now and keep the result.',
     addPlateRun: 'Add a plate run',
     addPlateRunDescription:
       'Add a plate read with its layout and readings, to be checked against its own controls on the Plates page.',

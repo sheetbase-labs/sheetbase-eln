@@ -93,6 +93,7 @@ export type CatalogueIntroducedIn =
   | 'trust-01'
   | 'agents-01'
   | 'prov-01'
+  | 'contract-01'
 
 /** Which consumers can observe the event today. */
 export interface EventConsumerMap {
@@ -1736,6 +1737,85 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
       'Payload carries `findingId`, `watcherId`, `watcherKind`, `objectKind`, `objectId`, `title` and `summary`. A pipeline can run on it.',
   },
   {
+    name: 'contract.created',
+    family: 'dataset',
+    summary: 'A data contract was made on a dataset schema or a record model.',
+    producer: { entityType: 'data_contract', operation: 'create' },
+    wireName: 'contract.created',
+    status: 'stable',
+    introducedIn: 'contract-01',
+    consumers: webhookSsePipeline,
+  },
+  {
+    name: 'contract.updated',
+    family: 'dataset',
+    summary:
+      'A data contract changed: its rules, owner, schedule or whether it is in force.',
+    producer: {
+      entityType: 'data_contract',
+      operation: 'update',
+      when: { key: 'effect', equals: 'saved' },
+    },
+    wireName: 'contract.updated',
+    status: 'stable',
+    introducedIn: 'contract-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Shares the data_contract update pair with contract.breached and contract.restored, picked by the payload effect.',
+  },
+  {
+    name: 'contract.deleted',
+    family: 'dataset',
+    summary: 'A data contract was deleted with its run history.',
+    producer: { entityType: 'data_contract', operation: 'delete' },
+    wireName: 'contract.deleted',
+    status: 'stable',
+    introducedIn: 'contract-01',
+    consumers: webhookSsePipeline,
+  },
+  {
+    name: 'contract.check.completed',
+    family: 'dataset',
+    summary:
+      'A data contract was checked: on an import, a pipeline commit, by hand or on its schedule. The payload has the standing and the counts; the rules’ findings are on the data_contract_runs resource.',
+    producer: { entityType: 'data_contract_run', operation: 'create' },
+    wireName: 'contract.check.completed',
+    status: 'stable',
+    introducedIn: 'contract-01',
+    consumers: webhookSsePipeline,
+  },
+  {
+    name: 'contract.breached',
+    family: 'dataset',
+    summary:
+      'A data contract got worse: from pass to warning or fail, or from warning to fail.',
+    producer: {
+      entityType: 'data_contract',
+      operation: 'update',
+      when: { key: 'effect', equals: 'breached' },
+    },
+    wireName: 'contract.breached',
+    status: 'stable',
+    introducedIn: 'contract-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Emitted once when the standing worsens, not on every failing check.',
+  },
+  {
+    name: 'contract.restored',
+    family: 'dataset',
+    summary: 'A data contract that was in warning or fail passes again.',
+    producer: {
+      entityType: 'data_contract',
+      operation: 'update',
+      when: { key: 'effect', equals: 'restored' },
+    },
+    wireName: 'contract.restored',
+    status: 'stable',
+    introducedIn: 'contract-01',
+    consumers: webhookSsePipeline,
+  },
+  {
     name: 'legal_hold.created',
     family: 'compliance',
     summary:
@@ -2420,6 +2500,12 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
   'agent.action.completed': 'An agent’s action is run',
   'ai.eval.completed': 'The assistant checks finish',
   'watcher.finding.created': 'A lab watcher finds something',
+  'contract.created': 'A data contract is made',
+  'contract.updated': 'A data contract is changed',
+  'contract.deleted': 'A data contract is deleted',
+  'contract.check.completed': 'A data contract is checked',
+  'contract.breached': 'A data contract is breached',
+  'contract.restored': 'A data contract passes again',
   'validation.run_completed': 'Validation checks finish',
   'signature.timestamped': 'A signature is timestamped',
   'signature.timestamp_failed': 'A signature’s timestamp gives up',

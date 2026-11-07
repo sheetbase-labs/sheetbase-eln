@@ -31,6 +31,7 @@ END $$;
 --> statement-breakpoint
 
 INSERT INTO internal.webhook_event_names (name) VALUES
+  ('contract.created'), ('contract.updated'), ('contract.deleted'),
   ('contract.check.completed'), ('contract.breached'), ('contract.restored')
 ON CONFLICT DO NOTHING;
 --> statement-breakpoint

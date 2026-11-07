@@ -75,7 +75,8 @@ export function workItemType(kind: string): WorkItemType {
     kind === 'qualification_granted' ||
     kind === 'request_submitted' ||
     kind === 'request_update' ||
-    kind === 'shipment_incoming'
+    kind === 'shipment_incoming' ||
+    kind === 'watcher_finding'
   )
     return 'lab'
   if (
@@ -87,7 +88,8 @@ export function workItemType(kind: string): WorkItemType {
     kind === 'qualification_requested'
   )
     return 'admin'
-  if (kind === 'agent_proposal') return 'agents'
+  if (kind === 'agent_proposal' || kind === 'agent_action_request')
+    return 'agents'
   return 'following'
 }
 

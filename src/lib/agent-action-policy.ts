@@ -129,7 +129,10 @@ export const AGENT_ACTIONS_ALWAYS_OFF: readonly {
     reason: 'Sending work for review is always a person’s call.',
   },
   { label: 'Amend', reason: 'Changing signed work stays with a person.' },
-  { label: 'Lock', reason: 'Locking or unlocking a record stays with a person.' },
+  {
+    label: 'Lock',
+    reason: 'Locking or unlocking a record stays with a person.',
+  },
   { label: 'Delete', reason: 'Nothing an agent does can delete work.' },
 ])
 
@@ -185,12 +188,7 @@ export function resolveAgentActionLevel(
 }
 
 export type AgentActionRequestStatus =
-  | 'pending'
-  | 'approved'
-  | 'rejected'
-  | 'succeeded'
-  | 'failed'
-  | 'refused'
+  'pending' | 'approved' | 'rejected' | 'succeeded' | 'failed' | 'refused'
 
 export interface AgentActionRequestRow {
   id: string

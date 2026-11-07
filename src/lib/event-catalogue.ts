@@ -1623,7 +1623,8 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     status: 'stable',
     introducedIn: 'agents-01',
     consumers: webhookSse,
-    notes: 'Payload carries `requestId`, `actionKey`, `level`, `status` and `summary`.',
+    notes:
+      'Payload carries `requestId`, `actionKey`, `level`, `status` and `summary`.',
   },
   {
     name: 'agent.action.decided',

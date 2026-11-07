@@ -165,6 +165,7 @@ import { Route as SettingsAccountAwayRouteImport } from './routes/settings/accou
 import { Route as SettingsAccountNotificationsRouteImport } from './routes/settings/account/notifications'
 import { Route as SettingsAccountProfileRouteImport } from './routes/settings/account/profile'
 import { Route as SettingsAccountSignatureRouteImport } from './routes/settings/account/signature'
+import { Route as SettingsAccountWatchersRouteImport } from './routes/settings/account/watchers'
 import { Route as SettingsLabInstrumentsRouteImport } from './routes/settings/lab/instruments'
 import { Route as SettingsLabLabelsRouteImport } from './routes/settings/lab/labels'
 import { Route as SettingsLabReleaseRouteImport } from './routes/settings/lab/release'
@@ -1026,6 +1027,11 @@ const SettingsAccountSignatureRoute =
     path: '/account/signature',
     getParentRoute: () => SettingsRoute,
   } as any)
+const SettingsAccountWatchersRoute = SettingsAccountWatchersRouteImport.update({
+  id: '/account/watchers',
+  path: '/account/watchers',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsLabInstrumentsRoute = SettingsLabInstrumentsRouteImport.update({
   id: '/lab/instruments',
   path: '/lab/instruments',
@@ -1533,6 +1539,7 @@ export interface FileRoutesByFullPath {
   '/settings/account/notifications': typeof SettingsAccountNotificationsRoute
   '/settings/account/profile': typeof SettingsAccountProfileRoute
   '/settings/account/signature': typeof SettingsAccountSignatureRoute
+  '/settings/account/watchers': typeof SettingsAccountWatchersRoute
   '/settings/lab/instruments': typeof SettingsLabInstrumentsRoute
   '/settings/lab/labels': typeof SettingsLabLabelsRoute
   '/settings/lab/release': typeof SettingsLabReleaseRoute
@@ -1740,6 +1747,7 @@ export interface FileRoutesByTo {
   '/settings/account/notifications': typeof SettingsAccountNotificationsRoute
   '/settings/account/profile': typeof SettingsAccountProfileRoute
   '/settings/account/signature': typeof SettingsAccountSignatureRoute
+  '/settings/account/watchers': typeof SettingsAccountWatchersRoute
   '/settings/lab/instruments': typeof SettingsLabInstrumentsRoute
   '/settings/lab/labels': typeof SettingsLabLabelsRoute
   '/settings/lab/release': typeof SettingsLabReleaseRoute
@@ -1963,6 +1971,7 @@ export interface FileRoutesById {
   '/settings/account/notifications': typeof SettingsAccountNotificationsRoute
   '/settings/account/profile': typeof SettingsAccountProfileRoute
   '/settings/account/signature': typeof SettingsAccountSignatureRoute
+  '/settings/account/watchers': typeof SettingsAccountWatchersRoute
   '/settings/lab/instruments': typeof SettingsLabInstrumentsRoute
   '/settings/lab/labels': typeof SettingsLabLabelsRoute
   '/settings/lab/release': typeof SettingsLabReleaseRoute
@@ -2187,6 +2196,7 @@ export interface FileRouteTypes {
     | '/settings/account/notifications'
     | '/settings/account/profile'
     | '/settings/account/signature'
+    | '/settings/account/watchers'
     | '/settings/lab/instruments'
     | '/settings/lab/labels'
     | '/settings/lab/release'
@@ -2394,6 +2404,7 @@ export interface FileRouteTypes {
     | '/settings/account/notifications'
     | '/settings/account/profile'
     | '/settings/account/signature'
+    | '/settings/account/watchers'
     | '/settings/lab/instruments'
     | '/settings/lab/labels'
     | '/settings/lab/release'
@@ -2616,6 +2627,7 @@ export interface FileRouteTypes {
     | '/settings/account/notifications'
     | '/settings/account/profile'
     | '/settings/account/signature'
+    | '/settings/account/watchers'
     | '/settings/lab/instruments'
     | '/settings/lab/labels'
     | '/settings/lab/release'
@@ -3895,6 +3907,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsAccountSignatureRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/account/watchers': {
+      id: '/settings/account/watchers'
+      path: '/account/watchers'
+      fullPath: '/settings/account/watchers'
+      preLoaderRoute: typeof SettingsAccountWatchersRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/lab/instruments': {
       id: '/settings/lab/instruments'
       path: '/lab/instruments'
@@ -4729,6 +4748,7 @@ interface SettingsRouteChildren {
   SettingsAccountNotificationsRoute: typeof SettingsAccountNotificationsRoute
   SettingsAccountProfileRoute: typeof SettingsAccountProfileRoute
   SettingsAccountSignatureRoute: typeof SettingsAccountSignatureRoute
+  SettingsAccountWatchersRoute: typeof SettingsAccountWatchersRoute
   SettingsLabInstrumentsRoute: typeof SettingsLabInstrumentsRoute
   SettingsLabLabelsRoute: typeof SettingsLabLabelsRoute
   SettingsLabReleaseRoute: typeof SettingsLabReleaseRoute
@@ -4759,6 +4779,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsAccountNotificationsRoute: SettingsAccountNotificationsRoute,
   SettingsAccountProfileRoute: SettingsAccountProfileRoute,
   SettingsAccountSignatureRoute: SettingsAccountSignatureRoute,
+  SettingsAccountWatchersRoute: SettingsAccountWatchersRoute,
   SettingsLabInstrumentsRoute: SettingsLabInstrumentsRoute,
   SettingsLabLabelsRoute: SettingsLabLabelsRoute,
   SettingsLabReleaseRoute: SettingsLabReleaseRoute,

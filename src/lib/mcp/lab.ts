@@ -270,7 +270,12 @@ export async function runGuardedLabAct(
       p_result: result === undefined ? null : result,
       p_error: null,
     })
-    return { ok: true, action, result, request: { ...ref, status: 'succeeded' } }
+    return {
+      ok: true,
+      action,
+      result,
+      request: { ...ref, status: 'succeeded' },
+    }
   } catch (error) {
     await context.client
       .rpc('finish_agent_action', {

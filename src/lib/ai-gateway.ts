@@ -43,6 +43,7 @@
  * local reproduction of truncation or grounding faults.
  */
 
+import { parseExtensionName } from './extensions/points'
 import type { AiContextActor, AiContextEnvelope } from './ai-context'
 import type { AiCitation } from './ai-retrieval'
 import {
@@ -392,7 +393,11 @@ function prepareCall(
     const original = fromWireToolName(def.name)
     if (
       !(ASSISTANT_READ_TOOL_NAMES as readonly string[]).includes(original) &&
-      !(ASSISTANT_PROPOSE_TOOL_NAMES as readonly string[]).includes(original)
+      !(ASSISTANT_PROPOSE_TOOL_NAMES as readonly string[]).includes(original) &&
+      // A tool an administrator-installed extension declares. The toolkit
+      // builds these definitions from the workspace's enabled installs and
+      // refuses a call to anything it did not offer.
+      parseExtensionName(original) === null
     ) {
       reject(
         registry,

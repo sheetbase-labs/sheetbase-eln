@@ -285,6 +285,11 @@ export const notebook = {
         applying: 'Applying…',
         applied: 'Plan applied',
       },
+      runExtension: {
+        apply: 'Run',
+        applying: 'Running…',
+        applied: 'Done',
+      },
       setModelFeature: {
         apply: 'Save feature',
         applying: 'Saving…',

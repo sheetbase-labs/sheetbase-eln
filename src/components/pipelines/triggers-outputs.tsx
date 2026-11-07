@@ -240,6 +240,16 @@ export function RunKeeps({
   )
 }
 
+/** An extension step reads as its own name: `extension.k.summarise-values` becomes “Summarise values”. */
+function actionLabel(operation: string): string {
+  const known = ACTION_LABEL.get(operation)
+  if (known) return known
+  const parts = operation.split('.')
+  if (parts[0] !== 'extension' || parts.length < 3) return operation
+  const words = parts.slice(2).join(' ').replace(/-/g, ' ')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
 const ACTION_LABEL = new Map(
   PIPELINE_ACTIONS.map((a) => [a.operation, a.label] as const),
 )
@@ -274,7 +284,7 @@ export function ElnActions({ config }: { config: Partial<PipelineConfig> }) {
               return (
                 <tr key={action.name} className="border-t border-line">
                   <td className="py-1.5 pr-3 text-fg">
-                    {ACTION_LABEL.get(action.operation) ?? action.operation}
+                    {actionLabel(action.operation)}
                   </td>
                   <td className="py-1.5 pr-3 text-fg-muted">
                     {action.forEach

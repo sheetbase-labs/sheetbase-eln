@@ -128,6 +128,7 @@ const ACTION_COPY = {
   'schedule.accept': 'acceptSchedule',
   'plan.apply': 'applyPlan',
   'model.feature': 'setModelFeature',
+  'extension.run': 'runExtension',
   'campaign.start': 'startCampaign',
   'campaign.round': 'askRound',
   'campaign.approve': 'approveRound',

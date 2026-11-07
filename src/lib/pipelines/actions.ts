@@ -1,4 +1,5 @@
 import { t } from '#/copy'
+import { parseExtensionName } from '#/lib/extensions/points'
 /** Browser-safe catalogue of governed ELN operations available to pipeline actions. */
 export interface PipelineAction {
   name: string
@@ -496,6 +497,27 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] = [
   ),
 ]
 const actionName = /^[a-z][a-z0-9_]{0,47}$/
+function validateRowLoop(forEach: unknown, index: number, errors: string[]) {
+  if (forEach === undefined) return
+  const reference =
+    forEach !== null &&
+    typeof forEach === 'object' &&
+    !Array.isArray(forEach) &&
+    Object.keys(forEach).length === 1
+      ? (forEach as { $ref?: unknown }).$ref
+      : undefined
+  const parts = typeof reference === 'string' ? reference.split('.') : []
+  if (
+    parts.length === 0 ||
+    !PIPELINE_ACTION_ROW_SOURCES.includes(parts[0]) ||
+    parts.some((part) => !/^[A-Za-z0-9_-]+$/.test(part))
+  )
+    errors.push(
+      t('data.pipelineActions.actionRowLoopNeedsList', {
+        value: index + 1,
+      }),
+    )
+}
 export function validatePipelineActions(value: unknown): string[] {
   if (!Array.isArray(value) || value.length > 20)
     return [t('data.pipelineActions.useArrayUp20')]
@@ -525,6 +547,35 @@ export function validatePipelineActions(value: unknown): string[] {
       errors.push(
         t('data.pipelineActions.actionHasUnknownMode', { value: index + 1 }),
       )
+    // An action an extension adds is checked here only for its shape; which
+    // extensions are installed, enabled and declare it is a workspace fact, so
+    // the run checks that (and the declared inputs) before anything is called.
+    if (
+      typeof item.operation === 'string' &&
+      parseExtensionName(item.operation)
+    ) {
+      if (
+        !item.arguments ||
+        typeof item.arguments !== 'object' ||
+        Array.isArray(item.arguments)
+      ) {
+        errors.push(
+          t('data.pipelineActions.actionNeedsArgumentsObject', {
+            value: index + 1,
+          }),
+        )
+        continue
+      }
+      if (item.mode === 'propose')
+        errors.push(
+          t('data.pipelineActions.actionCannotProposeHas', {
+            value: index + 1,
+            operation: item.operation,
+          }),
+        )
+      validateRowLoop(item.forEach, index, errors)
+      continue
+    }
     const operation = PIPELINE_ACTIONS.find(
       (entry) => entry.operation === item.operation,
     )
@@ -574,27 +625,7 @@ export function validatePipelineActions(value: unknown): string[] {
           }),
         )
     }
-    const forEach: unknown = item.forEach
-    if (forEach !== undefined) {
-      const reference =
-        forEach !== null &&
-        typeof forEach === 'object' &&
-        !Array.isArray(forEach) &&
-        Object.keys(forEach).length === 1
-          ? (forEach as { $ref?: unknown }).$ref
-          : undefined
-      const parts = typeof reference === 'string' ? reference.split('.') : []
-      if (
-        parts.length === 0 ||
-        !PIPELINE_ACTION_ROW_SOURCES.includes(parts[0]) ||
-        parts.some((part) => !/^[A-Za-z0-9_-]+$/.test(part))
-      )
-        errors.push(
-          t('data.pipelineActions.actionRowLoopNeedsList', {
-            value: index + 1,
-          }),
-        )
-    }
+    validateRowLoop(item.forEach, index, errors)
     if (item.mode === 'propose' && !operation.proposalKind)
       errors.push(
         t('data.pipelineActions.actionCannotProposeHas', {

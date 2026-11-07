@@ -1,3 +1,5 @@
+import { parseExtensionName } from './extensions/points'
+import { ExtensionRunError, invokeExtension } from './extensions/runtime.server'
 import type { ExecConnection } from './pipeline-execute.server'
 import {
   PIPELINE_ACTIONS,
@@ -236,6 +238,7 @@ export async function executePipelineActions(
     !identity.rows.at(0)?.user_id
   )
     throw new Error('Pipeline action identity does not match its workspace.')
+  const actorUserId = identity.rows[0].user_id
   // Some canonical RPCs are invoker functions. A claims-only superuser call
   // would bypass their RLS; execute the catalogue as the authenticated role.
   await conn.query('SET LOCAL ROLE authenticated')
@@ -246,13 +249,37 @@ export async function executePipelineActions(
       scope: Record<string, unknown>,
       suffix: string,
     ): Promise<unknown> => {
-      const definition = PIPELINE_ACTIONS.find(
-        (entry) => entry.operation === action.operation,
-      )!
       const resolved = resolvePipelineActionValue(
         action.arguments,
         scope,
       ) as Record<string, unknown>
+      // An action an extension added: the extension runs it, signed or in the
+      // isolated Python runner, and its answer is the step's result.
+      const extensionName = parseExtensionName(action.operation)
+      if (extensionName) {
+        try {
+          const outcome = await invokeExtension({
+            workspaceId: run.workspaceId,
+            actorUserId,
+            extensionKey: extensionName.key,
+            point: 'pipeline-actions',
+            itemId: extensionName.id,
+            input: resolved,
+          })
+          return outcome.output
+        } catch (error) {
+          const reason =
+            error instanceof ExtensionRunError || error instanceof Error
+              ? error.message
+              : String(error)
+          throw new Error(
+            `Action ${action.name} (${action.operation}): ${reason}`,
+          )
+        }
+      }
+      const definition = PIPELINE_ACTIONS.find(
+        (entry) => entry.operation === action.operation,
+      )!
       if (action.mode === 'propose')
         return proposePipelineAction(
           conn,

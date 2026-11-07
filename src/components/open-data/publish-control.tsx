@@ -164,6 +164,7 @@ export function PublishControl({
           rel="noreferrer"
           title={t('openData.publish.doi')}
         >
+          {/* copy-ignore-next-line */}
           <Badge>DOI {published.doi}</Badge>
         </a>
       ) : null}
@@ -290,6 +291,7 @@ export function PublishControl({
                             target="_blank"
                             rel="noreferrer"
                           >
+                            {/* copy-ignore-next-line */}
                             DOI {p.doi}
                           </a>
                         ) : null}

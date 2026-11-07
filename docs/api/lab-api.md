@@ -65,6 +65,9 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `experiment_series`            | An experiment that heads a series: it groups other experiments that run as separate pieces of one piece of work.                                                                                                                                                                                                   |
 | `experiment_series_members`    | An experiment in a series, with where it sits (`position`) and the day it is planned (`planned_on`). An experiment is in one series at most.                                                                                                                                                                       |
 | `experiment_parts`             | A part of an experiment that runs over several days: its own page of the notebook, on a day counted from the start of the experiment. Parts run in `position` order. A part is done when all its steps are, or when it was marked done by hand.                                                                    |
+| `experiment_part_signoffs`     | A signature on a part of an experiment. `meaning` is `signed` (the person who did the part) or `witnessed` (a countersign of that signature, named in `countersigns_id`). `snapshot` is the part as it was frozen when signed, and `snapshot_digest` its SHA-256. Rows are never changed or removed.               |
+| `experiment_part_requests`     | A request to sign a finished part (`kind` is `sign`) or to countersign a signed one (`countersign`). `fulfilled_at` is set when it was done or no longer applies.                                                                                                                                                  |
+| `experiment_part_amendments`   | A signed part was reopened to amend it. `signoff_id` is the signature set aside, which stays on record. Rows are never changed or removed.                                                                                                                                                                         |
 | `step_timers`                  | A timer started on a protocol step. Personal tokens only: you see your own timers.                                                                                                                                                                                                                                 |
 | `material_safety`              | Chemical safety information for a material: hazard pictograms, signal word, hazard statements and the safety data sheet file.                                                                                                                                                                                      |
 | `material_ingredients`         | What went into a prepared solution: one row per ingredient lot, with quantity and unit.                                                                                                                                                                                                                            |
@@ -665,6 +668,61 @@ Scope: `lab:write`.
 | --------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `p_record_id` * | uuid | Record id.                                                                                                                    |
 | `p_parts` *     | json | The parts to make, in order: each `{title, first_block_id, day_offset}`. A part runs from its first block to the next part's. |
+
+### `part_signoff_preview`
+
+Show what signing a part would cover. The SHA-256 digest of the part as it is now, how many blocks and steps it holds, whether it needs a signature, is finished and is signed. A signature is bound to this digest. Signing itself is done by a person in the app with a fresh password, never over the API.
+
+Scope: `lab:read`.
+
+| Argument      | Type | Notes                       |
+| ------------- | ---- | --------------------------- |
+| `p_part_id` * | uuid | The part of the experiment. |
+
+### `record_part_signoffs`
+
+List where each part of an experiment stands on signatures. Every part in order: whether it needs a signature, is finished and waiting (`awaiting_sign_off`), who signed and when, who has countersigned or been asked to, and how often it was amended (with the last reason). Empty for an experiment with no parts.
+
+Scope: `lab:read`.
+
+| Argument        | Type | Notes      |
+| --------------- | ---- | ---------- |
+| `p_record_id` * | uuid | Record id. |
+
+### `set_parts_sign_off`
+
+Require a signature on the parts of an experiment, or stop requiring it. Applies to the parts that are not signed yet, and to parts added later. When a part needs a signature it counts as finished only once it is signed, and the parts after it cannot be worked until then. Returns how many parts changed.
+
+Scope: `lab:write`.
+
+| Argument        | Type | Notes                                                  |
+| --------------- | ---- | ------------------------------------------------------ |
+| `p_record_id` * | uuid | Record id.                                             |
+| `p_required` *  | bool | `true` if each part needs a signature, `false` if not. |
+
+### `request_part_signoff`
+
+Ask someone to sign or countersign a part of an experiment. For a finished part that is waiting, asks the person to sign it; for a signed part, asks them to countersign. They get a notification. Nothing is signed on their behalf: signing needs the person, in the app, with a fresh password.
+
+Scope: `lab:write`.
+
+| Argument      | Type | Notes                                                  |
+| ------------- | ---- | ------------------------------------------------------ |
+| `p_part_id` * | uuid | The part of the experiment.                            |
+| `p_user_id` * | text | The person (their user id).                            |
+| `p_note`      | text | A note.                                                |
+| `p_due_at`    | ts   | When it is wanted by (an ISO date and time). Optional. |
+
+### `amend_experiment_part`
+
+Reopen a signed part of an experiment to amend it. Needs a reason. Only that part is reopened; the signature stays on record and the part has to be signed again before the parts after it can go on. Returns the amendment. Sends `experiment.part_amended`.
+
+Scope: `lab:write`.
+
+| Argument      | Type | Notes                       |
+| ------------- | ---- | --------------------------- |
+| `p_part_id` * | uuid | The part of the experiment. |
+| `p_reason` *  | text | Why, in a sentence.         |
 
 ### `set_material_safety`
 

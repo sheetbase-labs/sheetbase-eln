@@ -221,8 +221,6 @@ EVENT_NAMES: tuple[str, ...] = (
     "campaign.round.approved",
     "campaign.round.rejected",
     "campaign.round.completed",
-    "model.feature.enabled",
-    "model.feature.disabled",
 )
 
 #: Shipped wire aliases (table-name leaks kept for compatibility) mapped to

@@ -177,6 +177,17 @@ EVENT_NAMES: tuple[str, ...] = (
     "instrument.run.converted",
     "qc.violation",
     "qc.back_in_control",
+    "instrument.job.queued",
+    "instrument.job.staged",
+    "instrument.job.started",
+    "instrument.job.completed",
+    "instrument.job.failed",
+    "instrument.job.cancelled",
+    "schedule.proposed",
+    "schedule.accepted",
+    "schedule.dismissed",
+    "code_cell.run",
+    "code_cell.reproduced",
 )
 
 #: Shipped wire aliases (table-name leaks kept for compatibility) mapped to

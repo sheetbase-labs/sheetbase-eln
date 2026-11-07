@@ -116,15 +116,20 @@ describe('PIPELINE_TRIGGER_EVENTS', () => {
       (entry) =>
         entry.status === 'stable' &&
         entry.producer !== null &&
+        // A producer that needs a payload test can never be a trigger.
+        entry.producer.when === undefined &&
         (['record', 'dataset', 'sheet', 'notebook'].includes(entry.family) ||
           entry.name.startsWith('storage.alarm.') ||
           entry.name === 'watcher.finding.created' ||
           // Instrument data and run quality control start pipelines too.
           entry.name === 'instrument.run.converted' ||
-          entry.name === 'qc.violation'),
+          entry.name === 'qc.violation' ||
+          // A worklist queued for a robot and a schedule asked for.
+          entry.name === 'instrument.job.queued' ||
+          entry.name === 'schedule.proposed'),
     ).map((entry) => entry.name)
     expect([...PIPELINE_TRIGGER_EVENTS].sort()).toEqual(expected.sort())
-    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(43)
+    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(46)
   })
 
   it('normalizes every triggerable name to itself', () => {

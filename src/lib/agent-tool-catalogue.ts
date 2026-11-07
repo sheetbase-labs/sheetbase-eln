@@ -158,6 +158,11 @@ export const ASSISTANT_PROPOSE_TOOL_NAMES = [
   // (assistant-qc.ts).
   'sheetbase.qc.set_baseline',
   'sheetbase.qc.acknowledge',
+  // Robots and the scheduler: send a worklist to a robot (a person still presses
+  // Start), ask for a schedule, accept one (assistant-automation.ts).
+  'sheetbase.robot.send_worklist',
+  'sheetbase.schedule.plan',
+  'sheetbase.schedule.accept',
   // The person's own out of office, set or cancelled from a card.
   'sheetbase.absence.set',
   'sheetbase.absence.cancel',

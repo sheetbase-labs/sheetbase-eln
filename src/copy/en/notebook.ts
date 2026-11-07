@@ -235,6 +235,21 @@ export const notebook = {
         applying: 'Setting…',
         applied: 'Limits set',
       },
+      sendToRobot: {
+        apply: 'Send to robot',
+        applying: 'Sending…',
+        applied: 'Sent to the robot',
+      },
+      planSchedule: {
+        apply: 'Plan schedule',
+        applying: 'Planning…',
+        applied: 'Planning started',
+      },
+      acceptSchedule: {
+        apply: 'Accept and book',
+        applying: 'Booking…',
+        applied: 'Booked',
+      },
       acknowledgeQc: {
         apply: 'Acknowledge',
         applying: 'Acknowledging…',

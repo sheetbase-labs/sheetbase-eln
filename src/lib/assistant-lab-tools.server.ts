@@ -147,6 +147,12 @@ export const LAB_AREAS = {
     'Validation checks run on this install (regulated labs): when, and how many passed, failed or were skipped (openOnly: only runs with a failure)',
   reproductions:
     'Pipeline runs that were run again to check they give the same result: when, and whether it matches or differs (openOnly: only those that differ or failed)',
+  robot_jobs:
+    'Worklists sent to robots: which robot, whether each is waiting for the agent, on the robot waiting for Start, running, complete, failed or stopped, and what the robot reported (openOnly: only jobs still open)',
+  schedules:
+    'Proposed schedules for the parts of experiments: whether each is waiting to be planned, proposed, accepted or dismissed, and how many slots have something in the way (openOnly: only proposals waiting to be accepted)',
+  code_runs:
+    'Runs of notebook code cells (Python or SQL): when, the language, whether it worked, and for a run done again whether the output matched (openOnly: only runs that failed or did not match)',
   lineage:
     'Where lineage events are sent (OpenLineage endpoints): whether each is on and whether its last test passed',
   safety:
@@ -722,6 +728,9 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   timestamps: 'status=neq.stamped',
   validation: 'status=eq.failed',
   reproductions: 'status=neq.matches',
+  robot_jobs: 'status=in.(queued,staged,starting,running)',
+  schedules: 'status=eq.proposed',
+  code_runs: 'or=(status.eq.error,matches.eq.false)',
   sample_workflows: 'status=eq.active',
   directory_sync: 'revoked_at=is.null',
   watcher_findings: 'status=eq.open',
@@ -917,6 +926,30 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'created_at.desc',
     search: [],
     page: '/pipelines',
+  },
+  robot_jobs: {
+    table: 'instrument_jobs',
+    select:
+      'id,number,instrument_id,worklist_id,status,note,error_message,result,created_at,finished_at',
+    order: 'created_at.desc',
+    search: ['note'],
+    page: '/instruments',
+  },
+  schedules: {
+    table: 'schedule_proposals',
+    select:
+      'id,number,record_id,status,reason,conflict_count,created_at,decided_at',
+    order: 'created_at.desc',
+    search: [],
+    page: '/experiments',
+  },
+  code_runs: {
+    table: 'code_cell_runs',
+    select:
+      'id,number,record_id,language,status,matches,runtime,error_message,duration_ms,ran_at',
+    order: 'ran_at.desc',
+    search: ['language'],
+    page: '/experiments',
   },
   lineage: {
     table: 'lineage_targets',

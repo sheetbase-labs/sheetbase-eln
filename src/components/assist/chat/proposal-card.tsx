@@ -115,6 +115,9 @@ const ACTION_COPY = {
   'worklist.create': 'createWorklist',
   'qc.set_baseline': 'setQcBaseline',
   'qc.acknowledge': 'acknowledgeQc',
+  'robot.send': 'sendToRobot',
+  'schedule.plan': 'planSchedule',
+  'schedule.accept': 'acceptSchedule',
 } as const satisfies Record<AssistantActionKind, string>
 
 /** Button and done words for an everyday action: "Book", "Booked". */

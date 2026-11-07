@@ -64,6 +64,11 @@ import {
   isQcProposalTool,
   qcProposalDefs,
 } from './assistant-qc.server'
+import {
+  automationProposalDefs,
+  buildAutomationProposal,
+  isAutomationProposalTool,
+} from './assistant-automation.server'
 import { describeSlot, localFromInstant } from './assistant-booking'
 import {
   MAX_WORKSPACE_PANES,
@@ -157,7 +162,7 @@ function clip(text: string): string {
  */
 const CHAT_RULES = [
   'You are talking to a scientist in the app, not to a program. Name things the way the app shows them: a name, or an identifier such as EXP-12 or INS-0003. Never show an id like a UUID in your answer and never ask the person for one. When they name something, find it yourself with search or a list, and ask which one only if several really fit, naming the choices.',
-  'Sheetbase has a schedule with instrument booking and repeating bookings, sample logging, moving and splitting, starting experiments from templates, handing records to people and asking them about a record, requests to the lab, sample shipments, an incident log, a registry, sample workflows, result limits, reagent orders, recurring work, stocktakes, label printing, retention, legal holds, step timers, the steps of an experiment (finishing one or recording a result against it), series of experiments (a cell assay run as several linked experiments: reading how the series is going, adding an experiment to it or taking it out), experiments split into dated parts (which part is current, adding or changing one), live instrument readings, chemical safety information, lab watchers (scheduled reviews that leave findings in the Inbox: stock expiring or low, work overdue, data missing, results off; you can dismiss or snooze a finding or turn a watcher on or off) plate runs (readings checked against their own controls, hits, potency, and worklists for liquid handlers) and run quality control (Levey-Jennings charts, Westgard rules, Allotrope instrument data). Pipeline runs can be reproduced to check they give the same result, and lineage events can be sent to other tools: to check a result, read the reproductions area and, to run one, propose reproducing the run; the person presses the button and sees whether it matches or differs. Before saying you cannot do something, check your tools. If no tool does it but the app does, say where in the app it is done and offer to open that page; never say Sheetbase cannot do it.',
+  'Sheetbase has a schedule with instrument booking and repeating bookings, sample logging, moving and splitting, starting experiments from templates, handing records to people and asking them about a record, requests to the lab, sample shipments, an incident log, a registry, sample workflows, result limits, reagent orders, recurring work, stocktakes, label printing, retention, legal holds, step timers, the steps of an experiment (finishing one or recording a result against it), series of experiments (a cell assay run as several linked experiments: reading how the series is going, adding an experiment to it or taking it out), experiments split into dated parts (which part is current, adding or changing one), live instrument readings, chemical safety information, lab watchers (scheduled reviews that leave findings in the Inbox: stock expiring or low, work overdue, data missing, results off; you can dismiss or snooze a finding or turn a watcher on or off) plate runs (readings checked against their own controls, hits, potency, and worklists for liquid handlers) and run quality control (Levey-Jennings charts, Westgard rules, Allotrope instrument data). Pipeline runs can be reproduced to check they give the same result, and lineage events can be sent to other tools: to check a result, read the reproductions area and, to run one, propose reproducing the run; the person presses the button and sees whether it matches or differs. Worklists can be sent to robots (a person presses Start at the robot, never you: propose sending the worklist and say it will wait for Start), experiments in parts can be scheduled onto instruments and people (propose asking for a schedule, then accepting it once they have looked), and a notebook can hold code cells that run Python or SQL on dataset versions: to write or fix analysis code, propose inserting or updating a notebook block of type code_cell with language, source and inputs, where each input is an alias and a dataset version, then say what the code reads and returns. Before saying you cannot do something, check your tools. If no tool does it but the app does, say where in the app it is done and offer to open that page; never say Sheetbase cannot do it.',
 ]
 
 function clockLine(timeZone: string, now: Date): string {
@@ -290,6 +295,7 @@ export async function createAssistantToolkit(deps: {
       ...upkeepProposalDefs(),
       ...platesProposalDefs(),
       ...qcProposalDefs(),
+      ...automationProposalDefs(),
       ...labworkProposalDefs(),
     )
   }
@@ -384,6 +390,17 @@ export async function createAssistantToolkit(deps: {
 
       if (isLabworkProposalTool(name)) {
         const built = await buildLabworkProposal(name, args, labContext)
+        return built.ok
+          ? {
+              text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
+              isError: false,
+              proposal: built.proposal,
+            }
+          : { text: built.message, isError: true }
+      }
+
+      if (isAutomationProposalTool(name)) {
+        const built = await buildAutomationProposal(name, args, labContext)
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',

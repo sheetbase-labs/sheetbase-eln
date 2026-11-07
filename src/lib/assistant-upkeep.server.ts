@@ -9,6 +9,8 @@ import {
   GROUP_ROLE_SET_TOOL,
   TIMESTAMPS_RETRY_TOOL,
   VALIDATION_RUN_TOOL,
+  PIPELINE_REPRODUCE_TOOL,
+  proposePipelineReproduceSchema,
   TIMESTAMPS_SET_TOOL,
   proposeTimestampsRetrySchema,
   proposeValidationRunSchema,
@@ -167,6 +169,11 @@ export function upkeepProposalDefs(): ProviderToolDef[] {
       VALIDATION_RUN_TOOL,
       `Propose running the installation and operation checks of the validation pack now and keeping the evidence. Only for regulated labs, for people who manage the audit settings. ${NOTE}`,
       proposeValidationRunSchema,
+    ),
+    toolDef(
+      PIPELINE_REPRODUCE_TOOL,
+      `Propose reproducing a finished pipeline run: it runs again from the same pinned version, settings and inputs in scratch space, compares the result with the original and records whether it matches. Nothing is published or changed. Give the pipeline by name, or a run id from a read. ${NOTE}`,
+      proposePipelineReproduceSchema,
     ),
   ]
 }
@@ -625,6 +632,93 @@ export async function buildUpkeepProposal(
           },
         ],
         action: { kind: 'validation.run' },
+      })
+    }
+
+    case PIPELINE_REPRODUCE_TOOL: {
+      const parsed = parse(proposePipelineReproduceSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      if (!input.runId && !input.pipeline) {
+        return fail('Say which pipeline to reproduce, by name.')
+      }
+      type RunInfo = {
+        id: string
+        status: string
+        definition_version_id: string
+        created_at: string
+      }
+      let run: RunInfo | undefined
+      let definition: { id: string; name: string; display_id: string | null }
+      if (input.runId) {
+        const rows = await client.list<RunInfo>(
+          'pipeline_runs',
+          `?id=eq.${input.runId}&select=id,status,definition_version_id,created_at&limit=1`,
+        )
+        run = rows[0]
+        if (!run) return fail('That run was not found.')
+        const versions = await client.list<{ definition_id: string }>(
+          'pipeline_definition_versions',
+          `?id=eq.${run.definition_version_id}&select=definition_id&limit=1`,
+        )
+        const found = await client.list<typeof definition>(
+          'pipeline_definitions',
+          `?id=eq.${versions[0]?.definition_id ?? ''}&select=id,name,display_id&limit=1`,
+        )
+        if (!found[0]) return fail('That run was not found.')
+        definition = found[0]
+      } else {
+        const like = likeValue(input.pipeline ?? '')
+        const rows = await client.list<typeof definition>(
+          'pipeline_definitions',
+          `?lifecycle=eq.active&or=(name.ilike.${like},display_id.ilike.${like},key.ilike.${like})&select=id,name,display_id&limit=6`,
+        )
+        const lower = (input.pipeline ?? '').trim().toLowerCase()
+        const chosen = pick(
+          rows,
+          input.pipeline ?? '',
+          'pipeline',
+          (row) => row.name,
+          (row) =>
+            row.name.toLowerCase() === lower ||
+            row.display_id?.toLowerCase() === lower,
+        )
+        if (!chosen.ok) return fail(chosen.message)
+        definition = chosen.value
+        const versions = await client.list<{ id: string }>(
+          'pipeline_definition_versions',
+          `?definition_id=eq.${definition.id}&select=id`,
+        )
+        if (versions.length === 0) {
+          return fail(`${definition.name} has no published version yet.`)
+        }
+        const runs = await client.list<RunInfo>(
+          'pipeline_runs',
+          `?definition_version_id=in.(${versions.map((v) => v.id).join(',')})&status=eq.succeeded&select=id,status,definition_version_id,created_at&order=created_at.desc&limit=1`,
+        )
+        run = runs[0]
+        if (!run) return fail(`${definition.name} has no finished run yet.`)
+      }
+      if (run.status !== 'succeeded') {
+        return fail('Only a run that finished successfully can be reproduced.')
+      }
+      return card(name, input, {
+        target: definition.display_id
+          ? `${definition.display_id} · ${definition.name}`
+          : definition.name,
+        deepLink: `/pipelines/${definition.id}/runs/${run.id}`,
+        changes: [
+          {
+            label: 'Run',
+            before: null,
+            after: `Run again from ${new Date(run.created_at).toLocaleString('en-GB')} and compare`,
+          },
+        ],
+        action: {
+          kind: 'pipeline.reproduce',
+          runId: run.id,
+          definitionId: definition.id,
+        },
       })
     }
 

@@ -55,6 +55,8 @@ from sheetbase._generated.models import (
     LabWatchersRow,
     LegalHoldRecordsRow,
     LegalHoldsRow,
+    LineageDeliveriesRow,
+    LineageTargetsRow,
     MaterialIngredientsRow,
     MaterialSafetyRow,
     MemberAbsencesRow,
@@ -64,6 +66,7 @@ from sheetbase._generated.models import (
     NotebookTemplatesRow,
     PipelineDefinitionVersionsRow,
     PipelineDefinitionsRow,
+    PipelineReproductionsRow,
     PipelineRunLogsRow,
     PipelineRunOutputsRow,
     PipelineRunsRow,
@@ -727,6 +730,42 @@ class AsyncLegalHoldsTable(AsyncReadableTable[LegalHoldsRow]):
     name = "legal_holds"
 
 
+class LineageDeliveriesTable(ReadableTable[LineageDeliveriesRow]):
+    """
+    ``/api/db/lineage_deliveries`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "lineage_deliveries"
+
+
+class AsyncLineageDeliveriesTable(AsyncReadableTable[LineageDeliveriesRow]):
+    """
+    ``/api/db/lineage_deliveries`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "lineage_deliveries"
+
+
+class LineageTargetsTable(ReadableTable[LineageTargetsRow]):
+    """
+    ``/api/db/lineage_targets`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "lineage_targets"
+
+
+class AsyncLineageTargetsTable(AsyncReadableTable[LineageTargetsRow]):
+    """
+    ``/api/db/lineage_targets`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "lineage_targets"
+
+
 class MaterialIngredientsTable(ReadableTable[MaterialIngredientsRow]):
     """
     ``/api/db/material_ingredients`` (GET, HEAD).
@@ -887,6 +926,24 @@ class AsyncPipelineDefinitionsTable(AsyncReadableTable[PipelineDefinitionsRow]):
     Scopes: pipelines:read.
     """
     name = "pipeline_definitions"
+
+
+class PipelineReproductionsTable(ReadableTable[PipelineReproductionsRow]):
+    """
+    ``/api/db/pipeline_reproductions`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "pipeline_reproductions"
+
+
+class AsyncPipelineReproductionsTable(AsyncReadableTable[PipelineReproductionsRow]):
+    """
+    ``/api/db/pipeline_reproductions`` (GET, HEAD).
+
+    Scopes: lab:read.
+    """
+    name = "pipeline_reproductions"
 
 
 class PipelineRunLogsTable(ReadableTable[PipelineRunLogsRow]):
@@ -1778,6 +1835,8 @@ class Tables:
         "lab_watchers",
         "legal_hold_records",
         "legal_holds",
+        "lineage_deliveries",
+        "lineage_targets",
         "material_ingredients",
         "material_safety",
         "member_absences",
@@ -1787,6 +1846,7 @@ class Tables:
         "notebook_templates",
         "pipeline_definition_versions",
         "pipeline_definitions",
+        "pipeline_reproductions",
         "pipeline_run_logs",
         "pipeline_run_outputs",
         "pipeline_runs",
@@ -1869,6 +1929,8 @@ class Tables:
         self.lab_watchers = LabWatchersTable(transport)
         self.legal_hold_records = LegalHoldRecordsTable(transport)
         self.legal_holds = LegalHoldsTable(transport)
+        self.lineage_deliveries = LineageDeliveriesTable(transport)
+        self.lineage_targets = LineageTargetsTable(transport)
         self.material_ingredients = MaterialIngredientsTable(transport)
         self.material_safety = MaterialSafetyTable(transport)
         self.member_absences = MemberAbsencesTable(transport)
@@ -1878,6 +1940,7 @@ class Tables:
         self.notebook_templates = NotebookTemplatesTable(transport)
         self.pipeline_definition_versions = PipelineDefinitionVersionsTable(transport)
         self.pipeline_definitions = PipelineDefinitionsTable(transport)
+        self.pipeline_reproductions = PipelineReproductionsTable(transport)
         self.pipeline_run_logs = PipelineRunLogsTable(transport)
         self.pipeline_run_outputs = PipelineRunOutputsTable(transport)
         self.pipeline_runs = PipelineRunsTable(transport)
@@ -1971,6 +2034,8 @@ class AsyncTables:
         "lab_watchers",
         "legal_hold_records",
         "legal_holds",
+        "lineage_deliveries",
+        "lineage_targets",
         "material_ingredients",
         "material_safety",
         "member_absences",
@@ -1980,6 +2045,7 @@ class AsyncTables:
         "notebook_templates",
         "pipeline_definition_versions",
         "pipeline_definitions",
+        "pipeline_reproductions",
         "pipeline_run_logs",
         "pipeline_run_outputs",
         "pipeline_runs",
@@ -2062,6 +2128,8 @@ class AsyncTables:
         self.lab_watchers = AsyncLabWatchersTable(transport)
         self.legal_hold_records = AsyncLegalHoldRecordsTable(transport)
         self.legal_holds = AsyncLegalHoldsTable(transport)
+        self.lineage_deliveries = AsyncLineageDeliveriesTable(transport)
+        self.lineage_targets = AsyncLineageTargetsTable(transport)
         self.material_ingredients = AsyncMaterialIngredientsTable(transport)
         self.material_safety = AsyncMaterialSafetyTable(transport)
         self.member_absences = AsyncMemberAbsencesTable(transport)
@@ -2071,6 +2139,7 @@ class AsyncTables:
         self.notebook_templates = AsyncNotebookTemplatesTable(transport)
         self.pipeline_definition_versions = AsyncPipelineDefinitionVersionsTable(transport)
         self.pipeline_definitions = AsyncPipelineDefinitionsTable(transport)
+        self.pipeline_reproductions = AsyncPipelineReproductionsTable(transport)
         self.pipeline_run_logs = AsyncPipelineRunLogsTable(transport)
         self.pipeline_run_outputs = AsyncPipelineRunOutputsTable(transport)
         self.pipeline_runs = AsyncPipelineRunsTable(transport)

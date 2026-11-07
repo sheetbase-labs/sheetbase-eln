@@ -175,6 +175,11 @@ export const notebook = {
         applying: 'Saving…',
         applied: 'Saved',
       },
+      reproduceRun: {
+        apply: 'Reproduce run',
+        applying: 'Reproducing…',
+        applied: 'Reproduced',
+      },
       runValidation: {
         apply: 'Run checks',
         applying: 'Running…',

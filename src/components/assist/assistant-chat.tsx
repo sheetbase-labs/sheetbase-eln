@@ -266,7 +266,6 @@ function ChatBody({
     if (!initialPrompt || !ready || busy) return
     send(initialPrompt)
     onInitialPromptSent?.()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPrompt, ready])
 
   function newChat() {

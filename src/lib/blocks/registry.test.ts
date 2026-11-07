@@ -66,6 +66,7 @@ describe('editable types', () => {
       'dataset_import',
       'structure',
       'reaction',
+      'code_cell',
     ])
     for (const type of ['table', 'sheet'] as const) {
       expect(isEditableBlockType(type)).toBe(false)

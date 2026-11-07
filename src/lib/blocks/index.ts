@@ -20,6 +20,13 @@ import type { BlockType } from './registry'
 import { validateAnalysisBlockPayload } from '../analysis-block'
 import { validateChartPayload } from '../chart-spec'
 import { reactionIssues, structureIssues } from '../chemistry'
+import {
+  CODE_CELL_ALIAS,
+  MAX_CODE_CELL_INPUTS,
+  MAX_CODE_CELL_SOURCE,
+  MAX_STORED_OUTPUT_ROWS,
+  isCodeCellLanguage,
+} from '../code-cells/code-cell'
 import { CONCLUSION_VERDICTS } from '../conclusion-block'
 import { validatePlateMapPayload } from '../plate-map'
 import { PAYLOAD_SCHEMA_VERSION } from './schema-version'
@@ -900,6 +907,7 @@ function chemistryErrors(
 const validators: Record<BlockType, (payload: unknown) => FieldErrors> = {
   structure: (payload) => chemistryErrors(structureIssues(payload)),
   reaction: (payload) => chemistryErrors(reactionIssues(payload)),
+  code_cell: validateCodeCell,
   dataset_import: validateDatasetImport,
   rich_text: validateRichText,
   checklist: validateChecklist,
@@ -1042,6 +1050,88 @@ function validatePipelineOutput(payload: unknown): FieldErrors {
       code: 'invalid_field_value',
       field: 'label',
       message: 'label must be a short string',
+    })
+  }
+  return errors
+}
+
+// A code cell holds Python or SQL, up to five dataset versions it reads, and the
+// output of its last run. An empty draft is valid. Whether a dataset version can
+// be read is checked when the cell runs, as the person running it.
+function validateCodeCell(payload: unknown): FieldErrors {
+  if (!isObject(payload))
+    return [
+      { code: 'invalid_payload_shape', message: 'payload must be an object' },
+    ]
+  const errors: FieldErrors = []
+  if (payload.language !== undefined && !isCodeCellLanguage(payload.language)) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'language',
+      message: 'language must be python or sql',
+    })
+  }
+  if (
+    payload.source !== undefined &&
+    (typeof payload.source !== 'string' ||
+      payload.source.length > MAX_CODE_CELL_SOURCE)
+  ) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'source',
+      message: 'source must be text of up to 50,000 characters',
+    })
+  }
+  if (payload.inputs !== undefined) {
+    if (
+      !Array.isArray(payload.inputs) ||
+      payload.inputs.length > MAX_CODE_CELL_INPUTS
+    ) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: 'inputs',
+        message: 'inputs must be a list of up to 5 dataset versions',
+      })
+    } else {
+      const aliases = new Set<string>()
+      payload.inputs.forEach((input: unknown, index: number) => {
+        const entry = isObject(input) ? input : {}
+        const alias = entry.alias
+        if (typeof alias !== 'string' || !CODE_CELL_ALIAS.test(alias)) {
+          errors.push({
+            code: 'invalid_field_value',
+            field: `inputs.${index}.alias`,
+            message: 'each input needs a name of letters, digits and underscores',
+          })
+        } else if (aliases.has(alias)) {
+          errors.push({
+            code: 'invalid_field_value',
+            field: `inputs.${index}.alias`,
+            message: 'input names must be different',
+          })
+        } else aliases.add(alias)
+        if (!isUuid(entry.datasetVersionId)) {
+          errors.push({
+            code: 'invalid_field_value',
+            field: `inputs.${index}.datasetVersionId`,
+            message: 'each input needs a dataset version',
+          })
+        }
+      })
+    }
+  }
+  if (
+    payload.output !== undefined &&
+    payload.output !== null &&
+    (!isObject(payload.output) ||
+      typeof payload.output.runId !== 'string' ||
+      !Array.isArray(payload.output.rows) ||
+      payload.output.rows.length > MAX_STORED_OUTPUT_ROWS)
+  ) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'output',
+      message: 'output must be the result of a run, with at most 100 rows',
     })
   }
   return errors

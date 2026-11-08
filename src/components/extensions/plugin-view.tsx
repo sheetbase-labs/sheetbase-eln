@@ -24,7 +24,7 @@ import {
   TableRow,
 } from '#/components/ui/table'
 import { sanitizeSvg } from '#/lib/extensions/screens'
-import type { ScreenNode, ScreenTone } from '#/lib/extensions/screens'
+import type { ScreenNode } from '#/lib/extensions/screens'
 import { cn } from '#/lib/utils'
 import { CellDisplayView } from './cell-display'
 import { TONE_CLASSES } from './tone'
@@ -187,7 +187,7 @@ function Node({ node, ...ctx }: { node: ScreenNode } & NodeContext) {
             label={node.label ?? String(node.value)}
             value={node.value}
             max={max}
-            tone={PROGRESS_TONE[(node.tone ?? 'info') as ScreenTone]}
+            tone={PROGRESS_TONE[node.tone ?? 'info']}
           />
         </div>
       )
@@ -316,7 +316,7 @@ function InputNode({
   values,
   setValue,
 }: { node: Extract<ScreenNode, { type: 'input' }> } & NodeContext) {
-  const value = values[node.name]
+  const value: unknown = (values as Record<string, unknown>)[node.name]
   if (node.kind === 'checkbox')
     return (
       <label className="flex items-center gap-2 text-body text-fg">

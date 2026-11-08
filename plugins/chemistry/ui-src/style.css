@@ -110,3 +110,77 @@ th {
 a {
   color: var(--sb-accent, #0066cc);
 }
+
+h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sb-muted, #6e6e73);
+}
+.fig {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.facts {
+  flex: 1 1 160px;
+}
+
+.sar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.controls {
+  align-items: flex-end;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--sb-muted, #666);
+  font-size: 12px;
+}
+.field select {
+  font-family: inherit;
+  min-width: 150px;
+}
+.grow {
+  flex: 1;
+}
+.scroll {
+  overflow: auto;
+}
+.sar-table th.num,
+.sar-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.sar-table td {
+  padding: 4px 10px 4px 4px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--sb-border, #e5e5ea);
+}
+.sar-table th {
+  border-bottom: 1px solid var(--sb-border, #e5e5ea);
+}
+button.sort {
+  border: 0;
+  background: transparent;
+  padding: 2px 0;
+  color: inherit;
+  font-weight: 500;
+}
+.picture.small svg {
+  max-height: 48px;
+}
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+[hidden] {
+  display: none !important;
+}

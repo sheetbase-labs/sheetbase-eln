@@ -214,6 +214,16 @@ it as the signed-in person or with a **personal** API token (never a service
 token, so every call is attributed to a person). A `read` operation needs a
 `:read` scope; a `write` operation needs `lab:write` and a role that can write.
 
+An operation may call into Sheetbase itself (`host_call` in its Python), as you,
+under the same scopes the plugin declared. Calls that read are made. A call that
+would change something needs a person to confirm it in Sheetbase, so here it
+answers `409` and says which call; run that operation from the app instead.
+The same operations are MCP tools (`plugin.<key>.<operation>`) and assistant
+tools. For example the chemistry plugin's `find` (`mode`: `substructure` or
+`similarity`) and `check` (is a structure already registered) are
+`POST /api/plugins/chemistry/find` and `POST /api/plugins/chemistry/check`, with
+`describe` for the formula, mass and parent of a molfile or SMILES line.
+
 `POST /api/plugins/host` (session only; a plugin screen or Python operation
 calling an MCP tool as the person: `{ extensionKey, point, name, arguments,
 confirmed }`; a change answers `409 confirmation_needed` until `confirmed`) and

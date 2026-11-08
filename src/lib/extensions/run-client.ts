@@ -94,14 +94,17 @@ export async function runPluginHost(
   })
   const answer = (await response.json().catch(() => null)) as {
     result?: unknown
-    error?: { message?: string } | string
+    error?: { message?: string; code?: string } | string
   } | null
   if (!response.ok || !answer) {
     const error = answer?.error
-    throw new Error(
-      typeof error === 'string'
-        ? error
-        : (error?.message ?? 'The plugin could not do that.'),
+    throw Object.assign(
+      new Error(
+        typeof error === 'string'
+          ? error
+          : (error?.message ?? 'The plugin could not do that.'),
+      ),
+      { code: typeof error === 'object' ? error.code : undefined },
     )
   }
   return answer.result ?? null

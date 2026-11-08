@@ -127,7 +127,7 @@ describe('readPluginPackage', () => {
     ).rejects.toThrow(PluginPackageError)
     await expect(
       readPluginPackage(zipOf({ ...files, 'ui/index.html': '<p></p>' })),
-    ).rejects.toThrow(/ui\/ files need a block or panel/)
+    ).rejects.toThrow(/ui\/ files need a screen/)
     await expect(readPluginPackage(strToU8('not a zip'))).rejects.toThrow(
       /readable zip/,
     )

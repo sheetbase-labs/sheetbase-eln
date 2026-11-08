@@ -55,6 +55,11 @@ export const EXTENSION_SWITCH_POINTS = [
   'columns',
   'row-actions',
   'field-types',
+  // Whole screens a plugin draws itself (`ui-points.ts` holds the shapes).
+  'pages',
+  'settings-pages',
+  'dashboard-widgets',
+  'report-sections',
 ] as const
 
 export type ExtensionRunnerPoint = (typeof EXTENSION_SWITCH_POINTS)[number]

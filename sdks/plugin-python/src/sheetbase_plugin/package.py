@@ -35,13 +35,15 @@ SEMVER_PATTERN = re.compile(
 SCOPE_PATTERN = re.compile(r"^[a-z][a-z_]*:[a-z][a-z_]*$")
 FIELD_TYPES = ("text", "number", "integer", "boolean", "date", "json")
 CHART_TYPES = ("line", "scatter", "bar")
+UI_POINTS = ("pages", "settings-pages", "dashboard-widgets", "report-sections")
 PROVIDES = (
     "operations", "analysis-kinds", "blocks", "panels", "table-cells", "columns",
     "row-actions", "field-types", "pipeline-steps", "calculators", "checks",
     "search-providers", "connectors", "importers", "exporters", "previews",
     "sameness-keys", "event-hooks", "record-hooks",
+    *UI_POINTS,
 )
-PROVIDES_WITHOUT_PYTHON = ("table-cells", "field-types", "panels")
+PROVIDES_WITHOUT_PYTHON = ("table-cells", "field-types", "panels", *UI_POINTS)
 # Operations, calculators and pipeline steps share one name in Sheetbase.
 CALLED = ("operations", "calculators", "pipeline-steps")
 NO_DESCRIPTION_NEEDED = ("analysis-kinds", "pipeline-steps")
@@ -59,7 +61,7 @@ TOP_LEVEL = (
     "permissions", "provides", "examples",
 )
 UI_ENTRY_PATTERN = re.compile(r"^ui/[A-Za-z0-9._/-]{1,100}\.html$")
-UI_FILE_PATTERN = re.compile(r"^ui/[A-Za-z0-9._/-]+\.(html|js|css|svg|json)$")
+UI_FILE_PATTERN = re.compile(r"^ui/[A-Za-z0-9._/-]+\.(html|js|mjs|css|svg|json)$")
 UI_SDK_NAME = "sheetbase-ui.js"
 MODEL_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 ICON_PATTERN = re.compile(r"^[a-z][a-z0-9-]{0,39}$")
@@ -180,15 +182,17 @@ def _hook_head(point, entry, seen, errors, files, allowed, description_required=
         errors.append(f"{name} has an unknown setting: {extra}")
         return None
     python = _pointers(entry)
-    if not python and "ui" not in entry and point not in PROVIDES_WITHOUT_PYTHON:
+    has_ui = any(key in entry for key in ("ui", "render", "input"))
+    if not python and not has_ui and point not in PROVIDES_WITHOUT_PYTHON:
         errors.append(f"{name} needs a Python function to run")
     for run in python:
         _entry_exists(run, files, name, errors)
-    if "ui" in entry:
-        if not isinstance(entry["ui"], str) or not UI_ENTRY_PATTERN.match(entry["ui"]):
-            errors.append(f"{name} ui must be an .html file in ui/, such as ui/index.html")
-        elif entry["ui"] not in files:
-            errors.append(f"{name} ui points at {entry['ui']}, which is not in the package")
+    for key, example in (("ui", "ui/index.html"), ("render", "ui/cells.html"), ("input", "ui/input.html")):
+        if key in entry:
+            if not isinstance(entry[key], str) or not UI_ENTRY_PATTERN.match(entry[key]):
+                errors.append(f"{name} {key} must be an .html file in ui/, such as {example}")
+            elif entry[key] not in files:
+                errors.append(f"{name} {key} points at {entry[key]}, which is not in the package")
     return name
 
 
@@ -226,6 +230,31 @@ def _list(point, value, errors):
     return True
 
 
+def _ui_point(point):
+    """Pages, settings pages, Home widgets and report sections: screens a plugin draws itself."""
+
+    def check(value, files, errors):
+        if not _list(point, value, errors):
+            return
+        allowed = ("id", "title", "description", "icon", "ui") + (("size",) if point == "dashboard-widgets" else ())
+        seen = set()
+        for entry in value:
+            name = _hook_head(point, entry, seen, errors, files, allowed)
+            if name is None:
+                return
+            if "icon" in entry and not (isinstance(entry["icon"], str) and ICON_PATTERN.match(entry["icon"])):
+                errors.append(f"{name} icon must be an icon name such as flask")
+                return
+            if "ui" not in entry:
+                errors.append(f"{name} ui must be an .html file in ui/, such as ui/page.html")
+                return
+            if "size" in entry and entry["size"] not in ("normal", "wide"):
+                errors.append(f"{name} size is normal or wide")
+                return
+
+    return check
+
+
 def _blocks(value, files, errors):
     if not _list("blocks", value, errors):
         return
@@ -256,7 +285,9 @@ def _table_cells(value, files, errors):
         return
     seen = set()
     for entry in value:
-        name = _hook_head("table-cells", entry, seen, errors, files, ("id", "title", "description", "appliesTo", "display"))
+        name = _hook_head(
+            "table-cells", entry, seen, errors, files, ("id", "title", "description", "appliesTo", "display", "render")
+        )
         if name is None:
             return
         target = entry.get("appliesTo")
@@ -284,7 +315,11 @@ def _table_cells(value, files, errors):
         ):
             errors.append(f"{name} appliesTo.pluginTypes are the ids of this plugin's field types")
             return
-        check_display(entry.get("display"), name, errors)
+        if ("display" in entry) == ("render" in entry):
+            errors.append(f"{name} needs a display (a declared look) or a render (a UI bundle that draws the cells), not both")
+            return
+        if "display" in entry:
+            check_display(entry["display"], name, errors)
 
 
 def _columns(value, files, errors):
@@ -351,7 +386,7 @@ def _field_types(value, files, errors):
         name = _hook_head(
             "field-types", entry, seen, errors, files,
             ("id", "title", "description", "base", "pattern", "patternMessage", "minLength", "maxLength",
-             "min", "max", "placeholder", "display"),
+             "min", "max", "placeholder", "display", "input"),
         )
         if name is None:
             return
@@ -806,7 +841,7 @@ def validate_manifest(manifest, files):
             errors.append(
                 "a plugin has to provide at least one thing: an operation, calculator, analysis kind, "
                 "pipeline step, check, search, connector, importer, exporter, preview, same-thing rule, "
-                "event reaction, block, panel, table cell display, column, row action or field type"
+                "event reaction, block, panel, table cell display, column, row action, field type, page, settings page, Home widget or report section"
             )
         if "operations" in provides:
             _operations(provides["operations"], files, errors)
@@ -815,6 +850,7 @@ def validate_manifest(manifest, files):
         for point, check in (
             ("blocks", _blocks), ("panels", _panels), ("table-cells", _table_cells),
             ("columns", _columns), ("row-actions", _row_actions), ("field-types", _field_types),
+            *((point, _ui_point(point)) for point in UI_POINTS),
         ):
             if point in provides:
                 check(provides[point], files, errors)
@@ -823,13 +859,17 @@ def validate_manifest(manifest, files):
                 check(provides[point], files, errors)
         _called_names_are_unique(provides, errors)
         used_ui = {
-            entry["ui"]
-            for point in ("blocks", "panels")
-            for entry in (provides.get(point) or [])
-            if _is_object(entry) and isinstance(entry.get("ui"), str)
+            entry[key]
+            for point in PROVIDES
+            for entry in (provides.get(point) if isinstance(provides.get(point), list) else [])
+            for key in ("ui", "render", "input")
+            if _is_object(entry) and isinstance(entry.get(key), str)
         }
         if not used_ui and any(path.startswith("ui/") for path in files):
-            errors.append("ui/ files need a block or panel whose ui points at one of them")
+            errors.append(
+                "ui/ files need a screen (a block, panel, page, widget, report section, field input or cell renderer) "
+                "whose ui points at one of them"
+            )
     examples = manifest.get("examples")
     if examples is not None:
         if not isinstance(examples, list) or len(examples) > 50 or not all(
@@ -863,7 +903,7 @@ def validate_files(files):
             errors.append(f"{path} is not a safe path")
         elif parts[0] == "ui":
             if not UI_FILE_PATTERN.match(path):
-                errors.append(f"{path}: ui/ holds .html, .js, .css, .svg and .json files only")
+                errors.append(f"{path}: ui/ holds .html, .js, .mjs, .css, .svg and .json files only")
             elif parts[-1] == UI_SDK_NAME:
                 errors.append(f"{path}: {UI_SDK_NAME} is provided by Sheetbase, leave it out")
             elif path.endswith((".html", ".css")) and _web_address(content):

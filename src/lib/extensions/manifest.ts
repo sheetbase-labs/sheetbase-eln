@@ -41,6 +41,8 @@ import type {
   ExtensionHookContributions,
   ExtensionPanelDeclaration,
 } from './hooks'
+import { EXTENSION_UI_POINTS, parseUiPoint } from './ui-points'
+import type { ExtensionUiContributions } from './ui-points'
 
 /** Contribution points an extension may declare. EXT-02 registers them. */
 export const EXTENSION_CONTRIBUTION_POINTS = [
@@ -50,6 +52,7 @@ export const EXTENSION_CONTRIBUTION_POINTS = [
   'event-subscriptions',
   ...EXTENSION_RUNNER_POINTS,
   ...EXTENSION_HOOK_POINTS,
+  ...EXTENSION_UI_POINTS,
 ] as const
 
 export type ExtensionContributionPoint =
@@ -94,7 +97,10 @@ export interface ExtensionEventSubscriptionDeclaration {
 }
 
 export interface ExtensionContributions
-  extends ExtensionRunnerContributions, ExtensionHookContributions {
+  extends
+    ExtensionRunnerContributions,
+    ExtensionHookContributions,
+    ExtensionUiContributions {
   'object-actions'?: ExtensionNamedDeclaration[]
   panels?: ExtensionPanelDeclaration[]
   commands?: ExtensionNamedDeclaration[]
@@ -441,6 +447,9 @@ export function validateExtensionManifest(input: unknown): string[] {
         called.add(id)
       }
     }
+    for (const point of EXTENSION_UI_POINTS)
+      if (input.contributions[point] !== undefined)
+        parseUiPoint(point, input.contributions[point], errors)
   }
   return errors
 }
@@ -505,6 +514,13 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
         point
       ](declared[point], [])!
   }
+  for (const point of EXTENSION_UI_POINTS)
+    if (declared[point] !== undefined)
+      (contributions as Record<string, unknown>)[point] = parseUiPoint(
+        point,
+        declared[point],
+        [],
+      )!
   return {
     id: raw.id as string,
     name: (raw.name as string).trim(),

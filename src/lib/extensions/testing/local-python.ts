@@ -54,18 +54,29 @@ export async function localPython(
   }
 }
 
-/** The files of an example plugin folder, as `{ path: text }`. */
+/**
+ * The files of an example plugin folder that belong in a package, as
+ * `{ path: text }`: the manifest, `python/`, `ui/` and the readme and licence.
+ * Sources such as `ui-src/` and `node_modules` stay out, as `pack` leaves them.
+ */
 export function readExample(name: string): Record<string, string> {
   const base = path.join(pluginExamplesDir, name)
   const files: Record<string, string> = {}
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir)) {
       const full = path.join(dir, entry)
-      if (entry === '__pycache__') continue
+      if (entry === '__pycache__' || entry === 'node_modules') continue
       if (statSync(full).isDirectory()) walk(full)
-      else
-        files[path.relative(base, full).split(path.sep).join('/')] =
-          readFileSync(full, 'utf8')
+      else {
+        const rel = path.relative(base, full).split(path.sep).join('/')
+        const top = rel.split('/')[0]
+        if (
+          top === 'python' ||
+          top === 'ui' ||
+          /^(plugin\.json|README\.md|LICENSE(\.md|\.txt)?)$/.test(rel)
+        )
+          files[rel] = readFileSync(full, 'utf8')
+      }
     }
   }
   walk(base)

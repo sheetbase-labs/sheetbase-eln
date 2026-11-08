@@ -12,10 +12,17 @@
         "description": "Pass at 90 or above, retest from 70, otherwise fail, worked out from viability.",
         "value": "text",
         "inputs": ["viability"],
-        "display": { "kind": "badge", "tones": { "Pass": "success", "Retest": "warning", "Fail": "danger" } },
+        "display": {
+          "kind": "badge",
+          "tones": { "Pass": "success", "Retest": "warning", "Fail": "danger" }
+        },
         "run": "grading:grade",
         "actions": [
-          { "id": "summary", "title": "Summarise grades", "run": "grading:summarise" }
+          {
+            "id": "summary",
+            "title": "Summarise grades",
+            "run": "grading:summarise"
+          }
         ]
       }
     ],

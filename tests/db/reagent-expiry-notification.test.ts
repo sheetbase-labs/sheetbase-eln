@@ -25,9 +25,10 @@ beforeAll(async () => {
     `insert into internal."user"(id,name,email,"emailVerified") values($1,$1,$2,true)`,
     [OWNER, `${OWNER}@test.invalid`],
   )
-  await migrator.query(`insert into api.workspaces(id,slug,name) values($1,'work032e','WORK-03.2')`, [
-    WS,
-  ])
+  await migrator.query(
+    `insert into api.workspaces(id,slug,name) values($1,'work032e','WORK-03.2')`,
+    [WS],
+  )
   await migrator.query(
     `insert into api.workspace_memberships(workspace_id,user_id,role) values($1,$2,'owner')`,
     [WS, OWNER],
@@ -66,7 +67,10 @@ describe('WORK-03.2 material expiring notifications', () => {
   it('emits one event for the lot inside the window and notifies its creator', async () => {
     expect(await sweep()).toBe(1)
 
-    const events = await migrator.query<{ entity_uuid: string; payload: Record<string, unknown> }>(
+    const events = await migrator.query<{
+      entity_uuid: string
+      payload: Record<string, unknown>
+    }>(
       `select entity_uuid, payload from api.change_events where entity_type='material'`,
     )
     expect(events.rows.map((row) => row.entity_uuid)).toEqual([SOON])
@@ -75,7 +79,9 @@ describe('WORK-03.2 material expiring notifications', () => {
     const notes = await migrator.query<{ user_id: string; event_type: string }>(
       `select user_id, event_type from internal.notifications where event_type='material_expiring'`,
     )
-    expect(notes.rows).toEqual([{ user_id: OWNER, event_type: 'material_expiring' }])
+    expect(notes.rows).toEqual([
+      { user_id: OWNER, event_type: 'material_expiring' },
+    ])
   })
 
   it('does not repeat itself for a lot already warned about', async () => {

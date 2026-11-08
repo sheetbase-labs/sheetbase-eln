@@ -662,12 +662,14 @@ describe('credential audit events', () => {
 
 describe('SET-04.2 token expiry window and refusals', () => {
   it('refuses a token that would live longer than 90 days', async () => {
-    const { rows } = await migrator.query<{ id: string }>(
-      `insert into internal.api_credentials(workspace_id,display_prefix,secret_hash,name,scopes,created_by_user_id,expires_at)
+    const { rows } = await migrator
+      .query<{ id: string }>(
+        `insert into internal.api_credentials(workspace_id,display_prefix,secret_hash,name,scopes,created_by_user_id,expires_at)
        values($1,'aaaabbbb','hash','Too long',array['projects:read'],$2, now() + interval '91 days')
        returning id`,
-      [WS, OWNER],
-    ).catch((error: Error) => ({ rows: [{ id: `error:${error.message}` }] }))
+        [WS, OWNER],
+      )
+      .catch((error: Error) => ({ rows: [{ id: `error:${error.message}` }] }))
     expect(rows[0]!.id).toContain('90 days')
 
     const ok = await migrator.query<{ id: string }>(
@@ -692,7 +694,10 @@ describe('SET-04.2 token expiry window and refusals', () => {
       refusal_count: number
       expired: boolean
       needs_replacement: boolean
-    }>('select refusal_count,expired,needs_replacement from api.api_credential_status() where id=$1', [id])
+    }>(
+      'select refusal_count,expired,needs_replacement from api.api_credential_status() where id=$1',
+      [id],
+    )
     await migrator.query("select set_config('request.jwt.claims','{}',false)")
     expect(status.rows[0]).toMatchObject({
       refusal_count: 1,

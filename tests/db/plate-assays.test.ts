@@ -80,7 +80,13 @@ async function feed(since: string) {
 const wells384 = [
   { wellCode: 'A1', role: 'negative_control' },
   { wellCode: 'A24', role: 'positive_control' },
-  { wellCode: 'P24', role: 'sample', sampleLabel: 'X-1', concentration: 10, concentrationUnit: 'nM' },
+  {
+    wellCode: 'P24',
+    role: 'sample',
+    sampleLabel: 'X-1',
+    concentration: 10,
+    concentrationUnit: 'nM',
+  },
 ]
 
 beforeAll(async () => {
@@ -123,7 +129,10 @@ describe('bigger plates', () => {
       expect(rows[0].format).toBe(format)
     }
     await expect(
-      owner.query(`select * from api.create_plate_design($1,'bad',null,'7_well',2,3)`, [WS]),
+      owner.query(
+        `select * from api.create_plate_design($1,'bad',null,'7_well',2,3)`,
+        [WS],
+      ),
     ).rejects.toThrow(/unsupported plate format/)
   })
 
@@ -156,7 +165,9 @@ describe('bigger plates', () => {
     await expect(
       owner.query(`select api.insert_block($1,'plate_map',$2::jsonb)`, [
         experiment.id,
-        JSON.stringify(spec([{ wellCode: 'B1', row: 0, col: 0, role: 'blank' }])),
+        JSON.stringify(
+          spec([{ wellCode: 'B1', row: 0, col: 0, role: 'blank' }]),
+        ),
       ]),
     ).rejects.toThrow(/does not match/)
     await expect(
@@ -203,15 +214,21 @@ describe('plate runs', () => {
         `select * from api.create_plate_run('Bad','96_well',$1::jsonb,$2::jsonb)`,
         [JSON.stringify(wells), JSON.stringify(readout)],
       )
-    await expect(create([{ wellCode: 'I1', role: 'sample' }])).rejects.toThrow(/not on this plate/)
-    await expect(create([{ wellCode: 'A13', role: 'sample' }])).rejects.toThrow(/not on this plate/)
+    await expect(create([{ wellCode: 'I1', role: 'sample' }])).rejects.toThrow(
+      /not on this plate/,
+    )
+    await expect(create([{ wellCode: 'A13', role: 'sample' }])).rejects.toThrow(
+      /not on this plate/,
+    )
     await expect(
       create([
         { wellCode: 'A1', role: 'sample' },
         { wellCode: 'A1', role: 'blank' },
       ]),
     ).rejects.toThrow(/twice/)
-    await expect(create([{ wellCode: 'A1', role: 'drug' }])).rejects.toThrow(/unknown role/)
+    await expect(create([{ wellCode: 'A1', role: 'drug' }])).rejects.toThrow(
+      /unknown role/,
+    )
     await expect(create([], { A1: 'high' })).rejects.toThrow(/number or empty/)
     await expect(create([], { Z1: 1 })).rejects.toThrow(/not on this plate/)
     await expect(
@@ -222,7 +239,10 @@ describe('plate runs', () => {
   it('saves an analysis, announces it, and clears it when the data changes', async () => {
     const created = await owner.query(
       `select * from api.create_plate_run('Analyse me','384_well',$1::jsonb,$2::jsonb)`,
-      [JSON.stringify(wells384), JSON.stringify({ A1: 1000, A24: 100, P24: 500 })],
+      [
+        JSON.stringify(wells384),
+        JSON.stringify({ A1: 1000, A24: 100, P24: 500 }),
+      ],
     )
     const id = created.rows[0].id as string
     const before = await mark()
@@ -264,48 +284,85 @@ describe('plate runs', () => {
   })
 
   it('refuses to analyse an empty plate and a stale version', async () => {
-    const created = await owner.query(`select * from api.create_plate_run('Empty','96_well')`)
+    const created = await owner.query(
+      `select * from api.create_plate_run('Empty','96_well')`,
+    )
     const id = created.rows[0].id as string
     await expect(
-      owner.query(`select * from api.save_plate_run_analysis($1,'{}'::jsonb,'pass')`, [id]),
+      owner.query(
+        `select * from api.save_plate_run_analysis($1,'{}'::jsonb,'pass')`,
+        [id],
+      ),
     ).rejects.toThrow(/layout and a readout/)
     await expect(
-      owner.query(`select * from api.update_plate_run($1,'x',null,null,null,99)`, [id]),
+      owner.query(
+        `select * from api.update_plate_run($1,'x',null,null,null,99)`,
+        [id],
+      ),
     ).rejects.toThrow(/version mismatch/)
     await expect(
-      owner.query(`select * from api.save_plate_run_analysis($1,'{}'::jsonb,'great')`, [id]),
+      owner.query(
+        `select * from api.save_plate_run_analysis($1,'{}'::jsonb,'great')`,
+        [id],
+      ),
     ).rejects.toThrow(/QC status/)
   })
 
   it('archives and then refuses edits', async () => {
-    const created = await owner.query(`select * from api.create_plate_run('Old','96_well')`)
+    const created = await owner.query(
+      `select * from api.create_plate_run('Old','96_well')`,
+    )
     const id = created.rows[0].id as string
     const before = await mark()
-    const archived = await owner.query(`select * from api.archive_plate_run($1)`, [id])
+    const archived = await owner.query(
+      `select * from api.archive_plate_run($1)`,
+      [id],
+    )
     expect(archived.rows[0].status).toBe('archived')
-    expect((await feed(before)).map((e) => e.wire)).toEqual(['plate_run.archived'])
+    expect((await feed(before)).map((e) => e.wire)).toEqual([
+      'plate_run.archived',
+    ])
     await expect(
       owner.query(`select * from api.update_plate_run($1,'again')`, [id]),
     ).rejects.toThrow(/archived/)
   })
 
   it('keeps runs inside their lab and viewers read-only', async () => {
-    const { rows } = await owner.query(`select id from api.plate_runs where project_id is null limit 1`)
+    const { rows } = await owner.query(
+      `select id from api.plate_runs where project_id is null limit 1`,
+    )
     const id = rows[0].id as string
-    expect((await viewer.query(`select id from api.plate_runs where id = $1`, [id])).rows).toHaveLength(1)
+    expect(
+      (await viewer.query(`select id from api.plate_runs where id = $1`, [id]))
+        .rows,
+    ).toHaveLength(1)
     await expect(
       viewer.query(`select * from api.create_plate_run('Nope','96_well')`),
     ).rejects.toThrow(/not permitted/)
-    await expect(viewer.query(`select * from api.archive_plate_run($1)`, [id])).rejects.toThrow(/not permitted/)
-    expect((await outsider.query(`select id from api.plate_runs where id = $1`, [id])).rows).toHaveLength(0)
-    await expect(outsider.query(`select * from api.archive_plate_run($1)`, [id])).rejects.toThrow(/not found/)
+    await expect(
+      viewer.query(`select * from api.archive_plate_run($1)`, [id]),
+    ).rejects.toThrow(/not permitted/)
+    expect(
+      (
+        await outsider.query(`select id from api.plate_runs where id = $1`, [
+          id,
+        ])
+      ).rows,
+    ).toHaveLength(0)
+    await expect(
+      outsider.query(`select * from api.archive_plate_run($1)`, [id]),
+    ).rejects.toThrow(/not found/)
   })
 
   it('refuses a sample from another lab', async () => {
     await expect(
       owner.query(
         `select * from api.create_plate_run('Link','96_well',$1::jsonb)`,
-        [JSON.stringify([{ wellCode: 'A1', role: 'sample', sampleId: crypto.randomUUID() }])],
+        [
+          JSON.stringify([
+            { wellCode: 'A1', role: 'sample', sampleId: crypto.randomUUID() },
+          ]),
+        ],
       ),
     ).rejects.toThrow(/was not found/)
   })
@@ -315,7 +372,13 @@ describe('worklists', () => {
   const transfers = (sampleId: string) => [
     { sourceWell: 'A1', destWell: 'A1', volumeUl: 10, label: 'S-1', sampleId },
     { sourceWell: 'A1', destWell: 'A2', volumeUl: 5, label: 'S-1', sampleId },
-    { sourceWell: 'B1', destWell: 'B1', volumeUl: 5, label: 'DMSO', sampleId: null },
+    {
+      sourceWell: 'B1',
+      destWell: 'B1',
+      volumeUl: 5,
+      label: 'DMSO',
+      sampleId: null,
+    },
   ]
   const create = (t: unknown[], record?: string, run?: string) =>
     owner.query(
@@ -324,12 +387,17 @@ describe('worklists', () => {
     )
 
   it('stores transfers and checks wells against each plate', async () => {
-    const sample = await record('sample', 'Compound', { quantity: 100, quantityUnit: 'µL' })
+    const sample = await record('sample', 'Compound', {
+      quantity: 100,
+      quantityUnit: 'µL',
+    })
     const before = await mark()
     const { rows } = await create(transfers(sample.id))
     expect(rows[0].number).toBe(1)
     expect(rows[0].status).toBe('planned')
-    expect((await feed(before)).map((e) => e.wire)).toEqual(['plate_worklist.created'])
+    expect((await feed(before)).map((e) => e.wire)).toEqual([
+      'plate_worklist.created',
+    ])
     await expect(
       owner.query(
         `select * from api.create_plate_worklist('x','csv','stamp','S','96_well','D','96_well',$1::jsonb)`,
@@ -344,14 +412,47 @@ describe('worklists', () => {
 
   it('completes from a log, withdraws from the samples and links the experiment', async () => {
     const experiment = await record('experiment', 'Screen')
-    const sample = await record('sample', 'Compound B', { quantity: 100, quantityUnit: 'µL' })
-    const poor = await record('sample', 'Compound C', { quantity: 1, quantityUnit: 'µL' })
-    const dry = await record('sample', 'Powder', { quantity: 10, quantityUnit: 'mg' })
+    const sample = await record('sample', 'Compound B', {
+      quantity: 100,
+      quantityUnit: 'µL',
+    })
+    const poor = await record('sample', 'Compound C', {
+      quantity: 1,
+      quantityUnit: 'µL',
+    })
+    const dry = await record('sample', 'Powder', {
+      quantity: 10,
+      quantityUnit: 'mg',
+    })
     const t = [
-      { sourceWell: 'A1', destWell: 'A1', volumeUl: 10, label: 'B', sampleId: sample.id },
-      { sourceWell: 'A1', destWell: 'A2', volumeUl: 5, label: 'B', sampleId: sample.id },
-      { sourceWell: 'B1', destWell: 'B1', volumeUl: 5, label: 'C', sampleId: poor.id },
-      { sourceWell: 'C1', destWell: 'C1', volumeUl: 5, label: 'P', sampleId: dry.id },
+      {
+        sourceWell: 'A1',
+        destWell: 'A1',
+        volumeUl: 10,
+        label: 'B',
+        sampleId: sample.id,
+      },
+      {
+        sourceWell: 'A1',
+        destWell: 'A2',
+        volumeUl: 5,
+        label: 'B',
+        sampleId: sample.id,
+      },
+      {
+        sourceWell: 'B1',
+        destWell: 'B1',
+        volumeUl: 5,
+        label: 'C',
+        sampleId: poor.id,
+      },
+      {
+        sourceWell: 'C1',
+        destWell: 'C1',
+        volumeUl: 5,
+        label: 'P',
+        sampleId: dry.id,
+      },
     ]
     const wl = (await create(t, experiment.id)).rows[0]
     const before = await mark()
@@ -369,7 +470,10 @@ describe('worklists', () => {
     const w = done.rows[0].withdrawals
     expect(w.withdrawn).toHaveLength(1)
     expect(Number(w.withdrawn[0].quantity)).toBe(14)
-    expect(w.skipped.map((s: { reason: string }) => s.reason).sort()).toEqual(['not_a_volume', 'refused'])
+    expect(w.skipped.map((s: { reason: string }) => s.reason).sort()).toEqual([
+      'not_a_volume',
+      'refused',
+    ])
     const left = await migrator.query(
       `select (properties->>'quantity')::numeric as q from api.records where id = $1`,
       [sample.id],
@@ -382,14 +486,22 @@ describe('worklists', () => {
     expect(links.rows).toHaveLength(1)
     const events = await feed(before)
     expect(events.map((e) => e.wire)).toEqual(['plate_worklist.completed'])
-    expect(events[0].payload).toMatchObject({ samplesWithdrawn: 1, transfers: 4 })
+    expect(events[0].payload).toMatchObject({
+      samplesWithdrawn: 1,
+      transfers: 4,
+    })
     await expect(
-      owner.query(`select * from api.complete_plate_worklist($1,'[]'::jsonb)`, [wl.id]),
+      owner.query(`select * from api.complete_plate_worklist($1,'[]'::jsonb)`, [
+        wl.id,
+      ]),
     ).rejects.toThrow(/already complete/)
   })
 
   it('records the log without withdrawing when asked, and cancels a planned list', async () => {
-    const sample = await record('sample', 'Compound D', { quantity: 50, quantityUnit: 'µL' })
+    const sample = await record('sample', 'Compound D', {
+      quantity: 50,
+      quantityUnit: 'µL',
+    })
     const wl = (await create(transfers(sample.id))).rows[0]
     const done = await owner.query(
       `select * from api.complete_plate_worklist($1,'[]'::jsonb,null,false)`,
@@ -397,15 +509,28 @@ describe('worklists', () => {
     )
     expect(done.rows[0].withdrawals.recorded).toBe(false)
     const other = (await create(transfers(sample.id))).rows[0]
-    expect((await owner.query(`select * from api.cancel_plate_worklist($1)`, [other.id])).rows[0].status).toBe('cancelled')
-    await expect(owner.query(`select * from api.cancel_plate_worklist($1)`, [other.id])).rejects.toThrow(/planned/)
+    expect(
+      (
+        await owner.query(`select * from api.cancel_plate_worklist($1)`, [
+          other.id,
+        ])
+      ).rows[0].status,
+    ).toBe('cancelled')
+    await expect(
+      owner.query(`select * from api.cancel_plate_worklist($1)`, [other.id]),
+    ).rejects.toThrow(/planned/)
   })
 
   it('needs an experiment to withdraw for', async () => {
-    const sample = await record('sample', 'Compound E', { quantity: 50, quantityUnit: 'µL' })
+    const sample = await record('sample', 'Compound E', {
+      quantity: 50,
+      quantityUnit: 'µL',
+    })
     const wl = (await create(transfers(sample.id))).rows[0]
     await expect(
-      owner.query(`select * from api.complete_plate_worklist($1,'[]'::jsonb)`, [wl.id]),
+      owner.query(`select * from api.complete_plate_worklist($1,'[]'::jsonb)`, [
+        wl.id,
+      ]),
     ).rejects.toThrow(/name the experiment/)
   })
 })

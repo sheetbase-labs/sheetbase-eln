@@ -152,9 +152,7 @@ describe('api.dataset_list_summary', () => {
       `SELECT kind, count(*) AS flags FROM api.dataset_value_flags
         WHERE cleared_at IS NULL GROUP BY kind ORDER BY kind`,
     )
-    expect(
-      flags.rows.map((row) => [row.kind, Number(row.flags)]),
-    ).toEqual([
+    expect(flags.rows.map((row) => [row.kind, Number(row.flags)])).toEqual([
       ['missing_unit', 2],
       ['out_of_range', 2],
     ])

@@ -8,7 +8,12 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { expectDenied, grantProjectAccess, prepareTestDatabase, setActorJwt } from './helpers'
+import {
+  expectDenied,
+  grantProjectAccess,
+  prepareTestDatabase,
+  setActorJwt,
+} from './helpers'
 
 const WS = '00000000-0000-4000-8000-00000000c300'
 const OTHER_WS = '00000000-0000-4000-8000-00000000c301'
@@ -55,7 +60,11 @@ beforeAll(async () => {
   await migrator.query(
     `insert into api.blocks(record_id,type,payload,"order",created_by_user_id)
      values($1,'procedure_step',$2::jsonb,1,$3)`,
-    [PROTOCOL, JSON.stringify({ text: 'Hold at 2-8 C.', stepNumber: 1 }), AUTHOR],
+    [
+      PROTOCOL,
+      JSON.stringify({ text: 'Hold at 2-8 C.', stepNumber: 1 }),
+      AUTHOR,
+    ],
   )
   await grantProjectAccess(migrator, {
     workspaceId: WS,
@@ -98,9 +107,14 @@ async function effectiveVersion(): Promise<string> {
     )
   ).rows[0]!.id
   const technical = await actor(TECHNICAL)
-  await technical.query(`select api.approve_approval_request($1,'Technical review')`, [request])
+  await technical.query(
+    `select api.approve_approval_request($1,'Technical review')`,
+    [request],
+  )
   const qa = await actor(QA)
-  await qa.query(`select api.approve_approval_request($1,'QA approval')`, [request])
+  await qa.query(`select api.approve_approval_request($1,'QA approval')`, [
+    request,
+  ])
   await author.query(
     `select api.set_protocol_version_status($1,'effective','Release',now())`,
     [version],
@@ -181,9 +195,13 @@ describe('LAB-07 protocol periodic review and used-by', () => {
        do update set protocol_version_id=excluded.protocol_version_id`,
       [WS, PROJECT, PROTOCOL, version, AUTHOR],
     )
-    await author.query('select * from api.acknowledge_protocol_version($1)', [version])
+    await author.query('select * from api.acknowledge_protocol_version($1)', [
+      version,
+    ])
     const trainee = await actor(TECHNICAL)
-    await trainee.query('select * from api.acknowledge_protocol_version($1)', [version])
+    await trainee.query('select * from api.acknowledge_protocol_version($1)', [
+      version,
+    ])
 
     const record = crypto.randomUUID()
     await migrator.query(
@@ -202,14 +220,17 @@ describe('LAB-07 protocol periodic review and used-by', () => {
       `EXP-${record}`,
     ])
     expect(rows[0]!.acknowledged_count).toBe(2)
-    expect(
-      rows[0]!.acknowledged_by.map((item) => item.userId).sort(),
-    ).toEqual([AUTHOR, TECHNICAL].sort())
+    expect(rows[0]!.acknowledged_by.map((item) => item.userId).sort()).toEqual(
+      [AUTHOR, TECHNICAL].sort(),
+    )
 
     const outsider = await actor(OUTSIDER, OTHER_WS)
     expect(
-      (await outsider.query('select * from api.protocol_version_usage($1)', [version]))
-        .rows,
+      (
+        await outsider.query('select * from api.protocol_version_usage($1)', [
+          version,
+        ])
+      ).rows,
     ).toEqual([])
   })
 })

@@ -369,6 +369,7 @@ describe('block payload validation (ELN-002)', () => {
         },
         provenance: 'Analysis Studio',
       },
+      plugin: { plugin: 'dilution', block: 'dilution' },
       analysis: {
         title: 'Recovery slope',
         definitionId: '0198d970-e266-4000-8000-000000000009',

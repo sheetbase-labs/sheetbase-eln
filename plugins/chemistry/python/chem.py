@@ -222,3 +222,70 @@ def add_lot(input):
         arguments["p_title"] = input["title"]
     lot = host_call("sheetbase.lab.act", {"action": "add_compound_lot", "arguments": arguments})
     return {"identifier": (lot or {}).get("identifier") or "", "lots": len(before or []) + 1}
+
+
+# Operations that reach the registry -------------------------------------------
+
+
+def _registry(input):
+    return input.get("registry") or "compound"
+
+
+def find(input):
+    """Structure search as an operation: the same search the search page runs, as the person."""
+    mode = "sim" if str(input.get("mode") or "substructure").lower().startswith("sim") else "sub"
+    source = input["structure"]
+    if read(source) is None and not (mode == "sub" and Chem.MolFromSmarts(source) is not None):
+        raise PluginError("The structure to look for could not be read.")
+    minimum = float(input.get("min_similarity") if input.get("min_similarity") is not None else 0.6)
+    found = host_call(
+        "sheetbase.plugin.search",
+        {"query": f"{mode}:{source}", "limit": int(input.get("limit") or 50)},
+    )
+    wanted = input.get("registry")
+    compounds = []
+    for hit in (found or {}).get("hits", []):
+        if wanted and hit.get("kind") != wanted:
+            continue
+        if mode == "sim" and hit.get("score", 0) < minimum:
+            continue
+        compounds.append(
+            {
+                "id": hit["id"],
+                "identifier": hit["identifier"],
+                "name": hit["title"],
+                "registry": hit["kind"],
+                **({"similarity": hit["score"]} if mode == "sim" else {}),
+            }
+        )
+    return {"mode": "similarity" if mode == "sim" else "substructure", "count": len(compounds), "compounds": compounds}
+
+
+def check(input):
+    """Is this structure already registered? Uses the registry's same-thing rule, so salts do not make a new compound."""
+    parent = describe({"structure": input["structure"]})["parent_smiles"]
+    matches = host_call(
+        "sheetbase.lab.act",
+        {
+            "action": "registry_sameness_matches",
+            "arguments": {"p_model_key": _registry(input), "p_value": parent},
+        },
+    )
+    described = describe({"structure": input["structure"]})
+    return {
+        "registry": _registry(input),
+        "parent_smiles": parent,
+        "formula": described["formula"],
+        "mass": described["mass"],
+        "salts": described["salts"],
+        "registered": bool(matches),
+        "matches": [
+            {
+                "id": m["id"],
+                "identifier": m["identifier"],
+                "name": m["title"],
+                "retired": bool(m.get("archived")),
+            }
+            for m in (matches or [])
+        ],
+    }

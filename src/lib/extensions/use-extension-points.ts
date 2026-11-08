@@ -11,6 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { sciDataClient } from '#/lib/chart-data'
 import { extensionQueryKeys, listExtensions } from './client'
+import { runPluginOperation } from './run-client'
 import { resolveRunnerPoints } from './runner-points'
 import type { ResolvedRunnerPoints } from './runner-points'
 
@@ -50,21 +51,18 @@ export async function runPluginCallable(args: {
   itemId: string
   input: Record<string, unknown>
 }): Promise<{ output: Record<string, unknown>; durationMs: number }> {
-  const response = await fetch('/api/plugins/run', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      kind: 'operation',
+  return runPluginOperation<{
+    output: Record<string, unknown>
+    durationMs: number
+  }>(
+    {
       extensionKey: args.extensionKey,
       operationId: args.itemId,
       input: args.input,
-    }),
-  })
-  if (!response.ok) throw await runFailure(response)
-  return (await response.json()) as {
-    output: Record<string, unknown>
-    durationMs: number
-  }
+    },
+    async () => true,
+    'The plugin could not run.',
+  )
 }
 
 export { runFailure }

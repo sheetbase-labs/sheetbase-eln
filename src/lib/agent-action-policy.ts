@@ -301,24 +301,19 @@ export function isExtensionActionKey(key: string): boolean {
 async function runExtensionRequest(
   args: Record<string, unknown>,
 ): Promise<unknown> {
-  const response = await fetch('/api/plugins/run', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      kind: 'operation',
-      extensionKey: args.extensionKey,
-      operationId: args.operationId,
-      input: args.input,
-    }),
-  })
-  const body = (await response.json().catch(() => null)) as {
-    error?: string
-    output?: unknown
-  } | null
-  if (!response.ok) {
-    throw new Error(body?.error ?? 'The plugin could not do that.')
-  }
-  return body?.output ?? null
+  // The person pressed the button for this operation, so what it does inside
+  // the app (`host_call`) is covered by that same yes.
+  const { runPluginOperation } = await import('#/lib/extensions/run-client')
+  const answer = await runPluginOperation<{ output?: unknown }>(
+    {
+      extensionKey: String(args.extensionKey),
+      operationId: String(args.operationId),
+      input: (args.input ?? {}) as Record<string, unknown>,
+    },
+    async () => true,
+    'The plugin could not do that.',
+  )
+  return answer.output ?? null
 }
 
 export class AgentActionRefusedError extends Error {

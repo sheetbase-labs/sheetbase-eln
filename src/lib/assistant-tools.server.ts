@@ -388,6 +388,7 @@ export async function createAssistantToolkit(deps: {
           workspaceId: deps.workspaceId,
           userId: deps.actor.id,
           allowWrites: deps.flags.mcp_draft,
+          client: deps.client,
         })
         return outcome.ok
           ? {

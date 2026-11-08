@@ -26,7 +26,9 @@ import {
   tooMuchData,
 } from './run-route.server'
 import type { ExtensionRunRouteDeps } from './run-route.server'
-import { invokeExtension, openCallable, pluginLimits } from './runtime.server'
+import { invokeWithHostCalls } from './operation-host.server'
+import { openCallable, pluginLimits } from './runtime.server'
+import type { DataClient } from '../data-client'
 
 export interface PluginApiCaller {
   workspaceId: string
@@ -40,6 +42,21 @@ export interface PluginApiDeps extends ExtensionRunRouteDeps {
   authenticate: (
     headers: Headers,
   ) => Promise<PluginApiCaller | 'forbidden' | null>
+  /** The caller's own data access, for an operation that calls into the app. */
+  clientFor?: (headers: Headers) => Promise<DataClient | null>
+}
+
+/** A session's own token, or the personal API token that was sent: either is the person's access. */
+async function defaultClientFor(headers: Headers): Promise<DataClient | null> {
+  const [{ realSessionAuthDeps, resolveSessionAuth }, execution] =
+    await Promise.all([
+      import('../request-auth'),
+      import('../connectors/enterprise/execution.server'),
+    ])
+  const auth = await resolveSessionAuth(headers, realSessionAuthDeps)
+  if (auth.ok) return execution.createServerDataClient(auth.context.token)
+  const token = readBearerToken(headers)
+  return token ? execution.createServerDataClient(token) : null
 }
 
 const idPattern = /^[a-z][a-z0-9-]{0,48}$/
@@ -112,7 +129,9 @@ export async function handlePluginOperationApi(
     ) {
       return refuse(403, 'This token needs a read scope.')
     }
-    const outcome = await invokeExtension(
+    // An operation may call into the app as the person (`host_call`). Reads
+    // are made; a change needs a person to say yes, which a script cannot.
+    const outcome = await invokeWithHostCalls(
       {
         workspaceId: caller.workspaceId,
         actorUserId: caller.userId,
@@ -120,9 +139,29 @@ export async function handlePluginOperationApi(
         itemId: params.id,
         input: parsed.data.input,
       },
+      {
+        workspaceId: caller.workspaceId,
+        userId: caller.userId,
+        approve: 'none',
+        client: async () => {
+          const client = await (deps.clientFor ?? defaultClientFor)(
+            request.headers,
+          )
+          if (!client) throw new Error('Sign in to use plugins.')
+          return client
+        },
+      },
       deps.runtime,
     )
-    return reply({ output: outcome.output, durationMs: outcome.durationMs })
+    if (outcome.kind === 'confirm')
+      return refuse(
+        409,
+        `${outcome.confirm.summary ?? 'This operation'} changes something, so a person has to confirm it in Sheetbase; run it from there.`,
+      )
+    return reply({
+      output: outcome.result.output,
+      durationMs: outcome.result.durationMs,
+    })
   } catch (error) {
     return failure(error)
   }

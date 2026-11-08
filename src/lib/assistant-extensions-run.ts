@@ -1,3 +1,4 @@
+import { runPluginOperation } from './extensions/run-client'
 import type {
   ExtensionToolAction,
   ExtensionToolActionResult,
@@ -11,21 +12,16 @@ import type {
 export async function runExtensionToolAction(
   action: ExtensionToolAction,
 ): Promise<ExtensionToolActionResult | undefined> {
-  const response = await fetch('/api/plugins/run', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      kind: 'operation',
+  // The person pressed the card's button: what the operation does inside the
+  // app (`host_call`) is covered by that same yes.
+  await runPluginOperation(
+    {
       extensionKey: action.extensionKey,
       operationId: action.operationId,
       input: action.input,
-    }),
-  })
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      error?: string
-    } | null
-    throw new Error(body?.error ?? 'The plugin could not do that.')
-  }
+    },
+    async () => true,
+    'The plugin could not do that.',
+  )
   return undefined
 }

@@ -6,8 +6,8 @@ import type { ExtensionOperationDeclaration } from '../extensions/points'
 import {
   ExtensionRunError,
   checkDeclaredValues,
-  invokeExtension,
 } from '../extensions/runtime.server'
+import { invokeWithHostCalls } from '../extensions/operation-host.server'
 import type { Scope } from '../api-credential-scopes'
 import type { McpContext } from './handler'
 
@@ -118,16 +118,32 @@ export async function callExtensionMcpTool(
       message: error instanceof Error ? error.message : 'Invalid arguments.',
     }
   }
-  const run = async () => {
+  // `approved`: a write that was approved (or allowed to run on its own) by
+  // the workspace's agent permission, so the changes it makes into the app on
+  // the person's behalf may be made. A read may call in to read.
+  const run = async (approved = false) => {
     try {
-      const outcome = await invokeExtension({
-        workspaceId: context.workspaceId,
-        actorUserId: context.actor.id,
-        extensionKey: item.extensionKey,
-        itemId: item.id,
-        input,
-      })
-      return { ok: true as const, value: outcome.output }
+      const outcome = await invokeWithHostCalls(
+        {
+          workspaceId: context.workspaceId,
+          actorUserId: context.actor.id,
+          extensionKey: item.extensionKey,
+          itemId: item.id,
+          input,
+        },
+        {
+          workspaceId: context.workspaceId,
+          userId: context.actor.id,
+          client: async () => context.client,
+          approve: approved ? 'all' : 'none',
+        },
+      )
+      if (outcome.kind === 'confirm')
+        return {
+          ok: false as const,
+          message: `${outcome.confirm.summary ?? 'This'} changes something and needs a person to confirm it in Sheetbase.`,
+        }
+      return { ok: true as const, value: outcome.result.output }
     } catch (error) {
       return {
         ok: false as const,
@@ -186,7 +202,7 @@ export async function callExtensionMcpTool(
     return { ok: 'waiting', requestId: request.id, message: WAITING }
   }
   // Auto: run now, then record how it ended.
-  const outcome = await run()
+  const outcome = await run(true)
   await context.client
     .rpc('finish_agent_action', {
       p_request_id: request.id,

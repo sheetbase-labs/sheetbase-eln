@@ -65,8 +65,11 @@ describe('BenchCalculatorDialog', () => {
     ).toContain('Add 50 µL of stock to 450 µL of diluent.')
   })
 
-  it('offers no insert action outside a notebook', () => {
+  it('offers no insert action outside a notebook', async () => {
     renderWithClient(<BenchCalculatorDialog open onOpenChange={() => {}} />)
+    // Let the dialog finish opening before the test ends, so no scheduled
+    // update outlives the test environment.
+    await screen.findByRole('tab', { name: 'Dilution' })
     expect(
       screen.queryByRole('button', { name: 'Insert into notebook' }),
     ).toBeNull()

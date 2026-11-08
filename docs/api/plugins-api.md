@@ -168,7 +168,10 @@ switches one point on or off (`extensions.manage`).
 `api.set_field_plugin_type(kind, field, plugin, type)` gives a model field a
 plugin's field type, or clears it when the plugin is null (needs permission to
 edit models; listed in the [lab API](./lab-api.md)). `field_plugin_types` is
-readable through the API.
+readable through the API. A record write that breaks the type's rules (lengths,
+pattern, range) is refused with `SB071` and a message that names the field, on
+every route a record is written, while the plugin is on and its `field-types`
+point is switched on.
 
 ## Events
 

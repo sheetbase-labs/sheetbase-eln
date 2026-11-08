@@ -29,6 +29,7 @@ import { Kbd } from '#/components/ui/kbd'
 export const AI_SLASH_TYPE = 'ai'
 
 const AI_GROUP_ID = 'ai'
+const PLUGIN_GROUP_ID = 'plugins'
 
 const AI_OPTION: BlockPickerOption = {
   type: AI_SLASH_TYPE,
@@ -50,6 +51,8 @@ const AI_OPTION: BlockPickerOption = {
 export interface SlashCommandMenuProps {
   /** Show the AI entry. */
   withAi?: boolean
+  /** Blocks that installed plugins add, listed after the built-in ones. */
+  pluginOptions?: readonly BlockPickerOption[]
   query: string
   selectedIndex: number
   onSelect: (type: string) => void
@@ -74,6 +77,7 @@ function optionMatches(opt: BlockPickerOption, query: string): boolean {
 
 export function SlashCommandMenu({
   withAi = false,
+  pluginOptions = [],
   query,
   selectedIndex,
   onSelect,
@@ -82,8 +86,8 @@ export function SlashCommandMenu({
   ref,
 }: SlashCommandMenuProps) {
   const filtered = React.useMemo(
-    () => slashCommandFilteredOptions(query, withAi),
-    [query, withAi],
+    () => slashCommandFilteredOptions(query, withAi, pluginOptions),
+    [query, withAi, pluginOptions],
   )
 
   if (filtered.length === 0) {
@@ -113,13 +117,15 @@ export function SlashCommandMenu({
       <p className="px-2 py-1 text-[11px] font-medium text-fg-muted">
         {t('notebook.slashCommandMenu.ariaLabel')}
       </p>
-      {(withAi
-        ? [
-            { id: AI_GROUP_ID, label: t('notebook.aiComposer.groupLabel') },
-            ...BLOCK_PICKER_GROUPS,
-          ]
-        : BLOCK_PICKER_GROUPS
-      ).map((group) => {
+      {[
+        ...(withAi
+          ? [{ id: AI_GROUP_ID, label: t('notebook.aiComposer.groupLabel') }]
+          : []),
+        ...BLOCK_PICKER_GROUPS,
+        ...(pluginOptions.length > 0
+          ? [{ id: PLUGIN_GROUP_ID, label: t('plugins.screen.pickBlock') }]
+          : []),
+      ].map((group) => {
         const items = filtered.filter(
           (opt) => (opt.group as string) === group.id,
         )
@@ -182,15 +188,47 @@ export function SlashCommandMenu({
 }
 
 /** Filter the block picker options by a query string. */
-export function slashCommandFilteredOptions(query: string, withAi = false) {
-  const options = withAi
-    ? [AI_OPTION, ...BLOCK_PICKER_OPTIONS]
-    : BLOCK_PICKER_OPTIONS
+export function slashCommandFilteredOptions(
+  query: string,
+  withAi = false,
+  pluginOptions: readonly BlockPickerOption[] = [],
+) {
+  const options = [
+    ...(withAi ? [AI_OPTION] : []),
+    ...BLOCK_PICKER_OPTIONS,
+    ...pluginOptions,
+  ]
   return options.filter((opt) => optionMatches(opt, query))
+}
+
+/** The slash-menu entries for the blocks installed plugins add. */
+export function pluginSlashOptions(
+  blocks: readonly {
+    extensionKey: string
+    extensionName: string
+    id: string
+    declaration: { title: string; description?: string }
+  }[],
+  prefix: string,
+): BlockPickerOption[] {
+  return blocks.map((item) => ({
+    type: `${prefix}${item.extensionKey}/${item.id}`,
+    label: item.declaration.title,
+    description:
+      item.declaration.description ??
+      t('plugins.screen.from', { plugin: item.extensionName }),
+    icon: 'puzzle',
+    group: PLUGIN_GROUP_ID as BlockPickerOption['group'],
+    aliases: [item.extensionName],
+  }))
 }
 
 /** Return the number of filtered options for a query (used by parent for
  *  clamping the selected index). */
-export function slashCommandFilterCount(query: string, withAi = false): number {
-  return slashCommandFilteredOptions(query, withAi).length
+export function slashCommandFilterCount(
+  query: string,
+  withAi = false,
+  pluginOptions: readonly BlockPickerOption[] = [],
+): number {
+  return slashCommandFilteredOptions(query, withAi, pluginOptions).length
 }

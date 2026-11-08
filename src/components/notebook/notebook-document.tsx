@@ -875,10 +875,23 @@ function NotebookDocumentContent({
       setGateTarget({ afterBlockId: block.id, replace: block })
       return
     }
+    let kind = type
+    let options: { payload: Record<string, unknown> } | undefined
+    if (type.startsWith(PLUGIN_BLOCK_PREFIX)) {
+      const [plugin, pluginBlock] = type
+        .slice(PLUGIN_BLOCK_PREFIX.length)
+        .split('/')
+      kind = 'plugin'
+      options = { payload: { plugin, block: pluginBlock } }
+    }
     try {
       const newId = onReplaceBlock
-        ? await onReplaceBlock(block, type)
-        : await onInsertBlock(type, block.id)
+        ? options
+          ? await onReplaceBlock(block, kind, options)
+          : await onReplaceBlock(block, kind)
+        : options
+          ? await onInsertBlock(kind, block.id, options)
+          : await onInsertBlock(kind, block.id)
       if (newId) selectAndFocus(newId)
       setUndo(null)
     } catch (err) {

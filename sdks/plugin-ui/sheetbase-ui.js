@@ -11,6 +11,16 @@
  *   const out = await sheetbase.call('viability', { live: 92, dead: 8 });
  *   sheetbase.notify('Saved', 'success');
  *
+ * `fetch` is the same door for code that expects fetch: relative paths under
+ * `/operations/` reach this plugin's own operations, and nothing else.
+ *
+ *   const res = await fetch('/operations/viability', { method: 'POST', body: JSON.stringify({ live: 92, dead: 8 }) });
+ *   const out = await res.json();
+ *
+ * Screens that fill in a form field call `setValue`, report sections call
+ * `setSection`, and a table cell renderer registers with `onRender`. A page can
+ * send the person to a place in Sheetbase with `navigate('/experiments')`.
+ *
  * `call` runs one of the plugin's own operations, as the person using the page.
  * A read answers straight away. An operation that changes something makes
  * Sheetbase ask the person first; if they decline, the promise rejects.
@@ -25,6 +35,7 @@
   var counter = 0
   var latest = null
   var parentWindow = window.parent
+  var renderer = null
 
   function post(message) {
     message.sb = VERSION
@@ -52,6 +63,23 @@
       listeners.slice().forEach(function (fn) {
         fn(latest.context, latest.state)
       })
+    } else if (data.type === 'render' && renderer) {
+      Promise.resolve()
+        .then(function () {
+          return renderer(data.cells || [], data.context || {})
+        })
+        .then(
+          function (cells) {
+            post({ type: 'rendered', id: data.id, cells: cells || [] })
+          },
+          function (error) {
+            post({
+              type: 'rendered',
+              id: data.id,
+              error: error && error.message ? String(error.message) : 'The renderer failed.',
+            })
+          },
+        )
     } else if (data.type === 'result' && pending[data.id]) {
       var entry = pending[data.id]
       delete pending[data.id]
@@ -84,12 +112,92 @@
     notify: function (text, tone) {
       post({ type: 'notify', text: String(text), tone: tone || 'neutral' })
     },
+    /**
+     * fetch for this plugin's own operations: `/operations/<id>` with a JSON
+     * body of inputs. Resolves with a Response whose JSON is the outputs, or
+     * `{ error }` and a 4xx status. Any other address is refused.
+     */
+    fetch: function (url, init) {
+      var path = String(url && url.url ? url.url : url)
+      var match = /^(?:sheetbase:)?\/?operations\/([a-z][a-z0-9-]{0,48})\/?$/.exec(path.split('?')[0])
+      if (!match) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: 'Only /operations/<id> can be fetched here.' }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      var body = {}
+      try {
+        if (init && typeof init.body === 'string' && init.body) body = JSON.parse(init.body)
+      } catch (e) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: 'The body has to be JSON.' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      return api.call(match[1], body).then(
+        function (output) {
+          return new Response(JSON.stringify(output), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        },
+        function (error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        },
+      )
+    },
+    /** A form field's screen: give Sheetbase the field's new value (a string). */
+    setValue: function (value) {
+      post({ type: 'emit', name: 'value', payload: value })
+    },
+    /** A report section's screen: what to freeze into the report (a title and text). */
+    setSection: function (section) {
+      post({ type: 'emit', name: 'section', payload: section })
+    },
+    /** Go to a place in Sheetbase, such as `/experiments`. Same-site paths only. */
+    navigate: function (path) {
+      post({ type: 'navigate', path: String(path) })
+    },
+    /**
+     * A table cell renderer: `fn(cells, context)` gets `[{ key, value }]` and
+     * returns `[{ key, svg | image | text, tone }]` (an array or a promise of
+     * one). `svg` is SVG markup, `image` a `data:image/png;base64,` URL.
+     */
+    onRender: function (fn) {
+      renderer = fn
+    },
     /** Ask for a height in pixels. Done for you as the content grows; call it to override. */
     resize: function (height) {
       post({ type: 'resize', height: Math.ceil(height) })
     },
   }
   window.sheetbase = api
+
+  // Code that expects fetch gets the proxied door for /operations/<id>; data:
+  // and blob: addresses still go to the browser, anything else is refused by
+  // the frame's policy.
+  var nativeFetch = window.fetch ? window.fetch.bind(window) : null
+  window.fetch = function (url, init) {
+    var raw = String(url && url.url ? url.url : url)
+    var path = raw
+    try {
+      var parsed = new URL(raw, 'https://plugin.invalid')
+      if (/^(data|blob):/i.test(raw) && nativeFetch) return nativeFetch(url, init)
+      path = parsed.pathname
+    } catch (e) {
+      /* not a URL */
+    }
+    if (/^\/operations\/|^sheetbase:/.test(path) || /^sheetbase:/.test(raw)) return api.fetch(path, init)
+    return nativeFetch ? nativeFetch(url, init) : Promise.reject(new TypeError('Failed to fetch'))
+  }
 
   function reportHeight() {
     post({

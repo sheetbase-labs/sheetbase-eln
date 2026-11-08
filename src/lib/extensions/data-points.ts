@@ -118,6 +118,13 @@ export interface ExtensionSearchProviderDeclaration {
   description: string
   /** The kinds of record the provider is handed to look through, such as `sample`. */
   types: string[]
+  /**
+   * The provider keeps an index (see `index` in a record hook's answer) and
+   * does not want every document: it is first asked with none, answers with a
+   * `nearest` that has `verify`, and then gets only the records the index
+   * found, to check and score.
+   */
+  indexed?: boolean
   runner: ExtensionRunner
 }
 
@@ -587,7 +594,15 @@ export function parseSearchProviders(
       )
       const run = runner(where, entry.runner, errors)
       if (!types || !run) return null
-      return { types, runner: run } as never
+      if (entry.indexed !== undefined && typeof entry.indexed !== 'boolean') {
+        errors.push(`${where} indexed must be true or false`)
+        return null
+      }
+      return {
+        types,
+        ...(entry.indexed === true ? { indexed: true } : {}),
+        runner: run,
+      } as never
     },
   )
 }

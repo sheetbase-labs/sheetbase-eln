@@ -70,6 +70,39 @@ function fieldValues(
   return out
 }
 
+function documentOf(row: IndexRow): SearchDocument {
+  return {
+    id: row.object_id,
+    type: row.object_type,
+    title: row.title,
+    text: `${row.identifier} ${row.title}\n${row.body}`.slice(0, 4000),
+    // The record's own field values come first so the fixed ones win a clash.
+    fields: {
+      ...fieldValues(row.fields),
+      identifier: row.identifier,
+      kind: row.kind,
+      status: row.status,
+    },
+  }
+}
+
+/** What an indexed provider is handed when it does not ask for a number: more than most labs have of one kind. */
+const INDEX_CANDIDATES = 5000
+
+/** The index rows for these records, read with the person's own access. */
+async function rowsFor(client: DataClient, ids: string[]): Promise<IndexRow[]> {
+  const rows: IndexRow[] = []
+  for (let at = 0; at < ids.length; at += 100)
+    rows.push(
+      ...(await client.list<IndexRow>(
+        'search_documents',
+        `?select=object_type,object_id,title,identifier,kind,status,body,fields,deep_link` +
+          `&archived=eq.false&object_id=in.(${ids.slice(at, at + 100).join(',')})`,
+      )),
+    )
+  return rows
+}
+
 function hitFor(
   row: IndexRow,
   provider: {
@@ -114,32 +147,48 @@ export async function searchWithPlugins(
       `&order=updated_at.desc.nullslast&limit=${DOCUMENT_LIMIT}`,
   )
   const byId = new Map(rows.map((row) => [row.object_id, row]))
-  const documents: SearchDocument[] = rows.map((row) => ({
-    id: row.object_id,
-    type: row.object_type,
-    title: row.title,
-    text: `${row.identifier} ${row.title}\n${row.body}`.slice(0, 4000),
-    // The record's own field values come first so the fixed ones win a clash.
-    fields: {
-      ...fieldValues(row.fields),
-      identifier: row.identifier,
-      kind: row.kind,
-      status: row.status,
-    },
-  }))
+  const documents: SearchDocument[] = rows.map(documentOf)
 
   const hits: PluginSearchHit[] = []
   const problems: string[] = []
   for (const provider of providers) {
     try {
-      const { hits: found, nearest } = await runExtensionSearch({
+      const indexed = provider.declaration.indexed === true
+      let { hits: found, nearest } = await runExtensionSearch({
         workspaceId: args.workspaceId,
         actorUserId: args.actorUserId,
         extensionKey: provider.extensionKey,
         providerId: provider.id,
         query,
-        documents,
+        // An indexed provider first says what to look up, so it is handed
+        // nothing yet.
+        documents: indexed ? [] : documents,
+        ...(indexed ? { stage: 'plan' as const } : {}),
       })
+      if (nearest?.verify) {
+        // The index finds the candidates; the provider checks and scores them.
+        const ranked = await client.rpc<IndexHit[]>('search_plugin_index', {
+          p_extension_key: provider.extensionKey,
+          p_index_name: nearest.index,
+          p_query: nearest.text,
+          p_vector: nearest.vector,
+          p_limit: nearest.limit ?? INDEX_CANDIDATES,
+        })
+        const ids = [...new Set(ranked.map((entry) => entry.record_id))]
+        const candidates = await rowsFor(client, ids)
+        for (const row of candidates) byId.set(row.object_id, row)
+        const checked = await runExtensionSearch({
+          workspaceId: args.workspaceId,
+          actorUserId: args.actorUserId,
+          extensionKey: provider.extensionKey,
+          providerId: provider.id,
+          query,
+          documents: candidates.map(documentOf),
+          stage: 'rank',
+        })
+        found = checked.hits
+        nearest = null
+      }
       for (const hit of found) {
         const row = byId.get(hit.id)
         if (!row) continue

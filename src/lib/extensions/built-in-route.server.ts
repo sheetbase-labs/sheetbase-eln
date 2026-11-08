@@ -14,6 +14,7 @@ import type { SessionAuthDeps } from '../request-auth'
 import { CHEMISTRY_PLUGIN_KEY, adoptChemistryPlugin } from '../chemistry-plugin'
 import type { AdoptedModel } from '../chemistry-plugin'
 import { runExtensionSamenessKey } from './data-runtime.server'
+import { reindexPlugin } from './reindex.server'
 import { ensureBuiltInPlugins } from './built-in.server'
 
 export interface BuiltInRouteDeps {
@@ -26,11 +27,10 @@ export interface BuiltInRouteDeps {
   ) => Promise<AdoptedModel[]>
 }
 
-const adoptChemistryDefault: NonNullable<BuiltInRouteDeps['adoptChemistry']> = (
-  client,
-  caller,
-) =>
-  adoptChemistryPlugin(client, (molfile) =>
+const adoptChemistryDefault: NonNullable<
+  BuiltInRouteDeps['adoptChemistry']
+> = async (client, caller) => {
+  const adopted = await adoptChemistryPlugin(client, (molfile) =>
     runExtensionSamenessKey({
       ...caller,
       extensionKey: CHEMISTRY_PLUGIN_KEY,
@@ -38,6 +38,10 @@ const adoptChemistryDefault: NonNullable<BuiltInRouteDeps['adoptChemistry']> = (
       values: { structure: molfile },
     }),
   )
+  // Compounds saved before the plugin get their entry in its search index.
+  await reindexPlugin(client, caller, CHEMISTRY_PLUGIN_KEY)
+  return adopted
+}
 
 export async function handleBuiltInPlugins(
   request: Request,

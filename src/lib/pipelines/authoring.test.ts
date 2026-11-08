@@ -12,6 +12,8 @@ import {
   removeStep,
   setConfirmPatch,
   setStepConfirm,
+  setStepLanguage,
+  setStepPlugin,
   suggestPipelineKey,
   updateParameter,
   updateStep,
@@ -153,5 +155,36 @@ describe('output column mapping', () => {
       missing: ['od'],
       unmatched: [],
     })
+  })
+})
+
+describe('plugin steps', () => {
+  it('becomes a plugin step without code, a contract or a pause, and back', () => {
+    const start = [
+      {
+        ...addStep([])[0],
+        confirm: defaultConfirm(['u']),
+      },
+    ]
+    const plugin = setStepLanguage(start, 0, 'plugin')[0]
+    expect(plugin.language).toBe('plugin')
+    expect(plugin.statement).toBe('')
+    expect(plugin).not.toHaveProperty('confirm')
+    const chosen = setStepPlugin([plugin], 0, {
+      operation: 'plugin.a.b',
+      arguments: { left: { $ref: 'previous' } },
+    })
+    expect(chosen[0].plugin?.operation).toBe('plugin.a.b')
+    const back = setStepLanguage(chosen, 0, 'sql')[0]
+    expect(back.language).toBe('sql')
+    expect(back).not.toHaveProperty('plugin')
+    expect(back.statement).not.toBe('')
+  })
+  it('clears the choice', () => {
+    const [step] = setStepPlugin(setStepLanguage(addStep([]), 0, 'plugin'), 0, {
+      operation: 'plugin.a.b',
+      arguments: {},
+    })
+    expect(setStepPlugin([step], 0, undefined)[0]).not.toHaveProperty('plugin')
   })
 })

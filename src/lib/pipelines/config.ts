@@ -2,6 +2,7 @@ import { validatePipelineActions } from './actions'
 import { contractErrors, requirementErrors } from './python'
 import type { PythonContract } from './python'
 import { t } from '#/copy'
+import { parsePluginName } from '#/lib/extensions/points'
 
 /**
  * AUTO-01 — Pipeline configuration contract (format version 1).
@@ -116,10 +117,25 @@ export interface PipelineStepConfirm {
   expiresHours?: number
 }
 
+/**
+ * A step a plugin runs: it takes named tables and gives a table back, and the
+ * next step reads that table as `previous`. Table boxes name where the rows
+ * come from (`previous`, `inputs.<name>`, `steps.<step>`); every other box is
+ * a typed value or `parameters.<name>`.
+ */
+export interface PipelinePluginStep {
+  /** `plugin.<extension>.<step id>`, a `pipeline-steps` item of an installed plugin. */
+  operation: string
+  arguments: Record<string, unknown>
+}
+
 export interface PipelineStep {
   name: string
-  language: 'sql' | 'python'
+  language: 'sql' | 'python' | 'plugin'
+  /** The code of a SQL or Python step. A plugin step has none (empty). */
   statement: string
+  /** Plugin steps only: which plugin step runs, and what it is given. */
+  plugin?: PipelinePluginStep
   /** Python only: the columns this step reads and the DataFrame it returns. */
   contract?: PythonContract
   /** Opt-in: run this step's proposal, then pause for a person. */
@@ -190,6 +206,82 @@ function push(
   message: string,
 ): void {
   errors.push({ code, field, message })
+}
+
+/** Where a plugin step's table or value may come from. */
+const PLUGIN_STEP_REF_ROOTS = ['previous', 'parameters', 'inputs', 'steps']
+const PLUGIN_STEP_REF_PART = /^[A-Za-z0-9_-]+$/
+
+function validatePluginStep(
+  errors: ConfigError[],
+  step: Record<string, unknown>,
+  index: number,
+): void {
+  const field = `steps[${index}].plugin`
+  const plugin = step.plugin
+  if (
+    !isObject(plugin) ||
+    typeof plugin.operation !== 'string' ||
+    !parsePluginName(plugin.operation)
+  ) {
+    push(
+      errors,
+      'invalid_value',
+      field,
+      t('data.pipelineConfig.pluginStepNeedsPlugin'),
+    )
+    return
+  }
+  if (step.confirm !== undefined)
+    push(
+      errors,
+      'invalid_value',
+      `steps[${index}].confirm`,
+      t('data.pipelineConfig.pluginStepNoConfirm'),
+    )
+  if (step.contract !== undefined)
+    push(
+      errors,
+      'invalid_value',
+      `steps[${index}].contract`,
+      t('data.pipelineConfig.dataContractAppliesPython'),
+    )
+  if (!isObject(plugin.arguments)) {
+    push(
+      errors,
+      'invalid_shape',
+      `${field}.arguments`,
+      t('data.pipelineConfig.pluginStepArguments'),
+    )
+    return
+  }
+  for (const [key, value] of Object.entries(plugin.arguments)) {
+    if (['__proto__', 'constructor', 'prototype'].includes(key)) {
+      push(
+        errors,
+        'invalid_value',
+        `${field}.arguments`,
+        t('data.pipelineConfig.pluginStepArguments'),
+      )
+      continue
+    }
+    if (!isObject(value) || !Object.hasOwn(value, '$ref')) continue
+    const ref = value.$ref
+    const parts = typeof ref === 'string' ? ref.split('.') : []
+    if (
+      Object.keys(value).length !== 1 ||
+      !PLUGIN_STEP_REF_ROOTS.includes(parts[0] ?? '') ||
+      parts.length > 2 ||
+      parts.some((part) => !PLUGIN_STEP_REF_PART.test(part)) ||
+      (parts[0] === 'previous') !== (parts.length === 1)
+    )
+      push(
+        errors,
+        'invalid_value',
+        `${field}.arguments.${key}`,
+        t('data.pipelineConfig.pluginStepReference'),
+      )
+  }
 }
 
 /** Validate a raw configuration value. Returns every violation found. */
@@ -488,12 +580,27 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
             t('data.pipelineConfig.stepNamesMustUnique'),
           )
         names.add(step.name)
-        if (step.language !== 'sql' && step.language !== 'python')
+        if (
+          step.language !== 'sql' &&
+          step.language !== 'python' &&
+          step.language !== 'plugin'
+        )
           push(
             errors,
             'unsupported_language',
             `steps[${index}].language`,
             t('data.pipelineConfig.chooseSqlPython'),
+          )
+        if (step.language === 'plugin') {
+          validatePluginStep(errors, step, index)
+          continue
+        }
+        if (step.plugin !== undefined)
+          push(
+            errors,
+            'invalid_value',
+            `steps[${index}].plugin`,
+            t('data.pipelineConfig.pluginOnlyPluginStep'),
           )
         if (
           typeof step.statement !== 'string' ||

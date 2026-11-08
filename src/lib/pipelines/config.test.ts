@@ -236,6 +236,91 @@ describe('Python and workflow configuration', () => {
   })
 })
 
+describe('Plugin steps in the chain', () => {
+  const pluginStep = (args: Record<string, unknown>) => ({
+    name: 'join_plates',
+    language: 'plugin' as const,
+    statement: '',
+    plugin: { operation: 'plugin.plate-tools.join', arguments: args },
+  })
+  it('accepts a plugin step that reads the result so far, an input and a setting', () => {
+    const config = validConfig()
+    config.steps = [
+      pluginStep({
+        left: { $ref: 'previous' },
+        right: { $ref: 'inputs.measurements' },
+        key: { $ref: 'parameters.note' },
+        suffix: '_b',
+      }),
+    ]
+    expect(validatePipelineConfig(config)).toEqual([])
+  })
+  it('accepts a plugin step between two ordinary steps and reading an earlier one', () => {
+    const config = validConfig()
+    config.steps = [
+      { name: 'first', language: 'sql', statement: 'SELECT 1 AS a' },
+      pluginStep({ left: { $ref: 'steps.first' } }),
+      { name: 'last', language: 'sql', statement: 'SELECT * FROM previous' },
+    ]
+    expect(validatePipelineConfig(config)).toEqual([])
+  })
+  it('needs the plugin step it runs', () => {
+    const config = validConfig()
+    config.steps = [
+      { name: 'p', language: 'plugin', statement: '' },
+      {
+        name: 'q',
+        language: 'plugin',
+        statement: '',
+        plugin: { operation: 'sql.whatever', arguments: {} },
+      },
+    ]
+    const errors = validatePipelineConfig(config)
+    expect(errors.map((e) => e.field)).toEqual([
+      'steps[0].plugin',
+      'steps[1].plugin',
+    ])
+  })
+  it('refuses a reference it cannot read, a confirm and a contract', () => {
+    const config = validConfig()
+    config.steps = [
+      {
+        ...pluginStep({
+          a: { $ref: 'actions.x.rows' },
+          b: { $ref: 'previous.extra' },
+          c: { $ref: 'inputs' },
+          d: { $ref: 'parameters.x.y' },
+        }),
+        confirm: { fields: [], askedUserIds: [] },
+      },
+    ]
+    const fields = validatePipelineConfig(config).map((e) => e.field)
+    expect(fields).toEqual(
+      expect.arrayContaining([
+        'steps[0].confirm',
+        'steps[0].plugin.arguments.a',
+        'steps[0].plugin.arguments.b',
+        'steps[0].plugin.arguments.c',
+        'steps[0].plugin.arguments.d',
+      ]),
+    )
+  })
+  it('does not let SQL or Python carry a plugin', () => {
+    const config = validConfig()
+    config.steps = [
+      {
+        name: 'p',
+        language: 'sql',
+        statement: 'SELECT 1',
+        plugin: { operation: 'plugin.a.b', arguments: {} },
+      },
+    ]
+    expect(validatePipelineConfig(config).map((e) => e.field)).toEqual([
+      'steps[0].plugin',
+    ])
+  })
+})
+
 describe('Confirm steps (PIPE-02)', () => {
   function confirmConfig(): PipelineConfig {
     const config = validConfig()

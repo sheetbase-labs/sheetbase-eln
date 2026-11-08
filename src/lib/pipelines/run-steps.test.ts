@@ -70,3 +70,25 @@ describe('runNumbers', () => {
     expect(numbers.get('b')).toBe(2)
   })
 })
+
+describe('runSteps with a plugin step', () => {
+  it('names a plugin step as one', () => {
+    const steps = runSteps(
+      {
+        transform: { language: 'sql' as const, statement: 'select 1' },
+        steps: [
+          {
+            name: 'join_plates',
+            language: 'plugin' as const,
+            statement: '',
+            plugin: { operation: 'plugin.a.b', arguments: {} },
+          },
+        ],
+      },
+      { status: 'succeeded' },
+      [],
+    )
+    expect(steps.map((s) => s.kind)).toEqual(['SQL', 'Plugin'])
+    expect(steps[1].note).toBe('Plugin')
+  })
+})

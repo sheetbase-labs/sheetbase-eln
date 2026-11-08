@@ -60,7 +60,11 @@ async function fetchBlock(client: DataClient, blockId: string) {
 type PipelineArgs = {
   description?: string
   statement?: string
-  steps?: Array<{ name: string; statement: string }>
+  steps?: Array<{
+    name: string
+    statement?: string
+    plugin?: { operation: string; arguments: Record<string, unknown> }
+  }>
   inputs?: Array<{ name: string; description?: string; required?: boolean }>
   parameters?: Array<{
     name: string
@@ -127,9 +131,26 @@ function applyPipelineArgs(
     const existing = base.steps ?? []
     next.steps = args.steps.map((step): PipelineStep => {
       const kept = existing.find((entry) => entry.name === step.name)
+      // A plugin step has no code: it is the plugin step and what it is given.
+      if (step.plugin) {
+        const { contract: _contract, confirm: _confirm, ...rest } = kept ?? {}
+        return {
+          ...rest,
+          name: step.name,
+          language: 'plugin',
+          statement: '',
+          plugin: step.plugin,
+        }
+      }
+      const statement = step.statement ?? ''
+      if (kept?.language === 'plugin') {
+        // Naming a plugin step with SQL turns it into a SQL step on purpose.
+        const { plugin: _plugin, ...rest } = kept
+        return { ...rest, language: 'sql', statement }
+      }
       return kept
-        ? { ...kept, statement: step.statement }
-        : { name: step.name, language: 'sql', statement: step.statement }
+        ? { ...kept, statement }
+        : { name: step.name, language: 'sql', statement }
     })
     if (next.steps.length === 0) delete next.steps
   }
@@ -141,7 +162,9 @@ function pipelineStatements(config: PipelineConfig): Array<[string, string]> {
     ['First step', config.transform.statement],
     ...(config.steps ?? []).map((step): [string, string] => [
       `Step · ${step.name}`,
-      step.statement,
+      step.plugin
+        ? `Plugin step ${step.plugin.operation}\n${JSON.stringify(step.plugin.arguments, null, 2)}`
+        : step.statement,
     ]),
   ]
 }

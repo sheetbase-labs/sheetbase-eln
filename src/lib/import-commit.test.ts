@@ -38,7 +38,7 @@ describe('import validate-before-commit', () => {
       throw new Error(name)
     })
     const result = await validateAndCommitImport(
-      { rpc } as unknown as DataClient,
+      { rpc, list: async () => [] } as unknown as DataClient,
       {
         kind: 'dataset',
         datasetId: 'ds-1',
@@ -63,7 +63,7 @@ describe('import validate-before-commit', () => {
   it('does not commit when client-side coercion failed', async () => {
     const rpc = vi.fn()
     const result = await validateAndCommitImport(
-      { rpc } as unknown as DataClient,
+      { rpc, list: async () => [] } as unknown as DataClient,
       {
         kind: 'dataset',
         datasetId: 'ds-1',
@@ -100,7 +100,7 @@ describe('import validate-before-commit', () => {
       throw new Error(name)
     })
     const result = await validateAndCommitImport(
-      { rpc } as unknown as DataClient,
+      { rpc, list: async () => [] } as unknown as DataClient,
       {
         kind: 'dataset',
         datasetId: 'ds-1',
@@ -125,7 +125,7 @@ describe('import validate-before-commit', () => {
       throw new Error(name)
     })
     const result = await validateAndCommitImport(
-      { rpc } as unknown as DataClient,
+      { rpc, list: async () => [] } as unknown as DataClient,
       {
         kind: 'record',
         projectId: 'proj-1',

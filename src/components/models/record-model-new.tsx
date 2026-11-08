@@ -16,6 +16,14 @@ import {
 } from '#/components/extensions/field-type-hooks'
 import { evaluateModelRules } from '#/lib/model-rules'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { runSamenessKey } from '#/lib/extensions/plugin-files'
+import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
+import {
+  getSamenessRule,
+  samenessInputs,
+  samenessKeys,
+  samenessMatches,
+} from '#/lib/registry-sameness'
 import {
   buildRecordModelCustomFields,
   modelFieldErrorMessage,
@@ -184,7 +192,67 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
     staleTime: 5_000,
   })
   const structureHits = structure ? (structureMatches.data ?? []) : []
-  const matches = nameMatches
+
+  // A same-thing rule from a plugin, when the model has one: the plugin works
+  // out a key from the fields and entries with the same key are matches too.
+  const pluginPoints = useExtensionPoints()
+  const ruleName = useQuery({
+    queryKey: samenessKeys.rule(modelKey),
+    queryFn: () => getSamenessRule(notebookDataClient, modelKey),
+    enabled: isRegistry,
+    staleTime: 30_000,
+  })
+  const rule = isRegistry
+    ? pluginPoints.data['sameness-keys'].find(
+        (item) => item.name === ruleName.data,
+      )
+    : undefined
+  const ruleInputs =
+    rule && settled.custom !== ''
+      ? samenessInputs(
+          rule.declaration.fields,
+          settled.title,
+          JSON.parse(settled.custom) as Record<string, unknown>,
+        )
+      : null
+  const ruleKey = useQuery({
+    queryKey: [
+      'registry',
+      'sameness-key',
+      modelKey,
+      JSON.stringify(ruleInputs?.values ?? {}),
+    ],
+    queryFn: () =>
+      runSamenessKey({
+        extensionKey: rule!.extensionKey,
+        keyId: rule!.id,
+        values: ruleInputs!.values,
+      }),
+    enabled: Boolean(rule && ruleInputs && ruleInputs.missing.length === 0),
+    staleTime: 60_000,
+    retry: false,
+  })
+  const ruleMatches = useQuery({
+    queryKey: samenessKeys.matches([modelKey, ruleKey.data ?? '']),
+    queryFn: () =>
+      samenessMatches(notebookDataClient, {
+        modelKey,
+        value: ruleKey.data ?? '',
+      }),
+    enabled: Boolean(ruleKey.data),
+    staleTime: 5_000,
+  })
+  const matches = [
+    ...nameMatches,
+    ...(ruleMatches.data ?? []).filter(
+      (match) => !nameMatches.some((other) => other.id === match.id),
+    ),
+  ]
+  const ruleBusy =
+    Boolean(rule) &&
+    (settled.title !== title ||
+      settled.custom !== customJson ||
+      ruleKey.isFetching)
 
   const pluginErrors = usePluginFieldTypeErrors(modelKey, fields, values)
   const pluginPlaceholders = usePluginFieldPlaceholders(modelKey)
@@ -207,6 +275,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
 
   const canSubmit =
     !submitting &&
+    !ruleBusy &&
     !titleError &&
     validation.blocks.length === 0 &&
     Object.keys(fieldErrors).length === 0 &&
@@ -237,6 +306,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
                 title: title.trim(),
                 customFields,
                 allowDuplicate: acknowledged,
+                samenessValue: rule ? (ruleKey.data ?? undefined) : null,
               })
             : await notebookDataClient.rpc<RecordModelRecord>(
                 'create_model_record',

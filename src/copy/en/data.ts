@@ -1663,6 +1663,8 @@ export const data = {
     furtherSteps: 'Further steps',
     runsAfterPrecedingStep:
       'Runs after the preceding step. Read its result as <code>previous</code>, or pause for a person to confirm.',
+    pluginRunsAfterPrecedingStep:
+      'Runs after the preceding step. Its table can come from the result so far, an input or an earlier step, and the next step reads what it gives back as <code>previous</code>.',
     chooseWhetherRealRun:
       'Choose whether a real run keeps the final result in a dataset. Trying a draft never writes output.',
     pythonAvailable: 'Python isn’t available',

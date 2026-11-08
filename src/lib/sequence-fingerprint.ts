@@ -48,4 +48,3 @@ export function canonicalSequence(
   const reverse = topology === 'circular' ? leastRotation(rc) : rc
   return forward <= reverse ? forward : reverse
 }
-

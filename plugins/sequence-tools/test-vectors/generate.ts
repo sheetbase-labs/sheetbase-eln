@@ -8,13 +8,20 @@ import { writeFileSync } from 'node:fs'
 
 import { canonicalSequence } from '../../../src/lib/sequence-fingerprint'
 
-import { runSequenceTool, sequenceToolSchema } from '../../../src/lib/molbio/tools'
+import {
+  runSequenceTool,
+  sequenceToolSchema,
+} from '../../../src/lib/molbio/tools'
 import { buildCases, fingerprintCases } from './cases'
 
 const out = buildCases().map(({ name, input }) => {
   const parsed = sequenceToolSchema.safeParse(input)
   if (!parsed.success) {
-    return { name, input, rejected: parsed.error.issues[0]?.message ?? 'invalid' }
+    return {
+      name,
+      input,
+      rejected: parsed.error.issues[0]?.message ?? 'invalid',
+    }
   }
   return { name, input, expected: runSequenceTool(parsed.data) }
 })

@@ -131,7 +131,10 @@ describe('sequence blocks converted to plugin blocks', () => {
   })
 
   it('keeps the words searchable, long sequences aside, archived projects included', async () => {
-    const { rows } = await migrator.query<{ id: string; hit: Record<string, boolean> }>(
+    const { rows } = await migrator.query<{
+      id: string
+      hit: Record<string, boolean>
+    }>(
       `SELECT id,
               jsonb_build_object(
                 'feature', search_tsv @@ plainto_tsquery('english', 'KanRMarker'),

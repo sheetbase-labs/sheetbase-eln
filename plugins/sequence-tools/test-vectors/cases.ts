@@ -182,7 +182,8 @@ export function buildCases(): VectorCase[] {
       },
     ],
   })
-  const sites = (s: string) => scrub(s, ['GGTCTC', 'GAGACC', 'CGTCTC', 'GAGACG'])
+  const sites = (s: string) =>
+    scrub(s, ['GGTCTC', 'GAGACC', 'CGTCTC', 'GAGACG'])
   const mk = (up: string, body: string, down: string) =>
     `GGTCTCA${up}${body}${down}AGAGACC`
   const bb = 'A' + sites(randomDna(598, 51)) + 'A'
@@ -270,7 +271,13 @@ export function buildCases(): VectorCase[] {
   add('align substitution insertion deletion', {
     action: 'align',
     reference: ref,
-    query: ref.slice(0, 100) + 'A' + ref.slice(101, 200) + 'GGG' + ref.slice(200, 300) + ref.slice(305),
+    query:
+      ref.slice(0, 100) +
+      'A' +
+      ref.slice(101, 200) +
+      'GGG' +
+      ref.slice(200, 300) +
+      ref.slice(305),
     mode: 'global',
   })
   add('align local read in reference', {
@@ -424,7 +431,8 @@ export function buildCases(): VectorCase[] {
     read: read6,
     quality: qstr(10),
   })
-  const read8 = construct.slice(400, 600).slice(0, 100) + 'TTT' + construct.slice(500, 650)
+  const read8 =
+    construct.slice(400, 600).slice(0, 100) + 'TTT' + construct.slice(500, 650)
   add('check_read insertion', {
     action: 'check_read',
     expected: construct,
@@ -450,7 +458,11 @@ export function fingerprintCases(): FingerprintCase[] {
     out.push({ residues: plasmid, molecule: 'dna', topology })
     out.push({ residues: cut(plasmid, 311), molecule: 'dna', topology })
     out.push({ residues: rc(plasmid), molecule: 'dna', topology })
-    out.push({ residues: cut(rc(plasmid), 77).toLowerCase(), molecule: 'dna', topology })
+    out.push({
+      residues: cut(rc(plasmid), 77).toLowerCase(),
+      molecule: 'dna',
+      topology,
+    })
     out.push({ residues: 'acg uug\nCC 12 AUG', molecule: 'rna', topology })
     out.push({ residues: 'ACGRYNKMSWBDHV', molecule: 'dna', topology })
     out.push({ residues: 'AAAAAA', molecule: 'dna', topology })
@@ -458,6 +470,10 @@ export function fingerprintCases(): FingerprintCase[] {
     out.push({ residues: '', molecule: 'dna', topology })
   }
   out.push({ residues: 'mkta yiak*', molecule: 'protein', topology: 'linear' })
-  out.push({ residues: randomDna(5000, 3), molecule: 'dna', topology: 'circular' })
+  out.push({
+    residues: randomDna(5000, 3),
+    molecule: 'dna',
+    topology: 'circular',
+  })
   return out
 }

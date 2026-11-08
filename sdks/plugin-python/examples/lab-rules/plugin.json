@@ -53,6 +53,5 @@
         "run": "rules:search"
       }
     ]
-  },
-  "ui": null
+  }
 }

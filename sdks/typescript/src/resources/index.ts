@@ -16,6 +16,7 @@ export type {
 export { WebhooksResource } from './webhooks.js'
 export { PeopleResource } from './people.js'
 export { FacilityResource } from './facility.js'
+export { PluginsResource } from './plugins.js'
 export {
   PipelinesResource,
   applyStepSource,

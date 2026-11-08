@@ -1,0 +1,1813 @@
+[
+ {
+  "name": "minimal operation",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "operation and analysis kind",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ],
+    "analysis-kinds": [
+     {
+      "id": "smooth",
+      "title": "Smooth",
+      "description": "Moving average.",
+      "inputs": [
+       {
+        "name": "x",
+        "label": "X",
+        "type": "number",
+        "required": true
+       },
+       {
+        "name": "y",
+        "label": "Y",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "result": {
+       "columns": [
+        {
+         "name": "x",
+         "type": "number"
+        },
+        {
+         "name": "y",
+         "type": "number"
+        }
+       ],
+       "chart": {
+        "type": "line",
+        "x": "x",
+        "y": "y"
+       }
+      },
+      "run": "stats:smooth"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "author, compatibleWith and permissions",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   },
+   "author": "Acme",
+   "compatibleWith": ">=1.0.0",
+   "permissions": [
+    "projects:read"
+   ]
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "examples",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   },
+   "examples": [
+    {
+     "operation": "viability",
+     "input": {
+      "live": 1,
+      "dead": 1
+     },
+     "output": {
+      "viability": 50
+     }
+    }
+   ]
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "ui null is fine",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   },
+   "ui": null
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "module in a package folder",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "tools.counts:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/tools/__init__.py": "",
+   "python/tools/counts.py": "def viability(input):\n    return {}\n"
+  }
+ },
+ {
+  "name": "function imported from another module",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "from .impl import viability\n",
+   "python/impl.py": "def viability(i):\n    return {}\n"
+  }
+ },
+ {
+  "name": "ui set",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   },
+   "ui": {
+    "entry": "index.html"
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "ui folder",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "ui/index.html": "<p>hi</p>"
+  }
+ },
+ {
+  "name": "unknown top-level key",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   },
+   "surprise": 1
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "unknown provides key",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ],
+    "panels": []
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "nothing provided",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {}
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "provides is a list",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": []
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "bad id",
+  "valid": false,
+  "manifest": {
+   "id": "cellcount",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "bad version",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "missing description",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "empty name",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "  ",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "bad operation id",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "Bad Id",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "duplicate operation id",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     },
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "operation without description",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "bad access",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "sign",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "unknown field type",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "a",
+        "type": "blob",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "field without required",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "a",
+        "type": "text"
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "repeated field name",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "a",
+        "type": "text",
+        "required": true
+       },
+       {
+        "name": "a",
+        "type": "text",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "run is not module:function",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops.viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "run points at a missing module",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "nope:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "run points at a missing function",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:missing"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "run missing",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ]
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "analysis chart y not numeric",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ],
+    "analysis-kinds": [
+     {
+      "id": "smooth",
+      "title": "Smooth",
+      "description": "Moving average.",
+      "inputs": [
+       {
+        "name": "x",
+        "label": "X",
+        "type": "number",
+        "required": true
+       },
+       {
+        "name": "y",
+        "label": "Y",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "result": {
+       "columns": [
+        {
+         "name": "x",
+         "type": "number"
+        },
+        {
+         "name": "label",
+         "type": "text"
+        }
+       ],
+       "chart": {
+        "type": "line",
+        "x": "x",
+        "y": "label"
+       }
+      },
+      "run": "stats:smooth"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "analysis chart unknown type",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ],
+    "analysis-kinds": [
+     {
+      "id": "smooth",
+      "title": "Smooth",
+      "description": "Moving average.",
+      "inputs": [
+       {
+        "name": "x",
+        "label": "X",
+        "type": "number",
+        "required": true
+       },
+       {
+        "name": "y",
+        "label": "Y",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "result": {
+       "columns": [
+        {
+         "name": "x",
+         "type": "number"
+        },
+        {
+         "name": "y",
+         "type": "number"
+        }
+       ],
+       "chart": {
+        "type": "pie",
+        "x": "x",
+        "y": "y"
+       }
+      },
+      "run": "stats:smooth"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "analysis without inputs",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ],
+    "analysis-kinds": [
+     {
+      "id": "smooth",
+      "title": "Smooth",
+      "description": "Moving average.",
+      "inputs": [],
+      "result": {
+       "columns": [
+        {
+         "name": "x",
+         "type": "number"
+        },
+        {
+         "name": "y",
+         "type": "number"
+        }
+       ],
+       "chart": {
+        "type": "line",
+        "x": "x",
+        "y": "y"
+       }
+      },
+      "run": "stats:smooth"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "python file outside python/",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "ops.py": "x = 1\n"
+  }
+ },
+ {
+  "name": "non-python file in python/",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/data.csv": "a,b\n"
+  }
+ },
+ {
+  "name": "path traversal",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/../evil.py": "x = 1\n"
+  }
+ },
+ {
+  "name": "empty path segment",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python//x.py": "x = 1\n"
+  }
+ },
+ {
+  "name": "unlisted root file",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "run.sh": "echo\n"
+  }
+ },
+ {
+  "name": "bad permissions",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   },
+   "permissions": "projects:read"
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "bad examples",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   },
+   "examples": [
+    {
+     "operation": "viability"
+    }
+   ]
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ }
+]

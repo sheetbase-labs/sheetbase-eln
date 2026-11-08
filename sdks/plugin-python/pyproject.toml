@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sheetbase-plugin"
+version = "0.1.0"
+description = "Write, test and pack Python plugins for Sheetbase"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "Gareth Price", email = "garethprice@me.com" }]
+keywords = ["sheetbase", "eln", "plugin"]
+dependencies = []
+
+[project.scripts]
+sheetbase-plugin = "sheetbase_plugin.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sheetbase_plugin"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

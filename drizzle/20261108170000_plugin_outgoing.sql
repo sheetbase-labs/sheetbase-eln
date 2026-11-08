@@ -29,14 +29,14 @@ BEGIN
   SELECT pg_get_constraintdef(oid) INTO v_def
     FROM pg_constraint
    WHERE conrelid = 'api.extensions'::regclass AND conname = 'chk_extensions_disabled_points';
-  IF v_def IS NULL OR position('''report-sections''::text]' IN v_def) = 0 THEN
+  IF v_def IS NULL OR position('''storage-rules''::text]' IN v_def) = 0 THEN
     RAISE EXCEPTION 'unexpected shape for chk_extensions_disabled_points';
   END IF;
   IF position('''publishers''' IN v_def) = 0 THEN
     EXECUTE 'ALTER TABLE api.extensions DROP CONSTRAINT chk_extensions_disabled_points';
     EXECUTE 'ALTER TABLE api.extensions ADD CONSTRAINT chk_extensions_disabled_points '
-      || replace(v_def, '''report-sections''::text]',
-           '''report-sections''::text, ''publishers''::text, ''notification-channels''::text]');
+      || replace(v_def, '''storage-rules''::text]',
+           '''storage-rules''::text, ''publishers''::text, ''notification-channels''::text]');
   END IF;
 END $$;
 --> statement-breakpoint
@@ -45,8 +45,8 @@ DO $$
 DECLARE
   v_sig regprocedure := 'api.set_extension_point_enabled(uuid, uuid, text, boolean)'::regprocedure;
   v_def text := pg_get_functiondef(v_sig);
-  v_old constant text := $q$'report-sections')$q$;
-  v_new constant text := $q$'report-sections', 'publishers', 'notification-channels')$q$;
+  v_old constant text := $q$'storage-rules')$q$;
+  v_new constant text := $q$'storage-rules', 'publishers', 'notification-channels')$q$;
 BEGIN
   IF position('''publishers''' IN v_def) = 0 THEN
     IF position(v_old IN v_def) = 0 THEN
@@ -61,8 +61,8 @@ DO $$
 DECLARE
   v_sig regprocedure := 'internal.validate_extension_manifest(jsonb)'::regprocedure;
   v_def text := pg_get_functiondef(v_sig);
-  v_old constant text := $q$'report-sections')$q$;
-  v_new constant text := $q$'report-sections', 'publishers', 'notification-channels')$q$;
+  v_old constant text := $q$'storage-rules')$q$;
+  v_new constant text := $q$'storage-rules', 'publishers', 'notification-channels')$q$;
 BEGIN
   IF position('''publishers''' IN v_def) = 0 THEN
     IF position(v_old IN v_def) = 0 THEN
@@ -77,8 +77,8 @@ END $$;
 DO $$
 DECLARE
   v_def text := pg_get_functiondef('internal.validate_extension_runner_points(jsonb)'::regprocedure);
-  v_loop_old constant text := $q$'sameness-keys', 'event-hooks', 'record-hooks'] LOOP$q$;
-  v_loop_new constant text := $q$'sameness-keys', 'event-hooks', 'record-hooks', 'publishers', 'notification-channels'] LOOP$q$;
+  v_loop_old constant text := $q$'storage-rules'] LOOP$q$;
+  v_loop_new constant text := $q$'storage-rules', 'publishers', 'notification-channels'] LOOP$q$;
   v_called_old constant text := $q$IF v_point IN ('operations', 'calculators', 'pipeline-steps') THEN$q$;
   v_called_new constant text := $q$IF v_point IN ('operations', 'calculators', 'pipeline-steps', 'publishers') THEN$q$;
   v_conn_old constant text := $q$ELSIF v_point = 'connectors' THEN

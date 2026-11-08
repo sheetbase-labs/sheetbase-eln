@@ -146,7 +146,6 @@ None. Both the pure list and the live panel have stories.
 
 | Module                                         | Why no story                                                                                      |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `src/components/registry/change-structure.tsx` | Saves a drawn structure through the registry database call, and draws with the chemistry library. |
 
 ## Story-level limits
 

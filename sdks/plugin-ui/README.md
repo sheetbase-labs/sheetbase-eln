@@ -5,7 +5,7 @@ builds them.
 
 - `sheetbase-ui.js`: the `sheetbase` global the server adds to every plugin
   screen (context, a proxied `fetch` to the plugin's own operations, state,
-  `setValue`, `setSection`, `navigate`, `onRender`).
+  `setValue`, `setSection`, `navigate`, `table`, `onRender`).
 - `sheetbase-ui.d.ts`: its TypeScript types. Reference it from `tsconfig.json`.
 - `bin/sheetbase-plugin-ui.mjs build <plugin folder>`: bundles the screens in
   `ui-src/` (TypeScript or JavaScript, with npm imports) into the plain files

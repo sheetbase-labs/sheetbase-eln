@@ -325,6 +325,12 @@ What a screen can use, besides the browser itself, is the global `sheetbase`:
 - `call(operation, input)`, `setState(state)`, `notify(text)`, `resize()`.
 - `setValue(text)` (a field input), `setSection({ title, text })` (a report
   section) and `navigate(path)` (to a page inside Sheetbase).
+  A screen that has a table to show calls `table({ columns, rows, sort })` and
+  Sheetbase draws it below the screen with the app's own table, so it looks and
+  sorts like every other table. Each cell is `{ text, svg, image, href, shade, sort }`:
+  `href` makes it a link inside Sheetbase, `shade` (0 to 1) tints it for a trend
+  down a column, and `sort` is what the column sorts by when that is not the text.
+  Do not draw your own grid in a screen.
 
 State saved with `setState` for pages, settings pages and widgets is kept in
 that browser, for that person. A notebook block keeps its state with the block.

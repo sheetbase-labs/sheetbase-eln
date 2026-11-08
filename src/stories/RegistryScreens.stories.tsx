@@ -12,6 +12,7 @@ import {
   RegistryRetireButton,
 } from '#/components/registry/registry-lineage'
 import { RegistryList } from '#/components/registry/registry-list'
+import { PluginTable } from '#/components/extensions/plugin-table'
 import { RegistrySettingsDialog } from '#/components/registry/registry-settings'
 import { recordModelQueryKeys } from '#/components/models/models-data'
 import { registryKeys } from '#/lib/bio-registry'
@@ -308,5 +309,41 @@ export const SettingsDialog: Story = {
         }}
       />
     </QueryClientProvider>
+  ),
+}
+
+/** A table a plugin screen asked for: drawn by the app's own table, with a shaded measurement and linked numbers. */
+export const PluginScreenTable: Story = {
+  render: () => (
+    <div className="w-[760px] max-w-full">
+      <PluginTable
+        table={{
+          columns: [
+            { key: 'number', label: 'Number' },
+            { key: 'name', label: 'Name' },
+            { key: 'ic50', label: 'IC50 (nM)', align: 'right' },
+            { key: 'mass', label: 'Mass', align: 'right' },
+          ],
+          rows: [
+            ['e1', 'CMP-0001', 'Ibuprofen', 120, 206.3],
+            ['e2', 'CMP-0002', 'Aspirin', 40, 180.2],
+            ['e3', 'CMP-0003', 'Caffeine', null, 194.2],
+          ].map(([id, number, name, ic50, mass]) => ({
+            id: String(id),
+            cells: {
+              number: { text: String(number), href: `/records/${String(id)}` },
+              name: { text: String(name) },
+              ic50: {
+                text: ic50 === null ? '' : String(ic50),
+                sort: ic50 as number | null,
+                ...(ic50 === null ? {} : { shade: Number(ic50) / 120 }),
+              },
+              mass: { text: String(mass), sort: mass as number },
+            },
+          })),
+          sort: { key: 'number', descending: false },
+        }}
+      />
+    </div>
   ),
 }

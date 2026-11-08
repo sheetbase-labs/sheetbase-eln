@@ -45,24 +45,40 @@ point except operations and analyses (see `cell-count` for those):
   so it looks like the rest of the app), or bring a page of your own under `ui/`
   that runs in a sandboxed frame.
 - **Table cells**: say how a value looks (a pill for pass/fail, a bar out of 100,
-  a sparkline). It is data, not code, so large tables stay quick.
+  a sparkline) with `display`, or draw it yourself with `render`: a page in
+  `ui/` that is handed the values on screen and answers with an SVG, a picture
+  or text for each. What reaches the table is data, so large tables stay quick
+  and no plugin code runs inside a cell.
+- **Your own screens, in TypeScript or JavaScript**: `pages` (a page under
+  "Plugins" in the sidebar), `settings-pages` (a page in Settings, for admins),
+  `dashboard-widgets` (a card on Home), `report-sections` (a section a person
+  adds to a report; what you hand back is frozen into the report as text) and
+  `blocks`/`panels` with `ui`. Each is an entry file in `ui/` that runs in the
+  sandboxed frame. Use any npm library: you bundle it into `ui/` yourself
+  (see "Screens in TypeScript" below).
 - **Computed columns and column actions**: a column worked out from each row's
   fields, with entries in its header menu.
 - **Row actions**: something to do with the chosen rows, such as an export.
 - **Field types**: a type for a model field, such as a batch code with a pattern
   and a display. Its lengths, pattern and range are enforced by the database on
   every write (forms, API, import, assistant, pipelines) while the plugin is on
-  and its field types point is switched on; the plugin's code is not run.
+  and its field types point is switched on; the plugin's code is not run. Add
+  `input: "ui/input.html"` to replace the text box with your own control, such
+  as a structure drawer or a sequence editor.
 
-Plugins are Python only for now, and they cannot read your data unless a call
-hands it to them: the code runs in an isolated sandbox with no network, no
-database and no files but its own. A plugin page runs in a sandboxed frame with
-no network, no cookies and no view of the rest of the app.
+Logic is Python; screens are JavaScript or TypeScript. Plugins cannot read your
+data unless a call hands it to them: the Python runs in an isolated sandbox with
+no network, no database and no files but its own. A plugin screen runs in a
+sandboxed frame with no cookies and no view of the rest of the app; its only
+way out is `fetch` to the plugin's own operations.
 
 Each hook has a small runnable example in `sdks/plugin-python/examples`:
 `dilution-block` (a block and a panel from Python screens), `ui-counter` (a block
 with its own page), `cell-looks` (table cell displays and a field type) and
-`plate-tools` (a computed column, a column action and two row actions).
+`plate-tools` (a computed column, a column action and two row actions) and
+`sequence-tools` (every kind of screen above, written in TypeScript with d3
+bundled in: a block, a field input, a cell renderer, a page, a settings page, a
+Home card and a report section).
 
 ## As the author
 
@@ -207,6 +223,50 @@ serves a page on your own machine: a plugin page runs in the same sandboxed fram
 with the same `sheetbase-ui.js`, `sheetbase.call` runs your operations locally, and
 every Python screen, column and action has a box to run it and see whether
 Sheetbase would accept the answer. Nothing leaves your machine.
+
+## Screens in TypeScript
+
+Write each screen as a small HTML file in `ui-src/` that points at a module,
+and import whatever npm libraries you like:
+
+```html
+<!-- ui-src/map.html -->
+<div id="app"></div>
+<script type="module" src="./map.ts"></script>
+```
+
+```ts
+// ui-src/map.ts
+import { arc } from 'd3-shape'
+sheetbase.onContext(async (context) => {
+  const response = await fetch('/operations/analyse', {
+    method: 'POST',
+    body: JSON.stringify({ sequence: context.state?.sequence }),
+  })
+  // draw with plain DOM, or any library you bundled
+})
+```
+
+Then run `node sdks/plugin-ui/bin/sheetbase-plugin-ui.mjs build <plugin folder>`.
+It bundles each module (and everything it imports, including CSS, images, fonts
+and WebAssembly) into one script and writes `ui/map.html`, `ui/map.js` and
+`ui/map.css`, which are what you declare in `plugin.json` (`"ui": "ui/map.html"`)
+and pack. The output is the same on every run, so commit it. Sheetbase never
+bundles or runs a build for you: the package is exactly what you wrote.
+
+What a screen can use, besides the browser itself, is the global `sheetbase`:
+
+- `onContext(fn)` and `onRender(fn)`: what the screen is handed. A cell renderer
+  gets `[{ key, value }]` and returns `[{ key, svg?, text?, tone? }]`.
+- `fetch('/operations/<id>', { method: 'POST', body })`: a proxied `fetch` to
+  this plugin's own operations, run as the person (and asking them first when
+  one writes). Any other address answers 404; nothing else leaves the frame.
+- `call(operation, input)`, `setState(state)`, `notify(text)`, `resize()`.
+- `setValue(text)` (a field input), `setSection({ title, text })` (a report
+  section) and `navigate(path)` (to a page inside Sheetbase).
+
+State saved with `setState` for pages, settings pages and widgets is kept in
+that browser, for that person. A notebook block keeps its state with the block.
 
 ## The other points
 

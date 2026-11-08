@@ -10,7 +10,10 @@
  */
 import { csvEscape } from '../export/delimited'
 import { runFailure } from './use-extension-points'
-import type { ExtensionExporterDeclaration } from './data-points'
+import type {
+  ExtensionExporterDeclaration,
+  ExtensionInstrumentParserDeclaration,
+} from './data-points'
 
 export interface PluginTable {
   columns: string[]
@@ -85,6 +88,77 @@ export async function readWithImporter(args: {
     content: await readFileContent(args.file, args.encoding),
   })
   return tableToCsvFile(table, csvNameFor(args.file.name))
+}
+
+/** The instrument parser that reads a file, if one of the installed plugins does. */
+export function pickInstrumentParser<
+  T extends { declaration: ExtensionInstrumentParserDeclaration },
+>(parsers: readonly T[], filename: string, text: string | null): T | undefined {
+  const extension = fileExtension(filename)
+  return parsers.find(({ declaration }) => {
+    if (!declaration.extensions.includes(extension)) return false
+    // A parser that names text to look for only takes a text file that has it.
+    if (!declaration.contains) return true
+    if (declaration.encoding !== 'text' || text === null) return true
+    return declaration.contains.some((needle) => text.includes(needle))
+  })
+}
+
+/** Reads an instrument's file with a plugin parser; the table goes through the usual import steps. */
+export async function readWithInstrumentParser(args: {
+  extensionKey: string
+  parserId: string
+  encoding: 'text' | 'base64'
+  file: File
+}): Promise<File> {
+  const table = await post<PluginTable>({
+    kind: 'instrument-parse',
+    extensionKey: args.extensionKey,
+    parserId: args.parserId,
+    filename: args.file.name,
+    content: await readFileContent(args.file, args.encoding),
+  })
+  return tableToCsvFile(table, csvNameFor(args.file.name))
+}
+
+export type PluginBarcodeDrawing =
+  { kind: 'bars'; modules: string } | { kind: 'grid'; rows: string[] }
+
+/** The code a plugin barcode format draws for a value. */
+export async function drawPluginBarcode(args: {
+  extensionKey: string
+  formatId: string
+  value: string
+}): Promise<PluginBarcodeDrawing> {
+  return post<PluginBarcodeDrawing>({ kind: 'barcode', ...args })
+}
+
+/** What a scanned text stands for, by a plugin barcode format; null when it is not one of its codes. */
+export async function parseWithPluginBarcode(args: {
+  extensionKey: string
+  formatId: string
+  text: string
+}): Promise<string | null> {
+  const answer = await post<{ value: string | null }>({
+    kind: 'barcode-parse',
+    ...args,
+  })
+  return answer.value
+}
+
+/** The lines a plugin label layout prints for a record. */
+export async function layOutPluginLabel(args: {
+  extensionKey: string
+  formatId: string
+  recordKind: string
+  record: Record<string, unknown>
+  template: { widthMm: number; heightMm: number }
+}): Promise<Array<{ text: string; bold: boolean }>> {
+  const answer = await post<{ lines: Array<{ text: string; bold: boolean }> }>({
+    kind: 'label',
+    ...args,
+  })
+  return answer.lines
 }
 
 export async function pullWithConnector(args: {

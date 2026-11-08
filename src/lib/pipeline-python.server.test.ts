@@ -236,3 +236,66 @@ describe('Python contract and environment', () => {
     })
   })
 })
+
+describe('a plugin call’s own limits', () => {
+  const limits = {
+    timeoutSeconds: 900,
+    memoryMb: 8192,
+    cpus: 4,
+    processes: 1024,
+    scratchMb: 4096,
+    bytes: 64 * 1024 * 1024,
+    rows: 500_000,
+  }
+
+  it('sends the limits, the packages and the hosts, and allows what a pipeline step may not', async () => {
+    fetchMock.mockResolvedValue(Response.json({ rows: [], logs: [], runtime }))
+    const rows = Array.from({ length: 150_000 }, (_, n) => ({ n }))
+    await executePythonTransform({
+      ...job,
+      statement: `x = 1\n${'#'.repeat(200_000)}`,
+      inputs: { data: rows },
+      limits,
+      environment: 'pe-0123456789abcdef',
+      network: ['eutils.ncbi.nlm.nih.gov'],
+    })
+    const sent = JSON.parse(String(fetchMock.mock.calls[0][1].body))
+    expect(sent.limits).toEqual(limits)
+    expect(sent.environment).toBe('pe-0123456789abcdef')
+    expect(sent.network).toEqual(['eutils.ncbi.nlm.nih.gov'])
+    // Time: the plugin's own, plus the runner's overhead.
+    await expect(
+      executePythonTransform({ ...job, inputs: { data: rows } }),
+    ).rejects.toThrow(/row limit/)
+  })
+
+  it('names the plugin’s own row limit, not the pipeline one', async () => {
+    const rows = Array.from({ length: 11 }, (_, n) => ({ n }))
+    await expect(
+      executePythonTransform({
+        ...job,
+        inputs: { data: rows },
+        limits: { ...limits, rows: 10 },
+      }),
+    ).rejects.toThrow(/over the 10 row limit/)
+  })
+
+  it('passes the runner’s reason through when the packages are not ready', async () => {
+    fetchMock.mockResolvedValue(
+      Response.json(
+        {
+          error: 'This plugin’s packages are not installed on the runner yet.',
+          code: 'environment_not_ready',
+        },
+        { status: 409 },
+      ),
+    )
+    await expect(
+      executePythonTransform({
+        ...job,
+        limits,
+        environment: 'pe-0123456789abcdef',
+      }),
+    ).rejects.toMatchObject({ code: 'environment_not_ready' })
+  })
+})

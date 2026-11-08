@@ -18,18 +18,19 @@ import { readBearerToken, verifyExternalCredential } from '#/lib/external-token'
 
 import type { Scope } from '../api-credential-scopes'
 import {
-  EXTENSION_RUN_BODY_BYTES,
   defaultRouteDeps,
   failure,
-  limiter,
+  rateDecision,
   refuse,
   reply,
+  tooMuchData,
 } from './run-route.server'
 import type { ExtensionRunRouteDeps } from './run-route.server'
 import {
   ExtensionRunError,
   invokeExtension,
   openCallable,
+  pluginLimits,
 } from './runtime.server'
 
 export interface PluginApiCaller {
@@ -66,36 +67,47 @@ export async function handlePluginOperationApi(
       403,
       'Plugin operations need a personal API token, not a service token.',
     )
-  const decision = limiter.hit(`plugin-api:${caller.userId}`)
-  if (!decision.allowed)
-    return refuse(
-      429,
-      `Too many plugin calls. Try again in ${decision.retryAfterSeconds ?? 60} seconds.`,
-    )
-  let raw: unknown
   try {
-    const text = await request.text()
-    if (text.length > EXTENSION_RUN_BODY_BYTES)
-      return refuse(413, 'That is too much data to send to a plugin.')
-    raw = JSON.parse(text)
-  } catch {
-    return refuse(400, 'Send a JSON body like { "input": { … } }.')
-  }
-  const parsed = bodySchema.safeParse(raw)
-  if (!parsed.success)
-    return refuse(400, 'Send a JSON body like { "input": { … } }.')
-  try {
-    const { callable } = await openCallable(
+    const { install, callable } = await openCallable(
       deps.runtime,
       caller.workspaceId,
       params.key,
       params.id,
     ).catch((error: unknown) => {
       if (error instanceof ExtensionRunError && error.code === 'not_declared')
-        return { callable: undefined }
+        return { install: undefined, callable: undefined }
       throw error
     })
-    const operation = callable?.declaration
+    if (!install || !callable) return refuse(404, 'That plugin doesn’t offer this.')
+    // How many calls a person may make, and how much data one may carry, are
+    // this plugin's own settings. By default neither is limited.
+    const limits = await pluginLimits(
+      deps.runtime,
+      caller.workspaceId,
+      install.id,
+    )
+    const decision = rateDecision(
+      limits.callsPerMinute,
+      `plugin-api:${params.key}:${caller.userId}`,
+    )
+    if (!decision.allowed)
+      return refuse(
+        429,
+        `Too many calls to this plugin. Try again in ${decision.retryAfterSeconds ?? 60} seconds.`,
+      )
+    let raw: unknown
+    try {
+      const text = await request.text()
+      if (text.length > limits.dataMb * 1024 * 1024)
+        return refuse(413, tooMuchData(limits.dataMb))
+      raw = JSON.parse(text)
+    } catch {
+      return refuse(400, 'Send a JSON body like { "input": { … } }.')
+    }
+    const parsed = bodySchema.safeParse(raw)
+    if (!parsed.success)
+      return refuse(400, 'Send a JSON body like { "input": { … } }.')
+    const operation = callable.declaration
     if (!operation) return refuse(404, 'That plugin doesn’t offer this.')
     if (operation.access === 'write') {
       if (caller.role === 'viewer')

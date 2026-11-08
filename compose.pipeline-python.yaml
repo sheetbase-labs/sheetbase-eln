@@ -17,8 +17,14 @@ services:
     volumes:
       - '${PIPELINE_DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock'
     read_only: true
+    # Installing a plugin's packages builds an image from a scratch folder here.
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=256m,mode=1777
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     pids_limit: 64
-    mem_limit: 512m
+    # The broker holds a call's data in memory while it passes it on, so it needs
+    # room for the largest call a plugin may make (a plugin's data limit is set
+    # in Settings > Plugins).
+    mem_limit: ${PIPELINE_PYTHON_BROKER_MEMORY:-2g}
     restart: unless-stopped

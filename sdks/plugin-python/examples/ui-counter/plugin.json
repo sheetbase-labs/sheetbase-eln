@@ -1,0 +1,18 @@
+{
+  "id": "acme.colony-counter",
+  "name": "Colony counter",
+  "version": "1.0.0",
+  "description": "A tap-to-count colony counter for a notebook, drawn by the plugin's own page in a sandboxed frame.",
+  "author": "Acme Bio",
+  "provides": {
+    "blocks": [
+      {
+        "id": "counter",
+        "title": "Colony counter",
+        "description": "Tap to count colonies on a plate; the count is kept with the block.",
+        "icon": "flask",
+        "ui": "ui/counter.html"
+      }
+    ]
+  }
+}

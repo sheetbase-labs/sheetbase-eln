@@ -1,0 +1,39 @@
+{
+  "id": "acme.plate-tools",
+  "name": "Plate tools",
+  "version": "1.0.0",
+  "description": "A computed pass/fail column, a header action that summarises it, and a row action that exports chosen rows.",
+  "author": "Acme Bio",
+  "provides": {
+    "columns": [
+      {
+        "id": "grade",
+        "title": "Grade",
+        "description": "Pass at 90 or above, retest from 70, otherwise fail, worked out from viability.",
+        "value": "text",
+        "inputs": ["viability"],
+        "display": { "kind": "badge", "tones": { "Pass": "success", "Retest": "warning", "Fail": "danger" } },
+        "run": "grading:grade",
+        "actions": [
+          { "id": "summary", "title": "Summarise grades", "run": "grading:summarise" }
+        ]
+      }
+    ],
+    "row-actions": [
+      {
+        "id": "export",
+        "title": "Export chosen rows",
+        "description": "Downloads the chosen rows as a CSV file.",
+        "selection": "many",
+        "run": "grading:export_csv"
+      },
+      {
+        "id": "inspect",
+        "title": "Inspect",
+        "description": "Shows a short card for the one chosen row.",
+        "selection": "one",
+        "run": "grading:inspect"
+      }
+    ]
+  }
+}

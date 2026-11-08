@@ -506,17 +506,21 @@ server, so every notebook comes back in the "not updated" list.
 
 ## Plugin modules without a story
 
-| Module                                           | Why no story                                                                                                                                                              |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/components/viz/extension-analysis.tsx`      | Lists analysis kinds and runs them through the plugin run route, then draws with the shared chart renderer, which has its own story; covered by the plugin runtime tests. |
-| `src/components/extensions/cell-display.tsx`     | Draws one declarative cell display; covered by the cell display unit tests and the plugin hooks click-through.                                                            |
-| `src/components/extensions/field-type-hooks.tsx` | Reads installed plugins and links a model field to a plugin type; covered by the plugin hooks database tests and click-through.                                           |
-| `src/components/extensions/plugin-block.tsx`     | Reads installed plugins to find the block a notebook holds; covered by the plugin hooks click-through.                                                                    |
-| `src/components/extensions/plugin-frame.tsx`     | Hosts a sandboxed frame and answers its messages by running plugin operations; covered by the sandbox and runtime tests and the click-through.                            |
-| `src/components/extensions/plugin-screen.tsx`    | Fetches a plugin screen or page and passes it to the drawing or frame component; covered by the plugin hooks click-through.                                               |
-| `src/components/extensions/plugin-view.tsx`      | Draws a validated screen with shared components that have their own stories; covered by the screen unit tests.                                                            |
-| `src/components/extensions/table-hooks.tsx`      | Reads installed plugins and runs their column and row hooks on the shared table; covered by the plugin hooks click-through.                                               |
-| `src/components/extensions/tone.ts`              | Pure helper mapping a tone name to token classes; covered by the cell display unit tests.                                                                                 |
+| Module                                                   | Why no story                                                                                                                                                              |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/calculators/plugin-calculator-panel.tsx` | Lists the calculators plugins add and runs them through the plugin run route, so it has nothing to show without an installed plugin and a runner.                         |
+| `src/components/extensions/cell-display.tsx`             | Draws one declarative cell display; covered by the cell display unit tests and the plugin hooks click-through.                                                            |
+| `src/components/extensions/field-type-hooks.tsx`         | Reads installed plugins and links a model field to a plugin type; covered by the plugin hooks database tests and click-through.                                           |
+| `src/components/extensions/plugin-block.tsx`             | Reads installed plugins to find the block a notebook holds; covered by the plugin hooks click-through.                                                                    |
+| `src/components/extensions/plugin-frame.tsx`             | Hosts a sandboxed frame and answers its messages by running plugin operations; covered by the sandbox and runtime tests and the click-through.                            |
+| `src/components/extensions/plugin-screen.tsx`            | Fetches a plugin screen or page and passes it to the drawing or frame component; covered by the plugin hooks click-through.                                               |
+| `src/components/extensions/plugin-view.tsx`              | Draws a validated screen with shared components that have their own stories; covered by the screen unit tests.                                                            |
+| `src/components/extensions/table-hooks.tsx`              | Reads installed plugins and runs their column and row hooks on the shared table; covered by the plugin hooks click-through.                                               |
+| `src/components/extensions/tone.ts`                      | Pure helper mapping a tone name to token classes; covered by the cell display unit tests.                                                                                 |
+| `src/components/import/plugin-pull-panel.tsx`            | Lists the connectors plugins add and pulls data through the plugin data route; the form inside is the field form, which has a story.                                      |
+| `src/components/plugins/plugin-file-preview.tsx`         | Reads a stored file and sends it to a plugin preview through the plugin data route, so it needs an installed plugin and a runner.                                         |
+| `src/components/search/plugin-hits.tsx`                  | A table of search results built on the registry grid (which has a story), each row linking to a record; it only holds the plugin's hits.                                  |
+| `src/components/viz/extension-analysis.tsx`              | Lists analysis kinds and runs them through the plugin run route, then draws with the shared chart renderer, which has its own story; covered by the plugin runtime tests. |
 
 ## Robots, scheduler and code cells
 

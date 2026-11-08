@@ -94,6 +94,12 @@ can instead be reached through the runner's `DOCKER_HOST`. The Python job itself
 never receives that socket or environment variable. Verify CPU/memory/pid controls
 on the target engine before running scientific jobs.
 
+To check a Docker host end to end, run `node scripts/pipeline-python-docker-check.mjs`.
+It builds the worker and runner images, installs RDKit into a plugin environment,
+and makes real calls to confirm the limits are applied, an approved host is reachable
+through the egress proxy, other hosts are not, and the package works. CI runs it on
+every change (the "Python plugin sandbox" job).
+
 ## Configuration and protocol
 
 | Variable                       | Where            | Meaning                                                                                              |

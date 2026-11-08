@@ -165,6 +165,22 @@ jobs:
         working-directory: sdks/plugin-python
         run: uv run --python 3.13 --with pytest --with pandas --with-editable . python -m pytest -q
 
+  # The Python plugin sandbox on a real Docker daemon: the worker and runner
+  # images build, a plugin's packages (RDKit) install into their own image, and
+  # real calls show the limits are applied, the egress proxy lets a declared
+  # host through and nothing else, and the package works. The unit tests drive
+  # the same code against stand-ins; this is the only job that runs it for real.
+  python-sandbox:
+    name: Python plugin sandbox
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/pipeline-python-docker-check.mjs
+
   acceptance:
     name: Browser journeys (${{ matrix.name }})
     runs-on: ubuntu-latest

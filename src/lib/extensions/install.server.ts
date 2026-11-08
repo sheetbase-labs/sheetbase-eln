@@ -192,28 +192,10 @@ export async function handlePluginInstall(
     )
   let installed: ExtensionWire
   try {
-    installed = existing
-      ? await updateExtension(client, {
-          workspaceId: context.workspaceId,
-          extensionId: existing.id,
-          name: pkg.manifest.name,
-          version: pkg.manifest.version,
-          source: pkg.manifest.source,
-          manifest: pkg.manifest,
-          acknowledgeUntrusted: true,
-        })
-      : await installExtension(client, {
-          workspaceId: context.workspaceId,
-          key: pluginKeyFor(
-            pkg.manifest.id,
-            new Set(installs.map((i) => i.key)),
-          ),
-          name: pkg.manifest.name,
-          version: pkg.manifest.version,
-          source: pkg.manifest.source,
-          manifest: pkg.manifest,
-          acknowledgeUntrusted: true,
-        })
+    installed = await installPluginPackage(deps, client, context, pkg, {
+      existing,
+      taken: new Set(installs.map((i) => i.key)),
+    })
   } catch (error) {
     return requestErrorResponse(
       409,
@@ -223,6 +205,46 @@ export async function handlePluginInstall(
         : 'The plugin could not be installed.',
     )
   }
+  return Response.json({ plugin: summary, extension: installed })
+}
+
+/**
+ * Installs a package, or updates the install it replaces, stores its code and
+ * starts its Python environment. Shared by the upload route and the built-in
+ * plugins (`built-in.server.ts`).
+ */
+export async function installPluginPackage(
+  deps: PluginInstallDeps,
+  client: DataClient,
+  context: { workspaceId: string; userId: string },
+  pkg: PluginPackage,
+  options: {
+    existing: ExtensionWire | undefined
+    taken: ReadonlySet<string>
+    /** A fixed key, for plugins that ship with Sheetbase. */
+    key?: string
+  },
+): Promise<ExtensionWire> {
+  const { existing } = options
+  const installed = existing
+    ? await updateExtension(client, {
+        workspaceId: context.workspaceId,
+        extensionId: existing.id,
+        name: pkg.manifest.name,
+        version: pkg.manifest.version,
+        source: pkg.manifest.source,
+        manifest: pkg.manifest,
+        acknowledgeUntrusted: true,
+      })
+    : await installExtension(client, {
+        workspaceId: context.workspaceId,
+        key: options.key ?? pluginKeyFor(pkg.manifest.id, options.taken),
+        name: pkg.manifest.name,
+        version: pkg.manifest.version,
+        source: pkg.manifest.source,
+        manifest: pkg.manifest,
+        acknowledgeUntrusted: true,
+      })
   await deps.savePackage({
     workspaceId: context.workspaceId,
     extensionId: installed.id,
@@ -241,10 +263,10 @@ export async function handlePluginInstall(
         row,
       ).catch(() => undefined)
   }
-  return Response.json({ plugin: summary, extension: installed })
+  return installed
 }
 
-function defaultDeps(): PluginInstallDeps {
+export function defaultDeps(): PluginInstallDeps {
   return {
     auth: realSessionAuthDeps,
     makeClient: createServerDataClient,

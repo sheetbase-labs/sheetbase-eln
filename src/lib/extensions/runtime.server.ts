@@ -75,6 +75,15 @@ export interface ExtensionRuntimeDeps {
     workspaceId: string,
     extensionId: string,
   ) => Promise<PluginRuntimeRow | null>
+  /**
+   * What an administrator set for one connection (`publishers:send-to-lims`),
+   * secrets opened. Absent (in a test, say) means nothing is set.
+   */
+  loadSettings?: (
+    workspaceId: string,
+    extensionId: string,
+    scope: string,
+  ) => Promise<Record<string, string>>
   /** Every plugin's Python settings in the workspace (for the largest request any of them takes). */
   listRuntime?: (workspaceId: string) => Promise<PluginRuntimeRow[]>
   /** Makes sure the plugin's packages are installed in the runner; the state it is in. */
@@ -426,6 +435,28 @@ export async function invokeExtension(
   const input = checkDeclaredValues(declaration.inputs, args.input, 'input')
   const started = deps.now()
   try {
+    if (callable.runKind === 'publish') {
+      const { publishFromCallable } = await import('./outgoing-runtime.server')
+      const published = await publishFromCallable(
+        deps,
+        args.workspaceId,
+        resolved,
+        callable.id,
+        input,
+      )
+      const durationMs = deps.now() - started
+      await audit(deps, {
+        workspaceId: args.workspaceId,
+        actorUserId: args.actorUserId,
+        resolved,
+        point: callable.point,
+        itemId: args.itemId,
+        ok: true,
+        runner: 'python',
+        durationMs,
+      })
+      return { output: published, runner: 'python', durationMs }
+    }
     const step = callable.runKind === 'step'
     const tables: Record<string, Array<Record<string, unknown>>> = {}
     const settings: Record<string, unknown> = {}
@@ -834,6 +865,16 @@ export function defaultDeps(): ExtensionRuntimeDeps {
     loadRuntime: (workspaceId, extensionId) =>
       store.load(workspaceId, extensionId),
     listRuntime: (workspaceId) => store.list(workspaceId),
+    loadSettings: async (workspaceId, extensionId, scope) => {
+      const { databaseSettingsStore, openSettings } =
+        await import('./plugin-settings.server')
+      return openSettings(
+        databaseSettingsStore(),
+        workspaceId,
+        extensionId,
+        scope,
+      )
+    },
     settleEnvironment: (workspaceId, row) =>
       ensureEnvironment(
         { store, runner: runnerEnvironments },

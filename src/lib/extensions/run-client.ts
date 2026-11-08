@@ -109,3 +109,61 @@ export async function runPluginHost(
   }
   return answer.result ?? null
 }
+
+export interface HostConfirmation {
+  /** Which call in the operation's run this is. */
+  index: number
+  name: string
+  /** For `sheetbase.lab.act`, the action. */
+  action: string | null
+  /** What the action does, in words. */
+  summary: string | null
+}
+
+/**
+ * Runs a plugin's operation. If it calls into the app (`host_call` in the
+ * plugin's Python) and a call would change something, the server stops and
+ * says which; `ask` puts that to the person, and the run carries on from where
+ * it stopped if they say yes. A no throws `declined`.
+ */
+export async function runPluginOperation<T = { output: unknown }>(
+  body: {
+    extensionKey: string
+    operationId: string
+    input: Record<string, unknown>
+  },
+  ask: (confirmation: HostConfirmation) => Promise<boolean>,
+  declined: string,
+  fetcher: typeof fetch = fetch,
+): Promise<T> {
+  let hostResults: unknown[] | undefined
+  const approved: number[] = []
+  for (;;) {
+    const response = await fetcher('/api/plugins/run', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'operation',
+        ...body,
+        ...(hostResults ? { hostResults } : {}),
+        ...(approved.length > 0 ? { approved } : {}),
+      }),
+    })
+    const answer = (await response.json().catch(() => null)) as
+      (Record<string, unknown> & { error?: string }) | null
+    const confirm = answer?.confirm as HostConfirmation | undefined
+    if (response.status === 409 && confirm) {
+      if (!(await ask(confirm))) throw new Error(declined)
+      hostResults = answer?.hostResults as unknown[]
+      approved.push(confirm.index)
+      continue
+    }
+    if (!response.ok || !answer)
+      throw new Error(
+        typeof answer?.error === 'string'
+          ? answer.error
+          : 'The plugin could not do that.',
+      )
+    return answer as T
+  }
+}

@@ -38,7 +38,7 @@ import {
   HOST_CAPABILITIES,
   isHostCapability,
 } from '#/lib/extensions/host-capabilities'
-import { runPluginHook, runPluginHost } from '#/lib/extensions/run-client'
+import { runPluginHost, runPluginOperation } from '#/lib/extensions/run-client'
 import type { PluginFramePoint } from '#/lib/extensions/ui-points'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
@@ -399,12 +399,28 @@ export function PluginFrame(props: PluginFrameProps) {
             }
           }
           try {
-            const answer = await runPluginHook<{ output: unknown }>({
-              kind: 'operation',
-              extensionKey,
-              operationId: operation,
-              input,
-            })
+            const answer = await runPluginOperation(
+              { extensionKey, operationId: operation, input },
+              // The operation called into the app and one call changes
+              // something: the person is asked about that call.
+              async (confirmation) => {
+                const allowed = await new Promise<boolean>((resolve) =>
+                  setAsking({
+                    operation:
+                      confirmation.summary ??
+                      (confirmation.action ?? confirmation.name).replace(
+                        /_/g,
+                        ' ',
+                      ),
+                    detail: '',
+                    decide: resolve,
+                  }),
+                )
+                setAsking(null)
+                return allowed
+              },
+              t('plugins.screen.askDeclined'),
+            )
             reply(id, { ok: true, output: answer.output })
           } catch (error) {
             reply(id, {

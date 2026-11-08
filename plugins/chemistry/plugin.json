@@ -1,0 +1,80 @@
+{
+  "id": "sheetbase.chemistry",
+  "name": "Chemistry",
+  "version": "1.0.0",
+  "description": "Draw a structure in any field, catch a compound that is already registered (salts and solvents set aside), and find compounds by substructure or similarity.",
+  "author": "Sheetbase",
+  "python": {
+    "requirements": ["rdkit>=2024.3"]
+  },
+  "provides": {
+    "operations": [
+      {
+        "id": "describe",
+        "title": "Describe a structure",
+        "description": "Gives the formula, the mass and the parent structure of a molfile or a SMILES line, with the salts and solvents that came with it.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "structure",
+            "type": "text",
+            "required": true,
+            "description": "A molfile or a SMILES line."
+          }
+        ],
+        "outputs": [
+          { "name": "formula", "type": "text", "required": true },
+          { "name": "mass", "type": "number", "required": true },
+          { "name": "parent_smiles", "type": "text", "required": true },
+          { "name": "salts", "type": "json", "required": true },
+          { "name": "molfile", "type": "text", "required": true }
+        ],
+        "run": "chem:describe"
+      }
+    ],
+    "field-types": [
+      {
+        "id": "structure",
+        "title": "Chemical structure",
+        "description": "A drawn structure, kept as a molfile. Draw it, or paste a SMILES line.",
+        "base": "text",
+        "input": "ui/input.html"
+      }
+    ],
+    "table-cells": [
+      {
+        "id": "structure",
+        "title": "Structure picture",
+        "appliesTo": { "pluginTypes": ["structure"] },
+        "render": "ui/cells.html"
+      }
+    ],
+    "sameness-keys": [
+      {
+        "id": "parent-structure",
+        "title": "Same parent structure",
+        "description": "Two compounds are the same when their parent structure is the same: the largest piece, neutralised, with salts and solvents set aside.",
+        "fields": [{ "name": "structure", "type": "text", "required": true, "label": "Structure" }],
+        "run": "chem:parent_key"
+      }
+    ],
+    "search-providers": [
+      {
+        "id": "structures",
+        "title": "Structure search",
+        "description": "Type sub: or sim: and a SMILES line to find compounds that contain it or look like it.",
+        "types": ["record"],
+        "run": "chem:search"
+      }
+    ],
+    "pages": [
+      {
+        "id": "structure-search",
+        "title": "Structure search",
+        "description": "Draw a structure to find the compounds that contain it or look like it.",
+        "icon": "flask",
+        "ui": "ui/search.html"
+      }
+    ]
+  }
+}

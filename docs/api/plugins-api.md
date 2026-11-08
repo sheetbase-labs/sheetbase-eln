@@ -1,4 +1,4 @@
-# Plugins: operations and analysis kinds
+# Plugins: operations, analysis kinds and where they show
 
 A plugin is Python code an owner or administrator installs from
 **Settings → Plugins** to add work to a workspace. Everything is fail-closed: a
@@ -7,13 +7,41 @@ to nothing, never to an error. Plugins are Python only for now. The code runs in
 the same isolated Python runner as pipeline Python steps (no network, no database,
 no files except the plugin's own).
 
-| Point            | What it adds                                                               | Where it shows                                                            |
-| ---------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `operations`     | Something the plugin can do: named inputs in, named outputs back           | Assistant, MCP, pipelines and the API, all generated from one declaration |
-| `analysis-kinds` | A Python analysis with a declared result shape (columns, optional a chart) | The analysis block, beside the built-in kinds                             |
+| Point            | What it adds                                                                                      | Where it shows                                                            |
+| ---------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `operations`     | Something the plugin can do: named inputs in, named outputs back                                  | Assistant, MCP, pipelines and the API, all generated from one declaration |
+| `analysis-kinds` | A Python analysis with a declared result shape (columns, optional a chart)                        | The analysis block, beside the built-in kinds                             |
+| `blocks`         | A notebook block drawn by a Python screen or by the plugin's own page (`ui`)                      | The insert menu, under Plugin blocks                                      |
+| `panels`         | A tab on record pages, drawn the same way, optionally only for some models                        | The record page's side tabs                                               |
+| `table-cells`    | How a value is drawn: text, number, badge, bar, sparkline or svg. Data only, never code in a cell | Model record lists                                                        |
+| `columns`        | A computed column (one value per row) with entries in its header menu                             | Model record lists                                                        |
+| `row-actions`    | An action for the chosen rows (`one` or `many`)                                                   | Model record lists, above the table when rows are chosen                  |
+| `field-types`    | A type for a model field: a base (text, integer, decimal), rules and a display                    | The Fields tab, record forms and lists                                    |
 
-The manifest also reserves a `ui` slot. It must be absent or `null` for now:
-a plugin cannot bring its own screens yet.
+Every point has its own switch (`api.set_extension_point_enabled`), and a point
+that is off resolves to nothing.
+
+## Screens, cells and the sandboxed frame
+
+A screen is **data**: a Python function returns a description built with
+`sheetbase_plugin.ui` (stack, row, heading, text, stat, badge, bar, sparkline,
+table, svg, inputs, button, form, link) and Sheetbase draws it with its own
+components, so it follows the theme, works on a phone and never runs plugin code
+in the page. The description is checked on the server and again in the browser:
+at most 8 levels and 300 parts, SVG limited to a safe set of elements, no event
+handlers, scripts or web addresses. A screen returns `{ view, state?, notice? }`;
+`state` is passed back with the person's next click and a block keeps it.
+
+A plugin that needs more brings a page of its own: `blocks[].ui` or
+`panels[].ui` names a file under `ui/` (HTML, CSS, JavaScript, images and
+fonts inside the package). It runs in an iframe with `sandbox="allow-scripts"`
+(no cookies, no storage, no top navigation) and a content security policy that
+forbids every network request, served from
+`GET /api/plugins/<key>/ui/<item>` for a signed-in member. The page talks to
+Sheetbase through `sheetbase-ui.js`, which the server injects:
+`sheetbase.onContext(fn)`, `sheetbase.call(operation, input)` (runs one of the
+plugin's own operations as the person, and asks them first when it writes),
+`sheetbase.setState(state)`, `sheetbase.notify(text)` and `sheetbase.resize()`.
 
 ## One declaration, every integration
 
@@ -113,19 +141,40 @@ block use)
 ```json
 { "kind": "operation", "extensionKey": "cell-count", "operationId": "viability", "input": { … } }
 { "kind": "analysis", "extensionKey": "cell-count", "kindId": "smooth", "rows": [ { … } ] }
+{ "kind": "screen", "extensionKey": "dilution", "point": "blocks", "itemId": "dilution", "context": { … }, "state": { … }, "event": { "action": "work", "values": { … } } }
+{ "kind": "column", "extensionKey": "plate-tools", "itemId": "grade", "rows": [ { … } ] }
+{ "kind": "column-action", "extensionKey": "plate-tools", "itemId": "grade", "actionId": "summary", "rows": [ { … } ] }
+{ "kind": "row-action", "extensionKey": "plate-tools", "itemId": "export", "rows": [ { … } ] }
 ```
+
+A screen answers `{ view, state?, notice? }`; a column answers one value per
+row (`values`, the same length as `rows`, checked against the declared `value`
+type); an action answers `{ notice?, view?, download? }` (a download is text up
+to 2 MiB with a `text/*`, JSON or CSV type). A plugin sees only the rows it is
+sent: at most 5000, and only the fields named in `inputs` when it declares them.
+A row action with `selection: "one"` is refused for more than one row.
 
 Errors carry a short message and a status: `404` not installed or not declared,
 `409` not enabled or the part switched off, `400` bad input, `502` the plugin
 stopped or answered wrongly. `plugin_refused` messages are the plugin's own.
 
+`GET /api/plugins/<key>/ui/<item>` (session only) serves one plugin page for
+the sandboxed frame, with `Content-Security-Policy` and `X-Frame-Options`
+locked down; `404` when the plugin, the item or its page is not there or the
+point is off.
+
 RPC: `api.set_extension_point_enabled(workspace, plugin, point, enabled)`
 switches one point on or off (`extensions.manage`).
+`api.set_field_plugin_type(kind, field, plugin, type)` gives a model field a
+plugin's field type, or clears it when the plugin is null (needs permission to
+edit models; listed in the [lab API](./lab-api.md)). `field_plugin_types` is
+readable through the API.
 
 ## Events
 
 See the [event catalogue](./event-catalogue.md): `extension.point.enabled`,
-`extension.point.disabled` and `extension.invoked` (`ok`, `runner`,
+`extension.point.disabled`, `extension.field_type.applied`,
+`extension.field_type.removed` and `extension.invoked` (`ok`, `runner`,
 `durationMs`, never the inputs or answers). Every call is also audited with the
 plugin's identity and the SHA-256 of the code that ran, so it shows in the audit
 trail.

@@ -1,0 +1,389 @@
+[
+  {
+    "name": "a text",
+    "result": {
+      "view": {
+        "type": "text",
+        "text": "hi"
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "a stack with a heading and a stat",
+    "result": {
+      "view": {
+        "type": "stack",
+        "children": [
+          {
+            "type": "heading",
+            "text": "H",
+            "level": 2
+          },
+          {
+            "type": "stat",
+            "label": "Live",
+            "value": 92,
+            "unit": "%",
+            "tone": "success"
+          }
+        ]
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "a row of badges",
+    "result": {
+      "view": {
+        "type": "stack",
+        "direction": "row",
+        "gap": "sm",
+        "children": [
+          {
+            "type": "badge",
+            "text": "a",
+            "tone": "info"
+          }
+        ]
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "a bar and a sparkline",
+    "result": {
+      "view": {
+        "type": "stack",
+        "children": [
+          {
+            "type": "bar",
+            "value": 40,
+            "max": 100,
+            "label": "40",
+            "tone": "warning"
+          },
+          {
+            "type": "sparkline",
+            "values": [1, 2, 3]
+          }
+        ]
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "a table",
+    "result": {
+      "view": {
+        "type": "table",
+        "columns": [
+          {
+            "key": "a",
+            "label": "A"
+          }
+        ],
+        "rows": [
+          {
+            "a": 1
+          }
+        ]
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "a form with inputs",
+    "result": {
+      "view": {
+        "type": "form",
+        "children": [
+          {
+            "type": "input",
+            "name": "n",
+            "label": "N",
+            "kind": "number",
+            "required": true
+          },
+          {
+            "type": "input",
+            "name": "s",
+            "label": "S",
+            "kind": "select",
+            "options": [
+              {
+                "value": "a",
+                "label": "A"
+              }
+            ]
+          }
+        ],
+        "submit": {
+          "label": "Go",
+          "action": "go"
+        }
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "a button and a link",
+    "result": {
+      "view": {
+        "type": "stack",
+        "children": [
+          {
+            "type": "button",
+            "label": "B",
+            "action": "b"
+          },
+          {
+            "type": "link",
+            "text": "L",
+            "to": "/projects"
+          }
+        ]
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "a small svg",
+    "result": {
+      "view": {
+        "type": "svg",
+        "svg": "<svg viewBox=\"0 0 10 10\"><circle cx=\"5\" cy=\"5\" r=\"4\"/></svg>",
+        "title": "dot"
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "state and a notice",
+    "result": {
+      "view": {
+        "type": "divider"
+      },
+      "state": {
+        "a": 1
+      },
+      "notice": {
+        "tone": "success",
+        "text": "Saved."
+      }
+    },
+    "ok": true
+  },
+  {
+    "name": "not an object",
+    "result": "hello",
+    "ok": false
+  },
+  {
+    "name": "an unknown key",
+    "result": {
+      "view": {
+        "type": "divider"
+      },
+      "surprise": 1
+    },
+    "ok": false
+  },
+  {
+    "name": "an unknown part",
+    "result": {
+      "view": {
+        "type": "iframe",
+        "src": "https://example.com"
+      }
+    },
+    "ok": false
+  },
+  {
+    "name": "script in svg",
+    "result": {
+      "view": {
+        "type": "svg",
+        "svg": "<svg><script>alert(1)</script></svg>",
+        "title": "x"
+      }
+    },
+    "ok": false
+  },
+  {
+    "name": "an event handler in svg",
+    "result": {
+      "view": {
+        "type": "svg",
+        "svg": "<svg onload=\"x()\"></svg>",
+        "title": "x"
+      }
+    },
+    "ok": false
+  },
+  {
+    "name": "an external image in svg",
+    "result": {
+      "view": {
+        "type": "svg",
+        "svg": "<svg><image href=\"https://example.com/a.png\"/></svg>",
+        "title": "x"
+      }
+    },
+    "ok": false
+  },
+  {
+    "name": "a link off the site",
+    "result": {
+      "view": {
+        "type": "link",
+        "text": "x",
+        "to": "https://example.com"
+      }
+    },
+    "ok": false
+  },
+  {
+    "name": "javascript link",
+    "result": {
+      "view": {
+        "type": "link",
+        "text": "x",
+        "to": "javascript:alert(1)"
+      }
+    },
+    "ok": false
+  },
+  {
+    "name": "too deep",
+    "result": {
+      "view": {
+        "type": "stack",
+        "children": [
+          {
+            "type": "stack",
+            "children": [
+              {
+                "type": "stack",
+                "children": [
+                  {
+                    "type": "stack",
+                    "children": [
+                      {
+                        "type": "stack",
+                        "children": [
+                          {
+                            "type": "stack",
+                            "children": [
+                              {
+                                "type": "stack",
+                                "children": [
+                                  {
+                                    "type": "stack",
+                                    "children": [
+                                      {
+                                        "type": "stack",
+                                        "children": [
+                                          {
+                                            "type": "text",
+                                            "text": "deep"
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "ok": false
+  },
+  {
+    "name": "text that is too long",
+    "result": {
+      "view": {
+        "type": "text",
+        "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    },
+    "ok": false
+  },
+  {
+    "name": "a bad tone",
+    "result": {
+      "view": {
+        "type": "badge",
+        "text": "a",
+        "tone": "purple"
+      }
+    },
+    "ok": false
+  },
+  {
+    "name": "an extra key on a part",
+    "result": {
+      "view": {
+        "type": "text",
+        "text": "a",
+        "onClick": "x()"
+      }
+    },
+    "ok": false
+  },
+  {
+    "name": "a button without an action",
+    "result": {
+      "view": {
+        "type": "button",
+        "label": "B"
+      }
+    },
+    "ok": false
+  },
+  {
+    "name": "a bad notice",
+    "result": {
+      "view": {
+        "type": "divider"
+      },
+      "notice": {
+        "tone": "loud",
+        "text": "x"
+      }
+    },
+    "ok": false
+  },
+  {
+    "name": "a table row with a missing column key is fine but a nested value is not",
+    "result": {
+      "view": {
+        "type": "table",
+        "columns": [
+          {
+            "key": "a",
+            "label": "A"
+          }
+        ],
+        "rows": [
+          {
+            "a": {
+              "x": 1
+            }
+          }
+        ]
+      }
+    },
+    "ok": false
+  }
+]

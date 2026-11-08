@@ -315,6 +315,19 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['updated_at', 'ts', 1],
     ],
   },
+  field_plugin_types: {
+    summary:
+      'Which model fields have a plugin\u2019s field type: the model (`kind`), the field, the plugin and the type id. The type adds a display and checks to the field; what the database stores does not change.',
+    columns: [
+      ['workspace_id', 'uuid', 1],
+      ['kind', 'text', 1],
+      ['field_name', 'text', 1],
+      ['plugin_key', 'text', 1],
+      ['type_id', 'text', 1],
+      ['created_at', 'ts', 1],
+      ['created_by_user_id', 'text', 1],
+    ],
+  },
   gate_overrides: {
     summary:
       'Someone went on past a gate that warns, with a reason: who, when, what the gate was and what was still missing. The reviewer sees these.',
@@ -1784,6 +1797,19 @@ const LAB_RPCS_HAND_WRITTEN: Readonly<Record<string, LabRpc>> = {
       ['p_steps_in_order', 'bool', 0],
     ],
     result: 'row:experiment_parts',
+  },
+  set_field_plugin_type: {
+    summary: 'Give a model field a plugin field type, or take it away',
+    description:
+      'Pass the plugin key and type id to give the field that type, or leave both out to clear it. Needs permission to edit models. The plugin has to be installed, on, with its field types switched on, and declare the type. Returns true when a type was applied. Sends `extension.field_type.applied` or `extension.field_type.removed`.',
+    scope: 'lab:write',
+    params: [
+      ['p_kind', 'text', 1],
+      ['p_field_name', 'text', 1],
+      ['p_plugin_key', 'text', 0],
+      ['p_type_id', 'text', 0],
+    ],
+    result: 'bool',
   },
   override_gate: {
     summary: 'Go on past a gate that warns, with a reason',

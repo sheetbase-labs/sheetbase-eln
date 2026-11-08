@@ -141,6 +141,22 @@ describe('screens', () => {
   })
 })
 
+describe('the screens the Python checker also runs', () => {
+  const cases = JSON.parse(
+    readFileSync(
+      path.resolve(
+        __dirname,
+        '../../../sdks/plugin-python/tests/screen_cases.json',
+      ),
+      'utf8',
+    ),
+  ) as Array<{ name: string; result: unknown; ok: boolean }>
+  it.each(cases.map((c) => [c.name, c] as const))('%s', (_name, c) => {
+    const parsed = parseScreenResult(c.result)
+    expect(parsed.ok, JSON.stringify(parsed)).toBe(c.ok)
+  })
+})
+
 describe('field types', () => {
   const batch = {
     id: 'batch-code',

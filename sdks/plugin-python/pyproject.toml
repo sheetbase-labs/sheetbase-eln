@@ -22,6 +22,9 @@ dev = ["pytest>=8.0"]
 [tool.hatch.build.targets.wheel]
 packages = ["src/sheetbase_plugin"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"../plugin-ui/sheetbase-ui.js" = "sheetbase_plugin/sheetbase-ui.js"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]

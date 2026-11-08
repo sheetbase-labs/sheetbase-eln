@@ -39,12 +39,6 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
   // owner or admin decision made in the app (Settings > Extensions).
   set_extension_point_enabled:
     'Switching a part of an installed extension (pipeline actions, assistant tools, analysis kinds) on or off is an owner or admin decision made in Settings > Extensions; the event stream reports each change.',
-  // Plugin field types: giving a model field a plugin's type changes how a
-  // schema behaves, so like the other field edits it is a steward decision made
-  // in the model's Fields tab; the table is readable through the API and the
-  // event stream reports each change.
-  set_field_plugin_type:
-    'Giving a model field a plugin field type (or taking it away) is a schema decision for a person with permission to edit models, made on the model\u2019s Fields tab; field_plugin_types is readable through the API and the event stream reports each change.',
   // Part sign-off: signing is an attestation a person makes in the app with a
   // fresh password, so tokens, MCP and pipelines can ask for it but not do it.
   sign_experiment_part:

@@ -48,6 +48,17 @@ const pushSchedulerMiddleware = createMiddleware().server(async ({ next }) => {
   return next()
 })
 
+// Plugin notification channels: sends what the channel outbox holds (Slack and the like).
+const channelSchedulerMiddleware = createMiddleware().server(
+  async ({ next }) => {
+    const { startChannelScheduler } = await import(
+      '#/lib/extensions/channel-delivery.server'
+    )
+    startChannelScheduler()
+    return next()
+  },
+)
+
 // DSET-04.2: Dataset snapshot retention sweep. Calls
 // api.prune_dataset_versions on an interval with the privileged app
 // connection; guarded like the pipeline scheduler and never started under
@@ -303,6 +314,7 @@ export const startInstance = createStart(() => ({
     pipelineWorkerMiddleware,
     emailSchedulerMiddleware,
     pushSchedulerMiddleware,
+    channelSchedulerMiddleware,
     datasetRetentionSchedulerMiddleware,
     fileTextBackfillMiddleware,
     embeddingIndexerMiddleware,

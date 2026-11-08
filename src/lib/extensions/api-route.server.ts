@@ -26,11 +26,7 @@ import {
   tooMuchData,
 } from './run-route.server'
 import type { ExtensionRunRouteDeps } from './run-route.server'
-import {
-  invokeExtension,
-  openCallable,
-  pluginLimits,
-} from './runtime.server'
+import { invokeExtension, openCallable, pluginLimits } from './runtime.server'
 
 export interface PluginApiCaller {
   workspaceId: string

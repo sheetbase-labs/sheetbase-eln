@@ -208,6 +208,10 @@ export function describeCondition(
             series: condition.label.trim(),
           })
         : t('notebook.gates.describe.qc_in_control_any')
+    case 'plugin_flag':
+      return t('notebook.gates.describe.plugin_flag', {
+        flag: condition.label?.trim() || condition.extensionKey,
+      })
     case 'plugin_check': {
       const block = context.blocks.find((b) => b.id === condition.blockId)
       return t('notebook.gates.describe.plugin_check', {
@@ -714,6 +718,8 @@ function blankCondition(kind: Kind, targets: GateTargets): GateCondition {
       return { kind, date: new Date().toISOString().slice(0, 10) }
     case 'qc_in_control':
       return { kind }
+    case 'plugin_flag':
+      return { kind, extensionKey: '' }
     case 'plugin_check':
       return {
         kind,
@@ -744,6 +750,8 @@ function conditionIsComplete(condition: GateCondition): boolean {
       return /^\d{4}-\d{2}-\d{2}$/.test(condition.date)
     case 'qc_in_control':
       return true
+    case 'plugin_flag':
+      return Boolean(condition.extensionKey)
     case 'plugin_check':
       return Boolean(
         condition.blockId && condition.extensionKey && condition.checkId,

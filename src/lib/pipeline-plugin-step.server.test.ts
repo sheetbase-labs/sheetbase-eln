@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { PluginStepError, runPluginStep } from './pipeline-plugin-step.server'
+import type { PluginStepScope } from './pipeline-plugin-step.server'
+import type { PipelineStep } from './pipelines/config'
+
 const invoke = vi.fn()
 const open = vi.fn()
 vi.mock('./extensions/runtime.server', () => ({
@@ -8,10 +12,6 @@ vi.mock('./extensions/runtime.server', () => ({
   invokeExtension: (...args: unknown[]) => invoke(...args),
   openCallable: (...args: unknown[]) => open(...args),
 }))
-
-import { PluginStepError, runPluginStep } from './pipeline-plugin-step.server'
-import type { PluginStepScope } from './pipeline-plugin-step.server'
-import type { PipelineStep } from './pipelines/config'
 
 const step = (args: Record<string, unknown>): PipelineStep => ({
   name: 'join',

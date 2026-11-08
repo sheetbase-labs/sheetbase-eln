@@ -3216,6 +3216,8 @@ export const notebook = {
         plugin_check: 'A plugin check passes',
         plugin_flag: 'A plugin step is signed off',
       },
+      pluginFlagLabel: 'Plugin',
+      pickPluginFlag: 'Choose a plugin',
       pluginCheckLabel: 'Check',
       pickPluginCheck: 'Choose a check',
       pickColumn: 'Choose a column',

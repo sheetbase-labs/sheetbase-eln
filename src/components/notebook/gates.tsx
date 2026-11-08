@@ -686,6 +686,7 @@ const ALL_KINDS: readonly Kind[] = [
   'date_reached',
   'qc_in_control',
   'plugin_check',
+  'plugin_flag',
 ]
 
 /** A first condition of a kind, pointed at something that exists when it can be. */
@@ -760,6 +761,64 @@ function conditionIsComplete(condition: GateCondition): boolean {
 }
 
 const ROWS_OPTION = '__rows__'
+
+/** The plugins that have save hooks, once each: the ones that can raise a hold or a sign-off. */
+function pluginsOf(
+  hooks: ReadonlyArray<{ extensionKey: string; extensionName: string }>,
+): Array<{ key: string; name: string }> {
+  const seen = new Map<string, string>()
+  for (const hook of hooks)
+    if (!seen.has(hook.extensionKey))
+      seen.set(hook.extensionKey, hook.extensionName)
+  return [...seen].map(([key, name]) => ({ key, name }))
+}
+
+/** Which plugin's holds and sign-off steps a gate waits on (all of that plugin's). */
+function PluginFlagPicker({
+  condition,
+  onChange,
+}: {
+  condition: Extract<GateCondition, { kind: 'plugin_flag' }>
+  onChange: (next: GateCondition) => void
+}) {
+  const plugins = pluginsOf(useExtensionPoints().data['record-hooks'])
+  const active = plugins.find((p) => p.key === condition.extensionKey)
+  React.useEffect(() => {
+    if (!condition.extensionKey && plugins[0])
+      onChange({
+        kind: 'plugin_flag',
+        extensionKey: plugins[0].key,
+        label: plugins[0].name,
+      })
+  }, [condition.extensionKey, plugins.length])
+  return (
+    <>
+      <Select
+        aria-label={t('notebook.gates.dialog.pluginFlagLabel')}
+        value={active?.key ?? ''}
+        className="w-auto min-w-48"
+        onChange={(event) => {
+          const next = plugins.find((p) => p.key === event.target.value)
+          if (next)
+            onChange({
+              kind: 'plugin_flag',
+              extensionKey: next.key,
+              label: next.name,
+            })
+        }}
+      >
+        <option value="" disabled>
+          {t('notebook.gates.dialog.pickPluginFlag')}
+        </option>
+        {plugins.map((p) => (
+          <option key={p.key} value={p.key}>
+            {p.name}
+          </option>
+        ))}
+      </Select>
+    </>
+  )
+}
 
 /** Which tracked quality control series a gate waits on: all of them, or one. */
 function QcSeriesSelect({
@@ -1106,6 +1165,9 @@ function ConditionRow({
         {condition.kind === 'qc_in_control' ? (
           <QcSeriesSelect condition={condition} onChange={onChange} />
         ) : null}
+        {condition.kind === 'plugin_flag' ? (
+          <PluginFlagPicker condition={condition} onChange={onChange} />
+        ) : null}
         {condition.kind === 'plugin_check' ? (
           <PluginCheckPicker
             condition={condition}
@@ -1167,10 +1229,13 @@ export function GateDialog({
   onRemove?: () => void | Promise<void>
   onClose: () => void
 }) {
-  const pluginChecks = useExtensionPoints().data.checks
+  const points = useExtensionPoints().data
+  const pluginChecks = points.checks
+  const pluginsWithHooks = pluginsOf(points['record-hooks'])
   const usable = kinds.filter((kind) => {
     if (kind === 'plugin_check')
       return targets.tables.length > 0 && pluginChecks.length > 0
+    if (kind === 'plugin_flag') return pluginsWithHooks.length > 0
     if (kind === 'table_filled') return targets.tables.length > 0
     if (kind === 'step_done') return targets.steps.length > 0
     if (kind === 'part_done') return targets.parts.length > 0

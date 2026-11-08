@@ -73,6 +73,7 @@ export const GATE_CONDITION_KINDS: readonly GateConditionKind[] = [
   'date_reached',
   'qc_in_control',
   'plugin_check',
+  'plugin_flag',
 ]
 
 export const MAX_GATE_CONDITIONS = 12

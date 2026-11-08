@@ -190,9 +190,8 @@ export function defaultHookStore(): HookStore {
     changeRecord: async (args) => {
       const { env } = await import('#/env.server')
       const { mintPostgrestToken } = await import('#/lib/postgrest-token')
-      const { postgrestRpc, postgrestPatch, postgrestSelect } = await import(
-        '#/lib/request-auth'
-      )
+      const { postgrestRpc, postgrestPatch, postgrestSelect } =
+        await import('#/lib/request-auth')
       const token = await mintPostgrestToken(env.PGRST_JWT_SECRET, {
         userId: args.actorUserId,
         workspaceId: args.workspaceId,
@@ -259,7 +258,8 @@ function describeFailure(body: unknown, what: string): string {
   const message =
     isObject(body) && typeof body.message === 'string'
       ? body.message
-      : isObject(body) && isObject(body.error) &&
+      : isObject(body) &&
+          isObject(body.error) &&
           typeof body.error.message === 'string'
         ? body.error.message
         : null
@@ -343,9 +343,10 @@ export function claimsOf(token: string): TokenClaims | null {
   if (!part) return null
   try {
     const claims = JSON.parse(
-      Buffer.from(part.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString(
-        'utf8',
-      ),
+      Buffer.from(
+        part.replace(/-/g, '+').replace(/_/g, '/'),
+        'base64',
+      ).toString('utf8'),
     ) as Record<string, unknown>
     const workspaceId = claims.workspace_id
     const sub = claims.sub
@@ -452,8 +453,13 @@ export async function guardRecordWrite(
     }
   }
 
-  if (fills.every((fill) => !fill)) return { ...passThrough(input.body), warnings }
-  return { kind: 'pass', body: withFills(input.body, planned, fills, warnings), warnings }
+  if (fills.every((fill) => !fill))
+    return { ...passThrough(input.body), warnings }
+  return {
+    kind: 'pass',
+    body: withFills(input.body, planned, fills, warnings),
+    warnings,
+  }
 }
 
 function withFills(
@@ -472,12 +478,13 @@ function withFills(
       )
     return next
   })
-  if (parsed.every((entry) => entry === undefined || entry === null)) return body
+  if (parsed.every((entry) => entry === undefined || entry === null))
+    return body
   if (body !== undefined && body.trimStart().startsWith('[')) {
     const rows = JSON.parse(body) as unknown[]
     return JSON.stringify(
       rows.map((row, index) =>
-        parsed[index] ? (JSON.parse(parsed[index] as string) as unknown) : row,
+        parsed[index] ? (JSON.parse(parsed[index]) as unknown) : row,
       ),
     )
   }
@@ -676,9 +683,8 @@ export function whensOfEvent(event: ChangeEventLike): {
   if (event.operation === 'create')
     return { whens: ['created'], kind, status, changes }
   if (event.operation === 'update') {
-    const whens: RecordHookWhen[] = changes.status
-      ? ['status-changed', 'edited']
-      : ['edited']
+    const whens: RecordHookWhen[] =
+      'status' in changes ? ['status-changed', 'edited'] : ['edited']
     return { whens, kind, status, changes }
   }
   return null
@@ -782,15 +788,14 @@ export interface AnswerContext {
   recordId: string | null
   /** The change-log entry that set it off; notes need one. */
   eventId: string | null
-  hook: Pick<
-    RecordHook,
-    'extensionKey' | 'extensionName' | 'id' | 'declaration'
-  > | {
-    extensionKey: string
-    extensionName: string
-    id: string
-    declaration?: unknown
-  }
+  hook:
+    | Pick<RecordHook, 'extensionKey' | 'extensionName' | 'id' | 'declaration'>
+    | {
+        extensionKey: string
+        extensionName: string
+        id: string
+        declaration?: unknown
+      }
 }
 
 export interface AnswerOutcome {

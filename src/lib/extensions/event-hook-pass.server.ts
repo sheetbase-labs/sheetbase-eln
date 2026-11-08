@@ -31,9 +31,8 @@ export async function runEventHookPass(
       workspaces.length > 0
         ? {
             ...(await import('./event-hooks.server')),
-            runRecordHooks: (
-              await import('./record-hooks.server')
-            ).runAfterRecordHooksForEvent,
+            runRecordHooks: (await import('./record-hooks.server'))
+              .runAfterRecordHooksForEvent,
           }
         : { runEventHooks: async () => 0, runRecordHooks: async () => 0 }
     for (const { workspace_id: workspaceId } of workspaces) {

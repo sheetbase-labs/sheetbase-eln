@@ -96,6 +96,8 @@ EVENT_NAMES: tuple[str, ...] = (
     "extension.point.enabled",
     "extension.point.disabled",
     "extension.invoked",
+    "extension.field_type.applied",
+    "extension.field_type.removed",
     "ai.eval.completed",
     "watcher.finding.created",
     "contract.created",

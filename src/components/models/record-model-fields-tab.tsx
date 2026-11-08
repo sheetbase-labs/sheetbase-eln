@@ -305,7 +305,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
             />
           </InspectorSection>
           {['text', 'integer', 'decimal'].includes(sel.logical_type) ? (
-            <InspectorSection title={t('plugins.hooks.fieldTypeLabel')}>
+            <InspectorSection title={t('plugins.hooks.fieldTypeSection')}>
               <FieldPluginTypePicker
                 modelKey={modelKey}
                 fieldName={sel.field_name}

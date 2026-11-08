@@ -144,6 +144,7 @@ export const plugins = {
     fieldTypeFrom: 'From the {plugin} plugin',
     fieldTypeNone: 'Built-in type',
     fieldTypeLabel: 'Type',
+    fieldTypeSection: 'Type from a plugin',
     fieldTypeApplied: 'Field type set to {type}.',
     fieldTypeCleared: 'Field type cleared.',
     download: 'Download {file}',

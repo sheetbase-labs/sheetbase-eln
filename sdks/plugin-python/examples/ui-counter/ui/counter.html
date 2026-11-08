@@ -28,9 +28,9 @@
     cursor: pointer;
   }
   button.primary {
-    background: var(--sb-accent, #5b3df5);
+    background: var(--sb-primary, #5b3df5);
     border-color: transparent;
-    color: #fff;
+    color: var(--sb-primary-fg, #fff);
   }
   p {
     margin: 8px 0 0;
@@ -62,8 +62,8 @@
   document.getElementById('plus').onclick = () => set(count + 1)
   document.getElementById('minus').onclick = () => set(count - 1)
   document.getElementById('reset').onclick = () => set(0)
-  sheetbase.onContext((context) => {
-    count = (context.state && context.state.count) || 0
+  sheetbase.onContext((context, state) => {
+    count = (state && state.count) || 0
     show()
   })
 </script>

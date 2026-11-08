@@ -123,7 +123,12 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
   ])
 
   const [selected, setSelected] = useState<RecordModelRecord[]>([])
-  const plugin = usePluginTableHooks({ modelKey, fields, records })
+  const plugin = usePluginTableHooks({
+    modelKey,
+    fields,
+    records,
+    ready: !fieldsQuery.isLoading && !recordsQuery.isLoading,
+  })
 
   const columns = useMemo<
     ColumnDef<DataTableFeatures, RecordModelRecord, unknown>[]

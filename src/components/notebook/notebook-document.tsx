@@ -1345,7 +1345,13 @@ function NotebookDocumentContent({
                     }
                   />
                 ) : editable &&
-                  (isSelected || hasUnsavedDraft || opensForWriting) ? (
+                  (isSelected ||
+                    hasUnsavedDraft ||
+                    opensForWriting ||
+                    // A plugin block keeps what its screen or page sets, so it
+                    // is always the editor: a click inside its frame never
+                    // selects the block.
+                    block.type === 'plugin') ? (
                   <BlockEditor
                     block={block}
                     onInsertBelow={(type, payload) =>

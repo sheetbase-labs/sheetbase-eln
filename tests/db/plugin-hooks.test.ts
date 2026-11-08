@@ -197,7 +197,7 @@ describe('field types', () => {
     )
     expect(gone.rowCount).toBe(0)
     const events = await migrator.query(
-      `select payload->>'change' as change from api.change_events where workspace_id=$1 and entity_type='extension' and payload->>'change' like 'field_type_%' order by id`,
+      `select payload->>'change' as change from api.change_events where workspace_id=$1 and entity_type='extension' and payload->>'change' like 'field_type_%' order by sequence`,
       [WS],
     )
     expect(events.rows.map((r) => r.change)).toEqual([

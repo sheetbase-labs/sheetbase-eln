@@ -33,11 +33,12 @@ import { t } from '#/copy'
 
 const TOKENS: Record<string, string> = {
   '--sb-bg': '--background',
-  '--sb-surface': '--surface',
+  '--sb-surface': '--card',
   '--sb-fg': '--foreground',
   '--sb-muted': '--muted-foreground',
   '--sb-border': '--border',
   '--sb-primary': '--primary',
+  '--sb-primary-fg': '--primary-foreground',
   '--sb-success': '--success',
   '--sb-warning': '--warning',
   '--sb-danger': '--destructive',
@@ -113,10 +114,25 @@ export function PluginFrame(props: PluginFrameProps) {
     )
   }, [])
 
-  // New context or state: tell the frame, once it has said it is ready.
+  // New context or state: tell the frame, once it has said it is ready. What
+  // the frame itself just kept comes back as `state` when the block is saved;
+  // sending that back would only undo a click made since, so it is skipped.
+  const contextKey = JSON.stringify(context)
+  const stateKey = JSON.stringify(state ?? null)
+  const sent = React.useRef<{ context: string; state: string } | null>(null)
+  const echo = React.useRef<string | null>(null)
   React.useEffect(() => {
-    if (ready) sendContext()
-  }, [ready, context, state, sendContext])
+    if (!ready) return
+    const before = sent.current
+    sent.current = { context: contextKey, state: stateKey }
+    if (
+      before &&
+      before.context === contextKey &&
+      (before.state === stateKey || echo.current === stateKey)
+    )
+      return
+    sendContext()
+  }, [ready, contextKey, stateKey, sendContext])
 
   // The theme can change while the frame is open.
   React.useEffect(() => {
@@ -176,7 +192,10 @@ export function PluginFrame(props: PluginFrameProps) {
           } catch {
             /* not JSON */
           }
-          if (size <= MAX_STATE_BYTES) onState?.(message.state)
+          if (size <= MAX_STATE_BYTES) {
+            echo.current = JSON.stringify(message.state ?? null)
+            onState?.(message.state)
+          }
           return
         }
         case 'call': {

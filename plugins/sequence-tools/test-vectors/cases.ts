@@ -434,3 +434,30 @@ export function buildCases(): VectorCase[] {
 
   return cases
 }
+
+export interface FingerprintCase {
+  residues: string
+  molecule: 'dna' | 'rna' | 'protein'
+  topology: 'linear' | 'circular'
+}
+
+export function fingerprintCases(): FingerprintCase[] {
+  const plasmid = randomDna(900, 12)
+  const cut = (s: string, at: number) => s.slice(at) + s.slice(0, at)
+  const out: FingerprintCase[] = []
+  for (const topology of ['linear', 'circular'] as const) {
+    out.push({ residues: 'GATTACA', molecule: 'dna', topology })
+    out.push({ residues: plasmid, molecule: 'dna', topology })
+    out.push({ residues: cut(plasmid, 311), molecule: 'dna', topology })
+    out.push({ residues: rc(plasmid), molecule: 'dna', topology })
+    out.push({ residues: cut(rc(plasmid), 77).toLowerCase(), molecule: 'dna', topology })
+    out.push({ residues: 'acg uug\nCC 12 AUG', molecule: 'rna', topology })
+    out.push({ residues: 'ACGRYNKMSWBDHV', molecule: 'dna', topology })
+    out.push({ residues: 'AAAAAA', molecule: 'dna', topology })
+    out.push({ residues: 'A', molecule: 'dna', topology })
+    out.push({ residues: '', molecule: 'dna', topology })
+  }
+  out.push({ residues: 'mkta yiak*', molecule: 'protein', topology: 'linear' })
+  out.push({ residues: randomDna(5000, 3), molecule: 'dna', topology: 'circular' })
+  return out
+}

@@ -49,3 +49,15 @@ def test_matches_the_typescript(case):
 def test_every_action_is_covered():
     actions = {c["input"]["action"] for c in RUNNABLE if c["expected"]["ok"]}
     assert actions == set(tools._ACTIONS)
+
+
+FINGERPRINTS = json.loads((ROOT / "test-vectors" / "fingerprints.json").read_text())
+
+
+@pytest.mark.parametrize("case", FINGERPRINTS, ids=[str(i) for i in range(len(FINGERPRINTS))])
+def test_fingerprint_matches_the_app(case):
+    from molbio.fingerprint import canonical_sequence, sequence_fingerprint
+
+    i = case["input"]
+    assert canonical_sequence(i["residues"], i["molecule"], i["topology"]) == case["canonical"]
+    assert sequence_fingerprint(i["residues"], i["molecule"], i["topology"]) == case["fingerprint"]

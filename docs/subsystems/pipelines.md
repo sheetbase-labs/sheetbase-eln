@@ -96,6 +96,19 @@ Each step receives the preceding result as `previous`: a table in SQL, or
 Names must be lowercase identifiers; `previous` is reserved for the preceding
 result. Zero Dataset inputs are valid.
 
+A step can also be run by a plugin: `{ name, language: "plugin", statement: "",
+plugin: { operation, arguments } }`, where `operation` is a `pipeline-steps` item
+of an installed plugin (`plugin.<key>.<id>`). It sits anywhere in the chain. Each
+table the plugin declares is bound with `{ "$ref": "previous" }` (the step before),
+`{ "$ref": "inputs.<name>" }` (a declared input) or `{ "$ref": "steps.<name>" }`
+(any earlier step; the main transform is `steps.analysis`); a setting is a plain
+value or `{ "$ref": "parameters.<name>" }`. A table left out is `previous`. The
+table the plugin gives back is the next step's `previous`. It runs in the same
+isolated runner as every plugin call, as the person who started the run, and
+cannot pause for a person (`confirm`) or carry a data contract. If the plugin is
+removed, switched off, or the name is not a table-making step, the run stops at
+that step with a plain message and writes nothing.
+
 Python defines `transform(inputs, parameters)` and returns row dictionaries or a
 pandas DataFrame. Any Python step requires `pythonRuntime` to contain the exact
 `repository@sha256:...` runtime image. The editor discovers availability from

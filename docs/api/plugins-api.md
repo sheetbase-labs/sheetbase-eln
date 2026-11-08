@@ -407,3 +407,29 @@ pipelines and the API); direct SQL does not reach them.
 `plugin.<key>.<id>`), and `barcode_type` may be `plugin.<key>.<id>` as well as
 `qr` or `code128`. `api.save_label_template` takes `p_layout`. Plugin results are
 data only (bars, a grid, lines of text), so no plugin code runs in a rendered label.
+
+## Plugin steps inside a pipeline
+
+A pipeline version's `configuration.steps` may hold a step run by a plugin, so
+the pipeline API (`POST /api/pipelines/.../versions`) accepts it and the run
+records it like any step (`pipeline_run_logs` stage `plugin`, an
+`extension.invoked` audit event, and the step's digest in the run manifest):
+
+```json
+{
+  "name": "subtract_blank",
+  "language": "plugin",
+  "statement": "",
+  "plugin": {
+    "operation": "plugin.bench-extras.subtract-blank",
+    "arguments": {
+      "readings": { "$ref": "previous" },
+      "value_column": "value",
+      "label_column": "label"
+    }
+  }
+}
+```
+
+Tables take `previous`, `inputs.<name>` or `steps.<name>`; settings take a value
+or `parameters.<name>`. Only a `pipeline-steps` item can run between steps.

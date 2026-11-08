@@ -54,7 +54,7 @@ export function usePluginPoints(): ResolvedRunnerPoints & {
           {
             name: install.name,
             enabled: install.status === 'enabled',
-            scopes: install.manifest.scopes ?? [],
+            scopes: install.manifest.scopes,
           },
         ]),
       ),

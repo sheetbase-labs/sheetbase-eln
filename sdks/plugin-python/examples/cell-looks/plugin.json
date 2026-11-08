@@ -1,0 +1,35 @@
+{
+  "id": "acme.cell-looks",
+  "name": "Cell looks",
+  "version": "1.0.0",
+  "description": "Shows pass/fail as a coloured pill and percentages as a bar, and adds a batch code field type.",
+  "author": "Acme Bio",
+  "provides": {
+    "table-cells": [
+      {
+        "id": "result-pill",
+        "title": "Result pill",
+        "appliesTo": { "fields": ["result"] },
+        "display": { "kind": "badge", "tones": { "pass": "success", "fail": "danger", "retest": "warning" }, "labels": { "pass": "Pass", "fail": "Fail", "retest": "Retest" } }
+      },
+      {
+        "id": "percent-bar",
+        "title": "Percent bar",
+        "appliesTo": { "fields": ["viability", "purity"] },
+        "display": { "kind": "bar", "max": 100, "thresholds": [{ "below": 70, "tone": "danger" }, { "below": 90, "tone": "warning" }], "tone": "success" }
+      }
+    ],
+    "field-types": [
+      {
+        "id": "batch-code",
+        "title": "Batch code",
+        "description": "Two capital letters, a dash and four digits, such as AB-0042.",
+        "base": "text",
+        "pattern": "^[A-Z]{2}-[0-9]{4}$",
+        "patternMessage": "Use two capital letters, a dash and four digits, like AB-0042.",
+        "placeholder": "AB-0042",
+        "display": { "kind": "text", "mono": true }
+      }
+    ]
+  }
+}

@@ -15,6 +15,8 @@ type HostCapabilityName =
   | 'registry.models'
   | 'registry.findDuplicates'
   | 'registry.create'
+  /** Any MCP tool by its name, such as `sheetbase.lab.act` or `sheetbase.canonical.read`. */
+  | `sheetbase.${string}`
 
 type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'info'
 

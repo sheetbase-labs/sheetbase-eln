@@ -23,11 +23,31 @@
           }
         ],
         "outputs": [
-          { "name": "formula", "type": "text", "required": true },
-          { "name": "mass", "type": "number", "required": true },
-          { "name": "parent_smiles", "type": "text", "required": true },
-          { "name": "salts", "type": "json", "required": true },
-          { "name": "molfile", "type": "text", "required": true }
+          {
+            "name": "formula",
+            "type": "text",
+            "required": true
+          },
+          {
+            "name": "mass",
+            "type": "number",
+            "required": true
+          },
+          {
+            "name": "parent_smiles",
+            "type": "text",
+            "required": true
+          },
+          {
+            "name": "salts",
+            "type": "json",
+            "required": true
+          },
+          {
+            "name": "molfile",
+            "type": "text",
+            "required": true
+          }
         ],
         "run": "chem:describe"
       }
@@ -45,7 +65,9 @@
       {
         "id": "structure",
         "title": "Structure picture",
-        "appliesTo": { "pluginTypes": ["structure"] },
+        "appliesTo": {
+          "pluginTypes": ["structure"]
+        },
         "render": "ui/cells.html"
       }
     ],
@@ -82,6 +104,15 @@
         "icon": "flask",
         "ui": "ui/search.html"
       }
+    ],
+    "panels": [
+      {
+        "id": "lots",
+        "title": "Lots",
+        "ui": "ui/lots.html",
+        "models": ["compound"]
+      }
     ]
-  }
+  },
+  "permissions": ["lab:read", "lab:write"]
 }

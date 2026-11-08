@@ -37,11 +37,15 @@ import type {
   ExtensionConnectorDeclaration,
   ExtensionEventHookDeclaration,
   ExtensionExporterDeclaration,
+  ExtensionBarcodeFormatDeclaration,
   ExtensionImporterDeclaration,
+  ExtensionInstrumentParserDeclaration,
+  ExtensionLabelFormatDeclaration,
   ExtensionPreviewDeclaration,
   ExtensionRecordHookDeclaration,
   ExtensionSamenessKeyDeclaration,
   ExtensionSearchProviderDeclaration,
+  ExtensionStorageRuleDeclaration,
 } from './data-points'
 
 type Row = Record<string, unknown>
@@ -71,6 +75,10 @@ type Declarations = {
   'sameness-keys': ExtensionSamenessKeyDeclaration
   'event-hooks': ExtensionEventHookDeclaration
   'record-hooks': ExtensionRecordHookDeclaration
+  'instrument-parsers': ExtensionInstrumentParserDeclaration
+  'label-formats': ExtensionLabelFormatDeclaration
+  'barcode-formats': ExtensionBarcodeFormatDeclaration
+  'storage-rules': ExtensionStorageRuleDeclaration
 }
 
 /** Opens the plugin and the declaration, runs `work`, audits the outcome. */
@@ -149,6 +157,32 @@ export async function runExtensionImporter(
   },
   deps: ExtensionRuntimeDeps = defaultDeps(),
 ): Promise<ImportedTable & { durationMs: number }> {
+  return readFileWithPlugin('importers', args.importerId, args, deps)
+}
+
+/**
+ * An instrument parser reads the file an instrument writes. It is run like an
+ * importer; the difference is that the file must also carry the text the
+ * parser declared in `contains` (checked on text files), so two parsers can
+ * share an extension and each take only its own instrument's files.
+ */
+export async function runExtensionInstrumentParser(
+  args: Caller & {
+    parserId: string
+    filename: string
+    content: string
+  },
+  deps: ExtensionRuntimeDeps = defaultDeps(),
+): Promise<ImportedTable & { durationMs: number }> {
+  return readFileWithPlugin('instrument-parsers', args.parserId, args, deps)
+}
+
+async function readFileWithPlugin(
+  point: 'importers' | 'instrument-parsers',
+  itemId: string,
+  args: Caller & { filename: string; content: string },
+  deps: ExtensionRuntimeDeps,
+): Promise<ImportedTable & { durationMs: number }> {
   if (args.content.length > IMPORT_MAX_CONTENT_BYTES)
     throw new ExtensionRunError(
       'too_large',
@@ -157,14 +191,24 @@ export async function runExtensionImporter(
   const { value, durationMs } = await withItem(
     deps,
     args,
-    'importers',
-    args.importerId,
+    point,
+    itemId,
     async (declaration, resolved) => {
       const extension = `.${args.filename.split('.').pop()?.toLowerCase() ?? ''}`
       if (!declaration.extensions.includes(extension))
         throw new ExtensionRunError(
           'wrong_file',
-          `This importer reads ${declaration.extensions.join(', ')} files.`,
+          `This ${point === 'importers' ? 'importer' : 'parser'} reads ${declaration.extensions.join(', ')} files.`,
+        )
+      if (
+        'contains' in declaration &&
+        declaration.contains &&
+        declaration.encoding === 'text' &&
+        !declaration.contains.some((text) => args.content.includes(text))
+      )
+        throw new ExtensionRunError(
+          'wrong_file',
+          'This file does not look like one this parser reads.',
         )
       const result = await runPackage(deps, args.workspaceId, resolved, {
         inputs: {},
@@ -921,6 +965,266 @@ export async function runExtensionConnector(
       if (parsed.rows.length === 0)
         throw bad('The service answered, but the plugin found no rows in it.')
       return { columns: columnsOf(parsed.rows), rows: parsed.rows }
+    },
+  )
+  return { ...value, durationMs }
+}
+
+// ---------------------------------------------------------------------------
+// Barcode formats.
+// ---------------------------------------------------------------------------
+
+export const BARCODE_MAX_MODULES = 4000
+export const BARCODE_MAX_SIDE = 160
+
+/** A code ready to draw: it is data, so no plugin code ever runs where it is shown. */
+export type BarcodeDrawing =
+  { kind: 'bars'; modules: string } | { kind: 'grid'; rows: string[] }
+
+const barsAnswer = z
+  .object({
+    modules: z
+      .string()
+      .regex(/^[01]+$/)
+      .max(BARCODE_MAX_MODULES),
+  })
+  .strict()
+
+const gridAnswer = z
+  .object({
+    grid: z
+      .array(
+        z
+          .string()
+          .regex(/^[01]+$/)
+          .max(BARCODE_MAX_SIDE),
+      )
+      .min(1)
+      .max(BARCODE_MAX_SIDE),
+  })
+  .strict()
+  .refine((answer) =>
+    answer.grid.every((row) => row.length === answer.grid[0]?.length),
+  )
+
+export async function runExtensionBarcodeFormat(
+  args: Caller & { formatId: string; value: string },
+  deps: ExtensionRuntimeDeps = defaultDeps(),
+): Promise<BarcodeDrawing & { durationMs: number }> {
+  const { value, durationMs } = await withItem(
+    deps,
+    args,
+    'barcode-formats',
+    args.formatId,
+    async (declaration, resolved) => {
+      const result = await runPackage(deps, args.workspaceId, resolved, {
+        inputs: {},
+        parameters: {
+          kind: 'operation',
+          entry: declaration.runner.entry,
+          input: { value: args.value },
+        },
+      })
+      const answer = result.rows.at(0) ?? {}
+      if (declaration.shape === '1d') {
+        const parsed = barsAnswer.safeParse(answer)
+        if (!parsed.success)
+          throw bad(
+            'The plugin’s barcode format didn’t answer with `modules`: a string of 1s (bar) and 0s (space).',
+          )
+        return { kind: 'bars' as const, modules: parsed.data.modules }
+      }
+      const parsed = gridAnswer.safeParse(answer)
+      if (!parsed.success)
+        throw bad(
+          'The plugin’s barcode format didn’t answer with `grid`: rows of 1s (dark) and 0s (light), all the same length.',
+        )
+      return { kind: 'grid' as const, rows: parsed.data.grid }
+    },
+  )
+  return { ...value, durationMs }
+}
+
+const decodedAnswer = z
+  .object({ value: z.string().min(1).max(200).nullable() })
+  .strict()
+
+/** Turns the text a scanner read into the value the plugin says it stands for, or null when it is not one of its codes. */
+export async function runExtensionBarcodeParse(
+  args: Caller & { formatId: string; text: string },
+  deps: ExtensionRuntimeDeps = defaultDeps(),
+): Promise<string | null> {
+  const { value } = await withItem(
+    deps,
+    args,
+    'barcode-formats',
+    args.formatId,
+    async (declaration, resolved) => {
+      if (!declaration.parse)
+        throw new ExtensionRunError(
+          'not_declared',
+          'That barcode format does not read scanned codes.',
+        )
+      const result = await runPackage(deps, args.workspaceId, resolved, {
+        inputs: {},
+        parameters: {
+          kind: 'operation',
+          entry: declaration.parse.entry,
+          input: { text: args.text.slice(0, 2000) },
+        },
+      })
+      const parsed = decodedAnswer.safeParse(result.rows.at(0) ?? {})
+      if (!parsed.success)
+        throw bad(
+          'The plugin’s scan reader didn’t answer with a `value` (text, or null when it is not its code).',
+        )
+      return parsed.data.value
+    },
+  )
+  return value
+}
+
+// ---------------------------------------------------------------------------
+// Label formats.
+// ---------------------------------------------------------------------------
+
+export const LABEL_MAX_LINES = 12
+
+export interface LabelLine {
+  text: string
+  bold: boolean
+}
+
+const labelAnswer = z
+  .object({
+    lines: z
+      .array(
+        z
+          .object({
+            text: z.string().max(120),
+            bold: z.boolean().optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(LABEL_MAX_LINES),
+  })
+  .strict()
+
+export async function runExtensionLabelFormat(
+  args: Caller & {
+    formatId: string
+    kind: string
+    record: Record<string, unknown>
+    template: { widthMm: number; heightMm: number }
+  },
+  deps: ExtensionRuntimeDeps = defaultDeps(),
+): Promise<{ lines: LabelLine[]; durationMs: number }> {
+  const { value, durationMs } = await withItem(
+    deps,
+    args,
+    'label-formats',
+    args.formatId,
+    async (declaration, resolved) => {
+      if (!declaration.kinds.includes(args.kind))
+        throw new ExtensionRunError(
+          'wrong_kind',
+          `This label layout is for ${declaration.kinds.join(', ')}, not ${args.kind}.`,
+        )
+      const result = await runPackage(deps, args.workspaceId, resolved, {
+        inputs: {},
+        parameters: {
+          kind: 'operation',
+          entry: declaration.runner.entry,
+          input: {
+            kind: args.kind,
+            record: args.record,
+            template: args.template,
+          },
+        },
+      })
+      const parsed = labelAnswer.safeParse(result.rows.at(0) ?? {})
+      if (!parsed.success)
+        throw bad(
+          `The plugin’s label layout gave an answer Sheetbase can’t use: ${parsed.error.issues[0]?.message ?? 'unknown shape'}.`,
+        )
+      return parsed.data.lines.map((line) => ({
+        text: line.text,
+        bold: line.bold === true,
+      }))
+    },
+  )
+  return { lines: value, durationMs }
+}
+
+// ---------------------------------------------------------------------------
+// Storage rules.
+// ---------------------------------------------------------------------------
+
+export interface StorageRulePlace {
+  /** The names above the position, outermost first: site, room, unit, shelf, rack, box. */
+  path: string[]
+  /** The box's own name, or the typed place for a place that isn't in the storage setup. */
+  box: string | null
+  /** A1, B7 … or null for a typed place. */
+  position: string | null
+  /** The coldest and warmest the place is kept at, in °C, when known. */
+  temperatureC: { min: number | null; max: number | null } | null
+  /** The kind of unit above it (freezer, fridge, incubator …) when known. */
+  unitType: string | null
+  /** How many positions the box has and how many are taken, when it is a box. */
+  capacity: number | null
+  held: number | null
+}
+
+export interface StorageRuleVerdict {
+  status: 'ok' | 'warn' | 'refuse'
+  message: string
+}
+
+const storageAnswer = z
+  .object({
+    status: z.enum(['ok', 'warn', 'refuse']),
+    message: z.string().max(400).optional(),
+  })
+  .strict()
+
+export async function runExtensionStorageRule(
+  args: Caller & {
+    ruleId: string
+    sample: Record<string, unknown>
+    to: StorageRulePlace
+    from: string | null
+  },
+  deps: ExtensionRuntimeDeps = defaultDeps(),
+): Promise<StorageRuleVerdict & { durationMs: number }> {
+  const { value, durationMs } = await withItem(
+    deps,
+    args,
+    'storage-rules',
+    args.ruleId,
+    async (declaration, resolved) => {
+      const result = await runPackage(deps, args.workspaceId, resolved, {
+        inputs: {},
+        parameters: {
+          kind: 'operation',
+          entry: declaration.runner.entry,
+          input: { sample: args.sample, to: args.to, from: args.from },
+        },
+      })
+      const parsed = storageAnswer.safeParse(result.rows.at(0) ?? {})
+      if (!parsed.success)
+        throw bad(
+          'The plugin’s storage rule didn’t answer with a status (ok, warn or refuse) and a message.',
+        )
+      if (parsed.data.status !== 'ok' && !parsed.data.message?.trim())
+        throw bad(
+          'The plugin’s storage rule warned or refused without saying why.',
+        )
+      return {
+        status: parsed.data.status,
+        message: parsed.data.message?.trim() ?? '',
+      }
     },
   )
   return { ...value, durationMs }

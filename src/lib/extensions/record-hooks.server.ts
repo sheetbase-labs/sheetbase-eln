@@ -32,6 +32,8 @@ import type {
   FieldFill,
   RecordSnapshot,
 } from './hook-answers'
+import { guardStorageMove, isStorageMove } from './storage-rules.server'
+import type { StorageGuardDeps } from './storage-rules.server'
 import { describeRecordWrite } from './record-writes'
 import type { PlannedWrite } from './record-writes'
 import { resolveRunnerPoints } from './runner-points'
@@ -111,6 +113,8 @@ export interface RecordHookDeps {
   store: HookStore
   /** Mints the short token used to read as the person; swapped in tests. */
   mintToken?: (claims: TokenClaims) => Promise<string>
+  /** What the storage rules need; the real ones unless a test swaps them. */
+  storage?: StorageGuardDeps
 }
 
 const CACHE_MS = 10_000
@@ -377,6 +381,14 @@ export async function guardRecordWrite(
   const method = input.method.toUpperCase()
   if (method === 'GET' || method === 'HEAD' || method === 'DELETE')
     return passThrough(input.body)
+  if (input.kind === 'rpc' && isStorageMove(input.resource)) {
+    const claimed = claimsOf(input.token)
+    const moved = claimed
+      ? await guardStorageMove(input, claimed, deps.storage)
+      : null
+    if (moved?.kind === 'refused') return moved
+    return { ...passThrough(input.body), warnings: moved?.warnings ?? [] }
+  }
   const planned = describeRecordWrite({
     method,
     kind: input.kind,

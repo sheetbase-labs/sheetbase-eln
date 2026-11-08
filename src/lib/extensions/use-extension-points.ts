@@ -15,16 +15,25 @@ import { resolveRunnerPoints } from './runner-points'
 import type { ResolvedRunnerPoints } from './runner-points'
 
 export function useExtensionPoints(): ResolvedRunnerPoints {
+  return useExtensionPointsState().points
+}
+
+/** The same, with whether the lookup has finished, for screens that must not guess before it has. */
+export function useExtensionPointsState(): {
+  points: ResolvedRunnerPoints
+  ready: boolean
+} {
   const installs = useQuery({
     queryKey: [...extensionQueryKeys.extensions, 'points'],
     queryFn: () => listExtensions(sciDataClient),
     staleTime: 30_000,
     retry: false,
   })
-  return useMemo(
+  const points = useMemo(
     () => resolveRunnerPoints(installs.data ?? []),
     [installs.data],
   )
+  return { points, ready: !installs.isPending }
 }
 
 /** The plain-words message from a failed run (`{ error }` from the run routes). */

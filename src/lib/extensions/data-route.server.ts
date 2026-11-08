@@ -8,6 +8,11 @@
  * - `preview`: show what is inside a file with a plugin preview;
  * - `check`: run a plugin check on a table;
  * - `sameness-key`: work out the key a registry model's same-thing rule gives;
+ * - `instrument-parse`: read an instrument's file into a table with a plugin
+ *   instrument parser;
+ * - `barcode`: draw a code with a plugin barcode format; `barcode-parse` turns
+ *   the text a scanner read into the value it stands for;
+ * - `label`: the lines a plugin label layout prints for a record;
  * - `gate-check`: run a plugin check on a table of an experiment for a gate,
  *   reading the table here and storing the answer for the gate to read.
  *
@@ -20,10 +25,14 @@ import { z } from 'zod'
 import { defaultGateCheckDeps, runGateCheck } from './gate-check.server'
 import type { GateCheckDeps } from './gate-check.server'
 import {
+  runExtensionBarcodeFormat,
+  runExtensionBarcodeParse,
   runExtensionCheck,
   runExtensionConnector,
   runExtensionExporter,
   runExtensionImporter,
+  runExtensionInstrumentParser,
+  runExtensionLabelFormat,
   runExtensionPreview,
   runExtensionSamenessKey,
 } from './data-runtime.server'
@@ -94,6 +103,46 @@ const bodySchema = z.discriminatedUnion('kind', [
       extensionKey: id,
       keyId: id,
       values: z.record(z.string(), z.unknown()),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('instrument-parse'),
+      extensionKey: id,
+      parserId: id,
+      filename: z.string().min(1).max(255),
+      content: z.string(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('barcode'),
+      extensionKey: id,
+      formatId: id,
+      value: z.string().min(1).max(200),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('barcode-parse'),
+      extensionKey: id,
+      formatId: id,
+      text: z.string().min(1).max(2000),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('label'),
+      extensionKey: id,
+      formatId: id,
+      recordKind: z.string().regex(/^[a-z][a-z0-9_-]{0,40}$/),
+      record: z.record(z.string(), z.unknown()),
+      template: z
+        .object({
+          widthMm: z.number().int().min(10).max(200),
+          heightMm: z.number().int().min(10).max(200),
+        })
+        .strict(),
     })
     .strict(),
   z
@@ -178,6 +227,48 @@ export async function handleExtensionData(
         )
         return reply(table)
       }
+      case 'instrument-parse': {
+        if (member.role === 'viewer')
+          return refuse(403, 'Importing needs a workspace you can edit.')
+        return reply(
+          await runExtensionInstrumentParser(
+            {
+              ...caller,
+              parserId: body.parserId,
+              filename: body.filename,
+              content: body.content,
+            },
+            deps.runtime,
+          ),
+        )
+      }
+      case 'barcode':
+        return reply(
+          await runExtensionBarcodeFormat(
+            { ...caller, formatId: body.formatId, value: body.value },
+            deps.runtime,
+          ),
+        )
+      case 'barcode-parse':
+        return reply({
+          value: await runExtensionBarcodeParse(
+            { ...caller, formatId: body.formatId, text: body.text },
+            deps.runtime,
+          ),
+        })
+      case 'label':
+        return reply(
+          await runExtensionLabelFormat(
+            {
+              ...caller,
+              formatId: body.formatId,
+              kind: body.recordKind,
+              record: body.record,
+              template: body.template,
+            },
+            deps.runtime,
+          ),
+        )
       case 'connector': {
         if (member.role === 'viewer')
           return refuse(403, 'Importing needs a workspace you can edit.')

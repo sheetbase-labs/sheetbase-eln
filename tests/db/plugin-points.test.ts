@@ -173,7 +173,7 @@ describe('per-point switch', () => {
     await expect(
       owner.query(
         `select * from api.set_extension_point_enabled($1,$2,$3,false)`,
-        [WS, ext.id, 'panels'],
+        [WS, ext.id, 'widgets'],
       ),
     ).rejects.toMatchObject({ code: '22023' })
   })

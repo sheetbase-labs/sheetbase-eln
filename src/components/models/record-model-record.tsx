@@ -1,3 +1,8 @@
+import { PluginScreen } from '#/components/extensions/plugin-screen'
+import {
+  operationAccess,
+  usePluginPoints,
+} from '#/components/extensions/use-plugin-points'
 import { ChangeStructure } from '#/components/registry/change-structure'
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
@@ -148,6 +153,7 @@ export function RecordModelRecord({
   const alerting = results.filter((r) => r.verdict === 'alert')
   const status = record ? pickerStatus(record.status) : null
   const isRegistry = Boolean(model.data?.is_registry)
+  const pluginPoints = usePluginPoints()
   const structureField = isRegistry
     ? (model.data?.registry_structure_field ?? null)
     : null
@@ -383,6 +389,31 @@ export function RecordModelRecord({
             stored={record.custom_fields}
           />
         ) : null}
+
+        {record
+          ? pluginPoints.panels
+              .filter(
+                (panel) =>
+                  !panel.declaration.models ||
+                  panel.declaration.models.includes(modelKey),
+              )
+              .map((panel) => (
+                <PluginScreen
+                  key={`${panel.extensionKey}-${panel.id}`}
+                  extensionKey={panel.extensionKey}
+                  pluginName={panel.extensionName}
+                  point="panels"
+                  itemId={panel.id}
+                  title={panel.declaration.title}
+                  source={panel.declaration.ui ? 'ui' : 'screen'}
+                  context={{ recordId: record.id, kind: modelKey }}
+                  operations={operationAccess(pluginPoints, panel.extensionKey)}
+                  scopes={
+                    pluginPoints.installed.get(panel.extensionKey)?.scopes
+                  }
+                />
+              ))
+          : null}
 
         {structureField && record && canWrite && !record.archived_at ? (
           <ChangeStructure

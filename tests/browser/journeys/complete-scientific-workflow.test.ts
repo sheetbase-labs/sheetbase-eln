@@ -540,7 +540,16 @@ test('an imported plate analysis remains reconstructable after independent revie
     }).toPass({ timeout: 45_000 })
     await experimentOption.click()
     await citation.getByRole('button', { name: 'Cite', exact: true }).click()
-    await expect(page.getByText('Cited in a notebook').first()).toBeVisible()
+    // Citing is a chain of requests (read the notebook, compose the analysis,
+    // insert the block, freeze it, record the citation) and the toast only
+    // shows after the last one. The first time each route runs, the CI dev
+    // server compiles it, so the chain can outlast the default 5 second wait.
+    // Wait for either outcome with room for that, so a real refusal fails fast
+    // with its own toast instead of looking like a missing success toast.
+    const citedToast = page.getByText('Cited in a notebook').first()
+    const refusedToast = page.getByText('Couldn’t cite').first()
+    await expect(citedToast.or(refusedToast)).toBeVisible({ timeout: 30_000 })
+    await expect(citedToast).toBeVisible()
     await open(page, `/experiments/${experimentId}/notebook`)
     const frozen = page.getByRole('table', {
       name: 'Descriptive statistics per group',

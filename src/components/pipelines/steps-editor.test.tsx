@@ -1,6 +1,13 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('#/lib/extensions/use-extension-points', () => ({
+  useExtensionPoints: () => ({
+    descriptors: [],
+    callables: new Map(),
+  }),
+}))
+
 import { ParametersEditor } from './parameters-editor'
 import { StepsEditor } from './steps-editor'
 import type { PipelineStep } from '#/lib/pipelines/config'

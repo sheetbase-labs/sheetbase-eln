@@ -41,6 +41,7 @@ import type { PythonTransformUsage } from './pipeline-python.server'
 import { queuePipelineNotifications } from './pipeline-notifications.server'
 import { executePipelineActions } from './pipeline-actions.server'
 import { PluginStepError, runPluginStep } from './pipeline-plugin-step.server'
+import type { ExtensionRuntimeDeps } from './extensions/runtime.server'
 import {
   digestInput,
   digestRows,
@@ -161,6 +162,8 @@ export interface PipelineExecuteDeps {
   executePython?: typeof executePythonTransform
   /** Opens the sandbox login connection that runs transform SQL. */
   sandbox?: ConnectSandbox
+  /** How plugin steps are run; a test hands in its own. Absent means the workspace's installed plugins. */
+  plugins?: ExtensionRuntimeDeps
 }
 
 interface RunRow {
@@ -317,6 +320,8 @@ export async function runPipelineExecution(
         config,
         deps.executePython ?? executePythonTransform,
         sandbox,
+        undefined,
+        deps.plugins,
       ),
     )
     const transformMs = Date.now() - transformStarted
@@ -501,6 +506,8 @@ export async function tryPipelineDraft(
         config,
         deps.executePython ?? executePythonTransform,
         sandbox,
+        undefined,
+        deps.plugins,
       ),
     )
     if (outcome.kind === 'error') return fail(outcome.code, outcome.message)
@@ -723,6 +730,7 @@ async function reproduceInScratch(
       deps.executePython ?? executePythonTransform,
       sandbox,
       answered,
+      deps.plugins,
     ),
   )
   if (transform.kind === 'error') {
@@ -1469,6 +1477,7 @@ export async function resumePipelineRun(
         deps.executePython ?? executePythonTransform,
         sandbox,
         answered,
+        deps.plugins,
       ),
     )
     if (transform.kind === 'waiting') {
@@ -1719,6 +1728,7 @@ export async function expirePipelinePrompts(
               deps.executePython ?? executePythonTransform,
               sandbox,
               answered,
+              deps.plugins,
             ),
           )
           if (transform.kind === 'rows') {
@@ -2191,6 +2201,7 @@ async function executeSteps(
   python: typeof executePythonTransform,
   sandbox: SandboxSession,
   answered?: Map<string, Record<string, unknown>>,
+  plugins?: ExtensionRuntimeDeps,
 ): Promise<TransformOutcome> {
   const started = Date.now()
   let previous: Array<Record<string, unknown>> | undefined
@@ -2234,7 +2245,12 @@ async function executeSteps(
         if (!actor)
           throw new PluginStepError('This run has no person to act as.')
         const result = await runPluginStep(
-          { workspaceId: run.workspace_id, actorUserId: actor, step },
+          {
+            workspaceId: run.workspace_id,
+            actorUserId: actor,
+            step,
+            deps: plugins,
+          },
           {
             parameters: run.parameters,
             previous,

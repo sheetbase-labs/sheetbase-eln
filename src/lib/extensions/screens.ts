@@ -251,7 +251,7 @@ function parseNode(
       return {
         type: 'stat',
         label,
-        value: node.value as string | number,
+        value: node.value,
         ...(node.unit !== undefined ? { unit: node.unit as string } : {}),
         ...(node.tone ? { tone: node.tone as ScreenTone } : {}),
       }
@@ -285,7 +285,7 @@ function parseNode(
       return {
         type: 'bar',
         value: node.value,
-        ...(node.max !== undefined ? { max: node.max as number } : {}),
+        ...(node.max !== undefined ? { max: node.max } : {}),
         ...(node.label !== undefined ? { label: node.label as string } : {}),
         ...(node.tone ? { tone: node.tone as ScreenTone } : {}),
       }
@@ -347,7 +347,7 @@ function parseNode(
         columns.push({
           key: column.key,
           label: column.label,
-          ...(column.align ? { align: column.align as 'start' | 'end' } : {}),
+          ...(column.align ? { align: column.align } : {}),
         })
       }
       if (
@@ -472,12 +472,8 @@ function parseNode(
         label,
         ...(node.kind ? { kind: node.kind as 'text' } : {}),
         ...(options ? { options } : {}),
-        ...(node.value !== undefined
-          ? { value: node.value as string | number | boolean }
-          : {}),
-        ...(node.required !== undefined
-          ? { required: node.required as boolean }
-          : {}),
+        ...(node.value !== undefined ? { value: node.value } : {}),
+        ...(node.required !== undefined ? { required: node.required } : {}),
         ...(node.help !== undefined ? { help: node.help as string } : {}),
       }
     }
@@ -790,11 +786,12 @@ export function sanitizeSvg(source: string): string | null {
   let depth = 0
   const stack: string[] = []
   while ((match = tag.exec(source)) !== null) {
-    if (match[4] !== undefined) {
-      out.push(match[4].replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+);)/g, '&amp;'))
+    const found: readonly (string | undefined)[] = match
+    if (found[4] !== undefined) {
+      out.push(found[4].replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+);)/g, '&amp;'))
       continue
     }
-    if (match[1] === undefined) continue // comment
+    if (found[1] === undefined) continue // comment
     const closing = match[0].startsWith('</')
     const name = match[1].toLowerCase()
     if (!SVG_ELEMENTS.has(name)) return null
@@ -810,7 +807,8 @@ export function sanitizeSvg(source: string): string | null {
     let a: RegExpExecArray | null
     while ((a = attrRe.exec(match[2])) !== null) {
       const key = a[1].toLowerCase()
-      const val = a[2] ?? a[3] ?? ''
+      const parts: readonly (string | undefined)[] = a
+      const val = parts[2] ?? parts[3] ?? ''
       if (key.startsWith('on') || !SVG_ATTRIBUTES.has(key)) return null
       const lower = val.toLowerCase()
       if (

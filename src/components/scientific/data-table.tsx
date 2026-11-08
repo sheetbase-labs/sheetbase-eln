@@ -157,8 +157,8 @@ function DataTable<TData extends RowData>({
   React.useEffect(() => {
     if (!onSelectionChange) return
     const chosen = getRowId
-      ? data.filter((row) => rowSelection[getRowId(row)])
-      : data.filter((_, index) => rowSelection[String(index)])
+      ? data.filter((row) => getRowId(row) in rowSelection)
+      : data.filter((_, index) => String(index) in rowSelection)
     const before = lastSelected.current
     if (
       chosen.length === before.length &&
@@ -167,7 +167,6 @@ function DataTable<TData extends RowData>({
       return
     lastSelected.current = chosen
     onSelectionChange(chosen)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rowSelection, data])
 
   // v9's `useTable` returns a new object whenever table state changes, so the

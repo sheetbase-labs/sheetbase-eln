@@ -64,9 +64,9 @@ export function buildPluginFrame(
   entry: string,
   sdkSource: string,
 ): string | null {
-  const html = files[entry]
+  const html = files[entry] as string | undefined
   if (html === undefined) return null
-  let sdkSeen = false
+  let sdkSeen = false as boolean
   let out = html.replace(
     /<script\b([^>]*?)\bsrc\s*=\s*(["'])([^"']+)\2([^>]*)>\s*<\/script>/gi,
     (_whole, _before: string, _q: string, src: string) => {

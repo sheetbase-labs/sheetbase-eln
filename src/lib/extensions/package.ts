@@ -315,7 +315,7 @@ export function buildPluginPackage(
             if (typeof bundle !== 'string' || !PLUGIN_UI_ENTRY_RE.test(bundle))
               continue
             usedUi.add(bundle)
-            if (files[bundle] === undefined)
+            if (!(bundle in files))
               errors.push(
                 `${where} ui points at ${bundle}, which is not in the package`,
               )

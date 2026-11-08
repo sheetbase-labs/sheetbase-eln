@@ -16,6 +16,10 @@ type PluginParser = RunnerItem<ExtensionInstrumentParserDeclaration>
  */
 export function PluginParserTable() {
   const parsers = useExtensionPoints().data['instrument-parsers']
+  return <PluginParserList parsers={parsers} />
+}
+
+export function PluginParserList({ parsers }: { parsers: PluginParser[] }) {
   if (parsers.length === 0) return null
   const columns: RegistryColumn<PluginParser>[] = [
     {

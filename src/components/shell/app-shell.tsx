@@ -84,6 +84,7 @@ import { Notice } from '#/components/ui/alert'
 import { listDemoPersonasFn } from '#/lib/demo-persona-data'
 import { writeViewAsCookie } from '#/lib/demo-persona'
 import { WORKSPACE_ROLE_LABELS } from '#/lib/workspace-admin'
+import { useBuiltInPlugins } from '#/lib/extensions/use-built-in-plugins'
 import { requestWorkspaceLeave } from '#/components/workspace/workspace-navigation'
 import {
   applyAppBadge,
@@ -190,6 +191,10 @@ export function AppShell({
   const [readNotifications, setReadNotifications] = useState<
     ReadonlySet<string>
   >(() => new Set())
+
+  // Owners and administrators bring the plugins that ship with Sheetbase
+  // (sequence tools, chemistry) up to date once per browser session.
+  useBuiltInPlugins(data.workspace?.id ?? null, data.me.role)
 
   // SHELL-01.2: omit navigation a workspace role cannot open. Everyday
   // scientific items declare no `roles`/`capability`, so they stay visible.

@@ -70,6 +70,9 @@ function PythonScreen({
   const [notice, setNotice] = React.useState<ScreenNotice | null>(null)
   const kept = React.useRef<unknown>(state)
   const contextKey = JSON.stringify(context)
+  // The caller's handler changes as the block is saved; drawing must not start over each time.
+  const keep = React.useRef(onState)
+  keep.current = onState
 
   const run = React.useCallback(
     async (event: { action: string; values: PluginValues } | null) => {
@@ -89,9 +92,15 @@ function PythonScreen({
         })
         setResult(answer)
         setNotice(answer.notice ?? null)
-        if (answer.state !== undefined && answer.state !== kept.current) {
+        // Drawing the screen for the first time is not a change; only what a
+        // person did is kept with the block.
+        if (
+          event !== null &&
+          answer.state !== undefined &&
+          JSON.stringify(answer.state) !== JSON.stringify(kept.current)
+        ) {
           kept.current = answer.state
-          onState?.(answer.state)
+          keep.current?.(answer.state)
         }
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : String(caught))
@@ -99,7 +108,7 @@ function PythonScreen({
         setBusy(false)
       }
     },
-    [extensionKey, point, itemId, contextKey, onState],
+    [extensionKey, point, itemId, contextKey],
   )
 
   React.useEffect(() => {

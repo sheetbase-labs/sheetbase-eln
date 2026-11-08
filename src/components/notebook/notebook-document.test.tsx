@@ -42,6 +42,24 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }))
 
+// The insert menu lists plugin blocks; no plugins are installed here.
+vi.mock('#/components/extensions/use-plugin-points', () => ({
+  usePluginPoints: () => ({
+    operations: [],
+    analysisKinds: [],
+    blocks: [],
+    panels: [],
+    tableCells: [],
+    columns: [],
+    rowActions: [],
+    fieldTypes: [],
+    descriptors: [],
+    isLoading: false,
+    installed: new Map(),
+  }),
+  operationAccess: () => ({}),
+}))
+
 beforeAll(() => {
   document.elementFromPoint = () => null
   Range.prototype.getClientRects = () => [] as unknown as DOMRectList

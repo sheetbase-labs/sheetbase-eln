@@ -258,6 +258,7 @@ describe('what each block type contributes', () => {
       residues: 'ATGC',
       features: [{ label: 'GFP', type: 'CDS' }],
     },
+    plugin: { plugin: 'colony-counter', block: 'counter', state: { count: 3 } },
   }
 
   it('has a sample for every block type', () => {
@@ -272,9 +273,10 @@ describe('what each block type contributes', () => {
         [type, JSON.stringify(SAMPLES[type])],
       )
       const text = rows[0].t
-      // Sheet and file blocks name rows that do not exist here; every other
-      // type reads its words straight from the payload.
-      if (type !== 'sheet')
+      // Sheet and file blocks name rows that do not exist here, and a plugin
+      // block holds only its plugin's private state, which is not searched;
+      // every other type reads its words straight from the payload.
+      if (type !== 'sheet' && type !== 'plugin')
         expect(text.toLowerCase()).toContain(
           type === 'dataset_import' || type === 'pipeline_output'
             ? 'zebrafinch'

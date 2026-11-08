@@ -41,6 +41,25 @@ export function usePluginFieldTypeErrors(
   }, [links.data, points.fieldTypes, fields, values])
 }
 
+/** The example a plugin field type suggests for a field, by field name. */
+export function usePluginFieldPlaceholders(
+  modelKey: string,
+): Record<string, string> {
+  const points = usePluginPoints()
+  const links = useFieldPluginTypes(modelKey)
+  return React.useMemo(() => {
+    const out: Record<string, string> = {}
+    for (const link of links.data ?? []) {
+      const example = points.fieldTypes.find(
+        (item) =>
+          item.extensionKey === link.plugin_key && item.id === link.type_id,
+      )?.declaration.placeholder
+      if (example) out[link.field_name] = example
+    }
+    return out
+  }, [links.data, points.fieldTypes])
+}
+
 /**
  * Pick a plugin's type for one published field. The choice applies to the
  * field at once (it changes how values are drawn and checked, not what the
@@ -93,9 +112,7 @@ export function FieldPluginTypePicker({
   const value = current ? `${current.plugin_key}/${current.type_id}` : ''
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-label text-fg-muted">
-        {t('plugins.hooks.fieldTypeLabel')}
-      </span>
+      <span className="sr-only">{t('plugins.hooks.fieldTypeLabel')}</span>
       <Select
         size="sm"
         value={value}

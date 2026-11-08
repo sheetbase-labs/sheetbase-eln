@@ -226,14 +226,23 @@ export interface BlockEditorProps {
 function PluginBlockEditor(props: BlockEditorProps) {
   const payload = props.block.payload
   const { save } = props
+  // Saves go one after another: two quick clicks must not both claim the same
+  // version of the block.
+  const queue = React.useRef<Promise<unknown>>(Promise.resolve())
+  const keep = React.useCallback(
+    (state: unknown) => {
+      queue.current = queue.current
+        .catch(() => undefined)
+        .then(() => save({ ...payload, state }))
+    },
+    [save, payload],
+  )
   return (
     <PluginBlockView
       payload={payload}
       recordId={props.block.recordId}
       blockId={props.block.id}
-      onState={
-        props.readOnly ? undefined : (state) => void save({ ...payload, state })
-      }
+      onState={props.readOnly ? undefined : keep}
     />
   )
 }

@@ -891,6 +891,8 @@ const MODEL_FIELD_ERROR_MESSAGES: Record<string, string> = {
 
 /** Human message for a kernel validation code; unknown codes stay visible. */
 export function modelFieldErrorMessage(code: string): string {
+  // A plugin field type's own sentence arrives whole; a database code does not.
+  if (code.includes(' ')) return code
   return MODEL_FIELD_ERROR_MESSAGES[code] ?? `Couldn’t save (${code}).`
 }
 

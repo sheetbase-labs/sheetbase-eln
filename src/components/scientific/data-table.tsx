@@ -150,13 +150,23 @@ function DataTable<TData extends RowData>({
     onRowSelectionChange: setRowSelection,
   })
 
+  // Tell the host which rows are chosen, but only when the choice itself
+  // changed: a host that keeps the rows in state would otherwise loop on a
+  // fresh array every render.
+  const lastSelected = React.useRef<TData[]>([])
   React.useEffect(() => {
     if (!onSelectionChange) return
-    onSelectionChange(
-      getRowId
-        ? data.filter((row) => rowSelection[getRowId(row)])
-        : data.filter((_, index) => rowSelection[String(index)]),
+    const chosen = getRowId
+      ? data.filter((row) => rowSelection[getRowId(row)])
+      : data.filter((_, index) => rowSelection[String(index)])
+    const before = lastSelected.current
+    if (
+      chosen.length === before.length &&
+      chosen.every((row, index) => row === before[index])
     )
+      return
+    lastSelected.current = chosen
+    onSelectionChange(chosen)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rowSelection, data])
 

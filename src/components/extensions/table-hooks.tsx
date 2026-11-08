@@ -258,10 +258,13 @@ export function usePluginTableHooks({
   modelKey,
   fields,
   records,
+  ready = true,
 }: {
   modelKey: string
   fields: readonly ModelFieldDefinition[]
   records: readonly RecordModelRecord[]
+  /** False while the model's fields or records are still loading, so nothing is sent half-formed. */
+  ready?: boolean
 }) {
   const points = usePluginPoints()
   const fieldTypes = useFieldPluginTypes(modelKey)
@@ -324,6 +327,7 @@ export function usePluginTableHooks({
     () => records.map((r) => `${r.id}:${r.updated_at}`).join('|'),
     [records],
   )
+  const fieldKey = fields.map((f) => f.fieldName).join(',')
   const columnQueries = useQueries({
     queries: columnItems.map((item) => ({
       queryKey: [
@@ -333,6 +337,7 @@ export function usePluginTableHooks({
         item.id,
         modelKey,
         stamp,
+        fieldKey,
       ],
       queryFn: async () => {
         const answer = await runPluginHook<
@@ -347,7 +352,7 @@ export function usePluginTableHooks({
         })
         return answer.values
       },
-      enabled: records.length > 0,
+      enabled: ready && records.length > 0,
       staleTime: 60_000,
       retry: false,
     })),
@@ -363,6 +368,8 @@ export function usePluginTableHooks({
         const indexOf = new Map(records.map((r, i) => [r.id, i] as const))
         return {
           id: `plugin:${item.extensionKey}:${item.id}`,
+          // The header carries its own menu button, so it is not a sort button too.
+          enableSorting: false,
           header: () => (
             <ColumnHeader
               item={item}

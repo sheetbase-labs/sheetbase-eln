@@ -11,6 +11,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { t } from '#/copy'
+import { PublishDialog } from '#/components/plugins/publish-dialog'
+import type { PublisherItem } from '#/components/plugins/publish-dialog'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { ExplainThis } from '#/components/assist/explain-this'
 import { PageHeader } from '#/components/ui/layout'
@@ -109,6 +111,9 @@ function DatasetLayout() {
   const versions = useDatasetVersions(datasetId)
   // File formats that plugins add to downloads.
   const pluginExporters = useExtensionPoints().data.exporters
+  // Other systems that plugins can send the rows to.
+  const pluginPublishers = useExtensionPoints().data.publishers
+  const [publishing, setPublishing] = useState<PublisherItem | null>(null)
   const latestVersionId =
     [...(versions.data ?? [])].sort((a, b) =>
       b.createdAt.localeCompare(a.createdAt),
@@ -341,6 +346,19 @@ function DatasetLayout() {
                           })}
                         </DropdownMenuLinkItem>
                       ))}
+                      {canArchive
+                        ? pluginPublishers.map((item) => (
+                            <DropdownMenuItem
+                              key={item.name}
+                              icon="upload"
+                              onClick={() => setPublishing(item)}
+                            >
+                              {t('plugins.publish.menu', {
+                                name: item.declaration.title,
+                              })}
+                            </DropdownMenuItem>
+                          ))
+                        : null}
                       <DatasetPipelineMenuItems
                         runs={pipelineRuns}
                         latestVersionId={latestVersionId}
@@ -364,6 +382,14 @@ function DatasetLayout() {
               </DropdownMenu>
             ) : null}
             {pipelineRuns.dialog}
+            {publishing ? (
+              <PublishDialog
+                publisher={publishing}
+                datasetName={dataset.name}
+                datasetId={dataset.uuid}
+                onClose={() => setPublishing(null)}
+              />
+            ) : null}
             <DatasetArchive
               datasetId={dataset.uuid}
               name={dataset.name}

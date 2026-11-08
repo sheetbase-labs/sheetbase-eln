@@ -858,6 +858,21 @@ export const settings = {
       'Timers, booking reminders, signature requests and mentions reach you with the app closed. Choose which ones in the Phone column.',
     phoneOffBody:
       'Hear about finished timers, upcoming bookings, signature requests and mentions with the app closed.',
+    channels: {
+      heading: 'Other places to get notifications',
+      notReady:
+        'An administrator still has to finish setting this up in Settings, Plugins.',
+      send: 'Send me',
+      scopePhone: 'What would alert my phone',
+      scopeAll: 'Every notification I get',
+      turnOn: 'Turn on',
+      turnOff: 'Turn off',
+      sendTest: 'Send a test',
+      saved: 'Saved.',
+      testSent: 'Test sent.',
+      couldNotChange: 'Couldn’t change that.',
+      lastFailed: 'The last message didn’t arrive: {reason}',
+    },
     phoneTurnOn: 'Turn on',
     phoneTurnOff: 'Turn off',
     phoneNotReady:

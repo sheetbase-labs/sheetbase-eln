@@ -418,7 +418,6 @@ describe('what a call runs with', () => {
       promise: invokeExtension(
         {
           ...base,
-          point: 'operations',
           itemId: 'viability',
           input: { live: 92, dead: 8 },
         },

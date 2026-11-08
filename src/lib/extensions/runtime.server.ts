@@ -590,9 +590,6 @@ export async function runExtensionAnalysis(
 // Screens, columns and actions.
 // ---------------------------------------------------------------------------
 
-const MAX_HOOK_ROWS = 5000
-const MAX_CONTEXT_BYTES = 1024 * 1024
-
 export type HookArgs = {
   workspaceId: string
   actorUserId: string
@@ -655,11 +652,15 @@ function columnValue(
   return value
 }
 
-function checkRows(rows: Array<Record<string, unknown>>, inputs?: string[]) {
-  if (rows.length > MAX_HOOK_ROWS)
+function checkRows(
+  rows: Array<Record<string, unknown>>,
+  maxRows: number,
+  inputs?: string[],
+) {
+  if (rows.length > maxRows)
     throw new ExtensionRunError(
       'bad_input',
-      `That is more than ${MAX_HOOK_ROWS} rows, which is too many to send to a plugin at once.`,
+      `That is more than ${maxRows} rows, which is more than this plugin is set up to take. An administrator can raise this in Settings → Plugins.`,
     )
   if (!inputs) return rows
   const keep = new Set(['id', ...inputs])
@@ -685,6 +686,8 @@ export async function runExtensionHook(
     args.extensionKey,
     point,
   )
+  // Rows and context size are this plugin's own settings, like any other call.
+  const limits = await pluginLimits(deps, args.workspaceId, resolved.install.id)
   const gone = () =>
     new ExtensionRunError(
       'not_declared',
@@ -702,7 +705,8 @@ export async function runExtensionHook(
     if (!declared?.screen) throw gone()
     if (
       new TextEncoder().encode(JSON.stringify([args.context, args.state]))
-        .length > MAX_CONTEXT_BYTES
+        .length >
+      limits.dataMb * 1024 * 1024
     )
       throw new ExtensionRunError(
         'bad_input',
@@ -733,7 +737,7 @@ export async function runExtensionHook(
       )
     if (args.rows.length === 0)
       throw new ExtensionRunError('bad_input', 'Choose at least one row.')
-    rowsGiven = checkRows(args.rows, declared.inputs)
+    rowsGiven = checkRows(args.rows, limits.rows, declared.inputs)
     entry = declared.runner.entry
     job = {
       inputs: {},
@@ -742,7 +746,7 @@ export async function runExtensionHook(
   } else {
     column = contributions.columns?.find((item) => item.id === args.itemId)
     if (!column) throw gone()
-    rowsGiven = checkRows(args.rows, column.inputs)
+    rowsGiven = checkRows(args.rows, limits.rows, column.inputs)
     if (args.kind === 'column') {
       entry = column.runner.entry
       job = {

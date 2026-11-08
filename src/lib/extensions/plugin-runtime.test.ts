@@ -213,7 +213,7 @@ describe('the gate', () => {
       invokeExtension(
         {
           ...base,
-          point: 'operations',
+
           itemId: 'viability',
           input: { live: 1, dead: 1 },
         },
@@ -243,10 +243,7 @@ describe.skipIf(!pythonAvailable)(
       const { d, audit } = deps(over)
       return {
         audit,
-        promise: invokeExtension(
-          { ...base, point: 'operations', itemId, input },
-          d,
-        ),
+        promise: invokeExtension({ ...base, itemId, input }, d),
       }
     }
 

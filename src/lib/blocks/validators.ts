@@ -774,6 +774,7 @@ const GATE_KINDS = [
   'field_set',
   'date_reached',
   'qc_in_control',
+  'plugin_check',
 ]
 
 /** A gate holds back what is below it: 1 to 12 conditions and a mode. */
@@ -826,7 +827,9 @@ export function validateGate(payload: unknown): FieldErrors {
         return
       }
       const needsBlock =
-        condition.kind === 'table_filled' || condition.kind === 'step_done'
+        condition.kind === 'table_filled' ||
+        condition.kind === 'step_done' ||
+        condition.kind === 'plugin_check'
       if (needsBlock && !isUuid(condition.blockId)) {
         errors.push({
           code: 'invalid_field_value',

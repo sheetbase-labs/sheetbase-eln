@@ -668,7 +668,11 @@ async function callTool(
     }
     const outcome =
       name === SEMANTIC_SEARCH_TOOL
-        ? await runSemanticSearch(args, context)
+        ? await runSemanticSearch(args, {
+            ...context,
+            actorUserId:
+              context.actor.kind === 'user' ? context.actor.id : undefined,
+          })
         : await runLiteratureSearch(args, context)
     return outcome.isError
       ? toolError(outcome.text)

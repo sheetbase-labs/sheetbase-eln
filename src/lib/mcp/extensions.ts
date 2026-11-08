@@ -124,7 +124,6 @@ export async function callExtensionMcpTool(
         workspaceId: context.workspaceId,
         actorUserId: context.actor.id,
         extensionKey: item.extensionKey,
-        point: 'operations',
         itemId: item.id,
         input,
       })

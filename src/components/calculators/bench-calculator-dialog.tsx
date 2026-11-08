@@ -29,6 +29,8 @@ import type {
   TempUnit,
 } from '#/lib/calculators/calculators'
 import { formatQuantity, unitById, unitsOfKind } from '#/lib/calculators/units'
+import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
+import { PluginCalculatorPanel } from './plugin-calculator-panel'
 import type { UnitKind } from '#/lib/calculators/units'
 
 /** What "Insert into notebook" hands back: a metric block's payload. */
@@ -39,7 +41,7 @@ export interface CalculatorInsert {
   provenance: string
 }
 
-type Tab = 'molarity' | 'dilution' | 'convert'
+type Tab = 'molarity' | 'dilution' | 'convert' | 'plugins'
 
 interface Answer {
   value: number
@@ -522,7 +524,12 @@ export function BenchCalculatorDialog({
     molarity: null,
     dilution: null,
     convert: null,
+    plugins: null,
   })
+  // Calculators that installed plugins add, as one more tab.
+  const pluginCalculators = useExtensionPoints().operations.filter(
+    (item) => item.point === 'calculators',
+  )
   const answer = answers[tab]
   const setters = useMemo(
     () => ({
@@ -532,6 +539,8 @@ export function BenchCalculatorDialog({
         setAnswers((p) => (p.dilution === a ? p : { ...p, dilution: a })),
       convert: (a: Answer | null) =>
         setAnswers((p) => (p.convert === a ? p : { ...p, convert: a })),
+      plugins: (a: Answer | null) =>
+        setAnswers((p) => (p.plugins === a ? p : { ...p, plugins: a })),
     }),
     [],
   )
@@ -554,6 +563,9 @@ export function BenchCalculatorDialog({
               { key: 'molarity', label: t('calculators.tabs.molarity') },
               { key: 'dilution', label: t('calculators.tabs.dilution') },
               { key: 'convert', label: t('calculators.tabs.convert') },
+              ...(pluginCalculators.length > 0
+                ? [{ key: 'plugins', label: t('calculators.tabs.plugins') }]
+                : []),
             ]}
           />
           <div hidden={tab !== 'molarity'}>
@@ -565,6 +577,14 @@ export function BenchCalculatorDialog({
           <div hidden={tab !== 'convert'}>
             <ConvertPanel onAnswer={setters.convert} />
           </div>
+          {pluginCalculators.length > 0 ? (
+            <div hidden={tab !== 'plugins'}>
+              <PluginCalculatorPanel
+                calculators={pluginCalculators}
+                onAnswer={setters.plugins}
+              />
+            </div>
+          ) : null}
           {answer ? (
             <div
               className="rounded-md border border-border bg-surface-muted/40 p-3"

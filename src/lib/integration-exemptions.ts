@@ -39,6 +39,11 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
   // owner or admin decision made in the app (Settings > Extensions).
   set_extension_point_enabled:
     'Switching a part of an installed extension (pipeline actions, assistant tools, analysis kinds) on or off is an owner or admin decision made in Settings > Extensions; the event stream reports each change.',
+  // Plugin rules for registry models.
+  set_registry_sameness_rule:
+    'Choosing which plugin rule a registry model uses is a schema decision for owners and admins, made in the model\u2019s registry settings; the choice is readable on registry_sameness_rules.',
+  set_registry_sameness_value:
+    'Stores the key a plugin worked out for an entry; the app writes it right after the plugin ran, so a caller cannot claim a key the plugin did not give. Read on registry_sameness_values.',
   // Part sign-off: signing is an attestation a person makes in the app with a
   // fresh password, so tokens, MCP and pipelines can ask for it but not do it.
   sign_experiment_part:

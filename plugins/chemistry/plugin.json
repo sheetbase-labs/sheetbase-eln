@@ -83,6 +83,120 @@
           }
         ],
         "run": "chem:add_lot"
+      },
+      {
+        "id": "find",
+        "title": "Search by structure",
+        "description": "Finds registered compounds that contain a structure, or look like it. The same search as sub: and sim: on the search page.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "structure",
+            "type": "text",
+            "required": true,
+            "description": "A molfile or a SMILES line."
+          },
+          {
+            "name": "mode",
+            "type": "text",
+            "required": false,
+            "description": "substructure (the default) or similarity."
+          },
+          {
+            "name": "min_similarity",
+            "type": "number",
+            "required": false,
+            "description": "For similarity: how alike, from 0 to 1. Default 0.6."
+          },
+          {
+            "name": "registry",
+            "type": "text",
+            "required": false,
+            "description": "Only this registry, by its key."
+          },
+          {
+            "name": "limit",
+            "type": "number",
+            "required": false,
+            "description": "At most this many, up to 100. Default 50."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "mode",
+            "type": "text",
+            "required": true
+          },
+          {
+            "name": "count",
+            "type": "number",
+            "required": true
+          },
+          {
+            "name": "compounds",
+            "type": "json",
+            "required": true
+          }
+        ],
+        "run": "chem:find"
+      },
+      {
+        "id": "check",
+        "title": "Check if a structure is registered",
+        "description": "Says whether a structure is already in a registry, ignoring salts and solvents, and which compounds it matches.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "structure",
+            "type": "text",
+            "required": true,
+            "description": "A molfile or a SMILES line."
+          },
+          {
+            "name": "registry",
+            "type": "text",
+            "required": false,
+            "description": "The registry's key. Default compound."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "registry",
+            "type": "text",
+            "required": true
+          },
+          {
+            "name": "parent_smiles",
+            "type": "text",
+            "required": true
+          },
+          {
+            "name": "formula",
+            "type": "text",
+            "required": true
+          },
+          {
+            "name": "mass",
+            "type": "number",
+            "required": true
+          },
+          {
+            "name": "salts",
+            "type": "json",
+            "required": true
+          },
+          {
+            "name": "registered",
+            "type": "boolean",
+            "required": true
+          },
+          {
+            "name": "matches",
+            "type": "json",
+            "required": true
+          }
+        ],
+        "run": "chem:check"
       }
     ],
     "field-types": [
@@ -159,5 +273,5 @@
       }
     ]
   },
-  "permissions": ["lab:read", "lab:write"]
+  "permissions": ["lab:read", "lab:write", "projects:read"]
 }

@@ -31,6 +31,11 @@ import {
   runGuardedLabAct,
 } from './lab'
 import { callCompoundRead, isCompoundReadTool } from './compounds'
+import {
+  PLUGIN_SEARCH_TOOL,
+  pluginSearchMcpTool,
+  runPluginSearch,
+} from './plugin-search'
 import type { AiFeatureFlagKey, AiFeatureFlags } from '../ai-feature-flags'
 import {
   ADMIN_READ_TOOL_NAME,
@@ -282,7 +287,7 @@ function listTools(context: McpContext): McpTool[] {
       : []
   const meaning =
     context.flags.mcp_read && context.scopes.includes('projects:read')
-      ? semanticMcpTools()
+      ? [...semanticMcpTools(), pluginSearchMcpTool()]
       : []
   return [
     ...(hasAnyReadScope(context.scopes) && context.flags.mcp_read
@@ -484,7 +489,13 @@ async function callCatalogueTool(
   meta: Record<string, unknown> | undefined,
 ): Promise<McpToolResult> {
   if (entry.mode === 'read' && isCompoundReadTool(entry.name)) {
-    return textResult(await callCompoundRead(entry.name, args, context.client))
+    return textResult(
+      await callCompoundRead(entry.name, args, {
+        client: context.client,
+        workspaceId: context.workspaceId,
+        userId: context.actor.kind === 'user' ? context.actor.id : null,
+      }),
+    )
   }
   if (entry.mode === 'read') {
     const result = await context.client.rpc<unknown>(
@@ -668,6 +679,24 @@ async function callTool(
               context.actor.kind === 'user' ? context.actor.id : undefined,
           })
         : await runLiteratureSearch(args, context)
+    return outcome.isError
+      ? toolError(outcome.text)
+      : { content: [{ type: 'text', text: outcome.text }] }
+  }
+
+  if (name === PLUGIN_SEARCH_TOOL) {
+    if (!context.flags.mcp_read) {
+      return toolError('MCP read access is disabled by a workspace flag.')
+    }
+    if (!context.scopes.includes('projects:read')) {
+      return toolError(
+        'This credential lacks the required scope: projects:read.',
+      )
+    }
+    const outcome = await runPluginSearch(args, {
+      ...context,
+      actorUserId: context.actor.kind === 'user' ? context.actor.id : undefined,
+    })
     return outcome.isError
       ? toolError(outcome.text)
       : { content: [{ type: 'text', text: outcome.text }] }

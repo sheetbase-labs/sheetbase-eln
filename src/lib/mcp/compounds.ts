@@ -6,11 +6,7 @@
  */
 import type { DataClient } from '../data-client'
 import { loadOcl } from '../chemistry-draw'
-import {
-  describeStructure,
-  findStructureDuplicates,
-  searchStructures,
-} from '../compound-registry'
+import { describeStructure } from '../compound-registry'
 
 export const COMPOUND_SEARCH_TOOL = 'sheetbase.compound.search'
 export const COMPOUND_CHECK_TOOL = 'sheetbase.compound.check'
@@ -19,98 +15,69 @@ export function isCompoundReadTool(name: string): boolean {
   return name === COMPOUND_SEARCH_TOOL || name === COMPOUND_CHECK_TOOL
 }
 
-interface ModelRow {
-  key: string
-  name: string
-}
+/** The chemistry plugin's own key. */
+const CHEMISTRY_PLUGIN = 'chemistry'
 
-/** The registry that takes structures, by key or name. */
-async function structureRegistries(
-  client: DataClient,
-  wanted: string | null | undefined,
-): Promise<ModelRow[]> {
-  const rows = await client.list<ModelRow>(
-    'record_models',
-    '?is_registry=eq.true&registry_structure_field=not.is.null&select=key,name&order=name.asc',
-  )
-  if (!wanted) return rows
-  const lower = wanted.trim().toLowerCase()
-  return rows.filter(
-    (row) =>
-      row.key.toLowerCase() === lower || row.name.toLowerCase() === lower,
-  )
-}
-
+/**
+ * `sheetbase.compound.search` and `.check` keep their names for agents, but the
+ * chemistry now lives in the chemistry plugin: these run its `find` and `check`
+ * operations as the person, so there is one search and one duplicate rule.
+ */
 export async function callCompoundRead(
   name: string,
   args: Record<string, unknown>,
-  client: DataClient,
+  context: { client: DataClient; workspaceId: string; userId: string | null },
 ): Promise<unknown> {
-  const ocl = await loadOcl()
+  if (!context.userId)
+    return { error: 'Structure search needs a signed-in person.' }
   const structure = String(args.structure ?? '')
-  if (name === COMPOUND_CHECK_TOOL) {
-    const registries = await structureRegistries(
-      client,
-      typeof args.registry === 'string' ? args.registry : null,
+  const check = name === COMPOUND_CHECK_TOOL
+  const input: Record<string, unknown> = check
+    ? {
+        structure,
+        ...(typeof args.registry === 'string'
+          ? { registry: args.registry }
+          : {}),
+      }
+    : {
+        structure,
+        mode: args.mode === 'similarity' ? 'similarity' : 'substructure',
+        ...(typeof args.registry === 'string'
+          ? { registry: args.registry }
+          : {}),
+        ...(typeof args.minSimilarity === 'number'
+          ? { min_similarity: args.minSimilarity }
+          : {}),
+        ...(typeof args.limit === 'number' ? { limit: args.limit } : {}),
+      }
+  try {
+    const { invokeWithHostCalls } =
+      await import('../extensions/operation-host.server')
+    const outcome = await invokeWithHostCalls(
+      {
+        workspaceId: context.workspaceId,
+        actorUserId: context.userId,
+        extensionKey: CHEMISTRY_PLUGIN,
+        itemId: check ? 'check' : 'find',
+        input,
+      },
+      {
+        workspaceId: context.workspaceId,
+        userId: context.userId,
+        approve: 'none',
+        client: async () => context.client,
+      },
     )
-    if (registries.length === 0) {
-      return { error: 'No registry that takes structures has that name.' }
-    }
-    const registry = registries[0]
-    const described = describeStructure(ocl, structure)
-    if (!described) return { error: 'That could not be read as a structure.' }
-    const matches = await findStructureDuplicates(client, {
-      kind: registry.key,
-      descriptor: described,
-    })
+    if (outcome.kind === 'confirm')
+      return { error: 'That search tried to change something.' }
+    return outcome.result.output
+  } catch (error) {
     return {
-      registry: registry.name,
-      parentCode: described.parentCode,
-      formula: described.formula,
-      mass: described.mass,
-      saltsSetAside: described.salts,
-      registered: matches.length > 0,
-      matches: matches.map((m) => ({
-        identifier: m.identifier,
-        name: m.title,
-        retired: m.archived,
-        sameForm: m.sameForm,
-      })),
+      error:
+        error instanceof Error
+          ? error.message
+          : 'The chemistry plugin could not answer.',
     }
-  }
-  const registries = await structureRegistries(
-    client,
-    typeof args.registry === 'string' ? args.registry : null,
-  )
-  if (typeof args.registry === 'string' && registries.length === 0) {
-    return { error: 'No registry that takes structures has that name.' }
-  }
-  const mode = args.mode === 'similarity' ? 'similarity' : 'substructure'
-  const hits = await searchStructures(
-    client,
-    {
-      query: structure,
-      mode,
-      kind: registries.length === 1 && args.registry ? registries[0].key : null,
-      minSimilarity:
-        typeof args.minSimilarity === 'number' ? args.minSimilarity : 0.6,
-      includeArchived: args.includeRetired === true,
-      limit: typeof args.limit === 'number' ? args.limit : 50,
-    },
-    ocl,
-  )
-  return {
-    mode,
-    count: hits.length,
-    compounds: hits.map((h) => ({
-      identifier: h.identifier,
-      name: h.title,
-      registry: h.kind,
-      formula: h.formula,
-      mass: h.mass,
-      retired: h.archived,
-      ...(mode === 'similarity' ? { similarity: h.similarity } : {}),
-    })),
   }
 }
 

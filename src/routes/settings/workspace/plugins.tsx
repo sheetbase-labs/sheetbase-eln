@@ -23,6 +23,10 @@ import {
 } from '#/components/ui/dialog'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Notice } from '#/components/ui/alert'
+import {
+  PluginRuntimeDialog,
+  environmentTone,
+} from '#/components/settings/plugin-runtime-dialog'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Status } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
@@ -50,6 +54,11 @@ import {
 } from '#/lib/extensions/client'
 import type { ExtensionWire } from '#/lib/extensions/client'
 import { PLUGIN_MAX_ARCHIVE_BYTES } from '#/lib/extensions/package'
+import {
+  listPluginRuntime,
+  pluginRuntimeQueryKey,
+} from '#/lib/extensions/runtime-client'
+import type { PluginRuntimeInfo } from '#/lib/extensions/runtime-config'
 import { describeRunnerAdds } from '#/lib/extensions/runner-points'
 import type { ExtensionAddDetail } from '#/lib/extensions/runner-points'
 import type { PluginCheckResult } from '#/lib/extensions/install.server'
@@ -79,6 +88,7 @@ function Plugins() {
   const queryClient = useQueryClient()
   const [installOpen, setInstallOpen] = useState(false)
   const [removing, setRemoving] = useState<ExtensionWire | null>(null)
+  const [settingsFor, setSettingsFor] = useState<ExtensionWire | null>(null)
 
   const installs = useQuery({
     queryKey: [...extensionQueryKeys.extensions, 'admin', workspaceId],
@@ -86,8 +96,25 @@ function Plugins() {
     enabled: Boolean(workspaceId) && canManage,
   })
 
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: extensionQueryKeys.extensions })
+  // Each plugin's Python packages and limits. Follows an installation until it ends.
+  const runtime = useQuery({
+    queryKey: [...pluginRuntimeQueryKey, workspaceId],
+    queryFn: listPluginRuntime,
+    enabled: Boolean(workspaceId) && canManage,
+    refetchInterval: (query) =>
+      query.state.data?.some((info) => info.environment.state === 'building')
+        ? 4000
+        : false,
+  })
+  const runtimeOf = (install: ExtensionWire): PluginRuntimeInfo | undefined =>
+    runtime.data?.find((info) => info.extensionId === install.id)
+
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: pluginRuntimeQueryKey })
+    return queryClient.invalidateQueries({
+      queryKey: extensionQueryKeys.extensions,
+    })
+  }
 
   const toggle = useMutation({
     mutationFn: (input: { install: ExtensionWire; on: boolean }) =>
@@ -208,6 +235,8 @@ function Plugins() {
                   <PluginRow
                     key={install.id}
                     install={install}
+                    runtime={runtimeOf(install)}
+                    onSettings={() => setSettingsFor(install)}
                     busy={toggle.isPending || togglePoint.isPending}
                     onToggle={(on) => toggle.mutate({ install, on })}
                     onPoint={(point, on) =>
@@ -221,6 +250,15 @@ function Plugins() {
           </div>
         )}
       </SettingsBody>
+
+      {settingsFor ? (
+        <PluginRuntimeDialog
+          name={settingsFor.name}
+          info={runtimeOf(settingsFor)}
+          loading={runtime.isLoading}
+          onClose={() => setSettingsFor(null)}
+        />
+      ) : null}
 
       <InstallDialog
         open={installOpen}
@@ -268,12 +306,16 @@ function Plugins() {
 
 function PluginRow({
   install,
+  runtime,
+  onSettings,
   busy,
   onToggle,
   onPoint,
   onRemove,
 }: {
   install: ExtensionWire
+  runtime: PluginRuntimeInfo | undefined
+  onSettings: () => void
   busy: boolean
   onToggle: (on: boolean) => void
   onPoint: (point: ExtensionRunnerPoint, on: boolean) => void
@@ -303,6 +345,16 @@ function PluginRow({
         <Status tone={on ? 'ok' : 'draft'}>
           {t(`plugins.admin.status.${install.status}`)}
         </Status>
+        {runtime && runtime.requirements.length > 0 ? (
+          <div className="mt-1 text-caption text-fg-muted">
+            <Status tone={environmentTone[runtime.environment.state]}>
+              {t('plugins.admin.runtime.packages')}:{' '}
+              {t(
+                `plugins.admin.runtime.state.${runtime.environment.state}`,
+              ).toLowerCase()}
+            </Status>
+          </div>
+        ) : null}
       </TableCell>
       <TableCell className="align-top">
         <div className="flex flex-col gap-2">
@@ -361,6 +413,14 @@ function PluginRow({
             onClick={() => onToggle(!on)}
           >
             {on ? t('plugins.admin.turnOff') : t('plugins.admin.turnOn')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={onSettings}
+          >
+            {t('plugins.admin.runtime.button')}
           </Button>
           <Button
             type="button"
@@ -573,6 +633,20 @@ function InstallDialog({
                   {plugin.hasUi ? (
                     <li>{t('plugins.admin.install.asksUi')}</li>
                   ) : null}
+                  <li>
+                    {plugin.python.requirements.length > 0
+                      ? t('plugins.admin.install.asksPackages', {
+                          packages: plugin.python.requirements.join(', '),
+                        })
+                      : t('plugins.admin.install.asksNoPackages')}
+                  </li>
+                  <li>
+                    {plugin.python.network.length > 0
+                      ? t('plugins.admin.install.asksNetwork', {
+                          hosts: plugin.python.network.join(', '),
+                        })
+                      : t('plugins.admin.install.asksNoNetwork')}
+                  </li>
                   <li>
                     {plugin.permissions.length > 0 &&
                     !(

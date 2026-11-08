@@ -20,17 +20,17 @@
  * const page = await client.datasets.queryRows({ datasetId: "..." });
  * ```
  */
-export { VERSION, API_VERSION } from "./version.js";
-export { SheetbaseClient } from "./client.js";
-export type { SheetbaseClientOptions } from "./client.js";
-export { HttpTransport } from "./http.js";
+export { VERSION, API_VERSION } from './version.js'
+export { SheetbaseClient } from './client.js'
+export type { SheetbaseClientOptions } from './client.js'
+export { HttpTransport } from './http.js'
 export type {
   FetchLike,
   FetchInit,
   FetchResponse,
   RequestOptions,
   TableHead,
-} from "./http.js";
+} from './http.js'
 
 export {
   SheetbaseError,
@@ -52,8 +52,8 @@ export {
   dataPathError,
   ERROR_CATEGORIES,
   TOKEN_ERROR_CODES,
-} from "./errors.js";
-export type { ErrorCategory, TokenErrorCode } from "./errors.js";
+} from './errors.js'
+export type { ErrorCategory, TokenErrorCode } from './errors.js'
 
 export {
   ProjectsResource,
@@ -68,22 +68,23 @@ export {
   PeopleResource,
   PipelinesResource,
   FacilityResource,
+  PluginsResource,
   applyStepSource,
   notebookToPython,
-} from "./resources/index.js";
+} from './resources/index.js'
 export {
   EVENT_ALIASES,
   EVENT_NAMES,
   isEventName,
   resolveEventAlias,
   verifyWebhookSignature,
-} from "./resources/index.js";
-export type { EventName, WebhookEventPayload } from "./resources/index.js";
+} from './resources/index.js'
+export type { EventName, WebhookEventPayload } from './resources/index.js'
 export type {
   PipelineRunStatus,
   PipelineStepSource,
   PipelineTriggerResult,
-} from "./resources/index.js";
+} from './resources/index.js'
 export type {
   AgentOperation,
   AgentProvenance,
@@ -92,7 +93,7 @@ export type {
   AgentWorkflowUsage,
   DatasetRowOperation,
   DatasetRecord,
-} from "./resources/index.js";
+} from './resources/index.js'
 
 export type {
   Project,
@@ -112,4 +113,4 @@ export type {
   DatasetRowPage,
   DatasetVersionRowPage,
   SearchPage,
-} from "./types.js";
+} from './types.js'

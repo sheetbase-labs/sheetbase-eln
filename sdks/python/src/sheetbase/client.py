@@ -46,6 +46,7 @@ from sheetbase.resources import (
     CataloguesResource,
     DatasetsResource,
     PeopleResource,
+    PluginsResource,
     StructuresResource,
     FacilityResource,
     PipelinesResource,
@@ -99,6 +100,8 @@ class SheetbaseClient:
         self.pipelines = PipelinesResource(self._transport)
         self.people = PeopleResource(self._transport)
         self.structures = StructuresResource(self._transport)
+        #: ``client.plugins.call(key, operation, input)``: operations installed plugins declare.
+        self.plugins = PluginsResource(self._transport)
 
         #: Every public table, typed from the OpenAPI contract:
         #: ``client.tables.projects.list(where={"status": "active"})``.

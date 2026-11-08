@@ -149,6 +149,22 @@ jobs:
           --with-editable . mypy --strict
           src/sheetbase/_generated src/sheetbase/_tables.py src/sheetbase/_unset.py
 
+  # The plugin author's SDK and command (`sheetbase-plugin`). It shares its
+  # package rules with the app through sdks/plugin-python/tests/package_cases.json.
+  plugin-sdk:
+    name: Plugin SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Tests (Python 3.10)
+        working-directory: sdks/plugin-python
+        run: uv run --python 3.10 --with pytest --with-editable . python -m pytest -q
+      - name: Tests (Python 3.13)
+        working-directory: sdks/plugin-python
+        run: uv run --python 3.13 --with pytest --with-editable . python -m pytest -q
+
   acceptance:
     name: Browser journeys (${{ matrix.name }})
     runs-on: ubuntu-latest

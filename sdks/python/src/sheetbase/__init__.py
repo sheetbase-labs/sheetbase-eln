@@ -48,6 +48,7 @@ from sheetbase.resources.events import (
     verify_webhook_signature,
 )
 from sheetbase.resources.event_stream import CursorExpiredError, EventStreamResource
+from sheetbase.resources.plugins import PluginsResource
 from sheetbase.parsers import ParsedFile, ParseError, ParserApp, ParserRequest
 from sheetbase.errors import (
     SheetbaseError,
@@ -73,6 +74,7 @@ from sheetbase.errors import (
 __all__ = [
     "CursorExpiredError",
     "EventStreamResource",
+    "PluginsResource",
     "__version__",
     "AsyncRpc",
     "AsyncTables",

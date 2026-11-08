@@ -27,6 +27,12 @@ import {
   setModelChemistry,
 } from '#/lib/compound-registry'
 import { loadOcl } from '#/lib/chemistry-draw'
+import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
+import {
+  getSamenessRule,
+  samenessKeys,
+  setSamenessRule,
+} from '#/lib/registry-sameness'
 import {
   recordModelQueryKeys,
   useRecordModelFields,
@@ -60,6 +66,29 @@ export function RegistrySettingsDialog({
     model.registry_structure_field ?? '',
   )
   const [lotKind, setLotKind] = useState(model.registry_lot_kind ?? '')
+  // A same-thing rule from a plugin: which plugin function names the key.
+  const points = useExtensionPoints()
+  const rules = points.data['sameness-keys']
+  const savedRule = useQuery({
+    queryKey: samenessKeys.rule(model.key),
+    queryFn: () => getSamenessRule(notebookDataClient, model.key),
+    enabled: open,
+    staleTime: 10_000,
+  })
+  const [samenessItem, setSamenessItem] = useState('')
+  useEffect(() => {
+    if (open) setSamenessItem(savedRule.data ?? '')
+  }, [open, savedRule.data])
+  const chosenRule = rules.find((item) => item.name === samenessItem)
+  const missingRuleFields = chosenRule
+    ? chosenRule.declaration.fields.filter(
+        (input) =>
+          input.name.toLowerCase() !== 'title' &&
+          !fields.some(
+            (f) => f.fieldName.toLowerCase() === input.name.toLowerCase(),
+          ),
+      )
+    : []
   const otherModels = useQuery({
     queryKey: ['registry', 'lot-models'],
     queryFn: () =>
@@ -93,6 +122,9 @@ export function RegistrySettingsDialog({
         structureField: isRegistry && structureField ? structureField : null,
         lotKind: isRegistry && structureField && lotKind ? lotKind : null,
       })
+      const wanted = isRegistry ? samenessItem || null : null
+      if (wanted !== (savedRule.data ?? null))
+        await setSamenessRule(notebookDataClient, model.key, wanted)
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['registry'] })
@@ -208,6 +240,44 @@ export function RegistrySettingsDialog({
                         </option>
                       ))}
                     </Select>
+                  </Field>
+                ) : null}
+                {rules.length > 0 || samenessItem ? (
+                  <Field
+                    label={t('registry.sameness.label')}
+                    hint={t('registry.sameness.hint')}
+                  >
+                    <Select
+                      value={samenessItem}
+                      onChange={(e) => setSamenessItem(e.target.value)}
+                    >
+                      <option value="">{t('registry.sameness.none')}</option>
+                      {samenessItem && !chosenRule ? (
+                        <option value={samenessItem}>
+                          {t('registry.sameness.gone')}
+                        </option>
+                      ) : null}
+                      {rules.map((item) => (
+                        <option key={item.name} value={item.name}>
+                          {item.declaration.title} ({item.extensionName})
+                        </option>
+                      ))}
+                    </Select>
+                    {chosenRule ? (
+                      <span className="mt-1 block text-label text-fg-muted">
+                        {missingRuleFields.length > 0
+                          ? t('registry.sameness.missingFields', {
+                              fields: missingRuleFields
+                                .map((f) => f.label ?? f.name)
+                                .join(', '),
+                            })
+                          : t('registry.sameness.reads', {
+                              fields: chosenRule.declaration.fields
+                                .map((f) => f.label ?? f.name)
+                                .join(', '),
+                            })}
+                      </span>
+                    ) : null}
                   </Field>
                 ) : null}
                 {fields.length > 0 ? (

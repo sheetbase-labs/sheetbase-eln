@@ -9,6 +9,7 @@
  * security like any record; changes go through RPCs.
  */
 import type { DataClient } from '#/lib/data-client'
+import { samenessKeyFor } from '#/lib/registry-sameness'
 import { reverseComplement } from '#/lib/sequence'
 import type { ParsedSequence } from '#/lib/sequence'
 
@@ -160,14 +161,25 @@ export async function createRegistryEntry<T>(
     title: string
     customFields: Record<string, unknown>
     allowDuplicate: boolean
+    /** The key the model's plugin rule gave, when the caller has it already. Worked out here when left out. */
+    samenessValue?: string | null
   },
 ): Promise<T> {
+  const samenessValue =
+    input.samenessValue !== undefined
+      ? input.samenessValue
+      : await samenessKeyFor(client, {
+          modelKey: input.kind,
+          title: input.title,
+          customFields: input.customFields,
+        })
   return client.rpc<T>('create_registry_entry', {
     p_project_id: input.projectId,
     p_kind: input.kind,
     p_title: input.title,
     p_custom_fields: input.customFields,
     p_allow_duplicate: input.allowDuplicate,
+    p_sameness_value: samenessValue,
   })
 }
 

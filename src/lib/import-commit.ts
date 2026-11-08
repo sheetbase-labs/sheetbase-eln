@@ -4,11 +4,13 @@
  * `validate_sheet_record_batch` / `create_model_record`.
  */
 import type { ContractGateReport } from '#/lib/data-contracts/types'
+import { createRegistryEntry, isDuplicateError } from './bio-registry'
 import type { DataClient } from './data-client'
 import { validateDatasetRowBatch } from './dataset-product'
 import type { DatasetCommitResult } from './dataset-product'
 import { assertPinnedSchemaVersion } from './import-mapping'
 import type { MappedImport } from './import-mapping'
+import { getSamenessRule } from './registry-sameness'
 import { validateSheetRecordBatch } from './sheet-record-mapping'
 
 export interface DatasetImportTarget {
@@ -196,7 +198,38 @@ async function commitRecordImport(
     }
   }
   let committed = 0
-  for (const row of mapped.rows) {
+  // A registry with a plugin same-thing rule only takes entries that come with
+  // the rule's key, so each row goes in that way and a repeat is named.
+  const ruled = (await getSamenessRule(client, target.recordKind)) !== null
+  for (const [index, row] of mapped.rows.entries()) {
+    if (ruled) {
+      try {
+        await createRegistryEntry(client, {
+          projectId: target.projectId,
+          kind: target.recordKind,
+          title: row.title?.trim() || '',
+          customFields: row.values,
+          allowDuplicate: false,
+        })
+        committed += 1
+      } catch (error) {
+        return {
+          ok: false,
+          committed,
+          errors: [
+            {
+              row: index + 1,
+              code: isDuplicateError(error) ? 'duplicate' : 'invalid',
+              message:
+                error instanceof Error
+                  ? error.message
+                  : 'Could not add the entry.',
+            },
+          ],
+        }
+      }
+      continue
+    }
     await client.rpc('create_model_record', {
       p_project_id: target.projectId,
       p_kind: target.recordKind,

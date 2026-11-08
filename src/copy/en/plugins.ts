@@ -244,4 +244,21 @@ export const plugins = {
       'This dataset is too large to analyse here, so nothing was sent.',
     timing: 'Ran in {ms} ms.',
   },
+  recordPanel: {
+    title: 'From plugins',
+    openHold: 'On hold',
+    waiting: 'Waiting for a sign-off',
+    from: 'From {plugin}',
+    signedBy: '{count} of {needed} signed',
+    roles: 'Can be signed off by: {roles}',
+    signOff: 'Sign off',
+    signing: 'Signing…',
+    signedOff: 'Signed off.',
+    youMadeIt:
+      'Someone other than the person who made the change has to sign this off.',
+    cannotSign: 'Your role cannot sign this off.',
+    failed: 'The sign-off did not go through: {reason}',
+    loadFailed: 'What plugins added could not be loaded.',
+    warned: '{message}',
+  },
 } as const

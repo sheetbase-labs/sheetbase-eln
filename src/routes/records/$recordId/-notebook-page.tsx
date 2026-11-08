@@ -239,6 +239,7 @@ import {
 import { useRecentViewTracking } from '#/lib/recents'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { FollowToggle } from '#/components/follow/follow-toggle'
+import { PluginRecordPanel } from '#/components/plugins/plugin-record-panel'
 import { RelatedWorkPanel } from '#/components/related-work/related-work-panel'
 import {
   PinnedRelationshipPanel,
@@ -4098,6 +4099,13 @@ export function NotebookInspector({
               project membership. Silent when empty. */}
           {isHistorical ? null : (
             <RelatedWorkPanel kind="record" id={record.id} />
+          )}
+          {/* Plugin hooks: summaries, holds and sign-off steps. Silent when empty. */}
+          {isHistorical ? null : (
+            <PluginRecordPanel
+              recordId={record.id}
+              myUserId={currentUserId ?? null}
+            />
           )}
           {/* KNOW-01: complete bidirectional typed traversal. Related work
               above is ranked discovery with reasons; this panel is the full

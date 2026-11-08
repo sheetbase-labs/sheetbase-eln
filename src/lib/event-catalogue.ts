@@ -1921,6 +1921,23 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     notes: 'Payload carries `modelKey` and `fieldName`.',
   },
   {
+    name: 'extension.settings.changed',
+    family: 'administration',
+    summary:
+      'An administrator changed how much time, memory or data a plugin may use, or asked for its Python packages to be installed again.',
+    producer: {
+      entityType: 'extension',
+      operation: 'update',
+      when: { key: 'change', equals: 'settings_changed' },
+    },
+    wireName: 'extension.settings.changed',
+    status: 'stable',
+    introducedIn: 'extensions-05',
+    consumers: webhookSse,
+    notes:
+      'Payload carries `extensionKey`, `setting` (`limits` or `packages`) and, for limits, the new `overrides` (only what differs from the defaults).',
+  },
+  {
     name: 'extension.invoked',
     family: 'administration',
     summary:

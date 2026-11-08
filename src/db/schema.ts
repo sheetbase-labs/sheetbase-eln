@@ -9419,6 +9419,22 @@ export const extensionPackages = internal.table('extension_packages', {
   sha256: text('sha256').notNull(),
   size: integer('size').notNull(),
   files: jsonb('files').notNull(),
+  /** pip requirement lines the plugin installs (from its package). */
+  requirements: text('requirements').array().notNull().default([]),
+  /** Hosts its code may reach, as approved when this version was added. */
+  networkHosts: text('network_hosts').array().notNull().default([]),
+  /** Run limits an administrator changed from the defaults; survives updates. */
+  limitOverrides: jsonb('limit_overrides')
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+  /** The runner's name for the build of `requirements`, once asked for. */
+  environmentId: text('environment_id'),
+  environmentState: text('environment_state').notNull().default('none'),
+  environmentError: text('environment_error'),
+  environmentUpdatedAt: timestamp('environment_updated_at', {
+    withTimezone: true,
+    mode: 'date',
+  }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
     .notNull()
     .defaultNow(),

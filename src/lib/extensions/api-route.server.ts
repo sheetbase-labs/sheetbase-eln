@@ -129,8 +129,9 @@ export async function handlePluginOperationApi(
     ) {
       return refuse(403, 'This token needs a read scope.')
     }
-    // An operation may call into the app as the person (`host_call`). Reads
-    // are made; a change needs a person to say yes, which a script cannot.
+    // An operation may call into the app as the person (`host_call`), changes
+    // included, like the API itself. A token can only change what its own
+    // scopes allow: one without `lab:write` has its operation's changes refused.
     const outcome = await invokeWithHostCalls(
       {
         workspaceId: caller.workspaceId,
@@ -142,7 +143,10 @@ export async function handlePluginOperationApi(
       {
         workspaceId: caller.workspaceId,
         userId: caller.userId,
-        approve: 'none',
+        approve:
+          !caller.scopes || caller.scopes.includes('lab:write')
+            ? 'all'
+            : 'none',
         client: async () => {
           const client = await (deps.clientFor ?? defaultClientFor)(
             request.headers,
@@ -155,8 +159,8 @@ export async function handlePluginOperationApi(
     )
     if (outcome.kind === 'confirm')
       return refuse(
-        409,
-        `${outcome.confirm.summary ?? 'This operation'} changes something, so a person has to confirm it in Sheetbase; run it from there.`,
+        403,
+        `${outcome.confirm.summary ?? 'This operation'} changes something, which this token's scopes do not allow. It needs the lab:write scope.`,
       )
     return reply({
       output: outcome.result.output,

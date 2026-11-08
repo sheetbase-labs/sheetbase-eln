@@ -1,6 +1,6 @@
 import { pipelineActions } from './operations/registry'
 import { parsePluginName } from './extensions/points'
-import { ExtensionRunError, invokeExtension } from './extensions/runtime.server'
+import { ExtensionRunError } from './extensions/runtime.server'
 import type { ExecConnection } from './pipeline-execute.server'
 import {
   PIPELINE_ACTION_ROW_LIMIT,
@@ -259,14 +259,26 @@ export async function executePipelineActions(
       const extensionName = parsePluginName(action.operation)
       if (extensionName) {
         try {
-          const outcome = await invokeExtension({
-            workspaceId: run.workspaceId,
-            actorUserId,
-            extensionKey: extensionName.key,
-            itemId: extensionName.id,
-            input: resolved,
-          })
-          return outcome.output
+          const { invokeWithHostCalls, personClient } =
+            await import('./extensions/operation-host.server')
+          const hosted = await invokeWithHostCalls(
+            {
+              workspaceId: run.workspaceId,
+              actorUserId,
+              extensionKey: extensionName.key,
+              itemId: extensionName.id,
+              input: resolved,
+            },
+            {
+              workspaceId: run.workspaceId,
+              userId: actorUserId,
+              approve: 'all',
+              client: () => personClient(run.workspaceId, actorUserId),
+            },
+          )
+          if (hosted.kind === 'confirm')
+            throw new Error('The plugin action could not carry on.')
+          return hosted.result.output
         } catch (error) {
           const reason =
             error instanceof ExtensionRunError || error instanceof Error

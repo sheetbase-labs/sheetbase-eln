@@ -775,6 +775,7 @@ const GATE_KINDS = [
   'date_reached',
   'qc_in_control',
   'plugin_check',
+  'plugin_flag',
 ]
 
 /** A gate holds back what is below it: 1 to 12 conditions and a mode. */
@@ -835,6 +836,19 @@ export function validateGate(payload: unknown): FieldErrors {
           code: 'invalid_field_value',
           field: `conditions[${i}].blockId`,
           message: 'blockId must be a UUID',
+        })
+      }
+      if (
+        condition.kind === 'plugin_flag' &&
+        !(
+          isString(condition.extensionKey) &&
+          /^[a-z][a-z0-9-]{0,48}$/.test(condition.extensionKey)
+        )
+      ) {
+        errors.push({
+          code: 'invalid_field_value',
+          field: `conditions[${i}].extensionKey`,
+          message: 'extensionKey must be the plugin key',
         })
       }
       if (condition.kind === 'part_done' && !isUuid(condition.partId)) {

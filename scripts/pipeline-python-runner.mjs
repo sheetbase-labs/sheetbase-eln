@@ -657,7 +657,6 @@ export async function buildEnvironment(
     const built = await command(
       [
         'build',
-        '--progress=plain',
         '--pull=false',
         '--tag',
         `${ENVIRONMENT_REPOSITORY}:${id}`,

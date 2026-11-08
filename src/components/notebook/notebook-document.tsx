@@ -61,7 +61,7 @@ import {
 } from '#/lib/notebook-outline'
 import { BenchCalculatorDialog } from '#/components/calculators/bench-calculator-dialog'
 import type { CalculatorInsert } from '#/components/calculators/bench-calculator-dialog'
-import { AddBlockControl } from './add-block-menu'
+import { AddBlockControl, PLUGIN_BLOCK_PREFIX } from './add-block-menu'
 import { NotebookSheetBlock } from './notebook-sheet-block'
 import {
   NotebookSignedSection,
@@ -517,6 +517,12 @@ function NotebookDocumentContent({
     if (type === 'gate') {
       setGateTarget({ afterBlockId })
       return undefined
+    }
+    if (type.startsWith(PLUGIN_BLOCK_PREFIX)) {
+      const [plugin, block] = type.slice(PLUGIN_BLOCK_PREFIX.length).split('/')
+      return handleInsert('plugin', afterBlockId, {
+        payload: { plugin, block },
+      })
     }
     try {
       const newId = options

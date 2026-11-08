@@ -180,7 +180,7 @@ export function ExtensionAnalysisSection({
           ),
         ),
       }
-      const response = await fetch('/api/extensions/run', {
+      const response = await fetch('/api/plugins/run', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),

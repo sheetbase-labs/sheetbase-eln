@@ -274,9 +274,9 @@ metadata only, never secrets).
 `agent.action.decided` (`event=decided`: a person approved or rejected it),
 `agent.action.completed` (`event=completed`: it ran and succeeded or failed),
 `extension.point.enabled` and `extension.point.disabled` (`change=point_enabled` or `point_disabled`: an administrator switched a part of a plugin on or off),
-`extension.settings.changed` (`change=settings_changed`: an administrator changed a plugin’s time, memory or data limits, or asked for its packages to be installed again; payload carries `extensionKey`, `setting` and, for limits, `overrides`),
+`extension.settings.changed` (`change=settings_changed`: an administrator changed a plugin’s time, memory or data limits, set its connection details (setting names only, never values), or asked for its packages to be installed again; payload carries `extensionKey`, `setting` (`limits`, `packages` or `connection`) and, for limits, `overrides`),
 `extension.field_type.applied` and `extension.field_type.removed` (`change=field_type_applied` or `field_type_removed`: a model field was given a plugin’s field type, or lost it; payload carries `modelKey` and `fieldName`),
-`extension.invoked` (`change=invoked`: a plugin ran something (an operation, analysis, calculator, check, search, import, export, preview or reaction or save hook); payload carries `extensionKey` (the plugin’s name in the workspace), `point`, `itemId`, `ok` and `runner`),
+`extension.invoked` (`change=invoked`: a plugin ran something (an operation, analysis, calculator, check, search, import, export, preview, reaction or save hook, publisher or notification channel); payload carries `extensionKey` (the plugin’s name in the workspace), `point`, `itemId`, `ok` and `runner`),
 `ai.eval.completed` (a Checks run finished, with how many passed) and
 `watcher.finding.created` (a watcher found something; payload carries the
 finding kind, title and record, and starts a pipeline set to that event).

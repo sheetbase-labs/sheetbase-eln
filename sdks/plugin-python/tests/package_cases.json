@@ -2464,5 +2464,400 @@
       "python/stats.py": "def smooth(df):\n    return df\n",
       "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
     }
+  },
+  {
+    "name": "page with a ui bundle",
+    "valid": true,
+    "manifest": {
+      "id": "acme.cell-count",
+      "name": "Cell count",
+      "version": "1.0.0",
+      "description": "Counts cells.",
+      "provides": {
+        "pages": [
+          {
+            "id": "library",
+            "title": "Library",
+            "icon": "flask",
+            "ui": "ui/index.html"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/ops.py": "def viability(input):\n    return {}\n",
+      "python/stats.py": "def smooth(df):\n    return df\n",
+      "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+      "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>"
+    }
+  },
+  {
+    "name": "page needs a ui",
+    "valid": false,
+    "manifest": {
+      "id": "acme.cell-count",
+      "name": "Cell count",
+      "version": "1.0.0",
+      "description": "Counts cells.",
+      "provides": {
+        "pages": [
+          {
+            "id": "library",
+            "title": "Library"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/ops.py": "def viability(input):\n    return {}\n",
+      "python/stats.py": "def smooth(df):\n    return df\n",
+      "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+      "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>"
+    }
+  },
+  {
+    "name": "page ui file missing",
+    "valid": false,
+    "manifest": {
+      "id": "acme.cell-count",
+      "name": "Cell count",
+      "version": "1.0.0",
+      "description": "Counts cells.",
+      "provides": {
+        "pages": [
+          {
+            "id": "library",
+            "title": "Library",
+            "ui": "ui/missing.html"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/ops.py": "def viability(input):\n    return {}\n",
+      "python/stats.py": "def smooth(df):\n    return df\n",
+      "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+      "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>"
+    }
+  },
+  {
+    "name": "settings page",
+    "valid": true,
+    "manifest": {
+      "id": "acme.cell-count",
+      "name": "Cell count",
+      "version": "1.0.0",
+      "description": "Counts cells.",
+      "provides": {
+        "settings-pages": [
+          {
+            "id": "setup",
+            "title": "Setup",
+            "description": "Where it points.",
+            "ui": "ui/index.html"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/ops.py": "def viability(input):\n    return {}\n",
+      "python/stats.py": "def smooth(df):\n    return df\n",
+      "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+      "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>"
+    }
+  },
+  {
+    "name": "dashboard widget wide",
+    "valid": true,
+    "manifest": {
+      "id": "acme.cell-count",
+      "name": "Cell count",
+      "version": "1.0.0",
+      "description": "Counts cells.",
+      "provides": {
+        "dashboard-widgets": [
+          {
+            "id": "today",
+            "title": "Today",
+            "size": "wide",
+            "ui": "ui/index.html"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/ops.py": "def viability(input):\n    return {}\n",
+      "python/stats.py": "def smooth(df):\n    return df\n",
+      "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+      "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>"
+    }
+  },
+  {
+    "name": "dashboard widget bad size",
+    "valid": false,
+    "manifest": {
+      "id": "acme.cell-count",
+      "name": "Cell count",
+      "version": "1.0.0",
+      "description": "Counts cells.",
+      "provides": {
+        "dashboard-widgets": [
+          {
+            "id": "today",
+            "title": "Today",
+            "size": "huge",
+            "ui": "ui/index.html"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/ops.py": "def viability(input):\n    return {}\n",
+      "python/stats.py": "def smooth(df):\n    return df\n",
+      "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+      "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>"
+    }
+  },
+  {
+    "name": "size only on widgets",
+    "valid": false,
+    "manifest": {
+      "id": "acme.cell-count",
+      "name": "Cell count",
+      "version": "1.0.0",
+      "description": "Counts cells.",
+      "provides": {
+        "pages": [
+          {
+            "id": "library",
+            "title": "Library",
+            "size": "wide",
+            "ui": "ui/index.html"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/ops.py": "def viability(input):\n    return {}\n",
+      "python/stats.py": "def smooth(df):\n    return df\n",
+      "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+      "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>"
+    }
+  },
+  {
+    "name": "report section",
+    "valid": true,
+    "manifest": {
+      "id": "acme.cell-count",
+      "name": "Cell count",
+      "version": "1.0.0",
+      "description": "Counts cells.",
+      "provides": {
+        "report-sections": [
+          {
+            "id": "summary",
+            "title": "Summary",
+            "ui": "ui/index.html"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/ops.py": "def viability(input):\n    return {}\n",
+      "python/stats.py": "def smooth(df):\n    return df\n",
+      "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+      "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>"
+    }
+  },
+  {
+    "name": "page unknown setting",
+    "valid": false,
+    "manifest": {
+      "id": "acme.cell-count",
+      "name": "Cell count",
+      "version": "1.0.0",
+      "description": "Counts cells.",
+      "provides": {
+        "pages": [
+          {
+            "id": "library",
+            "title": "Library",
+            "ui": "ui/index.html",
+            "run": "ops:viability"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/ops.py": "def viability(input):\n    return {}\n",
+      "python/stats.py": "def smooth(df):\n    return df\n",
+      "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+      "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>"
+    }
+  },
+  {
+    "name": "bundle as modules",
+    "valid": true,
+    "manifest": {
+      "id": "acme.cell-count",
+      "name": "Cell count",
+      "version": "1.0.0",
+      "description": "Counts cells.",
+      "provides": {
+        "pages": [
+          {
+            "id": "library",
+            "title": "Library",
+            "ui": "ui/index.html"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/ops.py": "def viability(input):\n    return {}\n",
+      "python/stats.py": "def smooth(df):\n    return df\n",
+      "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+      "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>",
+      "ui/app.mjs": "export const a = 1"
+    }
+  },
+  {
+    "name": "field type with an input bundle",
+    "valid": true,
+    "manifest": {
+      "id": "acme.cell-count",
+      "name": "Cell count",
+      "version": "1.0.0",
+      "description": "Counts cells.",
+      "provides": {
+        "field-types": [
+          {
+            "id": "dna",
+            "title": "DNA",
+            "base": "text",
+            "input": "ui/index.html"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/ops.py": "def viability(input):\n    return {}\n",
+      "python/stats.py": "def smooth(df):\n    return df\n",
+      "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+      "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>"
+    }
+  },
+  {
+    "name": "field type input must be html",
+    "valid": false,
+    "manifest": {
+      "id": "acme.cell-count",
+      "name": "Cell count",
+      "version": "1.0.0",
+      "description": "Counts cells.",
+      "provides": {
+        "field-types": [
+          {
+            "id": "dna",
+            "title": "DNA",
+            "base": "text",
+            "input": "ui/app.js"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/ops.py": "def viability(input):\n    return {}\n",
+      "python/stats.py": "def smooth(df):\n    return df\n",
+      "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+      "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>",
+      "ui/app.js": "1"
+    }
+  },
+  {
+    "name": "table cell rendered by a bundle",
+    "valid": true,
+    "manifest": {
+      "id": "acme.cell-count",
+      "name": "Cell count",
+      "version": "1.0.0",
+      "description": "Counts cells.",
+      "provides": {
+        "table-cells": [
+          {
+            "id": "gc",
+            "title": "GC",
+            "appliesTo": {
+              "fields": ["sequence"]
+            },
+            "render": "ui/index.html"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/ops.py": "def viability(input):\n    return {}\n",
+      "python/stats.py": "def smooth(df):\n    return df\n",
+      "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+      "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>"
+    }
+  },
+  {
+    "name": "table cell display and render",
+    "valid": false,
+    "manifest": {
+      "id": "acme.cell-count",
+      "name": "Cell count",
+      "version": "1.0.0",
+      "description": "Counts cells.",
+      "provides": {
+        "table-cells": [
+          {
+            "id": "gc",
+            "title": "GC",
+            "appliesTo": {
+              "fields": ["sequence"]
+            },
+            "display": {
+              "kind": "text"
+            },
+            "render": "ui/index.html"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/ops.py": "def viability(input):\n    return {}\n",
+      "python/stats.py": "def smooth(df):\n    return df\n",
+      "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+      "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>"
+    }
+  },
+  {
+    "name": "table cell neither display nor render",
+    "valid": false,
+    "manifest": {
+      "id": "acme.cell-count",
+      "name": "Cell count",
+      "version": "1.0.0",
+      "description": "Counts cells.",
+      "provides": {
+        "table-cells": [
+          {
+            "id": "gc",
+            "title": "GC",
+            "appliesTo": {
+              "fields": ["sequence"]
+            }
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/ops.py": "def viability(input):\n    return {}\n",
+      "python/stats.py": "def smooth(df):\n    return df\n",
+      "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+      "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>"
+    }
   }
 ]

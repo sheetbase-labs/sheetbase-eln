@@ -66,7 +66,13 @@ export interface ExtensionTableCellDeclaration {
     fields?: string[]
     pluginTypes?: string[]
   }
-  display: CellDisplaySpec
+  /** A declared look (text, number, badge, bar, sparkline, svg). */
+  display?: CellDisplaySpec
+  /**
+   * Or code the plugin ships: a UI bundle that draws each cell as an image
+   * (SVG or PNG) or text, in a sandboxed frame. Takes over from `display`.
+   */
+  render?: string
 }
 
 export type ExtensionColumnValueType = 'number' | 'text' | 'boolean' | 'svg'
@@ -123,6 +129,8 @@ export interface ExtensionFieldTypeDeclaration {
   max?: number
   placeholder?: string
   display?: CellDisplaySpec
+  /** A UI bundle that is the field's input in forms (a structure drawer, a sequence editor). */
+  input?: string
 }
 
 export interface ExtensionHookContributions {
@@ -377,6 +385,7 @@ export function parseTableCells(
       'description',
       'appliesTo',
       'display',
+      'render',
     ])
     if (!name) return null
     const target = entry.appliesTo
@@ -440,13 +449,36 @@ export function parseTableCells(
       }
       applies.pluginTypes = [...new Set(target.pluginTypes as string[])]
     }
-    const display = parseCellDisplay(entry.display, name, errors)
-    if (!display) return null
+    if ((entry.display === undefined) === (entry.render === undefined)) {
+      errors.push(
+        `${name} needs a display (a declared look) or a render (a UI bundle that draws the cells), not both`,
+      )
+      return null
+    }
+    let display: CellDisplaySpec | undefined
+    if (entry.display !== undefined) {
+      const parsed = parseCellDisplay(entry.display, name, errors)
+      if (!parsed) return null
+      display = parsed
+    }
+    if (
+      entry.render !== undefined &&
+      !(
+        typeof entry.render === 'string' &&
+        PLUGIN_UI_ENTRY_RE.test(entry.render)
+      )
+    ) {
+      errors.push(
+        `${name} render must be an .html file in ui/, such as ui/cells.html`,
+      )
+      return null
+    }
     out.push({
       id: entry.id as string,
       title: (entry.title as string).trim(),
       appliesTo: applies,
-      display,
+      ...(display ? { display } : {}),
+      ...(typeof entry.render === 'string' ? { render: entry.render } : {}),
     })
   }
   return out
@@ -617,6 +649,7 @@ export function parseFieldTypes(
       'max',
       'placeholder',
       'display',
+      'input',
     ])
     if (!name) return null
     if (!(BASE_TYPES as readonly string[]).includes(entry.base as string)) {
@@ -688,6 +721,15 @@ export function parseFieldTypes(
       if (!parsed) return null
       display = parsed
     }
+    if (
+      entry.input !== undefined &&
+      !(typeof entry.input === 'string' && PLUGIN_UI_ENTRY_RE.test(entry.input))
+    ) {
+      errors.push(
+        `${name} input must be an .html file in ui/, such as ui/input.html`,
+      )
+      return null
+    }
     out.push({
       id: entry.id as string,
       title: (entry.title as string).trim(),
@@ -695,6 +737,7 @@ export function parseFieldTypes(
         ? { description: entry.description.trim() }
         : {}),
       base,
+      ...(typeof entry.input === 'string' ? { input: entry.input } : {}),
       ...(entry.pattern !== undefined
         ? { pattern: entry.pattern as string }
         : {}),

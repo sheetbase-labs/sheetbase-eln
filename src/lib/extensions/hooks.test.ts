@@ -31,6 +31,7 @@ const EXAMPLES = [
   'ui-counter',
   'cell-looks',
   'plate-tools',
+  'sequence-tools',
 ] as const
 
 describe('sample plugins', () => {
@@ -54,7 +55,8 @@ describe('sample plugins', () => {
         points.tableCells.length +
         points.columns.length +
         points.rowActions.length +
-        points.fieldTypes.length
+        points.fieldTypes.length +
+        points.pages.length
       expect(total).toBeGreaterThan(0)
     })
   }
@@ -205,7 +207,7 @@ describe('the sandboxed frame', () => {
     expect(html).toContain('window.sheetbase')
     expect(html).not.toContain(`src="${PLUGIN_UI_SDK_NAME}"`)
     expect(PLUGIN_FRAME_CSP).toContain("default-src 'none'")
-    expect(PLUGIN_FRAME_CSP).toContain("connect-src 'none'")
+    expect(PLUGIN_FRAME_CSP).toMatch(/connect-src data: blob:(;|$)/)
   })
 
   it('has nothing for an entry that is not in the package', () => {

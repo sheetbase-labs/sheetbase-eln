@@ -1,0 +1,21 @@
+{
+  "name": "sheetbase-sequence-tools-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "css": "tailwindcss -i tailwind.css -o generated.css --minify",
+    "build": "npm run css && sheetbase-plugin-ui build .."
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@sheetbase-labs/plugin-ui": "file:../../../sdks/plugin-ui",
+    "@tailwindcss/cli": "^4.1.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.9.0"
+  }
+}

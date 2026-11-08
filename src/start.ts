@@ -51,9 +51,8 @@ const pushSchedulerMiddleware = createMiddleware().server(async ({ next }) => {
 // Plugin notification channels: sends what the channel outbox holds (Slack and the like).
 const channelSchedulerMiddleware = createMiddleware().server(
   async ({ next }) => {
-    const { startChannelScheduler } = await import(
-      '#/lib/extensions/channel-delivery.server'
-    )
+    const { startChannelScheduler } =
+      await import('#/lib/extensions/channel-delivery.server')
     startChannelScheduler()
     return next()
   },

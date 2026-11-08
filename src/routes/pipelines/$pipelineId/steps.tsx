@@ -604,7 +604,10 @@ function PipelineSteps() {
             >
               {t('data.pluginSteps.rail')}{' '}
               <span className="ml-auto num text-fg-muted">
-                {actions.filter((a) => a.operation.startsWith('plugin.')).length}
+                {
+                  actions.filter((a) => a.operation.startsWith('plugin.'))
+                    .length
+                }
               </span>
             </Button>
           </div>

@@ -1,0 +1,58 @@
+{
+  "id": "acme.lab-rules",
+  "name": "Lab rules",
+  "version": "1.0.0",
+  "description": "House rules for experiments and samples: a check before a save, a summary and search entry after one, and a second pair of eyes when an experiment goes to review.",
+  "author": "Acme Bio",
+  "provides": {
+    "record-hooks": [
+      {
+        "id": "title-and-owner",
+        "title": "Experiments need a clear title and a protocol note",
+        "description": "Refuses an experiment whose title is too short, warns when it has no protocol note, and fills in the default storage tag.",
+        "when": ["created", "edited"],
+        "timing": "before",
+        "kinds": ["experiment"],
+        "run": "rules:check_experiment"
+      },
+      {
+        "id": "summarise",
+        "title": "Summarise and index experiments",
+        "description": "Writes a one-line summary on the record and adds it to the plugin's search index so it can be found by meaning.",
+        "when": ["created", "edited", "status-changed"],
+        "timing": "after",
+        "kinds": ["experiment"],
+        "run": "rules:summarise"
+      },
+      {
+        "id": "second-pair-of-eyes",
+        "title": "A second pair of eyes before review",
+        "description": "When an experiment goes to review, asks a reviewer other than the person who sent it to sign off, and clears the hold once they have.",
+        "when": ["status-changed"],
+        "timing": "after",
+        "kinds": ["experiment"],
+        "statuses": ["in_review"],
+        "run": "rules:ask_for_review"
+      },
+      {
+        "id": "scan-upload",
+        "title": "Refuse empty uploads",
+        "description": "Stops a file with no content from being uploaded.",
+        "when": ["uploaded"],
+        "timing": "before",
+        "file": "text",
+        "run": "rules:check_upload"
+      }
+    ],
+    "search-providers": [
+      {
+        "id": "similar-experiments",
+        "title": "Similar experiments",
+        "description": "Finds experiments whose summary matches the words typed, using the index the summarise hook builds.",
+        "types": ["record"],
+        "run": "rules:search"
+      }
+    ]
+  },
+  "ui": null
+}

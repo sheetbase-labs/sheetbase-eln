@@ -103,3 +103,51 @@ def test_loose_identifier_search_and_pubchem_plan():
         },
     )
     assert parsed.to_dict("records")[0]["formula"] == "C9H8O4"
+
+
+RECORD = {
+    "id": None,
+    "identifier": "EXP-1",
+    "kind": "experiment",
+    "title": "Titration of sodium chloride",
+    "status": "draft",
+    "tags": [],
+    "properties": {},
+    "custom_fields": {},
+    "project_id": None,
+}
+
+
+def test_lab_rules_refuses_warns_and_fills_before_a_save():
+    load("lab-rules")
+    short = host.call_operation("rules:check_experiment", {"record": {**RECORD, "title": "ab"}})
+    assert short == {"refuse": "Give the experiment a title of at least five characters."}
+    answer = host.call_operation("rules:check_experiment", {"record": RECORD})
+    assert answer["warn"].startswith("No protocol note")
+    assert answer["set"] == {"tags": ["storage"]}
+    clean = host.call_operation(
+        "rules:check_experiment",
+        {"record": {**RECORD, "tags": ["storage"], "custom_fields": {"protocol_note": "SOP-4"}}},
+    )
+    assert clean == {}
+
+
+def test_lab_rules_summarises_and_asks_for_a_sign_off_after_a_save():
+    load("lab-rules")
+    answer = host.call_operation("rules:summarise", {"record": RECORD})
+    assert answer["summary"] == "EXP-1: Titration of sodium chloride (draft)"
+    assert answer["index"][0]["index"] == "summaries"
+    asked = host.call_operation("rules:ask_for_review", {"record": RECORD})
+    assert asked["sign_off"][0]["independent"] is True
+
+
+def test_lab_rules_refuses_an_empty_upload_and_searches_its_index():
+    load("lab-rules")
+    assert host.call_operation("rules:check_upload", {"file": {"byte_size": 0, "content": ""}}) == {
+        "refuse": "That file is empty."
+    }
+    assert host.call_operation("rules:check_upload", {"file": {"byte_size": 4, "content": "text"}}) == {}
+    assert host.call_operation("rules:search", {"query": "titration", "documents": []}) == {
+        "hits": [],
+        "nearest": {"index": "summaries", "text": "titration"},
+    }

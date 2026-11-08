@@ -20,7 +20,8 @@ no files except the plugin's own).
 | `exporters`        | Writes a dataset as a file type Sheetbase does not                                                | Dataset menu and `?format=plugin.<key>.<id>`                              |
 | `previews`         | Shows what is inside a file                                                                       | Notebook file blocks                                                      |
 | `sameness-keys`    | Turns an entry's fields into a key; the same key means the same thing                             | Registry models: warning before a repeat is added                         |
-| `event-hooks`      | Reacts to an event by leaving notes                                                               | Inbox (`plugin_note`)                                                     |
+| `event-hooks`      | Reacts to an event: notes, summaries, flags, sign-offs, field changes                             | Inbox (`plugin_note`), record panel, record fields                        |
+| `record-hooks`     | Checks, fills in or follows up a save, an edit, a status change or a file upload                  | Saves and uploads (`422` on refusal), record panel, gates, search         |
 | `blocks`           | A notebook block drawn by a Python screen or by the plugin's own page (`ui`)                      | The insert menu, under Plugin blocks                                      |
 | `panels`           | A tab on record pages, drawn the same way, optionally only for some models                        | The record page's side tabs                                               |
 | `table-cells`      | How a value is drawn: text, number, badge, bar, sparkline or svg. Data only, never code in a cell | Model record lists                                                        |
@@ -214,6 +215,34 @@ called by the server itself:
   `p_allow_duplicate` is true. The app does this itself for the add-entry
   screen, imports and the assistant. Editing an entry drops its key, so a repeat
   made by editing is not caught.
+
+**Save and upload hooks** (`record-hooks`, see the plugin guide for the answer
+shapes):
+
+- A hook with `timing: before` is run by the server before a write reaches the
+  database: through `/api/db/*`, the server's own data client, and file uploads
+  (`POST /api/files`, new versions). The covered writes are `records`,
+  `create_record`, `create_record_with_blocks`, `create_model_record`,
+  `update_record_custom_fields`, `set_experiment_status`,
+  `transition_record_status`, `start_experiment`, `release_sample`,
+  `quarantine_sample` and `dispose_sample`. A refusal is `422` with the plugin's
+  name and words (`code` `SB070`, or `plugin_refused` for an upload); words from
+  `warn` come back in the `x-sheetbase-plugin-warnings` header. A hook that
+  breaks never stops a save. Direct SQL and in-database calls that chain other
+  changes only reach hooks with `timing: after`.
+- A hook with `timing: after` is run from the change log, as the person whose
+  change it was. What it answers is applied by the server: notes
+  (`plugin_notes`), a summary (`plugin_record_outputs`), search entries
+  (ranked with `api.search_plugin_index`), flags and sign-off steps
+  (`plugin_flags`, `plugin_flag_sign_offs`) and field changes. Field changes
+  are made with the person's own access under the client `plugin`, show up as
+  ordinary `record.updated` events and are not fed back to any hook.
+- A person presses a sign-off step in the app with `api.sign_off_plugin_step`;
+  it checks their role, that they did not make the change when the step is
+  independent, and the number of approvals. A plugin cannot sign, and the call is
+  not on the token API.
+- A gate condition `plugin_flag` (`{ kind, extensionKey, flagKey?, label? }`) is
+  met while the plugin has nothing open on the experiment.
 
 RPC: `api.set_extension_point_enabled(workspace, plugin, point, enabled)`
 switches one point on or off (`extensions.manage`).

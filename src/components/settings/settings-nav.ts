@@ -194,6 +194,15 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
   {
     place: 'workspace',
     cluster: HEALTH,
+    label: 'Plugins',
+    link: { to: '/settings/workspace/plugins' },
+    match: (p) => p.startsWith('/settings/workspace/plugins'),
+    // Administrators only: it follows General, which only they hold by default.
+    area: 'general',
+  },
+  {
+    place: 'workspace',
+    cluster: HEALTH,
     label: 'Open data',
     link: { to: '/settings/workspace/open-data' },
     match: (p) => p.startsWith('/settings/workspace/open-data'),

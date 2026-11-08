@@ -16,6 +16,7 @@ const ADMIN_ONLY = [
   'Audit and retention',
   'Diagnostics',
   'Usage',
+  'Plugins',
 ]
 const GOVERNED_ONLY = ['Integrations']
 const LAB = [

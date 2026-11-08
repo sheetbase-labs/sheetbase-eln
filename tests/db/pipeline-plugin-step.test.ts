@@ -9,7 +9,10 @@ import type { Client } from 'pg'
 import { Client as PgClient } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { runPipelineExecution } from '#/lib/pipeline-execute.server'
+import {
+  resumePipelineRun,
+  runPipelineExecution,
+} from '#/lib/pipeline-execute.server'
 import type { PipelineExecuteDeps } from '#/lib/pipeline-execute.server'
 import { buildPluginPackage } from '#/lib/extensions/package'
 import type { ExtensionRuntimeDeps } from '#/lib/extensions/runtime.server'
@@ -439,5 +442,51 @@ describe.skipIf(!pythonAvailable)('a plugin step between two steps', () => {
     ])
     expect(report.ok).toBe(false)
     expect(report.errorMessage).toContain('gives back a table')
+  })
+
+  it('pauses after the plugin’s table is ready, shows it, and resumes on confirm', async () => {
+    installed = true
+    const { report, runId } = await run([
+      {
+        ...subtractBlank(),
+        confirm: {
+          fields: [
+            { key: 'unit', label: 'Unit', type: 'text', required: true },
+          ],
+          askedUserIds: [OWNER],
+          noAnswer: 'reask',
+          expiresHours: 24,
+        },
+      },
+      tidy,
+    ])
+    expect(report.ok, JSON.stringify(report)).toBe(true)
+    expect(report.run?.status).toBe('waiting')
+    // The person is shown what the plugin made: the three corrected rows.
+    const prompt = await migrator.query<{
+      form_schema: { proposal: { rows: Array<{ corrected: number }> } }
+    }>(`select form_schema from api.pipeline_run_prompts where run_id = $1`, [
+      runId,
+    ])
+    expect(
+      prompt.rows[0].form_schema.proposal.rows.map((r) => r.corrected).sort(),
+    ).toEqual([0, 4, 8])
+    const { deps, close } = await makeExecDeps(OWNER)
+    const resumed = await resumePipelineRun(
+      OWNER,
+      runId,
+      { decision: 'confirm', values: { unit: 'AU' } },
+      deps,
+    )
+    await close()
+    expect(resumed.ok, JSON.stringify(resumed)).toBe(true)
+    expect(resumed.run?.status).toBe('succeeded')
+    const output = await migrator.query<{ dataset_version_id: string }>(
+      `select dataset_version_id from api.pipeline_run_outputs where run_id = $1`,
+      [runId],
+    )
+    expect(await outputScaled(output.rows[0].dataset_version_id)).toEqual([
+      40, 80,
+    ])
   })
 })

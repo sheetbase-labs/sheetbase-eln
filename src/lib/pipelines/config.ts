@@ -232,13 +232,10 @@ function validatePluginStep(
     )
     return
   }
+  // A plugin step may pause for a person like any other: the pause comes once
+  // the plugin's table is ready, and that table is what the person is shown.
   if (step.confirm !== undefined)
-    push(
-      errors,
-      'invalid_value',
-      `steps[${index}].confirm`,
-      t('data.pipelineConfig.pluginStepNoConfirm'),
-    )
+    validateConfirmStep(errors, step.confirm, index)
   if (step.contract !== undefined)
     push(
       errors,

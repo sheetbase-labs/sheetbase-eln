@@ -133,7 +133,7 @@ function applyPipelineArgs(
       const kept = existing.find((entry) => entry.name === step.name)
       // A plugin step has no code: it is the plugin step and what it is given.
       if (step.plugin) {
-        const { contract: _contract, confirm: _confirm, ...rest } = kept ?? {}
+        const { contract: _contract, ...rest } = kept ?? {}
         return {
           ...rest,
           name: step.name,

@@ -18,6 +18,31 @@ interface Vector {
   rejected?: string
 }
 
+/** Equal, except that numbers may differ in the last bits (the maths library differs by machine). */
+function expectClose(got: unknown, want: unknown, path = 'result'): void {
+  if (typeof want === 'number') {
+    expect(typeof got, path).toBe('number')
+    const diff = Math.abs((got as number) - want)
+    expect(
+      diff <= 1e-9 * Math.max(1, Math.abs(want)),
+      `${path}: ${got} vs ${want}`,
+    ).toBe(true)
+  } else if (Array.isArray(want)) {
+    expect(Array.isArray(got), path).toBe(true)
+    expect((got as unknown[]).length, path).toBe(want.length)
+    want.forEach((w, i) =>
+      expectClose((got as unknown[])[i], w, `${path}[${i}]`),
+    )
+  } else if (want !== null && typeof want === 'object') {
+    const g = got as Record<string, unknown>
+    expect(Object.keys(g).sort(), path).toEqual(Object.keys(want).sort())
+    for (const [k, w] of Object.entries(want))
+      expectClose(g[k], w, `${path}.${k}`)
+  } else {
+    expect(got, path).toEqual(want)
+  }
+}
+
 describe('shared test vectors', () => {
   for (const v of vectors as Vector[]) {
     it(v.name, () => {
@@ -29,7 +54,7 @@ describe('shared test vectors', () => {
       expect(parsed.success).toBe(true)
       if (!parsed.success) return
       const got = JSON.parse(JSON.stringify(runSequenceTool(parsed.data)))
-      expect(got).toEqual(v.expected)
+      expectClose(got, v.expected)
     })
   }
 })

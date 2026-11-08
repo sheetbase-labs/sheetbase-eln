@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { BenchCalculatorDialog } from './bench-calculator-dialog'
 
@@ -13,6 +13,13 @@ function renderWithClient(ui: React.ReactElement) {
 }
 
 describe('BenchCalculatorDialog', () => {
+  // Unmount and let any scheduled React work run now, so none outlives the
+  // test environment on a loaded runner.
+  afterEach(async () => {
+    cleanup()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  })
+
   it('works out the mass to weigh out and inserts it with its workings', async () => {
     const user = userEvent.setup()
     const onInsert = vi.fn()

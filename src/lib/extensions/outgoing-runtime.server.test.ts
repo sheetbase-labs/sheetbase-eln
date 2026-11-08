@@ -34,7 +34,7 @@ function setup(settings: Record<string, string> = {}) {
       key: 'outbound-tools',
       name: 'Outbound tools',
       status: 'enabled',
-      manifest: structuredClone(pkg.manifest) as never,
+      manifest: structuredClone(pkg.manifest),
       disabledPoints: [],
     }),
     loadPackage: async () => files,
@@ -68,7 +68,7 @@ describe.skipIf(!pythonAvailable)('publishers', () => {
         batch: { id: 'B9', count: 2, url: 'https://lims.example.org/b/B9' },
       }),
     )
-    const out = await runExtensionPublisher(args, deps, fetchUrl as never)
+    const out = await runExtensionPublisher(args, deps, fetchUrl)
     expect(out.message).toBe('Sent 2 results as batch B9.')
     expect(out.link).toBe('https://lims.example.org/b/B9')
     expect(out.requests).toBe(1)
@@ -126,7 +126,7 @@ describe.skipIf(!pythonAvailable)('notification channels', () => {
   it('delivers to the declared host', async () => {
     const { deps } = setup({ bot_token: 'xoxb' })
     const fetchUrl = vi.fn(async () => answer(200, { ok: true }))
-    await runChannelDelivery(args, deps, fetchUrl as never)
+    await runChannelDelivery(args, deps, fetchUrl)
     const [url, init] = fetchUrl.mock.calls[0] as unknown as [URL, any]
     expect(url.hostname).toBe('slack.com')
     expect(JSON.parse(init.body).channel).toBe('U01ABC')

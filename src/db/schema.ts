@@ -9364,6 +9364,11 @@ export const extensions = api.table(
       .notNull()
       .default(sql`'{}'::jsonb`),
     status: text('status').notNull().default('installed'),
+    /**
+     * Runner points an administrator switched off for this plugin
+     * ('operations', 'analysis-kinds').
+     */
+    disabledPoints: text('disabled_points').array().notNull().default([]),
     /** Per-extension scoped credential (minimal manifest-declared scopes). */
     credentialId: uuid('credential_id').references(() => apiCredentials.id, {
       onDelete: 'set null',
@@ -9391,8 +9396,39 @@ export const extensions = api.table(
       'chk_extensions_status',
       sql`${table.status} IN ('installed', 'enabled', 'disabled')`,
     ),
+    check(
+      'chk_extensions_disabled_points',
+      sql`${table.disabledPoints} <@ ARRAY['operations', 'analysis-kinds']::text[]`,
+    ),
   ],
 )
+
+/**
+ * The code of an installed plugin: its `.sbplugin` files as text, by path.
+ * Only the server reads it, to run the plugin's Python in the isolated runner;
+ * the API never exposes it. One per install; an update replaces it.
+ */
+export const extensionPackages = internal.table('extension_packages', {
+  extensionId: uuid('extension_id')
+    .primaryKey()
+    .references(() => extensions.id, { onDelete: 'cascade' }),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  /** SHA-256 of the files, so an audit can say exactly which code ran. */
+  sha256: text('sha256').notNull(),
+  size: integer('size').notNull(),
+  files: jsonb('files').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+  uploadedByUserId: text('uploaded_by_user_id').references(() => user.id, {
+    onDelete: 'set null',
+  }),
+})
 
 export const connectorRuns = api.table(
   'connector_runs',

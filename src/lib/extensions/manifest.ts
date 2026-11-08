@@ -21,6 +21,12 @@ import { VALID_SCOPES } from '../api-credential-scopes'
 import type { Scope } from '../api-credential-scopes'
 import { eventByName, resolveEventAlias } from '../event-catalogue'
 import { validateCompatRange } from './compat'
+import {
+  EXTENSION_RUNNER_POINTS,
+  parseAnalysisKinds,
+  parseOperations,
+} from './points'
+import type { ExtensionRunnerContributions } from './points'
 
 /** Contribution points an extension may declare. EXT-02 registers them. */
 export const EXTENSION_CONTRIBUTION_POINTS = [
@@ -28,6 +34,7 @@ export const EXTENSION_CONTRIBUTION_POINTS = [
   'panels',
   'commands',
   'event-subscriptions',
+  ...EXTENSION_RUNNER_POINTS,
 ] as const
 
 export type ExtensionContributionPoint =
@@ -71,7 +78,7 @@ export interface ExtensionEventSubscriptionDeclaration {
   eventType: string
 }
 
-export interface ExtensionContributions {
+export interface ExtensionContributions extends ExtensionRunnerContributions {
   'object-actions'?: ExtensionNamedDeclaration[]
   panels?: ExtensionNamedDeclaration[]
   commands?: ExtensionNamedDeclaration[]
@@ -91,6 +98,9 @@ export interface ExtensionManifest {
    * shape so TS and SQL validation stay in lockstep.
    */
   compatibleWith?: string
+  /** What the plugin is for, in a sentence, for the administrator's list. */
+  description?: string
+  author?: string
   capabilities: Capability[]
   scopes: Scope[]
   contributions: ExtensionContributions
@@ -299,6 +309,20 @@ export function validateExtensionManifest(input: unknown): string[] {
   checkVersion(input.version, errors)
   checkSource(input.source, errors)
   checkCompatibleWith(input.compatibleWith, errors)
+  if (
+    input.description !== undefined &&
+    (typeof input.description !== 'string' ||
+      input.description.trim().length < 1 ||
+      input.description.trim().length > 600)
+  )
+    errors.push('description must be 1-600 characters')
+  if (
+    input.author !== undefined &&
+    (typeof input.author !== 'string' ||
+      input.author.trim().length < 1 ||
+      input.author.trim().length > 200)
+  )
+    errors.push('author must be 1-200 characters')
   const capabilities = checkCapabilities(input.capabilities, errors)
   const scopes = checkScopes(input.scopes, errors)
   if (
@@ -339,6 +363,12 @@ export function validateExtensionManifest(input: unknown): string[] {
         errors,
       )
     }
+    if (input.contributions.operations !== undefined) {
+      parseOperations(input.contributions.operations, errors)
+    }
+    if (input.contributions['analysis-kinds'] !== undefined) {
+      parseAnalysisKinds(input.contributions['analysis-kinds'], errors)
+    }
   }
   return errors
 }
@@ -373,6 +403,15 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
       [],
     )!
   }
+  if (declared.operations !== undefined) {
+    contributions.operations = parseOperations(declared.operations, [])!
+  }
+  if (declared['analysis-kinds'] !== undefined) {
+    contributions['analysis-kinds'] = parseAnalysisKinds(
+      declared['analysis-kinds'],
+      [],
+    )!
+  }
   return {
     id: raw.id as string,
     name: (raw.name as string).trim(),
@@ -381,6 +420,10 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
     ...(typeof raw.compatibleWith === 'string'
       ? { compatibleWith: raw.compatibleWith.trim() }
       : {}),
+    ...(typeof raw.description === 'string'
+      ? { description: raw.description.trim() }
+      : {}),
+    ...(typeof raw.author === 'string' ? { author: raw.author.trim() } : {}),
     capabilities: [...new Set(raw.capabilities as Capability[])],
     scopes: [...new Set(raw.scopes as Scope[])],
     contributions,

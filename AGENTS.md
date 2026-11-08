@@ -27,6 +27,12 @@ Search the knowledge base before consequential work. Search results are discover
 
 Implementation/runbook documentation remains directly under `docs/`.
 
+## Adding features
+
+Declare an operation once and its API, MCP, assistant, pipeline and webhook
+entries are generated; blocks are declared once too. See
+[`docs/development/adding-an-operation.md`](docs/development/adding-an-operation.md).
+
 ## Copy
 
 All user-facing text lives in the copy catalogue (`src/copy`) and is read with

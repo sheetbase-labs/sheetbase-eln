@@ -285,6 +285,11 @@ export const notebook = {
         applying: 'Creating…',
         applied: 'Experiment created',
       },
+      runExtension: {
+        apply: 'Run',
+        applying: 'Running…',
+        applied: 'Done',
+      },
       acknowledgeQc: {
         apply: 'Acknowledge',
         applying: 'Acknowledging…',

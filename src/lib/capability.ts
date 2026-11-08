@@ -76,8 +76,11 @@ export function hasCapability(
       return MEMBER_CLASS_ROLES.has(role)
     case 'integrations.manage':
     case 'pipelines.manage':
-    case 'extensions.manage':
       return GOVERNED_SCHEMA_ROLES.has(role)
+    // An extension can run code and call outside services for the lab, so
+    // only owners and admins install, switch and remove them.
+    case 'extensions.manage':
+      return role === 'owner' || role === 'admin'
     // Instrument administration follows the Instruments row on the Roles page
     // (admin and data steward by default); this is the default for a role.
     case 'instrument.manage':

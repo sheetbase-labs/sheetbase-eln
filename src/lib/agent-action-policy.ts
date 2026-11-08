@@ -292,6 +292,35 @@ export function describeAgentAction(
   return parts.length > 0 ? `${label} (${parts.join(', ')})` : label
 }
 
+/** A request a plugin operation made through MCP (see mcp/extensions.ts). */
+export function isExtensionActionKey(key: string): boolean {
+  return key.startsWith('plugin.')
+}
+
+/** Runs an approved plugin request on the server, as the person who approved. */
+async function runExtensionRequest(
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const response = await fetch('/api/plugins/run', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      kind: 'operation',
+      extensionKey: args.extensionKey,
+      operationId: args.operationId,
+      input: args.input,
+    }),
+  })
+  const body = (await response.json().catch(() => null)) as {
+    error?: string
+    output?: unknown
+  } | null
+  if (!response.ok) {
+    throw new Error(body?.error ?? 'The plugin could not do that.')
+  }
+  return body?.output ?? null
+}
+
 export class AgentActionRefusedError extends Error {
   constructor(message: string) {
     super(message)
@@ -308,7 +337,10 @@ export async function approveAndRunAgentAction(
   client: Pick<DataClient, 'rpc'>,
   request: Pick<AgentActionRequestRow, 'id' | 'action_key' | 'arguments'>,
 ): Promise<AgentActionRequestRow> {
-  if (!agentActionByKey(request.action_key)) {
+  if (
+    !isExtensionActionKey(request.action_key) &&
+    !agentActionByKey(request.action_key)
+  ) {
     throw new AgentActionRefusedError(
       'This is not an action the lab can run for an agent.',
     )
@@ -327,7 +359,9 @@ export async function runApprovedAgentAction(
 ): Promise<AgentActionRequestRow> {
   let result: unknown = null
   try {
-    result = await client.rpc(request.action_key, request.arguments)
+    result = isExtensionActionKey(request.action_key)
+      ? await runExtensionRequest(request.arguments)
+      : await client.rpc(request.action_key, request.arguments)
   } catch (error) {
     return client.rpc<AgentActionRequestRow>('finish_agent_action', {
       p_request_id: request.id,

@@ -13,6 +13,12 @@
  * can read the workspace-wide tables.
  */
 
+import {
+  labRpcsFromOperations,
+  paramNotesFromOperations,
+} from './operations/descriptor'
+import { CORE_OPERATIONS } from './operations/registry'
+
 /** Column or parameter type. */
 export type LabType =
   | 'uuid'
@@ -48,7 +54,7 @@ export interface LabRpc {
   readonly result: string
 }
 
-export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
+const LAB_PARAM_NOTES_BASE: Readonly<Record<string, string>> = {
   p_name: 'Name.',
   p_format:
     'Plate format, such as `96_well` or `384_well`; or a worklist file format.',
@@ -1396,7 +1402,7 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
   },
 }
 
-export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
+const LAB_RPCS_HAND_WRITTEN: Readonly<Record<string, LabRpc>> = {
   request_reagent_order: {
     summary: 'Request a reagent order',
     description:
@@ -3014,4 +3020,19 @@ export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
     ],
     result: 'json',
   },
+}
+
+/**
+ * Every lab action the API offers. Hand-written entries above, plus those
+ * generated from operation declarations (`#/lib/operations`); an operation
+ * with a summary needs no entry here.
+ */
+export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
+  ...paramNotesFromOperations(CORE_OPERATIONS),
+  ...LAB_PARAM_NOTES_BASE,
+}
+
+export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
+  ...LAB_RPCS_HAND_WRITTEN,
+  ...labRpcsFromOperations(CORE_OPERATIONS),
 }

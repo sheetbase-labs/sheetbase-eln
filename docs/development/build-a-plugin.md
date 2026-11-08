@@ -24,15 +24,19 @@ Twelve places in the app take a plugin. Each is declared in `plugin.json` under
 | Exporters        | `exporters`        | `fn(rows, options) -> str or bytes`               | Dataset menu: "Download as …"                          |
 | File previews    | `previews`         | `fn(content, filename) -> {kind, …}`              | Notebook file blocks: "Show as …"                      |
 | Same-thing rules | `sameness-keys`    | `fn(values) -> {key}`                             | Registry: warning before a repeat is added             |
-| Event reactions  | `event-hooks`      | `fn({event}) -> {notes}`                          | Inbox                                                  |
+| Event reactions  | `event-hooks`      | `fn({event, record}) -> after answer`             | Inbox, record panel, record fields                     |
+| Save hooks       | `record-hooks`     | `fn({record, …}) -> before or after answer`       | Saves and uploads, record panel, sign-offs, gates      |
 
-The three examples under `sdks/plugin-python/examples` between them use every
+The examples under `sdks/plugin-python/examples` (`lab-rules` shows save hooks) between them use every
 point except operations and analyses (see `cell-count` for those):
 
 - `bench-extras`: a master mix calculator, a values check, a blank-subtracting
   step and a reminder when a sample is released.
 - `sequence-files`: FASTA import, export and preview, and a rule that two
   strands of one sequence are the same thing.
+- `lab-rules`: save hooks: a check and fill before a save, a summary and search
+  entry after one, a sign-off when an experiment goes to review, and a check on
+  uploads.
 - `lookup-tools`: a search that ignores dashes and leading zeros in
   identifiers, and a PubChem connector.
 
@@ -279,9 +283,11 @@ a repeat made by editing is not caught.
 ![A repeat caught by a plugin rule](screenshots/plugins/same-thing-warning.png)
 
 **Event reactions** run when something happens (see the event catalogue for
-names). They can only answer with notes, which go to the Inbox of the person
-whose change set them off, and a note stays for 14 days. They cannot change
-records, and a plugin's own events never set reactions off.
+names). They answer the same way a hook that runs after a save does (see below):
+notes go to the Inbox of the person whose change set them off and stay for 14
+days, and they can also write a summary, add search entries, raise flags, ask for
+sign-offs and change fields on records. A plugin's own changes never set
+reactions or hooks off again.
 
 ```python
 def remind_on_release(input):
@@ -294,6 +300,64 @@ def remind_on_release(input):
 Everything above is listed per plugin, with a switch for each part:
 
 ![Settings, Plugins](screenshots/plugins/plugins.png)
+
+## Save and upload hooks
+
+`record-hooks` run when a record or a file is created, edited, uploaded or
+changes status. Each declares `when` (any of `created`, `edited`, `status-changed`,
+`uploaded`), `timing` (`before` or `after`), and optionally `kinds` (record
+kinds, such as `experiment`), `statuses` (only with `status-changed`) and
+`file` (`text` or `base64`, only with `uploaded`, to be handed the file's
+content). The sample `lab-rules` uses all of it.
+
+A function is handed `{when, timing, record, previous, changed, changes, file}`:
+the record as it will be (before) or is (after), the record as it was, the names
+of the fields that changed and, for an upload, the file's name, type, size and
+(if asked for) content.
+
+**Before a save**, a hook answers with any of:
+
+- `refuse`: stop the save. The words are shown to the person who tried to save
+  (the data API answers `422` with the plugin's name and the words).
+- `warn`: let the save through and show the words.
+- `set`: fill in `custom_fields`, `properties` or `tags` on what is being saved.
+
+Nothing else is accepted. A hook before a save cannot reach another record or
+table.
+
+**After a save**, a hook answers with any of:
+
+- `notes`: up to 5 notes for the Inbox.
+- `summary`: one line shown on the record's panel, replacing the last one; an
+  empty string removes it.
+- `index`: entries (`index`, optional `entry`, `text` and/or `vector`) for the
+  plugin's own search indexes. A search provider can answer
+  `{"hits": [], "nearest": {"index": "summaries", "text": "…", "vector": [...]}}`
+  to have the app rank an index by words, by a vector (any width; entries of
+  another width are skipped) or both, for the person searching.
+- `flags` and `clear`: raise or clear a hold on the record by key. A gate
+  condition "plugin_flag" (extension key, optional flag key) is met while the
+  plugin has nothing open on the record.
+- `sign_off`: ask for a step pressed by a person with one of the listed `roles`
+  (`approvals` needed, `independent` keeps the person whose change asked for it
+  from pressing it). A plugin never signs, approves or attests. Asking again
+  after it was cleared opens it afresh.
+- `changes`: set `custom_fields`, `properties` or `tags` on the record or, with
+  `record`, another record. Never status, title, owner, links, signatures or
+  anything locked. Changes are made as the person whose change set the plugin
+  off, so their access applies, and each is audited.
+
+What to expect:
+
+- A hook that breaks or is too slow never stops a save; the person is told it
+  did not run, and the failure is in the audit trail.
+- Before-save hooks see saves made through the data API, the app and the
+  server's own data client: writes to records and the calls that create a
+  record, edit its custom fields or change its status. Anything else that
+  changes a record (a database job, a call that edits several things) reaches
+  the hooks that run after a save.
+- Binary file content is only handed over when the hook asks for `base64`.
+- A sign-off from a plugin is an approval step, not a password signature.
 
 ## Updating
 

@@ -1356,10 +1356,10 @@ export const data = {
       'Incremental inputs resume after the last dataset version this trigger ran on, so a run only happens when there is a newer one.',
   },
   pluginSteps: {
-    rail: 'Plugin steps',
-    title: 'Plugin steps',
+    rail: 'After the result',
+    title: 'After the result',
     intro:
-      'Steps that plugins add, run in order once the result above is ready. A plugin can reshape the table, check it or send it to another system. Anything that leaves Sheetbase goes only to the hosts the plugin declared.',
+      'Plugin steps that run in order once the result above is ready. To run one between other steps, add a step and choose Plugin step as its language. A plugin can reshape the table, check it or send it to another system. Anything that leaves Sheetbase goes only to the hosts the plugin declared.',
     none: 'No plugin steps yet.',
     noPlugins:
       'No installed plugin offers a step. An administrator adds plugins in Settings, Plugins.',

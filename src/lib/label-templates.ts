@@ -56,6 +56,7 @@ export interface LabelTemplateInput {
   widthMm: string
   heightMm: string
   barcodeType: BarcodeType
+  layout: string
   showLot: boolean
   showSampleType: boolean
   showCondition: boolean
@@ -69,6 +70,7 @@ export const EMPTY_LABEL_INPUT: LabelTemplateInput = {
   widthMm: '50',
   heightMm: '25',
   barcodeType: 'qr',
+  layout: 'standard',
   showLot: true,
   showSampleType: false,
   showCondition: true,
@@ -83,6 +85,7 @@ export function inputFromTemplate(template: LabelTemplate): LabelTemplateInput {
     widthMm: String(template.widthMm),
     heightMm: String(template.heightMm),
     barcodeType: template.barcodeType,
+    layout: template.layout,
     showLot: template.showLot,
     showSampleType: template.showSampleType,
     showCondition: template.showCondition,
@@ -121,6 +124,7 @@ export async function saveLabelTemplate(
     p_width_mm: Number(input.widthMm),
     p_height_mm: Number(input.heightMm),
     p_barcode_type: input.barcodeType,
+    p_layout: input.layout,
     p_show_lot: input.showLot,
     p_show_sample_type: input.showSampleType,
     p_show_condition: input.showCondition,

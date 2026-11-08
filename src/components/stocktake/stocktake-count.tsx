@@ -9,7 +9,7 @@ import { CameraScanner } from '#/components/scan/camera-scanner'
 import { ListHeader } from '#/components/inventory/list'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
-import { resolveScanCode } from '#/components/scan/scan-data'
+import { useScanCodeResolver } from '#/components/scan/plugin-scan'
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import {
@@ -183,6 +183,7 @@ function OpenCount({
     void queryClient.invalidateQueries({ queryKey: stocktakeKeys.all })
   }
 
+  const resolveScanCode = useScanCodeResolver()
   const scan = useMutation({
     mutationFn: async (raw: string) => {
       const trimmed = raw.trim()

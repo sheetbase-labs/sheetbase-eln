@@ -205,6 +205,7 @@ const template = (
   widthMm,
   heightMm,
   barcodeType: 'qr',
+  layout: 'standard',
   isDefault: false,
   archivedAt: null,
   createdAt: '2026-09-01T09:00:00.000Z',

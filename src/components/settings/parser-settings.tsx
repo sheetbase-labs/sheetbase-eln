@@ -18,6 +18,7 @@ import { Muted, Section } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import { useInstruments } from '#/components/instruments/instruments-data'
 import { InstrumentParserTable } from './instrument-parser-table'
+import { PluginParserTable } from './plugin-parser-table'
 import { createDataClient } from '#/lib/data-client'
 import { formatDate } from '#/lib/format-date'
 import { useUserNames } from '#/lib/user-names'
@@ -283,6 +284,7 @@ export function ParserSettings({
           onSelect={(id) => setShownInstrumentId(id ?? '')}
         />
       </Section>
+      <PluginParserTable />
       <Section
         title={
           shownInstrument

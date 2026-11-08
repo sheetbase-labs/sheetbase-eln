@@ -81,7 +81,7 @@ export function buildPluginFrame(
   // own `src` and `href` attributes are rewritten, so a string inside a script
   // that happens to read `href="..."` is never touched.
   const inlined: string[] = []
-  const stash = (block: string) => `\u0000${inlined.push(block) - 1}\u0000`
+  const stash = (block: string) => `\uE000${inlined.push(block) - 1}\uE001`
   let out = html.replace(
     /<script\b([^>]*?)\bsrc\s*=\s*(["'])([^"']+)\2([^>]*)>\s*<\/script>/gi,
     (_whole, before: string, _q: string, src: string, after: string) => {
@@ -120,9 +120,8 @@ export function buildPluginFrame(
       return `${lead}${quote}data:${MIME[ext]};base64,${btoa(unescape(encodeURIComponent(body)))}${quote}`
     },
   )
-  // eslint-disable-next-line no-control-regex
   out = out.replace(
-    /\u0000(\d+)\u0000/g,
+    /\uE000(\d+)\uE001/g,
     (_whole, index: string) => inlined[Number(index)] ?? '',
   )
   if (!sdkSeen) {

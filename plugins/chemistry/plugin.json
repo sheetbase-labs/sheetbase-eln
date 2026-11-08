@@ -93,7 +93,8 @@
         "title": "Structure search",
         "description": "Type sub: or sim: and a SMILES line to find compounds that contain it or look like it.",
         "types": ["record"],
-        "run": "chem:search"
+        "run": "chem:search",
+        "indexed": true
       }
     ],
     "pages": [
@@ -111,6 +112,17 @@
         "title": "Lots",
         "ui": "ui/lots.html",
         "models": ["compound"]
+      }
+    ],
+    "record-hooks": [
+      {
+        "id": "index-structures",
+        "title": "Index structures",
+        "description": "Keeps a fast index of each compound's structure so structure search stays quick with many compounds.",
+        "when": ["created", "edited"],
+        "timing": "after",
+        "kinds": ["compound"],
+        "run": "chem:index"
       }
     ]
   },

@@ -482,6 +482,18 @@ table.
   `{"hits": [], "nearest": {"index": "summaries", "text": "…", "vector": [...]}}`
   to have the app rank an index by words, by a vector (any width; entries of
   another width are skipped) or both, for the person searching.
+  For a lot of records, mark the provider `"indexed": true` and answer
+  `"nearest": {"index": "…", "text": "…", "verify": true, "limit": 5000}` when
+  the input has `"stage": "plan"` (it comes with no documents). The app asks the
+  database for the records closest in that index, hands only those to the
+  provider again with `"stage": "rank"`, and the provider checks and scores them
+  as usual. `limit` is the plugin's choice. The chemistry plugin does this: its
+  hook puts each compound's pattern fingerprint (as words, so a substructure
+  search is an indexed all-words match) and a short fingerprint vector in an
+  index, and its search then checks only the compounds the index found.
+  `POST /api/plugins/reindex {"extensionKey": "…"}` (owners and administrators)
+  runs the plugin's `after` hooks over records saved before it was added and
+  keeps only their `index` entries.
 - `flags` and `clear`: raise or clear a hold on the record by key. A gate
   condition "plugin_flag" (extension key, optional flag key) is met while the
   plugin has nothing open on the record.

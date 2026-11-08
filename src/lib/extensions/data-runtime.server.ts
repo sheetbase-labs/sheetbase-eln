@@ -41,7 +41,9 @@ import type {
   ExtensionImporterDeclaration,
   ExtensionInstrumentParserDeclaration,
   ExtensionLabelFormatDeclaration,
+  ExtensionNotificationChannelDeclaration,
   ExtensionPreviewDeclaration,
+  ExtensionPublisherDeclaration,
   ExtensionRecordHookDeclaration,
   ExtensionSamenessKeyDeclaration,
   ExtensionSearchProviderDeclaration,
@@ -65,12 +67,14 @@ interface Caller {
   extensionKey: string
 }
 
-type Declarations = {
+export type Declarations = {
   importers: ExtensionImporterDeclaration
   exporters: ExtensionExporterDeclaration
   previews: ExtensionPreviewDeclaration
   'search-providers': ExtensionSearchProviderDeclaration
   connectors: ExtensionConnectorDeclaration
+  publishers: ExtensionPublisherDeclaration
+  'notification-channels': ExtensionNotificationChannelDeclaration
   checks: ExtensionCheckDeclaration
   'sameness-keys': ExtensionSamenessKeyDeclaration
   'event-hooks': ExtensionEventHookDeclaration
@@ -82,7 +86,10 @@ type Declarations = {
 }
 
 /** Opens the plugin and the declaration, runs `work`, audits the outcome. */
-async function withItem<TPoint extends keyof Declarations & DataItemPoint, T>(
+export async function withItem<
+  TPoint extends keyof Declarations & DataItemPoint,
+  T,
+>(
   deps: ExtensionRuntimeDeps,
   caller: Caller,
   point: TPoint,
@@ -767,7 +774,7 @@ const requestPlan = z
   .strict()
 
 /** Headers a plugin may not set: the app speaks for itself on those. */
-const FORBIDDEN_HEADERS = new Set([
+export const FORBIDDEN_HEADERS = new Set([
   'host',
   'cookie',
   'set-cookie',
@@ -788,13 +795,19 @@ export interface ConnectorResponse {
 export interface ConnectorFetch {
   (
     url: URL,
-    init: { headers: Record<string, string>; signal: AbortSignal },
+    init: {
+      method?: 'GET' | 'POST' | 'PUT' | 'PATCH'
+      body?: string
+      headers: Record<string, string>
+      signal: AbortSignal
+    },
   ): Promise<{ status: number; body: Uint8Array }>
 }
 
-const defaultFetch: ConnectorFetch = async (url, init) => {
+export const defaultFetch: ConnectorFetch = async (url, init) => {
   const response = await fetch(url, {
-    method: 'GET',
+    method: init.method ?? 'GET',
+    ...(init.body !== undefined ? { body: init.body } : {}),
     redirect: 'manual',
     headers: init.headers,
     signal: init.signal,

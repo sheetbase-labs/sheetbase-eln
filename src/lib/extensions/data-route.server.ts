@@ -5,6 +5,7 @@
  * - `import`: read a file with a plugin importer into a table;
  * - `connector`: pull data in with a plugin connector;
  * - `export`: write rows as a file with a plugin exporter;
+ * - `publish`: send rows to another system with a plugin publisher;
  * - `preview`: show what is inside a file with a plugin preview;
  * - `check`: run a plugin check on a table;
  * - `sameness-key`: work out the key a registry model's same-thing rule gives;
@@ -36,6 +37,7 @@ import {
   runExtensionPreview,
   runExtensionSamenessKey,
 } from './data-runtime.server'
+import { runExtensionPublisher } from './outgoing-runtime.server'
 import {
   defaultRouteDeps,
   failure,
@@ -78,6 +80,16 @@ const bodySchema = z.discriminatedUnion('kind', [
       name: z.string().min(1).max(120),
       rows: z.array(row).max(100_000),
       options: z.record(z.string(), z.unknown()).default({}),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('publish'),
+      extensionKey: id,
+      publisherId: id,
+      name: z.string().max(200).default(''),
+      rows: z.array(row).max(100_000),
+      parameters: z.record(z.string(), z.unknown()).default({}),
     })
     .strict(),
   z
@@ -296,6 +308,22 @@ export async function handleExtensionData(
             deps.runtime,
           ),
         )
+      case 'publish': {
+        if (member.role === 'viewer')
+          return refuse(403, 'Sending data out needs a workspace you can edit.')
+        return reply(
+          await runExtensionPublisher(
+            {
+              ...caller,
+              publisherId: body.publisherId,
+              rows: body.rows,
+              name: body.name,
+              parameters: body.parameters,
+            },
+            deps.runtime,
+          ),
+        )
+      }
       case 'preview':
         return reply(
           await runExtensionPreview(

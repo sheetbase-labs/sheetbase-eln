@@ -145,7 +145,7 @@ describe('readPluginPackage', () => {
 
   it('refuses a package that expands too far before inflating it', async () => {
     const files = readExample('cell-count')
-    const big = 'x = 1\n'.repeat(200_000)
+    const big = 'x = 1\n'.repeat(6_000_000)
     await expect(
       readPluginPackage(zipOf({ ...files, 'python/big.py': big })),
     ).rejects.toThrow(PluginPackageError)

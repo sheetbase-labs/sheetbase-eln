@@ -326,7 +326,7 @@ function PluginRow({
   const { description, author } = install.manifest
   return (
     <TableRow>
-      <TableCell className="max-w-[320px] align-top">
+      <TableCell className="max-w-[320px] py-3 align-top">
         <div className="font-medium text-fg">{install.name}</div>
         <div className="text-caption text-fg-muted">
           {install.version}
@@ -341,7 +341,7 @@ function PluginRow({
           </div>
         ) : null}
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell className="py-3 align-top">
         <Status tone={on ? 'ok' : 'draft'}>
           {t(`plugins.admin.status.${install.status}`)}
         </Status>
@@ -355,8 +355,13 @@ function PluginRow({
             </Status>
           </div>
         ) : null}
+        <div className="mt-2">
+          <Button type="button" size="sm" variant="quiet" onClick={onSettings}>
+            {t('plugins.admin.runtime.button')}
+          </Button>
+        </div>
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell className="py-3 align-top">
         <div className="flex flex-col gap-2">
           {adds.length === 0 ? (
             <span className="text-fg-muted">—</span>
@@ -403,8 +408,8 @@ function PluginRow({
           )}
         </div>
       </TableCell>
-      <TableCell className="align-top">
-        <div className="flex flex-wrap items-center gap-2">
+      <TableCell className="py-3 align-top">
+        <div className="flex items-center gap-2 whitespace-nowrap">
           <Button
             type="button"
             size="sm"
@@ -413,14 +418,6 @@ function PluginRow({
             onClick={() => onToggle(!on)}
           >
             {on ? t('plugins.admin.turnOff') : t('plugins.admin.turnOn')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={onSettings}
-          >
-            {t('plugins.admin.runtime.button')}
           </Button>
           <Button
             type="button"

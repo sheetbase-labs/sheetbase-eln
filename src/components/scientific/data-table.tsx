@@ -95,6 +95,8 @@ interface DataTableProps<TData extends RowData> {
   data: TData[]
   enableSorting?: boolean
   enableRowSelection?: boolean
+  /** Told which rows are chosen whenever the choice (or the data) changes. */
+  onSelectionChange?: (rows: TData[]) => void
   onRowClick?: (row: TData) => void
   toolbar?: React.ReactNode
   className?: string
@@ -113,6 +115,7 @@ function DataTable<TData extends RowData>({
   data,
   enableSorting = true,
   enableRowSelection = false,
+  onSelectionChange,
   onRowClick,
   toolbar,
   className,
@@ -146,6 +149,16 @@ function DataTable<TData extends RowData>({
     onSortingChange: setSorting,
     onRowSelectionChange: setRowSelection,
   })
+
+  React.useEffect(() => {
+    if (!onSelectionChange) return
+    onSelectionChange(
+      getRowId
+        ? data.filter((row) => rowSelection[getRowId(row)])
+        : data.filter((_, index) => rowSelection[String(index)]),
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowSelection, data])
 
   // v9's `useTable` returns a new object whenever table state changes, so the
   // reset must not depend on the table instance: an effect that did would

@@ -37,6 +37,11 @@ import {
 } from './models-data'
 import type { RecordModelRecord } from './models-data'
 import { SubtypeObjects } from './model-subtype-ui'
+import {
+  PluginActionBar,
+  usePluginTableHooks,
+} from '#/components/extensions/table-hooks'
+import { CellDisplayView } from '#/components/extensions/cell-display'
 import { t } from '#/copy'
 
 /**
@@ -117,6 +122,9 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
     verdictByRecord,
   ])
 
+  const [selected, setSelected] = useState<RecordModelRecord[]>([])
+  const plugin = usePluginTableHooks({ modelKey, fields, records })
+
   const columns = useMemo<
     ColumnDef<DataTableFeatures, RecordModelRecord, unknown>[]
   >(() => {
@@ -181,16 +189,25 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
               field,
               recordFieldValue(record, field.fieldName),
             ),
-          cell: ({ getValue }) => (
-            <span className="block max-w-[240px] truncate">
-              {String(getValue() ?? '')}
-            </span>
-          ),
+          cell: ({ getValue, row }) => {
+            const display = plugin.cellDisplay(field)
+            return display ? (
+              <CellDisplayView
+                spec={display}
+                value={recordFieldValue(row.original, field.fieldName)}
+              />
+            ) : (
+              <span className="block max-w-[240px] truncate">
+                {String(getValue() ?? '')}
+              </span>
+            )
+          },
           meta: { className: 'max-w-[240px]' },
         }),
       ),
+      ...plugin.columns,
     ]
-  }, [fields, modelKey, judged, verdictByRecord])
+  }, [fields, modelKey, judged, verdictByRecord, plugin])
 
   const exportCsv = () => {
     const csv = recordModelCsv(visible, fields)
@@ -336,6 +353,13 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
           name: model.data?.name ?? 'record',
         })}
       </p>
+      <PluginActionBar
+        actions={plugin.actions}
+        selected={selected}
+        fields={fields}
+        runner={plugin.runner}
+      />
+      {plugin.runner.dialog}
       <DataTable
         label={t('library.models.shared.nameRecords', {
           name:
@@ -345,6 +369,8 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         data={visible}
         getRowId={(record) => record.id}
         enableColumnVisibility
+        enableRowSelection={plugin.actions.length > 0}
+        onSelectionChange={setSelected}
         toolbar={toolbar}
         emptyMessage={
           loading

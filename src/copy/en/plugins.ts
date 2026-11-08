@@ -130,6 +130,8 @@ export const plugins = {
       'This block comes from the {plugin} plugin, which is switched off or removed. Its data is kept.',
   },
   hooks: {
+    yes: 'Yes',
+    no: 'No',
     columnFailed: '{column} could not be worked out: {reason}',
     columnLoading: 'Working out {column}…',
     actionRunning: '{action}…',

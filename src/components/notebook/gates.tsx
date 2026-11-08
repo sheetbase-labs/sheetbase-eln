@@ -38,6 +38,8 @@ import type {
   RecordGate,
 } from '#/lib/experiment-gates'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { runPluginGateCheck } from '#/lib/extensions/plugin-files'
+import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
 import { fetchQcSeries, qcKeys } from '#/lib/run-qc'
 import { useUserNames } from '#/lib/user-names'
 import { cn } from '#/lib/utils'
@@ -206,6 +208,13 @@ export function describeCondition(
             series: condition.label.trim(),
           })
         : t('notebook.gates.describe.qc_in_control_any')
+    case 'plugin_check': {
+      const block = context.blocks.find((b) => b.id === condition.blockId)
+      return t('notebook.gates.describe.plugin_check', {
+        check: condition.label?.trim() || condition.checkId,
+        table: blockTitle(block, 1),
+      })
+    }
   }
 }
 
@@ -338,6 +347,12 @@ export function GateBlockView({
 
   const headline = gateHeadline(gate, conditions, context)
   const action = firstAction(gate, conditions, context)
+  const pluginCheck = gate.conditions.some(
+    (status, index) =>
+      !status.met && conditions[index]?.kind === 'plugin_check',
+  )
+    ? conditions.find((c) => c.kind === 'plugin_check')
+    : undefined
   const canGoOn =
     state.canEdit && mode === 'warn' && !gate.met && !gate.overridden
   const canEdit = state.canEdit && !fromTemplate
@@ -420,6 +435,12 @@ export function GateBlockView({
             {action.label}
           </Button>
         ) : null}
+        {pluginCheck && state.canEdit ? (
+          <RunPluginCheckButton
+            recordId={state.recordId}
+            conditions={conditions}
+          />
+        ) : null}
         {canGoOn ? (
           <Button onClick={() => state.goOn(gate)}>
             {t('notebook.gates.goOnAnyway')}
@@ -443,6 +464,52 @@ export function GateBlockView({
         ) : null}
       </div>
     </div>
+  )
+}
+
+/** Runs the plugin checks a gate waits on, then asks the database again. */
+function RunPluginCheckButton({
+  recordId,
+  conditions,
+}: {
+  recordId: string
+  conditions: readonly GateCondition[]
+}) {
+  const queryClient = useQueryClient()
+  const run = useMutation({
+    mutationFn: async () => {
+      const outcomes: string[] = []
+      for (const condition of conditions) {
+        if (condition.kind !== 'plugin_check') continue
+        const outcome = await runPluginGateCheck({
+          recordId,
+          blockId: condition.blockId,
+          extensionKey: condition.extensionKey,
+          checkId: condition.checkId,
+          columns: condition.columns,
+        })
+        outcomes.push(outcome.status)
+      }
+      return outcomes
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: gateQueryKeys.forRecord(recordId),
+      })
+    },
+    onError: (error) =>
+      toast.error(
+        t('notebook.gates.checkFailed', {
+          reason: error instanceof Error ? error.message : '',
+        }),
+      ),
+  })
+  return (
+    <Button disabled={run.isPending} onClick={() => run.mutate()}>
+      {run.isPending
+        ? t('notebook.gates.checkRunning')
+        : t('notebook.gates.runCheck')}
+    </Button>
   )
 }
 
@@ -614,6 +681,7 @@ const ALL_KINDS: readonly Kind[] = [
   'field_set',
   'date_reached',
   'qc_in_control',
+  'plugin_check',
 ]
 
 /** A first condition of a kind, pointed at something that exists when it can be. */
@@ -646,6 +714,14 @@ function blankCondition(kind: Kind, targets: GateTargets): GateCondition {
       return { kind, date: new Date().toISOString().slice(0, 10) }
     case 'qc_in_control':
       return { kind }
+    case 'plugin_check':
+      return {
+        kind,
+        blockId: targets.tables.at(-1)?.id ?? '',
+        extensionKey: '',
+        checkId: '',
+        columns: {},
+      }
   }
 }
 
@@ -668,6 +744,10 @@ function conditionIsComplete(condition: GateCondition): boolean {
       return /^\d{4}-\d{2}-\d{2}$/.test(condition.date)
     case 'qc_in_control':
       return true
+    case 'plugin_check':
+      return Boolean(
+        condition.blockId && condition.extensionKey && condition.checkId,
+      )
   }
 }
 
@@ -709,6 +789,129 @@ function QcSeriesSelect({
         </option>
       ))}
     </Select>
+  )
+}
+
+/**
+ * Which plugin check a gate waits on, which table it looks at, and which table
+ * column feeds each thing the check reads. The first check and the columns that
+ * share a name with its inputs are filled in so a common case is one click.
+ */
+function PluginCheckPicker({
+  condition,
+  targets,
+  onChange,
+}: {
+  condition: Extract<GateCondition, { kind: 'plugin_check' }>
+  targets: GateTargets
+  onChange: (next: GateCondition) => void
+}) {
+  const points = useExtensionPoints()
+  const checks = points.data.checks
+  const table = targets.tables.find((tbl) => tbl.id === condition.blockId)
+  const active = checks.find(
+    (item) =>
+      item.extensionKey === condition.extensionKey &&
+      item.id === condition.checkId,
+  )
+  const bind = (
+    check: (typeof checks)[number],
+    tableId: string,
+  ): GateCondition => {
+    const columns = targets.tables.find((tbl) => tbl.id === tableId)?.columns
+    const mapped: Record<string, string> = {}
+    for (const input of check.declaration.inputs) {
+      const match = columns?.find(
+        (column) =>
+          column.trim().toLowerCase() === input.label.trim().toLowerCase() ||
+          column.trim().toLowerCase() === input.name.toLowerCase(),
+      )
+      if (match) mapped[input.name] = match
+    }
+    return {
+      kind: 'plugin_check',
+      blockId: tableId,
+      extensionKey: check.extensionKey,
+      checkId: check.id,
+      label: check.declaration.title,
+      columns: mapped,
+    }
+  }
+  React.useEffect(() => {
+    if (!condition.checkId && checks[0])
+      onChange(bind(checks[0], condition.blockId))
+  }, [condition.checkId, checks.length])
+  return (
+    <>
+      <Select
+        aria-label={t('notebook.gates.dialog.pluginCheckLabel')}
+        value={active ? `${active.extensionKey}/${active.id}` : ''}
+        className="w-auto min-w-48"
+        onChange={(event) => {
+          const next = checks.find(
+            (item) => `${item.extensionKey}/${item.id}` === event.target.value,
+          )
+          if (next) onChange(bind(next, condition.blockId))
+        }}
+      >
+        <option value="" disabled>
+          {t('notebook.gates.dialog.pickPluginCheck')}
+        </option>
+        {checks.map((item) => (
+          <option
+            key={`${item.extensionKey}/${item.id}`}
+            value={`${item.extensionKey}/${item.id}`}
+          >
+            {item.declaration.title}
+          </option>
+        ))}
+      </Select>
+      <Select
+        aria-label={t('notebook.gates.dialog.tableLabel')}
+        value={condition.blockId}
+        className="w-auto min-w-40"
+        onChange={(event) =>
+          active
+            ? onChange(bind(active, event.target.value))
+            : onChange({ ...condition, blockId: event.target.value })
+        }
+      >
+        <option value="" disabled>
+          {t('notebook.gates.dialog.pickTable')}
+        </option>
+        {targets.tables.map((tbl) => (
+          <option key={tbl.id} value={tbl.id}>
+            {tbl.label}
+          </option>
+        ))}
+      </Select>
+      {active?.declaration.inputs.map((input) => (
+        <label key={input.name} className="flex items-center gap-1.5">
+          <span className="text-label text-fg-muted">{input.label}</span>
+          <Select
+            aria-label={input.label}
+            value={condition.columns[input.name] ?? ''}
+            className="w-auto min-w-32"
+            onChange={(event) =>
+              onChange({
+                ...condition,
+                columns: {
+                  ...condition.columns,
+                  [input.name]: event.target.value,
+                },
+              })
+            }
+          >
+            <option value="">{t('notebook.gates.dialog.pickColumn')}</option>
+            {(table?.columns ?? []).map((column) => (
+              <option key={column} value={column}>
+                {column}
+              </option>
+            ))}
+          </Select>
+        </label>
+      ))}
+    </>
   )
 }
 
@@ -895,6 +1098,13 @@ function ConditionRow({
         {condition.kind === 'qc_in_control' ? (
           <QcSeriesSelect condition={condition} onChange={onChange} />
         ) : null}
+        {condition.kind === 'plugin_check' ? (
+          <PluginCheckPicker
+            condition={condition}
+            targets={targets}
+            onChange={onChange}
+          />
+        ) : null}
         {condition.kind === 'date_reached' ? (
           <Input
             aria-label={t('notebook.gates.dialog.dateLabel')}
@@ -949,7 +1159,10 @@ export function GateDialog({
   onRemove?: () => void | Promise<void>
   onClose: () => void
 }) {
+  const pluginChecks = useExtensionPoints().data.checks
   const usable = kinds.filter((kind) => {
+    if (kind === 'plugin_check')
+      return targets.tables.length > 0 && pluginChecks.length > 0
     if (kind === 'table_filled') return targets.tables.length > 0
     if (kind === 'step_done') return targets.steps.length > 0
     if (kind === 'part_done') return targets.parts.length > 0

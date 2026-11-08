@@ -916,6 +916,7 @@ export function RecordNotebookPage({
             source={panel.declaration.ui ? 'ui' : 'screen'}
             context={{ recordId: record.id, kind: record.kind }}
             operations={operationAccess(pluginPoints, panel.extensionKey)}
+            scopes={pluginPoints.installed.get(panel.extensionKey)?.scopes}
           />
         ),
       })

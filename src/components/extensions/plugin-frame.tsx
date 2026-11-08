@@ -300,7 +300,7 @@ export function PluginFrame(props: PluginFrameProps) {
                 const allowed = await new Promise<boolean>((resolve) =>
                   setAsking({
                     operation: action.replace(/_/g, ' '),
-                    detail: JSON.stringify(input.arguments ?? {}).slice(0, 300),
+                    detail: '',
                     decide: resolve,
                   }),
                 )

@@ -34,6 +34,8 @@ export const EXTENSION_RUNNER_POINTS = [
   'checks',
   'search-providers',
   'connectors',
+  'publishers',
+  'notification-channels',
   'importers',
   'exporters',
   'previews',

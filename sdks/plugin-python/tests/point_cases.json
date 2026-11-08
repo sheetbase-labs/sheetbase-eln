@@ -3451,5 +3451,713 @@
     "files": {
       "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
     }
+  },
+  {
+    "name": "publishers: a valid declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "publishers": [
+          {
+            "id": "send",
+            "title": "Send",
+            "description": "Sends rows.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [
+              "api.example.org"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "project",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "publishers: no hosts",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "publishers": [
+          {
+            "id": "send",
+            "title": "Send",
+            "description": "Sends rows.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "project",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "publishers: an address instead of a host",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "publishers": [
+          {
+            "id": "send",
+            "title": "Send",
+            "description": "Sends rows.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [
+              "https://api.example.org"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "project",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "publishers: a setting without secret",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "publishers": [
+          {
+            "id": "send",
+            "title": "Send",
+            "description": "Sends rows.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [
+              "api.example.org"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "project",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "publishers: no parse function",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "publishers": [
+          {
+            "id": "send",
+            "title": "Send",
+            "description": "Sends rows.",
+            "run": "m:f",
+            "hosts": [
+              "api.example.org"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "project",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "publishers: a parameter called rows",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "publishers": [
+          {
+            "id": "send",
+            "title": "Send",
+            "description": "Sends rows.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [
+              "api.example.org"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "rows",
+                "type": "json",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "publishers: a parameter called name",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "publishers": [
+          {
+            "id": "send",
+            "title": "Send",
+            "description": "Sends rows.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [
+              "api.example.org"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "name",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "publishers: no description",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "publishers": [
+          {
+            "id": "send",
+            "title": "Send",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [
+              "api.example.org"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "project",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "publishers: no settings is fine",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "publishers": [
+          {
+            "id": "send",
+            "title": "Send",
+            "description": "Sends rows.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [
+              "api.example.org"
+            ],
+            "settings": [],
+            "parameters": [
+              {
+                "name": "project",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "notification-channels: a valid declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "notification-channels": [
+          {
+            "id": "slack",
+            "title": "Slack",
+            "description": "Sends a Slack message.",
+            "run": "m:f",
+            "hosts": [
+              "slack.com"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "Bot token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "destination": {
+              "label": "Slack member ID",
+              "hint": "U01ABCDEF"
+            }
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "notification-channels: a valid declaration with a parse function",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "notification-channels": [
+          {
+            "id": "slack",
+            "title": "Slack",
+            "description": "Sends a Slack message.",
+            "run": "m:f",
+            "hosts": [
+              "slack.com"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "Bot token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "destination": {
+              "label": "Slack member ID",
+              "hint": "U01ABCDEF"
+            },
+            "parse": "m:p"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "notification-channels: no destination",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "notification-channels": [
+          {
+            "id": "slack",
+            "title": "Slack",
+            "description": "Sends a Slack message.",
+            "run": "m:f",
+            "hosts": [
+              "slack.com"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "Bot token",
+                "secret": true,
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "notification-channels: an empty destination label",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "notification-channels": [
+          {
+            "id": "slack",
+            "title": "Slack",
+            "description": "Sends a Slack message.",
+            "run": "m:f",
+            "hosts": [
+              "slack.com"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "Bot token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "destination": {
+              "label": ""
+            }
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "notification-channels: no hosts",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "notification-channels": [
+          {
+            "id": "slack",
+            "title": "Slack",
+            "description": "Sends a Slack message.",
+            "run": "m:f",
+            "hosts": [],
+            "settings": [
+              {
+                "name": "token",
+                "label": "Bot token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "destination": {
+              "label": "Slack member ID",
+              "hint": "U01ABCDEF"
+            }
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "notification-channels: a parse function that is not a function",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "notification-channels": [
+          {
+            "id": "slack",
+            "title": "Slack",
+            "description": "Sends a Slack message.",
+            "run": "m:f",
+            "hosts": [
+              "slack.com"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "Bot token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "destination": {
+              "label": "Slack member ID",
+              "hint": "U01ABCDEF"
+            },
+            "parse": "nope"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "notification-channels: no description",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "notification-channels": [
+          {
+            "id": "slack",
+            "title": "Slack",
+            "run": "m:f",
+            "hosts": [
+              "slack.com"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "Bot token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "destination": {
+              "label": "Slack member ID",
+              "hint": "U01ABCDEF"
+            }
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "a name used by an operation and a publisher is refused",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "operations": [
+          {
+            "id": "send",
+            "title": "Send",
+            "description": "x",
+            "access": "read",
+            "inputs": [
+              {
+                "name": "a",
+                "type": "text",
+                "required": true
+              }
+            ],
+            "outputs": [
+              {
+                "name": "b",
+                "type": "text",
+                "required": true
+              }
+            ],
+            "run": "m:f"
+          }
+        ],
+        "publishers": [
+          {
+            "id": "send",
+            "title": "Send",
+            "description": "Sends rows.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [
+              "api.example.org"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "project",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
   }
 ]

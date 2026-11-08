@@ -1266,7 +1266,7 @@ export const blocks = api.table(
   (table) => [
     check(
       'chk_blocks_type',
-      sql`${table.type} IN ('rich_text', 'checklist', 'linked_record', 'callout', 'table', 'sheet', 'chart', 'analysis', 'plate_map', 'file', 'metric', 'procedure_step', 'protocol_reference', 'materials', 'pipeline_output', 'signature_request', 'corrective_actions', 'conclusion', 'dataset_import', 'structure', 'reaction', 'code_cell', 'gate', 'sequence')`,
+      sql`${table.type} IN ('rich_text', 'checklist', 'linked_record', 'callout', 'table', 'sheet', 'chart', 'analysis', 'plate_map', 'file', 'metric', 'procedure_step', 'protocol_reference', 'materials', 'pipeline_output', 'signature_request', 'corrective_actions', 'conclusion', 'dataset_import', 'structure', 'reaction', 'code_cell', 'gate', 'sequence', 'plugin')`,
     ),
     index('idx_blocks_record_id').on(table.recordId),
     // (record_id, order) is the hot loading path for notebook render.
@@ -9398,7 +9398,7 @@ export const extensions = api.table(
     ),
     check(
       'chk_extensions_disabled_points',
-      sql`${table.disabledPoints} <@ ARRAY['operations', 'analysis-kinds']::text[]`,
+      sql`${table.disabledPoints} <@ ARRAY['operations', 'analysis-kinds', 'blocks', 'panels', 'table-cells', 'columns', 'row-actions', 'field-types']::text[]`,
     ),
   ],
 )
@@ -9429,6 +9429,27 @@ export const extensionPackages = internal.table('extension_packages', {
     onDelete: 'set null',
   }),
 })
+
+/** Which plugin field type a model field was given; the field keeps the type's checks as its own validation. */
+export const fieldPluginTypes = api.table(
+  'field_plugin_types',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    fieldName: text('field_name').notNull(),
+    pluginKey: text('plugin_key').notNull(),
+    typeId: text('type_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    createdByUserId: text('created_by_user_id').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.kind, table.fieldName] }),
+  ],
+)
 
 export const connectorRuns = api.table(
   'connector_runs',

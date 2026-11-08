@@ -11,7 +11,7 @@
 import hostSource from '../../../sdks/plugin-python/src/sheetbase_plugin/host.py?raw'
 import initSource from '../../../sdks/plugin-python/src/sheetbase_plugin/__init__.py?raw'
 
-/** The step source for a package: `parameters.kind` picks an operation or an analysis. */
+/** The step source for a package: `parameters.kind` picks an operation, an analysis, a screen, a column or an action. */
 export function pluginStatement(files: Record<string, string>): string {
   const modules: Record<string, string> = {
     'sheetbase_plugin/__init__.py': initSource,
@@ -32,8 +32,15 @@ _host["install"](_FILES)
 
 
 def transform(inputs, parameters):
-    if parameters["kind"] == "analysis":
+    kind = parameters["kind"]
+    if kind == "analysis":
         return _host["call_analysis"](parameters["entry"], inputs["data"])
+    if kind == "screen":
+        return [_host["call_screen"](parameters["entry"], parameters["input"])]
+    if kind == "column":
+        return [_host["call_column"](parameters["entry"], inputs["data"])]
+    if kind == "action":
+        return [_host["call_action"](parameters["entry"], parameters["input"])]
     return [_host["call_operation"](parameters["entry"], parameters["input"])]
 `
 }

@@ -20,6 +20,7 @@ import {
   invokeExtension,
   openExtensionPoint,
   runExtensionAnalysis,
+  runExtensionHook,
   defaultDeps,
 } from './runtime.server'
 import type { ExtensionRuntimeDeps } from './runtime.server'
@@ -28,7 +29,52 @@ export const EXTENSION_RUN_BODY_BYTES = 8 * 1024 * 1024
 
 const idPattern = /^[a-z][a-z0-9-]{0,48}$/
 
+const rowsSchema = z.array(z.record(z.string(), z.unknown())).min(1).max(5000)
+
 const bodySchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('screen'),
+      extensionKey: z.string().regex(idPattern),
+      point: z.enum(['blocks', 'panels']),
+      itemId: z.string().regex(idPattern),
+      context: z.record(z.string(), z.unknown()),
+      state: z.unknown().optional(),
+      event: z
+        .object({
+          action: z.string().regex(/^[a-z][a-z0-9_-]{0,47}$/),
+          values: z.record(z.string(), z.unknown()),
+        })
+        .strict()
+        .nullable()
+        .optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('column'),
+      extensionKey: z.string().regex(idPattern),
+      itemId: z.string().regex(idPattern),
+      rows: rowsSchema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('column-action'),
+      extensionKey: z.string().regex(idPattern),
+      itemId: z.string().regex(idPattern),
+      actionId: z.string().regex(idPattern),
+      rows: rowsSchema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('row-action'),
+      extensionKey: z.string().regex(idPattern),
+      itemId: z.string().regex(idPattern),
+      rows: rowsSchema,
+    })
+    .strict(),
   z
     .object({
       kind: z.literal('operation'),
@@ -134,6 +180,48 @@ export async function handleExtensionRun(
         deps.runtime,
       )
       return reply({ output: outcome.output, durationMs: outcome.durationMs })
+    }
+    if (
+      body.kind === 'screen' ||
+      body.kind === 'column' ||
+      body.kind === 'column-action' ||
+      body.kind === 'row-action'
+    ) {
+      const base = {
+        workspaceId: member.workspaceId,
+        actorUserId: session.user.id,
+        extensionKey: body.extensionKey,
+      }
+      const outcome = await runExtensionHook(
+        body.kind === 'screen'
+          ? {
+              ...base,
+              kind: 'screen',
+              point: body.point,
+              itemId: body.itemId,
+              context: body.context,
+              state: body.state,
+              event: body.event ?? null,
+            }
+          : body.kind === 'column'
+            ? { ...base, kind: 'column', itemId: body.itemId, rows: body.rows }
+            : body.kind === 'column-action'
+              ? {
+                  ...base,
+                  kind: 'column-action',
+                  itemId: body.itemId,
+                  actionId: body.actionId,
+                  rows: body.rows,
+                }
+              : {
+                  ...base,
+                  kind: 'row-action',
+                  itemId: body.itemId,
+                  rows: body.rows,
+                },
+        deps.runtime,
+      )
+      return reply(outcome)
     }
     const outcome = await runExtensionAnalysis(
       {

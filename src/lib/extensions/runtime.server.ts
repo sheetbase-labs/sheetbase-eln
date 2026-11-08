@@ -23,6 +23,12 @@ import type {
   ExtensionRunnerPoint,
 } from './points'
 import { pluginStatement } from './python-host.server'
+import { parseActionResult, parseScreenResult } from './screens'
+import type { ActionResult, ScreenResult } from './screens'
+import type {
+  ExtensionColumnDeclaration,
+  ExtensionColumnValueType,
+} from './hooks'
 
 export class ExtensionRunError extends Error {
   readonly code: string
@@ -428,6 +434,238 @@ export async function runExtensionAnalysis(
       durationMs: deps.now() - started,
       error: error instanceof Error ? error.message : String(error),
     })
+    throw error
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Screens, columns and actions.
+// ---------------------------------------------------------------------------
+
+const MAX_HOOK_ROWS = 5000
+const MAX_CONTEXT_BYTES = 1024 * 1024
+
+export type HookArgs = {
+  workspaceId: string
+  actorUserId: string
+  extensionKey: string
+} & (
+  | {
+      kind: 'screen'
+      point: 'blocks' | 'panels'
+      itemId: string
+      context: Record<string, unknown>
+      state: unknown
+      event: { action: string; values: Record<string, unknown> } | null
+    }
+  | {
+      kind: 'column'
+      itemId: string
+      rows: Array<Record<string, unknown>>
+    }
+  | {
+      kind: 'column-action'
+      itemId: string
+      actionId: string
+      rows: Array<Record<string, unknown>>
+    }
+  | {
+      kind: 'row-action'
+      itemId: string
+      rows: Array<Record<string, unknown>>
+    }
+)
+
+export type HookOutcome =
+  | ({ kind: 'screen'; durationMs: number } & ScreenResult)
+  | {
+      kind: 'column'
+      values: Array<string | number | boolean | null>
+      value: ExtensionColumnValueType
+      durationMs: number
+    }
+  | ({ kind: 'action'; durationMs: number } & ActionResult)
+
+function columnValue(
+  type: ExtensionColumnValueType,
+  value: unknown,
+): string | number | boolean | null {
+  if (value === null || value === undefined) return null
+  const ok =
+    (type === 'number' &&
+      typeof value === 'number' &&
+      Number.isFinite(value)) ||
+    ((type === 'text' || type === 'svg') &&
+      typeof value === 'string' &&
+      value.length <= 100_000) ||
+    (type === 'boolean' && typeof value === 'boolean')
+  if (!ok)
+    throw new ExtensionRunError(
+      'bad_answer',
+      `The plugin’s column gave a value that isn’t ${type === 'number' ? 'a number' : type === 'boolean' ? 'true or false' : 'text'}.`,
+    )
+  return value as string | number | boolean
+}
+
+function checkRows(rows: Array<Record<string, unknown>>, inputs?: string[]) {
+  if (rows.length > MAX_HOOK_ROWS)
+    throw new ExtensionRunError(
+      'bad_input',
+      `That is more than ${MAX_HOOK_ROWS} rows, which is too many to send to a plugin at once.`,
+    )
+  if (!inputs) return rows
+  const keep = new Set(['id', ...inputs])
+  return rows.map((row) =>
+    Object.fromEntries(Object.entries(row).filter(([key]) => keep.has(key))),
+  )
+}
+
+/** Runs a screen, a computed column, or a row or column action of a plugin. */
+export async function runExtensionHook(
+  args: HookArgs,
+  deps: ExtensionRuntimeDeps = defaultDeps(),
+): Promise<HookOutcome> {
+  const point =
+    args.kind === 'screen'
+      ? args.point
+      : args.kind === 'row-action'
+        ? 'row-actions'
+        : 'columns'
+  const resolved = await openExtensionPoint(
+    deps,
+    args.workspaceId,
+    args.extensionKey,
+    point,
+  )
+  const gone = () =>
+    new ExtensionRunError(
+      'not_declared',
+      'That plugin doesn’t offer this any more.',
+    )
+  const contributions = resolved.manifest.contributions
+  let entry: string
+  let job: Pick<PythonTransformInput, 'inputs' | 'parameters'>
+  let column: ExtensionColumnDeclaration | undefined
+  let rowsGiven: Array<Record<string, unknown>> = []
+  if (args.kind === 'screen') {
+    const declared = (
+      args.point === 'blocks' ? contributions.blocks : contributions.panels
+    )?.find((item) => item.id === args.itemId)
+    if (!declared?.screen) throw gone()
+    if (
+      new TextEncoder().encode(JSON.stringify([args.context, args.state]))
+        .length > MAX_CONTEXT_BYTES
+    )
+      throw new ExtensionRunError(
+        'bad_input',
+        'That is too much data for a screen.',
+      )
+    entry = declared.screen.entry
+    job = {
+      inputs: {},
+      parameters: {
+        kind: 'screen',
+        entry,
+        input: {
+          context: args.context,
+          state: args.state ?? null,
+          event: args.event,
+        },
+      },
+    }
+  } else if (args.kind === 'row-action') {
+    const declared = contributions['row-actions']?.find(
+      (item) => item.id === args.itemId,
+    )
+    if (!declared) throw gone()
+    if (declared.selection === 'one' && args.rows.length !== 1)
+      throw new ExtensionRunError(
+        'bad_input',
+        'Choose exactly one row for this.',
+      )
+    if (args.rows.length === 0)
+      throw new ExtensionRunError('bad_input', 'Choose at least one row.')
+    rowsGiven = checkRows(args.rows, declared.inputs)
+    entry = declared.runner.entry
+    job = {
+      inputs: {},
+      parameters: { kind: 'action', entry, input: { rows: rowsGiven } },
+    }
+  } else {
+    column = contributions.columns?.find((item) => item.id === args.itemId)
+    if (!column) throw gone()
+    rowsGiven = checkRows(args.rows, column.inputs)
+    if (args.kind === 'column') {
+      entry = column.runner.entry
+      job = {
+        inputs: { data: rowsGiven },
+        parameters: { kind: 'column', entry },
+      }
+    } else {
+      const action = column.actions?.find((item) => item.id === args.actionId)
+      if (!action) throw gone()
+      entry = action.runner.entry
+      job = {
+        inputs: {},
+        parameters: { kind: 'action', entry, input: { rows: rowsGiven } },
+      }
+    }
+  }
+  const itemId = args.itemId
+  const started = deps.now()
+  const record = (ok: boolean, error?: unknown) =>
+    audit(deps, {
+      workspaceId: args.workspaceId,
+      actorUserId: args.actorUserId,
+      resolved,
+      point,
+      itemId,
+      ok,
+      runner: 'python',
+      durationMs: deps.now() - started,
+      ...(error
+        ? { error: error instanceof Error ? error.message : String(error) }
+        : {}),
+    })
+  try {
+    const result = await runPackage(deps, args.workspaceId, resolved, job)
+    const first = (result.rows.at(0) ?? {}) as Record<string, unknown>
+    const durationMs = deps.now() - started
+    let outcome: HookOutcome
+    if (args.kind === 'screen') {
+      const parsed = parseScreenResult(first)
+      if (!parsed.ok)
+        throw new ExtensionRunError(
+          'bad_answer',
+          `The plugin’s screen can’t be drawn: ${parsed.errors.slice(0, 3).join('; ')}`,
+        )
+      outcome = { kind: 'screen', durationMs, ...parsed.result }
+    } else if (args.kind === 'column') {
+      const values = first.values
+      if (!Array.isArray(values) || values.length !== rowsGiven.length)
+        throw new ExtensionRunError(
+          'bad_answer',
+          'The plugin’s column has to give one value for every row.',
+        )
+      outcome = {
+        kind: 'column',
+        values: values.map((value) => columnValue(column!.value, value)),
+        value: column!.value,
+        durationMs,
+      }
+    } else {
+      const parsed = parseActionResult(first)
+      if (!parsed.ok)
+        throw new ExtensionRunError(
+          'bad_answer',
+          `The plugin’s answer can’t be used: ${parsed.errors.slice(0, 3).join('; ')}`,
+        )
+      outcome = { kind: 'action', durationMs, ...parsed.result }
+    }
+    await record(true)
+    return outcome
+  } catch (error) {
+    await record(false, error)
     throw error
   }
 }

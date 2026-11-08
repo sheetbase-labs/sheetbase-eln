@@ -70,6 +70,7 @@ describe('editable types', () => {
       'reaction',
       'code_cell',
       'sequence',
+      'plugin',
     ])
     for (const type of ['table', 'sheet'] as const) {
       expect(isEditableBlockType(type)).toBe(false)

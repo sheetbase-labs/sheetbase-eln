@@ -32,6 +32,12 @@ import {
 import type { PluginPackage } from './package'
 import { describeRunnerAdds } from './runner-points'
 import type { ExtensionAdds } from './runner-points'
+import {
+  databaseStore,
+  ensureEnvironment,
+  runnerEnvironments,
+} from './runtime-settings.server'
+import type { EnvironmentRunner, RuntimeStore } from './runtime-settings.server'
 
 export interface PluginInstallDeps {
   auth: SessionAuthDeps
@@ -43,6 +49,8 @@ export interface PluginInstallDeps {
     userId: string
     pkg: PluginPackage
   }) => Promise<void>
+  /** Where the plugin's Python settings are kept, and the runner that installs its packages. */
+  runtime?: { store: RuntimeStore; runner: EnvironmentRunner }
 }
 
 export interface PluginCheckResult {
@@ -56,6 +64,8 @@ export interface PluginCheckResult {
   fileCount: number
   size: number
   sha256: string
+  /** The Python packages it installs and the hosts it asks to reach: what the administrator approves. */
+  python: { requirements: string[]; network: string[] }
   /** The install already in this workspace with the same plugin id, if any. */
   existing: { key: string; version: string; status: string } | null
   /** Contributions the new version adds and drops compared with the existing one. */
@@ -82,6 +92,10 @@ export function describePlugin(
     description: pkg.manifest.description ?? '',
     author: pkg.manifest.author ?? null,
     permissions: pkg.manifest.scopes,
+    python: {
+      requirements: pkg.manifest.python?.requirements ?? [],
+      network: pkg.manifest.python?.network ?? [],
+    },
     adds,
     fileCount: Object.keys(pkg.files).length,
     size: pkg.size,
@@ -215,6 +229,18 @@ export async function handlePluginInstall(
     userId: context.userId,
     pkg,
   })
+  // Install the plugin's Python packages now, so no call ever waits on pip. The
+  // runner builds in the background; Settings → Plugins shows where it stands.
+  const runtime = deps.runtime
+  if (runtime) {
+    const row = await runtime.store.load(context.workspaceId, installed.id)
+    if (row)
+      await ensureEnvironment(
+        { store: runtime.store, runner: runtime.runner },
+        context.workspaceId,
+        row,
+      ).catch(() => undefined)
+  }
   return Response.json({ plugin: summary, extension: installed })
 }
 
@@ -222,6 +248,7 @@ function defaultDeps(): PluginInstallDeps {
   return {
     auth: realSessionAuthDeps,
     makeClient: createServerDataClient,
+    runtime: { store: databaseStore(), runner: runnerEnvironments },
     savePackage: async ({ workspaceId, extensionId, userId, pkg }) => {
       const { db } = await import('#/db/client.server')
       const { extensionPackages } = await import('#/db/schema')
@@ -233,14 +260,19 @@ function defaultDeps(): PluginInstallDeps {
           sha256: pkg.sha256,
           size: pkg.size,
           files: pkg.files,
+          requirements: pkg.manifest.python?.requirements ?? [],
+          networkHosts: pkg.manifest.python?.network ?? [],
           uploadedByUserId: userId,
         })
         .onConflictDoUpdate({
           target: extensionPackages.extensionId,
+          // The administrator's own limits are not in this list: an update keeps them.
           set: {
             sha256: pkg.sha256,
             size: pkg.size,
             files: pkg.files,
+            requirements: pkg.manifest.python?.requirements ?? [],
+            networkHosts: pkg.manifest.python?.network ?? [],
             uploadedByUserId: userId,
             updatedAt: new Date(),
           },

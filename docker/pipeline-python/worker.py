@@ -8,12 +8,15 @@ import platform
 import re
 import sys
 
+import os
+
+# What a pipeline step gets. A plugin call carries its own `limits` (set per
+# plugin by an administrator), which replace these for that call.
 MAX_ROWS = 100_000
 MAX_CELLS = 1_000_000
 MAX_BYTES = 32 * 1024 * 1024
+MAX_FIELDS = 256
 MAX_LOG_BYTES = 64 * 1024
-# Room kept free for the truncation marker so the logs always fit the limit.
-LOG_BUDGET = MAX_LOG_BYTES - 256
 MAX_PROBLEMS = 5
 
 REQUIREMENT = re.compile(r"^([A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)==([A-Za-z0-9](?:[A-Za-z0-9.!+_-]*[A-Za-z0-9])?)$")
@@ -29,18 +32,21 @@ class ContractError(ValueError):
 class BoundedLog(io.StringIO):
     """Captures print output. Past the limit it stops recording, it does not fail the step."""
 
-    def __init__(self):
+    def __init__(self, max_bytes=MAX_LOG_BYTES):
         super().__init__()
         self.byte_count = 0
         self.truncated = False
+        self.max_bytes = max_bytes
+        # Room kept free for the truncation marker so the logs always fit the limit.
+        self.budget = max_bytes - 256
 
     def write(self, text):
         if self.truncated:
             return len(text)
         size = len(text.encode("utf-8"))
-        if self.byte_count + size > LOG_BUDGET:
+        if self.byte_count + size > self.budget:
             self.truncated = True
-            super().write("\n[log truncated at 64 KiB]\n")
+            super().write(f"\n[log truncated at {self.max_bytes // 1024} KiB]\n")
             return len(text)
         self.byte_count += size
         return super().write(text)
@@ -185,7 +191,17 @@ def pipeline_line(error):
     return line
 
 
+def limits_of(job):
+    """Row, cell, field and byte limits for this job: the plugin's own, or the pipeline defaults."""
+    given = job.get("limits")
+    if not isinstance(given, dict):
+        return {"rows": MAX_ROWS, "cells": MAX_CELLS, "fields": MAX_FIELDS, "bytes": MAX_BYTES}
+    # A plugin's call is bounded by its rows and bytes alone: cells and the width of a row follow from those.
+    return {"rows": int(given["rows"]), "cells": None, "fields": None, "bytes": int(given["bytes"])}
+
+
 def execute(job, logs):
+    limit = limits_of(job)
     requirements = job.get("requirements") or []
     check_requirements(requirements)
     contract = job.get("contract") or {}
@@ -203,18 +219,20 @@ def execute(job, logs):
     if isinstance(result, pd.DataFrame):
         if not result.columns.is_unique or not all(isinstance(key, str) for key in result.columns):
             raise ValueError("DataFrame columns must be unique strings")
-        if len(result) > MAX_ROWS or result.size > MAX_CELLS:
+        if len(result) > limit["rows"] or (limit["cells"] is not None and result.size > limit["cells"]):
             raise ValueError("Python result exceeds row or cell limit")
         present = list(result.columns)
         result = result.to_dict(orient="records")
-    if not isinstance(result, list) or len(result) > MAX_ROWS:
-        raise ValueError("Return a list of row dictionaries or a DataFrame, at most 100000 rows")
+    if not isinstance(result, list) or len(result) > limit["rows"]:
+        raise ValueError(f"Return a list of row dictionaries or a DataFrame, at most {limit['rows']} rows")
     cells = 0
     for row in result:
         if not isinstance(row, dict) or not all(isinstance(key, str) for key in row):
             raise ValueError("Every output row must be a dictionary with string keys")
         cells += len(row)
-        if len(row) > 256 or cells > MAX_CELLS:
+        if (limit["fields"] is not None and len(row) > limit["fields"]) or (
+            limit["cells"] is not None and cells > limit["cells"]
+        ):
             raise ValueError("Python result exceeds field or cell limit")
     # Reject NaN and infinity instead of silently changing scientific values.
     encoded = json.dumps(
@@ -227,8 +245,8 @@ def execute(job, logs):
         allow_nan=False,
         separators=(",", ":"),
     )
-    if len(encoded.encode("utf-8")) > MAX_BYTES:
-        raise ValueError("Python result exceeds 32 MiB")
+    if len(encoded.encode("utf-8")) > limit["bytes"]:
+        raise ValueError(f"Python result exceeds {limit['bytes'] // (1024 * 1024)} MiB")
     if output is not None:
         # Check the rows as the app will see them: after JSON encoding, so a date
         # is its ISO string and a NumPy integer is an int.
@@ -238,14 +256,18 @@ def execute(job, logs):
 
 
 def main():
-    raw = sys.stdin.buffer.read(MAX_BYTES + 1)
-    if len(raw) > MAX_BYTES:
-        raise ValueError("Python input exceeds 32 MiB")
+    # The runner broker has already bounded the job by the plugin's own data limit and tells us what it
+    # allowed; without it (a pipeline step) the fixed pipeline limit applies.
+    allowed = int(os.environ.get("SHEETBASE_MAX_INPUT_BYTES", MAX_BYTES))
+    raw = sys.stdin.buffer.read(allowed + 1)
+    if len(raw) > allowed:
+        raise ValueError(f"Python input exceeds {allowed // (1024 * 1024)} MiB")
     job = json.loads(raw)
     if job.get("mode") == "inspect":
         sys.stdout.write(json.dumps({"environment": {"python": platform.python_version(), "packages": installed_packages()}}))
         return 0
-    logs = BoundedLog()
+    given = job.get("limits")
+    logs = BoundedLog(int(given["logBytes"]) if isinstance(given, dict) and "logBytes" in given else MAX_LOG_BYTES)
     try:
         encoded = execute(job, logs)
     except BaseException as error:

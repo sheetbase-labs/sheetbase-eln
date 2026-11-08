@@ -2,10 +2,18 @@
 import { spawn } from 'node:child_process'
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
-import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
+import { createEgressProxy } from './pipeline-python-egress.mjs'
+
+/**
+ * What a pipeline Python step gets. A plugin call carries its own `limits`
+ * (set per plugin by an administrator) and those replace these for that call;
+ * see `limitsOf`.
+ */
 export const LIMITS = Object.freeze({
   bytes: 32 * 1024 * 1024,
   rows: 100_000,
@@ -65,6 +73,90 @@ export const REQUIREMENT =
   /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?==[A-Za-z0-9](?:[A-Za-z0-9.!+_-]*[A-Za-z0-9])?$/
 const MAX_REQUIREMENTS = 50
 
+/**
+ * A plugin's package line, as pip is given it. This is the broker's own check,
+ * not a copy of the app's: the lines are written to a requirements file and
+ * installed with network access, so nothing that could be read as a pip option
+ * or a second line gets through. Mirrors `requirementProblem` in
+ * src/lib/extensions/runtime-config.ts (a test keeps them in step).
+ */
+const NAME = '[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?'
+const EXTRAS = '(?:\\[[A-Za-z0-9](?:[A-Za-z0-9._,\\s-]*[A-Za-z0-9])?\\])?'
+const CLAUSE = '(?:===|==|~=|!=|<=|>=|<|>)\\s*[A-Za-z0-9][A-Za-z0-9.*+!_-]*'
+const VERSIONS = `(?:\\s*${CLAUSE}(?:\\s*,\\s*${CLAUSE})*)?`
+const MARKER = '(?:\\s*;\\s*[A-Za-z0-9 _.\'"()<>=!~,-]+)?'
+export const PLUGIN_REQUIREMENT = new RegExp(
+  `^${NAME}${EXTRAS}(?:${VERSIONS}|\\s*@\\s*https://[^\\s;]+)${MARKER}$`,
+)
+export const PLUGIN_HOST =
+  /^(?:\*\.)?[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/
+export const ENVIRONMENT_ID = /^pe-[a-f0-9]{16}$/
+const IMAGE_ID = /^sha256:[a-f0-9]{64}$/
+
+/** Log output a plugin call may keep. Not a setting: it only trims what is shown after a failure. */
+const PLUGIN_LOG_BYTES = 1024 * 1024
+const MIB = 1024 * 1024
+
+const positive = (value) =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0
+
+/**
+ * The limits one job runs with. A pipeline step has none of its own and gets
+ * the fixed pipeline limits. A plugin call names its own, which replace them
+ * entirely: rows and bytes bound the data, and the width of a row and the
+ * number of cells follow from those.
+ */
+export function limitsOf(job) {
+  const given = job.limits
+  if (given === undefined)
+    return {
+      custom: false,
+      bytes: LIMITS.bytes,
+      rows: LIMITS.rows,
+      fields: LIMITS.fields,
+      cells: LIMITS.cells,
+      logBytes: LIMITS.logBytes,
+      timeoutMs: LIMITS.timeoutMs,
+      memoryMb: 512,
+      cpus: 1,
+      processes: 64,
+      scratchMb: 64,
+    }
+  return {
+    custom: true,
+    bytes: given.bytes,
+    rows: given.rows,
+    fields: Infinity,
+    cells: Infinity,
+    logBytes: PLUGIN_LOG_BYTES,
+    timeoutMs: Math.round(given.timeoutSeconds * 1000),
+    memoryMb: given.memoryMb,
+    cpus: given.cpus,
+    processes: given.processes,
+    scratchMb: given.scratchMb,
+  }
+}
+
+function validateLimits(given) {
+  if (
+    !isObject(given) ||
+    ![
+      'timeoutSeconds',
+      'memoryMb',
+      'cpus',
+      'processes',
+      'scratchMb',
+      'bytes',
+      'rows',
+    ].every((key) => positive(given[key]))
+  )
+    throw new RunnerError(
+      'The run limits must be positive numbers.',
+      400,
+      'invalid_configuration',
+    )
+}
+
 /** Failure details from the worker, kept only when they are the shape and size we expect. */
 export function failureDetails(result) {
   const details = {}
@@ -79,8 +171,8 @@ export function failureDetails(result) {
   return details
 }
 
-function validateRows(rows) {
-  if (!Array.isArray(rows) || rows.length > LIMITS.rows)
+function validateRows(rows, limit = limitsOf({})) {
+  if (!Array.isArray(rows) || rows.length > limit.rows)
     throw new RunnerError('Python row limit exceeded.')
   let cells = 0
   for (const row of rows) {
@@ -88,18 +180,22 @@ function validateRows(rows) {
       throw new RunnerError('Python results must contain row objects.')
     const fields = Object.keys(row).length
     cells += fields
-    if (fields > LIMITS.fields || cells > LIMITS.cells)
+    if (fields > limit.fields || cells > limit.cells)
       throw new RunnerError('Python field or cell limit exceeded.')
   }
   return cells
 }
 
 export function validateJob(job) {
+  if (isObject(job) && job.limits !== undefined) validateLimits(job.limits)
+  const limit = limitsOf(isObject(job) ? job : {})
   if (
     !isObject(job) ||
     typeof job.statement !== 'string' ||
     !job.statement.trim() ||
-    job.statement.length > 128_000 ||
+    // A pipeline step is a few lines. A plugin's files travel inside its steps
+    // and are bounded by the plugin's own data limit instead.
+    (!limit.custom && job.statement.length > 128_000) ||
     !isObject(job.inputs) ||
     !isObject(job.parameters)
   ) {
@@ -111,6 +207,33 @@ export function validateJob(job) {
   }
   if (job.mode !== undefined)
     throw new RunnerError('Unknown job option.', 400, 'invalid_configuration')
+  if (
+    job.environment !== undefined &&
+    (!limit.custom ||
+      typeof job.environment !== 'string' ||
+      !ENVIRONMENT_ID.test(job.environment))
+  )
+    throw new RunnerError(
+      'The package environment is not a valid name.',
+      400,
+      'invalid_configuration',
+    )
+  if (
+    job.network !== undefined &&
+    (!limit.custom ||
+      !Array.isArray(job.network) ||
+      job.network.some(
+        (host) =>
+          typeof host !== 'string' ||
+          host.length > 253 ||
+          !PLUGIN_HOST.test(host),
+      ))
+  )
+    throw new RunnerError(
+      'The approved hosts must be host names.',
+      400,
+      'invalid_configuration',
+    )
   if (
     job.requirements !== undefined &&
     (!Array.isArray(job.requirements) ||
@@ -133,10 +256,10 @@ export function validateJob(job) {
   let count = 0
   let cells = 0
   for (const rows of Object.values(job.inputs)) {
-    cells += validateRows(rows)
+    cells += validateRows(rows, limit)
     count += rows.length
   }
-  if (count > LIMITS.rows || cells > LIMITS.cells)
+  if (count > limit.rows || cells > limit.cells)
     throw new RunnerError(
       'Python input exceeds row or cell limit.',
       413,
@@ -144,26 +267,29 @@ export function validateJob(job) {
     )
 }
 
-export function validateResult(result) {
+export function validateResult(result, limit = limitsOf({})) {
   if (!isObject(result))
     throw new RunnerError('Python returned an invalid response.')
-  validateRows(result.rows)
+  validateRows(result.rows, limit)
   if (
     !Array.isArray(result.logs) ||
     result.logs.some((line) => typeof line !== 'string') ||
-    Buffer.byteLength(result.logs.join('\n')) > LIMITS.logBytes
+    Buffer.byteLength(result.logs.join('\n')) > limit.logBytes
   ) {
     throw new RunnerError('Python log output exceeds its limit.')
   }
 }
 
-export function containerArguments(image, name) {
-  if (!DIGEST_IMAGE.test(image))
+export function containerArguments(image, name, options = {}) {
+  if (!DIGEST_IMAGE.test(image) && !IMAGE_ID.test(image))
     throw new RunnerError(
       'Configure a digest-pinned Python image.',
       503,
       'runner_unavailable',
     )
+  const limit = options.limits ?? limitsOf({})
+  const threads = String(Math.max(1, Math.ceil(limit.cpus)))
+  const egress = options.egress
   return [
     'create',
     '--name',
@@ -171,25 +297,34 @@ export function containerArguments(image, name) {
     '--label',
     'uk.co.sheetbase.pipeline-python=true',
     '--pull=never',
-    '--network=none',
+    // No route anywhere, unless the plugin's approved hosts put it on the
+    // private network whose only other member is this runner's allow-listing proxy.
+    `--network=${egress ? egress.network : 'none'}`,
     '--read-only',
     '--user=65532:65532',
     '--cap-drop=ALL',
     '--security-opt=no-new-privileges=true',
-    '--pids-limit=64',
-    '--memory=512m',
-    '--memory-swap=512m',
-    '--cpus=1',
+    `--pids-limit=${limit.processes}`,
+    `--memory=${limit.memoryMb}m`,
+    `--memory-swap=${limit.memoryMb}m`,
+    `--cpus=${limit.cpus}`,
     '--ipc=none',
-    '--ulimit=nofile=256:256',
-    '--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777',
+    `--ulimit=nofile=${limit.custom ? 4096 : 256}:${limit.custom ? 4096 : 256}`,
+    `--tmpfs=/tmp:rw,noexec,nosuid,nodev,size=${limit.scratchMb}m,mode=1777`,
     '--log-driver=none',
     '--interactive',
     '--workdir=/tmp',
     '--entrypoint=python',
-    '--env=OPENBLAS_NUM_THREADS=1',
-    '--env=OMP_NUM_THREADS=1',
-    '--env=MKL_NUM_THREADS=1',
+    `--env=OPENBLAS_NUM_THREADS=${threads}`,
+    `--env=OMP_NUM_THREADS=${threads}`,
+    `--env=MKL_NUM_THREADS=${threads}`,
+    // The worker reads at most what this call was allowed to send.
+    `--env=SHEETBASE_MAX_INPUT_BYTES=${limit.bytes}`,
+    ...(egress
+      ? ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'].map(
+          (name) => `--env=${name}=${egress.url}`,
+        )
+      : []),
     image,
     '-I',
     '-u',
@@ -200,7 +335,12 @@ export function containerArguments(image, name) {
 /** No shell interpolation; fixed executable, fixed args, no caller-selected mounts/env. */
 function docker(
   args,
-  { input = '', timeoutMs = 10_000, maxBytes = LIMITS.bytes } = {},
+  {
+    input = '',
+    timeoutMs = 10_000,
+    maxBytes = LIMITS.bytes,
+    timeoutMessage = 'Python execution timed out.',
+  } = {},
 ) {
   return new Promise((resolve, reject) => {
     const child = spawn('docker', args, { stdio: ['pipe', 'pipe', 'pipe'] })
@@ -209,18 +349,14 @@ function docker(
     let size = 0
     let failure = null
     const timer = setTimeout(() => {
-      failure = new RunnerError(
-        'Python execution timed out.',
-        504,
-        'transform_timed_out',
-      )
+      failure = new RunnerError(timeoutMessage, 504, 'transform_timed_out')
       child.kill('SIGKILL')
     }, timeoutMs)
     const collect = (chunk, stdout) => {
       size += chunk.length
       if (size > maxBytes) {
         failure = new RunnerError(
-          'Python output exceeds 32 MiB.',
+          `Python output exceeds ${Math.round(maxBytes / MIB)} MiB.`,
           422,
           'output_too_large',
         )
@@ -397,8 +533,238 @@ export async function inspectRuntime(image, command = docker) {
   }
 }
 
-export async function runDockerJob(job, image, command = docker) {
+// ---------------------------------------------------------------------------
+// Per-plugin package environments.
+// ---------------------------------------------------------------------------
+
+const ENVIRONMENT_REPOSITORY = 'sheetbase-plugin-env'
+const ENVIRONMENT_LABEL = 'uk.co.sheetbase.plugin-environment=true'
+
+/** How long installing one plugin's packages may take. Raise it for packages that compile. */
+const buildTimeoutMs = () =>
+  Number(process.env.PIPELINE_PYTHON_BUILD_TIMEOUT_MINUTES ?? 60) * 60_000
+
+/**
+ * The name of the environment for a list of packages on a base image. The same
+ * packages on the same image are the same environment, so plugins that need
+ * the same things share one build and a changed base image rebuilds.
+ */
+export function environmentId(baseImage, requirements) {
+  const lines = requirements.map((line) => line.trim()).sort()
+  return `pe-${createHash('sha256')
+    .update(`${baseImage}\n${lines.join('\n')}`)
+    .digest('hex')
+    .slice(0, 16)}`
+}
+
+export function validateRequirements(requirements) {
+  if (
+    !Array.isArray(requirements) ||
+    requirements.length === 0 ||
+    requirements.some(
+      (line) =>
+        typeof line !== 'string' ||
+        line.length > 300 ||
+        line.startsWith('-') ||
+        !PLUGIN_REQUIREMENT.test(line.trim()),
+    )
+  )
+    throw new RunnerError(
+      'Give the packages as pip requirement lines such as rdkit>=2024.3.',
+      400,
+      'invalid_configuration',
+    )
+}
+
+/** The Dockerfile for an environment: the worker image plus the plugin's packages. */
+export function environmentDockerfile({ pipIndexUrl } = {}) {
+  return [
+    'ARG BASE',
+    'FROM ${BASE}',
+    ...(pipIndexUrl ? ['ARG PIP_INDEX_URL'] : []),
+    'USER root',
+    'COPY requirements.txt /tmp/plugin-requirements.txt',
+    'RUN pip install --no-cache-dir -r /tmp/plugin-requirements.txt && rm /tmp/plugin-requirements.txt',
+    'USER 65532:65532',
+    '',
+  ].join('\n')
+}
+
+/** The image a built environment runs from, or nothing when it hasn't been built. */
+export async function environmentImage(id, command = docker) {
+  const found = await command([
+    'image',
+    'inspect',
+    '--format={{.Id}}',
+    `${ENVIRONMENT_REPOSITORY}:${id}`,
+  ]).catch(() => ({ code: 1, stdout: '' }))
+  const imageId = found.stdout.trim()
+  if (found.code !== 0 || !IMAGE_ID.test(imageId)) return undefined
+  return {
+    id: imageId,
+    // Reported to the app as the runtime that ran the call.
+    reported: `${ENVIRONMENT_REPOSITORY}@${imageId}`,
+  }
+}
+
+/** Last lines of the installer's output: what the administrator needs to read. */
+export function buildFailureMessage(output) {
+  const lines = output
+    .split('\n')
+    .map((line) => line.replace(/^#\d+\s+[\d.]+\s/, '').trim())
+    .filter(Boolean)
+  const error = lines.findLastIndex((line) =>
+    /error|failed|no matching/i.test(line),
+  )
+  const picked = lines.slice(
+    Math.max(0, (error === -1 ? lines.length - 1 : error) - 3),
+    error === -1 ? lines.length : error + 4,
+  )
+  return (
+    picked.join('\n').slice(-1500) || 'The packages could not be installed.'
+  )
+}
+
+/**
+ * Builds the environment image for a package list. Runs with network access
+ * (the only place anything is fetched), once per distinct list, on an image
+ * that already holds the worker.
+ */
+export async function buildEnvironment(
+  requirements,
+  baseImage,
+  command = docker,
+  { pipIndexUrl = process.env.PIPELINE_PYTHON_PIP_INDEX_URL } = {},
+) {
+  validateRequirements(requirements)
+  if (!DIGEST_IMAGE.test(baseImage))
+    throw new RunnerError(
+      'Configure a digest-pinned Python image.',
+      503,
+      'runner_unavailable',
+    )
+  const id = environmentId(baseImage, requirements)
+  const folder = await mkdtemp(join(tmpdir(), 'sheetbase-plugin-env-'))
+  try {
+    await writeFile(
+      join(folder, 'requirements.txt'),
+      `${requirements.map((line) => line.trim()).join('\n')}\n`,
+    )
+    await writeFile(
+      join(folder, 'Dockerfile'),
+      environmentDockerfile({ pipIndexUrl }),
+    )
+    const built = await command(
+      [
+        'build',
+        '--progress=plain',
+        '--pull=false',
+        '--tag',
+        `${ENVIRONMENT_REPOSITORY}:${id}`,
+        '--label',
+        ENVIRONMENT_LABEL,
+        '--build-arg',
+        `BASE=${baseImage}`,
+        ...(pipIndexUrl ? ['--build-arg', `PIP_INDEX_URL=${pipIndexUrl}`] : []),
+        folder,
+      ],
+      {
+        timeoutMs: buildTimeoutMs(),
+        maxBytes: 256 * MIB,
+        timeoutMessage:
+          'Installing the packages took too long. An administrator can allow more time with PIPELINE_PYTHON_BUILD_TIMEOUT_MINUTES on the runner.',
+      },
+    )
+    if (built.code !== 0)
+      throw new RunnerError(
+        buildFailureMessage(`${built.stderr}\n${built.stdout}`),
+        422,
+        'environment_failed',
+      )
+    return id
+  } finally {
+    await rm(folder, { recursive: true, force: true })
+  }
+}
+
+/**
+ * Tracks builds for the HTTP API. One build at a time (they are heavy), keyed
+ * by environment id; what is built survives a restart because it is an image.
+ */
+export function createEnvironments({ image, command = docker, inspect }) {
+  const builds = new Map()
+  let queue = Promise.resolve()
+  const packagesOf = async (id) => {
+    const built = await environmentImage(id, command)
+    return built ? await inspect(built.id).catch(() => undefined) : undefined
+  }
+  return {
+    id: (requirements) => environmentId(image, requirements),
+    async status(id) {
+      if (!ENVIRONMENT_ID.test(id))
+        throw new RunnerError('Unknown environment.', 404, 'not_found')
+      const building = builds.get(id)
+      if (building?.state === 'building') return { id, state: 'building' }
+      if (await environmentImage(id, command)) {
+        const environment = await packagesOf(id)
+        return {
+          id,
+          state: 'ready',
+          ...(environment ? { packages: environment.packages } : {}),
+        }
+      }
+      if (building) return { id, state: building.state, error: building.error }
+      return { id, state: 'missing' }
+    },
+    /** Starts a build unless the environment exists or is being built. */
+    async ensure(requirements) {
+      validateRequirements(requirements)
+      const id = environmentId(image, requirements)
+      const current = await this.status(id)
+      if (current.state === 'ready' || current.state === 'building')
+        return current
+      builds.set(id, { state: 'building' })
+      queue = queue.then(async () => {
+        try {
+          await buildEnvironment(requirements, image, command)
+          builds.delete(id)
+        } catch (error) {
+          builds.set(id, {
+            state: 'failed',
+            error:
+              error instanceof RunnerError
+                ? error.message
+                : 'The packages could not be installed.',
+          })
+        }
+      })
+      return { id, state: 'building' }
+    },
+    /** Resolves when every started build has finished (tests, shutdown). */
+    idle: () => queue,
+  }
+}
+
+/**
+ * Where plugin containers get their network from, when an administrator has
+ * approved hosts for a plugin: a private Docker network the runner is also on,
+ * and the allow-listing proxy the runner serves on it.
+ */
+export function egressFromEnvironment(env = process.env) {
+  const network = env.PIPELINE_PYTHON_EGRESS_NETWORK
+  const host = env.PIPELINE_PYTHON_EGRESS_HOST
+  if (!network || !host) return undefined
+  return {
+    network,
+    host,
+    port: Number(env.PIPELINE_PYTHON_EGRESS_PORT ?? 3128),
+    allowPrivate: env.PIPELINE_PYTHON_EGRESS_ALLOW_PRIVATE === '1',
+  }
+}
+
+export async function runDockerJob(job, image, command = docker, context = {}) {
   validateJob(job)
+  const limit = limitsOf(job)
   if (job.runtime !== undefined && job.runtime !== image)
     throw new RunnerError(
       'The pinned Python runtime is not available on this runner.',
@@ -406,14 +772,44 @@ export async function runDockerJob(job, image, command = docker) {
       'runtime_mismatch',
     )
   const input = JSON.stringify(job)
-  if (Buffer.byteLength(input) > LIMITS.bytes)
+  if (Buffer.byteLength(input) > limit.bytes)
     throw new RunnerError(
-      'Python input exceeds 32 MiB.',
+      `Python input exceeds ${Math.round(limit.bytes / MIB)} MiB.`,
       413,
       'input_too_large',
     )
+  // A plugin with its own packages runs in the image built for them.
+  let runImage = image
+  let reported = image
+  if (job.environment !== undefined) {
+    const built = await environmentImage(job.environment, command)
+    if (!built)
+      throw new RunnerError(
+        'This plugin’s packages are not installed on the runner yet.',
+        409,
+        'environment_not_ready',
+      )
+    runImage = built.id
+    reported = built.reported
+  }
+  // Approved hosts: one credential for this call, on the private network.
+  let grant
+  let egress
+  if (job.network && job.network.length > 0) {
+    if (!context.egress || !context.proxy)
+      throw new RunnerError(
+        'This runner is not set up to give plugins network access. An administrator needs to configure the egress network.',
+        503,
+        'network_unavailable',
+      )
+    grant = context.proxy.register(job.network)
+    egress = {
+      network: context.egress.network,
+      url: `http://job:${grant.token}@${context.egress.host}:${context.egress.port}`,
+    }
+  }
   const name = `sheetbase-python-${randomUUID()}`
-  const args = containerArguments(image, name)
+  const args = containerArguments(runImage, name, { limits: limit, egress })
   try {
     const created = await command(args)
     if (created.code !== 0)
@@ -424,14 +820,24 @@ export async function runDockerJob(job, image, command = docker) {
       )
     const completed = await command(
       ['start', '--attach', '--interactive', name],
-      { input, timeoutMs: LIMITS.timeoutMs },
+      {
+        input,
+        timeoutMs: limit.timeoutMs,
+        // The answer, its logs and a little framing.
+        maxBytes: limit.bytes + limit.logBytes + MIB,
+        timeoutMessage: limit.custom
+          ? `Python execution timed out after ${Math.round(limit.timeoutMs / 1000)} seconds. An administrator can allow this plugin more time in Settings → Plugins.`
+          : 'Python execution timed out.',
+      },
     )
     let result
     try {
       result = JSON.parse(completed.stdout)
     } catch {
       throw new RunnerError(
-        'Python exited without a valid result. Check the code and resource limits.',
+        limit.custom
+          ? 'The plugin stopped without an answer. It may have run out of memory or processes; an administrator can raise its limits in Settings → Plugins.'
+          : 'Python exited without a valid result. Check the code and resource limits.',
       )
     }
     if (completed.code !== 0 || result.error)
@@ -443,7 +849,7 @@ export async function runDockerJob(job, image, command = docker) {
         'transform_failed',
         failureDetails(result),
       )
-    validateResult(result)
+    validateResult(result, limit)
     // PIPE-04.1: a function may also return files; they are collected before the
     // container is removed, since a stopped container is only readable until then.
     const files = job.artefactKey
@@ -452,13 +858,14 @@ export async function runDockerJob(job, image, command = docker) {
     return {
       rows: result.rows,
       logs: result.logs,
-      runtime: image,
+      runtime: reported,
       files: files.map((file) => ({ name: file.name, size: file.size })),
       ...(reportedEnvironment(result.environment)
         ? { environment: reportedEnvironment(result.environment) }
         : {}),
     }
   } finally {
+    grant?.release()
     // Killing a Docker CLI process does not kill its container. Remove by our fixed name.
     let removed
     try {
@@ -493,6 +900,19 @@ export function createRunnerServer({
   image,
   execute = runDockerJob,
   inspect = inspectRuntime,
+  /** Calls running at once. A pipeline step and a plugin call each count as one. */
+  concurrency = Number(process.env.PIPELINE_PYTHON_RUNNER_CONCURRENCY ?? 4),
+  /** Largest request the runner will read at all. A plugin's own data limit applies inside it. */
+  maxBodyBytes = Number(process.env.PIPELINE_PYTHON_RUNNER_MAX_BODY_MB ?? 512) *
+    MIB,
+  egress = egressFromEnvironment(),
+  proxy = egress
+    ? createEgressProxy({ allowPrivate: egress.allowPrivate })
+    : undefined,
+  environments = createEnvironments({
+    image,
+    inspect: (id) => inspectRuntime(id),
+  }),
   checkRuntime = async () => {
     const result = await docker(['image', 'inspect', '--format={{.Id}}', image])
     if (result.code !== 0)
@@ -533,9 +953,14 @@ export function createRunnerServer({
         })
         response.end(JSON.stringify(payload))
       }
+      const environmentRoute = /^\/environments\/([a-z0-9-]+)$/.exec(
+        request.url ?? '',
+      )
       if (!(
         (request.method === 'POST' && request.url === '/execute') ||
         (request.method === 'POST' && request.url === '/artefacts/release') ||
+        (request.method === 'POST' && request.url === '/environments') ||
+        (request.method === 'GET' && environmentRoute) ||
         (request.method === 'GET' && request.url === '/runtime')
       ))
         return send(404, { error: 'Not found.' })
@@ -545,6 +970,34 @@ export function createRunnerServer({
         return send(503, {
           error: 'Python runner requires administrator attention.',
         })
+      // The packages a plugin installs: asked for once per distinct list.
+      if (request.url === '/environments' || environmentRoute) {
+        try {
+          if (environmentRoute)
+            return send(200, await environments.status(environmentRoute[1]))
+          const chunks = []
+          for await (const chunk of request) chunks.push(chunk)
+          let body
+          try {
+            body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+          } catch {
+            throw new RunnerError(
+              'Invalid JSON body.',
+              400,
+              'invalid_configuration',
+            )
+          }
+          const current = await environments.ensure(body?.requirements)
+          return send(current.state === 'ready' ? 200 : 202, current)
+        } catch (error) {
+          return send(error instanceof RunnerError ? error.status : 500, {
+            error:
+              error instanceof RunnerError ? error.message : 'Request failed.',
+            code:
+              error instanceof RunnerError ? error.code : 'runner_unavailable',
+          })
+        }
+      }
       // PIPE-04.2: a run's artefacts are temporary unless it keeps them.
       if (request.url === '/artefacts/release') {
         const chunks = []
@@ -592,23 +1045,25 @@ export function createRunnerServer({
           })
         }
       }
-      if (active >= 2)
+      if (active >= concurrency)
         return send(503, {
           error: 'Python runner is unavailable. Try again later.',
         })
       if (request.headers['content-type']?.split(';')[0] !== 'application/json')
         return send(415, { error: 'Use application/json.' })
-      if (Number(request.headers['content-length']) > LIMITS.bytes)
-        return send(413, { error: 'Python input exceeds 32 MiB.' })
+      if (Number(request.headers['content-length']) > maxBodyBytes)
+        return send(413, {
+          error: `Python input exceeds ${Math.round(maxBodyBytes / MIB)} MiB.`,
+        })
       active++
       try {
         const chunks = []
         let size = 0
         for await (const chunk of request) {
           size += chunk.length
-          if (size > LIMITS.bytes)
+          if (size > maxBodyBytes)
             throw new RunnerError(
-              'Python input exceeds 32 MiB.',
+              `Python input exceeds ${Math.round(maxBodyBytes / MIB)} MiB.`,
               413,
               'input_too_large',
             )
@@ -625,16 +1080,22 @@ export function createRunnerServer({
           )
         }
         validateJob(job)
-        const result = await execute(job, image)
-        validateResult(result)
+        const limit = limitsOf(job)
+        const result = await execute(job, image, undefined, {
+          egress,
+          proxy,
+        })
+        validateResult(result, limit)
         const payload = {
           rows: result.rows,
           logs: result.logs,
-          runtime: image,
+          runtime: result.runtime ?? image,
           ...(result.environment ? { environment: result.environment } : {}),
         }
-        if (Buffer.byteLength(JSON.stringify(payload)) > LIMITS.bytes)
-          throw new RunnerError('Python output exceeds 32 MiB.')
+        if (Buffer.byteLength(JSON.stringify(payload)) > limit.bytes)
+          throw new RunnerError(
+            `Python output exceeds ${Math.round(limit.bytes / MIB)} MiB.`,
+          )
         send(200, payload)
       } catch (error) {
         if (error instanceof RunnerError && error.code === 'cleanup_failed')
@@ -653,9 +1114,19 @@ export function createRunnerServer({
       }
     },
   )
-  server.requestTimeout = 90_000
+  // A call may run as long as its plugin's time limit allows, so the connection
+  // is not cut at a fixed time: the job's own timeout ends it.
+  server.requestTimeout = 0
   server.headersTimeout = 10_000
-  server.timeout = 95_000
+  server.timeout = 0
+  if (proxy)
+    server.on('listening', () => {
+      proxy.server.listen(
+        egress.port,
+        process.env.PIPELINE_PYTHON_EGRESS_BIND ?? '0.0.0.0',
+      )
+    })
+  server.on('close', () => proxy?.server.close())
   return server
 }
 

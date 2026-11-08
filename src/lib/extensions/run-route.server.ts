@@ -14,18 +14,20 @@ import { z } from 'zod'
 import { pickActiveMembership } from '#/lib/active-membership'
 import { getAppSession } from '#/lib/auth'
 import { createRateLimiter } from '#/lib/rate-limit'
+import type { RateLimiter } from '#/lib/rate-limit'
 
 import {
   ExtensionRunError,
   invokeExtension,
   openCallable,
+  openExtensionPoint,
+  pluginLimits,
   runExtensionAnalysis,
   runExtensionHook,
   defaultDeps,
 } from './runtime.server'
 import type { ExtensionRuntimeDeps } from './runtime.server'
-
-export const EXTENSION_RUN_BODY_BYTES = 8 * 1024 * 1024
+import { resolveLimits } from './runtime-config'
 
 const idPattern = /^[a-z][a-z0-9-]{0,48}$/
 
@@ -88,7 +90,8 @@ const bodySchema = z.discriminatedUnion('kind', [
       kind: z.literal('analysis'),
       extensionKey: z.string().regex(idPattern),
       kindId: z.string().regex(idPattern),
-      rows: z.array(z.record(z.string(), z.unknown())).max(100_000),
+      // How many rows a plugin takes is that plugin's own setting, checked below.
+      rows: z.array(z.record(z.string(), z.unknown())),
     })
     .strict(),
 ])
@@ -102,7 +105,41 @@ export interface ExtensionRunRouteDeps {
   runtime: ExtensionRuntimeDeps
 }
 
-export const limiter = createRateLimiter({ maxRequests: 60, windowSeconds: 60 })
+/**
+ * Calls per person per minute are a per-plugin setting (none by default), so a
+ * limiter exists only for plugins whose administrator set one.
+ */
+const limiters = new Map<number, RateLimiter>()
+
+export function rateDecision(
+  perMinute: number | null,
+  key: string,
+): ReturnType<RateLimiter['hit']> {
+  if (perMinute === null) return { allowed: true }
+  let limiter = limiters.get(perMinute)
+  if (!limiter) {
+    limiter = createRateLimiter({ maxRequests: perMinute, windowSeconds: 60 })
+    limiters.set(perMinute, limiter)
+  }
+  return limiter.hit(key)
+}
+
+export const tooMuchData = (limitMb: number) =>
+  `That is more data than this plugin is set up to take (${limitMb} MB). An administrator can raise this in Settings → Plugins.`
+
+/** The largest data limit among the workspace's plugins: the most any one request may carry. */
+export async function largestDataLimitBytes(
+  deps: ExtensionRuntimeDeps,
+  workspaceId: string,
+): Promise<number> {
+  const rows = (await deps.listRuntime?.(workspaceId)) ?? []
+  const mb = rows.reduce(
+    (largest, row) =>
+      Math.max(largest, resolveLimits(row.limitOverrides).dataMb),
+    resolveLimits(undefined).dataMb,
+  )
+  return Math.round(mb * 1024 * 1024)
+}
 
 export const reply = (body: unknown, status = 200) =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
@@ -119,7 +156,9 @@ export function failure(error: unknown): Response {
           ? 409
           : error.code === 'bad_input'
             ? 400
-            : 502
+            : error.code === 'environment_not_ready'
+              ? 503
+              : 502
     return refuse(status, error.message)
   }
   return refuse(500, 'The plugin could not do that.')
@@ -133,18 +172,14 @@ export async function handleExtensionRun(
   if (!session) return refuse(401, 'Sign in to use plugins.')
   const member = await deps.getMember(session.user.id)
   if (!member) return refuse(403, 'You need a workspace to use plugins.')
-  const decision = limiter.hit(`extension-run:${session.user.id}`)
-  if (!decision.allowed)
-    return refuse(
-      429,
-      `Too many plugin calls. Try again in ${decision.retryAfterSeconds ?? 60} seconds.`,
-    )
   let raw: unknown
+  let size = 0
   try {
     const text = await request.text()
-    if (text.length > EXTENSION_RUN_BODY_BYTES) {
+    size = text.length
+    // The most any plugin here takes; the plugin's own limit is checked once we know which.
+    if (size > (await largestDataLimitBytes(deps.runtime, member.workspaceId)))
       return refuse(413, 'That is too much data to send to a plugin.')
-    }
     raw = JSON.parse(text)
   } catch {
     return refuse(400, 'Send a JSON body.')
@@ -153,6 +188,33 @@ export async function handleExtensionRun(
   if (!parsed.success) return refuse(400, 'The request could not be read.')
   const body = parsed.data
   try {
+    const { install } = await openExtensionPoint(
+      deps.runtime,
+      member.workspaceId,
+      body.extensionKey,
+      body.kind === 'operation' ? 'operations' : 'analysis-kinds',
+    )
+    const limits = await pluginLimits(
+      deps.runtime,
+      member.workspaceId,
+      install.id,
+    )
+    const decision = rateDecision(
+      limits.callsPerMinute,
+      `extension-run:${body.extensionKey}:${session.user.id}`,
+    )
+    if (!decision.allowed)
+      return refuse(
+        429,
+        `Too many calls to this plugin. Try again in ${decision.retryAfterSeconds ?? 60} seconds.`,
+      )
+    if (size > limits.dataMb * 1024 * 1024)
+      return refuse(413, tooMuchData(limits.dataMb))
+    if (body.kind === 'analysis' && body.rows.length > limits.rows)
+      return refuse(
+        413,
+        `That dataset has more rows than this plugin is set up to take (${limits.rows}). An administrator can raise this in Settings → Plugins.`,
+      )
     if (body.kind === 'operation') {
       const { callable } = await openCallable(
         deps.runtime,

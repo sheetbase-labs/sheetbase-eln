@@ -18,6 +18,8 @@ import { findCallable } from './callables'
 import type { CallableItem } from './callables'
 import { parseExtensionManifest } from './manifest'
 import type { ExtensionManifest } from './manifest'
+import { resolveLimits, runnerLimits } from './runtime-config'
+import type { PluginLimits } from './runtime-config'
 import type {
   ExtensionAnalysisKindDeclaration,
   ExtensionField,
@@ -30,6 +32,12 @@ import type {
   ExtensionColumnDeclaration,
   ExtensionColumnValueType,
 } from './hooks'
+import {
+  databaseStore,
+  ensureEnvironment,
+  runnerEnvironments,
+} from './runtime-settings.server'
+import type { PluginRuntimeRow } from './runtime-settings.server'
 
 export class ExtensionRunError extends Error {
   readonly code: string
@@ -59,6 +67,21 @@ export interface ExtensionRuntimeDeps {
     workspaceId: string,
     extensionId: string,
   ) => Promise<Record<string, string> | null>
+  /**
+   * The plugin's Python settings: packages, approved hosts, limits. Absent (in a
+   * test, say) means a plugin with no packages and the default limits.
+   */
+  loadRuntime?: (
+    workspaceId: string,
+    extensionId: string,
+  ) => Promise<PluginRuntimeRow | null>
+  /** Every plugin's Python settings in the workspace (for the largest request any of them takes). */
+  listRuntime?: (workspaceId: string) => Promise<PluginRuntimeRow[]>
+  /** Makes sure the plugin's packages are installed in the runner; the state it is in. */
+  settleEnvironment?: (
+    workspaceId: string,
+    row: PluginRuntimeRow,
+  ) => Promise<PluginRuntimeRow>
   executePython: typeof executePythonTransform
   audit: (event: {
     workspaceId: string
@@ -160,10 +183,28 @@ function pythonMessage(error: unknown): ExtensionRunError {
       : 'python_failed'
   return new ExtensionRunError(
     code,
-    code === 'runner_unavailable' || code === 'transform_timed_out'
+    code === 'runner_unavailable' ||
+      code === 'transform_timed_out' ||
+      code === 'environment_not_ready' ||
+      code === 'network_unavailable' ||
+      code === 'input_too_large' ||
+      code === 'output_too_large'
       ? raw.slice(0, 500)
       : `The plugin stopped with an error. ${raw}`.slice(0, 500),
   )
+}
+
+/**
+ * The room one plugin gets: its administrator's settings over the defaults.
+ * Also what the routes check a request's size and rate against.
+ */
+export async function pluginLimits(
+  deps: Pick<ExtensionRuntimeDeps, 'loadRuntime'>,
+  workspaceId: string,
+  extensionId: string,
+): Promise<PluginLimits> {
+  const row = await deps.loadRuntime?.(workspaceId, extensionId)
+  return resolveLimits(row?.limitOverrides)
 }
 
 export async function runPackage(
@@ -179,12 +220,54 @@ export async function runPackage(
       'no_package',
       'This plugin has no code installed. Upload it again from Settings › Plugins.',
     )
+  let runtime =
+    (await deps.loadRuntime?.(workspaceId, resolved.install.id)) ?? null
+  const limits = resolveLimits(runtime?.limitOverrides)
+  let environment: string | undefined
+  if (runtime && runtime.requirements.length > 0) {
+    // Packages are installed when the plugin is added, never while a call runs.
+    if (runtime.environmentState !== 'ready' || !runtime.environmentId)
+      runtime =
+        (await deps.settleEnvironment?.(workspaceId, runtime)) ?? runtime
+    if (runtime.environmentState === 'failed')
+      throw new ExtensionRunError(
+        'environment_failed',
+        `This plugin’s Python packages could not be installed: ${runtime.environmentError ?? 'the installer gave no reason'}. An administrator can try again in Settings › Plugins.`,
+      )
+    if (runtime.environmentState !== 'ready' || !runtime.environmentId)
+      throw new ExtensionRunError(
+        'environment_not_ready',
+        'This plugin’s Python packages are still being installed. Try again in a few minutes.',
+      )
+    environment = runtime.environmentId
+  }
   try {
     return await deps.executePython({
       statement: pluginStatement(files),
+      limits: runnerLimits(limits),
+      ...(environment ? { environment } : {}),
+      ...(runtime && runtime.networkHosts.length > 0
+        ? { network: runtime.networkHosts }
+        : {}),
       ...job,
     })
   } catch (error) {
+    // The runner lost the packages (a new runner, a pruned image): install again.
+    if (
+      environment &&
+      runtime &&
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'environment_not_ready'
+    )
+      await deps
+        .settleEnvironment?.(workspaceId, {
+          ...runtime,
+          environmentId: null,
+          environmentState: 'none',
+        })
+        .catch(() => undefined)
     throw pythonMessage(error)
   }
 }
@@ -740,9 +823,19 @@ export async function runExtensionHook(
 // ---------------------------------------------------------------------------
 
 export function defaultDeps(): ExtensionRuntimeDeps {
+  const store = databaseStore()
   return {
     executePython: executePythonTransform,
     now: () => Date.now(),
+    loadRuntime: (workspaceId, extensionId) =>
+      store.load(workspaceId, extensionId),
+    listRuntime: (workspaceId) => store.list(workspaceId),
+    settleEnvironment: (workspaceId, row) =>
+      ensureEnvironment(
+        { store, runner: runnerEnvironments },
+        workspaceId,
+        row,
+      ),
     loadInstall: async (workspaceId, key) => {
       const { db } = await import('#/db/client.server')
       const { extensions } = await import('#/db/schema')

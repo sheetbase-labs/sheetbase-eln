@@ -20,7 +20,6 @@ import {
   ExtensionRunError,
   invokeExtension,
   openCallable,
-  openExtensionPoint,
   pluginLimits,
   runExtensionAnalysis,
   runExtensionHook,
@@ -31,7 +30,7 @@ import { resolveLimits } from './runtime-config'
 
 const idPattern = /^[a-z][a-z0-9-]{0,48}$/
 
-const rowsSchema = z.array(z.record(z.string(), z.unknown())).min(1).max(5000)
+const rowsSchema = z.array(z.record(z.string(), z.unknown())).min(1)
 
 const bodySchema = z.discriminatedUnion('kind', [
   z
@@ -188,16 +187,15 @@ export async function handleExtensionRun(
   if (!parsed.success) return refuse(400, 'The request could not be read.')
   const body = parsed.data
   try {
-    const { install } = await openExtensionPoint(
-      deps.runtime,
+    // Which plugin it is decides the limits; whether it may do this is checked by the run itself.
+    const install = await deps.runtime.loadInstall(
       member.workspaceId,
       body.extensionKey,
-      body.kind === 'operation' ? 'operations' : 'analysis-kinds',
     )
     const limits = await pluginLimits(
       deps.runtime,
       member.workspaceId,
-      install.id,
+      install?.id ?? '',
     )
     const decision = rateDecision(
       limits.callsPerMinute,

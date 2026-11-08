@@ -30,11 +30,14 @@ import {
 import {
   defaultRouteDeps,
   failure,
-  limiter,
+  largestDataLimitBytes,
+  rateDecision,
+  tooMuchData,
   refuse,
   reply,
 } from './run-route.server'
 import type { ExtensionRunRouteDeps } from './run-route.server'
+import { pluginLimits } from './runtime.server'
 
 const id = z.string().regex(/^[a-z][a-z0-9-]{0,48}$/)
 const row = z.record(z.string(), z.unknown())
@@ -105,9 +108,6 @@ const bodySchema = z.discriminatedUnion('kind', [
     .strict(),
 ])
 
-/** The body limit: a file can be sent as base64, so a little over the importer's own limit. */
-export const EXTENSION_DATA_BODY_BYTES = 16 * 1024 * 1024
-
 export async function handleExtensionData(
   request: Request,
   deps: ExtensionRunRouteDeps & {
@@ -118,16 +118,13 @@ export async function handleExtensionData(
   if (!session) return refuse(401, 'Sign in to use plugins.')
   const member = await deps.getMember(session.user.id)
   if (!member) return refuse(403, 'You need a workspace to use plugins.')
-  const decision = limiter.hit(`extension-run:${session.user.id}`)
-  if (!decision.allowed)
-    return refuse(
-      429,
-      `Too many plugin calls. Try again in ${decision.retryAfterSeconds ?? 60} seconds.`,
-    )
   let raw: unknown
+  let size = 0
   try {
     const text = await request.text()
-    if (text.length > EXTENSION_DATA_BODY_BYTES)
+    size = text.length
+    // The most any plugin here takes; the plugin's own limit is checked once we know which.
+    if (size > (await largestDataLimitBytes(deps.runtime, member.workspaceId)))
       return refuse(413, 'That is too much data to send to a plugin.')
     raw = JSON.parse(text)
   } catch {
@@ -136,6 +133,30 @@ export async function handleExtensionData(
   const parsed = bodySchema.safeParse(raw)
   if (!parsed.success) return refuse(400, 'The request could not be read.')
   const body = parsed.data
+  {
+    const install = await deps.runtime.loadInstall(
+      member.workspaceId,
+      body.extensionKey,
+    )
+    if (install) {
+      const limits = await pluginLimits(
+        deps.runtime,
+        member.workspaceId,
+        install.id,
+      )
+      const decision = rateDecision(
+        limits.callsPerMinute,
+        `extension-run:${body.extensionKey}:${session.user.id}`,
+      )
+      if (!decision.allowed)
+        return refuse(
+          429,
+          `Too many calls to this plugin. Try again in ${decision.retryAfterSeconds ?? 60} seconds.`,
+        )
+      if (size > limits.dataMb * 1024 * 1024)
+        return refuse(413, tooMuchData(limits.dataMb))
+    }
+  }
   const caller = {
     workspaceId: member.workspaceId,
     actorUserId: session.user.id,

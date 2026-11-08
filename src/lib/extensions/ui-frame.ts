@@ -77,12 +77,17 @@ export function buildPluginFrame(
   const html = files[entry] as string | undefined
   if (html === undefined) return null
   let sdkSeen = false as boolean
+  // Code and styles that are put into the page are set aside while the page's
+  // own `src` and `href` attributes are rewritten, so a string inside a script
+  // that happens to read `href="..."` is never touched.
+  const inlined: string[] = []
+  const stash = (block: string) => `\u0000${inlined.push(block) - 1}\u0000`
   let out = html.replace(
     /<script\b([^>]*?)\bsrc\s*=\s*(["'])([^"']+)\2([^>]*)>\s*<\/script>/gi,
     (_whole, before: string, _q: string, src: string, after: string) => {
       if (src.split('/').pop() === PLUGIN_UI_SDK_NAME) {
         sdkSeen = true
-        return `<script>${scriptSafe(sdkSource)}</script>`
+        return stash(`<script>${scriptSafe(sdkSource)}</script>`)
       }
       const path = resolveRelative(entry, src)
       const code = path ? files[path] : undefined
@@ -90,7 +95,9 @@ export function buildPluginFrame(
       // A module stays a module (its imports were bundled in; `import` of a
       // sibling file is not supported because everything is inlined).
       const module = /\btype\s*=\s*["']?module["']?/i.test(`${before} ${after}`)
-      return `<script${module ? ' type="module"' : ''}>${scriptSafe(code)}</script>`
+      return stash(
+        `<script${module ? ' type="module"' : ''}>${scriptSafe(code)}</script>`,
+      )
     },
   )
   out = out.replace(
@@ -99,7 +106,9 @@ export function buildPluginFrame(
       const href = /\bhref\s*=\s*(["'])([^"']+)\1/i.exec(tag)?.[2]
       const path = href ? resolveRelative(entry, href) : null
       const css = path ? files[path] : undefined
-      return css === undefined ? '' : `<style>${styleSafe(css)}</style>`
+      return css === undefined
+        ? ''
+        : stash(`<style>${styleSafe(css)}</style>`)
     },
   )
   out = out.replace(
@@ -113,6 +122,8 @@ export function buildPluginFrame(
       return `${lead}${quote}data:${MIME[ext]};base64,${btoa(unescape(encodeURIComponent(body)))}${quote}`
     },
   )
+  // eslint-disable-next-line no-control-regex
+  out = out.replace(/\u0000(\d+)\u0000/g, (_whole, index: string) => inlined[Number(index)] ?? '')
   if (!sdkSeen) {
     const tag = `<script>${scriptSafe(sdkSource)}</script>`
     out = /<head[^>]*>/i.test(out)

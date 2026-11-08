@@ -1,0 +1,51 @@
+/**
+ * What a plugin screen can do in the app: the same lab actions the assistant,
+ * the API and agents have (`LAB_RPCS`), run as the person using the screen.
+ * There is no separate list for plugins, so an action added for the API is
+ * there for plugins the moment it exists.
+ *
+ * Pure: shared by the screen host (to ask the person) and the server (to check
+ * again before anything runs).
+ */
+import { LAB_RPCS } from '../lab-api-surface'
+import type { LabRpc } from '../lab-api-surface'
+import { argumentSchema, summariseArguments } from '../mcp/lab'
+
+export interface AppActionCheck {
+  action: string
+  rpc: LabRpc
+  args: Record<string, unknown>
+  /** True when the action changes something, so the person is asked first. */
+  writes: boolean
+  /** One plain line for the person: what the action is and with what. */
+  summary: string
+}
+
+export type AppActionResult =
+  ({ ok: true } & AppActionCheck) | { ok: false; message: string }
+
+export function checkAppAction(
+  action: unknown,
+  input: unknown,
+): AppActionResult {
+  if (typeof action !== 'string' || !Object.hasOwn(LAB_RPCS, action))
+    return { ok: false, message: 'That is not an action Sheetbase offers.' }
+  const rpc = LAB_RPCS[action]
+  const parsed = argumentSchema(rpc).safeParse(input ?? {})
+  if (!parsed.success) {
+    const first = parsed.error.issues[0]
+    const where = first.path.join('.') || 'arguments'
+    return {
+      ok: false,
+      message: `Invalid arguments for ${action}: ${where}: ${first.message}.`,
+    }
+  }
+  return {
+    ok: true,
+    action,
+    rpc,
+    args: parsed.data,
+    writes: rpc.scope === 'lab:write',
+    summary: `${rpc.summary}${summariseArguments(parsed.data)}`.slice(0, 500),
+  }
+}

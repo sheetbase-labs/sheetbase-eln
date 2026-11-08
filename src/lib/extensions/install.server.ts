@@ -61,6 +61,8 @@ export interface PluginCheckResult {
   /** Contributions the new version adds and drops compared with the existing one. */
   changes: { added: string[]; removed: string[] }
   examples: number
+  /** The package brings its own screens, drawn in a sandboxed frame. */
+  hasUi: boolean
 }
 
 const sum = (adds: ExtensionAdds[]) =>
@@ -96,6 +98,7 @@ export function describePlugin(
       removed: before.filter((item) => !after.includes(item)),
     },
     examples: pkg.examples.length,
+    hasUi: Object.keys(pkg.files).some((name) => name.startsWith('ui/')),
   }
 }
 

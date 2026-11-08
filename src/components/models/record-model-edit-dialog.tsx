@@ -28,6 +28,7 @@ import {
   modelFieldInputErrors,
   recordModelDetailQueryKeys,
 } from './models-data'
+import { usePluginFieldTypeErrors } from '#/components/extensions/field-type-hooks'
 import { t } from '#/copy'
 
 /**
@@ -40,6 +41,7 @@ export function RecordModelEditDialog({
   open,
   onOpenChange,
   recordId,
+  modelKey,
   fields,
   stored,
   client = notebookDataClient,
@@ -47,6 +49,8 @@ export function RecordModelEditDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
   recordId: string
+  /** The model the record belongs to; plugin field types are checked for it. */
+  modelKey?: string
   fields: ModelFieldDefinition[]
   stored: Record<string, unknown> | null | undefined
   client?: typeof notebookDataClient
@@ -59,9 +63,10 @@ export function RecordModelEditDialog({
   const [values, setValues] =
     useState<Record<string, string | boolean>>(initial)
   const merged = useMemo(() => ({ ...initial, ...values }), [initial, values])
+  const pluginErrors = usePluginFieldTypeErrors(modelKey ?? '', fields, merged)
   const errors = useMemo(
-    () => modelFieldInputErrors(fields, merged),
-    [fields, merged],
+    () => ({ ...modelFieldInputErrors(fields, merged), ...pluginErrors }),
+    [fields, merged, pluginErrors],
   )
   const changes = changedModelFieldValues(fields, initial, merged)
   const dirty = Object.keys(changes).length > 0

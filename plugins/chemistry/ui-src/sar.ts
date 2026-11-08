@@ -300,7 +300,6 @@ function render() {
     sort: { key: 'identifier' },
     empty,
   })
-  sheetbase.resize(Math.max(120, document.body.scrollHeight + 24))
 }
 
 function fillReference() {

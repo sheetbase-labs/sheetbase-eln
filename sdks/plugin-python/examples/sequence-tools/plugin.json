@@ -1,0 +1,99 @@
+{
+  "id": "acme.sequence-tools",
+  "name": "Sequence tools",
+  "version": "1.0.0",
+  "description": "A sequence map block, a DNA field with its own input, a GC-content cell, a library page, a settings page, a Home card and a report section, written in TypeScript with d3 bundled in.",
+  "author": "Acme Bio",
+  "provides": {
+    "operations": [
+      {
+        "id": "analyse",
+        "title": "Analyse a sequence",
+        "description": "Gives the length, the GC content as a percentage and the count of each base for a DNA sequence.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "sequence",
+            "type": "text",
+            "required": true,
+            "description": "DNA letters A, C, G, T or N. Spaces and line breaks are ignored."
+          }
+        ],
+        "outputs": [
+          { "name": "length", "type": "integer", "required": true },
+          { "name": "gc", "type": "number", "required": true },
+          { "name": "counts", "type": "json", "required": true }
+        ],
+        "run": "seq:analyse"
+      }
+    ],
+    "blocks": [
+      {
+        "id": "map",
+        "title": "Sequence map",
+        "description": "A circular map of a sequence, shaded by GC content; the sequence is kept with the block.",
+        "icon": "dna",
+        "ui": "ui/map.html"
+      }
+    ],
+    "field-types": [
+      {
+        "id": "dna",
+        "title": "DNA sequence",
+        "description": "Letters A, C, G, T and N, typed in a box that shows the GC content and a map as you type.",
+        "base": "text",
+        "pattern": "^[ACGTNacgtn]+$",
+        "patternMessage": "Use the letters A, C, G, T or N.",
+        "input": "ui/input.html"
+      }
+    ],
+    "table-cells": [
+      {
+        "id": "gc",
+        "title": "GC content bar",
+        "appliesTo": { "pluginTypes": ["dna"] },
+        "render": "ui/cells.html"
+      }
+    ],
+    "pages": [
+      {
+        "id": "library",
+        "title": "Sequence library",
+        "description": "Paste a sequence to see its map and numbers.",
+        "icon": "dna",
+        "ui": "ui/library.html"
+      }
+    ],
+    "settings-pages": [
+      {
+        "id": "display",
+        "title": "Sequence display",
+        "description": "How maps are drawn.",
+        "ui": "ui/settings.html"
+      }
+    ],
+    "dashboard-widgets": [
+      {
+        "id": "quick",
+        "title": "Quick GC check",
+        "description": "GC content of anything you paste.",
+        "ui": "ui/widget.html"
+      }
+    ],
+    "report-sections": [
+      {
+        "id": "summary",
+        "title": "Sequence summary",
+        "description": "Adds the length, GC content and base counts of a sequence to a report.",
+        "ui": "ui/section.html"
+      }
+    ]
+  },
+  "examples": [
+    {
+      "operation": "analyse",
+      "input": { "sequence": "ATGCGC" },
+      "output": { "length": 6, "gc": 66.7, "counts": { "A": 1, "C": 2, "G": 2, "T": 1, "N": 0 } }
+    }
+  ]
+}

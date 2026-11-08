@@ -110,7 +110,7 @@ required runner variables and PATH, then run
 `node scripts/pipeline-python-runner.mjs`. Do not source the app's environment
 file into the runner.
 
-The protocol has two bearer-authenticated endpoints:
+The protocol has these bearer-authenticated endpoints:
 
 - `GET /runtime` verifies the configured image is installed and returns
   `{ "runtime": "repository@sha256:...", "python"?, "packages"? }` for definition
@@ -125,11 +125,81 @@ The protocol has two bearer-authenticated endpoints:
   supply the saved definition's runtime pin; changing the installed image does
   not silently change the meaning of an existing definition.
 
+- `POST /environments` with `{ "requirements": ["rdkit>=2024.3"] }` starts (or
+  finds) the build of a plugin's packages and answers `{ id, state }` with
+  `200` when ready and `202` while building. `GET /environments/<id>` answers
+  `{ id, state, error?, packages? }`.
+- `POST /execute` also takes `limits`, `environment` and `network` for a plugin
+  call (see above). `limits` is `{ timeoutSeconds, memoryMb, cpus, processes,
+scratchMb, bytes, rows }`.
+
 `getPythonRuntime()` exposes only the installed immutable identity.
 `executePythonTransform()` throws `PipelinePythonError` on unavailable runners,
 validation failures, execution errors, size limits or timeouts. There is no
 in-process or unsandboxed fallback. Error text and captured logs are untrusted
 scientist-provided content and should be rendered as text.
+
+## Plugin Python
+
+Plugins (Settings → Plugins) run in this same broker, with three differences
+from a pipeline step. None of them is a fixed limit: each is a per-plugin
+setting an administrator controls in the app.
+
+**Packages.** A plugin declares the pip packages it needs in `plugin.json`
+(`python.requirements`: anything pip understands, such as `rdkit>=2024.3` or
+`biopython==1.84`). When an administrator adds the plugin, the app asks the
+broker to install them (`POST /environments`). The broker builds an image from
+the worker image plus those packages, once per distinct package list: plugins
+that need the same packages share it, and a new worker image rebuilds it. A call
+never installs anything; it runs from that image, in the same locked-down
+container as any step. The build is the only place pip runs and the only place
+that needs network.
+
+- The broker needs access to the Docker engine's image store (it already does)
+  and outbound access to the package index. Point pip at a mirror with
+  `PIPELINE_PYTHON_PIP_INDEX_URL`.
+- `PIPELINE_PYTHON_BUILD_TIMEOUT_MINUTES` (default 60) bounds one install. The
+  worker image is a slim Python with no compiler, so a package that has to be
+  built from source needs a wheel or a mirror that has one.
+- The built images are named `sheetbase-plugin-env:<id>` on the host. Remove one
+  with `docker image rm` when the plugin that used it is gone; the app asks again
+  on the next call if it is still wanted.
+- Builds run one at a time. `GET /environments/<id>` reports `ready`, `building`,
+  `failed` (with pip's own message) or `missing`.
+
+**Limits.** A plugin call carries its own `limits` (time, memory, cores,
+processes, scratch disk, data each way, rows). They replace the pipeline limits
+for that call. The defaults and where an administrator changes them are in
+[Build a plugin](../development/build-a-plugin.md). The broker has two settings of
+its own that are the operator's, not the plugin's:
+
+| Variable                             | Meaning                                                                                                         |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `PIPELINE_PYTHON_RUNNER_CONCURRENCY` | Calls running at once, pipeline steps and plugin calls together. Default 4.                                     |
+| `PIPELINE_PYTHON_RUNNER_MAX_BODY_MB` | The largest request the broker reads at all. Default 512, which is also about the most one JSON call can carry. |
+| `PIPELINE_PYTHON_BROKER_MEMORY`      | Compose only: the broker container's memory. Default 2g; the broker holds a call's data while it passes it on.  |
+
+**Network.** Without the egress overlay a plugin cannot reach anything, and a
+plugin that was approved for hosts is refused with a plain message instead of
+running without them. With `compose.pipeline-python-egress.yaml` added to the
+same `docker compose` command, the broker joins a private Docker network with no
+route to the internet and serves an allow-listing proxy on it. A call for a
+plugin with approved hosts runs on that network with `HTTP_PROXY` and
+`HTTPS_PROXY` set to the proxy and a credential that is good for that call only;
+the proxy connects to the approved host names (exact, or `*.example.org` for
+sub-domains) on any port and nothing else. It resolves the name itself and
+connects to the address it checked, and it refuses an address inside your own
+network (loopback, private ranges, link-local) unless
+`PIPELINE_PYTHON_EGRESS_ALLOW_PRIVATE=1`. Code that opens a raw socket instead of
+honouring the proxy settings simply has no route.
+
+| Variable                               | Meaning                                                              |
+| -------------------------------------- | -------------------------------------------------------------------- |
+| `PIPELINE_PYTHON_EGRESS_NETWORK`       | Name of the internal Docker network plugin containers join           |
+| `PIPELINE_PYTHON_EGRESS_HOST`          | The broker's name on that network                                    |
+| `PIPELINE_PYTHON_EGRESS_PORT`          | Proxy port, default 3128                                             |
+| `PIPELINE_PYTHON_EGRESS_BIND`          | Proxy listen address, default 0.0.0.0                                |
+| `PIPELINE_PYTHON_EGRESS_ALLOW_PRIVATE` | `1` lets approved hosts resolve to addresses inside your own network |
 
 ## Verification
 

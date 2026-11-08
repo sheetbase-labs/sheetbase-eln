@@ -4,8 +4,11 @@ A plugin is Python code an owner or administrator installs from
 **Settings → Plugins** to add work to a workspace. Everything is fail-closed: a
 disabled or removed plugin, or a part an administrator has switched off, resolves
 to nothing, never to an error. Plugins are Python only for now. The code runs in
-the same isolated Python runner as pipeline Python steps (no network, no database,
-no files except the plugin's own).
+the same isolated Python runner as pipeline Python steps (no database, no files
+except the plugin's own, and no network except the hosts an administrator approved
+for it). A plugin brings its own pip packages (RDKit, Biopython and so on), and how
+much time, memory and data one call may use is a per-plugin setting an administrator
+controls.
 
 | Point              | What it adds                                                                                      | Where it shows                                                            |
 | ------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
@@ -77,8 +80,9 @@ built-in operations use):
 ## The package
 
 A plugin is a `.sbplugin` zip: `plugin.json`, a `python/` folder, optional
-`README.md` and `LICENSE`. `ui/` is refused (reserved). At most 100 files, 512 KiB
-each, 2 MiB in all, 4 MiB for the zip. The same rules are checked on an author's
+`README.md` and `LICENSE`. `ui/` is refused (reserved). A package is bounded only
+to keep a malformed zip from exhausting the server: 2,000 files, 16 MiB each,
+64 MiB in all, 32 MiB for the zip. The same rules are checked on an author's
 machine by `sheetbase-plugin validate` (see
 [Build a plugin](../development/build-a-plugin.md)) and on upload, from shared
 test cases, so they cannot drift.
@@ -89,7 +93,14 @@ test cases, so they cannot drift.
 bypass it.
 
 - Ids match `^[a-z][a-z0-9-]{0,48}$`; field names `^[a-z][a-z0-9_]{0,47}$`.
-- At most 24 fields per declaration and 25 declarations per point.
+- Sanity bounds of 500 fields per declaration and 1,000 declarations per point.
+- `python` (optional) holds `requirements`, a list of pip requirement lines
+  (`rdkit>=2024.3`, `biopython==1.84`, `pandas[performance]>=2`, or
+  `name @ https://…`), and `network`, a list of host names the plugin's code may
+  reach (`eutils.ncbi.nlm.nih.gov`, or `*.ebi.ac.uk` for sub-domains). Any
+  package pip can install is allowed and there is no cap on how many. The
+  administrator sees both lists before adding the plugin and approves them by
+  adding it; an update that asks for more has to be approved again.
 - A field has a `name`, a `type` (`text`, `number`, `integer`, `boolean`, `date`
   or `json`), `required`, and an optional `description`.
 - `run` is `module:function`, a function in the package's `python/` folder.
@@ -124,20 +135,69 @@ code runs, and the answer is checked against the declared outputs after it.
 - A plugin never touches the database and receives no credential. What it
   returns is a result.
 
+## Packages, hosts and limits
+
+**Packages** are installed once, when the plugin is added, into an image the Python
+runner keeps for that list of packages (plugins with the same list share it). A call
+never installs anything and never waits on pip. Until the install ends the plugin's
+calls answer `503` "still being installed"; if it fails they answer `502` with
+pip's own message, and Settings → Plugins offers **Install again**.
+
+**Hosts** are reachable from the plugin's code through an allow-listing proxy: the
+approved names (exact, or `*.example.org`) on any port, and nothing else. A runner
+with no egress network configured refuses a plugin that has approved hosts rather
+than running it without them (see
+[Python pipelines](../operations/pipeline-python.md)).
+
+**Limits** are per plugin, set by an administrator in Settings → Plugins →
+**Python settings**, kept across updates, and applied to every call (assistant,
+MCP, pipelines, API, analysis block). Nothing caps what an administrator may give a
+plugin; the defaults are what it gets until they change them:
+
+| Setting                     | Default     | What happens past it                               |
+| --------------------------- | ----------- | -------------------------------------------------- |
+| Time (`timeoutSeconds`)     | 600 seconds | The call is stopped; the message names the setting |
+| Memory (`memoryMb`)         | 4096 MB     | The call is stopped (out of memory)                |
+| Processor cores (`cpus`)    | 2           | Calls share the cores                              |
+| Processes and threads       | 512         | Starting more fails inside the call                |
+| Scratch disk (`scratchMb`)  | 2048 MB     | Writing more fails inside the call                 |
+| Data in a call (`dataMb`)   | 256 MB      | `413`; also the most the plugin can answer with    |
+| Rows in a call (`rows`)     | 5,000,000   | `413` for a dataset, an error for an answer        |
+| Calls per person per minute | no limit    | `429` with the time to wait                        |
+
 ## Endpoints
 
 `POST /api/plugins/install` (owners and admins, `extensions.manage`; session only)
 
 - `?mode=check` unpacks the zip body, validates it and answers
-  `{ "plugin": { id, name, version, description, author, permissions, adds,
-fileCount, size, sha256, existing, changes } }` without storing anything.
+  `{ "plugin": { id, name, version, description, author, permissions, python,
+adds, fileCount, size, sha256, existing, changes } }` without storing anything.
+  `python` is `{ requirements, network }`: what the administrator approves.
   Errors are `400` with `{ "error": { "code": "invalid_package", "problems": [...] } }`.
 - `?mode=install&acknowledge=1` does the same and installs it, or updates the
   install with the same plugin id (which comes back switched off until it is
   reviewed again). The code is stored by the server and never readable through
-  the API.
+  the API. It also starts installing the plugin's Python packages.
 
-`POST /api/plugins/<key>/<operation>` (60 requests a minute, 8 MB body)
+`GET /api/plugins/runtime` and `POST /api/plugins/runtime` (owners and admins,
+`extensions.manage`; session only). GET answers `{ "runtime": [ { extensionId,
+requirements, network, overrides, limits, environment: { state, error, packages } } ] }`
+for every plugin: `overrides` is only what differs from the defaults, `limits` is
+what it runs with, and `environment.state` is `none`, `building`, `ready`,
+`failed` or `unavailable`. POST takes either
+
+```json
+{ "action": "set-limits", "extensionId": "…", "limits": { "memoryMb": 16384, "timeoutSeconds": 3600 } }
+{ "action": "reinstall-packages", "extensionId": "…" }
+```
+
+`limits` holds only the settings to change from the defaults (an empty object
+restores them all). Values must be positive numbers (whole except `cpus`);
+`callsPerMinute` may be `null` for no limit. Each change is audited as
+`extension.settings.changed`.
+
+`POST /api/plugins/<key>/<operation>` (no rate limit or size limit of its own;
+both are the plugin's settings above)
 
 ```json
 { "input": { "live": 92, "dead": 8 } }
@@ -168,8 +228,10 @@ sent: at most 5000, and only the fields named in `inputs` when it declares them.
 A row action with `selection: "one"` is refused for more than one row.
 
 Errors carry a short message and a status: `404` not installed or not declared,
-`409` not enabled or the part switched off, `400` bad input, `502` the plugin
-stopped or answered wrongly. `plugin_refused` messages are the plugin's own.
+`409` not enabled or the part switched off, `400` bad input, `413` more data or
+rows than the plugin is set up to take, `429` over the plugin's own rate, `503`
+packages still installing, `502` the plugin stopped, ran out of time or memory,
+could not install its packages or answered wrongly. `plugin_refused` messages are the plugin's own.
 
 `GET /api/plugins/<key>/ui/<item>?point=<point>` (session only) serves one
 plugin screen for the sandboxed frame; `point` is one of `blocks`, `panels`,
@@ -262,7 +324,8 @@ point is switched on.
 
 See the [event catalogue](./event-catalogue.md): `extension.point.enabled`,
 `extension.point.disabled`, `extension.field_type.applied`,
-`extension.field_type.removed` and `extension.invoked` (`ok`, `runner`,
+`extension.field_type.removed`, `extension.settings.changed` (`setting` is `limits` or
+`packages`) and `extension.invoked` (`ok`, `runner`,
 `durationMs`, never the inputs or answers). Every call is also audited with the
 plugin's identity and the SHA-256 of the code that ran, so it shows in the audit
 trail.

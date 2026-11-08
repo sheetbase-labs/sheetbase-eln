@@ -6,6 +6,9 @@ import { describe, expect, it, vi } from 'vitest'
 import type { DataClient } from '../data-client'
 
 import { handleBuiltInPlugins } from './built-in-route.server'
+import type { BuiltInRouteDeps } from './built-in-route.server'
+
+type Adopt = NonNullable<BuiltInRouteDeps['adoptChemistry']>
 
 vi.mock('../request-auth', () => ({
   realSessionAuthDeps: {},
@@ -23,7 +26,7 @@ const ensure = vi.hoisted(() => vi.fn())
 vi.mock('./built-in.server', () => ({ ensureBuiltInPlugins: ensure }))
 vi.mock('./data-runtime.server', () => ({ runExtensionSamenessKey: vi.fn() }))
 
-const deps = (adoptChemistry: ReturnType<typeof vi.fn>) => ({
+const deps = (adoptChemistry: ReturnType<typeof vi.fn<Adopt>>) => ({
   auth: {} as never,
   makeClient: () => ({ rpc: async () => null }) as unknown as DataClient,
   adoptChemistry,
@@ -34,7 +37,7 @@ const post = () =>
 describe('POST /api/plugins/built-in', () => {
   it('adopts existing compounds when chemistry was installed', async () => {
     ensure.mockResolvedValueOnce([{ key: 'chemistry', action: 'installed' }])
-    const adopt = vi.fn(async () => [
+    const adopt = vi.fn<Adopt>(async () => [
       {
         modelKey: 'compound',
         structureField: 'structure',
@@ -53,14 +56,14 @@ describe('POST /api/plugins/built-in', () => {
 
   it('leaves compounds alone when nothing changed', async () => {
     ensure.mockResolvedValueOnce([{ key: 'chemistry', action: 'unchanged' }])
-    const adopt = vi.fn()
+    const adopt = vi.fn<Adopt>()
     await handleBuiltInPlugins(post(), deps(adopt))
     expect(adopt).not.toHaveBeenCalled()
   })
 
   it('keeps the install when adopting fails and says so', async () => {
     ensure.mockResolvedValueOnce([{ key: 'chemistry', action: 'updated' }])
-    const adopt = vi.fn(async () => {
+    const adopt = vi.fn<Adopt>(async () => {
       throw new Error('The plugin is off.')
     })
     const response = await handleBuiltInPlugins(post(), deps(adopt))

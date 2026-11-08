@@ -164,6 +164,8 @@ jobs:
       - name: Tests (Python 3.13)
         working-directory: sdks/plugin-python
         run: uv run --python 3.13 --with pytest --with pandas --with-editable . python -m pytest -q
+      - name: Chemistry plugin tests
+        run: uv run --python 3.12 --with pytest --with rdkit python -m pytest -q plugins/chemistry/tests
 
   # The Python plugin sandbox on a real Docker daemon: the worker and runner
   # images build, a plugin's packages (RDKit) install into their own image, and

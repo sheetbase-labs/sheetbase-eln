@@ -320,7 +320,7 @@ export function buildPluginPackage(
       )
     )
       errors.push(
-        'a plugin has to provide at least one thing: an operation, calculator, analysis kind, pipeline step, check, search, connector, importer, exporter, preview, same-thing rule, event reaction, block, panel, table cell display, column, row action, field type, page, settings page, Home widget or report section',
+        'a plugin has to provide at least one thing: an operation, calculator, analysis kind, pipeline step, check, search, connector, importer, exporter, preview, same-thing rule, event reaction, instrument parser, label format, barcode format, storage rule, block, panel, table cell display, column, row action, field type, page, settings page, Home widget or report section',
       )
     const usedUi = new Set<string>()
     for (const point of PROVIDES) {
@@ -334,6 +334,8 @@ export function buildPluginPackage(
           if (!HOOK_POINTS.includes(point)) {
             entryExists(entry.run, files, where, errors)
             if (point === 'connectors')
+              entryExists(entry.parse, files, `${where} parse`, errors)
+            else if (point === 'barcode-formats' && entry.parse !== undefined)
               entryExists(entry.parse, files, `${where} parse`, errors)
           } else {
             const { python, ui: bundles } = pointers(entry)

@@ -40,6 +40,10 @@ export const EXTENSION_RUNNER_POINTS = [
   'sameness-keys',
   'event-hooks',
   'record-hooks',
+  'instrument-parsers',
+  'label-formats',
+  'barcode-formats',
+  'storage-rules',
 ] as const
 
 /**

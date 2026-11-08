@@ -351,8 +351,8 @@ agents is there for plugins the moment it exists; there is no separate list.
   call is made once. Keep what happens before a call dependent only on the input
   and earlier answers (no clock, no random numbers) and do not catch
   `BaseException`. A refused or failed call raises `HostError` (with `.code`).
-  Only operations run from the app's own screens can call in; a pipeline step,
-  the assistant or MCP running the operation get a plain refusal.
+  This works wherever the operation runs: an app screen, the token route, MCP,
+  the assistant, or a pipeline step.
   A change made this way is saved as soon as it is made. It is not rolled back if
   your operation fails afterwards, so make changes last, or make them safe to
   repeat.

@@ -16,7 +16,6 @@ import {
   MAX_STORED_OUTPUT_ROWS,
   isCodeCellLanguage,
 } from '../code-cells/code-cell'
-import { sequenceIssues } from '../sequence-block'
 import { CONCLUSION_VERDICTS } from '../conclusion-block'
 import { validatePlateMapPayload } from '../plate-map'
 import {
@@ -1099,8 +1098,6 @@ export const validateStructure = (payload: unknown): FieldErrors =>
   chemistryErrors(structureIssues(payload))
 export const validateReaction = (payload: unknown): FieldErrors =>
   chemistryErrors(reactionIssues(payload))
-export const validateSequence = (payload: unknown): FieldErrors =>
-  chemistryErrors(sequenceIssues(payload))
 export { validateCorrectiveActions, validateSignatureRequest }
 
 /**

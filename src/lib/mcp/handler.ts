@@ -17,7 +17,6 @@ import type { Scope } from '../api-credential-scopes'
 import type { DataClient } from '../data-client'
 import { DataClientError } from '../data-client'
 import { logger, redact } from '../logger'
-import { SEQUENCE_TOOL_NAME, sequenceTool, callSequenceTool } from './sequence'
 import {
   LITERATURE_SEARCH_TOOL,
   SEMANTIC_SEARCH_TOOL,
@@ -285,17 +284,12 @@ function listTools(context: McpContext): McpTool[] {
     context.flags.mcp_read && context.scopes.includes('projects:read')
       ? semanticMcpTools()
       : []
-  const sequence =
-    context.flags.mcp_read && hasAnyReadScope(context.scopes)
-      ? [sequenceTool()]
-      : []
   return [
     ...(hasAnyReadScope(context.scopes) && context.flags.mcp_read
       ? [contextTool()]
       : []),
     ...canonical,
     ...meaning,
-    ...sequence,
     ...lab,
     ...admin,
     ...catalogue,
@@ -677,19 +671,6 @@ async function callTool(
     return outcome.isError
       ? toolError(outcome.text)
       : { content: [{ type: 'text', text: outcome.text }] }
-  }
-
-  if (name === SEQUENCE_TOOL_NAME) {
-    if (!context.flags.mcp_read) {
-      return toolError('MCP read access is disabled by a workspace flag.')
-    }
-    if (!hasAnyReadScope(context.scopes)) {
-      return toolError('This credential has no read scope.')
-    }
-    const outcome = callSequenceTool(args)
-    return outcome.ok
-      ? textResult(outcome.result)
-      : toolError(String(outcome.result), 'invalid_arguments')
   }
 
   if (name === CANONICAL_READ_TOOL_NAME) {

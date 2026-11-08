@@ -1,37 +1,47 @@
-# Sequence blocks and molecular biology API
+# Sequence tools plugin API
 
-A sequence is a notebook block (`type = "sequence"`), so it uses the ordinary
-block calls on the authenticated same-origin `/api/db` boundary and the external
-API: `insert_block`, `update_block_payload`, `create_record_with_blocks`, and
-reading the `blocks` table (scopes `projects:write` and `projects:read`).
-Nothing sequence-specific needs its own endpoint for storing or reading one.
+Molecular biology comes from the **Sequence tools** plugin that ships with
+Sheetbase (`plugins/sequence-tools`, plugin key `sequence-tools`). It is an
+ordinary plugin: it is installed for owners and administrators when they open the
+app, it can be switched off in Settings → Plugins like any other, and everything
+it offers goes through the plugin points described in
+[plugins-api.md](./plugins-api.md).
 
-## The block (`type = "sequence"`)
+## The sequence block
+
+A sequence is a plugin block, so it uses the ordinary block calls on the
+authenticated same-origin `/api/db` boundary and the external API:
+`insert_block`, `update_block_payload`, `create_record_with_blocks`, and reading
+the `blocks` table (scopes `projects:write` and `projects:read`).
 
 ```jsonc
 // POST /api/db/rpc/insert_block
 {
   "p_record_id": "00000000-0000-4000-8000-000000000101",
-  "p_type": "sequence",
+  "p_type": "plugin",
   "p_payload": {
-    "title": "Backbone check",
-    "name": "pTest",
-    "molecule": "dna", // dna, rna or protein
-    "topology": "circular", // or linear
-    "residues": "TCGCGCGTTTCGGTGATGACGG…",
-    "features": [
-      {
-        "id": 1,
-        "type": "CDS",
-        "label": "AmpR",
-        "strand": -1,
-        "start": 1626,
-        "end": 2486,
-        "parts": [{ "start": 1626, "end": 2486 }],
-        "qualifiers": {},
-      },
-    ],
-    "caption": "Backbone for the cloning below.",
+    "plugin": "sequence-tools",
+    "block": "sequence",
+    "state": {
+      "title": "Backbone check",
+      "name": "pTest",
+      "molecule": "dna", // dna, rna or protein
+      "topology": "circular", // or linear
+      "residues": "TCGCGCGTTTCGGTGATGACGG…",
+      "features": [
+        {
+          "id": 1,
+          "type": "CDS",
+          "label": "AmpR",
+          "strand": -1,
+          "start": 1626,
+          "end": 2486,
+          "parts": [{ "start": 1626, "end": 2486 }],
+          "qualifiers": {},
+        },
+      ],
+      "caption": "Backbone for the cloning below.",
+    },
   },
   "p_payload_schema_version": 1,
   "p_after_block_id": null,
@@ -39,40 +49,46 @@ Nothing sequence-specific needs its own endpoint for storing or reading one.
 }
 ```
 
-`residues` and `name` are required; at most 400,000 bases. Positions are 1-based
-and inclusive; a feature that crosses the origin of a circle has `start > end`.
-The block can also carry what was done with the sequence, all optional and
-checked on save: `mapEnzymes` (names), `digests`, `primers` (`name`, `seq` 5′ to
-3′), `plans` (cloning plans: parts, method `ligation`, `golden_gate` or
-`gibson`, enzymes), `reads` (Sanger reads, bases plus a Phred+33 quality string)
-and `products` (what was registered, below).
+`residues` and `name` are expected in the state, at most 400,000 bases.
+Positions are 1-based and inclusive; a feature that crosses the origin of a
+circle has `start > end`. The state can also carry what was done with the
+sequence: `mapEnzymes` (names), `digests`, `primers` (`name`, `seq` 5′ to 3′),
+`plans` (cloning plans: parts, method `ligation`, `golden_gate` or `gibson`,
+enzymes), `reads` (Sanger reads) and `products` (what was registered, below).
+The plugin's screen checks the state when it saves; the database checks only
+that it is JSON and no larger than a plugin block may be.
 
-Titles, names, captions, feature labels, primer names and plan names are in the
-notebook search index (`search`, `sheetbase.search`). A submitted or signed
-notebook carries its sequence blocks in the frozen revision.
+The words in a plugin block's state (titles, names, captions, feature labels,
+primer names) are in the notebook search index (`search`, `sheetbase.search`);
+very long values such as the residues are left out. A submitted or signed
+notebook carries its plugin blocks in the frozen revision.
 
-## Calculations: `sheetbase.sequence.analyse` (MCP and assistant)
+## Calculations: the plugin's operations
 
-One read-only tool does the sequence maths on DNA the caller sends. It reads
-nothing from the workspace and stores nothing, so any read credential may call
-it (workspace flag `mcp_read`). `action` picks the calculation:
+The plugin declares read-only operations that do the sequence maths on DNA the
+caller sends. Like every plugin operation they are generated into the
+assistant, MCP, the pipeline actions (`plugin.sequence-tools.<id>`), the API and
+the Python SDK, and they read nothing from the workspace and store nothing.
+Their inputs and outputs are declared in `plugins/sequence-tools/plugin.json`.
 
-| action           | arguments                                                                                                | returns                                                                        |
-| ---------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `sites`          | `sequence`, `topology`, `enzymes?`, `uniqueOnly?`                                                        | each enzyme's site, cut count and cut positions                                |
-| `digest`         | `sequence`, `topology`, `enzymes`                                                                        | fragments with size and ends (overhang kind and bases), gel bands              |
-| `annotate`       | `sequence`, `topology`                                                                                   | common features and open reading frames                                        |
-| `primers`        | `sequence`, `topology`, `start`, `end`, `targetTm?`, `forwardTail?`, `reverseTail?`                      | pairs with Tm, GC, product size and warnings                                   |
-| `check_primer`   | `primer`                                                                                                 | Tm, GC, GC clamp, hairpin and self-dimer ΔG, warnings                          |
-| `pcr`            | `template`, `topology`, `forward`, `reverse`                                                             | the products the pair would make, tails included                               |
-| `assemble`       | `method`, `parts[]`, `enzyme?` (Golden Gate)                                                             | products with parts placed, junctions and warnings                             |
-| `align`          | `reference`, `query`, `mode?`                                                                            | score, identity and the aligned spans                                          |
-| `crispr`         | `sequence`, `topology`, `nuclease?` (`spcas9`, `sacas9`, `cas12a`), `start?`, `end?`, `limit?`           | guides with PAM, strand, cut position, GC, score, near matches in the sequence |
-| `codon_optimise` | `sequence`, `input` (`dna` or `protein`), `host` (`ecoli`, `human`, `yeast`), `avoidEnzymes?`, `maxRun?` | re-coded DNA, adaptation index before and after, GC, codons changed            |
-| `check_read`     | `expected`, `topology`, `read`, `quality?`                                                               | verdict, strand, coverage and each difference with its quality                 |
+| operation         | does                                                                                   |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| `find-sites`      | each enzyme's site, cut count and cut positions                                        |
+| `digest`          | fragments with size and ends (overhang kind and bases), gel bands                      |
+| `annotate`        | common features and open reading frames                                                |
+| `design-primers`  | primer pairs for a region with Tm, GC, product size and warnings                       |
+| `check-primer`    | Tm, GC, GC clamp, hairpin and self-dimer ΔG, warnings                                  |
+| `simulate-pcr`    | the products a primer pair would make, tails included                                  |
+| `assemble`        | digest-and-ligate, Golden Gate or Gibson products with parts placed and junctions      |
+| `align`           | score, identity and the aligned spans                                                  |
+| `find-guides`     | CRISPR guides with PAM, strand, cut position, GC, score and near matches               |
+| `optimise-codons` | re-coded DNA for a host, adaptation index before and after, GC, codons changed         |
+| `check-read`      | a Sanger read against what it should be: verdict, strand, coverage and each difference |
+| `fingerprint`     | the registry fingerprint of a sequence                                                 |
 
-A FASTA header line and any spaces or digits in a sequence are ignored. Limits:
-400,000 bases per sequence, 12 parts per assembly.
+A FASTA header line and any spaces or digits in a sequence are ignored. The
+Python port of this maths is checked against the screen's TypeScript with shared
+test cases (`plugins/sequence-tools/test-vectors`).
 
 ## Registering a construct
 

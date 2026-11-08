@@ -98,6 +98,7 @@ describe('hook points in SQL', () => {
       'ui-counter',
       'cell-looks',
       'plate-tools',
+      'sequence-tools',
     ]) {
       const manifest = manifestOf(name)
       expect(validateExtensionManifest(manifest)).toEqual([])
@@ -127,6 +128,21 @@ describe('hook points in SQL', () => {
         'field type base',
         'cell-looks',
         (m) => (m.contributions['field-types'][0].base = 'blob'),
+      ],
+      [
+        'a page without a ui file',
+        'sequence-tools',
+        (m) => delete m.contributions.pages[0].ui,
+      ],
+      [
+        'a table cell with both display and render',
+        'sequence-tools',
+        (m) => (m.contributions['table-cells'][0].display = { kind: 'text' }),
+      ],
+      [
+        'a size on something that is not a widget',
+        'sequence-tools',
+        (m) => (m.contributions.pages[0].size = 'wide'),
       ],
       [
         'duplicate ids',

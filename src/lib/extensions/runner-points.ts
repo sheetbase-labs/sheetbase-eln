@@ -26,6 +26,10 @@ import type {
   ExtensionDataContributions,
   ExtensionRecordHookDeclaration,
 } from './data-points'
+import type {
+  ExtensionUiDeclaration,
+  ExtensionWidgetDeclaration,
+} from './ui-points'
 import { pluginOperationDescriptors } from './operation-descriptors'
 import { isRunnerPoint, parsePluginName, pluginOperationName } from './points'
 import type {
@@ -90,6 +94,11 @@ export interface ResolvedRunnerPoints {
   fieldTypes: Array<RunnerItem<ExtensionFieldTypeDeclaration>>
   /** The other data and search points, by point. */
   data: { [P in DataItemPoint]: Array<RunnerItem<DataDeclaration<P>>> }
+  /** Sidebar pages, settings pages, Home widgets and report sections: screens a plugin draws itself. */
+  pages: Array<RunnerItem<ExtensionUiDeclaration>>
+  settingsPages: Array<RunnerItem<ExtensionUiDeclaration>>
+  dashboardWidgets: Array<RunnerItem<ExtensionWidgetDeclaration>>
+  reportSections: Array<RunnerItem<ExtensionUiDeclaration>>
   /** The generated descriptors of `operations`, ready for the surface generators. */
   descriptors: OperationDescriptor[]
 }
@@ -125,6 +134,10 @@ export function resolveRunnerPoints(
     rowActions: [],
     fieldTypes: [],
     data: emptyData(),
+    pages: [],
+    settingsPages: [],
+    dashboardWidgets: [],
+    reportSections: [],
     descriptors: [],
   }
   for (const install of installs) {
@@ -184,6 +197,10 @@ export function resolveRunnerPoints(
       ['columns', out.columns],
       ['row-actions', out.rowActions],
       ['field-types', out.fieldTypes],
+      ['pages', out.pages],
+      ['settings-pages', out.settingsPages],
+      ['dashboard-widgets', out.dashboardWidgets],
+      ['report-sections', out.reportSections],
     ] as const
     for (const [point, target] of hooks) {
       if (off.has(point)) continue
@@ -228,6 +245,10 @@ export function resolveRunnerPoints(
     out.columns,
     out.rowActions,
     out.fieldTypes,
+    out.pages,
+    out.settingsPages,
+    out.dashboardWidgets,
+    out.reportSections,
   ])
     (group as Array<{ name: string }>).sort(byName)
   out.descriptors.sort(byName)
@@ -328,6 +349,22 @@ export function describeRunnerAdds(manifest: unknown): ExtensionAdds[] {
     'record-hooks',
     c['record-hooks'],
     (h: ExtensionRecordHookDeclaration) => h.timing,
+  )
+  hookItems('pages', parsed.contributions.pages, 'page')
+  hookItems(
+    'settings-pages',
+    parsed.contributions['settings-pages'],
+    'settings',
+  )
+  hookItems(
+    'dashboard-widgets',
+    parsed.contributions['dashboard-widgets'],
+    'widget',
+  )
+  hookItems(
+    'report-sections',
+    parsed.contributions['report-sections'],
+    'section',
   )
   return adds
 }

@@ -61,14 +61,25 @@ const HOOK_POINTS: readonly string[] = [
   'columns',
   'row-actions',
   'field-types',
+  'pages',
+  'settings-pages',
+  'dashboard-widgets',
+  'report-sections',
 ]
 /** The points that need no Python function of their own to be useful. */
-const PROVIDES_WITHOUT_PYTHON = ['table-cells', 'field-types']
+const PROVIDES_WITHOUT_PYTHON = [
+  'table-cells',
+  'field-types',
+  'pages',
+  'settings-pages',
+  'dashboard-widgets',
+  'report-sections',
+]
 const SCOPE_RE = /^[a-z][a-z_]*:[a-z][a-z_]*$/
 
 /** A plugin UI bundle: plain files that run in a sandboxed frame. */
 export const PLUGIN_UI_FILE_RE =
-  /^ui\/[A-Za-z0-9._/-]+\.(html|js|css|svg|json)$/
+  /^ui\/[A-Za-z0-9._/-]+\.(html|js|mjs|css|svg|json)$/
 /** The one file name the UI SDK is served as; a bundle's HTML includes it with a plain script tag. */
 export const PLUGIN_UI_SDK_NAME = 'sheetbase-ui.js'
 
@@ -128,7 +139,7 @@ export function validatePluginFiles(files: Record<string, string>): string[] {
     else if (parts[0] === 'ui') {
       if (!PLUGIN_UI_FILE_RE.test(path))
         errors.push(
-          `${path}: ui/ holds .html, .js, .css, .svg and .json files only`,
+          `${path}: ui/ holds .html, .js, .mjs, .css, .svg and .json files only`,
         )
       else if (parts[parts.length - 1] === PLUGIN_UI_SDK_NAME)
         errors.push(
@@ -241,7 +252,9 @@ function pointers(entry: Record<string, unknown>): {
       if (isRecord(action)) python.push(action.run)
   return {
     python: python.filter((value) => value !== undefined),
-    ui: entry.ui === undefined ? [] : [entry.ui],
+    ui: [entry.ui, entry.render, entry.input].filter(
+      (value) => value !== undefined,
+    ),
   }
 }
 
@@ -297,7 +310,7 @@ export function buildPluginPackage(
       )
     )
       errors.push(
-        'a plugin has to provide at least one thing: an operation, calculator, analysis kind, pipeline step, check, search, connector, importer, exporter, preview, same-thing rule, event reaction, block, panel, table cell display, column, row action or field type',
+        'a plugin has to provide at least one thing: an operation, calculator, analysis kind, pipeline step, check, search, connector, importer, exporter, preview, same-thing rule, event reaction, block, panel, table cell display, column, row action, field type, page, settings page, Home widget or report section',
       )
     const usedUi = new Set<string>()
     for (const point of PROVIDES) {
@@ -342,7 +355,7 @@ export function buildPluginPackage(
       Object.keys(files).some((path) => path.startsWith('ui/'))
     )
       errors.push(
-        'ui/ files need a block or panel whose ui points at one of them',
+        'ui/ files need a screen (a block, panel, page, widget, report section, field input or cell renderer) whose ui points at one of them',
       )
   }
 

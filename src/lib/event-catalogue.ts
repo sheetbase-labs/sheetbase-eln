@@ -1935,13 +1935,13 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     introducedIn: 'extensions-05',
     consumers: webhookSse,
     notes:
-      'Payload carries `extensionKey`, `setting` (`limits` or `packages`) and, for limits, the new `overrides` (only what differs from the defaults).',
+      'Payload carries `extensionKey`, `setting` (`limits`, `packages` or `connection`) and, for limits, the new `overrides` (only what differs from the defaults).',
   },
   {
     name: 'extension.invoked',
     family: 'administration',
     summary:
-      'A plugin ran an operation or analysis kind, and it either worked or failed.',
+      'A plugin ran an operation, analysis kind, publisher or notification channel, and it either worked or failed.',
     producer: {
       entityType: 'extension',
       operation: 'update',

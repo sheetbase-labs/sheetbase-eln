@@ -26,6 +26,7 @@ import {
   buildEventPayload,
 } from '#/lib/webhook-events'
 import type { ChangeEventInput } from '#/lib/webhook-events'
+import { runEventHookPass } from '#/lib/extensions/event-hook-pass.server'
 import { signPayload, deriveWebhookSecretKey } from '#/lib/webhook-signing'
 import { eventMessage, eventTeamsCard } from '#/lib/notification-channels'
 import { sealSecret, openSecret } from '#/lib/connector-secrets.server'
@@ -902,6 +903,8 @@ export async function processRetries(
 /** Maximum events to process during a single catch-up sweep. */
 const CATCHUP_BATCH_SIZE = 500
 /** Delay before reconnecting the LISTEN client after an error. */
+/** How often plugin reactions read new events. */
+const EVENT_HOOK_INTERVAL_MS = 15_000
 const RECONNECT_DELAY_MS = 5_000
 
 /**
@@ -1020,6 +1023,8 @@ export function startWebhookDeliveryEngine(
 
   let listenClient: Client | null = null
   let retryTimer: ReturnType<typeof setInterval> | null = null
+  let hookTimer: ReturnType<typeof setInterval> | null = null
+  let hookPassRunning = false
   let stopped = false
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   let draining: Promise<void> | null = null
@@ -1132,12 +1137,29 @@ export function startWebhookDeliveryEngine(
       }
     }, retryIntervalMs)
 
+    // Plugin reactions look at the change log on their own slower schedule, so
+    // a busy lab doesn't pay for them on every change.
+    hookTimer = setInterval(() => {
+      if (stopped || hookPassRunning) return
+      hookPassRunning = true
+      runEventHookPass(connectionString)
+        .catch((err) => {
+          logger.error('plugin reactions: pass failed', {
+            error: err instanceof Error ? err.message : String(err),
+          })
+        })
+        .finally(() => {
+          hookPassRunning = false
+        })
+    }, EVENT_HOOK_INTERVAL_MS)
+
     logger.info('webhook delivery engine started')
   }
 
   const stop = async () => {
     stopped = true
     if (retryTimer) clearInterval(retryTimer)
+    if (hookTimer) clearInterval(hookTimer)
     if (reconnectTimer) clearTimeout(reconnectTimer)
     await started.catch(() => {})
     await draining?.catch(() => {})

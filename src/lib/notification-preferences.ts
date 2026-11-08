@@ -326,6 +326,14 @@ export const NOTIFICATION_EVENTS = [
     defaultEmail: false,
     defaultPush: false,
   },
+  {
+    key: 'plugin_note',
+    label: 'A plugin left you a note',
+    group: GROUP_OTHER,
+    source: 'inbox',
+    defaultEmail: false,
+    defaultPush: false,
+  },
 ] as const satisfies readonly NotificationEventDef[]
 
 export type NotificationEventType = (typeof NOTIFICATION_EVENTS)[number]['key']

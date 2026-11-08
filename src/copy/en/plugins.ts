@@ -316,6 +316,8 @@ export const plugins = {
     from: 'From the {plugin} plugin',
     working: 'Working…',
     frameTitle: '{name}, from the {plugin} plugin',
+    tableCaption: 'Table from the plugin screen',
+    tableEmpty: 'Nothing to show.',
     frameFailed: 'This plugin’s screen could not be loaded.',
     askTitle: '{plugin} wants to run “{operation}”',
     askBody:

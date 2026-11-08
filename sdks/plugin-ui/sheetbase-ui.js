@@ -198,6 +198,16 @@
     onRender: function (fn) {
       renderer = fn
     },
+    /**
+     * Show a table below this screen, drawn by Sheetbase with its own table
+     * (the same look as every table in the app, in light and dark). Give it
+     * `{ columns: [{ key, label, align? }], rows: [{ id, cells: { [key]: cell } }] }`
+     * where a cell is `{ text, svg, image, href, shade, sort }`. Call it again
+     * to replace the rows; `table(null)` removes it.
+     */
+    table: function (spec) {
+      post({ type: 'table', table: spec === undefined ? null : spec })
+    },
     /** Ask for a height in pixels. Done for you as the content grows; call it to override. */
     resize: function (height) {
       post({ type: 'resize', height: Math.ceil(height) })

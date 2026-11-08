@@ -31,6 +31,30 @@ interface RenderedCell {
   tone?: Tone
 }
 
+/** One cell of a table that Sheetbase draws for a screen. */
+interface TableCellSpec {
+  text?: string
+  /** SVG markup. Sheetbase cleans it (no scripts, no external addresses). */
+  svg?: string
+  /** A `data:image/png;base64,…` (or jpeg, gif, webp) picture. */
+  image?: string
+  /** A same-site path, such as `/records/<id>`. The cell becomes a link. */
+  href?: string
+  /** 0 to 1: tints the cell with the app's accent, for a trend down a column. */
+  shade?: number
+  /** What the column sorts by when it is not the text: a number, or text. */
+  sort?: number | string | null
+}
+
+interface TableSpec {
+  columns: Array<{ key: string; label: string; align?: 'left' | 'right' }>
+  rows: Array<{ id: string; cells: Record<string, TableCellSpec> }>
+  /** The column the table starts sorted by. People can click a heading to sort. */
+  sort?: { key: string; descending?: boolean }
+  /** What to say when there are no rows. */
+  empty?: string
+}
+
 interface SheetbaseUi {
   readonly version: 1
   /**
@@ -72,6 +96,11 @@ interface SheetbaseUi {
   setState(state: unknown): void
   notify(text: string, tone?: Tone): void
   resize(height: number): void
+  /**
+   * Show a table under this screen, drawn by Sheetbase with the app's own
+   * table. Call it again to replace the rows; `table(null)` removes it.
+   */
+  table(spec: TableSpec | null): void
   /** A form field's screen: the field's new value. */
   setValue(value: string): void
   /** A report section's screen: what to freeze into the report. */

@@ -29,6 +29,7 @@ import {
 } from '#/components/ui/confirm-dialog'
 import { toast } from '#/components/ui/sonner'
 import { Spinner } from '#/components/ui/spinner'
+import { PluginTable } from './plugin-table'
 import {
   HostRequestError,
   describeHostChange,
@@ -38,6 +39,8 @@ import {
   HOST_CAPABILITIES,
   isHostCapability,
 } from '#/lib/extensions/host-capabilities'
+import { checkFrameTable } from '#/lib/extensions/frame-table'
+import type { FrameTable } from '#/lib/extensions/frame-table'
 import { runPluginHost, runPluginOperation } from '#/lib/extensions/run-client'
 import type { PluginFramePoint } from '#/lib/extensions/ui-points'
 import { cn } from '#/lib/utils'
@@ -139,6 +142,7 @@ export function PluginFrame(props: PluginFrameProps) {
   const frame = React.useRef<HTMLIFrameElement>(null)
   const [height, setHeight] = React.useState(160)
   const [ready, setReady] = React.useState(false)
+  const [table, setTable] = React.useState<FrameTable | null>(null)
   const [asking, setAsking] = React.useState<{
     operation: string
     detail?: string
@@ -220,6 +224,9 @@ export function PluginFrame(props: PluginFrameProps) {
             Number.isFinite(message.height)
           )
             setHeight(Math.max(60, Math.ceil(message.height)))
+          return
+        case 'table':
+          setTable(checkFrameTable(message.table))
           return
         case 'emit':
           if (typeof message.name === 'string' && message.name.length <= 40)
@@ -446,8 +453,14 @@ export function PluginFrame(props: PluginFrameProps) {
   ])
 
   return (
-    <div className={cn(fill && 'h-full', className)}>
-      <div className={cn('relative', fill && 'h-full')}>
+    <div
+      className={cn(
+        fill && !table && 'h-full',
+        fill && table && 'overflow-y-auto',
+        className,
+      )}
+    >
+      <div className={cn('relative', fill && !table && 'h-full')}>
         {!ready ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <Spinner />
@@ -464,9 +477,14 @@ export function PluginFrame(props: PluginFrameProps) {
           referrerPolicy="no-referrer"
           loading="lazy"
           className="block w-full border-0 bg-transparent"
-          style={{ height: fill ? '100%' : height }}
+          style={{ height: fill && !table ? '100%' : height }}
         />
       </div>
+      {table ? (
+        <div className={cn(fill && 'px-6 pb-6')}>
+          <PluginTable table={table} />
+        </div>
+      ) : null}
       <ConfirmDialog
         open={asking !== null}
         onOpenChange={(open) => {

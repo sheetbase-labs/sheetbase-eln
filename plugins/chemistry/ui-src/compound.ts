@@ -93,20 +93,28 @@ async function loadLots() {
       arguments: { p_compound_id: compoundId },
     })
     $('count').textContent = String(lots.length)
-    list.className = ''
-    list.innerHTML = lots.length
-      ? `<table><thead><tr><th>Lot</th><th>Name</th><th>Added</th></tr></thead><tbody>${lots
-          .map(
-            (lot) =>
-              `<tr><td><a href="#" data-id="${esc(lot.id)}">${esc(lot.identifier)}</a></td><td><a href="#" data-id="${esc(lot.id)}">${esc(lot.title)}</a></td><td>${esc(lot.created_at.slice(0, 10))}</td></tr>`,
-          )
-          .join('')}</tbody></table>`
-      : '<span class="muted">No lots yet.</span>'
-    list.querySelectorAll<HTMLAnchorElement>('a[data-id]').forEach((a) =>
-      a.addEventListener('click', (event) => {
-        event.preventDefault()
-        sheetbase.navigate(`/records/${a.dataset.id}`)
-      }),
+    list.className = lots.length ? '' : 'muted'
+    list.textContent = lots.length ? '' : 'No lots yet.'
+    // Sheetbase draws the lots below this panel with its own table.
+    sheetbase.table(
+      lots.length
+        ? {
+            columns: [
+              { key: 'lot', label: 'Lot' },
+              { key: 'name', label: 'Name' },
+              { key: 'added', label: 'Added' },
+            ],
+            rows: lots.map((lot) => ({
+              id: lot.id,
+              cells: {
+                lot: { text: lot.identifier, href: `/records/${lot.id}` },
+                name: { text: lot.title, href: `/records/${lot.id}` },
+                added: { text: lot.created_at.slice(0, 10) },
+              },
+            })),
+            sort: { key: 'lot' },
+          }
+        : null,
     )
   } catch {
     // A registry that keeps no lots has nothing to list.

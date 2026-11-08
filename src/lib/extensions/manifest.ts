@@ -22,6 +22,8 @@ import type { Scope } from '../api-credential-scopes'
 import { eventByName, resolveEventAlias } from '../event-catalogue'
 import { validateCompatRange } from './compat'
 import { DATA_POINT_PARSERS, isDataPoint } from './data-points'
+import { parsePythonDeclaration } from './runtime-config'
+import type { PluginPythonDeclaration } from './runtime-config'
 import {
   EXTENSION_RUNNER_POINTS,
   parseAnalysisKinds,
@@ -126,6 +128,11 @@ export interface ExtensionManifest {
   capabilities: Capability[]
   scopes: Scope[]
   contributions: ExtensionContributions
+  /**
+   * The Python packages the plugin installs and the hosts it may reach, as
+   * approved by the administrator who added it. Absent when it needs neither.
+   */
+  python?: PluginPythonDeclaration
 }
 
 export class ExtensionManifestError extends Error {
@@ -367,6 +374,8 @@ export function validateExtensionManifest(input: unknown): string[] {
       input.author.trim().length > 200)
   )
     errors.push('author must be 1-200 characters')
+  if (input.python !== undefined)
+    errors.push(...parsePythonDeclaration(input.python).errors)
   const capabilities = checkCapabilities(input.capabilities, errors)
   const scopes = checkScopes(input.scopes, errors)
   if (
@@ -536,6 +545,9 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
     capabilities: [...new Set(raw.capabilities as Capability[])],
     scopes: [...new Set(raw.scopes as Scope[])],
     contributions,
+    ...(raw.python !== undefined
+      ? { python: parsePythonDeclaration(raw.python).value }
+      : {}),
   }
 }
 

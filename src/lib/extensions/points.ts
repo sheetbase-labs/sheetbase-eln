@@ -147,8 +147,12 @@ export interface ExtensionRunnerContributions extends ExtensionDataContributions
 
 export const EXTENSION_ID_RE = /^[a-z][a-z0-9-]{0,48}$/
 export const EXTENSION_FIELD_NAME_RE = /^[a-z][a-z0-9_]{0,47}$/
-export const MAX_EXTENSION_FIELDS = 24
-export const MAX_EXTENSION_DECLARATIONS = 25
+/**
+ * Sanity bounds on a declaration, not on what a plugin may do: far above what
+ * a real plugin declares, so a malformed file can't ask for a million of them.
+ */
+export const MAX_EXTENSION_FIELDS = 500
+export const MAX_EXTENSION_DECLARATIONS = 1000
 /** `module:function`, lower case, in the package's python/ folder. */
 export const EXTENSION_ENTRY_RE =
   /^([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)*):([a-z_][a-z0-9_]*)$/

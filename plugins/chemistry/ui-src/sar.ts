@@ -1,5 +1,5 @@
 import type { Molecule } from 'openchemlib'
-import { app, OCL, pictureSvg, readStructure } from './common'
+import { app, cellSvg, OCL, pictureSvg, readStructure } from './common'
 
 interface RecordRow {
   id: string
@@ -68,7 +68,6 @@ root.innerHTML = `
       </div>
     </div>
     <div id="error" class="err" role="alert"></div>
-    <div id="table" class="muted">Loading…</div>
     <div class="row buttons"><button type="button" id="more" hidden>Load more</button></div>
   </div>`
 const $ = <T extends HTMLElement>(id: string) =>
@@ -76,7 +75,6 @@ const $ = <T extends HTMLElement>(id: string) =>
 const modelBox = $<HTMLSelectElement>('model')
 const measureBox = $<HTMLSelectElement>('measure')
 const referenceBox = $<HTMLSelectElement>('reference')
-const tableBox = $('table')
 const countBox = $('count')
 const errorBox = $('error')
 const moreButton = $('more')
@@ -99,8 +97,6 @@ let rows: Row[] = []
 let nextOffset: number | null = 0
 let hidden = 0
 let scaffold = ''
-let sortKey = 'identifier'
-let sortDown = false
 let canvas: InstanceType<typeof OCL.CanvasEditor> | null = null
 let generation = 0
 
@@ -253,80 +249,58 @@ function render() {
     { key: 'hba', label: 'H-bond acceptors', num: true },
     { key: 'tpsa', label: 'Polar surface', num: true },
   ]
-  list.sort((a, b) => {
-    const x = valueFor(a, sortKey)
-    const y = valueFor(b, sortKey)
-    if (x === y) return 0
-    if (x === null) return 1
-    if (y === null) return -1
-    const order = x < y ? -1 : 1
-    return sortDown ? -order : order
-  })
   countBox.textContent = `${list.length} ${list.length === 1 ? 'compound' : 'compounds'}${hidden ? ` · ${hidden} without a structure` : ''}${nextOffset !== null ? ' · more to load' : ''}`
-  if (list.length === 0) {
-    tableBox.className = 'muted'
-    tableBox.textContent =
-      nextOffset !== null
-        ? 'Loading…'
-        : rows.length === 0
-          ? 'No compounds with a structure here yet.'
-          : 'No compound has that core.'
-    sheetbase.resize(Math.max(600, document.body.scrollHeight + 24))
-    return
-  }
-  tableBox.className = ''
-  tableBox.innerHTML = `<div class="scroll"><table class="sar-table"><thead><tr>${columns
-    .map(
-      (c) =>
-        `<th class="${c.num ? 'num' : ''}">${
-          c.key === 'structure'
-            ? esc(c.label)
-            : `<button type="button" class="sort" data-key="${esc(c.key)}">${esc(c.label)}${sortKey === c.key ? (sortDown ? ' ↓' : ' ↑') : ''}</button>`
-        }</th>`,
-    )
-    .join('')}</tr></thead><tbody>${list
-    .map((row) => {
-      const cells = columns.map((c) => {
-        if (c.key === 'structure')
-          return `<td>${pictureSvg(row.parent, 150, 64)}</td>`
-        if (c.key === 'identifier')
-          return `<td><a href="#" data-id="${esc(row.record.id)}">${esc(row.record.identifier)}</a></td>`
-        if (c.key === 'title')
-          return `<td><a href="#" data-id="${esc(row.record.id)}">${esc(row.record.title)}</a></td>`
-        const value = valueFor(row, c.key)
-        const shaded =
-          measure && c.key === `field:${measure}` && typeof value === 'number'
-        const style = shaded
-          ? ` style="background:color-mix(in oklab, var(--sb-primary, #2563eb) ${Math.round((high === low ? 0 : (value - low) / (high - low)) * 55 + 6)}%, transparent)"`
-          : ''
-        const text =
-          value === null
-            ? ''
-            : c.key === 'similarity'
-              ? `${Math.round(Number(value) * 100)}%`
-              : String(value)
-        return `<td class="num"${style}>${esc(text)}</td>`
-      })
-      return `<tr>${cells.join('')}</tr>`
-    })
-    .join('')}</tbody></table></div>`
-  tableBox
-    .querySelectorAll<HTMLButtonElement>('button.sort')
-    .forEach((button) =>
-      button.addEventListener('click', () => {
-        const key = button.dataset.key!
-        sortDown = sortKey === key ? !sortDown : false
-        sortKey = key
-        render()
-      }),
-    )
-  tableBox.querySelectorAll<HTMLAnchorElement>('a[data-id]').forEach((a) =>
-    a.addEventListener('click', (event) => {
-      event.preventDefault()
-      sheetbase.navigate(`/records/${a.dataset.id}`)
-    }),
-  )
-  sheetbase.resize(Math.max(600, document.body.scrollHeight + 24))
+  const empty =
+    nextOffset !== null
+      ? 'Loading…'
+      : rows.length === 0
+        ? 'No compounds with a structure here yet.'
+        : 'No compound has that core.'
+  // Sheetbase draws the table below this screen with its own table.
+  sheetbase.table({
+    columns: columns.map((c) => ({
+      key: c.key,
+      label: c.label,
+      ...(c.num ? { align: 'right' as const } : {}),
+    })),
+    rows: list.map((row) => ({
+      id: row.record.id,
+      cells: Object.fromEntries(
+        columns.map((c) => {
+          const href = `/records/${row.record.id}`
+          if (c.key === 'structure')
+            return [c.key, { svg: cellSvg(row.parent, 150, 64) }]
+          if (c.key === 'identifier')
+            return [c.key, { text: row.record.identifier, href }]
+          if (c.key === 'title')
+            return [c.key, { text: row.record.title, href }]
+          const value = valueFor(row, c.key)
+          const shaded =
+            measure && c.key === `field:${measure}` && typeof value === 'number'
+          return [
+            c.key,
+            {
+              text:
+                value === null
+                  ? ''
+                  : c.key === 'similarity'
+                    ? `${Math.round(Number(value) * 100)}%`
+                    : String(value),
+              sort: value,
+              ...(shaded
+                ? {
+                    shade: high === low ? 0 : (value - low) / (high - low),
+                  }
+                : {}),
+            },
+          ]
+        }),
+      ),
+    })),
+    sort: { key: 'identifier' },
+    empty,
+  })
+  sheetbase.resize(Math.max(120, document.body.scrollHeight + 24))
 }
 
 function fillReference() {
@@ -353,8 +327,7 @@ async function chooseRegistry(next: string) {
   $('clear').hidden = true
   measureBox.value = ''
   errorBox.textContent = ''
-  tableBox.className = 'muted'
-  tableBox.textContent = 'Loading…'
+  sheetbase.table(null)
   try {
     const defs: FieldDef[] = []
     let offset: number | null = 0

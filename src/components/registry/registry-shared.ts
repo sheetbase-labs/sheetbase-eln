@@ -10,11 +10,7 @@ function readableValues(
   model: RegistryModel | undefined,
 ): string[] {
   return Object.entries(entry.custom_fields ?? {})
-    .filter(
-      ([key]) =>
-        key !== model?.registry_sequence_field &&
-        key !== model?.registry_structure_field,
-    )
+    .filter(([key]) => key !== model?.registry_sequence_field)
     .map(([, value]) =>
       typeof value === 'string' || typeof value === 'number'
         ? String(value).trim()

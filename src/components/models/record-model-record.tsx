@@ -1,9 +1,9 @@
+import { useFieldPluginTypes } from '#/components/extensions/table-hooks'
 import { PluginScreen } from '#/components/extensions/plugin-screen'
 import {
   operationAccess,
   usePluginPoints,
 } from '#/components/extensions/use-plugin-points'
-import { ChangeStructure } from '#/components/registry/change-structure'
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 
@@ -154,9 +154,21 @@ export function RecordModelRecord({
   const status = record ? pickerStatus(record.status) : null
   const isRegistry = Boolean(model.data?.is_registry)
   const pluginPoints = usePluginPoints()
-  const structureField = isRegistry
-    ? (model.data?.registry_structure_field ?? null)
-    : null
+  // A field with a plugin's type, where that plugin also has a panel for this
+  // model, is shown by the panel; the plain list would only show its raw value.
+  const fieldTypeLinks = useFieldPluginTypes(modelKey)
+  const shownByPanel = new Set(
+    (fieldTypeLinks.data ?? [])
+      .filter((link) =>
+        pluginPoints.panels.some(
+          (panel) =>
+            panel.extensionKey === link.plugin_key &&
+            (!panel.declaration.models ||
+              panel.declaration.models.includes(modelKey)),
+        ),
+      )
+      .map((link) => link.field_name),
+  )
   const canWrite = hasCapability(role, 'record.create')
 
   return (
@@ -320,9 +332,7 @@ export function RecordModelRecord({
                 ]}
               />
               {fieldSections(
-                structureField
-                  ? fields.filter((f) => f.fieldName !== structureField)
-                  : fields,
+                fields.filter((f) => !shownByPanel.has(f.fieldName)),
               ).map((group) => (
                 <div key={group.name} className="min-w-0">
                   {group.name ? (
@@ -381,11 +391,7 @@ export function RecordModelRecord({
             onOpenChange={setEditing}
             recordId={record.id}
             modelKey={modelKey}
-            fields={fields.filter(
-              (field) =>
-                field.lifecycle === 'active' &&
-                field.fieldName !== structureField,
-            )}
+            fields={fields.filter((field) => field.lifecycle === 'active')}
             stored={record.custom_fields}
           />
         ) : null}
@@ -414,18 +420,6 @@ export function RecordModelRecord({
                 />
               ))
           : null}
-
-        {structureField && record && canWrite && !record.archived_at ? (
-          <ChangeStructure
-            recordId={record.id}
-            molfile={
-              typeof record.custom_fields?.[structureField] === 'string'
-                ? String(record.custom_fields[structureField])
-                : ''
-            }
-            metadataVersion={record.metadata_version ?? 1}
-          />
-        ) : null}
 
         {isRegistry && record ? (
           <RegistryLineage

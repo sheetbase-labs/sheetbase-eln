@@ -47,7 +47,7 @@ import {
 } from '#/lib/bio-registry'
 import type { RegistryEntry, RegistryModel } from '#/lib/bio-registry'
 
-import { createCompoundStarter } from '#/lib/compound-registry'
+import { COMPOUND_STARTER, createCompoundStarter } from '#/lib/compound-starter'
 import { entryStatus, entrySummary, entryText } from './registry-shared'
 
 const client = notebookDataClient
@@ -77,7 +77,7 @@ export function RegistryList({
   const registries = useMemo(() => models.data ?? [], [models.data])
   const keys = useMemo(() => registries.map((m) => m.key), [registries])
   const chemical = useMemo(
-    () => registries.filter((m) => m.registry_structure_field),
+    () => registries.filter((m) => m.key === COMPOUND_STARTER.compound.key),
     [registries],
   )
   const modelByKey = useMemo(

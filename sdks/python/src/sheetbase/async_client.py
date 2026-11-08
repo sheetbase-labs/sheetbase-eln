@@ -81,7 +81,6 @@ class AsyncSheetbaseClient:
         self.facility = AsyncFacility(self._transport)
         self.pipelines = AsyncPipelines(self._transport)
         self.people = AsyncPeople(self._transport)
-        self.structures = AsyncStructures(self._transport)
         self.plugins = AsyncPlugins(self._transport)
 
         #: Every public table, typed from the OpenAPI contract.
@@ -989,37 +988,6 @@ class AsyncWebhooks:
 
 _SETTLED_STATES = ("succeeded", "failed", "cancelled")
 _UUID_RE = re.compile(r"^[0-9a-f-]{36}$", re.IGNORECASE)
-
-
-class AsyncStructures:
-    def __init__(self, transport: AsyncHttpTransport) -> None:
-        self._t = transport
-
-    async def describe(self, structure: str) -> dict[str, Any]:
-        return await self._t.post(
-            "/api/structures/describe", json_body={"structure": structure}
-        )
-
-    async def search(
-        self,
-        structure: str,
-        *,
-        mode: str = "substructure",
-        registry: Optional[str] = None,
-        min_similarity: Optional[float] = None,
-        include_archived: bool = False,
-        limit: Optional[int] = None,
-    ) -> dict[str, Any]:
-        body: dict[str, Any] = {"structure": structure, "mode": mode}
-        if registry is not None:
-            body["registry"] = registry
-        if min_similarity is not None:
-            body["minSimilarity"] = min_similarity
-        if include_archived:
-            body["includeArchived"] = True
-        if limit is not None:
-            body["limit"] = limit
-        return await self._t.post("/api/structures/search", json_body=body)
 
 
 class AsyncPlugins:

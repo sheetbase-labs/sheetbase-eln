@@ -158,3 +158,24 @@ def test_check_looks_up_the_parent_without_its_salt():
         [{"ok": True, "result": [{"id": "a", "identifier": "CMP-1", "title": "Aspirin", "archived": False}]}],
     )
     assert done["registered"] is True and done["matches"][0]["identifier"] == "CMP-1"
+
+
+def test_register_sends_the_molfile_and_the_parent_key_to_the_registry():
+    asked = _run(
+        "chem:register",
+        {"structure": SODIUM_SALT, "name": "Aspirin sodium", "project_id": "p1"},
+        [],
+    )
+    call = asked["__host_calls__"][0]["arguments"]
+    assert call["action"] == "create_registry_entry"
+    arguments = call["arguments"]
+    assert arguments["p_kind"] == "compound"
+    assert arguments["p_allow_duplicate"] is False
+    assert arguments["p_sameness_value"] == chem.parent_key({"structure": ASPIRIN})["key"]
+    assert "M  END" in arguments["p_custom_fields"]["structure"]
+    done = _run(
+        "chem:register",
+        {"structure": ASPIRIN, "name": "Aspirin", "project_id": "p1"},
+        [{"ok": True, "result": {"id": "e1", "identifier": "CMP-0001"}}],
+    )
+    assert done["identifier"] == "CMP-0001" and done["formula"] == "C9H8O4"

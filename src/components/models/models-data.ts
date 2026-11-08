@@ -454,8 +454,6 @@ export interface WorkspaceRecordModel {
   registry_key_fields?: string[]
   /** The field holding the sequence fingerprint, when the model has one. */
   registry_sequence_field?: string | null
-  /** The field holding the drawn structure, when entries are chemical compounds. */
-  registry_structure_field?: string | null
   /** The model a lot of a compound is made from. */
   registry_lot_kind?: string | null
   lifecycle: string
@@ -497,7 +495,7 @@ export const recordModelQueryKeys = {
 }
 
 const WORKSPACE_MODEL_COLUMNS =
-  'id,workspace_id,key,name,description,identifier_prefix,parent_key,is_registry,registry_key_fields,registry_sequence_field,registry_structure_field,registry_lot_kind,lifecycle,current_version,created_at,updated_at'
+  'id,workspace_id,key,name,description,identifier_prefix,parent_key,is_registry,registry_key_fields,registry_sequence_field,registry_lot_kind,lifecycle,current_version,created_at,updated_at'
 
 const RECORD_MODEL_RECORD_COLUMNS =
   'id,identifier,title,kind,status,custom_fields,properties,tags,created_at,updated_at,archived_at,metadata_version,model_version_id,model_version:record_model_versions(version)'

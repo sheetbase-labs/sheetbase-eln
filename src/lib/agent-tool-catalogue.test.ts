@@ -15,10 +15,10 @@ import { GATEWAY_TOOLS } from './ai-gateway'
 const WS = '20000000-0000-4000-8000-000000000001'
 
 describe('agent tool catalogue', () => {
-  it('is bounded: 25 operation tools, 5 lifecycle RPCs, 13 canonical reads', () => {
-    expect(AGENT_TOOL_CATALOGUE).toHaveLength(46)
+  it('is bounded: 25 operation tools, 5 lifecycle RPCs, 11 canonical reads', () => {
+    expect(AGENT_TOOL_CATALOGUE).toHaveLength(44)
     expect(listAgentTools({ mode: 'draft' })).toHaveLength(30)
-    expect(listAgentTools({ mode: 'read' })).toHaveLength(13)
+    expect(listAgentTools({ mode: 'read' })).toHaveLength(11)
     expect(listAgentTools({ mode: 'mutate' })).toHaveLength(3)
   })
 
@@ -188,11 +188,7 @@ describe('agent tool catalogue', () => {
     expect(reads.map((entry) => entry.name)).toEqual(['sheetbase.search'])
     expect(
       listAgentTools({ scopes: ['lab:read'] }).map((entry) => entry.name),
-    ).toEqual([
-      'sheetbase.storage.readings',
-      'sheetbase.compound.search',
-      'sheetbase.compound.check',
-    ])
+    ).toEqual(['sheetbase.storage.readings'])
 
     const proposer = listAgentTools({ scopes: ['agent_operations:write'] })
     expect(proposer.length).toBeGreaterThan(0)

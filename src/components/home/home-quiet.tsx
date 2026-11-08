@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { clockOption } from '#/lib/display-clock'
 
+import { PluginWidgets } from '#/components/extensions/plugin-widgets'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { Button } from '#/components/ui/button'
@@ -389,6 +390,7 @@ export function HomeQuiet(props: HomeQuietProps) {
             </Section>
           ) : null}
         </div>
+        <PluginWidgets />
       </div>
 
       <Inspector label={t('projects.homeQuiet.today.title')}>

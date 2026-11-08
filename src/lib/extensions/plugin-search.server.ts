@@ -45,7 +45,38 @@ interface IndexRow {
   deep_link: string
 }
 
+interface IndexHit {
+  record_id: string
+  entry_key: string
+  score: number
+  snippet: string | null
+}
+
 const DOCUMENT_LIMIT = 5000
+
+function hitFor(
+  row: IndexRow,
+  provider: {
+    extensionName: string
+    declaration: { title: string }
+  },
+  snippet: string,
+  score: number,
+): PluginSearchHit {
+  return {
+    type: row.object_type,
+    id: row.object_id,
+    identifier: row.identifier,
+    title: row.title,
+    kind: row.kind,
+    status: row.status,
+    deepLink: row.deep_link,
+    snippet,
+    score,
+    pluginName: provider.extensionName,
+    providerTitle: provider.declaration.title,
+  }
+}
 
 export async function searchWithPlugins(
   client: DataClient,
@@ -79,7 +110,7 @@ export async function searchWithPlugins(
   const problems: string[] = []
   for (const provider of providers) {
     try {
-      const found = await runExtensionSearch({
+      const { hits: found, nearest } = await runExtensionSearch({
         workspaceId: args.workspaceId,
         actorUserId: args.actorUserId,
         extensionKey: provider.extensionKey,
@@ -90,19 +121,37 @@ export async function searchWithPlugins(
       for (const hit of found) {
         const row = byId.get(hit.id)
         if (!row) continue
-        hits.push({
-          type: row.object_type,
-          id: row.object_id,
-          identifier: row.identifier,
-          title: row.title,
-          kind: row.kind,
-          status: row.status,
-          deepLink: row.deep_link,
-          snippet: hit.snippet ?? '',
-          score: hit.score,
-          pluginName: provider.extensionName,
-          providerTitle: provider.declaration.title,
+        hits.push(hitFor(row, provider, hit.snippet ?? '', hit.score))
+      }
+      if (nearest) {
+        const ranked = await client.rpc<IndexHit[]>('search_plugin_index', {
+          p_extension_key: provider.extensionKey,
+          p_index_name: nearest.index,
+          p_query: nearest.text,
+          p_vector: nearest.vector,
+          p_limit: 50,
         })
+        const missing = [
+          ...new Set(
+            ranked.map((entry) => entry.record_id).filter((id) => !byId.has(id)),
+          ),
+        ]
+        if (missing.length > 0) {
+          const more = await client.list<IndexRow>(
+            'search_documents',
+            `?select=object_type,object_id,title,identifier,kind,status,body,deep_link` +
+              `&archived=eq.false&object_id=in.(${missing.join(',')})`,
+          )
+          for (const row of more) byId.set(row.object_id, row)
+        }
+        const seen = new Set<string>()
+        for (const entry of ranked) {
+          const row = byId.get(entry.record_id)
+          // One hit per record: the closest entry wins.
+          if (!row || seen.has(row.object_id)) continue
+          seen.add(row.object_id)
+          hits.push(hitFor(row, provider, entry.snippet ?? '', entry.score))
+        }
       }
     } catch (error) {
       problems.push(

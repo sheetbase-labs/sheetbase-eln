@@ -30,7 +30,7 @@ import {
 } from './runtime.server'
 import type { ExtensionRuntimeDeps, ResolvedInstall } from './runtime.server'
 import type { DataItemPoint } from './runner-points'
-import { afterAnswer, beforeAnswer } from './hook-answers'
+import { INDEX_NAME_RE, afterAnswer, beforeAnswer } from './hook-answers'
 import type { AfterAnswer, BeforeAnswer, RecordSnapshot } from './hook-answers'
 import type {
   ExtensionCheckDeclaration,
@@ -343,6 +343,33 @@ export interface SearchHit {
   snippet: string | null
 }
 
+/**
+ * A provider can also ask the app to rank what a hook put in one of the
+ * plugin's own indexes (see `index` in a hook's answer): by a vector, by
+ * words, or both. The app does the ranking, as the person searching.
+ */
+const nearestAnswer = z
+  .object({
+    index: z.string().regex(INDEX_NAME_RE),
+    vector: z.array(z.number().finite()).min(1).optional(),
+    text: z.string().optional(),
+  })
+  .strict()
+  .refine((value) => value.vector || (value.text ?? '').trim() !== '', {
+    message: 'nearest needs a vector or words',
+  })
+
+export interface SearchNearest {
+  index: string
+  vector: number[] | null
+  text: string | null
+}
+
+export interface SearchResult {
+  hits: SearchHit[]
+  nearest: SearchNearest | null
+}
+
 export async function runExtensionSearch(
   args: Caller & {
     providerId: string
@@ -350,7 +377,7 @@ export async function runExtensionSearch(
     documents: SearchDocument[]
   },
   deps: ExtensionRuntimeDeps = defaultDeps(),
-): Promise<SearchHit[]> {
+): Promise<SearchResult> {
   const { value } = await withItem(
     deps,
     args,
@@ -369,19 +396,36 @@ export async function runExtensionSearch(
           input: { query: args.query, documents },
         },
       })
-      const parsed = searchAnswer.safeParse(result.rows.at(0)?.hits)
+      const parsed = searchAnswer.safeParse(result.rows.at(0)?.hits ?? [])
       if (!parsed.success)
         throw bad(
           'The plugin’s answer isn’t a list of hits (id, score, snippet).',
         )
+      const rawNearest = result.rows.at(0)?.nearest
+      let nearest: SearchNearest | null = null
+      if (rawNearest !== undefined && rawNearest !== null) {
+        const asked = nearestAnswer.safeParse(rawNearest)
+        if (!asked.success)
+          throw bad(
+            'The plugin’s nearest isn’t an index name with a vector, words or both.',
+          )
+        nearest = {
+          index: asked.data.index,
+          vector: asked.data.vector ?? null,
+          text: asked.data.text ?? null,
+        }
+      }
       // A provider can only point at records it was handed.
-      return parsed.data
-        .filter((hit) => known.has(hit.id))
-        .map((hit) => ({
-          id: hit.id,
-          score: hit.score ?? 0,
-          snippet: hit.snippet ?? null,
-        }))
+      return {
+        hits: parsed.data
+          .filter((hit) => known.has(hit.id))
+          .map((hit) => ({
+            id: hit.id,
+            score: hit.score ?? 0,
+            snippet: hit.snippet ?? null,
+          })),
+        nearest,
+      }
     },
   )
   return value

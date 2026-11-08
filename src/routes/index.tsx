@@ -1,4 +1,6 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+
+import { PluginWidgets } from '#/components/extensions/plugin-widgets'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
@@ -1427,6 +1429,7 @@ export function Home() {
             )}
           </div>
         )}
+        <PluginWidgets />
       </div>
 
       {showFirstRun ? (

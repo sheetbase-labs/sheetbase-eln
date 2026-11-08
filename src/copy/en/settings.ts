@@ -1740,6 +1740,7 @@ export const settings = {
         lab: 'Lab',
         data: 'Data',
         methods: 'Methods',
+        plugins: 'Plugins',
       },
       foldGroup: 'Hide {group}',
       unfoldGroup: 'Show {group}',

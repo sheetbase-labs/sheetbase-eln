@@ -11,6 +11,7 @@ import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { projectOption } from '#/components/record-picker/entity-options'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import {
+  usePluginFieldInputs,
   usePluginFieldPlaceholders,
   usePluginFieldTypeErrors,
 } from '#/components/extensions/field-type-hooks'
@@ -256,6 +257,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
 
   const pluginErrors = usePluginFieldTypeErrors(modelKey, fields, values)
   const pluginPlaceholders = usePluginFieldPlaceholders(modelKey)
+  const pluginInputs = usePluginFieldInputs(modelKey)
   const fieldErrors = useMemo(
     () => ({ ...modelFieldInputErrors(fields, values), ...pluginErrors }),
     [fields, values, pluginErrors],
@@ -555,6 +557,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
                 <ModelFieldInput
                   definition={field}
                   placeholder={pluginPlaceholders[field.fieldName]}
+                  pluginInput={pluginInputs[field.fieldName]}
                   value={
                     values[field.fieldName] ??
                     (field.logicalType === 'boolean' ? false : '')

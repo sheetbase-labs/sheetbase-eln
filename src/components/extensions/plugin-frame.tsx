@@ -15,6 +15,7 @@
  * - `notify` shows a toast; `resize` sizes the frame.
  */
 import * as React from 'react'
+import { useRouter } from '@tanstack/react-router'
 
 import {
   ConfirmDialog,
@@ -29,6 +30,8 @@ import {
 import { toast } from '#/components/ui/sonner'
 import { Spinner } from '#/components/ui/spinner'
 import { runPluginHook } from '#/lib/extensions/run-client'
+import type { PluginFramePoint } from '#/lib/extensions/ui-points'
+import { cn } from '#/lib/utils'
 import { t } from '#/copy'
 
 const TOKENS: Record<string, string> = {
@@ -45,7 +48,10 @@ const TOKENS: Record<string, string> = {
   '--sb-info': '--info',
 }
 
-function readTheme() {
+/** Same-site paths only: never a full address, a script or a protocol-relative link. */
+const INTERNAL_PATH_RE = /^\/(?!\/)[A-Za-z0-9._~!$&'()*+,;=:@%/?#-]*$/
+
+export function readTheme() {
   const root = document.documentElement
   const styles = getComputedStyle(root)
   const tokens: Record<string, string> = {}
@@ -59,13 +65,14 @@ function readTheme() {
   }
 }
 
-const MAX_STATE_BYTES = 64 * 1024
+/** State is kept with the block in the database; this only guards against a runaway loop. */
+const MAX_STATE_BYTES = 4 * 1024 * 1024
 const NOTICE_TONES = ['neutral', 'success', 'warning', 'danger', 'info']
 
 export interface PluginFrameProps {
   extensionKey: string
   pluginName: string
-  point: 'blocks' | 'panels'
+  point: PluginFramePoint
   itemId: string
   title: string
   context: Record<string, unknown>
@@ -73,6 +80,16 @@ export interface PluginFrameProps {
   /** Access of each operation the plugin declares, so a write can be confirmed. */
   operations: Record<string, 'read' | 'write'>
   onState?: (state: unknown) => void
+  /** Messages the screen sends up by name: `value` (a field input), `section` (a report section). */
+  onEmit?: (name: string, payload: unknown) => void
+  /** Fill the space around the frame (a page) instead of growing with the content. */
+  fill?: boolean
+  /**
+   * Keep what the screen saves with `setState` in this browser, under this
+   * name, for the signed-in person: for a page, settings page or Home card,
+   * which have no block to keep it with. Not shared with anyone else.
+   */
+  persist?: string
   className?: string
 }
 
@@ -87,8 +104,23 @@ export function PluginFrame(props: PluginFrameProps) {
     state,
     operations,
     onState,
+    onEmit,
+    fill,
+    persist,
     className,
   } = props
+  const storageKey = persist ? `sb-plugin-state:${persist}` : null
+  const [kept, setKept] = React.useState<unknown>(() => {
+    if (!storageKey) return undefined
+    try {
+      const raw = localStorage.getItem(storageKey)
+      return raw === null ? undefined : (JSON.parse(raw) as unknown)
+    } catch {
+      return undefined
+    }
+  })
+  const shownState = state !== undefined ? state : kept
+  const router = useRouter()
   const frame = React.useRef<HTMLIFrameElement>(null)
   const [height, setHeight] = React.useState(160)
   const [ready, setReady] = React.useState(false)
@@ -96,8 +128,8 @@ export function PluginFrame(props: PluginFrameProps) {
     operation: string
     decide: (run: boolean) => void
   } | null>(null)
-  const latest = React.useRef({ context, state })
-  latest.current = { context, state }
+  const latest = React.useRef({ context, state: shownState })
+  latest.current = { context, state: shownState }
 
   const sendContext = React.useCallback(() => {
     const target = frame.current?.contentWindow
@@ -118,7 +150,7 @@ export function PluginFrame(props: PluginFrameProps) {
   // the frame itself just kept comes back as `state` when the block is saved;
   // sending that back would only undo a click made since, so it is skipped.
   const contextKey = JSON.stringify(context)
-  const stateKey = JSON.stringify(state ?? null)
+  const stateKey = JSON.stringify(shownState ?? null)
   const sent = React.useRef<{ context: string; state: string } | null>(null)
   const echo = React.useRef<string | null>(null)
   React.useEffect(() => {
@@ -171,7 +203,19 @@ export function PluginFrame(props: PluginFrameProps) {
             typeof message.height === 'number' &&
             Number.isFinite(message.height)
           )
-            setHeight(Math.min(900, Math.max(60, Math.ceil(message.height))))
+            setHeight(Math.max(60, Math.ceil(message.height)))
+          return
+        case 'emit':
+          if (typeof message.name === 'string' && message.name.length <= 40)
+            onEmit?.(message.name, message.payload)
+          return
+        case 'navigate':
+          if (
+            typeof message.path === 'string' &&
+            message.path.length <= 500 &&
+            INTERNAL_PATH_RE.test(message.path)
+          )
+            router.history.push(message.path)
           return
         case 'notify':
           if (
@@ -195,6 +239,14 @@ export function PluginFrame(props: PluginFrameProps) {
           if (size <= MAX_STATE_BYTES) {
             echo.current = JSON.stringify(message.state ?? null)
             onState?.(message.state)
+            if (storageKey) {
+              setKept(message.state)
+              try {
+                localStorage.setItem(storageKey, JSON.stringify(message.state))
+              } catch {
+                /* storage is off: the state lasts until the page closes */
+              }
+            }
           }
           return
         }
@@ -246,11 +298,19 @@ export function PluginFrame(props: PluginFrameProps) {
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [extensionKey, operations, onState, sendContext])
+  }, [
+    extensionKey,
+    operations,
+    onState,
+    onEmit,
+    router,
+    sendContext,
+    storageKey,
+  ])
 
   return (
-    <div className={className}>
-      <div className="relative">
+    <div className={cn(fill && 'h-full', className)}>
+      <div className={cn('relative', fill && 'h-full')}>
         {!ready ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <Spinner />
@@ -267,7 +327,7 @@ export function PluginFrame(props: PluginFrameProps) {
           referrerPolicy="no-referrer"
           loading="lazy"
           className="block w-full border-0 bg-transparent"
-          style={{ height }}
+          style={{ height: fill ? '100%' : height }}
         />
       </div>
       <ConfirmDialog

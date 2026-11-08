@@ -43,6 +43,10 @@ export const plugins = {
       'sameness-keys': 'Same-thing rules',
       'event-hooks': 'Event reactions',
       'record-hooks': 'Save and upload hooks',
+      pages: 'Pages',
+      'settings-pages': 'Settings pages',
+      'dashboard-widgets': 'Home widgets',
+      'report-sections': 'Report sections',
     },
     pointHint: {
       operations:
@@ -56,7 +60,7 @@ export const plugins = {
         'Columns worked out for every row of a table, and their header menu entries.',
       'row-actions': 'Buttons for the rows you choose in a table.',
       'field-types':
-        'Kinds of field you can give a model, with their own checks and look.',
+        'Kinds of field you can give a model, with their own checks, look and input.',
       'pipeline-steps':
         'Steps a pipeline can use to combine or reshape tables, such as joining two datasets.',
       calculators: 'Calculators next to the bench calculator.',
@@ -75,6 +79,10 @@ export const plugins = {
         'Reactions to things that happen in the lab. They can leave a note, raise a flag a gate waits on, ask for a sign-off and fill in fields on the record concerned.',
       'record-hooks':
         'Run when a record or file is created, edited, uploaded or changes status. Before a save they can refuse it with a message or fill in fields. After it they can write a summary, add to a search index, raise flags, ask for sign-off and change records. They never sign or approve anything.',
+      pages: 'Pages the plugin adds to the sidebar.',
+      'settings-pages': 'Pages the plugin adds to Settings.',
+      'dashboard-widgets': 'Cards the plugin adds to Home.',
+      'report-sections': 'Sections a person can add to a report.',
     },
     pointSwitch: 'Switch {point} on or off for {name}',
     pointSwitchedOn: '{point} switched on',
@@ -101,6 +109,10 @@ export const plugins = {
       hook: 'reaction',
       before: 'before the save',
       after: 'after the save',
+      page: 'page',
+      settings: 'settings page',
+      widget: 'Home card',
+      section: 'report section',
     },
     by: 'by {author}',
     turnOn: 'Switch on',
@@ -150,6 +162,24 @@ export const plugins = {
       cancel: 'Cancel',
     },
   },
+  reportSection: {
+    title: 'Add a section from a plugin',
+    choose: 'Plugin section',
+    willAdd: 'This will be added to the report as written:',
+    waiting: 'Fill in the plugin’s form above, then its section appears here.',
+    add: 'Add to report',
+    button: 'Add from a plugin',
+  },
+  widgets: {
+    label: 'From your plugins',
+  },
+  page: {
+    cluster: 'Plugins',
+    goneTitle: 'This plugin page isn’t available',
+    goneBody:
+      'The plugin may have been switched off or removed, or it no longer offers this page.',
+    goHome: 'Back to Home',
+  },
   screen: {
     loading: 'Loading…',
     failed: 'This plugin could not draw its screen. {reason}',
@@ -174,6 +204,8 @@ export const plugins = {
     yes: 'Yes',
     no: 'No',
     columnFailed: '{column} could not be worked out: {reason}',
+    cellFailed: 'This plugin could not draw this cell.',
+    inputFor: '{label}, entered with {plugin}',
     columnLoading: 'Working out {column}…',
     actionRunning: '{action}…',
     actionFailed: '{action} did not work: {reason}',

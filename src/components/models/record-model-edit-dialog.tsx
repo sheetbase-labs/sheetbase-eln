@@ -28,7 +28,10 @@ import {
   modelFieldInputErrors,
   recordModelDetailQueryKeys,
 } from './models-data'
-import { usePluginFieldTypeErrors } from '#/components/extensions/field-type-hooks'
+import {
+  usePluginFieldInputs,
+  usePluginFieldTypeErrors,
+} from '#/components/extensions/field-type-hooks'
 import { t } from '#/copy'
 
 /**
@@ -64,6 +67,7 @@ export function RecordModelEditDialog({
     useState<Record<string, string | boolean>>(initial)
   const merged = useMemo(() => ({ ...initial, ...values }), [initial, values])
   const pluginErrors = usePluginFieldTypeErrors(modelKey ?? '', fields, merged)
+  const pluginInputs = usePluginFieldInputs(modelKey ?? '')
   const errors = useMemo(
     () => ({ ...modelFieldInputErrors(fields, merged), ...pluginErrors }),
     [fields, merged, pluginErrors],
@@ -111,6 +115,7 @@ export function RecordModelEditDialog({
               <div key={field.id} className="flex flex-col gap-1">
                 <ModelFieldInput
                   definition={field}
+                  pluginInput={pluginInputs[field.fieldName]}
                   value={merged[field.fieldName]}
                   onChange={(value) =>
                     setValues((current) => ({

@@ -13,7 +13,8 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { checkFieldTypeValue } from '#/lib/extensions/hooks'
 import { t } from '#/copy'
 import { useFieldPluginTypes } from './table-hooks'
-import { usePluginPoints } from './use-plugin-points'
+import type { PluginFieldInputSource } from './plugin-field-input'
+import { operationAccess, usePluginPoints } from './use-plugin-points'
 
 /** Errors by field name for values that break a plugin field type's rules. */
 export function usePluginFieldTypeErrors(
@@ -58,6 +59,32 @@ export function usePluginFieldPlaceholders(
     }
     return out
   }, [links.data, points.fieldTypes])
+}
+
+/** The screens that are the input of a model's fields, by field name: fields given a plugin type that brings its own input. */
+export function usePluginFieldInputs(
+  modelKey: string,
+): Record<string, PluginFieldInputSource> {
+  const points = usePluginPoints()
+  const links = useFieldPluginTypes(modelKey)
+  return React.useMemo(() => {
+    const out: Record<string, PluginFieldInputSource> = {}
+    for (const link of links.data ?? []) {
+      const type = points.fieldTypes.find(
+        (item) =>
+          item.extensionKey === link.plugin_key && item.id === link.type_id,
+      )
+      if (type?.declaration.input)
+        out[link.field_name] = {
+          extensionKey: type.extensionKey,
+          pluginName: type.extensionName,
+          itemId: type.id,
+          title: type.declaration.title,
+          operations: operationAccess(points, type.extensionKey),
+        }
+    }
+    return out
+  }, [links.data, points])
 }
 
 /**

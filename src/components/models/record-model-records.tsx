@@ -42,6 +42,7 @@ import {
   usePluginTableHooks,
 } from '#/components/extensions/table-hooks'
 import { CellDisplayView } from '#/components/extensions/cell-display'
+import { PluginCell } from '#/components/extensions/plugin-cell-renderer'
 import { t } from '#/copy'
 
 /**
@@ -195,6 +196,15 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
               recordFieldValue(record, field.fieldName),
             ),
           cell: ({ getValue, row }) => {
+            const renderer = plugin.cellRenderer(field)
+            if (renderer)
+              return (
+                <PluginCell
+                  extensionKey={renderer.extensionKey}
+                  itemId={renderer.itemId}
+                  value={recordFieldValue(row.original, field.fieldName)}
+                />
+              )
             const display = plugin.cellDisplay(field)
             return display ? (
               <CellDisplayView

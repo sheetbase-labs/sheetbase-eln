@@ -221,28 +221,24 @@ export function StepsEditor({
                   }
                 />
               )}
-              {step.language === 'plugin' ? null : (
-                <label className="flex items-center gap-2 text-body">
-                  <Checkbox
-                    aria-label={t('data.stepsEditor.ariaStepWaitsPerson', {
-                      n,
-                    })}
-                    checked={Boolean(confirm)}
-                    onCheckedChange={(on) =>
-                      onChange(
-                        setStepConfirm(
-                          steps,
-                          index,
-                          on
-                            ? defaultConfirm(memberIds.slice(0, 1))
-                            : undefined,
-                        ),
-                      )
-                    }
-                  />
-                  {t('data.stepsEditor.pausePersonConfirm')}
-                </label>
-              )}
+              <label className="flex items-center gap-2 text-body">
+                <Checkbox
+                  aria-label={t('data.stepsEditor.ariaStepWaitsPerson', {
+                    n,
+                  })}
+                  checked={Boolean(confirm)}
+                  onCheckedChange={(on) =>
+                    onChange(
+                      setStepConfirm(
+                        steps,
+                        index,
+                        on ? defaultConfirm(memberIds.slice(0, 1)) : undefined,
+                      ),
+                    )
+                  }
+                />
+                {t('data.stepsEditor.pausePersonConfirm')}
+              </label>
               {confirm ? (
                 <div className="flex flex-col gap-2 border-l-2 border-border pl-3">
                   <label className="flex flex-col gap-0.5 text-label text-fg-muted">

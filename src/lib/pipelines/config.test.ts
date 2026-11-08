@@ -281,7 +281,24 @@ describe('Plugin steps in the chain', () => {
       'steps[1].plugin',
     ])
   })
-  it('refuses a reference it cannot read, a confirm and a contract', () => {
+  it('lets a plugin step pause for a person, and checks the pause like any other', () => {
+    const config = validConfig()
+    config.steps = [
+      {
+        ...pluginStep({ left: { $ref: 'previous' } }),
+        confirm: {
+          fields: [{ key: 'ok', label: 'OK', type: 'text', required: true }],
+          askedUserIds: ['u-1'],
+        },
+      },
+    ]
+    expect(validatePipelineConfig(config)).toEqual([])
+    config.steps[0].confirm = { fields: [], askedUserIds: [] }
+    expect(validatePipelineConfig(config).map((e) => e.field)).toContain(
+      'steps[0].confirm.fields',
+    )
+  })
+  it('refuses a reference it cannot read and a contract', () => {
     const config = validConfig()
     config.steps = [
       {
@@ -291,13 +308,13 @@ describe('Plugin steps in the chain', () => {
           c: { $ref: 'inputs' },
           d: { $ref: 'parameters.x.y' },
         }),
-        confirm: { fields: [], askedUserIds: [] },
+        contract: { input: { columns: [] }, output: { columns: [] } } as never,
       },
     ]
     const fields = validatePipelineConfig(config).map((e) => e.field)
     expect(fields).toEqual(
       expect.arrayContaining([
-        'steps[0].confirm',
+        'steps[0].contract',
         'steps[0].plugin.arguments.a',
         'steps[0].plugin.arguments.b',
         'steps[0].plugin.arguments.c',

@@ -159,7 +159,7 @@ describe('output column mapping', () => {
 })
 
 describe('plugin steps', () => {
-  it('becomes a plugin step without code, a contract or a pause, and back', () => {
+  it('becomes a plugin step without code or a contract, keeps its pause, and back', () => {
     const start = [
       {
         ...addStep([])[0],
@@ -169,7 +169,7 @@ describe('plugin steps', () => {
     const plugin = setStepLanguage(start, 0, 'plugin')[0]
     expect(plugin.language).toBe('plugin')
     expect(plugin.statement).toBe('')
-    expect(plugin).not.toHaveProperty('confirm')
+    expect(plugin.confirm?.askedUserIds).toEqual(['u'])
     const chosen = setStepPlugin([plugin], 0, {
       operation: 'plugin.a.b',
       arguments: { left: { $ref: 'previous' } },

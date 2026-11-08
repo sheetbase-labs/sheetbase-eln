@@ -1664,7 +1664,7 @@ export const data = {
     runsAfterPrecedingStep:
       'Runs after the preceding step. Read its result as <code>previous</code>, or pause for a person to confirm.',
     pluginRunsAfterPrecedingStep:
-      'Runs after the preceding step. Its table can come from the result so far, an input or an earlier step, and the next step reads what it gives back as <code>previous</code>.',
+      'Runs after the preceding step. Its table can come from the result so far, an input or an earlier step, and the next step reads what it gives back as <code>previous</code>. It can pause for a person to confirm once its table is ready.',
     chooseWhetherRealRun:
       'Choose whether a real run keeps the final result in a dataset. Trying a draft never writes output.',
     pythonAvailable: 'Python isn’t available',
@@ -3170,8 +3170,6 @@ export const data = {
     chooseSqlPython: 'Choose SQL, Python or a plugin step',
     pluginOnlyPluginStep: 'Only a plugin step names a plugin.',
     pluginStepNeedsPlugin: 'A plugin step needs the plugin step it runs.',
-    pluginStepNoConfirm:
-      'A plugin step cannot pause for a person; add a step after it that does.',
     pluginStepArguments:
       'The settings of a plugin step must be a set of named values.',
     pluginStepReference:

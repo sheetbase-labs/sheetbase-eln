@@ -1,0 +1,98 @@
+@layer theme, base, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+@source "./**/*.tsx";
+
+/* The app's colour names, drawn from the colours the plugin frame hands over
+   (`--sb-*`), so the tools follow light and dark with the rest of Sheetbase. */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --color-background: var(--sb-bg);
+  --color-surface: var(--sb-surface);
+  --color-surface-muted: color-mix(in oklab, var(--sb-fg) 4%, var(--sb-surface));
+  --color-surface-hover: color-mix(in oklab, var(--sb-fg) 7%, var(--sb-surface));
+  --color-surface-disabled: color-mix(in oklab, var(--sb-fg) 5%, var(--sb-surface));
+  --color-row-hover: color-mix(in oklab, var(--sb-fg) 5%, var(--sb-surface));
+  --color-fg: var(--sb-fg);
+  --color-fg-muted: var(--sb-muted);
+  --color-fg-faint: color-mix(in oklab, var(--sb-muted) 75%, var(--sb-surface));
+  --color-border: var(--sb-border);
+  --color-border-subtle: color-mix(in oklab, var(--sb-border) 55%, var(--sb-surface));
+  --color-border-strong: color-mix(in oklab, var(--sb-border) 70%, var(--sb-fg));
+  --color-primary: var(--sb-primary);
+  --color-primary-hover: color-mix(in oklab, var(--sb-primary) 88%, black);
+  --color-primary-foreground: var(--sb-primary-fg);
+  --color-on-accent: var(--sb-primary-fg);
+  --color-selection: color-mix(in oklab, var(--sb-primary) 12%, var(--sb-surface));
+  --color-focus: var(--sb-primary);
+  --color-danger: var(--sb-danger);
+  --color-danger-text: color-mix(in oklab, var(--sb-danger) 80%, var(--sb-fg));
+  --color-danger-wash: color-mix(in oklab, var(--sb-danger) 12%, var(--sb-surface));
+  --color-danger-border: color-mix(in oklab, var(--sb-danger) 35%, var(--sb-surface));
+  --color-success: var(--sb-success);
+  --color-success-text: color-mix(in oklab, var(--sb-success) 75%, var(--sb-fg));
+  --color-success-wash: color-mix(in oklab, var(--sb-success) 12%, var(--sb-surface));
+  --color-warning: var(--sb-warning);
+  --color-warning-text: color-mix(in oklab, var(--sb-warning) 65%, var(--sb-fg));
+  --color-warning-wash: color-mix(in oklab, var(--sb-warning) 14%, var(--sb-surface));
+  --color-warning-border: color-mix(in oklab, var(--sb-warning) 40%, var(--sb-surface));
+  --color-info: var(--sb-info);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+}
+
+@utility text-body { font-size: 13px; line-height: 18px; }
+@utility text-label { font-size: 12px; line-height: 16px; font-weight: 500; }
+@utility text-caption { font-size: 12px; line-height: 17px; }
+@utility text-section { font-size: 15px; line-height: 20px; font-weight: 600; }
+@utility text-id { font-family: var(--font-mono); font-size: 12px; line-height: 16px; }
+@utility num { font-variant-numeric: tabular-nums; }
+@utility mono { font-family: var(--font-mono); }
+
+@layer base {
+  *, ::before, ::after { box-sizing: border-box; border: 0 solid var(--sb-border); }
+  body { margin: 0; background: transparent; color: var(--sb-fg); font: 13px/18px ui-sans-serif, system-ui, sans-serif; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  table { border-collapse: collapse; }
+  p, h1, h2, h3, h4, figure, ul, ol { margin: 0; }
+  ul, ol { padding: 0; list-style: none; }
+}
+
+/* The names the maps and traces draw with, from the frame's colours. */
+:root {
+  --border-strong: color-mix(in oklab, var(--sb-border) 70%, var(--sb-fg));
+  --card: var(--sb-surface);
+  --foreground: var(--sb-fg);
+  --muted-foreground: var(--sb-muted);
+  --primary: var(--sb-primary);
+  --destructive: var(--sb-danger);
+  --warning-wash: color-mix(in oklab, var(--sb-warning) 14%, var(--sb-surface));
+  --chart-1: oklch(0.657 0.115 213);
+  --chart-2: oklch(0.551 0.188 256);
+  --chart-3: oklch(0.501 0.02 259.4);
+  --chart-4: oklch(0.62 0.2 300.1);
+  --chart-5: oklch(0.657 0.115 213);
+  --trace-a: oklch(0.62 0.17 145);
+  --trace-c: oklch(0.55 0.17 255);
+  --trace-g: oklch(0.38 0.02 259);
+  --trace-t: oklch(0.58 0.21 27);
+  --gel-bg: oklch(0.205 0.012 259);
+  --gel-well: oklch(0.31 0.015 259);
+  --gel-label: oklch(0.86 0.01 259);
+  --gel-ladder: oklch(0.72 0.02 259);
+  --gel-band: oklch(0.97 0.005 259);
+}
+:root[data-theme='dark'] {
+  --chart-1: oklch(0.743 0.121 210.2);
+  --chart-2: oklch(0.687 0.167 255.6);
+  --chart-3: oklch(0.712 0 0);
+  --chart-4: oklch(0.716 0.152 298.3);
+  --chart-5: oklch(0.743 0.121 210.2);
+  --trace-a: oklch(0.74 0.16 145);
+  --trace-c: oklch(0.72 0.14 250);
+  --trace-g: oklch(0.82 0.01 259);
+  --trace-t: oklch(0.7 0.18 25);
+}

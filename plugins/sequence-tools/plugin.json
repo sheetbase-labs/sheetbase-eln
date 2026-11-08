@@ -2,7 +2,7 @@
   "id": "sheetbase.sequence-tools",
   "name": "Sequence tools",
   "version": "1.0.0",
-  "description": "Sequence maths for the assistant, the API and pipelines: restriction sites and digests, primers and PCR, cloning, alignment, CRISPR guides, codon optimisation and Sanger checks.",
+  "description": "Sequence maths for the assistant, the API and pipelines, and the sequence block with its workbench: edit and annotate, restriction enzymes and digests with a gel, primers and PCR, cloning plans, guide RNAs, codon tools and Sanger checks.",
   "author": "Sheetbase",
   "provides": {
     "operations": [
@@ -146,7 +146,7 @@
             "name": "target_tm",
             "type": "number",
             "required": false,
-            "description": "Best melting temperature in °C (60 if left out)."
+            "description": "Best melting temperature in \u00b0C (60 if left out)."
           },
           {
             "name": "max_product",
@@ -634,6 +634,15 @@
         ],
         "run": "ops:sequence_key"
       }
+    ],
+    "blocks": [
+      {
+        "id": "sequence",
+        "title": "Sequence",
+        "description": "A DNA, RNA or protein sequence with its map and the tools to work on it.",
+        "icon": "dna",
+        "ui": "ui/block.html"
+      }
     ]
   },
   "examples": [
@@ -769,5 +778,11 @@
         "length": 7
       }
     }
+  ],
+  "permissions": [
+    "files:read",
+    "models:read",
+    "projects:read",
+    "projects:write"
   ]
 }

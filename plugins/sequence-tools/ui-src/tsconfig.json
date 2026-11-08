@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "types": ["@sheetbase-labs/plugin-ui/types"],
+    "paths": {
+      "#/copy": ["./copy/index.ts"],
+      "#/lib/*": ["./lib/*"],
+      "#/components/ui/*": ["./ui/kit.tsx"],
+      "#/components/inventory/list": ["./ui/kit.tsx"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}

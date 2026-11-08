@@ -100,17 +100,22 @@ export interface ScreenResult {
   notice?: ScreenNotice
 }
 
+/**
+ * Technical bounds on a drawn screen, there to keep a runaway loop in a plugin
+ * from freezing the page, not to limit what a plugin may show. A lab with a
+ * real need for more says so and the number goes up.
+ */
 export const SCREEN_LIMITS = {
-  depth: 8,
-  nodes: 300,
-  text: 2000,
+  depth: 64,
+  nodes: 100_000,
+  text: 100_000,
   label: 120,
-  tableRows: 200,
-  tableColumns: 12,
-  sparkline: 400,
-  options: 50,
-  svgBytes: 64 * 1024,
-  stateBytes: 64 * 1024,
+  tableRows: 100_000,
+  tableColumns: 500,
+  sparkline: 100_000,
+  options: 10_000,
+  svgBytes: 8 * 1024 * 1024,
+  stateBytes: 4 * 1024 * 1024,
 } as const
 
 const NAME_RE = /^[a-z][a-z0-9_]{0,47}$/
@@ -129,7 +134,7 @@ function isTone(value: unknown): value is ScreenTone {
   )
 }
 
-const byteLength = (text: string) => new TextEncoder().encode(text).length
+const byteLength = (value: string) => new TextEncoder().encode(value).length
 
 class Walk {
   nodes = 0
@@ -374,11 +379,11 @@ function parseNode(
               typeof cell === 'boolean' ||
               (typeof cell === 'number' && Number.isFinite(cell))
             ) ||
-            (typeof cell === 'string' && cell.length > 300)
+            (typeof cell === 'string' && cell.length > 10_000)
           )
             return walk.fail(
               at,
-              'cells are text (up to 300 characters), numbers, true/false or empty',
+              'cells are text (up to 10000 characters), numbers, true/false or empty',
             )
           out[column.key] = cell
         }

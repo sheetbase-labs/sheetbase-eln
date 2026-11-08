@@ -1,12 +1,7 @@
 [
   {
     "name": "a text",
-    "result": {
-      "view": {
-        "type": "text",
-        "text": "hi"
-      }
-    },
+    "result": { "view": { "type": "text", "text": "hi" } },
     "ok": true
   },
   {
@@ -15,11 +10,7 @@
       "view": {
         "type": "stack",
         "children": [
-          {
-            "type": "heading",
-            "text": "H",
-            "level": 2
-          },
+          { "type": "heading", "text": "H", "level": 2 },
           {
             "type": "stat",
             "label": "Live",
@@ -39,13 +30,7 @@
         "type": "stack",
         "direction": "row",
         "gap": "sm",
-        "children": [
-          {
-            "type": "badge",
-            "text": "a",
-            "tone": "info"
-          }
-        ]
+        "children": [{ "type": "badge", "text": "a", "tone": "info" }]
       }
     },
     "ok": true
@@ -63,10 +48,7 @@
             "label": "40",
             "tone": "warning"
           },
-          {
-            "type": "sparkline",
-            "values": [1, 2, 3]
-          }
+          { "type": "sparkline", "values": [1, 2, 3] }
         ]
       }
     },
@@ -77,17 +59,8 @@
     "result": {
       "view": {
         "type": "table",
-        "columns": [
-          {
-            "key": "a",
-            "label": "A"
-          }
-        ],
-        "rows": [
-          {
-            "a": 1
-          }
-        ]
+        "columns": [{ "key": "a", "label": "A" }],
+        "rows": [{ "a": 1 }]
       }
     },
     "ok": true
@@ -110,18 +83,10 @@
             "name": "s",
             "label": "S",
             "kind": "select",
-            "options": [
-              {
-                "value": "a",
-                "label": "A"
-              }
-            ]
+            "options": [{ "value": "a", "label": "A" }]
           }
         ],
-        "submit": {
-          "label": "Go",
-          "action": "go"
-        }
+        "submit": { "label": "Go", "action": "go" }
       }
     },
     "ok": true
@@ -132,16 +97,8 @@
       "view": {
         "type": "stack",
         "children": [
-          {
-            "type": "button",
-            "label": "B",
-            "action": "b"
-          },
-          {
-            "type": "link",
-            "text": "L",
-            "to": "/projects"
-          }
+          { "type": "button", "label": "B", "action": "b" },
+          { "type": "link", "text": "L", "to": "/projects" }
         ]
       }
     },
@@ -161,42 +118,21 @@
   {
     "name": "state and a notice",
     "result": {
-      "view": {
-        "type": "divider"
-      },
-      "state": {
-        "a": 1
-      },
-      "notice": {
-        "tone": "success",
-        "text": "Saved."
-      }
+      "view": { "type": "divider" },
+      "state": { "a": 1 },
+      "notice": { "tone": "success", "text": "Saved." }
     },
     "ok": true
   },
-  {
-    "name": "not an object",
-    "result": "hello",
-    "ok": false
-  },
+  { "name": "not an object", "result": "hello", "ok": false },
   {
     "name": "an unknown key",
-    "result": {
-      "view": {
-        "type": "divider"
-      },
-      "surprise": 1
-    },
+    "result": { "view": { "type": "divider" }, "surprise": 1 },
     "ok": false
   },
   {
     "name": "an unknown part",
-    "result": {
-      "view": {
-        "type": "iframe",
-        "src": "https://example.com"
-      }
-    },
+    "result": { "view": { "type": "iframe", "src": "https://example.com" } },
     "ok": false
   },
   {
@@ -235,22 +171,14 @@
   {
     "name": "a link off the site",
     "result": {
-      "view": {
-        "type": "link",
-        "text": "x",
-        "to": "https://example.com"
-      }
+      "view": { "type": "link", "text": "x", "to": "https://example.com" }
     },
     "ok": false
   },
   {
     "name": "javascript link",
     "result": {
-      "view": {
-        "type": "link",
-        "text": "x",
-        "to": "javascript:alert(1)"
-      }
+      "view": { "type": "link", "text": "x", "to": "javascript:alert(1)" }
     },
     "ok": false
   },
@@ -285,8 +213,313 @@
                                         "type": "stack",
                                         "children": [
                                           {
-                                            "type": "text",
-                                            "text": "deep"
+                                            "type": "stack",
+                                            "children": [
+                                              {
+                                                "type": "stack",
+                                                "children": [
+                                                  {
+                                                    "type": "stack",
+                                                    "children": [
+                                                      {
+                                                        "type": "stack",
+                                                        "children": [
+                                                          {
+                                                            "type": "stack",
+                                                            "children": [
+                                                              {
+                                                                "type": "stack",
+                                                                "children": [
+                                                                  {
+                                                                    "type": "stack",
+                                                                    "children": [
+                                                                      {
+                                                                        "type": "stack",
+                                                                        "children": [
+                                                                          {
+                                                                            "type": "stack",
+                                                                            "children": [
+                                                                              {
+                                                                                "type": "stack",
+                                                                                "children": [
+                                                                                  {
+                                                                                    "type": "stack",
+                                                                                    "children": [
+                                                                                      {
+                                                                                        "type": "stack",
+                                                                                        "children": [
+                                                                                          {
+                                                                                            "type": "stack",
+                                                                                            "children": [
+                                                                                              {
+                                                                                                "type": "stack",
+                                                                                                "children": [
+                                                                                                  {
+                                                                                                    "type": "stack",
+                                                                                                    "children": [
+                                                                                                      {
+                                                                                                        "type": "stack",
+                                                                                                        "children": [
+                                                                                                          {
+                                                                                                            "type": "stack",
+                                                                                                            "children": [
+                                                                                                              {
+                                                                                                                "type": "stack",
+                                                                                                                "children": [
+                                                                                                                  {
+                                                                                                                    "type": "stack",
+                                                                                                                    "children": [
+                                                                                                                      {
+                                                                                                                        "type": "stack",
+                                                                                                                        "children": [
+                                                                                                                          {
+                                                                                                                            "type": "stack",
+                                                                                                                            "children": [
+                                                                                                                              {
+                                                                                                                                "type": "stack",
+                                                                                                                                "children": [
+                                                                                                                                  {
+                                                                                                                                    "type": "stack",
+                                                                                                                                    "children": [
+                                                                                                                                      {
+                                                                                                                                        "type": "stack",
+                                                                                                                                        "children": [
+                                                                                                                                          {
+                                                                                                                                            "type": "stack",
+                                                                                                                                            "children": [
+                                                                                                                                              {
+                                                                                                                                                "type": "stack",
+                                                                                                                                                "children": [
+                                                                                                                                                  {
+                                                                                                                                                    "type": "stack",
+                                                                                                                                                    "children": [
+                                                                                                                                                      {
+                                                                                                                                                        "type": "stack",
+                                                                                                                                                        "children": [
+                                                                                                                                                          {
+                                                                                                                                                            "type": "stack",
+                                                                                                                                                            "children": [
+                                                                                                                                                              {
+                                                                                                                                                                "type": "stack",
+                                                                                                                                                                "children": [
+                                                                                                                                                                  {
+                                                                                                                                                                    "type": "stack",
+                                                                                                                                                                    "children": [
+                                                                                                                                                                      {
+                                                                                                                                                                        "type": "stack",
+                                                                                                                                                                        "children": [
+                                                                                                                                                                          {
+                                                                                                                                                                            "type": "stack",
+                                                                                                                                                                            "children": [
+                                                                                                                                                                              {
+                                                                                                                                                                                "type": "stack",
+                                                                                                                                                                                "children": [
+                                                                                                                                                                                  {
+                                                                                                                                                                                    "type": "stack",
+                                                                                                                                                                                    "children": [
+                                                                                                                                                                                      {
+                                                                                                                                                                                        "type": "stack",
+                                                                                                                                                                                        "children": [
+                                                                                                                                                                                          {
+                                                                                                                                                                                            "type": "stack",
+                                                                                                                                                                                            "children": [
+                                                                                                                                                                                              {
+                                                                                                                                                                                                "type": "stack",
+                                                                                                                                                                                                "children": [
+                                                                                                                                                                                                  {
+                                                                                                                                                                                                    "type": "stack",
+                                                                                                                                                                                                    "children": [
+                                                                                                                                                                                                      {
+                                                                                                                                                                                                        "type": "stack",
+                                                                                                                                                                                                        "children": [
+                                                                                                                                                                                                          {
+                                                                                                                                                                                                            "type": "stack",
+                                                                                                                                                                                                            "children": [
+                                                                                                                                                                                                              {
+                                                                                                                                                                                                                "type": "stack",
+                                                                                                                                                                                                                "children": [
+                                                                                                                                                                                                                  {
+                                                                                                                                                                                                                    "type": "stack",
+                                                                                                                                                                                                                    "children": [
+                                                                                                                                                                                                                      {
+                                                                                                                                                                                                                        "type": "stack",
+                                                                                                                                                                                                                        "children": [
+                                                                                                                                                                                                                          {
+                                                                                                                                                                                                                            "type": "stack",
+                                                                                                                                                                                                                            "children": [
+                                                                                                                                                                                                                              {
+                                                                                                                                                                                                                                "type": "stack",
+                                                                                                                                                                                                                                "children": [
+                                                                                                                                                                                                                                  {
+                                                                                                                                                                                                                                    "type": "stack",
+                                                                                                                                                                                                                                    "children": [
+                                                                                                                                                                                                                                      {
+                                                                                                                                                                                                                                        "type": "stack",
+                                                                                                                                                                                                                                        "children": [
+                                                                                                                                                                                                                                          {
+                                                                                                                                                                                                                                            "type": "stack",
+                                                                                                                                                                                                                                            "children": [
+                                                                                                                                                                                                                                              {
+                                                                                                                                                                                                                                                "type": "stack",
+                                                                                                                                                                                                                                                "children": [
+                                                                                                                                                                                                                                                  {
+                                                                                                                                                                                                                                                    "type": "stack",
+                                                                                                                                                                                                                                                    "children": [
+                                                                                                                                                                                                                                                      {
+                                                                                                                                                                                                                                                        "type": "stack",
+                                                                                                                                                                                                                                                        "children": [
+                                                                                                                                                                                                                                                          {
+                                                                                                                                                                                                                                                            "type": "stack",
+                                                                                                                                                                                                                                                            "children": [
+                                                                                                                                                                                                                                                              {
+                                                                                                                                                                                                                                                                "type": "stack",
+                                                                                                                                                                                                                                                                "children": [
+                                                                                                                                                                                                                                                                  {
+                                                                                                                                                                                                                                                                    "type": "stack",
+                                                                                                                                                                                                                                                                    "children": [
+                                                                                                                                                                                                                                                                      {
+                                                                                                                                                                                                                                                                        "type": "stack",
+                                                                                                                                                                                                                                                                        "children": [
+                                                                                                                                                                                                                                                                          {
+                                                                                                                                                                                                                                                                            "type": "stack",
+                                                                                                                                                                                                                                                                            "children": [
+                                                                                                                                                                                                                                                                              {
+                                                                                                                                                                                                                                                                                "type": "stack",
+                                                                                                                                                                                                                                                                                "children": [
+                                                                                                                                                                                                                                                                                  {
+                                                                                                                                                                                                                                                                                    "type": "stack",
+                                                                                                                                                                                                                                                                                    "children": [
+                                                                                                                                                                                                                                                                                      {
+                                                                                                                                                                                                                                                                                        "type": "stack",
+                                                                                                                                                                                                                                                                                        "children": [
+                                                                                                                                                                                                                                                                                          {
+                                                                                                                                                                                                                                                                                            "type": "stack",
+                                                                                                                                                                                                                                                                                            "children": [
+                                                                                                                                                                                                                                                                                              {
+                                                                                                                                                                                                                                                                                                "type": "text",
+                                                                                                                                                                                                                                                                                                "text": "deep"
+                                                                                                                                                                                                                                                                                              }
+                                                                                                                                                                                                                                                                                            ]
+                                                                                                                                                                                                                                                                                          }
+                                                                                                                                                                                                                                                                                        ]
+                                                                                                                                                                                                                                                                                      }
+                                                                                                                                                                                                                                                                                    ]
+                                                                                                                                                                                                                                                                                  }
+                                                                                                                                                                                                                                                                                ]
+                                                                                                                                                                                                                                                                              }
+                                                                                                                                                                                                                                                                            ]
+                                                                                                                                                                                                                                                                          }
+                                                                                                                                                                                                                                                                        ]
+                                                                                                                                                                                                                                                                      }
+                                                                                                                                                                                                                                                                    ]
+                                                                                                                                                                                                                                                                  }
+                                                                                                                                                                                                                                                                ]
+                                                                                                                                                                                                                                                              }
+                                                                                                                                                                                                                                                            ]
+                                                                                                                                                                                                                                                          }
+                                                                                                                                                                                                                                                        ]
+                                                                                                                                                                                                                                                      }
+                                                                                                                                                                                                                                                    ]
+                                                                                                                                                                                                                                                  }
+                                                                                                                                                                                                                                                ]
+                                                                                                                                                                                                                                              }
+                                                                                                                                                                                                                                            ]
+                                                                                                                                                                                                                                          }
+                                                                                                                                                                                                                                        ]
+                                                                                                                                                                                                                                      }
+                                                                                                                                                                                                                                    ]
+                                                                                                                                                                                                                                  }
+                                                                                                                                                                                                                                ]
+                                                                                                                                                                                                                              }
+                                                                                                                                                                                                                            ]
+                                                                                                                                                                                                                          }
+                                                                                                                                                                                                                        ]
+                                                                                                                                                                                                                      }
+                                                                                                                                                                                                                    ]
+                                                                                                                                                                                                                  }
+                                                                                                                                                                                                                ]
+                                                                                                                                                                                                              }
+                                                                                                                                                                                                            ]
+                                                                                                                                                                                                          }
+                                                                                                                                                                                                        ]
+                                                                                                                                                                                                      }
+                                                                                                                                                                                                    ]
+                                                                                                                                                                                                  }
+                                                                                                                                                                                                ]
+                                                                                                                                                                                              }
+                                                                                                                                                                                            ]
+                                                                                                                                                                                          }
+                                                                                                                                                                                        ]
+                                                                                                                                                                                      }
+                                                                                                                                                                                    ]
+                                                                                                                                                                                  }
+                                                                                                                                                                                ]
+                                                                                                                                                                              }
+                                                                                                                                                                            ]
+                                                                                                                                                                          }
+                                                                                                                                                                        ]
+                                                                                                                                                                      }
+                                                                                                                                                                    ]
+                                                                                                                                                                  }
+                                                                                                                                                                ]
+                                                                                                                                                              }
+                                                                                                                                                            ]
+                                                                                                                                                          }
+                                                                                                                                                        ]
+                                                                                                                                                      }
+                                                                                                                                                    ]
+                                                                                                                                                  }
+                                                                                                                                                ]
+                                                                                                                                              }
+                                                                                                                                            ]
+                                                                                                                                          }
+                                                                                                                                        ]
+                                                                                                                                      }
+                                                                                                                                    ]
+                                                                                                                                  }
+                                                                                                                                ]
+                                                                                                                              }
+                                                                                                                            ]
+                                                                                                                          }
+                                                                                                                        ]
+                                                                                                                      }
+                                                                                                                    ]
+                                                                                                                  }
+                                                                                                                ]
+                                                                                                              }
+                                                                                                            ]
+                                                                                                          }
+                                                                                                        ]
+                                                                                                      }
+                                                                                                    ]
+                                                                                                  }
+                                                                                                ]
+                                                                                              }
+                                                                                            ]
+                                                                                          }
+                                                                                        ]
+                                                                                      }
+                                                                                    ]
+                                                                                  }
+                                                                                ]
+                                                                              }
+                                                                            ]
+                                                                          }
+                                                                        ]
+                                                                      }
+                                                                    ]
+                                                                  }
+                                                                ]
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              }
+                                            ]
                                           }
                                         ]
                                       }
@@ -310,57 +543,35 @@
     "ok": false
   },
   {
-    "name": "text that is too long",
+    "name": "heading that is too long",
     "result": {
       "view": {
-        "type": "text",
-        "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        "type": "heading",
+        "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
       }
     },
     "ok": false
   },
   {
     "name": "a bad tone",
-    "result": {
-      "view": {
-        "type": "badge",
-        "text": "a",
-        "tone": "purple"
-      }
-    },
+    "result": { "view": { "type": "badge", "text": "a", "tone": "purple" } },
     "ok": false
   },
   {
     "name": "an extra key on a part",
-    "result": {
-      "view": {
-        "type": "text",
-        "text": "a",
-        "onClick": "x()"
-      }
-    },
+    "result": { "view": { "type": "text", "text": "a", "onClick": "x()" } },
     "ok": false
   },
   {
     "name": "a button without an action",
-    "result": {
-      "view": {
-        "type": "button",
-        "label": "B"
-      }
-    },
+    "result": { "view": { "type": "button", "label": "B" } },
     "ok": false
   },
   {
     "name": "a bad notice",
     "result": {
-      "view": {
-        "type": "divider"
-      },
-      "notice": {
-        "tone": "loud",
-        "text": "x"
-      }
+      "view": { "type": "divider" },
+      "notice": { "tone": "loud", "text": "x" }
     },
     "ok": false
   },
@@ -369,19 +580,8 @@
     "result": {
       "view": {
         "type": "table",
-        "columns": [
-          {
-            "key": "a",
-            "label": "A"
-          }
-        ],
-        "rows": [
-          {
-            "a": {
-              "x": 1
-            }
-          }
-        ]
+        "columns": [{ "key": "a", "label": "A" }],
+        "rows": [{ "a": { "x": 1 } }]
       }
     },
     "ok": false

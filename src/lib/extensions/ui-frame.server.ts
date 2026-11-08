@@ -1,5 +1,5 @@
 /**
- * GET /api/plugins/<key>/ui/<id>?point=blocks|panels: the document a plugin's
+ * GET /api/plugins/<key>/ui/<id>?point=<point>: the document a plugin's
  * UI bundle runs as, for the sandboxed frame that embeds it. Signed-in people
  * only, and only while the plugin is enabled, the point is on and the plugin
  * still declares a UI for this block or panel.
@@ -10,6 +10,7 @@ import { defaultRouteDeps, refuse } from './run-route.server'
 import type { ExtensionRunRouteDeps } from './run-route.server'
 import { ExtensionRunError, openExtensionPoint } from './runtime.server'
 import { PLUGIN_FRAME_HEADERS, buildPluginFrame } from './ui-frame'
+import { frameEntryOf, isFramePoint } from './ui-points'
 
 const idPattern = /^[a-z][a-z0-9-]{0,48}$/
 
@@ -22,7 +23,8 @@ export async function handlePluginUiFrame(
   if (
     !idPattern.test(params.key) ||
     !idPattern.test(params.id) ||
-    (point !== 'blocks' && point !== 'panels')
+    !point ||
+    !isFramePoint(point)
   )
     return refuse(404, 'No such plugin screen.')
   const session = await deps.getSession(request.headers)
@@ -37,14 +39,12 @@ export async function handlePluginUiFrame(
       point,
     )
     const declared = (
-      point === 'blocks'
-        ? manifest.contributions.blocks
-        : manifest.contributions.panels
+      manifest.contributions[point] as Array<{ id: string }> | undefined
     )?.find((item) => item.id === params.id)
-    if (!declared?.ui)
-      return refuse(404, 'That plugin doesn’t offer this any more.')
+    const entry = frameEntryOf(point, declared)
+    if (!entry) return refuse(404, 'That plugin doesn’t offer this any more.')
     const files = await deps.runtime.loadPackage(member.workspaceId, install.id)
-    const html = files ? buildPluginFrame(files, declared.ui, sdkSource) : null
+    const html = files ? buildPluginFrame(files, entry, sdkSource) : null
     if (!html) return refuse(404, 'That plugin’s screen is missing.')
     return new Response(html, { status: 200, headers: PLUGIN_FRAME_HEADERS })
   } catch (error) {

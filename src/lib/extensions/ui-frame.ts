@@ -13,14 +13,24 @@
  */
 import { PLUGIN_UI_SDK_NAME } from './package'
 
-/** Sent with the document. Nothing but inline script and style may load. */
+/**
+ * Sent with the document. The bundle is inlined into it, so scripts and styles
+ * need no source; what the policy still refuses is the network, form posts and
+ * navigation. Bundles may use what real libraries need: modules, `eval`-style
+ * code, WebAssembly, workers and blob or data URLs for images, fonts and
+ * media. None of that reaches outside the frame: it has an opaque origin
+ * (`sandbox` without `allow-same-origin`), no cookies or storage, and no
+ * network, so its only way out is the SDK's `postMessage` channel.
+ */
 export const PLUGIN_FRAME_CSP = [
   "default-src 'none'",
-  "script-src 'unsafe-inline'",
+  "script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob:",
   "style-src 'unsafe-inline'",
-  'img-src data:',
-  'font-src data:',
-  "connect-src 'none'",
+  'img-src data: blob:',
+  'font-src data: blob:',
+  'media-src data: blob:',
+  'worker-src blob:',
+  'connect-src data: blob:',
   "base-uri 'none'",
   "form-action 'none'",
   "frame-ancestors 'self'",
@@ -69,14 +79,18 @@ export function buildPluginFrame(
   let sdkSeen = false as boolean
   let out = html.replace(
     /<script\b([^>]*?)\bsrc\s*=\s*(["'])([^"']+)\2([^>]*)>\s*<\/script>/gi,
-    (_whole, _before: string, _q: string, src: string) => {
+    (_whole, before: string, _q: string, src: string, after: string) => {
       if (src.split('/').pop() === PLUGIN_UI_SDK_NAME) {
         sdkSeen = true
         return `<script>${scriptSafe(sdkSource)}</script>`
       }
       const path = resolveRelative(entry, src)
       const code = path ? files[path] : undefined
-      return code === undefined ? '' : `<script>${scriptSafe(code)}</script>`
+      if (code === undefined) return ''
+      // A module stays a module (its imports were bundled in; `import` of a
+      // sibling file is not supported because everything is inlined).
+      const module = /\btype\s*=\s*["']?module["']?/i.test(`${before} ${after}`)
+      return `<script${module ? ' type="module"' : ''}>${scriptSafe(code)}</script>`
     },
   )
   out = out.replace(

@@ -278,6 +278,16 @@ const securityHeadersMiddleware = createMiddleware().server(
     const headers = result.response.headers
     const contentType = headers.get('content-type') ?? ''
 
+    // A plugin's sandboxed frame arrives with its own, stricter policy (no
+    // network, `sandbox` without `allow-same-origin`). Keep it, and leave its
+    // scripts alone: a nonce added inside a bundle's strings would break it.
+    const ownPolicy = headers.get('content-security-policy')
+    if (ownPolicy && /(^|;)\s*sandbox\b/.test(ownPolicy)) {
+      applySecurityHeaders(headers)
+      headers.set('content-security-policy', ownPolicy)
+      return result
+    }
+
     // Non-HTML responses (JSON/API, SSE, file bytes, health) keep the static
     // policy; there is no document script surface to protect.
     if (!contentType.includes('text/html')) {

@@ -86,7 +86,7 @@ _QUERY = re.compile(r"^\s*(sub|sim|substructure|similarity)\s*:\s*(.+?)\s*$", re
 
 
 def _molfile_in(text):
-    """The molfile inside a record's text, or None."""
+    """The molfile inside some text, or None."""
     end = text.find("M  END")
     if end < 0:
         return None
@@ -119,8 +119,13 @@ def search(input):
     query_fp = _fingerprint(split(query)[0]) if mode == "sim" else None
     hits = []
     for document in input["documents"]:
-        block = _molfile_in(document.get("text", ""))
-        target = read(block) if block else None
+        target = None
+        for value in (document.get("fields") or {}).values():
+            if isinstance(value, str) and "M  END" in value:
+                block = _molfile_in(value) or _molfile_in("\n" + value)
+                target = read(block) if block else None
+                if target is not None:
+                    break
         if target is None:
             continue
         parent, _ = split(target)

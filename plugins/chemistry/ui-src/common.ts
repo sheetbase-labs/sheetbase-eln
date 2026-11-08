@@ -37,7 +37,11 @@ export function molfileOf(text: string): string | null {
 }
 
 /** A picture in the current text colour, so it reads in light and dark. */
-export function pictureSvg(molecule: Molecule, width: number, height: number): string {
+export function pictureSvg(
+  molecule: Molecule,
+  width: number,
+  height: number,
+): string {
   return molecule
     .toSVG(width, height, undefined, {
       autoCrop: true,
@@ -49,7 +53,10 @@ export function pictureSvg(molecule: Molecule, width: number, height: number): s
 
 export function facts(molecule: Molecule): { formula: string; mass: number } {
   const formula = molecule.getMolecularFormula()
-  return { formula: formula.formula, mass: Number(formula.relativeWeight.toFixed(3)) }
+  return {
+    formula: formula.formula,
+    mass: Number(formula.relativeWeight.toFixed(3)),
+  }
 }
 
 export function app(): HTMLElement {

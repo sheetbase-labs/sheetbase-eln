@@ -496,6 +496,17 @@ describe('block payload validation (ELN-002)', () => {
     expect(gate({ kind: 'qc_in_control', seriesId: 'nope' })).toBe(false)
   })
 
+  it('checks the plugin of a plugin gate condition', () => {
+    const gate = (condition: Record<string, unknown>) =>
+      validateBlock({
+        type: 'gate',
+        payload: { mode: 'block', conditions: [condition] },
+      }).ok
+    expect(gate({ kind: 'plugin_flag', extensionKey: 'lab-rules' })).toBe(true)
+    expect(gate({ kind: 'plugin_flag' })).toBe(false)
+    expect(gate({ kind: 'plugin_flag', extensionKey: 'Lab Rules' })).toBe(false)
+  })
+
   it('validates execution state separately from a reusable procedure definition', () => {
     expect(
       validateBlock({

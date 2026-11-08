@@ -11,6 +11,7 @@
 import { markSessionExpired } from './session-expiry'
 import { CLIENT_ID_HEADER, getOrCreateClientId } from './client-identity'
 import { devFetch } from './dev-network'
+import { announcePluginWarnings } from './plugin-warnings'
 import {
   CHANGE_REASON_REQUIRED_CODE,
   askForChangeReason,
@@ -264,6 +265,7 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
       }
       throw await parseError(response)
     }
+    if (writes) announcePluginWarnings(response)
     if (announcesChange(path, init.method))
       rowsChangedListeners.forEach((listener) => listener(path))
     return response

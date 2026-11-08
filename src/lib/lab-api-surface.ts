@@ -245,7 +245,7 @@ const LAB_PARAM_NOTES_BASE: Readonly<Record<string, string>> = {
   p_parts:
     'The parts to make, in order: each `{title, first_block_id, day_offset}`. A part runs from its first block to the next part’s.',
   p_conditions:
-    'JSON list of the conditions the gate waits on, each with a `kind`: `table_filled` (`blockId`, optional `column` and `minRows`), `step_done` (`blockId`), `part_done` (`partId`), `samples_linked` (optional `min`), `field_set` (`field`), `date_reached` (`date`, YYYY-MM-DD) `qc_in_control` (optional `seriesId`; unmet while a tracked quality control series has a breach nobody has looked at) or `plugin_check` (`blockId` of a table, `extensionKey`, `checkId` and `columns` mapping the inputs of the check to table columns; met once the check has passed on the table as it now is). All must hold. Leave out or send an empty list to take the rule off.',
+    'JSON list of the conditions the gate waits on, each with a `kind`: `table_filled` (`blockId`, optional `column` and `minRows`), `step_done` (`blockId`), `part_done` (`partId`), `samples_linked` (optional `min`), `field_set` (`field`), `date_reached` (`date`, YYYY-MM-DD) `qc_in_control` (optional `seriesId`; unmet while a tracked quality control series has a breach nobody has looked at) `plugin_check` (`blockId` of a table, `extensionKey`, `checkId` and `columns` mapping the inputs of the check to table columns; met once the check has passed on the table as it now is) or `plugin_flag` (`extensionKey`, optional `flagKey` and `label`; met while the plugin has nothing open on the experiment, such as a hold or a sign-off it asked for). All must hold. Leave out or send an empty list to take the rule off.',
   p_gate_mode:
     '`warn` lets people go on past the gate with a reason; `block` refuses the work behind it until the conditions hold.',
   p_steps_in_order: 'true to make the steps of the part be done in order.',
@@ -287,6 +287,10 @@ const LAB_PARAM_NOTES_BASE: Readonly<Record<string, string>> = {
     'An Open Data Contract Standard (ODCS v3.1) document as JSON. YAML parses to the same thing.',
   p_dataset_id: 'Dataset id.',
   p_rows: 'JSON array of rows about to be committed.',
+  p_extension_key: 'The plugin’s key.',
+  p_index_name: 'The name of one of the plugin’s search indexes.',
+  p_vector:
+    'A list of numbers to rank by closeness. Entries kept with a different number of values are skipped.',
   p_trigger: '`import` or `pipeline`.',
 }
 
@@ -327,6 +331,53 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['model_key', 'text', 1],
       ['value', 'text', 1],
       ['computed_at', 'ts', 1],
+    ],
+  },
+  plugin_flags: {
+    summary:
+      'Holds and sign-off steps a plugin raised on a record after a save or an event. A `flag` is a hold the plugin raises and clears; a `sign_off` is a step a person with one of its `roles` presses (`approvals_needed` of them, and not the person who made the change if `independent`). `state` is `open` or `cleared`. A gate can wait on them.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['record_id', 'uuid', 1],
+      ['extension_key', 'text', 1],
+      ['extension_name', 'text', 1],
+      ['flag_key', 'text', 1],
+      ['kind', 'text', 1],
+      ['title', 'text', 1],
+      ['message', 'text', 1],
+      ['roles', 'text[]', 1],
+      ['approvals_needed', 'int', 1],
+      ['independent', 'bool', 1],
+      ['state', 'text', 1],
+      ['raised_at', 'ts', 1],
+      ['raised_by_user_id', 'text', 0],
+      ['cleared_at', 'ts', 0],
+    ],
+  },
+  plugin_flag_sign_offs: {
+    summary:
+      'Who pressed a plugin sign-off step, in which role, when, and what they said.',
+    columns: [
+      ['flag_id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['signer_user_id', 'text', 1],
+      ['signer_role', 'text', 1],
+      ['comment', 'text', 0],
+      ['signed_at', 'ts', 1],
+    ],
+  },
+  plugin_record_outputs: {
+    summary:
+      'The one-line summary a plugin hook wrote on a record. One per hook; a new one replaces the last.',
+    columns: [
+      ['record_id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['extension_key', 'text', 1],
+      ['extension_name', 'text', 1],
+      ['hook_id', 'text', 1],
+      ['summary', 'text', 1],
+      ['updated_at', 'ts', 1],
     ],
   },
   plugin_notes: {
@@ -1887,6 +1938,20 @@ const LAB_RPCS_HAND_WRITTEN: Readonly<Record<string, LabRpc>> = {
     scope: 'lab:read',
     params: [['p_part_id', 'uuid', 1]],
     result: 'json',
+  },
+  search_plugin_index: {
+    summary: 'Search what a plugin put in one of its indexes',
+    description:
+      'Ranks the entries a plugin\u2019s hooks added to one of its search indexes, by the words given, by a vector, or both, among the records this person can see. Best first, with a snippet.',
+    scope: 'lab:read',
+    params: [
+      ['p_extension_key', 'text', 1],
+      ['p_index_name', 'text', 1],
+      ['p_query', 'text', 0],
+      ['p_vector', 'json', 0],
+      ['p_limit', 'int', 0],
+    ],
+    result: 'rows:record_id=uuid,entry_key=text,score=num,snippet=text',
   },
   registry_sameness_matches: {
     summary: 'Find registry entries that a plugin rule says are the same thing',

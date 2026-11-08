@@ -65,6 +65,11 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
     'Makes a repository record public with a DOI, which cannot be undone; a person confirms it in the app after seeing the draft.',
   create_scim_token:
     'Hands out a directory sync secret, shown once to the person who makes it.',
+  // Plugin hooks on save and upload.
+  sign_off_plugin_step:
+    'Pressing a plugin sign-off step is a person approving in the app, and the database checks their role and that they did not make the change; others can read the steps and who pressed them (plugin_flags, plugin_flag_sign_offs).',
+  plugin_search_entries:
+    'Entries a plugin hook put in its own search index, with their number vectors; read results through search_plugin_index, which applies the same access rules.',
   // Search by meaning.
   search_embeddings:
     'Derived number vectors kept for ranking; read results through semantic_search and similar_work, which apply the same access rules.',

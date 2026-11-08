@@ -15,6 +15,7 @@ function run(job: Record<string, unknown>) {
   const result = spawnSync('python3', ['-I', WORKER], {
     input: JSON.stringify(job),
     encoding: 'utf8',
+    maxBuffer: 256 * 1024 * 1024,
   })
   return {
     status: result.status,
@@ -196,5 +197,77 @@ describe.skipIf(!available)('pipeline Python worker', () => {
     })
     expect(status).toBe(1)
     expect(String(body.error)).toContain('ValueError')
+  })
+})
+
+describe.skipIf(!available)('pipeline Python worker for a plugin call', () => {
+  const limits = {
+    rows: 300_000,
+    bytes: 64 * 1024 * 1024,
+    logBytes: 1024 * 1024,
+  }
+
+  it('keeps the fixed pipeline limits for a step with none of its own', () => {
+    const { status, body } = run({
+      statement: frame('    return [{"a": 1}] * 100_001'),
+      inputs: {},
+      parameters: {},
+    })
+    expect(status).toBe(1)
+    expect(String(body.error)).toContain('at most 100000 rows')
+  })
+
+  it('returns more rows than a pipeline step may', () => {
+    const { status, body } = run({
+      statement: frame('    return [{"a": 1}] * 150_000'),
+      inputs: {},
+      parameters: {},
+      limits,
+    })
+    expect(status).toBe(0)
+    expect((body.rows as unknown[]).length).toBe(150_000)
+  })
+
+  it('has no width limit on a row', () => {
+    const { status, body } = run({
+      statement: frame('    return [{f"c{i}": i for i in range(1000)}]'),
+      inputs: {},
+      parameters: {},
+      limits,
+    })
+    expect(status).toBe(0)
+    expect(Object.keys((body.rows as object[])[0])).toHaveLength(1000)
+  })
+
+  it('names the plugin’s own row limit when it is passed', () => {
+    const { status, body } = run({
+      statement: frame('    return [{"a": 1}] * 11'),
+      inputs: {},
+      parameters: {},
+      limits: { ...limits, rows: 10 },
+    })
+    expect(status).toBe(1)
+    expect(String(body.error)).toContain('at most 10 rows')
+  })
+
+  it('refuses an answer over the plugin’s data limit and says the size', () => {
+    const { status, body } = run({
+      statement: frame('    return [{"a": "x" * 2_000_000}]'),
+      inputs: {},
+      parameters: {},
+      limits: { ...limits, bytes: 1024 * 1024 },
+    })
+    expect(status).toBe(1)
+    expect(String(body.error)).toContain('exceeds 1 MiB')
+  })
+
+  it('keeps more of what the plugin printed', () => {
+    const { body } = run({
+      statement: frame('    print("x" * 100_000)\n    return [{"a": 1}]'),
+      inputs: {},
+      parameters: {},
+      limits,
+    })
+    expect((body.logs as string[]).join('').length).toBeGreaterThan(64 * 1024)
   })
 })

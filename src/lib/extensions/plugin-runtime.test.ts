@@ -394,3 +394,145 @@ describe.skipIf(!pythonAvailable)('analysis kinds', () => {
     expect(out.chart).toEqual({ type: 'line', x: 'x', y: 'y' })
   })
 })
+
+describe('what a call runs with', () => {
+  const runtimeRow = (over: Record<string, unknown> = {}) => ({
+    extensionId: 'e1',
+    requirements: [] as string[],
+    networkHosts: [] as string[],
+    limitOverrides: {},
+    environmentId: null as string | null,
+    environmentState: 'none' as const,
+    environmentError: null as string | null,
+    ...over,
+  })
+  const call = (over: Partial<ExtensionRuntimeDeps>) => {
+    const executePython = vi.fn(async (_job: unknown) => ({
+      rows: [{ viability: 92, total: 100 }],
+      logs: [],
+      runtime: 'x',
+    }))
+    const { d } = deps({ executePython, ...over })
+    return {
+      executePython,
+      promise: invokeExtension(
+        {
+          ...base,
+          point: 'operations',
+          itemId: 'viability',
+          input: { live: 92, dead: 8 },
+        },
+        d,
+      ),
+    }
+  }
+
+  it('gives a plugin with no settings the generous defaults and no packages or hosts', async () => {
+    const { executePython, promise } = call({})
+    await promise
+    const sent = executePython.mock.calls[0][0] as any
+    expect(sent.limits).toMatchObject({
+      timeoutSeconds: 600,
+      memoryMb: 4096,
+      rows: 5_000_000,
+    })
+    expect(sent.environment).toBeUndefined()
+    expect(sent.network).toBeUndefined()
+  })
+
+  it('gives the plugin its administrator’s limits, its installed packages and its approved hosts', async () => {
+    const { executePython, promise } = call({
+      loadRuntime: async () =>
+        runtimeRow({
+          limitOverrides: { memoryMb: 32768, timeoutSeconds: 3600 },
+          requirements: ['rdkit>=2024.3'],
+          networkHosts: ['eutils.ncbi.nlm.nih.gov'],
+          environmentId: 'pe-0123456789abcdef',
+          environmentState: 'ready',
+        }),
+    })
+    await promise
+    const sent = executePython.mock.calls[0][0] as any
+    expect(sent.limits).toMatchObject({ memoryMb: 32768, timeoutSeconds: 3600 })
+    expect(sent.environment).toBe('pe-0123456789abcdef')
+    expect(sent.network).toEqual(['eutils.ncbi.nlm.nih.gov'])
+  })
+
+  it('does not run until the packages are installed, and says why', async () => {
+    const settle = vi.fn(async (_w: string, row: any) => ({
+      ...row,
+      environmentId: 'pe-0123456789abcdef',
+      environmentState: 'building' as const,
+    }))
+    const { executePython, promise } = call({
+      loadRuntime: async () => runtimeRow({ requirements: ['rdkit'] }),
+      settleEnvironment: settle,
+    })
+    await expect(promise).rejects.toMatchObject({
+      code: 'environment_not_ready',
+      message: expect.stringMatching(/still being installed/),
+    })
+    expect(executePython).not.toHaveBeenCalled()
+    expect(settle).toHaveBeenCalled()
+  })
+
+  it('names the installer’s reason when the packages could not be installed', async () => {
+    const { promise } = call({
+      loadRuntime: async () =>
+        runtimeRow({
+          requirements: ['nope'],
+          environmentId: 'pe-0123456789abcdef',
+          environmentState: 'failed',
+          environmentError: 'No matching distribution found for nope',
+        }),
+    })
+    await expect(promise).rejects.toMatchObject({
+      code: 'environment_failed',
+      message: expect.stringMatching(/No matching distribution found for nope/),
+    })
+  })
+
+  it('asks for the packages again when the runner has lost them', async () => {
+    const settle = vi.fn(async (_w: string, row: any) => row)
+    const { promise } = call({
+      loadRuntime: async () =>
+        runtimeRow({
+          requirements: ['rdkit'],
+          environmentId: 'pe-0123456789abcdef',
+          environmentState: 'ready',
+        }),
+      settleEnvironment: settle,
+      executePython: async () => {
+        throw Object.assign(new Error('not installed on the runner yet'), {
+          code: 'environment_not_ready',
+        })
+      },
+    })
+    await expect(promise).rejects.toMatchObject({
+      code: 'environment_not_ready',
+    })
+    expect(settle).toHaveBeenCalledWith(
+      'w',
+      expect.objectContaining({
+        environmentId: null,
+        environmentState: 'none',
+      }),
+    )
+  })
+
+  it('passes the runner’s own words about time, data and hosts through', async () => {
+    const { promise } = call({
+      executePython: async () => {
+        throw Object.assign(
+          new Error(
+            'Python execution timed out after 600 seconds. An administrator can allow this plugin more time in Settings → Plugins.',
+          ),
+          { code: 'transform_timed_out' },
+        )
+      },
+    })
+    await expect(promise).rejects.toMatchObject({
+      message: expect.stringMatching(/allow this plugin more time/),
+    })
+  })
+})

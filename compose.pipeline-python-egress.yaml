@@ -1,0 +1,23 @@
+# Optional overlay on top of compose.pipeline-python.yaml: lets a plugin reach
+# the hosts an administrator approved for it, and nothing else.
+#
+# A plugin's Python normally runs with no network at all. With this overlay,
+# a plugin that has approved hosts runs on the private network below, which has
+# no route to the internet. The only other thing on it is the runner, which
+# serves an allow-listing proxy there (scripts/pipeline-python-egress.mjs); the
+# plugin's HTTP(S) proxy settings point at it with a credential that is good for
+# that one call. See docs/operations/pipeline-python.md.
+services:
+  pipeline-python-runner:
+    environment:
+      PIPELINE_PYTHON_EGRESS_NETWORK: sheetbase-plugin-egress
+      PIPELINE_PYTHON_EGRESS_HOST: pipeline-python-runner
+      # Set to 1 only if a plugin has to reach a service inside your own network.
+      PIPELINE_PYTHON_EGRESS_ALLOW_PRIVATE: ${PIPELINE_PYTHON_EGRESS_ALLOW_PRIVATE:-0}
+    networks:
+      - default
+      - plugin-egress
+networks:
+  plugin-egress:
+    name: sheetbase-plugin-egress
+    internal: true

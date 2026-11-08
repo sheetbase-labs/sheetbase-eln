@@ -6,6 +6,8 @@ Write, try and pack Python plugins for Sheetbase.
 pip install sheetbase-plugin
 sheetbase-plugin init my-plugin      # a small plugin to start from
 sheetbase-plugin dev my-plugin       # check it and run its examples on every change
+sheetbase-plugin try column grade --payload '{"rows":[{"viability":95}]}'   # run one screen, column or action
+sheetbase-plugin preview my-plugin   # a local page: plugin pages in the sandboxed frame, screens, hooks
 sheetbase-plugin run viability --folder my-plugin --input '{"live": 92, "dead": 8}'
 sheetbase-plugin pack my-plugin      # makes my-plugin-0.1.0.sbplugin
 ```

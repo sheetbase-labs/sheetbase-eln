@@ -13,10 +13,27 @@ is `sdks/plugin-python/examples/cell-count`.
 - **Analysis kinds**: a Python analysis the analysis block offers next to the
   built-in ones, with a result table and an optional chart.
 
-Plugins are Python only for now. They cannot bring their own screens yet (the
-`ui` slot in the manifest is reserved), and they cannot read your data unless a
-call hands it to them: the code runs in an isolated sandbox with no network, no
-database and no files but its own.
+- **Blocks and panels**: a notebook block, or a tab on record pages. Either
+  describe the screen in Python with `sheetbase_plugin.ui` (Sheetbase draws it,
+  so it looks like the rest of the app), or bring a page of your own under `ui/`
+  that runs in a sandboxed frame.
+- **Table cells**: say how a value looks (a pill for pass/fail, a bar out of 100,
+  a sparkline). It is data, not code, so large tables stay quick.
+- **Computed columns and column actions**: a column worked out from each row's
+  fields, with entries in its header menu.
+- **Row actions**: something to do with the chosen rows, such as an export.
+- **Field types**: a type for a model field, such as a batch code with a pattern
+  and a display.
+
+Plugins are Python only for now, and they cannot read your data unless a call
+hands it to them: the code runs in an isolated sandbox with no network, no
+database and no files but its own. A plugin page runs in a sandboxed frame with
+no network, no cookies and no view of the rest of the app.
+
+Each hook has a small runnable example in `sdks/plugin-python/examples`:
+`dilution-block` (a block and a panel from Python screens), `ui-counter` (a block
+with its own page), `cell-looks` (table cell displays and a field type) and
+`plate-tools` (a computed column, a column action and two row actions).
 
 ## As the author
 
@@ -131,6 +148,36 @@ Client(...).plugins.call("cell-count", "viability", {"live": 92, "dead": 8})
 ```
 
 Every call is audited with the plugin and the SHA-256 of the code that ran.
+
+## Screens
+
+```python
+from sheetbase_plugin import ui
+
+def screen(payload):
+    # payload: {"context": {...}, "state": ..., "event": None or {"action", "values"}}
+    return ui.screen(
+        ui.stack(
+            ui.heading("Colonies"),
+            ui.form(ui.number_input("count", "Count", required=True),
+                    submit=ui.submit("Save", "save")),
+        ),
+        state={"saved": True},
+    )
+```
+
+Declare it as `"screen": "module:function"` on a block or panel. A computed
+column function takes the rows (a list of dictionaries) and returns one value per
+row; an action takes `{"rows": [...]}` and returns a dictionary with any of
+`notice`, `view` and `download`.
+
+Try them before you pack. `sheetbase-plugin try block dilution --payload '{...}'`
+(or `panel`, `column`, `column-action`, `row-action`) runs one hook on a payload and
+checks the answer with the same rules Sheetbase uses. `sheetbase-plugin preview`
+serves a page on your own machine: a plugin page runs in the same sandboxed frame
+with the same `sheetbase-ui.js`, `sheetbase.call` runs your operations locally, and
+every Python screen, column and action has a box to run it and see whether
+Sheetbase would accept the answer. Nothing leaves your machine.
 
 ## Updating
 

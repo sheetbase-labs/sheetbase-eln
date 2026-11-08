@@ -161,6 +161,33 @@ def cmd_test(args):
     return 1 if failed else 0
 
 
+def cmd_try(args):
+    """Run one screen, column or action on a payload and say whether Sheetbase would accept the answer."""
+    from .preview import run_hook
+
+    files, errors = _load(args.folder)
+    if errors:
+        for problem in errors:
+            print(f"  ✗ {problem}")
+        return 1
+    try:
+        payload = json.loads(args.payload)
+        answer = run_hook(files, args.kind, args.id, payload)
+    except Exception as error:
+        print(f"✗ {error.args[0] if isinstance(error, KeyError) and error.args else error}")
+        return 1
+    print(json.dumps(answer["result"], indent=2, sort_keys=True, default=str))
+    for problem in answer["problems"]:
+        print(f"  ✗ {problem}")
+    return 1 if answer["problems"] else 0
+
+
+def cmd_preview(args):
+    from .preview import serve
+
+    return serve(args.folder, args.port)
+
+
 def cmd_pack(args):
     files, errors = _load(args.folder)
     if errors:
@@ -252,6 +279,18 @@ def main(argv=None):
     run.add_argument("--input", default="{}", help="the input as JSON")
     run.add_argument("--folder", default=".")
     run.set_defaults(func=cmd_run)
+
+    attempt = sub.add_parser("try", help="run one screen, column or action and check the answer")
+    attempt.add_argument("kind", choices=["block", "panel", "column", "column-action", "row-action"])
+    attempt.add_argument("id")
+    attempt.add_argument("--payload", default="{}", help="what Sheetbase would send, as JSON")
+    attempt.add_argument("--folder", default=".")
+    attempt.set_defaults(func=cmd_try)
+
+    preview = sub.add_parser("preview", help="serve a local page to try screens, plugin pages and hooks")
+    preview.add_argument("folder", nargs="?", default=".")
+    preview.add_argument("--port", type=int, default=8765)
+    preview.set_defaults(func=cmd_preview)
 
     packer = sub.add_parser("pack", help="make the .sbplugin file to upload")
     packer.add_argument("folder", nargs="?", default=".")

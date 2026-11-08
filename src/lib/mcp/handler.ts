@@ -89,7 +89,7 @@ export interface McpContext {
   credentialId: string
 }
 
-interface McpTool {
+export interface McpTool {
   name: string
   description: string
   inputSchema: Record<string, unknown>
@@ -727,6 +727,39 @@ async function callTool(
     }
   }
 
+  if (name.startsWith('plugin.')) {
+    const { callExtensionMcpTool, isExtensionMcpTool } =
+      await import('./extensions')
+    if (isExtensionMcpTool(name)) {
+      try {
+        const outcome = await callExtensionMcpTool(name, args, context)
+        if (outcome.ok === false)
+          return toolError(outcome.message, outcome.code)
+        logger.info(
+          'ai.mcp.extension_tool',
+          redact({
+            tool: name,
+            waiting: outcome.ok === 'waiting',
+            workspaceId: context.workspaceId,
+            credentialId: context.credentialId,
+          }),
+        )
+        if (outcome.ok === 'waiting') {
+          return textResult({
+            status: 'waiting_for_approval',
+            requestId: outcome.requestId,
+            message: outcome.message,
+          })
+        }
+        return textResult(outcome.value)
+      } catch (error) {
+        return toolError(
+          error instanceof Error ? error.message : 'The extension tool failed.',
+        )
+      }
+    }
+  }
+
   if (name === LAB_ACT_TOOL_NAME) {
     if (!context.flags.mcp_lab) {
       return toolError('Lab actions are disabled by a workspace flag.')
@@ -898,15 +931,22 @@ async function dispatch(
       }
     case 'ping':
       return {}
-    case 'tools/list':
+    case 'tools/list': {
+      // Tools an administrator-installed extension adds, from the workspace's
+      // enabled installs at this moment.
+      const { listExtensionMcpTools } = await import('./extensions')
       return {
-        tools: listTools(context).map((tool) => ({
+        tools: [
+          ...listTools(context),
+          ...(await listExtensionMcpTools(context)),
+        ].map((tool) => ({
           name: tool.name,
           description: tool.description,
           inputSchema: tool.inputSchema,
           annotations: tool.annotations,
         })),
       }
+    }
     case 'tools/call':
       return callTool(params, context)
     case 'resources/list':

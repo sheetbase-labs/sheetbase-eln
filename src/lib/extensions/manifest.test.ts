@@ -192,6 +192,10 @@ describe('extension capability mapping', () => {
     expect(effectiveExtensionCapabilities(manifest, 'steward')).toEqual([
       'record.create',
       'schema.edit',
+    ])
+    expect(effectiveExtensionCapabilities(manifest, 'admin')).toEqual([
+      'record.create',
+      'schema.edit',
       'extensions.manage',
     ])
     expect(effectiveExtensionCapabilities(manifest, 'member')).toEqual([

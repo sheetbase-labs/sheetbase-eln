@@ -73,6 +73,11 @@ import {
   isAutomationProposalTool,
 } from './assistant-automation.server'
 import {
+  isExtensionTool,
+  loadExtensionToolset,
+  runExtensionTool,
+} from './assistant-extensions.server'
+import {
   buildPlannerProposal,
   isPlannerProposalTool,
   plannerProposalDefs,
@@ -306,6 +311,10 @@ export async function createAssistantToolkit(deps: {
     ...gatesToolDefs(),
     ...semanticToolDefs(await literatureAllowed(deps.client, deps.workspaceId)),
   )
+  // Tools an administrator-installed extension adds. Reads run as the person;
+  // writes become cards, so they are offered only when agents may draft.
+  const extensionTools = await loadExtensionToolset(deps.client)
+  defs.push(...extensionTools.defs(deps.flags.mcp_draft))
   // Proposals are cards the person applies; offered only when agents may draft.
   if (deps.flags.mcp_draft) {
     defs.push(
@@ -372,6 +381,21 @@ export async function createAssistantToolkit(deps: {
               text: 'That request was not valid: use a route and an id from a lookup, up to four pages.',
               isError: true,
             }
+      }
+
+      if (isExtensionTool(name)) {
+        const outcome = await runExtensionTool(extensionTools, name, args, {
+          workspaceId: deps.workspaceId,
+          userId: deps.actor.id,
+          allowWrites: deps.flags.mcp_draft,
+        })
+        return outcome.ok
+          ? {
+              text: clip(outcome.text),
+              isError: false,
+              ...(outcome.proposal ? { proposal: outcome.proposal } : {}),
+            }
+          : { text: outcome.message, isError: true }
       }
 
       if (isLabReadTool(name)) {

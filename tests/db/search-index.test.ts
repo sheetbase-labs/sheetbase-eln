@@ -252,12 +252,6 @@ describe('what each block type contributes', () => {
       inputs: [{ alias: 'zebra', label: 'Readings' }],
       output: null,
     },
-    sequence: {
-      title: 'zebrafinch plasmid',
-      name: 'pZebra',
-      residues: 'ATGC',
-      features: [{ label: 'GFP', type: 'CDS' }],
-    },
     plugin: { plugin: 'colony-counter', block: 'counter', state: { count: 3 } },
   }
 

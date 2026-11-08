@@ -30,6 +30,8 @@ import {
 } from './runtime.server'
 import type { ExtensionRuntimeDeps, ResolvedInstall } from './runtime.server'
 import type { DataItemPoint } from './runner-points'
+import { afterAnswer, beforeAnswer } from './hook-answers'
+import type { AfterAnswer, BeforeAnswer, RecordSnapshot } from './hook-answers'
 import type {
   ExtensionCheckDeclaration,
   ExtensionConnectorDeclaration,
@@ -37,6 +39,7 @@ import type {
   ExtensionExporterDeclaration,
   ExtensionImporterDeclaration,
   ExtensionPreviewDeclaration,
+  ExtensionRecordHookDeclaration,
   ExtensionSamenessKeyDeclaration,
   ExtensionSearchProviderDeclaration,
 } from './data-points'
@@ -67,6 +70,7 @@ type Declarations = {
   checks: ExtensionCheckDeclaration
   'sameness-keys': ExtensionSamenessKeyDeclaration
   'event-hooks': ExtensionEventHookDeclaration
+  'record-hooks': ExtensionRecordHookDeclaration
 }
 
 /** Opens the plugin and the declaration, runs `work`, audits the outcome. */
@@ -521,34 +525,23 @@ export async function runExtensionSamenessKey(
 // Event reactions.
 // ---------------------------------------------------------------------------
 
-const hookAnswer = z
-  .object({
-    notes: z
-      .array(
-        z
-          .object({
-            title: z.string().min(1).max(120),
-            body: z.string().max(500).optional(),
-          })
-          .strict(),
-      )
-      .max(5)
-      .optional(),
-  })
-  .strict()
-
 export interface HookNote {
   title: string
   body: string | null
 }
 
+/** What a plugin answered after an event or a save. Notes are parsed here; the rest is applied by the caller. */
+export type HookAnswer = AfterAnswer
+
 export async function runExtensionEventHook(
   args: Caller & {
     hookId: string
     event: { name: string; entityType: string; entityId: string; data: unknown }
+    /** The record the event is about, so the plugin can see it. */
+    record?: RecordSnapshot | null
   },
   deps: ExtensionRuntimeDeps = defaultDeps(),
-): Promise<HookNote[]> {
+): Promise<HookAnswer> {
   const { value } = await withItem(
     deps,
     args,
@@ -565,18 +558,96 @@ export async function runExtensionEventHook(
         parameters: {
           kind: 'operation',
           entry: declaration.runner.entry,
-          input: { event: args.event },
+          input: { event: args.event, record: args.record ?? null },
         },
       })
-      const parsed = hookAnswer.safeParse(result.rows.at(0) ?? {})
+      const parsed = afterAnswer.safeParse(result.rows.at(0) ?? {})
       if (!parsed.success)
         throw bad(
-          'The plugin’s reaction can only answer with notes (a title and an optional body).',
+          `The plugin’s reaction gave an answer Sheetbase can’t use: ${parsed.error.issues[0]?.message ?? 'unknown shape'}.`,
         )
-      return (parsed.data.notes ?? []).map((note) => ({
-        title: note.title,
-        body: note.body ?? null,
-      }))
+      return parsed.data
+    },
+  )
+  return value
+}
+
+// ---------------------------------------------------------------------------
+// Save and upload hooks.
+// ---------------------------------------------------------------------------
+
+export interface RecordHookInput {
+  when: 'created' | 'edited' | 'uploaded' | 'status-changed'
+  /** What the record is (or will be, for a hook that runs before the save). */
+  record: RecordSnapshot
+  /** The record as it was; null for a new one. */
+  previous: RecordSnapshot | null
+  /** Names of the fields that changed. */
+  changed: string[]
+  /** Before and after, for the fields the change log records (title, status, folder). */
+  changes: Record<string, { from: unknown; to: unknown }>
+  file?: {
+    name: string
+    media_type: string
+    byte_size: number
+    checksum: string | null
+    /** The contents, in the encoding the hook asked for. Absent when it asked for none. */
+    content?: string
+    encoding?: 'text' | 'base64'
+  } | null
+}
+
+export async function runExtensionRecordHook(
+  args: Caller & { hookId: string; timing: 'before'; input: RecordHookInput },
+  deps?: ExtensionRuntimeDeps,
+): Promise<BeforeAnswer>
+export async function runExtensionRecordHook(
+  args: Caller & { hookId: string; timing: 'after'; input: RecordHookInput },
+  deps?: ExtensionRuntimeDeps,
+): Promise<AfterAnswer>
+export async function runExtensionRecordHook(
+  args: Caller & {
+    hookId: string
+    timing: 'before' | 'after'
+    input: RecordHookInput
+  },
+  deps: ExtensionRuntimeDeps = defaultDeps(),
+): Promise<BeforeAnswer | AfterAnswer> {
+  const { value } = await withItem(
+    deps,
+    args,
+    'record-hooks',
+    args.hookId,
+    async (declaration, resolved) => {
+      if (declaration.timing !== args.timing)
+        throw new ExtensionRunError(
+          'wrong_timing',
+          'This hook runs at a different moment.',
+        )
+      if (!declaration.when.includes(args.input.when))
+        throw new ExtensionRunError(
+          'wrong_event',
+          'This hook was not set up for that.',
+        )
+      const result = await runPackage(deps, args.workspaceId, resolved, {
+        inputs: {},
+        parameters: {
+          kind: 'operation',
+          entry: declaration.runner.entry,
+          input: { ...args.input, timing: args.timing },
+        },
+      })
+      const schema = args.timing === 'before' ? beforeAnswer : afterAnswer
+      const parsed = schema.safeParse(result.rows.at(0) ?? {})
+      if (!parsed.success)
+        throw bad(
+          `The plugin’s hook gave an answer Sheetbase can’t use${
+            args.timing === 'before'
+              ? ' (before a save it can only refuse, warn or fill in fields)'
+              : ''
+          }: ${parsed.error.issues[0]?.message ?? 'unknown shape'}.`,
+        )
+      return parsed.data
     },
   )
   return value

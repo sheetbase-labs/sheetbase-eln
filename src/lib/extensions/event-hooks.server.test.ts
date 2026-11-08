@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { runExtensionEventHook } from './data-runtime.server'
 import { clearEventHookCache, runEventHooks } from './event-hooks.server'
 import type { EventHookDeps, HookEvent } from './event-hooks.server'
+import type { HookStore } from './record-hooks.server'
 
 vi.mock('./data-runtime.server', () => ({
   runExtensionEventHook: vi.fn(),
@@ -37,15 +38,28 @@ const event: HookEvent = {
   data: { id: 'x' },
 }
 
+const noStore = {
+  raiseFlag: async () => undefined,
+  clearFlag: async () => undefined,
+  storeSummary: async () => undefined,
+  storeIndex: async () => undefined,
+  saveNote: async () => undefined,
+  changeRecord: async () => undefined,
+} satisfies HookStore
+
 function deps(hooks: unknown[] = [hook]): EventHookDeps & {
   saved: Array<{ title: string; userId: string }>
+  store: HookStore
 } {
   const saved: Array<{ title: string; userId: string }> = []
   return {
     saved,
     hooksFor: async () => hooks as never,
-    saveNote: async (note) => {
-      saved.push({ title: note.title, userId: note.userId })
+    store: {
+      ...noStore,
+      saveNote: async (note) => {
+        saved.push({ title: note.title, userId: note.userId })
+      },
     },
   }
 }
@@ -57,10 +71,12 @@ beforeEach(() => {
 
 describe('runEventHooks', () => {
   it('saves what a reaction answers as notes for the person whose change it was', async () => {
-    vi.mocked(runExtensionEventHook).mockResolvedValue([
-      { title: 'Check the label', body: null },
-      { title: 'Log the freezer', body: 'Box 3' },
-    ])
+    vi.mocked(runExtensionEventHook).mockResolvedValue({
+      notes: [
+        { title: 'Check the label' },
+        { title: 'Log the freezer', body: 'Box 3' },
+      ],
+    })
     const d = deps()
     expect(await runEventHooks(event, d)).toBe(2)
     expect(d.saved).toEqual([
@@ -87,7 +103,7 @@ describe('runEventHooks', () => {
   it('keeps going when one reaction fails', async () => {
     vi.mocked(runExtensionEventHook)
       .mockRejectedValueOnce(new Error('boom'))
-      .mockResolvedValueOnce([{ title: 'Second still ran', body: null }])
+      .mockResolvedValueOnce({ notes: [{ title: 'Second still ran' }] })
     const d = deps([hook, { ...(hook as object), id: 'other' }])
     expect(await runEventHooks(event, d)).toBe(1)
     expect(d.saved).toEqual([{ title: 'Second still ran', userId: 'user-1' }])
@@ -98,7 +114,7 @@ describe('runEventHooks', () => {
       hooksFor: async () => {
         throw new Error('db down')
       },
-      saveNote: async () => undefined,
+      store: noStore,
     }
     await expect(runEventHooks(event, d)).resolves.toBe(0)
   })

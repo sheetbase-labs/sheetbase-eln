@@ -1,7 +1,8 @@
 /**
- * Runs plugin reactions on their own schedule. Webhooks are only worked out
- * for workspaces that have one, so reactions keep a cursor per workspace and
- * read the change log themselves (migration plugin_hook_cursor).
+ * Runs plugin reactions, and the hooks that follow a save, on their own
+ * schedule. Webhooks are only worked out for workspaces that have one, so
+ * these keep a cursor per workspace and read the change log themselves
+ * (migration plugin_hook_cursor).
  */
 import { PooledClient } from '#/db/pool.server'
 import { env } from '#/env.server'
@@ -21,14 +22,20 @@ export async function runEventHookPass(
     const { rows: workspaces } = await client.query(
       `SELECT DISTINCT workspace_id FROM api.extensions
         WHERE status = 'enabled'
-          AND jsonb_array_length(COALESCE(manifest -> 'contributions' -> 'event-hooks', '[]'::jsonb)) > 0`,
+          AND (jsonb_array_length(COALESCE(manifest -> 'contributions' -> 'event-hooks', '[]'::jsonb)) > 0
+               OR jsonb_array_length(COALESCE(manifest -> 'contributions' -> 'record-hooks', '[]'::jsonb)) > 0)`,
     )
     // The plugin runtime is only loaded once a workspace has a reaction on, so
     // a lab without one never pays for it when the server starts.
-    const { runEventHooks } =
+    const { runEventHooks, runRecordHooks } =
       workspaces.length > 0
-        ? await import('./event-hooks.server')
-        : { runEventHooks: async () => undefined }
+        ? {
+            ...(await import('./event-hooks.server')),
+            runRecordHooks: (
+              await import('./record-hooks.server')
+            ).runAfterRecordHooksForEvent,
+          }
+        : { runEventHooks: async () => 0, runRecordHooks: async () => 0 }
     for (const { workspace_id: workspaceId } of workspaces) {
       const cursor = await client.query(
         `SELECT sequence FROM internal.plugin_hook_cursor WHERE workspace_id = $1`,
@@ -76,16 +83,28 @@ export async function runEventHookPass(
           event.operation,
           event.payload,
         )
-        if (!name) continue
-        await runEventHooks({
+        if (name)
+          await runEventHooks({
+            id: event.id,
+            workspaceId: event.workspaceId,
+            actorUserId: event.actorUserId,
+            recordId: event.recordId,
+            entityType: event.entityType,
+            entityId: event.entityUuid,
+            name,
+            data: buildEventPayload(event, name),
+            clientId: row.client_id,
+          })
+        await runRecordHooks({
           id: event.id,
           workspaceId: event.workspaceId,
           actorUserId: event.actorUserId,
-          recordId: event.recordId,
+          clientId: row.client_id,
           entityType: event.entityType,
-          entityId: event.entityUuid,
-          name,
-          data: buildEventPayload(event, name),
+          entityUuid: event.entityUuid,
+          operation: event.operation,
+          recordId: event.recordId,
+          payload: event.payload,
         })
       }
       if (rows.length > 0)

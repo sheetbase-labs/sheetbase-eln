@@ -46,6 +46,10 @@ import {
   defaultRateLimitOptions,
 } from '#/lib/rate-limit'
 import { logger } from '#/lib/logger'
+import {
+  afterUpload,
+  refuseUploadIfAsked,
+} from '#/lib/extensions/upload-hooks.server'
 import { resolveRequestId } from '#/lib/request-id'
 
 /** Sequence files are read whole, up to this size, to summarise them. */
@@ -413,6 +417,27 @@ export async function handleUpload(
     )
   }
 
+  const hookArgs = {
+    token: context.token,
+    fileRecordId,
+    displayName: fileObject.display_name,
+    mediaType: fileObject.media_type,
+    byteSize: Number(result.byteSize),
+    checksum: result.checksum,
+    storage,
+    storageKey: candidateStorageKey,
+  }
+  const refused = await refuseUploadIfAsked(hookArgs)
+  if (refused) {
+    await storage.delete(candidateStorageKey)
+    recordFileOperation('upload', 'conflict', uploadStartedAt)
+    return requestErrorResponse(
+      422,
+      'plugin_refused',
+      `${refused.plugin}: ${refused.message}`,
+    )
+  }
+
   const finalize = await postgrestRpc(
     'finalize_file_upload',
     {
@@ -450,6 +475,7 @@ export async function handleUpload(
   )
 
   recordFileOperation('upload', 'ok', uploadStartedAt, Number(result.byteSize))
+  void afterUpload(hookArgs)
 
   return new Response(
     JSON.stringify({
@@ -633,6 +659,27 @@ export async function storeFileVersion(input: {
     throw error
   }
 
+  const hookArgs = {
+    token: context.token,
+    fileObjectId: current.id,
+    displayName: displayName || current.display_name,
+    mediaType,
+    byteSize: Number(result.byteSize),
+    checksum: result.checksum,
+    storage,
+    storageKey: candidateStorageKey,
+  }
+  const refused = await refuseUploadIfAsked(hookArgs)
+  if (refused) {
+    await storage.delete(candidateStorageKey)
+    return {
+      ok: false,
+      status: 422,
+      code: 'plugin_refused',
+      message: `${refused.plugin}: ${refused.message}`,
+    }
+  }
+
   const registered = await postgrestRpc(
     'register_file_version',
     {
@@ -668,6 +715,7 @@ export async function storeFileVersion(input: {
       displayName || current.display_name,
     )
   }
+  void afterUpload(hookArgs)
   return {
     ok: true,
     id: newId,

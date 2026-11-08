@@ -17,13 +17,13 @@ BEGIN
   SELECT pg_get_constraintdef(oid) INTO v_def
     FROM pg_constraint
    WHERE conrelid = 'api.extensions'::regclass AND conname = 'chk_extensions_disabled_points';
-  IF v_def IS NULL OR position('''event-hooks''::text]' IN v_def) = 0 THEN
+  IF v_def IS NULL OR position('''record-hooks''::text]' IN v_def) = 0 THEN
     RAISE EXCEPTION 'unexpected shape for chk_extensions_disabled_points';
   END IF;
   EXECUTE 'ALTER TABLE api.extensions DROP CONSTRAINT chk_extensions_disabled_points';
   EXECUTE 'ALTER TABLE api.extensions ADD CONSTRAINT chk_extensions_disabled_points '
-    || replace(v_def, '''event-hooks''::text]',
-         '''event-hooks''::text, ''pages''::text, ''settings-pages''::text, ''dashboard-widgets''::text, ''report-sections''::text]');
+    || replace(v_def, '''record-hooks''::text]',
+         '''record-hooks''::text, ''pages''::text, ''settings-pages''::text, ''dashboard-widgets''::text, ''report-sections''::text]');
 END $$;
 --> statement-breakpoint
 
@@ -31,8 +31,8 @@ DO $$
 DECLARE
   v_sig regprocedure := 'api.set_extension_point_enabled(uuid, uuid, text, boolean)'::regprocedure;
   v_def text := pg_get_functiondef(v_sig);
-  v_old constant text := $q$'event-hooks')$q$;
-  v_new constant text := $q$'event-hooks', 'pages', 'settings-pages', 'dashboard-widgets', 'report-sections')$q$;
+  v_old constant text := $q$'record-hooks')$q$;
+  v_new constant text := $q$'record-hooks', 'pages', 'settings-pages', 'dashboard-widgets', 'report-sections')$q$;
 BEGIN
   IF position(v_old IN v_def) = 0 THEN
     RAISE EXCEPTION 'unexpected shape for api.set_extension_point_enabled';
@@ -82,8 +82,8 @@ DO $$
 DECLARE
   v_sig regprocedure := 'internal.validate_extension_manifest(jsonb)'::regprocedure;
   v_def text := pg_get_functiondef(v_sig);
-  v_old constant text := $q$'event-hooks')$q$;
-  v_new constant text := $q$'event-hooks', 'pages', 'settings-pages', 'dashboard-widgets', 'report-sections')$q$;
+  v_old constant text := $q$'record-hooks')$q$;
+  v_new constant text := $q$'record-hooks', 'pages', 'settings-pages', 'dashboard-widgets', 'report-sections')$q$;
 BEGIN
   IF position(v_old IN v_def) = 0 THEN
     RAISE EXCEPTION 'unexpected shape for internal.validate_extension_manifest';

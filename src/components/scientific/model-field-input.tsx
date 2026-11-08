@@ -21,6 +21,8 @@ import {
   selectRecordReference,
 } from '#/lib/record-reference-cell'
 import type { RecordReferenceSnapshot } from '#/lib/record-reference-cell'
+import { PluginFieldInput } from '#/components/extensions/plugin-field-input'
+import type { PluginFieldInputSource } from '#/components/extensions/plugin-field-input'
 import { EntityPickerDialog } from '#/components/record-picker/entity-picker'
 import type {
   PickerOption,
@@ -42,11 +44,14 @@ export function ModelFieldInput({
   sourceModelKey,
   relationshipRules,
   placeholder,
+  pluginInput,
 }: {
   definition: ModelFieldDefinition
   value: string | boolean
   onChange: (value: string | boolean) => void
   showLabel?: boolean
+  /** A plugin field type's own screen to type in, instead of the standard box. */
+  pluginInput?: PluginFieldInputSource
   /** What a text or number box shows while empty, such as a plugin field type's example. */
   placeholder?: string
   /** Test seam: drive the reference search without a live client. */
@@ -63,6 +68,15 @@ export function ModelFieldInput({
   /** MODEL-03: declared relationship rules for the source Model. */
   relationshipRules?: ModelRelationshipRule[]
 }) {
+  if (pluginInput)
+    return (
+      <PluginFieldInput
+        source={pluginInput}
+        definition={definition}
+        value={value}
+        onChange={onChange}
+      />
+    )
   const field = definitionOfModelField(definition)
   const presentation = fieldEditorPresentation(field.logicalType, {
     relationshipTarget: field.relationship?.target.kind,

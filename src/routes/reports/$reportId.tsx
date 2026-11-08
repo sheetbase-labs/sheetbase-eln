@@ -37,6 +37,8 @@ import {
   validateReport,
 } from '#/lib/reports'
 import type { ReportStatus } from '#/lib/reports'
+import { AddPluginSectionDialog } from '#/components/extensions/plugin-report-section-dialog'
+import { usePluginPoints } from '#/components/extensions/use-plugin-points'
 import { useRecentViewTracking } from '#/lib/recents'
 import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
@@ -96,6 +98,8 @@ function ReportPage() {
   const workspaceId = context.workspace?.id ?? ''
   const [textOpen, setTextOpen] = useState(false)
   const [evidenceOpen, setEvidenceOpen] = useState(false)
+  const [pluginOpen, setPluginOpen] = useState(false)
+  const pluginSections = usePluginPoints().reportSections
   const [shareOpen, setShareOpen] = useState(false)
 
   const query = useQuery({
@@ -329,6 +333,11 @@ function ReportPage() {
                   <Button icon="plus" onClick={() => setEvidenceOpen(true)}>
                     {t('projects.reports.builder.addEvidence')}
                   </Button>
+                  {pluginSections.length > 0 ? (
+                    <Button icon="plug" onClick={() => setPluginOpen(true)}>
+                      {t('plugins.reportSection.button')}
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -442,6 +451,14 @@ function ReportPage() {
         recordId={report.recordId}
         definitionId={report.definitionId}
         workspaceId={workspaceId}
+      />
+      <AddPluginSectionDialog
+        open={pluginOpen}
+        onOpenChange={setPluginOpen}
+        recordId={report.recordId}
+        definitionId={report.definitionId}
+        workspaceId={workspaceId}
+        projectId={report.projectId}
       />
       <AddEvidenceDialog
         open={evidenceOpen}

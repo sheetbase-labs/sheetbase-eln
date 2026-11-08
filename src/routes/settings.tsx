@@ -1,3 +1,4 @@
+import * as React from 'react'
 import {
   Link,
   Outlet,
@@ -7,6 +8,7 @@ import {
 } from '@tanstack/react-router'
 
 import { cn } from '#/lib/utils'
+import { usePluginPoints } from '#/components/extensions/use-plugin-points'
 import {
   settingsPlaces,
   canOpenSettingsItem,
@@ -46,8 +48,35 @@ function SettingsLayout() {
   const { context } = Route.useRouteContext()
   const role = context.workspace?.role
   const access = settingsAccessOf(context.workspace)
-  const nav = settingsNavForRole(role, access)
-  const current = settingsItemForPath(pathname)
+  const pluginPages = usePluginPoints().settingsPages
+  const nav = React.useMemo(() => {
+    const base = settingsNavForRole(role, access)
+    // Pages the lab's plugins add sit in Workspace, for the people who hold
+    // General (the same people who manage plugins).
+    const added: SettingsNavItem[] = pluginPages.map((page) => ({
+      place: 'workspace',
+      cluster: t('plugins.page.cluster'),
+      label: page.declaration.title,
+      link: {
+        to: '/settings/workspace/plugin-pages/$key/$id',
+        params: { key: page.extensionKey, id: page.id },
+      },
+      match: (path) =>
+        path ===
+        `/settings/workspace/plugin-pages/${page.extensionKey}/${page.id}`,
+      area: 'general',
+    }))
+    return {
+      ...base,
+      workspace: [
+        ...base.workspace,
+        ...added.filter((item) => canOpenSettingsItem(item, role, access)),
+      ],
+    }
+  }, [role, access, pluginPages])
+  const current =
+    settingsItemForPath(pathname) ??
+    nav.workspace.find((item) => item.match(pathname))
   const place: SettingsPlace = current?.place ?? 'account'
   const places = settingsPlaces.filter((p) => nav[p.key].length > 0)
   const sections = nav[place]

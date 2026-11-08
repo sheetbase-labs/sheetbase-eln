@@ -62,6 +62,8 @@ import type { Notification, NotificationTarget } from '#/components/types'
 import type { ShellCounts } from '#/lib/shell-counts.server'
 import { markNotificationsRead } from '#/lib/notifications-data'
 import { createMenuSearch } from './create-context'
+import { pluginIcon } from '#/components/extensions/plugin-icon'
+import { usePluginPoints } from '#/components/extensions/use-plugin-points'
 import { isHomePage, navGroups, primaryNav, visibleNavGroups } from './nav'
 import type { NavGroup, NavItem } from './nav'
 import { filterNavForRole } from '#/lib/nav-visibility'
@@ -195,17 +197,34 @@ export function AppShell({
   const settingsTo = settingsHomePath(role, data.me.settingsAccess)
   const primaryItems = useMemo(() => filterNavForRole(primaryNav, role), [role])
   const hiddenPages = data.hiddenPages
-  const groups = useMemo(
-    () =>
-      visibleNavGroups(
-        navGroups.map((g) => ({
-          ...g,
-          items: filterNavForRole(g.items, role),
+  const pluginPages = usePluginPoints().pages
+  const groups = useMemo(() => {
+    const shown = visibleNavGroups(
+      navGroups.map((g) => ({
+        ...g,
+        items: filterNavForRole(g.items, role),
+      })),
+      hiddenPages ?? [],
+    )
+    // Pages the lab's plugins add, under a group of their own.
+    if (pluginPages.length === 0) return shown
+    return [
+      ...shown,
+      {
+        key: 'plugins' as const,
+        label: t('settings.shell.nav.groups.plugins'),
+        items: pluginPages.map<NavItem>((page) => ({
+          key: `plugin-${page.extensionKey}-${page.id}`,
+          label: page.declaration.title,
+          icon: pluginIcon(page.declaration.icon),
+          link: {
+            to: '/plugins/$key/$id',
+            params: { key: page.extensionKey, id: page.id },
+          },
         })),
-        hiddenPages ?? [],
-      ),
-    [role, hiddenPages],
-  )
+      },
+    ]
+  }, [role, hiddenPages, pluginPages])
   /** The sidebar groups this person folded; follows them between devices. */
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set())
   const foldTouched = useRef(false)

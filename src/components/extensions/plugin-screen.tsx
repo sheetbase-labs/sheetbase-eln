@@ -12,6 +12,7 @@ import * as React from 'react'
 import { Button } from '#/components/ui/button'
 import { Spinner } from '#/components/ui/spinner'
 import { runPluginHook } from '#/lib/extensions/run-client'
+import type { PluginFramePoint } from '#/lib/extensions/ui-points'
 import type { PluginHookAnswer } from '#/lib/extensions/run-client'
 import type { ScreenNotice, ScreenResult } from '#/lib/extensions/screens'
 import { cn } from '#/lib/utils'
@@ -24,7 +25,7 @@ import { TONE_CLASSES } from './tone'
 export interface PluginScreenProps {
   extensionKey: string
   pluginName: string
-  point: 'blocks' | 'panels'
+  point: PluginFramePoint
   itemId: string
   title: string
   /** `screen`: a Python function describes it. `ui`: a bundle runs in the sandboxed frame. */
@@ -84,7 +85,7 @@ function PythonScreen({
         >({
           kind: 'screen',
           extensionKey,
-          point,
+          point: point as 'blocks' | 'panels',
           itemId,
           context: JSON.parse(contextKey) as Record<string, unknown>,
           state: kept.current,

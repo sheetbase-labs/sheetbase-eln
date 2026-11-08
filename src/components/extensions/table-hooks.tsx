@@ -276,16 +276,10 @@ export function usePluginTableHooks({
     return map
   }, [fieldTypes.data])
 
-  const cellDisplay = React.useCallback(
-    (field: ModelFieldDefinition): CellDisplaySpec | undefined => {
+  /** The table cell point that draws this field, if one applies. */
+  const cellFor = React.useCallback(
+    (field: ModelFieldDefinition) => {
       const link = typeOf.get(field.fieldName)
-      if (link) {
-        const type = points.fieldTypes.find(
-          (item) =>
-            item.extensionKey === link.plugin_key && item.id === link.type_id,
-        )
-        if (type?.declaration.display) return type.declaration.display
-      }
       for (const cell of points.tableCells) {
         const target = cell.declaration.appliesTo
         if (!applies(target.models, modelKey)) continue
@@ -301,11 +295,39 @@ export function usePluginTableHooks({
           )
         )
           continue
-        return cell.declaration.display
+        return cell
       }
       return undefined
     },
-    [typeOf, points.fieldTypes, points.tableCells, modelKey],
+    [typeOf, points.tableCells, modelKey],
+  )
+
+  const cellDisplay = React.useCallback(
+    (field: ModelFieldDefinition): CellDisplaySpec | undefined => {
+      const link = typeOf.get(field.fieldName)
+      if (link) {
+        const type = points.fieldTypes.find(
+          (item) =>
+            item.extensionKey === link.plugin_key && item.id === link.type_id,
+        )
+        if (type?.declaration.display) return type.declaration.display
+      }
+      return cellFor(field)?.declaration.display
+    },
+    [typeOf, points.fieldTypes, cellFor],
+  )
+
+  /** A plugin renderer (a UI bundle) that draws this field's cells, if one applies. */
+  const cellRenderer = React.useCallback(
+    (
+      field: ModelFieldDefinition,
+    ): { extensionKey: string; itemId: string } | undefined => {
+      const cell = cellFor(field)
+      return cell?.declaration.render
+        ? { extensionKey: cell.extensionKey, itemId: cell.id }
+        : undefined
+    },
+    [cellFor],
   )
 
   const columnItems = React.useMemo(
@@ -417,7 +439,7 @@ export function usePluginTableHooks({
     ],
   )
 
-  return { cellDisplay, columns, actions, runner }
+  return { cellDisplay, cellRenderer, columns, actions, runner }
 }
 
 /** Appears above the table when rows are chosen and a plugin has actions for them. */

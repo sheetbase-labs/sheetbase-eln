@@ -23,6 +23,10 @@ const EMPTY: ResolvedRunnerPoints = {
   rowActions: [],
   fieldTypes: [],
   data: emptyData(),
+  pages: [],
+  settingsPages: [],
+  dashboardWidgets: [],
+  reportSections: [],
   descriptors: [],
 }
 

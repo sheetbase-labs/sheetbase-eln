@@ -49,7 +49,7 @@ export const primaryNav: NavItem[] = [
   },
 ]
 
-export type NavGroupKey = 'work' | 'lab' | 'data' | 'methods'
+export type NavGroupKey = 'work' | 'lab' | 'data' | 'methods' | 'plugins'
 
 export interface NavGroup {
   key: NavGroupKey

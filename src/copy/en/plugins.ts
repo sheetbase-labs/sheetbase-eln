@@ -406,7 +406,7 @@ export const plugins = {
       'Sends the rows of {dataset} to {hosts}, using the {plugin} plugin. Nothing leaves until you press Send.',
     send: 'Send',
     sending: 'Sending…',
-    sent: 'Sent',
+    sent: 'Sent to {name}',
     notSent: 'Not sent',
     open: 'Open',
     couldNotSend: 'The data could not be sent.',

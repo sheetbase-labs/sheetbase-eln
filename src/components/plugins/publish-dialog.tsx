@@ -112,7 +112,10 @@ export function PublishDialog({
             </Banner>
           ) : null}
           {sent ? (
-            <Banner tone="info" title={t('plugins.publish.sent')}>
+            <Banner
+              tone="info"
+              title={t('plugins.publish.sent', { name: declaration.title })}
+            >
               {sent.message}
               {sent.link ? (
                 <>

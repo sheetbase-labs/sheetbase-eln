@@ -26,6 +26,13 @@
  *   changes status. Before the save it can refuse with a message or fill in
  *   fields; after it, it can write a summary, add to a search index, raise
  *   flags, ask for sign-off and change records.
+ * - `instrument-parsers`: reads the file an instrument writes into rows, and is
+ *   recognised by the file's extension and the text it must carry.
+ * - `label-formats`: lays out a label: the lines it prints for a record.
+ * - `barcode-formats`: draws a code (bars or a square grid) for a value, and
+ *   can read a scanned code back into the value it stands for.
+ * - `storage-rules`: says whether a sample may go where it is being put (a
+ *   freezer too warm, a box that is for something else) before it is filed.
  *
  * Every declaration names its inputs and outputs, the code is one named Python
  * function of the plugin's package, and anything unknown is refused. The same
@@ -208,6 +215,51 @@ export interface ExtensionRecordHookDeclaration {
   runner: ExtensionRunner
 }
 
+export interface ExtensionInstrumentParserDeclaration {
+  id: string
+  title: string
+  description: string
+  /** File extensions the instrument writes, lower case with the dot. */
+  extensions: string[]
+  encoding: ExtensionEncoding
+  /** The instrument or vendor it reads, as people would say it, such as `Acme plate reader`. */
+  instrument?: string
+  /** Text the file must carry to be recognised (any one of these), so two parsers can share an extension. */
+  contains?: string[]
+  runner: ExtensionRunner
+}
+
+export const BARCODE_SHAPES = ['1d', '2d'] as const
+export type BarcodeShape = (typeof BARCODE_SHAPES)[number]
+
+export interface ExtensionLabelFormatDeclaration {
+  id: string
+  title: string
+  description: string
+  /** The kinds of record it lays out: `sample`, `material` or `record`. */
+  kinds: string[]
+  runner: ExtensionRunner
+}
+
+export interface ExtensionBarcodeFormatDeclaration {
+  id: string
+  title: string
+  description: string
+  /** `1d`: a row of bars. `2d`: a square grid of dots. */
+  shape: BarcodeShape
+  /** Draws the code for a value. */
+  runner: ExtensionRunner
+  /** Turns the text a scanner read back into the value it stands for. */
+  parse?: ExtensionRunner
+}
+
+export interface ExtensionStorageRuleDeclaration {
+  id: string
+  title: string
+  description: string
+  runner: ExtensionRunner
+}
+
 export interface ExtensionDataContributions {
   'pipeline-steps'?: ExtensionPipelineStepDeclaration[]
   calculators?: ExtensionCalculatorDeclaration[]
@@ -220,6 +272,10 @@ export interface ExtensionDataContributions {
   'sameness-keys'?: ExtensionSamenessKeyDeclaration[]
   'event-hooks'?: ExtensionEventHookDeclaration[]
   'record-hooks'?: ExtensionRecordHookDeclaration[]
+  'instrument-parsers'?: ExtensionInstrumentParserDeclaration[]
+  'label-formats'?: ExtensionLabelFormatDeclaration[]
+  'barcode-formats'?: ExtensionBarcodeFormatDeclaration[]
+  'storage-rules'?: ExtensionStorageRuleDeclaration[]
 }
 
 export const MAX_TABLE_INPUTS = 6
@@ -810,6 +866,137 @@ export function parseRecordHooks(
   )
 }
 
+export const LABEL_KINDS = ['sample', 'material', 'record'] as const
+export const MAX_RECOGNISE_TEXTS = 5
+
+export function parseInstrumentParsers(
+  value: unknown,
+  errors: string[],
+): Parsed<ExtensionInstrumentParserDeclaration> {
+  return each<ExtensionInstrumentParserDeclaration>(
+    'instrument-parsers',
+    value,
+    errors,
+    true,
+    (entry, where) => {
+      const extensions = strings(
+        where,
+        'extensions',
+        entry.extensions,
+        EXTENSION_FILE_EXTENSION_RE,
+        errors,
+        'like .xlsx',
+      )
+      const enc = encoding(where, entry.encoding, errors)
+      if (entry.instrument !== undefined && !text(entry.instrument, 1, 120)) {
+        errors.push(`${where} instrument must be 1-120 characters`)
+        return null
+      }
+      let contains: string[] | undefined
+      if (entry.contains !== undefined) {
+        if (
+          !Array.isArray(entry.contains) ||
+          entry.contains.length < 1 ||
+          entry.contains.length > MAX_RECOGNISE_TEXTS ||
+          !entry.contains.every((item) => text(item, 1, 80)) ||
+          new Set(entry.contains).size !== entry.contains.length
+        ) {
+          errors.push(
+            `${where} contains needs 1-${MAX_RECOGNISE_TEXTS} different texts of 1-80 characters`,
+          )
+          return null
+        }
+        contains = entry.contains
+      }
+      const run = runner(where, entry.runner, errors)
+      if (!extensions || !enc || !run) return null
+      return {
+        extensions,
+        encoding: enc,
+        ...(typeof entry.instrument === 'string'
+          ? { instrument: entry.instrument.trim() }
+          : {}),
+        ...(contains ? { contains } : {}),
+        runner: run,
+      } as never
+    },
+  )
+}
+
+export function parseLabelFormats(
+  value: unknown,
+  errors: string[],
+): Parsed<ExtensionLabelFormatDeclaration> {
+  return each<ExtensionLabelFormatDeclaration>(
+    'label-formats',
+    value,
+    errors,
+    true,
+    (entry, where) => {
+      const kinds = strings(
+        where,
+        'kinds',
+        entry.kinds,
+        EXTENSION_RECORD_TYPE_RE,
+        errors,
+        'like sample',
+      )
+      const run = runner(where, entry.runner, errors)
+      if (!kinds || !run) return null
+      return { kinds, runner: run } as never
+    },
+  )
+}
+
+export function parseBarcodeFormats(
+  value: unknown,
+  errors: string[],
+): Parsed<ExtensionBarcodeFormatDeclaration> {
+  return each<ExtensionBarcodeFormatDeclaration>(
+    'barcode-formats',
+    value,
+    errors,
+    true,
+    (entry, where) => {
+      if (
+        typeof entry.shape !== 'string' ||
+        !(BARCODE_SHAPES as readonly string[]).includes(entry.shape)
+      ) {
+        errors.push(`${where} shape must be 1d or 2d`)
+        return null
+      }
+      const run = runner(where, entry.runner, errors)
+      const parse =
+        entry.parse === undefined
+          ? undefined
+          : runner(`${where} parse`, entry.parse, errors)
+      if (!run || parse === null) return null
+      return {
+        shape: entry.shape as BarcodeShape,
+        runner: run,
+        ...(parse ? { parse } : {}),
+      } as never
+    },
+  )
+}
+
+export function parseStorageRules(
+  value: unknown,
+  errors: string[],
+): Parsed<ExtensionStorageRuleDeclaration> {
+  return each<ExtensionStorageRuleDeclaration>(
+    'storage-rules',
+    value,
+    errors,
+    true,
+    (entry, where) => {
+      const run = runner(where, entry.runner, errors)
+      if (!run) return null
+      return { runner: run } as never
+    },
+  )
+}
+
 /** The parser for each data point, by name. */
 export const DATA_POINT_PARSERS = {
   'pipeline-steps': parsePipelineSteps,
@@ -823,6 +1010,10 @@ export const DATA_POINT_PARSERS = {
   'sameness-keys': parseSamenessKeys,
   'event-hooks': parseEventHooks,
   'record-hooks': parseRecordHooks,
+  'instrument-parsers': parseInstrumentParsers,
+  'label-formats': parseLabelFormats,
+  'barcode-formats': parseBarcodeFormats,
+  'storage-rules': parseStorageRules,
 } as const
 
 export type DataPoint = keyof typeof DATA_POINT_PARSERS

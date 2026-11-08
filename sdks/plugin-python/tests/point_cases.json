@@ -2915,5 +2915,541 @@
     "files": {
       "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
     }
+  },
+  {
+    "name": "instrument-parsers: a valid declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "instrument-parsers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [
+              ".xlsx"
+            ],
+            "encoding": "base64",
+            "instrument": "Acme plate reader",
+            "contains": [
+              "Acme Reader"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "instrument-parsers: only the required fields",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "instrument-parsers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [
+              ".csv"
+            ],
+            "encoding": "text"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "instrument-parsers: no extensions",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "instrument-parsers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "encoding": "text"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "instrument-parsers: a bad extension",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "instrument-parsers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [
+              "csv"
+            ],
+            "encoding": "text"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "instrument-parsers: a bad encoding",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "instrument-parsers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [
+              ".csv"
+            ],
+            "encoding": "hex"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "instrument-parsers: an empty instrument name",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "instrument-parsers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [
+              ".csv"
+            ],
+            "encoding": "text",
+            "instrument": " "
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "instrument-parsers: contains repeats a text",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "instrument-parsers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [
+              ".csv"
+            ],
+            "encoding": "text",
+            "contains": [
+              "A",
+              "A"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "instrument-parsers: contains is empty",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "instrument-parsers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [
+              ".csv"
+            ],
+            "encoding": "text",
+            "contains": []
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "label-formats: a valid declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "label-formats": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "kinds": [
+              "sample",
+              "material"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "label-formats: no kinds",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "label-formats": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "label-formats: a bad kind",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "label-formats": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "kinds": [
+              "Sample"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "label-formats: a repeated kind",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "label-formats": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "kinds": [
+              "sample",
+              "sample"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "barcode-formats: a valid 1d declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "barcode-formats": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "shape": "1d"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "barcode-formats: a valid 2d declaration with a parse function",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "barcode-formats": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "shape": "2d",
+            "parse": "m:p"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "barcode-formats: no shape",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "barcode-formats": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "barcode-formats: an unknown shape",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "barcode-formats": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "shape": "3d"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "barcode-formats: parse points at nothing",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "barcode-formats": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "shape": "1d",
+            "parse": "m:missing"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "storage-rules: a valid declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "storage-rules": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "storage-rules: no description",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "storage-rules": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "",
+            "run": "m:f"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "storage-rules: bad entry",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "storage-rules": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "nothing"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
   }
 ]

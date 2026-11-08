@@ -8,6 +8,7 @@ import { toast } from '#/components/ui/sonner'
 import { Tooltip } from '#/components/ui/tooltip'
 import { SettingsSaveBar } from './settings-page'
 import { PhoneAlerts } from './phone-alerts'
+import { PluginChannels } from './plugin-channels'
 import {
   Table,
   TableBody,
@@ -162,6 +163,8 @@ export function SettingsNotifications() {
       ) : null}
 
       <PhoneAlerts />
+
+      <PluginChannels />
 
       <TableBox>
         <Table

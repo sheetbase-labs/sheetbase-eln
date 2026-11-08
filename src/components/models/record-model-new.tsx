@@ -10,7 +10,10 @@ import { Section } from '#/components/ui/layout'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { projectOption } from '#/components/record-picker/entity-options'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
-import { usePluginFieldTypeErrors } from '#/components/extensions/field-type-hooks'
+import {
+  usePluginFieldPlaceholders,
+  usePluginFieldTypeErrors,
+} from '#/components/extensions/field-type-hooks'
 import { evaluateModelRules } from '#/lib/model-rules'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
@@ -184,6 +187,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
   const matches = nameMatches
 
   const pluginErrors = usePluginFieldTypeErrors(modelKey, fields, values)
+  const pluginPlaceholders = usePluginFieldPlaceholders(modelKey)
   const fieldErrors = useMemo(
     () => ({ ...modelFieldInputErrors(fields, values), ...pluginErrors }),
     [fields, values, pluginErrors],
@@ -480,6 +484,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
               <div key={field.id} className="flex flex-col gap-1">
                 <ModelFieldInput
                   definition={field}
+                  placeholder={pluginPlaceholders[field.fieldName]}
                   value={
                     values[field.fieldName] ??
                     (field.logicalType === 'boolean' ? false : '')

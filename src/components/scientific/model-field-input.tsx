@@ -41,11 +41,14 @@ export function ModelFieldInput({
   resolveReferenceSnapshot,
   sourceModelKey,
   relationshipRules,
+  placeholder,
 }: {
   definition: ModelFieldDefinition
   value: string | boolean
   onChange: (value: string | boolean) => void
   showLabel?: boolean
+  /** What a text or number box shows while empty, such as a plugin field type's example. */
+  placeholder?: string
   /** Test seam: drive the reference search without a live client. */
   searchReferenceRecords?: (query: string) => Promise<SheetRecordSearchHit[]>
   /** Test seam: resolve the current reference without a live client. */
@@ -140,6 +143,7 @@ export function ModelFieldInput({
         value={String(value)}
         onChange={(event) => onChange(event.target.value)}
         aria-label={definition.label}
+        placeholder={placeholder}
         required={!definition.nullable}
       />
       {showLabel && definition.description ? (

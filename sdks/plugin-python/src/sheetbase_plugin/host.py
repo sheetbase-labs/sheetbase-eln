@@ -89,3 +89,29 @@ def call_analysis(entry, rows):
     import pandas as pd
 
     return resolve(entry)(pd.DataFrame(rows))
+
+
+def call_screen(entry, payload):
+    """Run a screen: ``{context, state, event}`` in, ``{view, state?, notice?}`` out."""
+    result = resolve(entry)(payload)
+    if not isinstance(result, dict):
+        raise TypeError("A screen function returns a dictionary with a view.")
+    return result
+
+
+def call_column(entry, rows):
+    """Run a computed column: a list of row dictionaries in, one value per row out."""
+    values = resolve(entry)(rows)
+    if hasattr(values, "tolist"):
+        values = values.tolist()
+    return {"values": list(values)}
+
+
+def call_action(entry, payload):
+    """Run a row or column action: ``{rows, ...}`` in, ``{notice?, view?, download?}`` out."""
+    result = resolve(entry)(payload)
+    if result is None:
+        return {}
+    if not isinstance(result, dict):
+        raise TypeError("An action returns a dictionary, or nothing.")
+    return result

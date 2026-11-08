@@ -1085,3 +1085,48 @@ export const validateReaction = (payload: unknown): FieldErrors =>
 export const validateSequence = (payload: unknown): FieldErrors =>
   chemistryErrors(sequenceIssues(payload))
 export { validateCorrectiveActions, validateSignatureRequest }
+
+/** A plugin block keeps which plugin block it is and the state its screen returned. */
+export function validatePluginBlock(payload: unknown): FieldErrors {
+  if (!isObject(payload)) {
+    return [
+      { code: 'invalid_payload_shape', message: 'payload must be an object' },
+    ]
+  }
+  const errors: FieldErrors = []
+  const key = /^[a-z][a-z0-9-]{0,48}$/
+  if (typeof payload.plugin !== 'string' || !key.test(payload.plugin))
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'plugin',
+      message: 'plugin must be the key of an installed plugin',
+    })
+  if (typeof payload.block !== 'string' || !key.test(payload.block))
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'block',
+      message: 'block must be the id of one of the plugin’s blocks',
+    })
+  if (payload.state !== undefined) {
+    let size = Infinity
+    try {
+      size = new TextEncoder().encode(JSON.stringify(payload.state)).length
+    } catch {
+      /* not JSON */
+    }
+    if (size > 64 * 1024)
+      errors.push({
+        code: 'invalid_field_value',
+        field: 'state',
+        message: 'state must be data of at most 64 KiB',
+      })
+  }
+  for (const extra of Object.keys(payload))
+    if (!['plugin', 'block', 'state'].includes(extra))
+      errors.push({
+        code: 'invalid_field_value',
+        field: extra,
+        message: 'unknown field',
+      })
+  return errors
+}

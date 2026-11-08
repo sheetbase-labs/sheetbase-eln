@@ -62,3 +62,19 @@ export function facts(molecule: Molecule): { formula: string; mass: number } {
 export function app(): HTMLElement {
   return document.getElementById('app')!
 }
+
+/**
+ * A picture for a table cell. Cells take plain SVG shapes only, so the style
+ * sheet, the invisible click targets and the class and version attributes the
+ * library adds are left out.
+ */
+export function cellSvg(
+  molecule: Molecule,
+  width: number,
+  height: number,
+): string {
+  return pictureSvg(molecule, width, height)
+    .replace(/<style[\s\S]*?<\/style>/g, '')
+    .replace(/<(line|circle)\b[^>]*\bclass="event"[^>]*\/>/g, '')
+    .replace(/\s(class|version)="[^"]*"/g, '')
+}

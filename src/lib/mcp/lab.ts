@@ -58,7 +58,9 @@ function valueSchema(type: LabType): z.ZodType {
   }
 }
 
-function argumentSchema(rpc: LabRpc): z.ZodType<Record<string, unknown>> {
+export function argumentSchema(
+  rpc: LabRpc,
+): z.ZodType<Record<string, unknown>> {
   const shape: Record<string, z.ZodType> = {}
   for (const [name, type, required] of rpc.params) {
     const base = valueSchema(type)
@@ -300,7 +302,7 @@ export async function runGuardedLabAct(
 const WAITING_MESSAGE =
   'This is waiting for a person to approve it in Sheetbase (it is in their Inbox). Nothing has changed yet. Check the request later with sheetbase.canonical.read on agent_action_requests.'
 
-function summariseArguments(args: Record<string, unknown>): string {
+export function summariseArguments(args: Record<string, unknown>): string {
   const parts = Object.entries(args)
     .filter(([, value]) => value !== null && value !== undefined)
     .slice(0, 6)

@@ -804,9 +804,15 @@ function PipelineSteps() {
                 }
               >
                 <p className="m-0 text-body text-fg-muted">
-                  {rich('data.pipelineSteps.runsAfterPrecedingStep', {
-                    code: (text) => <code>{text}</code>,
-                  })}
+                  {rich(
+                    typeof active === 'number' &&
+                      extraSteps[active]?.language === 'plugin'
+                      ? 'data.pipelineSteps.pluginRunsAfterPrecedingStep'
+                      : 'data.pipelineSteps.runsAfterPrecedingStep',
+                    {
+                      code: (text) => <code>{text}</code>,
+                    },
+                  )}
                 </p>
                 <StepsEditor
                   steps={extraSteps}

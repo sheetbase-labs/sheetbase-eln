@@ -105,7 +105,7 @@ table the plugin declares is bound with `{ "$ref": "previous" }` (the step befor
 value or `{ "$ref": "parameters.<name>" }`. A table left out is `previous`. The
 table the plugin gives back is the next step's `previous`. It runs in the same
 isolated runner as every plugin call, as the person who started the run, and
-cannot pause for a person (`confirm`) or carry a data contract. If the plugin is
+cannot carry a data contract. It can pause for a person (`confirm`) like any step: the person is shown the plugin's table, and once they confirm it the steps after it read it as `previous` (Skip leaves it unused). If the plugin is
 removed, switched off, or the name is not a table-making step, the run stops at
 that step with a plain message and writes nothing.
 

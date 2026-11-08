@@ -2404,6 +2404,12 @@ async function executeSteps(
       }
       if (decision.decision === 'skip')
         for (const name of step.confirm.skipSteps ?? []) skipped.add(name)
+      // A plugin step's table is the work itself, not a proposal beside it: once
+      // the person confirms it, the steps after it read it as `previous`.
+      if (step.language === 'plugin' && decision.decision === 'confirm') {
+        previous = outcome.rows
+        stepResults[step.name] = outcome.rows
+      }
       answerValues =
         (decision.values as Record<string, unknown> | undefined) ?? {}
       await provisionConfirmAnswer(conn, answerValues)

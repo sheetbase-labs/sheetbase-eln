@@ -41,6 +41,7 @@ import {
   stampRequestId,
 } from './request-id'
 import { ExternalTokenError, readBearerToken } from './external-token'
+import { PLUGIN_WARNINGS_HEADER } from './plugin-warnings-header'
 import type {
   WriteGuardInput,
   WriteGuardResult,
@@ -434,7 +435,7 @@ export async function handleProxyRequest(
 }
 
 /** What plugins said while letting a save through, URL-encoded and joined with ` | `. */
-export const PLUGIN_WARNINGS_HEADER = 'x-sheetbase-plugin-warnings'
+export { PLUGIN_WARNINGS_HEADER }
 
 /** Successful proxy requests at or above this duration are logged at info. */
 const SLOW_REQUEST_MS = 1000

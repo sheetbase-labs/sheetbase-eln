@@ -65,3 +65,37 @@ def test_similarity_ranks_and_leaves_out_the_unlike():
 
 def test_other_queries_are_not_this_provider_s():
     assert chem.search({"query": "aspirin", "documents": documents()}) == {"hits": []}
+
+
+def indexed(smiles):
+    out = chem.index({"record": {"custom_fields": {"structure": molfile(smiles)}}})
+    return out["index"][0]
+
+
+def test_a_compound_without_a_structure_adds_nothing_to_the_index():
+    assert chem.index({"record": {"custom_fields": {"title": "x"}}}) == {}
+
+
+def test_the_index_entry_has_words_and_a_vector():
+    entry = indexed(ASPIRIN)
+    assert entry["index"] == "structures"
+    assert entry["text"].startswith("p")
+    assert len(entry["vector"]) == chem.SIMILARITY_BITS
+
+
+def test_the_substructure_prefilter_never_loses_a_match():
+    plan = chem.search({"query": "sub:c1ccccc1C(=O)O", "documents": [], "stage": "plan"})
+    wanted = set(plan["nearest"]["text"].split())
+    assert plan["nearest"]["verify"] is True
+    for smiles in (ASPIRIN, SODIUM_SALT, "OC(=O)c1ccccc1", "CC(=O)Oc1ccccc1C(=O)OC"):
+        assert wanted <= set(indexed(smiles)["text"].split()), smiles
+
+
+def test_the_similarity_plan_asks_for_the_closest_by_vector():
+    plan = chem.search({"query": f"sim:{ASPIRIN}", "documents": [], "stage": "plan"})
+    assert len(plan["nearest"]["vector"]) == chem.SIMILARITY_BITS
+    assert plan["nearest"]["verify"] is True
+
+
+def test_the_plan_answers_a_query_that_is_not_ours_with_nothing():
+    assert chem.search({"query": "aspirin", "documents": [], "stage": "plan"}) == {"hits": []}

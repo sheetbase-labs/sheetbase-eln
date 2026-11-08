@@ -404,6 +404,10 @@ const nearestAnswer = z
     index: z.string().regex(INDEX_NAME_RE),
     vector: z.array(z.number().finite()).min(1).optional(),
     text: z.string().optional(),
+    /** How many of the index's closest entries to take; the plugin's choice. */
+    limit: z.number().int().positive().optional(),
+    /** Hand those records back to the provider to check and score. */
+    verify: z.boolean().optional(),
   })
   .strict()
   .refine((value) => value.vector || (value.text ?? '').trim() !== '', {
@@ -414,6 +418,8 @@ export interface SearchNearest {
   index: string
   vector: number[] | null
   text: string | null
+  limit: number | null
+  verify: boolean
 }
 
 export interface SearchResult {
@@ -426,6 +432,8 @@ export async function runExtensionSearch(
     providerId: string
     query: string
     documents: SearchDocument[]
+    /** `plan` asks an indexed provider what to look up; `rank` hands it what the index found. */
+    stage?: 'plan' | 'rank'
   },
   deps: ExtensionRuntimeDeps = defaultDeps(),
 ): Promise<SearchResult> {
@@ -444,7 +452,11 @@ export async function runExtensionSearch(
         parameters: {
           kind: 'operation',
           entry: declaration.runner.entry,
-          input: { query: args.query, documents },
+          input: {
+            query: args.query,
+            documents,
+            ...(args.stage ? { stage: args.stage } : {}),
+          },
         },
       })
       const parsed = searchAnswer.safeParse(result.rows.at(0)?.hits ?? [])
@@ -464,6 +476,8 @@ export async function runExtensionSearch(
           index: asked.data.index,
           vector: asked.data.vector ?? null,
           text: asked.data.text ?? null,
+          limit: asked.data.limit ?? null,
+          verify: asked.data.verify === true,
         }
       }
       // A provider can only point at records it was handed.

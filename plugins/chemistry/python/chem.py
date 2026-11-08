@@ -104,6 +104,75 @@ def _fingerprint(mol):
     return AllChem.GetMorganFingerprintAsBitVect(mol, 2, 2048)
 
 
+# The index ---------------------------------------------------------------------
+# Each compound gets an entry in the plugin's "structures" index: the bits of its
+# pattern fingerprint as words (a compound that contains a structure has all the
+# structure's bits, so the database can narrow substructure search to the
+# compounds that have them) and a short fingerprint vector (the database can
+# order compounds by how alike they are). The plugin then checks what the index
+# found, so the index only has to be quick, not exact.
+
+PATTERN_BITS = 2048
+SIMILARITY_BITS = 512
+SUBSTRUCTURE_CANDIDATES = 5000
+SIMILARITY_CANDIDATES = 500
+
+
+def _pattern_words(mol):
+    return " ".join(f"p{bit}" for bit in Chem.PatternFingerprint(mol, fpSize=PATTERN_BITS).GetOnBits())
+
+
+def _similarity_vector(mol):
+    fp = AllChem.GetMorganFingerprintAsBitVect(mol, 2, SIMILARITY_BITS)
+    return [float(bit) for bit in fp.ToList()]
+
+
+def index(input):
+    """After a compound is saved: put its structure in the index."""
+    record = input.get("record") or {}
+    target = None
+    for value in (record.get("custom_fields") or {}).values():
+        if isinstance(value, str) and "M  END" in value:
+            block = _molfile_in(value) or _molfile_in("\n" + value)
+            target = read(block) if block else None
+            if target is not None:
+                break
+    if target is None:
+        return {}
+    parent, _ = split(target)
+    return {
+        "index": [
+            {
+                "index": "structures",
+                "entry": "main",
+                "text": _pattern_words(target),
+                "vector": _similarity_vector(parent),
+            }
+        ]
+    }
+
+
+def _plan(mode, query):
+    """Which compounds are worth checking: the index answers, then search runs again on those."""
+    if mode == "sub":
+        words = _pattern_words(query)
+        if not words:
+            raise PluginError("Draw a little more of the structure to look for.")
+        return {
+            "hits": [],
+            "nearest": {"index": "structures", "text": words, "verify": True, "limit": SUBSTRUCTURE_CANDIDATES},
+        }
+    return {
+        "hits": [],
+        "nearest": {
+            "index": "structures",
+            "vector": _similarity_vector(split(query)[0]),
+            "verify": True,
+            "limit": SIMILARITY_CANDIDATES,
+        },
+    }
+
+
 def search(input):
     """sub:<SMILES or molfile> finds compounds that contain it, sim:<...> compounds that look like it."""
     match = _QUERY.match(input["query"])
@@ -116,6 +185,8 @@ def search(input):
         query = Chem.MolFromSmarts(source)
     if query is None:
         raise PluginError("The structure to look for could not be read.")
+    if input.get("stage") == "plan":
+        return _plan(mode, query)
     query_fp = _fingerprint(split(query)[0]) if mode == "sim" else None
     hits = []
     for document in input["documents"]:

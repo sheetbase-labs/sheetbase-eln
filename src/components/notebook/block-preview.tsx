@@ -97,6 +97,7 @@ import {
 } from '#/lib/chart-data'
 import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
 import type { ChartBlockPayload, ChartSpec } from '#/lib/chart-spec'
+import { PluginBlockView } from '#/components/extensions/plugin-block'
 import { analysisBlockParts, runAnalysis } from '#/lib/analysis-definition'
 import type { AnalysisBlockDefinition } from '#/lib/analysis-definition'
 import type { AnalysisBlockPayload, FrozenAnalysis } from '#/lib/analysis-block'
@@ -292,6 +293,14 @@ function renderPayload(
       return <SheetBlockPreview payload={payload} />
     case 'chart':
       return <ChartBlockPreview payload={payload} />
+    case 'plugin':
+      return (
+        <PluginBlockView
+          payload={payload}
+          recordId={recordId}
+          blockId={blockId}
+        />
+      )
     case 'analysis':
       return <AnalysisBlockPreview payload={payload} />
     case 'pipeline_output':

@@ -13,11 +13,15 @@ import {
   CommandList,
 } from '#/components/ui/command'
 import { Icon } from '#/components/icons'
+import { usePluginPoints } from '#/components/extensions/use-plugin-points'
 import { cn } from '#/lib/utils'
 import {
   BLOCK_PICKER_GROUPS,
   BLOCK_PICKER_OPTIONS,
 } from '#/lib/blocks/registry'
+
+/** A plugin's block is offered as `plugin:<key>/<id>`; the insert turns it into a block. */
+export const PLUGIN_BLOCK_PREFIX = 'plugin:'
 
 /**
  * UI port (roadmap-4/ui-app3): the "+ Add block" menu, as a command palette
@@ -38,6 +42,7 @@ export function AddBlockMenu({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const plugins = usePluginPoints()
   return (
     <CommandDialog
       open={open}
@@ -82,6 +87,42 @@ export function AddBlockMenu({
               </CommandGroup>
             )
           })}
+          {plugins.blocks.length > 0 ? (
+            <CommandGroup heading={t('plugins.screen.pickBlock')}>
+              {plugins.blocks.map((item) => (
+                <CommandItem
+                  key={`${item.extensionKey}/${item.id}`}
+                  value={item.declaration.title}
+                  keywords={[
+                    item.declaration.description ?? '',
+                    item.extensionName,
+                  ]}
+                  onSelect={() => {
+                    onAdd(
+                      `${PLUGIN_BLOCK_PREFIX}${item.extensionKey}/${item.id}`,
+                    )
+                    onOpenChange(false)
+                  }}
+                  className="items-start"
+                >
+                  <span className="mt-px inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-surface">
+                    <Icon name="puzzle" size={14} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-medium">
+                      {item.declaration.title}
+                    </span>
+                    <span className="block text-label text-fg-muted">
+                      {item.declaration.description ??
+                        t('plugins.screen.from', {
+                          plugin: item.extensionName,
+                        })}
+                    </span>
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ) : null}
           <CommandEmpty>
             {t('notebook.addBlockMenu.noBlockTypeMatches')}
           </CommandEmpty>

@@ -74,6 +74,7 @@ import {
 import type { MaterialItem } from '#/lib/protocol-materials'
 import { StockWithdrawButton } from '#/components/notebook/stock-withdraw-button'
 import { isWithdrawn } from '#/lib/stock-withdraw'
+import { PluginBlockView } from '#/components/extensions/plugin-block'
 import { useAutosave } from './use-autosave'
 import type { AutosaveStatus, SaveResult } from './use-autosave'
 import {
@@ -222,6 +223,21 @@ export interface BlockEditorProps {
   onArrowDownFromEnd?: () => void
 }
 
+function PluginBlockEditor(props: BlockEditorProps) {
+  const payload = props.block.payload
+  const { save } = props
+  return (
+    <PluginBlockView
+      payload={payload}
+      recordId={props.block.recordId}
+      blockId={props.block.id}
+      onState={
+        props.readOnly ? undefined : (state) => void save({ ...payload, state })
+      }
+    />
+  )
+}
+
 export function BlockEditor(props: BlockEditorProps) {
   // EXP-05.2: a block with a local draft carries a marker where it renders.
   const unsynced = useUnsyncedBlock(props.block.id)
@@ -263,6 +279,8 @@ function BlockEditorBody(props: BlockEditorProps) {
       return <FileBlockEditor {...props} />
     case 'chart':
       return <ChartBlockEditor {...props} />
+    case 'plugin':
+      return <PluginBlockEditor {...props} />
     case 'analysis':
       return <AnalysisBlockEditor {...props} />
     case 'pipeline_output':

@@ -50,9 +50,7 @@ async function guardServerWrite(
   const isRpc = segments[0] === 'rpc'
   const resource = isRpc ? segments[1] : segments[0]
   if (!resource) return {}
-  const { guardRecordWrite } = await import(
-    './extensions/record-hooks.server'
-  )
+  const { guardRecordWrite } = await import('./extensions/record-hooks.server')
   const result = await guardRecordWrite({
     method,
     kind: isRpc ? 'rpc' : 'table',

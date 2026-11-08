@@ -117,7 +117,6 @@ import { PipelineOutputBlockEditor } from './pipeline-output-block-editor'
 import { CodeCellBlockEditor } from './code-cell-block'
 import { DatasetImportBlockEditor } from './dataset-import-block'
 import { ReactionEditor, StructureEditor } from './chemistry-block'
-import { SequenceEditor } from './sequence-block'
 import { AnalysisChartPicker } from './analysis-chart-picker'
 import {
   analysisDefinitionQueryKeys,
@@ -309,8 +308,6 @@ function BlockEditorBody(props: BlockEditorProps) {
       return <StructureEditor {...props} />
     case 'reaction':
       return <ReactionEditor {...props} />
-    case 'sequence':
-      return <SequenceEditor {...props} />
     case 'signature_request':
       return <SignatureRequestEditor {...props} />
     case 'corrective_actions':

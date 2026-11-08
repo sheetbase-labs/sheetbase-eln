@@ -50,6 +50,39 @@
           }
         ],
         "run": "chem:describe"
+      },
+      {
+        "id": "add-lot",
+        "title": "Add a lot to a compound",
+        "description": "Makes a new lot of a compound, as you, and says how many lots it has now. Uses the same lab action as the API and the assistant.",
+        "access": "write",
+        "inputs": [
+          {
+            "name": "compound_id",
+            "type": "text",
+            "required": true,
+            "description": "The compound's record id."
+          },
+          {
+            "name": "title",
+            "type": "text",
+            "required": false,
+            "description": "A name for the lot; the registry names it if left out."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "identifier",
+            "type": "text",
+            "required": true
+          },
+          {
+            "name": "lots",
+            "type": "number",
+            "required": true
+          }
+        ],
+        "run": "chem:add_lot"
       }
     ],
     "field-types": [

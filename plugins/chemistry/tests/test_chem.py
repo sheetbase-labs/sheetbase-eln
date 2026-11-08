@@ -99,3 +99,24 @@ def test_the_similarity_plan_asks_for_the_closest_by_vector():
 
 def test_the_plan_answers_a_query_that_is_not_ours_with_nothing():
     assert chem.search({"query": "aspirin", "documents": [], "stage": "plan"}) == {"hits": []}
+
+
+def test_adding_a_lot_asks_the_app_twice_and_counts_the_lots():
+    from sheetbase_plugin import host
+
+    host.install({"chem.py": (ROOT / "python" / "chem.py").read_text()})
+    try:
+        first = host.call_operation("chem:add_lot", {"compound_id": "c1"})
+        assert first["__host_calls__"][0]["arguments"]["action"] == "list_compound_lots"
+        second = host.call_operation("chem:add_lot", {"compound_id": "c1", "__host__": [{"ok": True, "result": [{}, {}]}]})
+        assert second["__host_calls__"][0]["arguments"] == {
+            "action": "add_compound_lot",
+            "arguments": {"p_compound_id": "c1"},
+        }
+        done = host.call_operation(
+            "chem:add_lot",
+            {"compound_id": "c1", "__host__": [{"ok": True, "result": [{}, {}]}, {"ok": True, "result": {"identifier": "LOT-0003"}}]},
+        )
+        assert done == {"identifier": "LOT-0003", "lots": 3}
+    finally:
+        host.install({})

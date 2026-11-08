@@ -12,9 +12,12 @@ root.innerHTML = `
     <div class="muted">Draw part of a structure (or a whole one) and find the compounds in your registries that contain it or look like it.</div>
     <div id="error" class="err" role="alert"></div>
   </div>`
-const canvas = new OCL.CanvasEditor(root.querySelector<HTMLElement>('#canvas')!, {
-  initialMode: 'molecule',
-})
+const canvas = new OCL.CanvasEditor(
+  root.querySelector<HTMLElement>('#canvas')!,
+  {
+    initialMode: 'molecule',
+  },
+)
 void pictureSvg
 const error = root.querySelector<HTMLElement>('#error')!
 

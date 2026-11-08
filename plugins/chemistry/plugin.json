@@ -54,7 +54,14 @@
         "id": "parent-structure",
         "title": "Same parent structure",
         "description": "Two compounds are the same when their parent structure is the same: the largest piece, neutralised, with salts and solvents set aside.",
-        "fields": [{ "name": "structure", "type": "text", "required": true, "label": "Structure" }],
+        "fields": [
+          {
+            "name": "structure",
+            "type": "text",
+            "required": true,
+            "label": "Structure"
+          }
+        ],
         "run": "chem:parent_key"
       }
     ],

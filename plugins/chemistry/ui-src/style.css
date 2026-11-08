@@ -92,3 +92,21 @@ button:disabled {
 .buttons {
   gap: 8px;
 }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th,
+td {
+  text-align: left;
+  padding: 4px 8px 4px 0;
+  white-space: nowrap;
+}
+th {
+  font-weight: 500;
+  color: var(--sb-muted, #6e6e73);
+}
+a {
+  color: var(--sb-accent, #0066cc);
+}

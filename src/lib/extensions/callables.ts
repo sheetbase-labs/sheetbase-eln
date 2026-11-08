@@ -1,6 +1,6 @@
 /**
- * Plugin work that is called by name: operations, calculators and pipeline
- * steps.
+ * Plugin work that is called by name: operations, calculators, pipeline
+ * steps and publishers.
  *
  * The three read the same way from outside: named inputs in, named outputs
  * back. A calculator is an operation that only reads. A pipeline step is an
@@ -22,6 +22,7 @@ export const CALLABLE_POINTS = [
   'operations',
   'calculators',
   'pipeline-steps',
+  'publishers',
 ] as const
 export type CallablePoint = (typeof CALLABLE_POINTS)[number]
 
@@ -30,7 +31,7 @@ export function isCallablePoint(value: string): value is CallablePoint {
 }
 
 /** How the Python function is called: a dictionary in, or named tables in. */
-export type CallableRunKind = 'operation' | 'step'
+export type CallableRunKind = 'operation' | 'step' | 'publish'
 
 export interface CallableItem {
   point: CallablePoint
@@ -105,8 +106,49 @@ export function callableItems(manifest: ExtensionManifest): CallableItem[] {
       tableNames: step.tables.map((table) => table.name),
     })
   }
+  for (const publisher of manifest.contributions.publishers ?? []) {
+    out.push({
+      point: 'publishers',
+      id: publisher.id,
+      declaration: {
+        id: publisher.id,
+        title: publisher.title,
+        description: publisher.description || publisher.title,
+        access: 'write',
+        inputs: [
+          {
+            name: PUBLISHER_ROWS,
+            type: 'json',
+            required: true,
+            description:
+              'The rows to send: a list of objects, one per row, keyed by column name.',
+          },
+          {
+            name: PUBLISHER_NAME,
+            type: 'text',
+            required: false,
+            description: 'What is being sent, such as the dataset’s title.',
+          },
+          ...publisher.parameters,
+        ],
+        outputs: [
+          { name: 'message', type: 'text', required: true },
+          { name: 'link', type: 'text', required: false },
+          { name: 'requests', type: 'integer', required: true },
+        ],
+        runner: publisher.runner,
+      },
+      runKind: 'publish',
+      // `rows` is a table in the pipeline editor: it can be bound to the result so far.
+      tableNames: [PUBLISHER_ROWS],
+    })
+  }
   return out
 }
+
+/** The reserved input names of a publisher; its own parameters can't use them. */
+export const PUBLISHER_ROWS = 'rows'
+export const PUBLISHER_NAME = 'name'
 
 export function findCallable(
   manifest: ExtensionManifest,

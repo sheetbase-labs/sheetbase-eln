@@ -67,6 +67,8 @@ export const DATA_ITEM_POINTS = [
   'checks',
   'search-providers',
   'connectors',
+  'publishers',
+  'notification-channels',
   'importers',
   'exporters',
   'previews',
@@ -115,6 +117,8 @@ export function emptyData(): ResolvedRunnerPoints['data'] {
     checks: [],
     'search-providers': [],
     connectors: [],
+    publishers: [],
+    'notification-channels': [],
     importers: [],
     exporters: [],
     previews: [],
@@ -274,6 +278,8 @@ export type ExtensionAddDetail =
   | 'check'
   | 'search'
   | 'connector'
+  | 'publisher'
+  | 'channel'
   | 'import'
   | 'export'
   | 'preview'
@@ -348,6 +354,8 @@ export function describeRunnerAdds(manifest: unknown): ExtensionAdds[] {
   add('checks', c.checks, () => 'check')
   add('search-providers', c['search-providers'], () => 'search')
   add('connectors', c.connectors, () => 'connector')
+  add('publishers', c.publishers, () => 'publisher')
+  add('notification-channels', c['notification-channels'], () => 'channel')
   add('importers', c.importers, () => 'import')
   add('exporters', c.exporters, () => 'export')
   add('previews', c.previews, () => 'preview')

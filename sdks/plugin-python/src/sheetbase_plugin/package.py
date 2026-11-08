@@ -41,14 +41,15 @@ UI_POINTS = ("pages", "settings-pages", "dashboard-widgets", "report-sections")
 PROVIDES = (
     "operations", "analysis-kinds", "blocks", "panels", "table-cells", "columns",
     "row-actions", "field-types", "pipeline-steps", "calculators", "checks",
-    "search-providers", "connectors", "importers", "exporters", "previews",
+    "search-providers", "connectors", "publishers", "notification-channels",
+    "importers", "exporters", "previews",
     "sameness-keys", "event-hooks", "record-hooks", "instrument-parsers",
     "label-formats", "barcode-formats", "storage-rules",
     *UI_POINTS,
 )
 PROVIDES_WITHOUT_PYTHON = ("table-cells", "field-types", "panels", *UI_POINTS)
-# Operations, calculators and pipeline steps share one name in Sheetbase.
-CALLED = ("operations", "calculators", "pipeline-steps")
+# Operations, calculators, pipeline steps and publishers share one name in Sheetbase.
+CALLED = ("operations", "calculators", "pipeline-steps", "publishers")
 NO_DESCRIPTION_NEEDED = ("analysis-kinds", "pipeline-steps")
 HOST_PATTERN = re.compile(
     r"^(?!\d+(?:\.\d+){3}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$"
@@ -162,7 +163,9 @@ def _head(point, entry, seen, errors, files):
             errors.append(f"{name} description must be 1-600 characters")
             return None
     _entry_exists(entry.get("run"), files, name, errors)
-    if point == "connectors" or (point == "barcode-formats" and "parse" in entry):
+    if point in ("connectors", "publishers") or (
+        point in ("barcode-formats", "notification-channels") and "parse" in entry
+    ):
         _entry_exists(entry.get("parse"), files, f"{name} parse", errors)
     return name
 
@@ -668,6 +671,49 @@ def _connectors(value, files, errors):
     _each("connectors", value, files, errors, check)
 
 
+def _publishers(value, files, errors):
+    def check(entry, name):
+        if not _strings(name, "hosts", entry.get("hosts"), HOST_PATTERN, "a host name such as api.example.org", errors):
+            return False
+        if not _labelled(
+            name, "settings", entry.get("settings"), errors,
+            lambda s: isinstance(s.get("secret"), bool), 8,
+        ):
+            return False
+        before = len(errors)
+        _fields(name, "parameters", entry.get("parameters"), errors)
+        if len(errors) > before:
+            return False
+        if any(p.get("name") in ("rows", "name") for p in entry["parameters"]):
+            errors.append(f"{name} parameters can’t be called rows or name")
+            return False
+        return True
+
+    _each("publishers", value, files, errors, check)
+
+
+def _notification_channels(value, files, errors):
+    def check(entry, name):
+        if not _strings(name, "hosts", entry.get("hosts"), HOST_PATTERN, "a host name such as slack.com", errors):
+            return False
+        if not _labelled(
+            name, "settings", entry.get("settings"), errors,
+            lambda s: isinstance(s.get("secret"), bool), 8,
+        ):
+            return False
+        destination = entry.get("destination")
+        if (
+            not _is_object(destination)
+            or not _text(destination.get("label"), 1, 80)
+            or ("hint" in destination and not _text(destination.get("hint"), 1, 120))
+        ):
+            errors.append(f"{name} destination needs a label of 1-80 characters and may have a hint of up to 120")
+            return False
+        return True
+
+    _each("notification-channels", value, files, errors, check)
+
+
 def _importers(value, files, errors):
     _each(
         "importers", value, files, errors,
@@ -847,6 +893,8 @@ POINT_CHECKS = {
     "checks": _checks,
     "search-providers": _search_providers,
     "connectors": _connectors,
+    "publishers": _publishers,
+    "notification-channels": _notification_channels,
     "importers": _importers,
     "exporters": _exporters,
     "previews": _previews,
@@ -869,7 +917,7 @@ def _called_names_are_unique(provides, errors):
         for entry in entries:
             if _is_object(entry) and isinstance(entry.get("id"), str):
                 if entry["id"] in seen:
-                    errors.append(f"{entry['id']} is used twice across operations, calculators and pipeline steps")
+                    errors.append(f"{entry['id']} is used twice across operations, calculators, pipeline steps and publishers")
                 seen.add(entry["id"])
 
 

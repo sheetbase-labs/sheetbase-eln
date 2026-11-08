@@ -14,6 +14,13 @@
  * - `connectors`: pulls data in from elsewhere. A plugin has no network, so a
  *   connector is two functions: `run` says which request to make (to a host an
  *   administrator approved), and `parse` turns the answer into rows.
+ * - `publishers`: sends data out to another system. Like a connector it has no
+ *   network of its own: `runner` says which requests to make (POST, PUT or
+ *   PATCH to a host an administrator approved, with a body made from the rows)
+ *   and `parse` turns the answers into a message for the person.
+ * - `notification-channels`: another way for a notification to reach a person,
+ *   such as a Slack message. The person says where it goes (their `destination`);
+ *   `runner` turns the notification into the requests to make.
  * - `importers`: reads a file format Sheetbase does not know into rows.
  * - `exporters`: writes a table as a file format Sheetbase does not offer.
  * - `previews`: shows what is inside a file format Sheetbase can't open.
@@ -133,6 +140,35 @@ export interface ExtensionConnectorDeclaration {
   /** `runner` says which requests to make; `parse` turns the answers into rows. */
   runner: ExtensionRunner
   parse: ExtensionRunner
+}
+
+/** A publisher is a connector that sends rows out instead of reading rows in. */
+export type ExtensionPublisherDeclaration = ExtensionConnectorDeclaration
+
+export interface ExtensionChannelDestination {
+  /** What the person is asked for, such as “Slack member ID”. */
+  label: string
+  /** An example shown inside the box. */
+  hint?: string
+}
+
+export interface ExtensionNotificationChannelDeclaration {
+  id: string
+  title: string
+  description: string
+  /** The only hosts the app will call for this channel (HTTPS, port 443). */
+  hosts: string[]
+  /** Set once by an administrator; secrets stay sealed. */
+  settings: ExtensionConnectorSetting[]
+  /** Where each person's notifications go, in the channel's own words. */
+  destination: ExtensionChannelDestination
+  /** Turns a notification into the requests to make. */
+  runner: ExtensionRunner
+  /**
+   * Reads the answers and raises a plain error when the service refused (Slack
+   * answers 200 with `ok: false`). Without it, any answer outside 2xx is a refusal.
+   */
+  parse?: ExtensionRunner
 }
 
 export const EXTENSION_ENCODINGS = ['text', 'base64'] as const
@@ -266,6 +302,8 @@ export interface ExtensionDataContributions {
   checks?: ExtensionCheckDeclaration[]
   'search-providers'?: ExtensionSearchProviderDeclaration[]
   connectors?: ExtensionConnectorDeclaration[]
+  publishers?: ExtensionPublisherDeclaration[]
+  'notification-channels'?: ExtensionNotificationChannelDeclaration[]
   importers?: ExtensionImporterDeclaration[]
   exporters?: ExtensionExporterDeclaration[]
   previews?: ExtensionPreviewDeclaration[]
@@ -554,12 +592,87 @@ export function parseSearchProviders(
   )
 }
 
+function connectorBuilder(
+  entry: Record<string, unknown>,
+  where: string,
+  errors: string[],
+): ExtensionConnectorDeclaration | null {
+  const hosts = strings(
+    where,
+    'hosts',
+    entry.hosts,
+    EXTENSION_HOST_RE,
+    errors,
+    'a host name such as api.example.org',
+  )
+  const settings = labelled(
+    where,
+    'settings',
+    entry.settings,
+    errors,
+    (setting) => typeof setting.secret === 'boolean',
+    MAX_CONNECTOR_SETTINGS,
+  )
+  const parameters = fieldList(where, 'parameters', entry.parameters, errors)
+  const run = runner(where, entry.runner, errors)
+  const parse = runner(`${where} parse`, entry.parse, errors)
+  if (!hosts || !settings || !parameters || !run || !parse) return null
+  return {
+    hosts,
+    settings: settings.map((setting) => ({
+      name: setting.name as string,
+      label: (setting.label as string).trim(),
+      secret: setting.secret as boolean,
+      required: setting.required as boolean,
+    })),
+    parameters,
+    runner: run,
+    parse,
+  } as never
+}
+
 export function parseConnectors(
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionConnectorDeclaration> {
   return each<ExtensionConnectorDeclaration>(
     'connectors',
+    value,
+    errors,
+    true,
+    (entry, where) => connectorBuilder(entry, where, errors),
+  )
+}
+
+export function parsePublishers(
+  value: unknown,
+  errors: string[],
+): Parsed<ExtensionPublisherDeclaration> {
+  return each<ExtensionPublisherDeclaration>(
+    'publishers',
+    value,
+    errors,
+    true,
+    (entry, where) => {
+      const built = connectorBuilder(entry, where, errors)
+      if (!built) return null
+      if (
+        built.parameters.some((p) => p.name === 'rows' || p.name === 'name')
+      ) {
+        errors.push(`${where} parameters can’t be called rows or name`)
+        return null
+      }
+      return built
+    },
+  )
+}
+
+export function parseNotificationChannels(
+  value: unknown,
+  errors: string[],
+): Parsed<ExtensionNotificationChannelDeclaration> {
+  return each<ExtensionNotificationChannelDeclaration>(
+    'notification-channels',
     value,
     errors,
     true,
@@ -570,7 +683,7 @@ export function parseConnectors(
         entry.hosts,
         EXTENSION_HOST_RE,
         errors,
-        'a host name such as api.example.org',
+        'a host name such as slack.com',
       )
       const settings = labelled(
         where,
@@ -580,15 +693,23 @@ export function parseConnectors(
         (setting) => typeof setting.secret === 'boolean',
         MAX_CONNECTOR_SETTINGS,
       )
-      const parameters = fieldList(
-        where,
-        'parameters',
-        entry.parameters,
-        errors,
-      )
+      const destination = entry.destination
+      if (
+        !isRecord(destination) ||
+        !text(destination.label, 1, 80) ||
+        (destination.hint !== undefined && !text(destination.hint, 1, 120))
+      ) {
+        errors.push(
+          `${where} destination needs a label of 1-80 characters and may have a hint of up to 120`,
+        )
+        return null
+      }
       const run = runner(where, entry.runner, errors)
-      const parse = runner(`${where} parse`, entry.parse, errors)
-      if (!hosts || !settings || !parameters || !run || !parse) return null
+      const parse =
+        entry.parse === undefined
+          ? undefined
+          : runner(`${where} parse`, entry.parse, errors)
+      if (!hosts || !settings || !run || parse === null) return null
       return {
         hosts,
         settings: settings.map((setting) => ({
@@ -597,9 +718,14 @@ export function parseConnectors(
           secret: setting.secret as boolean,
           required: setting.required as boolean,
         })),
-        parameters,
+        destination: {
+          label: destination.label.trim(),
+          ...(typeof destination.hint === 'string'
+            ? { hint: destination.hint.trim() }
+            : {}),
+        },
         runner: run,
-        parse,
+        ...(parse ? { parse } : {}),
       } as never
     },
   )
@@ -1004,6 +1130,8 @@ export const DATA_POINT_PARSERS = {
   checks: parseChecks,
   'search-providers': parseSearchProviders,
   connectors: parseConnectors,
+  publishers: parsePublishers,
+  'notification-channels': parseNotificationChannels,
   importers: parseImporters,
   exporters: parseExporters,
   previews: parsePreviews,

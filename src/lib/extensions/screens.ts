@@ -393,6 +393,11 @@ function parseNode(
         byteLength(node.svg) > SCREEN_LIMITS.svgBytes
       )
         return walk.fail(at, 'svg is text up to 64 KiB')
+      if (sanitizeSvg(node.svg) === null)
+        return walk.fail(
+          at,
+          'svg uses an element or attribute that is not allowed',
+        )
       const title = text(walk, at, 'title', node.title, SCREEN_LIMITS.label)
       if (title === null) return null
       return { type: 'svg', svg: node.svg, title }

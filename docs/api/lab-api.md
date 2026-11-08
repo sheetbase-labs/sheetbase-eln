@@ -116,6 +116,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `part_resource_needs`          | An instrument a part needs and for how many minutes. `resource_id` is the instrument id.                                                                                                                                                                                                                           |
 | `schedule_proposals`           | A proposed schedule for an experiment’s parts. `status` is requested, planning, proposed, accepted, dismissed, superseded or failed. `items` lists each slot with its instrument, person, times and what stands in its way. Nothing is booked until `accept_schedule_proposal`.                                    |
 | `code_cell_runs`               | Every run of a notebook code cell, kept with its code, the digests of the dataset versions it read, the first rows of the output and its digest, and the runtime it ran in (an image digest for Python). A run that reproduces another has `reproduces_run_id` and says whether the output `matches`.              |
+| `field_plugin_types`           | Which model fields have a plugin’s field type: the model (`kind`), the field, the plugin and the type id. The type adds a display and checks to the field; what the database stores does not change.                                                                                                               |
 | `gate_overrides`               | Someone went on past a gate that warns, with a reason: who, when, what the gate was and what was still missing. The reviewer sees these.                                                                                                                                                                           |
 
 ## Actions
@@ -623,6 +624,19 @@ Scope: `lab:write`.
 | `p_conditions`     | json | The conditions that open the part.                |
 | `p_gate_mode`      | text | `warn` (the default) or `block`.                  |
 | `p_steps_in_order` | bool | true to make the steps of the part wait in order. |
+
+### `set_field_plugin_type`
+
+Give a model field a plugin field type, or take it away. Pass the plugin key and type id to give the field that type, or leave both out to clear it. Needs permission to edit models. The plugin has to be installed, on, with its field types switched on, and declare the type. Returns true when a type was applied. Sends `extension.field_type.applied` or `extension.field_type.removed` (see the [event catalogue](event-catalogue.md)).
+
+Scope: `lab:write`.
+
+| Argument         | Type | Notes                           |
+| ---------------- | ---- | ------------------------------- |
+| `p_kind` *       | text | The model key.                  |
+| `p_field_name` * | text | The field to change.            |
+| `p_plugin_key`   | text | The plugin; leave out to clear. |
+| `p_type_id`      | text | The type the plugin declares.   |
 
 ### `override_gate`
 

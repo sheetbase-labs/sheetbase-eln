@@ -26,8 +26,8 @@ mode and works on a phone::
 person presses a button or sends a form. Return ``ui.screen(...)`` with the new
 ``state`` to keep.
 
-``validate_view`` checks a view the way Sheetbase does before it draws it, so
-``sheetbase-plugin dev`` can tell you about a problem before an upload does. The
+``validate_screen`` checks a result the way Sheetbase does before it draws it, so
+``sheetbase-plugin`` can tell you about a problem before an upload does. The
 same cases are run against the app's checker (``tests/screen_cases.json``).
 """
 import json
@@ -164,6 +164,52 @@ class _Walk:
         return False
 
 
+SVG_ELEMENTS = frozenset(['svg', 'g', 'path', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'rect', 'text', 'tspan', 'title', 'desc', 'defs', 'lineargradient', 'radialgradient', 'stop', 'clippath'])
+SVG_ATTRIBUTES = frozenset(['viewbox', 'width', 'height', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'rx', 'ry', 'd', 'points', 'fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-linecap', 'stroke-linejoin', 'stroke-dasharray', 'opacity', 'transform', 'text-anchor', 'dominant-baseline', 'font-size', 'font-weight', 'font-family', 'offset', 'stop-color', 'stop-opacity', 'gradientunits', 'gradienttransform', 'id', 'clip-path', 'preserveaspectratio', 'xmlns', 'role', 'aria-label'])
+_SVG_TAG = re.compile(r"</?([a-zA-Z][a-zA-Z0-9:-]*)((?:\s+[^<>]*?)?)\s*(/?)>|([^<]+)|<!--[\s\S]*?-->")
+_SVG_ATTR = re.compile(r"""([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')""")
+
+
+def svg_is_safe(source):
+    """True when an svg uses only allowed elements and attributes (the app draws it only then)."""
+    if not isinstance(source, str) or len(source.encode("utf-8")) > LIMITS["svg_bytes"]:
+        return False
+    if not re.match(r"^\s*<svg[\s>]", source, re.IGNORECASE):
+        return False
+    stack = []
+    for match in _SVG_TAG.finditer(source):
+        if match.group(4) is not None:
+            continue
+        if match.group(1) is None:
+            continue
+        name = match.group(1).lower()
+        if name not in SVG_ELEMENTS:
+            return False
+        if match.group(0).startswith("</"):
+            if not stack or stack.pop() != name:
+                return False
+            continue
+        for attr in _SVG_ATTR.finditer(match.group(2) or ""):
+            key = attr.group(1).lower()
+            value = attr.group(2) if attr.group(2) is not None else (attr.group(3) or "")
+            lower = value.lower()
+            if (
+                key.startswith("on")
+                or key not in SVG_ATTRIBUTES
+                or "javascript:" in lower
+                or "data:" in lower
+                or re.search(r"url\((?!\s*#)", value, re.IGNORECASE)
+                or "<" in value
+            ):
+                return False
+        if match.group(3) != "/":
+            stack.append(name)
+            if len(stack) > 24:
+                return False
+    return not stack
+
+
+
 def _is_text(value, low, high):
     return isinstance(value, str) and low <= len(value) <= high
 
@@ -285,6 +331,7 @@ def _node_ok(walk, node, path, depth):
                 (isinstance(node.get("svg"), str) and len(node["svg"].encode("utf-8")) <= LIMITS["svg_bytes"])
                 or walk.fail(at, "svg is text up to 64 KiB")
             )
+            and (svg_is_safe(node["svg"]) or walk.fail(at, "svg uses an element or attribute that is not allowed"))
             and (_is_text(node.get("title"), 1, LIMITS["label"]) or walk.fail(at, "title must be 1-120 characters"))
         )
     if kind == "input":

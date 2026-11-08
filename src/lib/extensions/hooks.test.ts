@@ -216,7 +216,12 @@ describe('the sandboxed frame', () => {
   it('inlines the page and the SDK, and allows no network', () => {
     const html = buildPluginFrame(files, 'ui/counter.html', sdk) ?? ''
     expect(html).toContain('window.sheetbase')
-    expect(html).not.toContain(`src="${PLUGIN_UI_SDK_NAME}"`)
+    // The SDK's own comment mentions the tag; what matters is that no script
+    // tag still points at a file.
+    expect(
+      html.replace(/\/\*![\s\S]*?\*\//, '').match(/<script\b[^>]*\bsrc\s*=/i),
+    ).toBeNull()
+    expect(PLUGIN_UI_SDK_NAME).toBe('sheetbase-ui.js')
     expect(PLUGIN_FRAME_CSP).toContain("default-src 'none'")
     expect(PLUGIN_FRAME_CSP).toMatch(/connect-src data: blob:(;|$)/)
   })

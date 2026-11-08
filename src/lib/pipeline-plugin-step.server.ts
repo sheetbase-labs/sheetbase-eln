@@ -2,7 +2,6 @@ import { parsePluginName } from './extensions/points'
 import {
   ExtensionRunError,
   defaultDeps,
-  invokeExtension,
   openCallable,
 } from './extensions/runtime.server'
 import type { ExtensionRuntimeDeps } from './extensions/runtime.server'
@@ -100,7 +99,11 @@ export async function runPluginStep(
     for (const table of opened.callable.tableNames)
       if (input[table] === undefined && scope.previous)
         input[table] = scope.previous
-    const outcome = await invokeExtension(
+    // A step may call into the app (`host_call`) as the run's person, changes
+    // included, like the API and the agent can.
+    const { invokeWithHostCalls, personClient } =
+      await import('./extensions/operation-host.server')
+    const hosted = await invokeWithHostCalls(
       {
         workspaceId: args.workspaceId,
         actorUserId: args.actorUserId,
@@ -108,8 +111,17 @@ export async function runPluginStep(
         itemId: name.id,
         input,
       },
+      {
+        workspaceId: args.workspaceId,
+        userId: args.actorUserId,
+        approve: 'all',
+        client: () => personClient(args.workspaceId, args.actorUserId),
+      },
       deps,
     )
+    if (hosted.kind === 'confirm')
+      throw new PluginStepError('The plugin step could not carry on.')
+    const outcome = hosted.result
     const rows = (outcome.output as { rows?: unknown }).rows
     if (!Array.isArray(rows))
       throw new PluginStepError('The plugin step did not give back a table.')

@@ -112,3 +112,26 @@ export async function invokeWithHostCalls(
     'This operation kept asking for more from Sheetbase and was stopped.',
   )
 }
+
+/**
+ * The person's own access for a run that has no browser request (a pipeline
+ * step): a short-lived token for them, the same way plugin hooks get one.
+ * Row-level security and each action's role checks still decide what it can do.
+ */
+export async function personClient(
+  workspaceId: string,
+  userId: string,
+): Promise<DataClient> {
+  const [{ env }, { mintPostgrestToken }, execution] = await Promise.all([
+    import('#/env.server'),
+    import('#/lib/postgrest-token'),
+    import('../connectors/enterprise/execution.server'),
+  ])
+  const token = await mintPostgrestToken(env.PGRST_JWT_SECRET, {
+    userId,
+    workspaceId,
+    sessionId: 'plugin-run',
+    ttlSeconds: 600,
+  })
+  return execution.createServerDataClient(token)
+}

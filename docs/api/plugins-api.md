@@ -215,9 +215,10 @@ token, so every call is attributed to a person). A `read` operation needs a
 `:read` scope; a `write` operation needs `lab:write` and a role that can write.
 
 An operation may call into Sheetbase itself (`host_call` in its Python), as you,
-under the same scopes the plugin declared. Calls that read are made. A call that
-would change something needs a person to confirm it in Sheetbase, so here it
-answers `409` and says which call; run that operation from the app instead.
+under the same scopes the plugin declared. Calls that read are always made; a
+call that changes something is made too when you are signed in or the token has
+`lab:write`, otherwise it answers `403`. Pipeline steps do the same as the
+person who runs the pipeline.
 The same operations are MCP tools (`plugin.<key>.<operation>`) and assistant
 tools. For example the chemistry plugin's `find` (`mode`: `substructure` or
 `similarity`) and `check` (is a structure already registered) are

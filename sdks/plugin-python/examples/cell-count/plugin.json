@@ -12,11 +12,26 @@
         "description": "Gives the percentage of live cells from a live and a dead count. Use it for any trypan blue or automated cell count.",
         "access": "read",
         "inputs": [
-          { "name": "live", "type": "integer", "required": true, "description": "Live cells counted." },
-          { "name": "dead", "type": "integer", "required": true, "description": "Dead cells counted." }
+          {
+            "name": "live",
+            "type": "integer",
+            "required": true,
+            "description": "Live cells counted."
+          },
+          {
+            "name": "dead",
+            "type": "integer",
+            "required": true,
+            "description": "Dead cells counted."
+          }
         ],
         "outputs": [
-          { "name": "viability", "type": "number", "required": true, "description": "Percent of cells alive." },
+          {
+            "name": "viability",
+            "type": "number",
+            "required": true,
+            "description": "Percent of cells alive."
+          },
           { "name": "total", "type": "integer", "required": true }
         ],
         "run": "counting:viability"
@@ -27,8 +42,18 @@
         "description": "Works out how much of a culture to add to reach a target number of live cells per well.",
         "access": "read",
         "inputs": [
-          { "name": "live_per_ml", "type": "number", "required": true, "description": "Live cells per millilitre in the culture." },
-          { "name": "cells_per_well", "type": "number", "required": true, "description": "Live cells wanted in each well." },
+          {
+            "name": "live_per_ml",
+            "type": "number",
+            "required": true,
+            "description": "Live cells per millilitre in the culture."
+          },
+          {
+            "name": "cells_per_well",
+            "type": "number",
+            "required": true,
+            "description": "Live cells wanted in each well."
+          },
           { "name": "wells", "type": "integer", "required": true }
         ],
         "outputs": [
@@ -40,7 +65,15 @@
     ]
   },
   "examples": [
-    { "operation": "viability", "input": { "live": 92, "dead": 8 }, "output": { "viability": 92.0, "total": 100 } },
-    { "operation": "seeding-volume", "input": { "live_per_ml": 1000000, "cells_per_well": 50000, "wells": 24 }, "output": { "ml_per_well": 0.05, "ml_total": 1.2 } }
+    {
+      "operation": "viability",
+      "input": { "live": 92, "dead": 8 },
+      "output": { "viability": 92.0, "total": 100 }
+    },
+    {
+      "operation": "seeding-volume",
+      "input": { "live_per_ml": 1000000, "cells_per_well": 50000, "wells": 24 },
+      "output": { "ml_per_well": 0.05, "ml_total": 1.2 }
+    }
   ]
 }

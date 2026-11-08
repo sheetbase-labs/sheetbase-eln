@@ -264,17 +264,26 @@ describe('lab watchers', () => {
     expect(stock.owner_user_id).toBe(OWNER)
 
     expect(
-      (await owner.query(`SELECT api.run_lab_watcher($1::uuid) AS n`, [stock.id]))
-        .rows[0].n,
+      (
+        await owner.query(`SELECT api.run_lab_watcher($1::uuid) AS n`, [
+          stock.id,
+        ])
+      ).rows[0].n,
     ).toBe(1)
     expect(
-      (await owner.query(`SELECT api.run_lab_watcher($1::uuid) AS n`, [expiry.id]))
-        .rows[0].n,
+      (
+        await owner.query(`SELECT api.run_lab_watcher($1::uuid) AS n`, [
+          expiry.id,
+        ])
+      ).rows[0].n,
     ).toBe(1)
     // Running again finds nothing new.
     expect(
-      (await owner.query(`SELECT api.run_lab_watcher($1::uuid) AS n`, [stock.id]))
-        .rows[0].n,
+      (
+        await owner.query(`SELECT api.run_lab_watcher($1::uuid) AS n`, [
+          stock.id,
+        ])
+      ).rows[0].n,
     ).toBe(0)
 
     const findings = (

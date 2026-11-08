@@ -64,7 +64,9 @@ async function feed(since: string) {
 async function send(seriesId: string, values: number[], startMinute = 0) {
   let last
   for (const [index, value] of values.entries()) {
-    const at = new Date(Date.UTC(2026, 10, 1, 0, startMinute + index)).toISOString()
+    const at = new Date(
+      Date.UTC(2026, 10, 1, 0, startMinute + index),
+    ).toISOString()
     last = (
       await owner.query(`select * from api.record_qc_point($1,$2,$3)`, [
         seriesId,
@@ -130,13 +132,18 @@ describe('Westgard rules', () => {
     const events = await feed(before)
     expect(events.map((e) => e.wire)).toEqual(['qc.violation'])
     expect(events[0]?.payload).toMatchObject({ name: '1-3s', rules: ['1-3s'] })
-    const { rows } = await owner.query(`select state from api.qc_series where id = $1`, [series.id])
+    const { rows } = await owner.query(
+      `select state from api.qc_series where id = $1`,
+      [series.id],
+    )
     expect(rows[0].state).toBe('out_of_control')
     // The owner of the instrument and the creator are told once, with a link.
     const notes = await migrator.query(
       `select user_id, link from internal.notifications where event_type = 'qc_violation' and body like '1-3s:%'`,
     )
-    expect(notes.rows).toEqual([{ user_id: OWNER, link: `/instruments/${INSTRUMENT}` }])
+    expect(notes.rows).toEqual([
+      { user_id: OWNER, link: `/instruments/${INSTRUMENT}` },
+    ])
   })
 
   it('2-2s: two in a row beyond two SD on one side', async () => {
@@ -176,7 +183,10 @@ describe('Westgard rules', () => {
     expect(clean.violations).toEqual([])
     const events = await feed(before)
     expect(events.map((e) => e.wire)).toEqual(['qc.back_in_control'])
-    const { rows } = await owner.query(`select state from api.qc_series where id = $1`, [series.id])
+    const { rows } = await owner.query(
+      `select state from api.qc_series where id = $1`,
+      [series.id],
+    )
     expect(rows[0].state).toBe('in_control')
   })
 
@@ -189,9 +199,14 @@ describe('Westgard rules', () => {
     const first = await send(series.id, [10, 11, 9, 10, 12, 10, 40])
     expect(first.violations).toEqual([])
     await expect(
-      owner.query(`select * from api.set_qc_baseline($1, null, null, 5)`, [series.id]),
+      owner.query(`select * from api.set_qc_baseline($1, null, null, 5)`, [
+        series.id,
+      ]),
     ).resolves.toBeTruthy()
-    const state = await owner.query(`select mean, sd, baseline_n from api.qc_series where id = $1`, [series.id])
+    const state = await owner.query(
+      `select mean, sd, baseline_n from api.qc_series where id = $1`,
+      [series.id],
+    )
     expect(state.rows[0].baseline_n).toBe(5)
     expect(state.rows[0].mean).toBeCloseTo(10.4)
     const points = await owner.query(
@@ -215,13 +230,17 @@ describe('Westgard rules', () => {
     const series = await newSeries('few')
     await send(series.id, [1, 2])
     await expect(
-      owner.query(`select * from api.set_qc_baseline($1, null, null, 5)`, [series.id]),
+      owner.query(`select * from api.set_qc_baseline($1, null, null, 5)`, [
+        series.id,
+      ]),
     ).rejects.toThrow(/at least 5 points/)
     await expect(
       owner.query(`select * from api.set_qc_baseline($1, 10, 0)`, [series.id]),
     ).rejects.toThrow(/standard deviation/)
     await expect(
-      owner.query(`select * from api.record_qc_point($1, 'NaN'::float8)`, [series.id]),
+      owner.query(`select * from api.record_qc_point($1, 'NaN'::float8)`, [
+        series.id,
+      ]),
     ).rejects.toThrow(/finite/)
   })
 
@@ -233,8 +252,15 @@ describe('Westgard rules', () => {
       `select * from api.acknowledge_qc_point($1,'Lamp was changed',true)`,
       [bad.id],
     )
-    expect(done.rows[0]).toMatchObject({ excluded: true, note: 'Lamp was changed', violations: [] })
-    const state = await owner.query(`select state from api.qc_series where id = $1`, [series.id])
+    expect(done.rows[0]).toMatchObject({
+      excluded: true,
+      note: 'Lamp was changed',
+      violations: [],
+    })
+    const state = await owner.query(
+      `select state from api.qc_series where id = $1`,
+      [series.id],
+    )
     expect(state.rows[0].state).toBe('in_control')
   })
 })
@@ -276,15 +302,18 @@ describe('plate runs feed their assay design', () => {
           ],
         )
       ).rows[0] as { id: string }
-      await owner.query(`select * from api.save_plate_run_analysis($1,$2::jsonb,'pass')`, [
-        created.id,
-        JSON.stringify(analysis(zPrime)),
-      ])
+      await owner.query(
+        `select * from api.save_plate_run_analysis($1,$2::jsonb,'pass')`,
+        [created.id, JSON.stringify(analysis(zPrime))],
+      )
       return created.id
     }
     await run('Before tracking', 0.8)
     const tracked = (
-      await owner.query(`select * from api.track_plate_assay_qc($1,$2)`, [design.id, INSTRUMENT])
+      await owner.query(`select * from api.track_plate_assay_qc($1,$2)`, [
+        design.id,
+        INSTRUMENT,
+      ])
     ).rows as Array<{ id: string; metric: string }>
     expect(tracked.map((s) => s.metric).sort()).toEqual([
       'negative_mean',
@@ -293,18 +322,27 @@ describe('plate runs feed their assay design', () => {
       'z_prime',
     ])
     // Tracking twice does not add the same series again.
-    const again = await owner.query(`select * from api.track_plate_assay_qc($1,$2)`, [design.id, INSTRUMENT])
+    const again = await owner.query(
+      `select * from api.track_plate_assay_qc($1,$2)`,
+      [design.id, INSTRUMENT],
+    )
     expect(again.rows).toHaveLength(0)
     const z = tracked.find((s) => s.metric === 'z_prime')!
-    const first = await owner.query(`select value, label from api.qc_points where series_id = $1`, [z.id])
+    const first = await owner.query(
+      `select value, label from api.qc_points where series_id = $1`,
+      [z.id],
+    )
     expect(first.rows).toEqual([{ value: 0.8, label: 'PLR-0001' }])
     // A run analysed after tracking adds a point; re-analysing updates it.
     const second = await run('After tracking', 0.7)
-    await owner.query(`select * from api.save_plate_run_analysis($1,$2::jsonb,'pass')`, [
-      second,
-      JSON.stringify(analysis(0.65)),
-    ])
-    const points = await owner.query(`select value from api.qc_points where series_id = $1 order by at, id`, [z.id])
+    await owner.query(
+      `select * from api.save_plate_run_analysis($1,$2::jsonb,'pass')`,
+      [second, JSON.stringify(analysis(0.65))],
+    )
+    const points = await owner.query(
+      `select value from api.qc_points where series_id = $1 order by at, id`,
+      [z.id],
+    )
     expect(points.rows.map((r) => r.value)).toEqual([0.8, 0.65])
   })
 })
@@ -324,22 +362,37 @@ describe('ASM documents', () => {
       `select * from api.record_instrument_run_document($1,$2::jsonb,'allotropy','0.1.151','img@sha256:abc','MOLDEV_SOFTMAX_PRO','plate reader','manifest',96,'{"model number":"M5"}'::jsonb)`,
       [run.id, JSON.stringify(doc)],
     )
-    expect(rows[0]).toMatchObject({ converter: 'allotropy', measurements: 96, format: 'asm' })
-    expect((await feed(before)).map((e) => e.wire)).toEqual(['instrument.run.converted'])
+    expect(rows[0]).toMatchObject({
+      converter: 'allotropy',
+      measurements: 96,
+      format: 'asm',
+    })
+    expect((await feed(before)).map((e) => e.wire)).toEqual([
+      'instrument.run.converted',
+    ])
     // Converting again replaces the document; there is one per run.
     await owner.query(
       `select * from api.record_instrument_run_document($1,$2::jsonb,'allotropy','0.1.152')`,
       [run.id, JSON.stringify(doc)],
     )
-    const count = await owner.query(`select converter_version from api.instrument_run_documents where run_id = $1`, [run.id])
+    const count = await owner.query(
+      `select converter_version from api.instrument_run_documents where run_id = $1`,
+      [run.id],
+    )
     expect(count.rows).toEqual([{ converter_version: '0.1.152' }])
-    expect((await viewer.query(`select id from api.instrument_run_documents`)).rowCount).toBe(1)
-    expect((await outsider.query(`select id from api.instrument_run_documents`)).rowCount).toBe(0)
+    expect(
+      (await viewer.query(`select id from api.instrument_run_documents`))
+        .rowCount,
+    ).toBe(1)
+    expect(
+      (await outsider.query(`select id from api.instrument_run_documents`))
+        .rowCount,
+    ).toBe(0)
     await expect(
-      viewer.query(`select * from api.record_instrument_run_document($1,$2::jsonb,'allotropy')`, [
-        run.id,
-        JSON.stringify(doc),
-      ]),
+      viewer.query(
+        `select * from api.record_instrument_run_document($1,$2::jsonb,'allotropy')`,
+        [run.id, JSON.stringify(doc)],
+      ),
     ).rejects.toThrow(/not permitted|permission|access denied/)
   })
 })
@@ -347,13 +400,27 @@ describe('ASM documents', () => {
 describe('who can see and change quality control', () => {
   it('lets members read, writers change, and keeps other workspaces out', async () => {
     const series = await newSeries('visibility')
-    expect((await viewer.query(`select id from api.qc_series where id = $1`, [series.id])).rowCount).toBe(1)
-    expect((await outsider.query(`select id from api.qc_series where id = $1`, [series.id])).rowCount).toBe(0)
+    expect(
+      (
+        await viewer.query(`select id from api.qc_series where id = $1`, [
+          series.id,
+        ])
+      ).rowCount,
+    ).toBe(1)
+    expect(
+      (
+        await outsider.query(`select id from api.qc_series where id = $1`, [
+          series.id,
+        ])
+      ).rowCount,
+    ).toBe(0)
     await expect(
       viewer.query(`select * from api.record_qc_point($1, 1)`, [series.id]),
     ).rejects.toThrow(/not permitted|permission|access denied/)
     await expect(
-      outsider.query(`select * from api.set_qc_baseline($1, 1, 1)`, [series.id]),
+      outsider.query(`select * from api.set_qc_baseline($1, 1, 1)`, [
+        series.id,
+      ]),
     ).rejects.toThrow()
   })
 })

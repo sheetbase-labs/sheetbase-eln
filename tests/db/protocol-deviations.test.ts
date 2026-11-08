@@ -106,9 +106,14 @@ async function startedExperiment(): Promise<{ id: string }> {
     )
   ).rows[0]!.id
   const technical = await actor(TECHNICAL)
-  await technical.query(`select api.approve_approval_request($1,'Technical review')`, [request])
+  await technical.query(
+    `select api.approve_approval_request($1,'Technical review')`,
+    [request],
+  )
   const qa = await actor(QA)
-  await qa.query(`select api.approve_approval_request($1,'QA approval')`, [request])
+  await qa.query(`select api.approve_approval_request($1,'QA approval')`, [
+    request,
+  ])
   await author.query(
     `select api.set_protocol_version_status($1,'effective','Release',now())`,
     [version],
@@ -121,7 +126,9 @@ async function startedExperiment(): Promise<{ id: string }> {
      do update set protocol_version_id=excluded.protocol_version_id`,
     [WS, PROJECT, PROTOCOL, version, AUTHOR],
   )
-  await author.query('select * from api.acknowledge_protocol_version($1)', [version])
+  await author.query('select * from api.acknowledge_protocol_version($1)', [
+    version,
+  ])
 
   const record = crypto.randomUUID()
   await migrator.query(
@@ -147,7 +154,9 @@ async function startedExperiment(): Promise<{ id: string }> {
 /** Pin the protocol into the experiment and return its copied step blocks. */
 async function pinnedSteps(
   experimentId: string,
-): Promise<Array<{ id: string; payload: Record<string, unknown>; version: number }>> {
+): Promise<
+  Array<{ id: string; payload: Record<string, unknown>; version: number }>
+> {
   const author = await actor(AUTHOR)
   const pin = (
     await author.query<{ id: string; version: number }>(
@@ -164,7 +173,13 @@ async function pinnedSteps(
   ).rows[0]!.structure_version
   const result = (
     await author.query<{
-      result: { copied_steps: Array<{ id: string; payload: Record<string, unknown>; version: number }> }
+      result: {
+        copied_steps: Array<{
+          id: string
+          payload: Record<string, unknown>
+          version: number
+        }>
+      }
     }>(`select api.pin_protocol_reference($1,$2,$3,$4) result`, [
       pin.id,
       PROTOCOL,
@@ -280,7 +295,8 @@ describe('LAB-07 protocol deviations', () => {
     }>('select api.record_timeline($1) as events', [experiment.id])
     const deviationEvent = timeline.rows[0]!.events.find(
       (event) =>
-        event.type === 'change_event' && event.eventType === 'protocol_deviation',
+        event.type === 'change_event' &&
+        event.eventType === 'protocol_deviation',
     )
     expect(deviationEvent).toBeDefined()
     expect(deviationEvent!.payload).toMatchObject({

@@ -10,13 +10,25 @@
         "id": "result-pill",
         "title": "Result pill",
         "appliesTo": { "fields": ["result"] },
-        "display": { "kind": "badge", "tones": { "pass": "success", "fail": "danger", "retest": "warning" }, "labels": { "pass": "Pass", "fail": "Fail", "retest": "Retest" } }
+        "display": {
+          "kind": "badge",
+          "tones": { "pass": "success", "fail": "danger", "retest": "warning" },
+          "labels": { "pass": "Pass", "fail": "Fail", "retest": "Retest" }
+        }
       },
       {
         "id": "percent-bar",
         "title": "Percent bar",
         "appliesTo": { "fields": ["viability", "purity"] },
-        "display": { "kind": "bar", "max": 100, "thresholds": [{ "below": 70, "tone": "danger" }, { "below": 90, "tone": "warning" }], "tone": "success" }
+        "display": {
+          "kind": "bar",
+          "max": 100,
+          "thresholds": [
+            { "below": 70, "tone": "danger" },
+            { "below": 90, "tone": "warning" }
+          ],
+          "tone": "success"
+        }
       }
     ],
     "field-types": [

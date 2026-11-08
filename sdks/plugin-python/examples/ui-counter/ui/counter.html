@@ -1,12 +1,41 @@
 <!doctype html>
-<meta charset="utf-8">
+<meta charset="utf-8" />
 <style>
-  body { margin: 0; padding: 12px; font: 14px/1.4 var(--sb-font, system-ui, sans-serif); color: var(--sb-fg, #171717); background: transparent; }
-  .row { display: flex; align-items: center; gap: 12px; }
-  output { font-size: 32px; font-variant-numeric: tabular-nums; min-width: 3ch; }
-  button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--sb-border, #d4d4d8); background: var(--sb-surface, #fff); color: inherit; cursor: pointer; }
-  button.primary { background: var(--sb-accent, #5b3df5); border-color: transparent; color: #fff; }
-  p { margin: 8px 0 0; color: var(--sb-muted, #6b6b73); }
+  body {
+    margin: 0;
+    padding: 12px;
+    font: 14px/1.4 var(--sb-font, system-ui, sans-serif);
+    color: var(--sb-fg, #171717);
+    background: transparent;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  output {
+    font-size: 32px;
+    font-variant-numeric: tabular-nums;
+    min-width: 3ch;
+  }
+  button {
+    font: inherit;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--sb-border, #d4d4d8);
+    background: var(--sb-surface, #fff);
+    color: inherit;
+    cursor: pointer;
+  }
+  button.primary {
+    background: var(--sb-accent, #5b3df5);
+    border-color: transparent;
+    color: #fff;
+  }
+  p {
+    margin: 8px 0 0;
+    color: var(--sb-muted, #6b6b73);
+  }
 </style>
 <div class="row">
   <button id="minus" aria-label="One fewer">−</button>
@@ -22,11 +51,19 @@
   const note = document.getElementById('note')
   function show() {
     out.textContent = String(count)
-    note.textContent = count === 0 ? 'Tap + for each colony.' : count + ' colonies counted.'
+    note.textContent =
+      count === 0 ? 'Tap + for each colony.' : count + ' colonies counted.'
   }
-  function set(next) { count = Math.max(0, next); show(); sheetbase.setState({ count }) }
+  function set(next) {
+    count = Math.max(0, next)
+    show()
+    sheetbase.setState({ count })
+  }
   document.getElementById('plus').onclick = () => set(count + 1)
   document.getElementById('minus').onclick = () => set(count - 1)
   document.getElementById('reset').onclick = () => set(0)
-  sheetbase.onContext((context) => { count = (context.state && context.state.count) || 0; show() })
+  sheetbase.onContext((context) => {
+    count = (context.state && context.state.count) || 0
+    show()
+  })
 </script>

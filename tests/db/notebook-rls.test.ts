@@ -289,7 +289,10 @@ describe('missing claims and api_client', () => {
     await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
       JSON.stringify({ role: 'api_client', workspace_id: WS_A }),
     ])
-    expect(await recordTitles(client)).toEqual(['Sample A', 'Virus Stability A'])
+    expect(await recordTitles(client)).toEqual([
+      'Sample A',
+      'Virus Stability A',
+    ])
     expect(await blockTexts(client)).toEqual(['Methods A'])
   })
 })

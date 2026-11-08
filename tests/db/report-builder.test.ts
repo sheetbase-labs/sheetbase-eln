@@ -496,7 +496,10 @@ describe('report builder: remove a section, safe generated HTML', () => {
         WS_A,
         section.id,
         revAId,
-        JSON.stringify({ blockId: BLOCK_ID, recordIdentifier: 'EXP-2025-OPS7' }),
+        JSON.stringify({
+          blockId: BLOCK_ID,
+          recordIdentifier: 'EXP-2025-OPS7',
+        }),
       ],
     )
     const { rows } = await owner.query(

@@ -27,7 +27,6 @@ import {
 } from './run-route.server'
 import type { ExtensionRunRouteDeps } from './run-route.server'
 import {
-  ExtensionRunError,
   invokeExtension,
   openCallable,
   pluginLimits,
@@ -73,12 +72,7 @@ export async function handlePluginOperationApi(
       caller.workspaceId,
       params.key,
       params.id,
-    ).catch((error: unknown) => {
-      if (error instanceof ExtensionRunError && error.code === 'not_declared')
-        return { install: undefined, callable: undefined }
-      throw error
-    })
-    if (!install || !callable) return refuse(404, 'That plugin doesn’t offer this.')
+    )
     // How many calls a person may make, and how much data one may carry, are
     // this plugin's own settings. By default neither is limited.
     const limits = await pluginLimits(
@@ -108,7 +102,6 @@ export async function handlePluginOperationApi(
     if (!parsed.success)
       return refuse(400, 'Send a JSON body like { "input": { … } }.')
     const operation = callable.declaration
-    if (!operation) return refuse(404, 'That plugin doesn’t offer this.')
     if (operation.access === 'write') {
       if (caller.role === 'viewer')
         return refuse(403, 'Running this needs a workspace you can edit.')

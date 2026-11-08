@@ -47,6 +47,18 @@ export const registry = {
     settingUp: 'Setting up…',
     couldNotSetUp: 'That registry couldn’t be set up.',
   },
+  sameness: {
+    label: 'Same-thing rule from a plugin',
+    hint: 'A plugin can decide when two entries are the same thing, for example two drawings of one molecule. It is checked when an entry is added here.',
+    none: 'No plugin rule',
+    gone: 'A rule that is no longer installed',
+    reads:
+      'Reads: {fields}. It uses the fields of this model with the same names.',
+    missingFields:
+      'This model has no field called {fields}, so the rule cannot read it yet.',
+    duplicateTitle: 'The same thing is already registered',
+    notWorked: 'The plugin rule could not be worked out: {reason}',
+  },
   settings: {
     button: 'Registry',
     buttonOn: 'Registry settings',

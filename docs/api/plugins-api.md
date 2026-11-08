@@ -34,20 +34,22 @@ that is off resolves to nothing.
 
 ## Screens, cells and the sandboxed frame
 
-A screen is **data**: a Python function returns a description built with
+A Python screen is **data**: a Python function returns a description built with
 `sheetbase_plugin.ui` (stack, row, heading, text, stat, badge, bar, sparkline,
 table, svg, inputs, button, form, link) and Sheetbase draws it with its own
 components, so it follows the theme, works on a phone and never runs plugin code
 in the page. The description is checked on the server and again in the browser:
-at most 8 levels and 300 parts, SVG limited to a safe set of elements, no event
-handlers, scripts or web addresses. A screen returns `{ view, state?, notice? }`;
+SVG limited to a safe set of elements, no event handlers, scripts or web
+addresses, and technical bounds of 64 levels, 100,000 parts and 4 MiB of state. A screen returns `{ view, state?, notice? }`;
 `state` is passed back with the person's next click and a block keeps it.
 
-A plugin that needs more brings a page of its own: `blocks[].ui` or
-`panels[].ui` names a file under `ui/` (HTML, CSS, JavaScript, images and
-fonts inside the package). It runs in an iframe with `sandbox="allow-scripts"`
-(no cookies, no storage, no top navigation) and a content security policy that
-forbids every network request, served from
+A plugin that needs more brings a screen of its own: `ui` on a block, panel,
+page, settings page, widget or report section names a file under `ui/` (HTML,
+CSS, JavaScript, images and fonts inside the package). It runs in an iframe
+with `sandbox="allow-scripts"` (an opaque origin: no cookies, no storage, no top
+navigation) and a content security policy that allows inline and `eval`'d
+script, WebAssembly, workers and `data:`/`blob:` assets but no network request,
+served from
 `GET /api/plugins/<key>/ui/<item>` for a signed-in member. The page talks to
 Sheetbase through `sheetbase-ui.js`, which the server injects:
 `sheetbase.onContext(fn)`, `sheetbase.call(operation, input)` (runs one of the
@@ -169,8 +171,10 @@ Errors carry a short message and a status: `404` not installed or not declared,
 `409` not enabled or the part switched off, `400` bad input, `502` the plugin
 stopped or answered wrongly. `plugin_refused` messages are the plugin's own.
 
-`GET /api/plugins/<key>/ui/<item>` (session only) serves one plugin page for
-the sandboxed frame, with `Content-Security-Policy` and `X-Frame-Options`
+`GET /api/plugins/<key>/ui/<item>?point=<point>` (session only) serves one
+plugin screen for the sandboxed frame; `point` is one of `blocks`, `panels`,
+`pages`, `settings-pages`, `dashboard-widgets`, `report-sections`,
+`table-cells` (the `render` page) or `field-types` (the `input` page), with `Content-Security-Policy` and `X-Frame-Options`
 locked down; `404` when the plugin, the item or its page is not there or the
 point is off.
 

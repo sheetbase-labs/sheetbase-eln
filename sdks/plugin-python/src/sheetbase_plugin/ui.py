@@ -34,17 +34,20 @@ import json
 import re
 
 TONES = ("neutral", "success", "warning", "danger", "info")
+# Technical bounds on a drawn screen, to keep a runaway loop from freezing the
+# page; not limits on what a plugin may show. Same numbers as `SCREEN_LIMITS`
+# in src/lib/extensions/screens.ts.
 LIMITS = {
-    "depth": 8,
-    "nodes": 300,
-    "text": 2000,
+    "depth": 64,
+    "nodes": 100_000,
+    "text": 100_000,
     "label": 120,
-    "table_rows": 200,
-    "table_columns": 12,
-    "sparkline": 400,
-    "options": 50,
-    "svg_bytes": 64 * 1024,
-    "state_bytes": 64 * 1024,
+    "table_rows": 100_000,
+    "table_columns": 500,
+    "sparkline": 100_000,
+    "options": 10_000,
+    "svg_bytes": 8 * 1024 * 1024,
+    "state_bytes": 4 * 1024 * 1024,
 }
 _NAME = re.compile(r"^[a-z][a-z0-9_]{0,47}$")
 _ACTION = re.compile(r"^[a-z][a-z0-9_-]{0,47}$")
@@ -257,7 +260,7 @@ def _node_ok(walk, node, path, depth):
     if kind == "text":
         return (
             _only(walk, at, node, ("type", "text", "tone"))
-            and (_is_text(node.get("text"), 0, LIMITS["text"]) or walk.fail(at, "text must be 0-2000 characters"))
+            and (_is_text(node.get("text"), 0, LIMITS["text"]) or walk.fail(at, f"text must be 0-{LIMITS['text']} characters"))
             and (tone_ok(("muted", "success", "danger")) or walk.fail(at, "tone is muted, success or danger"))
         )
     if kind == "stat":
@@ -321,8 +324,8 @@ def _node_ok(walk, node, path, depth):
                 cell = entry.get(key)
                 if cell is None or isinstance(cell, bool):
                     continue
-                if not (_number(cell) or (isinstance(cell, str) and len(cell) <= 300)):
-                    return walk.fail(at, "cells are text (up to 300 characters), numbers, true/false or empty")
+                if not (_number(cell) or (isinstance(cell, str) and len(cell) <= 10_000)):
+                    return walk.fail(at, "cells are text (up to 10000 characters), numbers, true/false or empty")
         return True
     if kind == "svg":
         return (

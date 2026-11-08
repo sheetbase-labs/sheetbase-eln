@@ -2470,5 +2470,450 @@
     "files": {
       "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
     }
+  },
+  {
+    "name": "record-hooks: a valid before hook",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "record-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "when": [
+              "created",
+              "edited"
+            ],
+            "timing": "before",
+            "kinds": [
+              "experiment",
+              "sample"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "record-hooks: a valid status hook with a file",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "record-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "when": [
+              "uploaded",
+              "status-changed"
+            ],
+            "timing": "after",
+            "statuses": [
+              "in_review"
+            ],
+            "file": "text"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "record-hooks: no when",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "record-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "when": [],
+            "timing": "before"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "record-hooks: an unknown when",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "record-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "when": [
+              "deleted"
+            ],
+            "timing": "before"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "record-hooks: a repeated when",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "record-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "when": [
+              "created",
+              "created"
+            ],
+            "timing": "before"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "record-hooks: a missing timing",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "record-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "when": [
+              "created"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "record-hooks: an unknown timing",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "record-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "when": [
+              "created"
+            ],
+            "timing": "during"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "record-hooks: an empty kinds list",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "record-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "when": [
+              "created"
+            ],
+            "timing": "after",
+            "kinds": []
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "record-hooks: a null kinds list",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "record-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "when": [
+              "created"
+            ],
+            "timing": "after",
+            "kinds": null
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "record-hooks: a malformed kind",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "record-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "when": [
+              "created"
+            ],
+            "timing": "after",
+            "kinds": [
+              "Nope"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "record-hooks: a repeated kind",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "record-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "when": [
+              "created"
+            ],
+            "timing": "after",
+            "kinds": [
+              "sample",
+              "sample"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "record-hooks: statuses without status-changed",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "record-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "when": [
+              "created"
+            ],
+            "timing": "after",
+            "statuses": [
+              "done"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "record-hooks: a malformed status",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "record-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "when": [
+              "status-changed"
+            ],
+            "timing": "after",
+            "statuses": [
+              "In Review"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "record-hooks: file without uploaded",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "record-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "when": [
+              "created"
+            ],
+            "timing": "after",
+            "file": "text"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "record-hooks: an unknown file encoding",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "record-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "when": [
+              "uploaded"
+            ],
+            "timing": "after",
+            "file": "hex"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
   }
 ]

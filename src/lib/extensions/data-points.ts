@@ -19,8 +19,13 @@
  * - `previews`: shows what is inside a file format Sheetbase can't open.
  * - `sameness-keys`: says when two registry entries are the same thing (the
  *   canonical structure, the normalised sequence).
- * - `event-hooks`: reacts to something that happened in the lab, and can leave
- *   a note in the Inbox. It never changes records itself.
+ * - `event-hooks`: reacts to something that happened in the lab. It can leave a
+ *   note in the Inbox, raise or clear a flag a gate waits on, ask for a
+ *   sign-off, and change the record the event was about.
+ * - `record-hooks`: runs when a record or file is created, edited, uploaded or
+ *   changes status. Before the save it can refuse with a message or fill in
+ *   fields; after it, it can write a summary, add to a search index, raise
+ *   flags, ask for sign-off and change records.
  *
  * Every declaration names its inputs and outputs, the code is one named Python
  * function of the plugin's package, and anything unknown is refused. The same
@@ -175,6 +180,34 @@ export interface ExtensionEventHookDeclaration {
   runner: ExtensionRunner
 }
 
+export const RECORD_HOOK_WHEN = [
+  'created',
+  'edited',
+  'uploaded',
+  'status-changed',
+] as const
+export type RecordHookWhen = (typeof RECORD_HOOK_WHEN)[number]
+
+export const RECORD_HOOK_TIMING = ['before', 'after'] as const
+export type RecordHookTiming = (typeof RECORD_HOOK_TIMING)[number]
+
+export interface ExtensionRecordHookDeclaration {
+  id: string
+  title: string
+  description: string
+  /** What sets it off. A save of a file is `uploaded`; a status change is also an edit to listeners of `edited` only if they ask for both. */
+  when: RecordHookWhen[]
+  /** `before` runs inside the save and can refuse it; `after` runs once it is saved. */
+  timing: RecordHookTiming
+  /** Only these kinds of record (`experiment`, `sample`, `file`, a model's key). Absent means every kind. */
+  kinds?: string[]
+  /** For `status-changed`: only a change to one of these statuses. */
+  statuses?: string[]
+  /** For `uploaded`: hand the plugin the file's contents. */
+  file?: ExtensionEncoding
+  runner: ExtensionRunner
+}
+
 export interface ExtensionDataContributions {
   'pipeline-steps'?: ExtensionPipelineStepDeclaration[]
   calculators?: ExtensionCalculatorDeclaration[]
@@ -186,6 +219,7 @@ export interface ExtensionDataContributions {
   previews?: ExtensionPreviewDeclaration[]
   'sameness-keys'?: ExtensionSamenessKeyDeclaration[]
   'event-hooks'?: ExtensionEventHookDeclaration[]
+  'record-hooks'?: ExtensionRecordHookDeclaration[]
 }
 
 export const MAX_TABLE_INPUTS = 6
@@ -672,6 +706,110 @@ export function parseEventHooks(
   )
 }
 
+export const EXTENSION_STATUS_RE = /^[a-z][a-z0-9_]{0,40}$/
+
+function unique(
+  where: string,
+  label: string,
+  value: unknown,
+  pattern: RegExp,
+  errors: string[],
+  hint: string,
+): string[] | null | undefined {
+  if (value === undefined) return undefined
+  if (
+    !Array.isArray(value) ||
+    value.length < 1 ||
+    !value.every((entry) => typeof entry === 'string' && pattern.test(entry))
+  ) {
+    errors.push(`${where} ${label} needs at least one entry, each ${hint}`)
+    return null
+  }
+  if (new Set(value).size !== value.length) {
+    errors.push(`${where} ${label} repeats an entry`)
+    return null
+  }
+  return value as string[]
+}
+
+export function parseRecordHooks(
+  value: unknown,
+  errors: string[],
+): Parsed<ExtensionRecordHookDeclaration> {
+  return each<ExtensionRecordHookDeclaration>(
+    'record-hooks',
+    value,
+    errors,
+    true,
+    (entry, where) => {
+      const when = entry.when
+      if (
+        !Array.isArray(when) ||
+        when.length < 1 ||
+        !when.every(
+          (item) =>
+            typeof item === 'string' &&
+            (RECORD_HOOK_WHEN as readonly string[]).includes(item),
+        ) ||
+        new Set(when).size !== when.length
+      ) {
+        errors.push(
+          `${where} when needs one or more different entries from ${RECORD_HOOK_WHEN.join(', ')}`,
+        )
+        return null
+      }
+      if (
+        typeof entry.timing !== 'string' ||
+        !(RECORD_HOOK_TIMING as readonly string[]).includes(entry.timing)
+      ) {
+        errors.push(`${where} timing must be before or after`)
+        return null
+      }
+      const kinds = unique(
+        where,
+        'kinds',
+        entry.kinds,
+        EXTENSION_RECORD_TYPE_RE,
+        errors,
+        'like experiment or sample',
+      )
+      const statuses = unique(
+        where,
+        'statuses',
+        entry.statuses,
+        EXTENSION_STATUS_RE,
+        errors,
+        'like in_review',
+      )
+      if (kinds === null || statuses === null) return null
+      if (statuses && !when.includes('status-changed')) {
+        errors.push(`${where} statuses only apply to status-changed`)
+        return null
+      }
+      let file: ExtensionEncoding | undefined
+      if (entry.file !== undefined) {
+        if (!when.includes('uploaded')) {
+          errors.push(`${where} file only applies to uploaded`)
+          return null
+        }
+        const enc = encoding(`${where} file`, entry.file, errors)
+        if (!enc) return null
+        file = enc
+      }
+      const run = runner(where, entry.runner, errors)
+      if (!run) return null
+      return {
+        when,
+        timing: entry.timing,
+        ...(kinds ? { kinds } : {}),
+        ...(statuses ? { statuses } : {}),
+        ...(file ? { file } : {}),
+        runner: run,
+      } as never
+    },
+  )
+}
+
 /** The parser for each data point, by name. */
 export const DATA_POINT_PARSERS = {
   'pipeline-steps': parsePipelineSteps,
@@ -684,6 +822,7 @@ export const DATA_POINT_PARSERS = {
   previews: parsePreviews,
   'sameness-keys': parseSamenessKeys,
   'event-hooks': parseEventHooks,
+  'record-hooks': parseRecordHooks,
 } as const
 
 export type DataPoint = keyof typeof DATA_POINT_PARSERS

@@ -39,7 +39,7 @@ PROVIDES = (
     "operations", "analysis-kinds", "blocks", "panels", "table-cells", "columns",
     "row-actions", "field-types", "pipeline-steps", "calculators", "checks",
     "search-providers", "connectors", "importers", "exporters", "previews",
-    "sameness-keys", "event-hooks",
+    "sameness-keys", "event-hooks", "record-hooks",
 )
 PROVIDES_WITHOUT_PYTHON = ("table-cells", "field-types", "panels")
 # Operations, calculators and pipeline steps share one name in Sheetbase.
@@ -51,6 +51,8 @@ HOST_PATTERN = re.compile(
 FILE_EXTENSION_PATTERN = re.compile(r"^\.[a-z0-9]{1,12}$")
 RECORD_TYPE_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,40}$")
 MIME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9!#$&^_.+-]{0,60}/[a-z0-9][a-z0-9!#$&^_.+-]{0,100}$")
+STATUS_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,40}$")
+RECORD_HOOK_WHEN = ("created", "edited", "uploaded", "status-changed")
 MAX_LIST_ITEMS = 10
 TOP_LEVEL = (
     "id", "name", "version", "description", "author", "compatibleWith",
@@ -683,6 +685,65 @@ def _event_hooks(value, files, errors):
     _each("event-hooks", value, files, errors, check)
 
 
+_MISSING = object()
+
+
+def _unique_strings(name, label, value, pattern, errors, hint):
+    """A missing key is fine; a present one (even null) must be a unique, non-empty, well formed list."""
+    if value is _MISSING:
+        return True
+    if (
+        not isinstance(value, list)
+        or len(value) < 1
+        or not all(isinstance(item, str) and pattern.match(item) for item in value)
+    ):
+        errors.append(f"{name} {label} needs at least one entry, each {hint}")
+        return False
+    if len(set(value)) != len(value):
+        errors.append(f"{name} {label} repeats an entry")
+        return False
+    return True
+
+
+def _record_hooks(value, files, errors):
+    def check(entry, name):
+        when = entry.get("when")
+        if (
+            not isinstance(when, list)
+            or len(when) < 1
+            or not all(isinstance(item, str) and item in RECORD_HOOK_WHEN for item in when)
+            or len(set(when)) != len(when)
+        ):
+            errors.append(
+                f"{name} when needs one or more different entries from {', '.join(RECORD_HOOK_WHEN)}"
+            )
+            return False
+        if entry.get("timing") not in ("before", "after"):
+            errors.append(f"{name} timing must be before or after")
+            return False
+        if not _unique_strings(
+            name, "kinds", entry.get("kinds", _MISSING), RECORD_TYPE_PATTERN, errors, "like experiment or sample"
+        ):
+            return False
+        if not _unique_strings(
+            name, "statuses", entry.get("statuses", _MISSING), STATUS_PATTERN, errors, "like in_review"
+        ):
+            return False
+        if "statuses" in entry and "status-changed" not in when:
+            errors.append(f"{name} statuses only apply to status-changed")
+            return False
+        if "file" in entry:
+            if "uploaded" not in when:
+                errors.append(f"{name} file only applies to uploaded")
+                return False
+            if entry["file"] not in ("text", "base64"):
+                errors.append(f"{name} file encoding must be text or base64")
+                return False
+        return True
+
+    _each("record-hooks", value, files, errors, check)
+
+
 POINT_CHECKS = {
     "pipeline-steps": _pipeline_steps,
     "calculators": _calculators,
@@ -694,6 +755,7 @@ POINT_CHECKS = {
     "previews": _previews,
     "sameness-keys": _sameness_keys,
     "event-hooks": _event_hooks,
+    "record-hooks": _record_hooks,
 }
 
 

@@ -176,9 +176,9 @@ GRANT SELECT ON TABLE api.field_plugin_types TO authenticated, api_client;
 
 -- Give a model field a plugin's field type, or take it away (p_plugin_key null).
 -- Needs permission to edit models. The plugin must be installed, on, with the
--- field types point switched on, and declare the type. The field's own checks
--- (pattern, lengths, range) are written by the app through the normal field
--- update, so the database enforces them without asking the plugin.
+-- field types point switched on, and declare the type. The type's rules
+-- (lengths, pattern, range) are checked by the record validator on every write
+-- (see internal.check_plugin_field_type), without asking the plugin to run.
 CREATE FUNCTION api.set_field_plugin_type(
     p_kind text, p_field_name text, p_plugin_key text, p_type_id text) RETURNS boolean
     LANGUAGE plpgsql SECURITY DEFINER

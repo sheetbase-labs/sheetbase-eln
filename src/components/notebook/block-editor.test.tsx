@@ -21,6 +21,23 @@ import type * as notebookDataModule from '#/lib/notebook-data'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import type { RichTextPayload } from '#/lib/blocks'
 
+vi.mock('#/components/extensions/use-plugin-points', () => ({
+  usePluginPoints: () => ({
+    operations: [],
+    analysisKinds: [],
+    blocks: [],
+    panels: [],
+    tableCells: [],
+    columns: [],
+    rowActions: [],
+    fieldTypes: [],
+    descriptors: [],
+    isLoading: false,
+    installed: new Map(),
+  }),
+  operationAccess: () => ({}),
+}))
+
 vi.mock('#/lib/notebook-data', async (importOriginal) => {
   const actual = await importOriginal<typeof notebookDataModule>()
   return {

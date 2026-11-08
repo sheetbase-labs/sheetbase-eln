@@ -229,3 +229,57 @@ describe('the plugin block type', () => {
     expect(text.rows[0].t).toBe('')
   })
 })
+
+describe('field type rules on record writes', () => {
+  const check = (value: unknown) =>
+    migrator.query(
+      `select internal.validate_model_fields($1,'sample',$2::jsonb) as v`,
+      [WS, JSON.stringify({ batch: value })],
+    )
+
+  beforeAll(async () => {
+    const owner = await actor(OWNER)
+    await migrator.query(
+      `update api.record_field_definitions set lifecycle='active' where workspace_id=$1 and kind='sample' and field_name='batch'`,
+      [WS],
+    )
+    await owner.query(
+      `select api.set_field_plugin_type('sample','batch','cell-looks','batch-code')`,
+    )
+  })
+  afterAll(async () => {
+    await migrator.query(
+      `delete from api.field_plugin_types where workspace_id=$1 and kind='sample'`,
+      [WS],
+    )
+  })
+
+  it('accepts a value that matches the type and refuses one that does not', async () => {
+    expect((await check('AB-0042')).rows[0].v).toEqual({ batch: 'AB-0042' })
+    await expect(check('ab-12')).rejects.toMatchObject({
+      code: 'SB071',
+      message: expect.stringContaining('two capital letters'),
+    })
+  })
+
+  it('stops applying when the plugin is switched off, or the point is', async () => {
+    await migrator.query(
+      `update api.extensions set disabled_points=array['field-types'] where workspace_id=$1 and key='cell-looks'`,
+      [WS],
+    )
+    expect((await check('ab-12')).rows[0].v).toEqual({ batch: 'ab-12' })
+    await migrator.query(
+      `update api.extensions set disabled_points='{}' where workspace_id=$1 and key='cell-looks'`,
+      [WS],
+    )
+    await expect(check('ab-12')).rejects.toMatchObject({ code: 'SB071' })
+  })
+
+  it('leaves a field with no plugin type alone', async () => {
+    await migrator.query(
+      `delete from api.field_plugin_types where workspace_id=$1 and kind='sample'`,
+      [WS],
+    )
+    expect((await check('anything')).rows[0].v).toEqual({ batch: 'anything' })
+  })
+})

@@ -23,7 +23,9 @@ is `sdks/plugin-python/examples/cell-count`.
   fields, with entries in its header menu.
 - **Row actions**: something to do with the chosen rows, such as an export.
 - **Field types**: a type for a model field, such as a batch code with a pattern
-  and a display.
+  and a display. Its lengths, pattern and range are enforced by the database on
+  every write (forms, API, import, assistant, pipelines) while the plugin is on
+  and its field types point is switched on; the plugin's code is not run.
 
 Plugins are Python only for now, and they cannot read your data unless a call
 hands it to them: the code runs in an isolated sandbox with no network, no

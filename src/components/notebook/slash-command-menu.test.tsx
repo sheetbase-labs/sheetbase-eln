@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -11,6 +11,7 @@ import {
   SlashCommandMenu,
   slashCommandFilterCount,
   slashCommandFilteredOptions,
+  pluginSlashOptions,
 } from './slash-command-menu'
 
 afterEach(() => cleanup())
@@ -157,5 +158,40 @@ describe('SlashCommandMenu', () => {
 
     expect(screen.queryAllByRole('option')).toHaveLength(0)
     expect(screen.getByText('No matching block types')).toBeTruthy()
+  })
+})
+
+describe('plugin blocks in the slash menu', () => {
+  const blocks = [
+    {
+      extensionKey: 'colony-counter',
+      extensionName: 'Colony counter',
+      id: 'counter',
+      declaration: { title: 'Colony counter', description: 'Tap to count.' },
+    },
+  ]
+  const options = pluginSlashOptions(blocks, 'plugin:')
+
+  it('lists them after the built-in blocks and filters by name or plugin', () => {
+    const all = slashCommandFilteredOptions('', false, options)
+    expect(all.at(-1)?.type).toBe('plugin:colony-counter/counter')
+    expect(
+      slashCommandFilteredOptions('colony', false, options).map((o) => o.type),
+    ).toContain('plugin:colony-counter/counter')
+    expect(slashCommandFilterCount('zzzz', false, options)).toBe(0)
+  })
+
+  it('shows them under their own heading and reports the pick', () => {
+    const picked: string[] = []
+    render(
+      <SlashCommandMenu
+        query="colony"
+        selectedIndex={0}
+        pluginOptions={options}
+        onSelect={(type) => picked.push(type)}
+      />,
+    )
+    fireEvent.mouseDown(screen.getByRole('option', { name: /Colony counter/ }))
+    expect(picked).toEqual(['plugin:colony-counter/counter'])
   })
 })

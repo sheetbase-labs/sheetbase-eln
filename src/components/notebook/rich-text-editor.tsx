@@ -31,7 +31,10 @@ import {
   SlashCommandMenu,
   slashCommandFilterCount,
   slashCommandFilteredOptions,
+  pluginSlashOptions,
 } from './slash-command-menu'
+import { PLUGIN_BLOCK_PREFIX } from './add-block-menu'
+import { usePluginPoints } from '#/components/extensions/use-plugin-points'
 import { AiComposer } from './ai-composer'
 import { usePageAi } from '#/lib/use-page-ai'
 import { useAnchoredPlacement } from '#/lib/use-anchored-placement'
@@ -346,6 +349,13 @@ export function RichTextEditor({
   const ai = usePageAi()
   const aiLiveRef = React.useRef(ai.live)
   aiLiveRef.current = ai.live
+  const pluginPoints = usePluginPoints()
+  const pluginOptions = React.useMemo(
+    () => pluginSlashOptions(pluginPoints.blocks, PLUGIN_BLOCK_PREFIX),
+    [pluginPoints.blocks],
+  )
+  const pluginOptionsRef = React.useRef(pluginOptions)
+  pluginOptionsRef.current = pluginOptions
   const [aiComposer, setAiComposer] = React.useState<{
     selection: string
   } | null>(null)
@@ -524,6 +534,7 @@ export function RichTextEditor({
               const count = slashCommandFilterCount(
                 menu.query,
                 aiLiveRef.current,
+                pluginOptionsRef.current,
               )
               setSlashMenu((m) => ({
                 ...m,
@@ -541,6 +552,7 @@ export function RichTextEditor({
               const filtered = slashCommandFilteredOptions(
                 menu.query,
                 aiLiveRef.current,
+                pluginOptionsRef.current,
               )
               const selected = filtered.at(menu.index)
               if (!selected) return true
@@ -1048,6 +1060,7 @@ export function RichTextEditor({
               <SlashCommandMenu
                 ref={slashMenuElRef}
                 withAi={ai.live}
+                pluginOptions={pluginOptions}
                 query={slashMenu.query}
                 selectedIndex={slashMenu.index}
                 onSelect={handleSlashSelect}

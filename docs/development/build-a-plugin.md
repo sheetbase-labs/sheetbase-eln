@@ -68,8 +68,9 @@ point except operations and analyses (see `cell-count` for those):
 
 Logic is Python; screens are JavaScript or TypeScript. Plugins cannot read your
 data unless a call hands it to them: the Python runs in an isolated sandbox with
-no network, no database and no files but its own. A plugin screen runs in a
-sandboxed frame with no cookies and no view of the rest of the app; its only
+no database and no files but its own. It can use any Python package you declare,
+and it can reach only the hosts the administrator approved. A plugin screen runs
+in a sandboxed frame with no cookies and no view of the rest of the app; its only
 way out is `fetch` to the plugin's own operations.
 
 Each hook has a small runnable example in `sdks/plugin-python/examples`:
@@ -154,8 +155,34 @@ sheetbase-plugin pack .    # acme.cell-count-1.0.0.sbplugin
 ```
 
 `run` and `dev` use the same loader the app uses, so what passes here runs there,
-but on your machine there is no sandbox: keep the plugin to the standard library
-and the packages the Sheetbase Python runner provides (pandas and NumPy).
+but on your machine there is no sandbox, and the packages are whatever is installed
+in your own Python: `pip install` what you declare (below) before you try it.
+
+### Packages and hosts
+
+Declare the Python packages your code needs, and any hosts it calls, in
+`plugin.json`:
+
+```json
+"python": {
+  "requirements": ["rdkit>=2024.3", "biopython==1.84"],
+  "network": ["eutils.ncbi.nlm.nih.gov", "*.ebi.ac.uk"]
+}
+```
+
+`requirements` are pip requirement lines: any package pip can install, with or
+without versions, extras (`pandas[performance]`) or an environment marker. There is
+no list of allowed packages and no cap on how many. Pin versions you depend on:
+the install is done once when the plugin is added and reused, so a pinned list is a
+reproducible one. pandas and NumPy are always there (the analysis functions are
+given a DataFrame).
+
+`network` are host names, exact or `*.example.org` for sub-domains, on any port.
+The administrator sees both lists before adding the plugin and approves them by
+adding it. The runner puts the proxy settings (`HTTPS_PROXY` and friends) in the
+environment, so `requests`, `urllib`, `httpx` and Biopython's Entrez all work with
+no code of yours; a socket opened by hand has no route. Anything not listed is
+refused, so list every host you call, including the ones a library redirects to.
 
 ## As the scientist
 
@@ -163,13 +190,35 @@ An owner or administrator opens **Settings → Plugins**, chooses **Add a plugin
 and picks the file. Sheetbase reads it and shows, before anything is added:
 
 - what it is and who made it;
-- what it asks for, in plain words (it runs its own Python in a sandbox with no
-  network; any access it declares);
+- what it asks for, in plain words (it runs its own Python in a sandbox; the
+  packages it installs; the hosts it reaches; any access it declares);
 - what it adds: "Cell viability · reads", "Seeding volume · reads";
 - for an update, what is new and what was dropped.
 
-They tick that they have read it and trust it, and add it. It stays off until
-they switch it on, and each part has its own switch.
+They tick that they have read it and trust it, and add it. That also approves the
+packages and hosts it showed. Sheetbase installs the packages in the background
+(Settings → Plugins shows "Packages: installing…", then "installed", or the
+installer's own message if a package could not be installed, with **Install
+again**). The plugin stays off until they switch it on, and each part
+(operations, analyses) has its own switch.
+
+**Python settings** on a plugin's row show what it installed and the hosts it may
+reach, and let the administrator change how much one call may use. The defaults are
+generous on purpose, and nothing caps what can be given:
+
+| Setting                     | Default     |
+| --------------------------- | ----------- |
+| Time                        | 600 seconds |
+| Memory                      | 4096 MB     |
+| Processor cores             | 2           |
+| Processes and threads       | 512         |
+| Scratch disk                | 2048 MB     |
+| Data in a call (each way)   | 256 MB      |
+| Rows in a call              | 5,000,000   |
+| Calls per person per minute | no limit    |
+
+A call that hits one stops with a message that names the setting. Settings are
+kept when the plugin is updated.
 
 From then on, with no further work from the author:
 
@@ -427,6 +476,10 @@ plugin off until an administrator has looked at it again.
 
 ## Limits
 
-100 files, 512 KiB each, 2 MiB in all, 4 MiB for the zip; 25 of each point per
-plugin; 24 fields per declaration. A call has 60 seconds and
-the runner's memory limit, like any pipeline Python step.
+None that are yours to plan around. A package is checked for size only so a
+malformed zip can't exhaust the server (2,000 files, 16 MiB each, 64 MiB in all, 32
+MiB zipped), and declarations are bounded far above what a real plugin has (1,000
+per point, 500 fields each). How much one call may use is the administrator's
+setting per plugin (see above), not a limit of the platform. What a deployment
+has to provide for packages and hosts is in
+[Python pipelines](../operations/pipeline-python.md).

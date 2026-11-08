@@ -56,8 +56,31 @@ const big = {
   title: 'Big one',
 }
 
+/**
+ * The block type no longer exists once the migrations have all run, so the old
+ * type is allowed again for the length of this test, to put old blocks in place
+ * for the conversion, and refused again afterwards.
+ */
+async function allowSequenceType(allowed: boolean) {
+  const { rows } = await migrator.query<{ def: string }>(
+    `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint
+      WHERE conrelid = 'api.blocks'::regclass AND conname = 'chk_blocks_type'`,
+  )
+  let def = rows[0].def
+  const has = def.includes("'sequence'::text")
+  if (allowed === has) return
+  def = allowed
+    ? def.replace('::text])', "::text, 'sequence'::text])")
+    : def.replace(", 'sequence'::text", '')
+  await migrator.query('ALTER TABLE api.blocks DROP CONSTRAINT chk_blocks_type')
+  await migrator.query(
+    `ALTER TABLE api.blocks ADD CONSTRAINT chk_blocks_type ${def}`,
+  )
+}
+
 beforeAll(async () => {
   ;({ migrator } = await prepareTestDatabase())
+  await allowSequenceType(true)
   await migrator.query(
     `INSERT INTO internal.user (id, name, email, "emailVerified") VALUES ('${USER}', 'Seq User', 'seq-plugin@sheetbase.test', true)`,
   )
@@ -98,9 +121,11 @@ beforeAll(async () => {
     `UPDATE api.projects SET status = 'archived', archived_at = now() WHERE id = '${OLD}'`,
   )
   await migrator.query(CONVERT)
+  await allowSequenceType(false)
 })
 
 afterAll(async () => {
+  await allowSequenceType(false)
   await migrator.end()
 })
 

@@ -1,0 +1,3907 @@
+[
+ {
+  "name": "sites circular all enzymes",
+  "input": {
+   "action": "sites",
+   "sequence": "AGCCGAACTCCTGGCTTTGAATGTCTGTTTCACTCGGAACATAACTATGGTCGTCGCTCGTCTGACGGCGTAGCGGTCGCATGGTGTAAATATACTATGGTCTAGTGCGTACAGAGGAGTAGTGAGTAAGCCGATAAGACGCGCTAGACCTTAATTGCTACGCCTGTAGTTGAATGGGTAAGCCGGCATGGCTGACATTGATTACTCCTGCTCTTCCCATACGGGACGTGCAAATAGGGCCTCCCATGCATGCATGCATGCTGGAGGCGGTTTAGACGTGTTATGAAGTCGGGAGCATAGCGGTTTTACCCTGCACCTTTAAGATCGCCTAAATAAGGCTTAATTCGTATCGAATCACGAGACCGCGGCGACAGCACGGCGAATTCAGTTCATTGACGGTTCGGGTTCCTCGCACGTGATCGCTACACCTACATTTTCATGTCTAACTTCTACCTGGTCACCTTAATTTGGAGGGGTAGACGCGAAACTAATAAAAAAAAAACTCCCCGCTAAGACAAAAGCATACCATCCATTTAATGACGGATCTATTGGGCATAAAGATTAGTGGGGTCTCGCAGTAAGACTAAATCCCGCGGGGTGACCAGCTACACCCGTATCCTGTGGCGCTTAGTTGAAACACCCCGCTAATAGATAATGTTGAGTTGACTGAGGGCATGCATGATTGTAGCCATGCGTGACTCTAACTCATGTCACATTTACTGACCGTGTCGCGACGGATCGTGTTCTATGATCGTCTATACATTGCATAGCCCATGTCTAGTTTAAAGGTTCGAAAGTCAAAATGGTCCCACTACTCGCATGGGTGCCATCCATGCGATAAATTCTAGTGATGTACAAGCTAAGGTTATGATCGTTCTAGTTTCACGGCCGCCTTCTACCTGGTCTTCCCTGACCTGCTTGCGAATTCAGTACATATAAAGCGCGACCACCTACGTCCGCGGTCGAAGCCGATCTGAATCACCGTGTTATGCCCGTACATTAGCGGGCACACGGGTTCAGGCACTCACCGCACGACTATTAGTCAGCGGCTCCTGCAAACGTATGGTCACATAGATCGGGAGCGGTAATATCACCATAAGTTTCGTTGTTGACTGGCATTAAAGCCCGGAGGCAAATAGCCTACGCTCTTGAACACACATCTTTGTGATGAAGTATTAATCGATCCACCAGACGCCCGACTGGATCGCCTTCTGATTGATGCTGAACTCCTAGGGCTGATGACCAAGTACTTAAAGCACGACGACAGGTACCACTGTTAGTCCTGGTCAGAGACAGCAGCGTTTAGTTAATTATTCAAAATTTACACTCGGAAGATCAAACATTGCTTCGGCGGAGAACTCCGAGCTCGTGACCTTAGAGTACGATTACGGCGGCACCATTTAGCTCAGGTGCAGGCCGGCCCTTAACCCAAGATGGTAGGATTTTATCGGCGCCCTAACGATTTTGCAACCCTTAGACGTCCGGGAGAGAGAGAACGTGTGGGGATGCGGTACGTACCACAGGTCCACAAGTCACCTTTACTTCCCATGCTGTCTTCCAAGTTTCGACCCTTAGGAAGACAATATCCGACGACAGAAGCGGTCACTAAGCGGGTCTCGTATGGCTGACTCGCTCGTTCAATGTGTAGAAATCCCCTCGTGTGAGTAAGCCCTAGCGTTAAACGAAGGGCAACACATCTCTCGGTTTCCCTACGGGACGTGCTCTTGGGGGTGTCCCATGCGTATTCGCAACTAGTTGAGACATTATATGTTGATGTCGTATCTCCTGTCTAAGCAGAATCCGGCCTAATGCCGGGAACCTCTACACCCTCGCCTGACGCCTCCCATGTGGGACAGACTTACGCGCTAGACAGACCCAGGGGTTTCCGGAAGTACTATCTACCTGGGCACCAATGTAGGCGCGTATATGCACATCGTTAGGCGCAACTATTTTGGGTCGCACAGGTCCACACGACATTCGAAGCGCTGGATGCGAGTCGCGGGATGAGTGCCGGCAACTGAGTCCCTATCAAATTACGTAGGAAAGCTGGGGATCGTGTTTATAAACGACTGGAAGTTTCAGAAGGCTTTTAAACAAGATCCATGCGATAAATAAACGAGCAATGTCCGCTGTACAACATTTATGCACTCAAAAGCATAGACCGACAAAAGCATAGCGGTAGCGGAGTATATCGACGCTTTTTTATATCCTAGGGCCGGCCTGGGCTTTTGATTGTGAACTACGCAATGGGTTGCCCATAATGCCAGCCCAAATATACGCTAAGACTTCATCAAACTGTTATCCGAGGTCTTTGCGCCACGAGGGCTTTAACAGATATAGGAGGCAGGTTGGTGGCGTCTTTAGGGCATGTACAAGCTACGCCTGTAGTTACGCCTGTAGCGATAGCGGTCGCCCACTTAATTGCGAGTAGTGGGGATGCGATAACGATCGGACACCCTTATATGATCTCCTTTGCCGCTTCGACGTACGTTGTCTGTTTCATCTCGTACTTCCCATTTTAAGAGTGCATATGTTCGGAATGTTGGGCCGGCACCATAATGTTGACGCGATTAAGCAGTCACGGCCGAGACCCGTAAGCGGACATTGACGCGGGAGTGGCCCTACCAGTGTCAAAACAGCAGCTACCTCGACAACCCTATCAAATTTTAGTATGCCCCTATCATCCATTTACTGCCTAGGAGAACTCCGAGGTAATTGAAAGCATAGCGGTCGCAACTTGTGTAGACAAATCGGATGAAGAACATTAAAGACAATATCCGAATATACTATGGTCACCGTCAGAGACAGCTTGAACATCTAGCGTTCAATGTGTAATGGGGAACTTTTCGCTCGTTCAGTACCCTTACTCGCCACGCAGAGCGCTTCTTGTGTACTCGCCATACTTGTGTAGACCTGCAAACGTTAGCCTGTGTGCATCTCGTGGTTCCGTGTTATGAATATATGTTGCGGCACCATAATGTTGACTCCCAGGGTAGGTAC"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "length": 3000,
+    "sites": [
+     {
+      "enzyme": "EcoRI",
+      "site": "GAATTC",
+      "cuts": 2,
+      "positions": [
+       381,
+       923
+      ]
+     },
+     {
+      "enzyme": "SpeI",
+      "site": "ACTAGT",
+      "cuts": 1,
+      "positions": [
+       1751
+      ]
+     },
+     {
+      "enzyme": "NdeI",
+      "site": "CATATG",
+      "cuts": 1,
+      "positions": [
+       2529
+      ]
+     },
+     {
+      "enzyme": "KpnI",
+      "site": "GGTACC",
+      "cuts": 1,
+      "positions": [
+       1271
+      ]
+     },
+     {
+      "enzyme": "SacI",
+      "site": "GAGCTC",
+      "cuts": 1,
+      "positions": [
+       1367
+      ]
+     },
+     {
+      "enzyme": "SacII",
+      "site": "CCGCGG",
+      "cuts": 3,
+      "positions": [
+       366,
+       594,
+       960
+      ]
+     },
+     {
+      "enzyme": "SphI",
+      "site": "GCATGC",
+      "cuts": 4,
+      "positions": [
+       252,
+       256,
+       260,
+       677
+      ]
+     },
+     {
+      "enzyme": "ScaI",
+      "site": "AGTACT",
+      "cuts": 2,
+      "positions": [
+       1248,
+       1893
+      ]
+     },
+     {
+      "enzyme": "FseI",
+      "site": "GGCCGGCC",
+      "cuts": 2,
+      "positions": [
+       1420,
+       2219
+      ]
+     },
+     {
+      "enzyme": "ClaI",
+      "site": "ATCGAT",
+      "cuts": 1,
+      "positions": [
+       1180
+      ]
+     },
+     {
+      "enzyme": "BsrGI",
+      "site": "TGTACA",
+      "cuts": 3,
+      "positions": [
+       852,
+       2131,
+       2369
+      ]
+     },
+     {
+      "enzyme": "NsiI",
+      "site": "ATGCAT",
+      "cuts": 4,
+      "positions": [
+       250,
+       254,
+       258,
+       679
+      ]
+     },
+     {
+      "enzyme": "BspEI",
+      "site": "TCCGGA",
+      "cuts": 1,
+      "positions": [
+       1885
+      ]
+     },
+     {
+      "enzyme": "AvrII",
+      "site": "CCTAGG",
+      "cuts": 3,
+      "positions": [
+       1229,
+       2209,
+       2695
+      ]
+     },
+     {
+      "enzyme": "EagI",
+      "site": "CGGCCG",
+      "cuts": 2,
+      "positions": [
+       886,
+       2582
+      ]
+     },
+     {
+      "enzyme": "BstBI",
+      "site": "TTCGAA",
+      "cuts": 2,
+      "positions": [
+       791,
+       1978
+      ]
+     },
+     {
+      "enzyme": "PvuI",
+      "site": "CGATCG",
+      "cuts": 1,
+      "positions": [
+       2449
+      ]
+     },
+     {
+      "enzyme": "SnaBI",
+      "site": "TACGTA",
+      "cuts": 2,
+      "positions": [
+       1514,
+       2037
+      ]
+     },
+     {
+      "enzyme": "DraI",
+      "site": "TTTAAA",
+      "cuts": 2,
+      "positions": [
+       784,
+       2091
+      ]
+     },
+     {
+      "enzyme": "AatII",
+      "site": "GACGTC",
+      "cuts": 1,
+      "positions": [
+       1481
+      ]
+     },
+     {
+      "enzyme": "BsiWI",
+      "site": "CGTACG",
+      "cuts": 1,
+      "positions": [
+       2485
+      ]
+     },
+     {
+      "enzyme": "NaeI",
+      "site": "GCCGGC",
+      "cuts": 5,
+      "positions": [
+       184,
+       1418,
+       2012,
+       2217,
+       2549
+      ]
+     },
+     {
+      "enzyme": "NarI",
+      "site": "GGCGCC",
+      "cuts": 1,
+      "positions": [
+       1451
+      ]
+     },
+     {
+      "enzyme": "HaeIII",
+      "site": "GGCC",
+      "cuts": 10,
+      "positions": [
+       239,
+       888,
+       1416,
+       1420,
+       1804,
+       2215,
+       2219,
+       2547,
+       2584,
+       2619
+      ]
+     },
+     {
+      "enzyme": "AluI",
+      "site": "AGCT",
+      "cuts": 8,
+      "positions": [
+       605,
+       859,
+       1365,
+       1404,
+       2046,
+       2376,
+       2642,
+       2808
+      ]
+     },
+     {
+      "enzyme": "MspI",
+      "site": "CCGG",
+      "cuts": 10,
+      "positions": [
+       183,
+       1126,
+       1417,
+       1482,
+       1801,
+       1812,
+       1886,
+       2011,
+       2216,
+       2548
+      ]
+     },
+     {
+      "enzyme": "TaqI",
+      "site": "TCGA",
+      "cuts": 9,
+      "positions": [
+       350,
+       791,
+       963,
+       1180,
+       1565,
+       1978,
+       2192,
+       2481,
+       2648
+      ]
+     },
+     {
+      "enzyme": "Sau3AI",
+      "site": "GATC",
+      "cuts": 15,
+      "positions": [
+       322,
+       417,
+       542,
+       736,
+       749,
+       869,
+       970,
+       1073,
+       1181,
+       1202,
+       1333,
+       2051,
+       2097,
+       2446,
+       2464
+      ]
+     },
+     {
+      "enzyme": "NlaIII",
+      "site": "CATG",
+      "cuts": 19,
+      "positions": [
+       83,
+       190,
+       248,
+       252,
+       256,
+       260,
+       441,
+       677,
+       681,
+       693,
+       710,
+       776,
+       822,
+       835,
+       1550,
+       1740,
+       1848,
+       2105,
+       2370
+      ]
+     },
+     {
+      "enzyme": "BfaI",
+      "site": "CTAG",
+      "cuts": 12,
+      "positions": [
+       102,
+       144,
+       778,
+       845,
+       877,
+       1230,
+       1672,
+       1752,
+       1866,
+       2210,
+       2696,
+       2818
+      ]
+     },
+     {
+      "enzyme": "BglI",
+      "site": "GCCNNNNNGGC",
+      "cuts": 2,
+      "positions": [
+       188,
+       2322
+      ]
+     },
+     {
+      "enzyme": "AflIII",
+      "site": "ACRYGT",
+      "cuts": 2,
+      "positions": [
+       276,
+       1496
+      ]
+     },
+     {
+      "enzyme": "BsaI",
+      "site": "GGTCTC",
+      "cuts": 4,
+      "positions": [
+       353,
+       575,
+       1619,
+       2581
+      ]
+     },
+     {
+      "enzyme": "BbsI",
+      "site": "GAAGAC",
+      "cuts": 3,
+      "positions": [
+       896,
+       1546,
+       1583
+      ]
+     },
+     {
+      "enzyme": "SapI",
+      "site": "GCTCTTC",
+      "cuts": 1,
+      "positions": [
+       217
+      ]
+     },
+     {
+      "enzyme": "FokI",
+      "site": "GGATG",
+      "cuts": 8,
+      "positions": [
+       513,
+       814,
+       1517,
+       2001,
+       2015,
+       2448,
+       2668,
+       2766
+      ]
+     },
+     {
+      "enzyme": "BsrI",
+      "site": "ACTGG",
+      "cuts": 4,
+      "positions": [
+       1117,
+       1204,
+       2074,
+       2625
+      ]
+     },
+     {
+      "enzyme": "BpmI",
+      "site": "CTGGAG",
+      "cuts": 1,
+      "positions": [
+       282
+      ]
+     },
+     {
+      "enzyme": "MmeI",
+      "site": "TCCRAC",
+      "cuts": 1,
+      "positions": [
+       1611
+      ]
+     },
+     {
+      "enzyme": "BseRI",
+      "site": "GAGGAG",
+      "cuts": 1,
+      "positions": [
+       129
+      ]
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "sites linear unique only",
+  "input": {
+   "action": "sites",
+   "sequence": "AGCCGAACTCCTGGCTTTGAATGTCTGTTTCACTCGGAACATAACTATGGTCGTCGCTCGTCTGACGGCGTAGCGGTCGCATGGTGTAAATATACTATGGTCTAGTGCGTACAGAGGAGTAGTGAGTAAGCCGATAAGACGCGCTAGACCTTAATTGCTACGCCTGTAGTTGAATGGGTAAGCCGGCATGGCTGACATTGATTACTCCTGCTCTTCCCATACGGGACGTGCAAATAGGGCCTCCCATGCATGCATGCATGCTGGAGGCGGTTTAGACGTGTTATGAAGTCGGGAGCATAGCGGTTTTACCCTGCACCTTTAAGATCGCCTAAATAAGGCTTAATTCGTATCGAATCACGAGACCGCGGCGACAGCACGGCGAATTCAGTTCATTGACGGTTCGGGTTCCTCGCACGTGATCGCTACACCTACATTTTCATGTCTAACTTCTACCTGGTCACCTTAATTTGGAGGGGTAGACGCGAAACTAATAAAAAAAAAACTCCCCGCTAAGACAAAAGCATACCATCCATTTAATGACGGATCTATTGGGCATAAAGATTAGTGGGGTCTCGCAGTAAGACTAAATCCCGCGGGGTGACCAGCTACACCCGTATCCTGTGGCGCTTAGTTGAAACACCCCGCTAATAGATAATGTTGAGTTGACTGAGGGCATGCATGATTGTAGCCATGCGTGACTCTAACTCATGTCACATTTACTGACCGTGTCGCGACGGATCGTGTTCTATGATCGTCTATACATTGCATAGCCCATGTCTAGTTTAAAGGTTCGAAAGTCAAAATGGTCCCACTACTCGCATGGGTGCCATCCATGCGATAAATTCTAGTGATGTACAAGCTAAGGTTATGATCGTTCTAGTTTCACGGCCGCCTTCTACCTGGTCTTCCCTGACCTGCTTGCGAATTCAGTACATATAAAGCGCGACCACCTACGTCCGCGGTCGAAGCCGATCTGAATCACCGTGTTATGCCCGTACATTAGCGGGCACACGGGTTCAGGCACTCACCGCACGACTATTAGTCAGCGGCTCCTGCAAACGTATGGTCACATAGATCGGGAGCGGTAATATCACCATAAGTTTCGTTGTTGACTGGCATTAAAGCCCGGAGGCAAATAGCCTACGCTCTTGAACACACATCTTTGTGATGAAGTATTAATCGATCCACCAGACGCCCGACTGGATCGCCTTCTGATTGATGCTGAACTCCTAGGGCTGATGACCAAGTACTTAAAGCACGACGACAGGTACCACTGTTAGTCCTGGTCAGAGACAGCAGCGTTTAGTTAATTATTCAAAATTTACACTCGGAAGATCAAACATTGCTTCGGCGGAGAACTCCGAGCTCGTGACCTTAGAGTACGATTACGGCGGCACCATTTAGCTCAGGTGCAGGCCGGCCCTTAACCCAAGATGGTAGGATTTTATCGGCGCCCTAACGATTTTGCAACCCTTAGACGTCCGGGAGAGAGAGAACGTGTGGGGATGCGGTACGTACCACAGGTCCACAAGTCACCTTTACTTCCCATGCTGTCTTCCAAGTTTCGACCCTTAGGAAGACAATATCCGACGACAGAAGCGGTCACTAAGCGGGTCTCGTATGGCTGACTCGCTCGTTCAATGTGTAGAAATCCCCTCGTGTGAGTAAGCCCTAGCGTTAAACGAAGGGCAACACATCTCTCGGTTTCCCTACGGGACGTGCTCTTGGGGGTGTCCCATGCGTATTCGCAACTAGTTGAGACATTATATGTTGATGTCGTATCTCCTGTCTAAGCAGAATCCGGCCTAATGCCGGGAACCTCTACACCCTCGCCTGACGCCTCCCATGTGGGACAGACTTACGCGCTAGACAGACCCAGGGGTTTCCGGAAGTACTATCTACCTGGGCACCAATGTAGGCGCGTATATGCACATCGTTAGGCGCAACTATTTTGGGTCGCACAGGTCCACACGACATTCGAAGCGCTGGATGCGAGTCGCGGGATGAGTGCCGGCAACTGAGTCCCTATCAAATTACGTAGGAAAGCTGGGGATCGTGTTTATAAACGACTGGAAGTTTCAGAAGGCTTTTAAACAAGATCCATGCGATAAATAAACGAGCAATGTCCGCTGTACAACATTTATGCACTCAAAAGCATAGACCGACAAAAGCATAGCGGTAGCGGAGTATATCGACGCTTTTTTATATCCTAGGGCCGGCCTGGGCTTTTGATTGTGAACTACGCAATGGGTTGCCCATAATGCCAGCCCAAATATACGCTAAGACTTCATCAAACTGTTATCCGAGGTCTTTGCGCCACGAGGGCTTTAACAGATATAGGAGGCAGGTTGGTGGCGTCTTTAGGGCATGTACAAGCTACGCCTGTAGTTACGCCTGTAGCGATAGCGGTCGCCCACTTAATTGCGAGTAGTGGGGATGCGATAACGATCGGACACCCTTATATGATCTCCTTTGCCGCTTCGACGTACGTTGTCTGTTTCATCTCGTACTTCCCATTTTAAGAGTGCATATGTTCGGAATGTTGGGCCGGCACCATAATGTTGACGCGATTAAGCAGTCACGGCCGAGACCCGTAAGCGGACATTGACGCGGGAGTGGCCCTACCAGTGTCAAAACAGCAGCTACCTCGACAACCCTATCAAATTTTAGTATGCCCCTATCATCCATTTACTGCCTAGGAGAACTCCGAGGTAATTGAAAGCATAGCGGTCGCAACTTGTGTAGACAAATCGGATGAAGAACATTAAAGACAATATCCGAATATACTATGGTCACCGTCAGAGACAGCTTGAACATCTAGCGTTCAATGTGTAATGGGGAACTTTTCGCTCGTTCAGTACCCTTACTCGCCACGCAGAGCGCTTCTTGTGTACTCGCCATACTTGTGTAGACCTGCAAACGTTAGCCTGTGTGCATCTCGTGGTTCCGTGTTATGAATATATGTTGCGGCACCATAATGTTGACTCCCAGGGTAGGTAC",
+   "topology": "linear",
+   "uniqueOnly": true
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "length": 3000,
+    "sites": [
+     {
+      "enzyme": "SpeI",
+      "site": "ACTAGT",
+      "cuts": 1,
+      "positions": [
+       1751
+      ]
+     },
+     {
+      "enzyme": "NdeI",
+      "site": "CATATG",
+      "cuts": 1,
+      "positions": [
+       2529
+      ]
+     },
+     {
+      "enzyme": "KpnI",
+      "site": "GGTACC",
+      "cuts": 1,
+      "positions": [
+       1271
+      ]
+     },
+     {
+      "enzyme": "SacI",
+      "site": "GAGCTC",
+      "cuts": 1,
+      "positions": [
+       1367
+      ]
+     },
+     {
+      "enzyme": "ClaI",
+      "site": "ATCGAT",
+      "cuts": 1,
+      "positions": [
+       1180
+      ]
+     },
+     {
+      "enzyme": "BspEI",
+      "site": "TCCGGA",
+      "cuts": 1,
+      "positions": [
+       1885
+      ]
+     },
+     {
+      "enzyme": "PvuI",
+      "site": "CGATCG",
+      "cuts": 1,
+      "positions": [
+       2449
+      ]
+     },
+     {
+      "enzyme": "AatII",
+      "site": "GACGTC",
+      "cuts": 1,
+      "positions": [
+       1481
+      ]
+     },
+     {
+      "enzyme": "BsiWI",
+      "site": "CGTACG",
+      "cuts": 1,
+      "positions": [
+       2485
+      ]
+     },
+     {
+      "enzyme": "NarI",
+      "site": "GGCGCC",
+      "cuts": 1,
+      "positions": [
+       1451
+      ]
+     },
+     {
+      "enzyme": "SapI",
+      "site": "GCTCTTC",
+      "cuts": 1,
+      "positions": [
+       217
+      ]
+     },
+     {
+      "enzyme": "BpmI",
+      "site": "CTGGAG",
+      "cuts": 1,
+      "positions": [
+       282
+      ]
+     },
+     {
+      "enzyme": "MmeI",
+      "site": "TCCRAC",
+      "cuts": 1,
+      "positions": [
+       1611
+      ]
+     },
+     {
+      "enzyme": "BseRI",
+      "site": "GAGGAG",
+      "cuts": 1,
+      "positions": [
+       129
+      ]
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "sites named enzymes with a FASTA header",
+  "input": {
+   "action": "sites",
+   "sequence": ">my plasmid\nAGCCGAACTCCTGGCTTTGAATGTCTGTTTCACTCGGAACATAACTATGGTCGTCGCTCGTCTGACGGCGTAGCGGTCGCATGGTGTAAATATACTATGGTCTAGTGCGTACAGAGGAGTAGTGAGTAAGCCGATAAGACGCGCTAGACCTTAATTGCTACGCCTGTAGTTGAATGGGTAAGCCGGCATGGCTGACATTGATTACTCCTGCTCTTCCCATACGGGACGTGCAAATAGGGCCTCCCATGCATGCATGCATGCTGGAGGCGGTTTAGACGTGTTATGAAGTCGGGAGCATAGCGGTTTTACCCTGCACCTTTAAGATCGCCTAAATAAGGCTTAATTCGTATCGAATCACGAGACCGCGGCGACAGCACGGCGAATTCAGTTCATTGACGGTTCGGGTTCCTCGCACGTGATCGCTACACCTACATTTTCATGTCTAACTTCTACCTGGTCACCTTAATTTGGAGGGGTAGACGCGAAACTAATAAAAAAAAAACTCCCCGCTAAGACAAAAGCATACCATCCATTTAATGACGGATCTATTGGGCATAAAGATTAGTGGGGTCTCGCAGTAAGACTAAATCCCGCGGGGTGACCAGCTACACCCGTATCCTGTGGCGCTTAGTTGAAACACCCCGCTAATAGATAATGTTGAGTTGACTGAGGGCATGCATGATTGTAGCCATGCGTGACTCTAACTCATGTCACATTTACTGACCGTGTCGCGACGGATCGTGTTCTATGATCGTCTATACATTGCATAGCCCATGTCTAGTTTAAAGGTTCGAAAGTCA",
+   "enzymes": [
+    "EcoRI",
+    "bsai",
+    "NotFound",
+    "XmnI",
+    "SfiI"
+   ]
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "length": 800,
+    "sites": [
+     {
+      "enzyme": "EcoRI",
+      "site": "GAATTC",
+      "cuts": 1,
+      "positions": [
+       381
+      ]
+     },
+     {
+      "enzyme": "BsaI",
+      "site": "GGTCTC",
+      "cuts": 2,
+      "positions": [
+       353,
+       575
+      ]
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "sites across the origin",
+  "input": {
+   "action": "sites",
+   "sequence": "TTCTTCCATTTACGTGCCTTGGTTCGAGGCAACCGGTAGCTAAGGTTCTCCGTGGAGCTGCTTCGTGGTCTGGCCAATTGGCCAATTGGAGATTAGGCTGGCTGTTGAATGGTTGCCTACACACGCCTGACGTGCTACCTGCTGGGGGCTAGGTTAGACGGGGCAATCCTGCTTCGATTACCCTTATGACTGTAAATAGCGTAGAA",
+   "enzymes": [
+    "EcoRI",
+    "MmeI",
+    "BsaI"
+   ]
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "length": 206,
+    "sites": [
+     {
+      "enzyme": "EcoRI",
+      "site": "GAATTC",
+      "cuts": 1,
+      "positions": [
+       204
+      ]
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "digest circular two enzymes",
+  "input": {
+   "action": "digest",
+   "sequence": "AGCCGAACTCCTGGCTTTGAATGTCTGTTTCACTCGGAACATAACTATGGTCGTCGCTCGTCTGACGGCGTAGCGGTCGCATGGTGTAAATATACTATGGTCTAGTGCGTACAGAGGAGTAGTGAGTAAGCCGATAAGACGCGCTAGACCTTAATTGCTACGCCTGTAGTTGAATGGGTAAGCCGGCATGGCTGACATTGATTACTCCTGCTCTTCCCATACGGGACGTGCAAATAGGGCCTCCCATGCATGCATGCATGCTGGAGGCGGTTTAGACGTGTTATGAAGTCGGGAGCATAGCGGTTTTACCCTGCACCTTTAAGATCGCCTAAATAAGGCTTAATTCGTATCGAATCACGAGACCGCGGCGACAGCACGGCGAATTCAGTTCATTGACGGTTCGGGTTCCTCGCACGTGATCGCTACACCTACATTTTCATGTCTAACTTCTACCTGGTCACCTTAATTTGGAGGGGTAGACGCGAAACTAATAAAAAAAAAACTCCCCGCTAAGACAAAAGCATACCATCCATTTAATGACGGATCTATTGGGCATAAAGATTAGTGGGGTCTCGCAGTAAGACTAAATCCCGCGGGGTGACCAGCTACACCCGTATCCTGTGGCGCTTAGTTGAAACACCCCGCTAATAGATAATGTTGAGTTGACTGAGGGCATGCATGATTGTAGCCATGCGTGACTCTAACTCATGTCACATTTACTGACCGTGTCGCGACGGATCGTGTTCTATGATCGTCTATACATTGCATAGCCCATGTCTAGTTTAAAGGTTCGAAAGTCAAAATGGTCCCACTACTCGCATGGGTGCCATCCATGCGATAAATTCTAGTGATGTACAAGCTAAGGTTATGATCGTTCTAGTTTCACGGCCGCCTTCTACCTGGTCTTCCCTGACCTGCTTGCGAATTCAGTACATATAAAGCGCGACCACCTACGTCCGCGGTCGAAGCCGATCTGAATCACCGTGTTATGCCCGTACATTAGCGGGCACACGGGTTCAGGCACTCACCGCACGACTATTAGTCAGCGGCTCCTGCAAACGTATGGTCACATAGATCGGGAGCGGTAATATCACCATAAGTTTCGTTGTTGACTGGCATTAAAGCCCGGAGGCAAATAGCCTACGCTCTTGAACACACATCTTTGTGATGAAGTATTAATCGATCCACCAGACGCCCGACTGGATCGCCTTCTGATTGATGCTGAACTCCTAGGGCTGATGACCAAGTACTTAAAGCACGACGACAGGTACCACTGTTAGTCCTGGTCAGAGACAGCAGCGTTTAGTTAATTATTCAAAATTTACACTCGGAAGATCAAACATTGCTTCGGCGGAGAACTCCGAGCTCGTGACCTTAGAGTACGATTACGGCGGCACCATTTAGCTCAGGTGCAGGCCGGCCCTTAACCCAAGATGGTAGGATTTTATCGGCGCCCTAACGATTTTGCAACCCTTAGACGTCCGGGAGAGAGAGAACGTGTGGGGATGCGGTACGTACCACAGGTCCACAAGTCACCTTTACTTCCCATGCTGTCTTCCAAGTTTCGACCCTTAGGAAGACAATATCCGACGACAGAAGCGGTCACTAAGCGGGTCTCGTATGGCTGACTCGCTCGTTCAATGTGTAGAAATCCCCTCGTGTGAGTAAGCCCTAGCGTTAAACGAAGGGCAACACATCTCTCGGTTTCCCTACGGGACGTGCTCTTGGGGGTGTCCCATGCGTATTCGCAACTAGTTGAGACATTATATGTTGATGTCGTATCTCCTGTCTAAGCAGAATCCGGCCTAATGCCGGGAACCTCTACACCCTCGCCTGACGCCTCCCATGTGGGACAGACTTACGCGCTAGACAGACCCAGGGGTTTCCGGAAGTACTATCTACCTGGGCACCAATGTAGGCGCGTATATGCACATCGTTAGGCGCAACTATTTTGGGTCGCACAGGTCCACACGACATTCGAAGCGCTGGATGCGAGTCGCGGGATGAGTGCCGGCAACTGAGTCCCTATCAAATTACGTAGGAAAGCTGGGGATCGTGTTTATAAACGACTGGAAGTTTCAGAAGGCTTTTAAACAAGATCCATGCGATAAATAAACGAGCAATGTCCGCTGTACAACATTTATGCACTCAAAAGCATAGACCGACAAAAGCATAGCGGTAGCGGAGTATATCGACGCTTTTTTATATCCTAGGGCCGGCCTGGGCTTTTGATTGTGAACTACGCAATGGGTTGCCCATAATGCCAGCCCAAATATACGCTAAGACTTCATCAAACTGTTATCCGAGGTCTTTGCGCCACGAGGGCTTTAACAGATATAGGAGGCAGGTTGGTGGCGTCTTTAGGGCATGTACAAGCTACGCCTGTAGTTACGCCTGTAGCGATAGCGGTCGCCCACTTAATTGCGAGTAGTGGGGATGCGATAACGATCGGACACCCTTATATGATCTCCTTTGCCGCTTCGACGTACGTTGTCTGTTTCATCTCGTACTTCCCATTTTAAGAGTGCATATGTTCGGAATGTTGGGCCGGCACCATAATGTTGACGCGATTAAGCAGTCACGGCCGAGACCCGTAAGCGGACATTGACGCGGGAGTGGCCCTACCAGTGTCAAAACAGCAGCTACCTCGACAACCCTATCAAATTTTAGTATGCCCCTATCATCCATTTACTGCCTAGGAGAACTCCGAGGTAATTGAAAGCATAGCGGTCGCAACTTGTGTAGACAAATCGGATGAAGAACATTAAAGACAATATCCGAATATACTATGGTCACCGTCAGAGACAGCTTGAACATCTAGCGTTCAATGTGTAATGGGGAACTTTTCGCTCGTTCAGTACCCTTACTCGCCACGCAGAGCGCTTCTTGTGTACTCGCCATACTTGTGTAGACCTGCAAACGTTAGCCTGTGTGCATCTCGTGGTTCCGTGTTATGAATATATGTTGCGGCACCATAATGTTGACTCCCAGGGTAGGTAC",
+   "enzymes": [
+    "EcoRI",
+    "HindIII",
+    "XhoI",
+    "NcoI",
+    "BamHI"
+   ]
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "fragments": [
+     {
+      "start": 382,
+      "size": 542,
+      "label": "542 bp",
+      "leftEnd": {
+       "enzyme": "EcoRI",
+       "kind": "5prime",
+       "sense": "AATT"
+      },
+      "rightEnd": {
+       "enzyme": "EcoRI",
+       "kind": "5prime",
+       "sense": "AATT"
+      }
+     },
+     {
+      "start": 924,
+      "size": 2458,
+      "label": "2.46 kb",
+      "leftEnd": {
+       "enzyme": "EcoRI",
+       "kind": "5prime",
+       "sense": "AATT"
+      },
+      "rightEnd": {
+       "enzyme": "EcoRI",
+       "kind": "5prime",
+       "sense": "AATT"
+      }
+     }
+    ],
+    "gelBands": [
+     {
+      "size": 2458,
+      "count": 1
+     },
+     {
+      "size": 542,
+      "count": 1
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "digest linear Type IIS",
+  "input": {
+   "action": "digest",
+   "sequence": "AGCCGAACTCCTGGCTTTGAATGTCTGTTTCACTCGGAACATAACTATGGTCGTCGCTCGTCTGACGGCGTAGCGGTCGCATGGTGTAAATATACTATGGTCTAGTGCGTACAGAGGAGTAGTGAGTAAGCCGATAAGACGCGCTAGACCTTAATTGCTACGCCTGTAGTTGAATGGGTAAGCCGGCATGGCTGACATTGATTACTCCTGCTCTTCCCATACGGGACGTGCAAATAGGGCCTCCCATGCATGCATGCATGCTGGAGGCGGTTTAGACGTGTTATGAAGTCGGGAGCATAGCGGTTTTACCCTGCACCTTTAAGATCGCCTAAATAAGGCTTAATTCGTATCGAATCACGAGACCGCGGCGACAGCACGGCGAATTCAGTTCATTGACGGTTCGGGTTCCTCGCACGTGATCGCTACACCTACATTTTCATGTCTAACTTCTACCTGGTCACCTTAATTTGGAGGGGTAGACGCGAAACTAATAAAAAAAAAACTCCCCGCTAAGACAAAAGCATACCATCCATTTAATGACGGATCTATTGGGCATAAAGATTAGTGGGGTCTCGCAGTAAGACTAAATCCCGCGGGGTGACCAGCTACACCCGTATCCTGTGGCGCTTAGTTGAAACACCCCGCTAATAGATAATGTTGAGTTGACTGAGGGCATGCATGATTGTAGCCATGCGTGACTCTAACTCATGTCACATTTACTGACCGTGTCGCGACGGATCGTGTTCTATGATCGTCTATACATTGCATAGCCCATGTCTAGTTTAAAGGTTCGAAAGTCAAAATGGTCCCACTACTCGCATGGGTGCCATCCATGCGATAAATTCTAGTGATGTACAAGCTAAGGTTATGATCGTTCTAGTTTCACGGCCGCCTTCTACCTGGTCTTCCCTGACCTGCTTGCGAATTCAGTACATATAAAGCGCGACCACCTACGTCCGCGGTCGAAGCCGATCTGAATCACCGTGTTATGCCCGTACATTAGCGGGCACACGGGTTCAGGCACTCACCGCACGACTATTAGTCAGCGGCTCCTGCAAACGTATGGTCACATAGATCGGGAGCGGTAATATCACCATAAGTTTCGTTGTTGACTGGCATTAAAGCCCGGAGGCAAATAGCCTACGCTCTTGAACACACATCTTTGTGATGAAGTATTAATCGATCCACCAGACGCCCGACTGGATCGCCTTCTGATTGATGCTGAACTCCTAGGGCTGATGACCAAGTACTTAAAGCACGACGACAGGTACCACTGTTAGTCCTGGTCAGAGACAGCAGCGTTTAGTTAATTATTCAAAATTTACACTCGGAAGATCAAACATTGCTTCGGCGGAGAACTCCGAGCTCGTGACCTTAGAGTACGATTACGGCGGCACCATTTAGCTCAGGTGCAGGCCGGCCCTTAACCCAAGATGGTAGGATTTTATCGGCGCCCTAACGATTTTGCAACCCTTAGACGTCCGGGAGAGAGAGAACGTGTGGGGATGCGGTACGTACCACAGGTCCACAAGTCACCTTTACTTCCCATGCTGTCTTCCAAGTTTCGACCCTTAGGAAGACAATATCCGACGACAGAAGCGGTCACTAAGCGGGTCTCGTATGGCTGACTCGCTCGTTCAATGTGTAGAAATCCCCTCGTGTGAGTAAGCCCTAGCGTTAAACGAAGGGCAACACATCTCTCGGTTTCCCTACGGGACGTGCTCTTGGGGGTGTCCCATGCGTATTCGCAACTAGTTGAGACATTATATGTTGATGTCGTATCTCCTGTCTAAGCAGAATCCGGCCTAATGCCGGGAACCTCTACACCCTCGCCTGACGCCTCCCATGTGGGACAGACTTACGCGCTAGACAGACCCAGGGGTTTCCGGAAGTACTATCTACCTGGGCACCAATGTAGGCGCGTATATGCACATCGTTAGGCGCAACTATTTTGGGTCGCACAGGTCCACACGACATTCGAAGCGCTGGATGCGAGTCGCGGGATGAGTGCCGGCAACTGAGTCCCTATCAAATTACGTAGGAAAGCTGGGGATCGTGTTTATAAACGACTGGAAGTTTCAGAAGGCTTTTAAACAAGATCCATGCGATAAATAAACGAGCAATGTCCGCTGTACAACATTTATGCACTCAAAAGCATAGACCGACAAAAGCATAGCGGTAGCGGAGTATATCGACGCTTTTTTATATCCTAGGGCCGGCCTGGGCTTTTGATTGTGAACTACGCAATGGGTTGCCCATAATGCCAGCCCAAATATACGCTAAGACTTCATCAAACTGTTATCCGAGGTCTTTGCGCCACGAGGGCTTTAACAGATATAGGAGGCAGGTTGGTGGCGTCTTTAGGGCATGTACAAGCTACGCCTGTAGTTACGCCTGTAGCGATAGCGGTCGCCCACTTAATTGCGAGTAGTGGGGATGCGATAACGATCGGACACCCTTATATGATCTCCTTTGCCGCTTCGACGTACGTTGTCTGTTTCATCTCGTACTTCCCATTTTAAGAGTGCATATGTTCGGAATGTTGGGCCGGCACCATAATGTTGACGCGATTAAGCAGTCACGGCCGAGACCCGTAAGCGGACATTGACGCGGGAGTGGCCCTACCAGTGTCAAAACAGCAGCTACCTCGACAACCCTATCAAATTTTAGTATGCCCCTATCATCCATTTACTGCCTAGGAGAACTCCGAGGTAATTGAAAGCATAGCGGTCGCAACTTGTGTAGACAAATCGGATGAAGAACATTAAAGACAATATCCGAATATACTATGGTCACCGTCAGAGACAGCTTGAACATCTAGCGTTCAATGTGTAATGGGGAACTTTTCGCTCGTTCAGTACCCTTACTCGCCACGCAGAGCGCTTCTTGTGTACTCGCCATACTTGTGTAGACCTGCAAACGTTAGCCTGTGTGCATCTCGTGGTTCCGTGTTATGAATATATGTTGCGGCACCATAATGTTGACTCCCAGGGTAGGTAC",
+   "topology": "linear",
+   "enzymes": [
+    "BsaI",
+    "BbsI",
+    "SapI",
+    "MmeI",
+    "FokI"
+   ]
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "fragments": [
+     {
+      "start": 1,
+      "size": 217,
+      "label": "217 bp",
+      "leftEnd": {
+       "enzyme": null,
+       "kind": "blunt",
+       "sense": ""
+      },
+      "rightEnd": {
+       "enzyme": "SapI",
+       "kind": "5prime",
+       "sense": "CAT"
+      }
+     },
+     {
+      "start": 218,
+      "size": 136,
+      "label": "136 bp",
+      "leftEnd": {
+       "enzyme": "SapI",
+       "kind": "5prime",
+       "sense": "CAT"
+      },
+      "rightEnd": {
+       "enzyme": "BsaI",
+       "kind": "5prime",
+       "sense": "ATCA"
+      }
+     },
+     {
+      "start": 354,
+      "size": 160,
+      "label": "160 bp",
+      "leftEnd": {
+       "enzyme": "BsaI",
+       "kind": "5prime",
+       "sense": "ATCA"
+      },
+      "rightEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "GACA"
+      }
+     },
+     {
+      "start": 514,
+      "size": 62,
+      "label": "62 bp",
+      "leftEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "GACA"
+      },
+      "rightEnd": {
+       "enzyme": "BsaI",
+       "kind": "5prime",
+       "sense": "CAGT"
+      }
+     },
+     {
+      "start": 576,
+      "size": 239,
+      "label": "239 bp",
+      "leftEnd": {
+       "enzyme": "BsaI",
+       "kind": "5prime",
+       "sense": "CAGT"
+      },
+      "rightEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "CTCG"
+      }
+     },
+     {
+      "start": 815,
+      "size": 82,
+      "label": "82 bp",
+      "leftEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "CTCG"
+      },
+      "rightEnd": {
+       "enzyme": "BbsI",
+       "kind": "5prime",
+       "sense": "TACC"
+      }
+     },
+     {
+      "start": 897,
+      "size": 621,
+      "label": "621 bp",
+      "leftEnd": {
+       "enzyme": "BbsI",
+       "kind": "5prime",
+       "sense": "TACC"
+      },
+      "rightEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "CCAC"
+      }
+     },
+     {
+      "start": 1518,
+      "size": 29,
+      "label": "29 bp",
+      "leftEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "CCAC"
+      },
+      "rightEnd": {
+       "enzyme": "BbsI",
+       "kind": "5prime",
+       "sense": "CATG"
+      }
+     },
+     {
+      "start": 1547,
+      "size": 37,
+      "label": "37 bp",
+      "leftEnd": {
+       "enzyme": "BbsI",
+       "kind": "5prime",
+       "sense": "CATG"
+      },
+      "rightEnd": {
+       "enzyme": "BbsI",
+       "kind": "5prime",
+       "sense": "TATC"
+      }
+     },
+     {
+      "start": 1584,
+      "size": 28,
+      "label": "28 bp",
+      "leftEnd": {
+       "enzyme": "BbsI",
+       "kind": "5prime",
+       "sense": "TATC"
+      },
+      "rightEnd": {
+       "enzyme": "MmeI",
+       "kind": "3prime",
+       "sense": "GC"
+      }
+     },
+     {
+      "start": 1610,
+      "size": 8,
+      "label": "8 bp",
+      "leftEnd": {
+       "enzyme": "MmeI",
+       "kind": "3prime",
+       "sense": "GC"
+      },
+      "rightEnd": {
+       "enzyme": "BsaI",
+       "kind": "5prime",
+       "sense": "TATG"
+      }
+     },
+     {
+      "start": 1620,
+      "size": 382,
+      "label": "382 bp",
+      "leftEnd": {
+       "enzyme": "BsaI",
+       "kind": "5prime",
+       "sense": "TATG"
+      },
+      "rightEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "GGAT"
+      }
+     },
+     {
+      "start": 2002,
+      "size": 14,
+      "label": "14 bp",
+      "leftEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "GGAT"
+      },
+      "rightEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "AACT"
+      }
+     },
+     {
+      "start": 2016,
+      "size": 433,
+      "label": "433 bp",
+      "leftEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "AACT"
+      },
+      "rightEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "TCGG"
+      }
+     },
+     {
+      "start": 2449,
+      "size": 133,
+      "label": "133 bp",
+      "leftEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "TCGG"
+      },
+      "rightEnd": {
+       "enzyme": "BsaI",
+       "kind": "5prime",
+       "sense": "CGGC"
+      }
+     },
+     {
+      "start": 2582,
+      "size": 87,
+      "label": "87 bp",
+      "leftEnd": {
+       "enzyme": "BsaI",
+       "kind": "5prime",
+       "sense": "CGGC"
+      },
+      "rightEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "AGTA"
+      }
+     },
+     {
+      "start": 2669,
+      "size": 98,
+      "label": "98 bp",
+      "leftEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "AGTA"
+      },
+      "rightEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "AAAG"
+      }
+     },
+     {
+      "start": 2767,
+      "size": 234,
+      "label": "234 bp",
+      "leftEnd": {
+       "enzyme": "FokI",
+       "kind": "5prime",
+       "sense": "AAAG"
+      },
+      "rightEnd": {
+       "enzyme": null,
+       "kind": "blunt",
+       "sense": ""
+      }
+     }
+    ],
+    "gelBands": [
+     {
+      "size": 621,
+      "count": 1
+     },
+     {
+      "size": 433,
+      "count": 1
+     },
+     {
+      "size": 382,
+      "count": 1
+     },
+     {
+      "size": 239,
+      "count": 1
+     },
+     {
+      "size": 234,
+      "count": 1
+     },
+     {
+      "size": 217,
+      "count": 1
+     },
+     {
+      "size": 160,
+      "count": 1
+     },
+     {
+      "size": 136,
+      "count": 1
+     },
+     {
+      "size": 133,
+      "count": 1
+     },
+     {
+      "size": 98,
+      "count": 1
+     },
+     {
+      "size": 87,
+      "count": 1
+     },
+     {
+      "size": 82,
+      "count": 1
+     },
+     {
+      "size": 62,
+      "count": 1
+     },
+     {
+      "size": 37,
+      "count": 1
+     },
+     {
+      "size": 29,
+      "count": 1
+     },
+     {
+      "size": 28,
+      "count": 1
+     },
+     {
+      "size": 14,
+      "count": 1
+     },
+     {
+      "size": 8,
+      "count": 1
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "digest with no cuts",
+  "input": {
+   "action": "digest",
+   "sequence": "ACACACACACACAC",
+   "enzymes": [
+    "EcoRI"
+   ]
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "fragments": [
+     {
+      "start": 1,
+      "size": 14,
+      "label": "14 bp",
+      "leftEnd": {
+       "enzyme": null,
+       "kind": "blunt",
+       "sense": ""
+      },
+      "rightEnd": {
+       "enzyme": null,
+       "kind": "blunt",
+       "sense": ""
+      }
+     }
+    ],
+    "gelBands": [
+     {
+      "size": 14,
+      "count": 1
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "digest degenerate and long sites",
+  "input": {
+   "action": "digest",
+   "sequence": "TCAATGAAGTTCGCGCCTGGTTGCGGACTCACAATCATCAATGTTGCGGGGGGACAGCCCCTATCATCCTACCTCGTGAACTCCACTGTAAATATACTAAAACGTATCACGGTGCAACCGTGTTTGTGTAGAGTCACGGGGCGGAGATTCGCTGGGGACTGTTACGACGCAAGTCATCCGTCGACAACTCAGCACCGCAATCCCTGCACTGTTAGGAGGAGCCGGATCTGAATAGAGAGTTTCACTGAGGATCGTATTCAGTTACACCCCTTGTCTCAAACATGGTTGTTGTGTTTATCGGATTTGCCGAAGCCGATCTCACGGCCTTTGGTGTTAGTGGGGATCCGTTCTGTCGGCGAATCAGGTCGGCGGACTTCTTGTACGTAATATCCCCCAAACGTGCACCACTCAATGCTGCTTCGTTCGGACTGCCATATGATTTTTTCTGATTTGACAGAGCCACAGGTAAGGAGTTCCTCAGTTTCTGATTTTGGGTTCGCCTCGTGAACTCCCATTTACTTCCCATTATATGATCTGAGGTTCGGGCATTTGACCTGTCGGGATACTAGACAGACGGAGCCCCTTATATCACCGAAACTCGCTAGACTCAAGGGGGCCGGGACTGCTCTTCGAAGCTAAGACTATTATCTAAAAGCTACACCAACACATCGTTATGCTTTCTAGTGGTAGCTTACCTCGACCCGCCCCCTGACGACCTGCACTCAATGCACGCTTGGTGTGCGGCGCCAATTAAATGGTCTTTGCTACGCTAAGTCAACTGAGTCCGTATCGCCTTGCGGCATTTTGTACTTGGGCCCTAGGAGTATGGGGTTCGGTAGCCATGCGCCCGGACCATGCGATAATTGAGGCGGTTTGAGAGAGAGACCTGGGCACCCCTATCGGACTCGTCCTCCATTTTACGGATCACCGTCAGAGACCCACTTCGTGTGCTGGCGTCGGTAGCTCAGGCGTCAATGCGTCGATGAGAAGGACCTGCCATCGATTCGAAATATCATCCAGCGGTAGCATAGACTATCTGTATTGATGAAGTCTCGCGGGACGGACGACAAAAGCATTTCATTGCCCGGCTATAATGGGTCAGATCCTTAGATAAACTATTACGCTATAATTATACTATCATTCGGGCGCGTCTAAGCAGGACTCGAACATAAATAATGACTGTAAAGTACATTAGATGCCCCCAGTTCTGAAGTTGATGATAGATCTAAGCCGAGGTGCAGGGAGGGCGTATCTCTCAAATGGTGTGAAGGCCGCCAGACAGTCGTAGTACGTAATTTGTGGACCGGTCAGTTACAACAGTTCCGGAACCGGTTAACAAAGCCATAATTCTAGCCCATTATAAACACAGGAAGTACAAGCGCCACAGCAGACGCTCACTCCTAGTGGGGTGTCTTTGACAATATCCAATGTTTCTATTCAGCGGCGTCTCCTCGTATGGCAGTGGGGAGCGCCTATTCTACAGGTCCCCTAGACAGACGCAACACATAATCCCTCACAGCGGCAGAGGCTGAACTGACCGGCCTAACGAGGGCTTTACTTCCATAATTTGGAAAATTAATCGAGCCCCTGCACTGTTTGCGTAATAGCCCATGCATGCTGGCGTCAAGCGCTTCCGCCTCCGGTTATGCCCCGTCACAGACCGGGACACAGAGACGCATTCTTTGACGGTGTACTATGCCATAGCGGGCCTCGACCCAGGGTTTGGGCTGGAAGCTAATCGTGACGGTGTACATTGCTGTGGGGATCGTGGCCCTAGTACCACAGGTACCATTTAGCTGGTTCGAAAGGGACCCATTATACTGACATAATGTTGCGGAACTACGCATCACAGTTGATGAGCGGGGGCAACACATCAGTATTAGTACTTAAGAGCGAGCTGACAATGGTACGTTGTAAATATTGATGATAGAAGTCCCAGTCTCGGTATAGGCTTATGATCGTTAACATGGGGCAAAGATCTTCCAGCGTGACAGACCGTCGTATCCGCATTGTTCTAATGCCCCGCGCGATTCTATTGTCTCGGATGCCCCAATTGGAGCTTGCGCCATAAGGCTGAATCGATCCGTTCTTGACGGTTAACCGCATTTTATATGATCGTTCTAGTTTGAAACGAAGGGCAACACATCAGTAAGATACAAGCGCCGCGGTATAAAGACGGTATTTAGGAGAAGACGTGCAGACCGTATGCGTTCTCGGTATCGGACTGTACGTTTTCACGCAGCTACCCCCCCACTGTTCAACGTGTGAGGTAGTATCCGCTTCACTAATAGGACTACGTACGTACGTACGGGAGATTCCAAGTCCACATCAGGTCTTCGAAATCGAGCTTATGCGTTTAAGTACAGAGGCTAAAGTCTTAGATCGACATTAGCGGTCGGTTGGACGTGAAAAAGTTAATTCGTATCTCAATAATTGTGAAGCCATGGTTTCACTATGGGTGCATACTATCAAATTAAAGAGCATACCTCTACACCAAAAC",
+   "enzymes": [
+    "XmnI",
+    "BglI",
+    "SfiI",
+    "AlwNI",
+    "BstXI",
+    "AflIII",
+    "AluI"
+   ]
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "fragments": [
+     {
+      "start": 482,
+      "size": 151,
+      "label": "151 bp",
+      "leftEnd": {
+       "enzyme": "AlwNI",
+       "kind": "3prime",
+       "sense": "TTT"
+      },
+      "rightEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      }
+     },
+     {
+      "start": 636,
+      "size": 20,
+      "label": "20 bp",
+      "leftEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      },
+      "rightEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      }
+     },
+     {
+      "start": 656,
+      "size": 35,
+      "label": "35 bp",
+      "leftEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      },
+      "rightEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      }
+     },
+     {
+      "start": 691,
+      "size": 64,
+      "label": "64 bp",
+      "leftEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      },
+      "rightEnd": {
+       "enzyme": "BstXI",
+       "kind": "3prime",
+       "sense": "TTAA"
+      }
+     },
+     {
+      "start": 751,
+      "size": 209,
+      "label": "209 bp",
+      "leftEnd": {
+       "enzyme": "BstXI",
+       "kind": "3prime",
+       "sense": "TTAA"
+      },
+      "rightEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      }
+     },
+     {
+      "start": 964,
+      "size": 565,
+      "label": "565 bp",
+      "leftEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      },
+      "rightEnd": {
+       "enzyme": "AlwNI",
+       "kind": "3prime",
+       "sense": "AGG"
+      }
+     },
+     {
+      "start": 1526,
+      "size": 206,
+      "label": "206 bp",
+      "leftEnd": {
+       "enzyme": "AlwNI",
+       "kind": "3prime",
+       "sense": "AGG"
+      },
+      "rightEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      }
+     },
+     {
+      "start": 1735,
+      "size": 62,
+      "label": "62 bp",
+      "leftEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      },
+      "rightEnd": {
+       "enzyme": "BstXI",
+       "kind": "3prime",
+       "sense": "TTAG"
+      }
+     },
+     {
+      "start": 1793,
+      "size": 101,
+      "label": "101 bp",
+      "leftEnd": {
+       "enzyme": "BstXI",
+       "kind": "3prime",
+       "sense": "TTAG"
+      },
+      "rightEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      }
+     },
+     {
+      "start": 1898,
+      "size": 162,
+      "label": "162 bp",
+      "leftEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      },
+      "rightEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      }
+     },
+     {
+      "start": 2060,
+      "size": 183,
+      "label": "183 bp",
+      "leftEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      },
+      "rightEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      }
+     },
+     {
+      "start": 2243,
+      "size": 19,
+      "label": "19 bp",
+      "leftEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      },
+      "rightEnd": {
+       "enzyme": "AflIII",
+       "kind": "5prime",
+       "sense": "CGTG"
+      }
+     },
+     {
+      "start": 2262,
+      "size": 86,
+      "label": "86 bp",
+      "leftEnd": {
+       "enzyme": "AflIII",
+       "kind": "5prime",
+       "sense": "CGTG"
+      },
+      "rightEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      }
+     },
+     {
+      "start": 2348,
+      "size": 637,
+      "label": "637 bp",
+      "leftEnd": {
+       "enzyme": "AluI",
+       "kind": "blunt",
+       "sense": ""
+      },
+      "rightEnd": {
+       "enzyme": "AlwNI",
+       "kind": "3prime",
+       "sense": "TTT"
+      }
+     }
+    ],
+    "gelBands": [
+     {
+      "size": 637,
+      "count": 1
+     },
+     {
+      "size": 565,
+      "count": 1
+     },
+     {
+      "size": 209,
+      "count": 2
+     },
+     {
+      "size": 183,
+      "count": 1
+     },
+     {
+      "size": 162,
+      "count": 1
+     },
+     {
+      "size": 151,
+      "count": 1
+     },
+     {
+      "size": 101,
+      "count": 1
+     },
+     {
+      "size": 86,
+      "count": 1
+     },
+     {
+      "size": 64,
+      "count": 1
+     },
+     {
+      "size": 62,
+      "count": 1
+     },
+     {
+      "size": 35,
+      "count": 1
+     },
+     {
+      "size": 20,
+      "count": 1
+     },
+     {
+      "size": 19,
+      "count": 1
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "annotate library and ORFs",
+  "input": {
+   "action": "annotate",
+   "sequence": "TGGTATATAGGCACCATTTAGAACCGCTAAGCCCCCCGACTTAACAGTCAAGAAGCTACCACAACATTCGAAGCCCCCTATCACGGTTAACACGTACTTCTAATACGACTCACTATAGCCAGAAGGAGCTCCGGATTAGTGAGTAAGATTTTATCCGAATATACTTCTCTTGTCATCGTCGTCCTTGTAGTCTAAAGCTAATCATCACCTTGGGGGCTTTCATGTAAGGCATAGATTGATACATGGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTGCTTAACGGTGACCACAACAGCGGACAACAATATGCTGGCCTCGACTCATTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCCATACCACCTTTACTTATGATTTGGTTGGCTTT"
+  },
+  "expected": {
+   "ok": true,
+   "result": [
+    {
+     "label": "T7 promoter",
+     "type": "promoter",
+     "start": 101,
+     "end": 118,
+     "strand": 1
+    },
+    {
+     "label": "FLAG",
+     "type": "misc_feature",
+     "start": 169,
+     "end": 192,
+     "strand": -1
+    },
+    {
+     "label": "ORF (101 aa)",
+     "type": "CDS",
+     "start": 243,
+     "end": 548,
+     "strand": 1
+    },
+    {
+     "label": "ORF (91 aa)",
+     "type": "CDS",
+     "start": 589,
+     "end": 864,
+     "strand": -1
+    }
+   ]
+  }
+ },
+ {
+  "name": "annotate nothing",
+  "input": {
+   "action": "annotate",
+   "sequence": "ATTCACAATAGCCCCGTATCGGCGATTGTCAGGTCTGAGAGAGAGAGTTCAATGTGTACTTTTACTTCCCATTATATGAGAGACCGTCAGGTAAGACTATCATCACTCCTAGGGCTTTCATGTCACCGAAGACGGATCCTCGCAACAGCTTTCTAAATATCATGTTACTGAGCTTCCGAGGGGGATCGTGTTTTCTTAATTCGTATCTCCAGACCCATTAAAGGTTCTCGCCTGTAGTAGTCCGACTTCACCAAATTCTACACGAGGTCTTTGCGCCACCTTTACTTCCCATTATATGAG"
+  },
+  "expected": {
+   "ok": true,
+   "result": []
+  }
+ },
+ {
+  "name": "primers flanking a region",
+  "input": {
+   "action": "primers",
+   "sequence": "AGGTGACCTCGCCCCTGCACTGTTACTGAAGTTTCTTTGCATGCATGCTACGCTAGAGTATTAACAGTTGATGAGAGACGCCGCAAATCCCGTCCTACTTAGACCTGCAATGGGAACCTCTTAGTACGTATGGACCCCAAGTCGGGCTCGGGCGAGTCGTTCTGTCGGTGCTTATCGATACCCTACCACCATTTAGCTCAGGCACTTAACATCTCCTATATACTCGCTCGGTTTCGCTGGGGACACACGAGGGATAGAATCGGCTGAAGACCGGTTGACTGGTCGTCGTAAAGGAACCATTATATGACGGTGCAGGAAATCGATACTGTAAATAGCGCACCGACAAATCGCCATGTCTCCCAGGGTTCGAGACATAATTTCCGACTTCGTGCGCAGTATGCAGCCAGAAGGTCGATTCAGTACATTGCATAGCGGGTCTTCGGCATTAATCGACCCAGGGAGTTTGAATGGGGCACGTTATGGGTCAGAGTGCTTTACTTATGATTTTCGCTGGGGACGTTATGAATTAGTACCCGGGCCTCCCCGCGCCCATTAAAGGTATACTGGTGTGCTGACGGAGTCGCTGAATCCGCAGATCCATATCACCCGCGTCTAAGGAGCTGGGTCACCGCAGGGGCGCGTCGTATAACATTAAGGGGTTGGCACTCTAACGCGGGCGATAGGTGCTGTTGGGCCTCCCACGTCTCTTCCTACCGGGACTTAGTGGGCATTATTTGACAATATCAATCAGTAAGAATCGAGACATAATGTTGCCAGTTGTTACGGGAGTGGTACGTTGTGATGTTGATCCAGCATTACGTGCCATGGTTCTTCGCTCCGTCTAAGGTGCAACCCAAGAGGCCTCAACAATCACGCACGTGCTACAGTTCCTCGTCGCCCCTGCACTGTTACTGAGGCTAGAGTTCTCTAACGCGGTGCAAACGTAAATTTTGAATGGGGGCGGTACGTATCGGACCACACGACTGAGAATCCGGCCTACGCTAGTCTAGTTTGAAACTGCTGACGGAGTACGTATGGAGCAGATGATCCTTCCCATTAGAGTGCATATGCGCAGCATCATGCGTATCGTTATCGGCTGCTGTAATTCTCGCCCATAAATATAAACTGACTGTTGAATTTTTCCCTACGCTCTTGGGCGCCAGCAGGACTCGAGAGTATAAAGTCCGGTGACCAGCACGT",
+   "topology": "linear",
+   "start": 300,
+   "end": 800
+  },
+  "expected": {
+   "ok": true,
+   "result": [
+    {
+     "forward": {
+      "seq": "GTAAATAGCGCACCGACAAA",
+      "tm": 60,
+      "gc": 45
+     },
+     "reverse": {
+      "seq": "TCCCGTAACAACTGGCAA",
+      "tm": 60,
+      "gc": 50
+     },
+     "productSize": 461,
+     "tmDiff": 0,
+     "warnings": []
+    },
+    {
+     "forward": {
+      "seq": "TAAATAGCGCACCGACAAATC",
+      "tm": 60.1,
+      "gc": 42.9
+     },
+     "reverse": {
+      "seq": "TCCCGTAACAACTGGCAA",
+      "tm": 60,
+      "gc": 50
+     },
+     "productSize": 460,
+     "tmDiff": 0.1,
+     "warnings": []
+    },
+    {
+     "forward": {
+      "seq": "AAATAGCGCACCGACAAATC",
+      "tm": 60.4,
+      "gc": 45
+     },
+     "reverse": {
+      "seq": "ACCACTCCCGTAACAACTG",
+      "tm": 60.4,
+      "gc": 52.6
+     },
+     "productSize": 464,
+     "tmDiff": 0,
+     "warnings": []
+    },
+    {
+     "forward": {
+      "seq": "GTAAATAGCGCACCGACAAAT",
+      "tm": 60.4,
+      "gc": 42.9
+     },
+     "reverse": {
+      "seq": "ACCACTCCCGTAACAACTG",
+      "tm": 60.4,
+      "gc": 52.6
+     },
+     "productSize": 466,
+     "tmDiff": 0,
+     "warnings": []
+    },
+    {
+     "forward": {
+      "seq": "TACTGTAAATAGCGCACCGA",
+      "tm": 60,
+      "gc": 45
+     },
+     "reverse": {
+      "seq": "TCCCGTAACAACTGGCAA",
+      "tm": 60,
+      "gc": 50
+     },
+     "productSize": 465,
+     "tmDiff": 0,
+     "warnings": []
+    }
+   ]
+  }
+ },
+ {
+  "name": "primers with tails and a target Tm",
+  "input": {
+   "action": "primers",
+   "sequence": "AGGTGACCTCGCCCCTGCACTGTTACTGAAGTTTCTTTGCATGCATGCTACGCTAGAGTATTAACAGTTGATGAGAGACGCCGCAAATCCCGTCCTACTTAGACCTGCAATGGGAACCTCTTAGTACGTATGGACCCCAAGTCGGGCTCGGGCGAGTCGTTCTGTCGGTGCTTATCGATACCCTACCACCATTTAGCTCAGGCACTTAACATCTCCTATATACTCGCTCGGTTTCGCTGGGGACACACGAGGGATAGAATCGGCTGAAGACCGGTTGACTGGTCGTCGTAAAGGAACCATTATATGACGGTGCAGGAAATCGATACTGTAAATAGCGCACCGACAAATCGCCATGTCTCCCAGGGTTCGAGACATAATTTCCGACTTCGTGCGCAGTATGCAGCCAGAAGGTCGATTCAGTACATTGCATAGCGGGTCTTCGGCATTAATCGACCCAGGGAGTTTGAATGGGGCACGTTATGGGTCAGAGTGCTTTACTTATGATTTTCGCTGGGGACGTTATGAATTAGTACCCGGGCCTCCCCGCGCCCATTAAAGGTATACTGGTGTGCTGACGGAGTCGCTGAATCCGCAGATCCATATCACCCGCGTCTAAGGAGCTGGGTCACCGCAGGGGCGCGTCGTATAACATTAAGGGGTTGGCACTCTAACGCGGGCGATAGGTGCTGTTGGGCCTCCCACGTCTCTTCCTACCGGGACTTAGTGGGCATTATTTGACAATATCAATCAGTAAGAATCGAGACATAATGTTGCCAGTTGTTACGGGAGTGGTACGTTGTGATGTTGATCCAGCATTACGTGCCATGGTTCTTCGCTCCGTCTAAGGTGCAACCCAAGAGGCCTCAACAATCACGCACGTGCTACAGTTCCTCGTCGCCCCTGCACTGTTACTGAGGCTAGAGTTCTCTAACGCGGTGCAAACGTAAATTTTGAATGGGGGCGGTACGTATCGGACCACACGACTGAGAATCCGGCCTACGCTAGTCTAGTTTGAAACTGCTGACGGAGTACGTATGGAGCAGATGATCCTTCCCATTAGAGTGCATATGCGCAGCATCATGCGTATCGTTATCGGCTGCTGTAATTCTCGCCCATAAATATAAACTGACTGTTGAATTTTTCCCTACGCTCTTGGGCGCCAGCAGGACTCGAGAGTATAAAGTCCGGTGACCAGCACGT",
+   "topology": "linear",
+   "start": 200,
+   "end": 1000,
+   "targetTm": 62,
+   "maxProduct": 1500,
+   "forwardTail": "GAATTC",
+   "reverseTail": "ggatcc"
+  },
+  "expected": {
+   "ok": true,
+   "result": [
+    {
+     "forward": {
+      "seq": "GAATTCATATACTCGCTCGGTTTCGC",
+      "tm": 61.1,
+      "gc": 50
+     },
+     "reverse": {
+      "seq": "GGATCCGGATTCTCAGTCGTGTGGTC",
+      "tm": 61.2,
+      "gc": 55
+     },
+     "productSize": 776,
+     "tmDiff": 0.1,
+     "warnings": []
+    },
+    {
+     "forward": {
+      "seq": "GAATTCATACTCGCTCGGTTTCGCT",
+      "tm": 62.6,
+      "gc": 52.6
+     },
+     "reverse": {
+      "seq": "GGATCCCGGATTCTCAGTCGTGTGGT",
+      "tm": 63,
+      "gc": 55
+     },
+     "productSize": 775,
+     "tmDiff": 0.4,
+     "warnings": []
+    },
+    {
+     "forward": {
+      "seq": "GAATTCATACTCGCTCGGTTTCGC",
+      "tm": 61.1,
+      "gc": 55.6
+     },
+     "reverse": {
+      "seq": "GGATCCGGATTCTCAGTCGTGTGGTC",
+      "tm": 61.2,
+      "gc": 55
+     },
+     "productSize": 774,
+     "tmDiff": 0.1,
+     "warnings": []
+    },
+    {
+     "forward": {
+      "seq": "GAATTCTATACTCGCTCGGTTTCGCT",
+      "tm": 62.2,
+      "gc": 50
+     },
+     "reverse": {
+      "seq": "GGATCCCGGATTCTCAGTCGTGTGGT",
+      "tm": 63,
+      "gc": 55
+     },
+     "productSize": 776,
+     "tmDiff": 0.8,
+     "warnings": []
+    },
+    {
+     "forward": {
+      "seq": "GAATTCTACTCGCTCGGTTTCGCT",
+      "tm": 62.3,
+      "gc": 55.6
+     },
+     "reverse": {
+      "seq": "GGATCCCGGATTCTCAGTCGTGTGGT",
+      "tm": 63,
+      "gc": 55
+     },
+     "productSize": 774,
+     "tmDiff": 0.7,
+     "warnings": []
+    }
+   ]
+  }
+ },
+ {
+  "name": "primers region outside",
+  "input": {
+   "action": "primers",
+   "sequence": "AGGTGACCTCGCCCCTGCACTGTTACTGAAGTTTCTTTGCATGCATGCTACGCTAGAGTATTAACAGTTGATGAGAGACGCCGCAAATCCCGTCCTACTTAGACCTGCAATGGGAACCTCTTAGTACGTATGGACCCCAAGTCGGGCTCGGGCGAGTCGTTCTGTCGGTGCTTATCGATACCCTACCACCATTTAGCTCAGGCACTTAACATCTCCTATATACTCGCTCGGTTTCGCTGGGGACACACGAGGGATAGAATCGGCTGAAGACCGGTTGACTGGTCGTCGTAAAGGAACCATTATATGACGGTGCAGGAAATCGATACTGTAAATAGCGCACCGACAAATCGCCATGTCTCCCAGGGTTCGAGACATAATTTCCGACTTCGTGCGCAGTATGCAGCCAGAAGGTCGATTCAGTACATTGCATAGCGGGTCTTCGGCATTAATCGACCCAGGGAGTTTGAATGGGGCACGTTATGGGTCAGAGTGCTTTACTTATGATTTTCGCTGGGGACGTTATGAATTAGTACCCGGGCCTCCCCGCGCCCATTAAAGGTATACTGGTGTGCTGACGGAGTCGCTGAATCCGCAGATCCATATCACCCGCGTCTAAGGAGCTGGGTCACCGCAGGGGCGCGTCGTATAACATTAAGGGGTTGGCACTCTAACGCGGGCGATAGGTGCTGTTGGGCCTCCCACGTCTCTTCCTACCGGGACTTAGTGGGCATTATTTGACAATATCAATCAGTAAGAATCGAGACATAATGTTGCCAGTTGTTACGGGAGTGGTACGTTGTGATGTTGATCCAGCATTACGTGCCATGGTTCTTCGCTCCGTCTAAGGTGCAACCCAAGAGGCCTCAACAATCACGCACGTGCTACAGTTCCTCGTCGCCCCTGCACTGTTACTGAGGCTAGAGTTCTCTAACGCGGTGCAAACGTAAATTTTGAATGGGGGCGGTACGTATCGGACCACACGACTGAGAATCCGGCCTACGCTAGTCTAGTTTGAAACTGCTGACGGAGTACGTATGGAGCAGATGATCCTTCCCATTAGAGTGCATATGCGCAGCATCATGCGTATCGTTATCGGCTGCTGTAATTCTCGCCCATAAATATAAACTGACTGTTGAATTTTTCCCTACGCTCTTGGGCGCCAGCAGGACTCGAGAGTATAAAGTCCGGTGACCAGCACGT",
+   "start": 100,
+   "end": 5000
+  },
+  "expected": {
+   "ok": false,
+   "result": "The region must lie inside the sequence."
+  }
+ },
+ {
+  "name": "check primer TCGTACAGGCTAACTGATCC",
+  "input": {
+   "action": "check_primer",
+   "primer": "TCGTACAGGCTAACTGATCC"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "length": 20,
+    "tm": 59.7,
+    "gc": 50,
+    "gcClamp": 3,
+    "hairpinDeltaG": 0,
+    "selfDimerDeltaG": -3.5,
+    "warnings": []
+   }
+  }
+ },
+ {
+  "name": "check primer GCGCGAATTCGCGC",
+  "input": {
+   "action": "check_primer",
+   "primer": "GCGCGAATTCGCGC"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "length": 14,
+    "tm": 62.3,
+    "gc": 71.4,
+    "gcClamp": 5,
+    "hairpinDeltaG": -5.29,
+    "selfDimerDeltaG": -23.12,
+    "warnings": [
+     "short",
+     "gc",
+     "strongClamp",
+     "hairpin",
+     "selfDimer"
+    ]
+   }
+  }
+ },
+ {
+  "name": "check primer GGGCGCAAAAGCGCCC",
+  "input": {
+   "action": "check_primer",
+   "primer": "GGGCGCAAAAGCGCCC"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "length": 16,
+    "tm": 66.6,
+    "gc": 75,
+    "gcClamp": 5,
+    "hairpinDeltaG": -6.78,
+    "selfDimerDeltaG": -10.28,
+    "warnings": [
+     "gc",
+     "strongClamp",
+     "hairpin",
+     "selfDimer"
+    ]
+   }
+  }
+ },
+ {
+  "name": "check primer ATATATTAATATATTAATAT",
+  "input": {
+   "action": "check_primer",
+   "primer": "ATATATTAATATATTAATAT"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "length": 20,
+    "tm": 35.7,
+    "gc": 0,
+    "gcClamp": 0,
+    "hairpinDeltaG": -1.46,
+    "selfDimerDeltaG": -13.73,
+    "warnings": [
+     "gc",
+     "weakClamp",
+     "selfDimer"
+    ]
+   }
+  }
+ },
+ {
+  "name": "check primer ATGCGTACGTTAGCAATGCCGATCGTAGCTAGGCTAGCATCG",
+  "input": {
+   "action": "check_primer",
+   "primer": "ATGCGTACGTTAGCAATGCCGATCGTAGCTAGGCTAGCATCG"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "length": 42,
+    "tm": 77,
+    "gc": 52.4,
+    "gcClamp": 3,
+    "hairpinDeltaG": -1.06,
+    "selfDimerDeltaG": -7.83,
+    "warnings": [
+     "long",
+     "selfDimer"
+    ]
+   }
+  }
+ },
+ {
+  "name": "check primer AAAAAAGC",
+  "input": {
+   "action": "check_primer",
+   "primer": "AAAAAAGC"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "length": 8,
+    "tm": 12.7,
+    "gc": 25,
+    "gcClamp": 2,
+    "hairpinDeltaG": 0,
+    "selfDimerDeltaG": 0,
+    "warnings": [
+     "short",
+     "gc",
+     "repeat"
+    ]
+   }
+  }
+ },
+ {
+  "name": "check primer GGGGGCCCCCGGGGGCCCCC",
+  "input": {
+   "action": "check_primer",
+   "primer": "GGGGGCCCCCGGGGGCCCCC"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "length": 20,
+    "tm": 83.6,
+    "gc": 100,
+    "gcClamp": 5,
+    "hairpinDeltaG": -9.7,
+    "selfDimerDeltaG": -35.88,
+    "warnings": [
+     "gc",
+     "strongClamp",
+     "repeat",
+     "hairpin",
+     "selfDimer"
+    ]
+   }
+  }
+ },
+ {
+  "name": "check primer ACGTAGCTAGCTAGCTAGCATCGATCGA",
+  "input": {
+   "action": "check_primer",
+   "primer": "ACGTAGCTAGCTAGCTAGCATCGATCGA"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "length": 28,
+    "tm": 68.9,
+    "gc": 50,
+    "gcClamp": 2,
+    "hairpinDeltaG": -1.9,
+    "selfDimerDeltaG": -18.43,
+    "warnings": [
+     "selfDimer"
+    ]
+   }
+  }
+ },
+ {
+  "name": "pcr linear with tail",
+  "input": {
+   "action": "pcr",
+   "template": "CTTAACATATGATCAAACGACGTACGTTGTAGACAGACGGATTTTGCCGACGCATTTTCTTAACAATTTATCTCACAACATCTCGGCCAAGATCCAGCTGGGTGCCAGGGGTGACCACAATTGCCCTCAGCCTTCATGTTGCTAGCGTTTGTGTACAGTTGTCAGGACAAGTACAGAGGCTTAATTAGGTTCGAGACCGGGACGTTAACAGCTGCTACGCCTGTATGCGAGCCCAGGCTGACGGAGTCGGGCTTGCCATAGCGGTCCTCGTCGGATTTATCTAGGAGTATCTCCAGCTTTTATGGCACTTAGAGACCCAGGGTAGGATGACGCTAGTGCCGAGTCGCTAGTACTACGGCGTCGATTTCCGAGGAAGTACAGATGTTCTTCCATGCTACCTCCAGTACTTCTACCTGGTCACCTTCTGATTTTTGTGATGGAGGTTGACGCGCCATAGAGGCTTTATAGAGTGGCACTCTACGTAATAATCTAATCCAAGAAATGCATTTGGTCTTTGCGCCAAGACTAAATCCCCTAAACCGCGGTGATACTCGCCCAACTACGCTCTTGATACCTGGGGCAACTTGAAGTAATACGTGACACCCGCGTCTAAGGGTCACCGTCTACTTGCGGCAAACTGTTCCGACTGTGACCAGGGCACTGACGCCTCCCACGTGTGTAGGGGATGATTGAGTATTAACACTTCAAACATGGACGTGAGATTGTGAAAGGCAATGTCACCGACAAAAGCAGCGCACTTCCCTGACCTCGCCCCTGTGGACGTGATGCACCTGCACCGACAGCAGATAACTAGGTGAAACCTAGAAGCTGGGTCTGAACATTCGGCTTTAAATTCTTTTACTAGCCTACAGCCGGGACTTAAGGCACCTCATGGGTGTT",
+   "topology": "linear",
+   "forward": "GAATTCGGTGCCAGGGGTGACCACAA",
+   "reverse": "TCACGTATTACTTCAAGTTG"
+  },
+  "expected": {
+   "ok": true,
+   "result": [
+    {
+     "start": 101,
+     "end": 600,
+     "size": 506,
+     "seq": "GAATTCGGTGCCAGGGGTGACCACAATTGCCCTCAGCCTTCATGTTGCTAGCGTTTGTGTACAGTTGTCAGGACAAGTACAGAGGCTTAATTAGGTTCGAGACCGGGACGTTAACAGCTGCTACGCCTGTATGCGAGCCCAGGCTGACGGAGTCGGGCTTGCCATAGCGGTCCTCGTCGGATTTATCTAGGAGTATCTCCAGCTTTTATGGCACTTAGAGACCCAGGGTAGGATGACGCTAGTGCCGAGTCGCTAGTACTACGGCGTCGATTTCCGAGGAAGTACAGATGTTCTTCCATGCTACCTCCAGTACTTCTACCTGGTCACCTTCTGATTTTTGTGATGGAGGTTGACGCGCCATAGAGGCTTTATAGAGTGGCACTCTACGTAATAATCTAATCCAAGAAATGCATTTGGTCTTTGCGCCAAGACTAAATCCCCTAAACCGCGGTGATACTCGCCCAACTACGCTCTTGATACCTGGGGCAACTTGAAGTAATACGTGA",
+     "length": 506
+    }
+   ]
+  }
+ },
+ {
+  "name": "pcr across the origin",
+  "input": {
+   "action": "pcr",
+   "template": "TTGATTTGGTAGTGGGCCGACCATGGTTTCATTGCTTCGGCTGCTGTAATTCGGCTGTTAGTGGGGTGTCTACGCGCTTATGCGCCATGCGATACCCTGCTGTCTTCGAAATCGAGACCGGGACACACCTTTACTGCCTTCGAGAAGGAGAAGAGGTGCCCCGGCCCATCTGAGGGCAAACCAGAAAATGTTCCGACGGTACCAACTTGACACATAACTTCTAGTAAGCCATTTAGCTTGGCACAGACCGGGTGAACGCGACTTCAGTATAAAGAAATCGTACCTGCCAGATGATAACATTGCCTTATGCGCCACGATTGCAACCCTGGTATTCGTAAATATACGCTAAGCCCAGTGATTTTCGCGCGTCAAGCGCAGCTTGGGCCTCCCCGCTATTATTGTAGCATTGATAGAAGTAACAAAGAGAGAGAGAGAGAGAGTTCAAATGTTGGGTTGGACCTGTGCTGAAAATGCCCGTCCTGGGGTGTGCCGTGTGCTGAATTTGGAGGGGTGGTCATCCATATTGTAGAAATCCCGTCCTGGGGTGACCTGTATACTATCCGTATCTCCAGGTTGATTTGGGCATACCCACACGAGTGC",
+   "topology": "circular",
+   "forward": "CCGTATCTCCAGGTTGATTT",
+   "reverse": "GCAGGGTATCGCATGGCGCA"
+  },
+  "expected": {
+   "ok": true,
+   "result": [
+    {
+     "start": 561,
+     "end": 100,
+     "size": 140,
+     "seq": "CCGTATCTCCAGGTTGATTTGGGCATACCCACACGAGTGCTTGATTTGGTAGTGGGCCGACCATGGTTTCATTGCTTCGGCTGCTGTAATTCGGCTGTTAGTGGGGTGTCTACGCGCTTATGCGCCATGCGATACCCTGC",
+     "length": 140
+    }
+   ]
+  }
+ },
+ {
+  "name": "pcr no product",
+  "input": {
+   "action": "pcr",
+   "template": "TTGATTTGGTAGTGGGCCGACCATGGTTTCATTGCTTCGGCTGCTGTAATTCGGCTGTTAGTGGGGTGTCTACGCGCTTATGCGCCATGCGATACCCTGCTGTCTTCGAAATCGAGACCGGGACACACCTTTACTGCCTTCGAGAAGGAGAAGAGGTGCCCCGGCCCATCTGAGGGCAAACCAGAAAATGTTCCGACGGTACCAACTTGACACATAACTTCTAGTAAGCCATTTAGCTTGGCACAGACCGGGTGAACGCGACTTCAGTATAAAGAAATCGTACCTGCCAGATGATAACATTGCCTTATGCGCCACGATTGCAACCCTGGTATTCGTAAATATACGCTAAGCCCAGTGATTTTCGCGCGTCAAGCGCAGCTTGGGCCTCCCCGCTATTATTGTAGCATTGATAGAAGTAACAAAGAGAGAGAGAGAGAGAGTTCAAATGTTGGGTTGGACCTGTGCTGAAAATGCCCGTCCTGGGGTGTGCCGTGTGCTGAATTTGGAGGGGTGGTCATCCATATTGTAGAAATCCCGTCCTGGGGTGACCTGTATACTATCCGTATCTCCAGGTTGATTTGGGCATACCCACACGAGTGC",
+   "forward": "CGTCAGTACACGTCGATCTCCT",
+   "reverse": "TCAATGAAGTTCGCGCCTGGTT"
+  },
+  "expected": {
+   "ok": true,
+   "result": []
+  }
+ },
+ {
+  "name": "assemble digest and ligate",
+  "input": {
+   "action": "assemble",
+   "method": "ligation",
+   "parts": [
+    {
+     "name": "vector",
+     "sequence": "GGGGTTAGCTACGCCTATGCCCAATGTTGCCAGACCTTAATGGGGTTTCCGGTGCTGAATTTGCATAGACTGGGGGGTTACTCAATGCCGGGAACCTCTTACCTCGTACGTGCCTTTTTTGGTTATGACGGTCGCATTTATGGCAGTCACCCGACGTATAAATCTATATAGGCACCTTACTACATTCGAACCGACAACGTGAGAAGGCAAACCTAGAGTTATGATCGTCTATGACGCTAAGGTCGATTCAGTTATTCAGTGGCTCGTTCAATGTTGCGGACTCGCCACAGGGGTGCCACTTCTCCTCGTCCGGACCCACACATCTCTGATTGATTGCGGCAAAAGTCACGGGTAATACATGTCTTCGCCTAAATGGGTAAAGGTTCAAGATCAGTCGGTAGAATTCAAGGATCCCCATATTGTTAGGTGTGCTCCCAGTCGCTAGAGGAAGATTTTCATGGGATAGCCGGCATGATAGATCTAGACAGTGGTAGGCTTACCCTGACGCGGGATCGGATGATCCGGGGACAGCACCGCATCTACTTAGTGGGCAAAAAACTCGCCTGAACTCTCCCAGTGCTCCGTAGCGACCCAGGGTAGGATGAGGTCTTACCAGTCGGGTCCCTCGCCGGGTGCGCTGGGGACAGTAGTGCACTCAAATCGCCAAAGCAGCGAGATGGTCTGATGGACTCGTACGTGCAAAAGTGATGGACTTTATCCGACCGTATTCACGAAGTACCCCGCTAATATTGGCCTCAGGACGGAGTCGGGCGACAGCACAAACATTGCGAGTGCTACCTGGCACCTATGTTCG",
+     "topology": "circular",
+     "enzymes": [
+      "EcoRI",
+      "BamHI"
+     ],
+     "pick": "largest"
+    },
+    {
+     "name": "insert",
+     "sequence": "TTGAATTCTAACCCAGGGTTATCCAGTTGTGGCCAATTAAGCTAACCCTGACCTTCTGTTTGAACCAACAATACTGGCATTAAAGGTTATCCTTCGGATCGACCTCGACTTAATGGTTGGTGGTGTCGTTATATCCGACGTTTTACGCTACAGCTACGCTTTAAATTCTTTTATCGGCTGCTGTAATGGGTTCGTTATACGTTCGAACCGGTTAACATGGTTTCATTGAATCGGTCGTCGCAGGCCCAGTACATTGCATCGTTCTAGCCCTCGGAACCTGCATTTAGCTGTAATTTAGTTTGTCCTGTGGATCCTT",
+     "topology": "linear",
+     "enzymes": [
+      "EcoRI",
+      "BamHI"
+     ],
+     "pick": [
+      0
+     ]
+    }
+   ]
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "warnings": [],
+    "products": [
+     {
+      "method": "ligation",
+      "topology": "circular",
+      "seq": "GATCCCCATATTGTTAGGTGTGCTCCCAGTCGCTAGAGGAAGATTTTCATGGGATAGCCGGCATGATAGATCTAGACAGTGGTAGGCTTACCCTGACGCGGGATCGGATGATCCGGGGACAGCACCGCATCTACTTAGTGGGCAAAAAACTCGCCTGAACTCTCCCAGTGCTCCGTAGCGACCCAGGGTAGGATGAGGTCTTACCAGTCGGGTCCCTCGCCGGGTGCGCTGGGGACAGTAGTGCACTCAAATCGCCAAAGCAGCGAGATGGTCTGATGGACTCGTACGTGCAAAAGTGATGGACTTTATCCGACCGTATTCACGAAGTACCCCGCTAATATTGGCCTCAGGACGGAGTCGGGCGACAGCACAAACATTGCGAGTGCTACCTGGCACCTATGTTCGGGGGTTAGCTACGCCTATGCCCAATGTTGCCAGACCTTAATGGGGTTTCCGGTGCTGAATTTGCATAGACTGGGGGGTTACTCAATGCCGGGAACCTCTTACCTCGTACGTGCCTTTTTTGGTTATGACGGTCGCATTTATGGCAGTCACCCGACGTATAAATCTATATAGGCACCTTACTACATTCGAACCGACAACGTGAGAAGGCAAACCTAGAGTTATGATCGTCTATGACGCTAAGGTCGATTCAGTTATTCAGTGGCTCGTTCAATGTTGCGGACTCGCCACAGGGGTGCCACTTCTCCTCGTCCGGACCCACACATCTCTGATTGATTGCGGCAAAAGTCACGGGTAATACATGTCTTCGCCTAAATGGGTAAAGGTTCAAGATCAGTCGGTAGAATTCTAACCCAGGGTTATCCAGTTGTGGCCAATTAAGCTAACCCTGACCTTCTGTTTGAACCAACAATACTGGCATTAAAGGTTATCCTTCGGATCGACCTCGACTTAATGGTTGGTGGTGTCGTTATATCCGACGTTTTACGCTACAGCTACGCTTTAAATTCTTTTATCGGCTGCTGTAATGGGTTCGTTATACGTTCGAACCGGTTAACATGGTTTCATTGAATCGGTCGTCGCAGGCCCAGTACATTGCATCGTTCTAGCCCTCGGAACCTGCATTTAGCTGTAATTTAGTTTGTCCTGTG",
+      "length": 1112,
+      "parts": [
+       {
+        "name": "vector",
+        "strand": 1,
+        "start": 1,
+        "end": 810
+       },
+       {
+        "name": "insert",
+        "strand": 1,
+        "start": 811,
+        "end": 1112
+       }
+      ],
+      "junctions": [
+       {
+        "seq": "AATT"
+       },
+       {
+        "seq": "GATC"
+       }
+      ],
+      "warnings": [
+       "palindromicOverhang",
+       "palindromicOverhang"
+      ]
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "assemble golden gate",
+  "input": {
+   "action": "assemble",
+   "method": "golden_gate",
+   "enzyme": "BsaI",
+   "parts": [
+    {
+     "name": "destination",
+     "topology": "circular",
+     "sequence": "ACACAGATCAGCAGTCACCATCGCCTGCTACAAGGTCGTCGCTCTCAGATCCTACCTTCAGCTAGTACGGATCGTATGGCATTAATATGTTAACCGCGTATGGCAGCGCCCAGCATTGACTATCATTGGACTTAACTTCACCGTATATACTCGGATGCGCCGGCACCGCTTATGCCCGTAGCGCACGGGCGCGTACGACTGTCGGGCGAAGAATACGTACCCGGTCCACACGACTAACCGCCAAAATTTACGTGCCTAGGTTAGTCCTGCTGGGTGAACATCGAGTCGAGATCTCATTAGATGAAGAGACCATTCCGGACTGTCAGTTACATGCGATAGTCAATGATCGTTGCAAAGGTTGCTCCGCTGAAACGAAGCAGAACTCCGAGCTCGTTCAAGGGGTCAGTACATCAGGTCTCACTCGTACGTCCTTTGGTAGGTGCCCAGGGCCGTTCCTCTCTTCCGAGGGGAGGGAGGCTAGACACATTTAGCTCTAATGTTTATGGTCCTCCTCGCCGTACGGTGTTGACTATCAATTGCTATTCAGTTACGGGCACCATTTAGCTCGAACCAAGTGAGATCCATTTATCGGGCTATTGTGATGATCTGATTTGAACATTGCTCATTGCTACATCAATTGGCCAACAGTCACCCTCGTGACCCACCATCGATAAAGAGGAGCCATGAGATTGTGCGTATATACTAGCTATTCCATAATTTGGTA"
+    },
+    {
+     "name": "part 1",
+     "sequence": "GGTCTCAATGAAATATAACGTCAAAAGGGTACGATAACTAGCCGTTTCAAAAGCATAGCGAACCACAGAGGCTGAAAGCACCGCGCTTCGAAAGGTTGCCCCATGCGCAGACGAACTATTTTCATGTCTGAGCTTAGAGACC"
+    },
+    {
+     "name": "part 2",
+     "sequence": "GGTCTCAGCTTAGGTTAGCTACGCACTCAGGTGTTGGTGGCGATCCCTTCTCCCTAAATCACTGTTTGTCACTCAGAGAGAGAGAGAGAGGTAGACCTGTCACCGTCAGATAAATTTACGGCTCTGAATAGATAGCGGTACCCTCCAGACCGCGGGCGGAATAGCAGAGACC"
+    },
+    {
+     "name": "part 3",
+     "sequence": "GGTCTCATAGCAAATCGAGAAGGTTCCGGACCACTGGAGCTGGGTGCCATCGTCTATTGTGAACTTGTGTAGTGAAACCATCGGTTGGGATGCGATAACGACTCGAGAGACC"
+    }
+   ]
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "warnings": [],
+    "products": [
+     {
+      "method": "golden_gate",
+      "topology": "circular",
+      "seq": "CTCGTACGTCCTTTGGTAGGTGCCCAGGGCCGTTCCTCTCTTCCGAGGGGAGGGAGGCTAGACACATTTAGCTCTAATGTTTATGGTCCTCCTCGCCGTACGGTGTTGACTATCAATTGCTATTCAGTTACGGGCACCATTTAGCTCGAACCAAGTGAGATCCATTTATCGGGCTATTGTGATGATCTGATTTGAACATTGCTCATTGCTACATCAATTGGCCAACAGTCACCCTCGTGACCCACCATCGATAAAGAGGAGCCATGAGATTGTGCGTATATACTAGCTATTCCATAATTTGGTAACACAGATCAGCAGTCACCATCGCCTGCTACAAGGTCGTCGCTCTCAGATCCTACCTTCAGCTAGTACGGATCGTATGGCATTAATATGTTAACCGCGTATGGCAGCGCCCAGCATTGACTATCATTGGACTTAACTTCACCGTATATACTCGGATGCGCCGGCACCGCTTATGCCCGTAGCGCACGGGCGCGTACGACTGTCGGGCGAAGAATACGTACCCGGTCCACACGACTAACCGCCAAAATTTACGTGCCTAGGTTAGTCCTGCTGGGTGAACATCGAGTCGAGATCTCATTAGATGAAATATAACGTCAAAAGGGTACGATAACTAGCCGTTTCAAAAGCATAGCGAACCACAGAGGCTGAAAGCACCGCGCTTCGAAAGGTTGCCCCATGCGCAGACGAACTATTTTCATGTCTGAGCTTAGGTTAGCTACGCACTCAGGTGTTGGTGGCGATCCCTTCTCCCTAAATCACTGTTTGTCACTCAGAGAGAGAGAGAGAGGTAGACCTGTCACCGTCAGATAAATTTACGGCTCTGAATAGATAGCGGTACCCTCCAGACCGCGGGCGGAATAGCAAATCGAGAAGGTTCCGGACCACTGGAGCTGGGTGCCATCGTCTATTGTGAACTTGTGTAGTGAAACCATCGGTTGGGATGCGATAACGA",
+      "length": 976,
+      "parts": [
+       {
+        "name": "destination",
+        "strand": 1,
+        "start": 1,
+        "end": 608
+       },
+       {
+        "name": "part 1",
+        "strand": 1,
+        "start": 609,
+        "end": 732
+       },
+       {
+        "name": "part 2",
+        "strand": 1,
+        "start": 733,
+        "end": 886
+       },
+       {
+        "name": "part 3",
+        "strand": 1,
+        "start": 887,
+        "end": 976
+       }
+      ],
+      "junctions": [
+       {
+        "seq": "ATGA"
+       },
+       {
+        "seq": "GCTT"
+       },
+       {
+        "seq": "TAGC"
+       },
+       {
+        "seq": "CTCG"
+       }
+      ],
+      "warnings": []
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "assemble golden gate unknown enzyme",
+  "input": {
+   "action": "assemble",
+   "method": "golden_gate",
+   "enzyme": "NopeI",
+   "parts": [
+    {
+     "name": "a",
+     "sequence": "GGTACAGCAGGCGGGGACTCGCTCCGTCTCGATACCCACACGAGACTGTTACACGATGATAACACGCAGTAAGCCCCATTATATGAGAGCTTTTATCGGT"
+    }
+   ]
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "warnings": [
+     "unknownEnzyme"
+    ],
+    "products": []
+   }
+  }
+ },
+ {
+  "name": "assemble golden gate without an enzyme",
+  "input": {
+   "action": "assemble",
+   "method": "golden_gate",
+   "parts": [
+    {
+     "name": "a",
+     "sequence": "GGTACAGCAGGCGGGGACTCGCTCCGTCTCGATACCCACACGAGACTGTTACACGATGATAACACGCAGTAAGCCCCATTATATGAGAGCTTTTATCGGT"
+    }
+   ]
+  },
+  "expected": {
+   "ok": false,
+   "result": "Golden Gate needs an enzyme."
+  }
+ },
+ {
+  "name": "assemble gibson circle with a flipped part",
+  "input": {
+   "action": "assemble",
+   "method": "gibson",
+   "parts": [
+    {
+     "name": "A",
+     "sequence": "CACCTCGACTGCGGCCTTCCTCACGTGTCTTCCAACTTGGATCGGTATACGTGTAGATCTACACATGTCTACGTTGGTGTCGATTACCAATCCCCGCTATTCGGATATGTTGATGATAGATACGACGTGTGTATTCACAACGGGGGCTTTCATCACCGATGGGCTACCGCATGTTGATTCCTGACCTCCAGTATACTAGGAGCTATGATCGACTTTCGCTGGGGAAGTGGGTTGAAATTCGGTAGCCATG"
+    },
+    {
+     "name": "C (flipped)",
+     "sequence": "CGTGAGGAAGGCCGCAGTCGAGGTGAATAGAGATGGGGACCGGGGACTGGAGATACGGGTGTAGGACTTATTTCTACGGGGGCAATGTCATAACTGACGGGATTTAGTCGGACTCGTGGACTTTAGGCATGTGCGTGCATTGCGTAGCTTGTGCGTCTCCGTGCCATGTTATCATTCCCGCGGAGCCTCTACCCATTGGA"
+    },
+    {
+     "name": "B",
+     "sequence": "AGTGGGTTGAAATTCGGTAGCCATGGCTGGCATTAAAGGTTCGAGTATGAAGTCTAGGAGCTGGGTGAACATGGGGTGAGTGTTTGTCACATATGTGGATTTTTGACTCGTCGCCCTAGCTAGTGCCGACGACTTCTGAGAAGGGGGTGCCATGCCCGTACTGAGAAGACGTACTCGTAGGAATGTTGGGCCTCAGCAGGACGCCGACCCACCTCTACAAACGAGAATCAGGTCGGCGGACTTCAAAAAGTGATGAACATGTCTCGCACCATTTTTCCAATGGGTAGAGGCTCCGCGGGA"
+    }
+   ]
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "warnings": [],
+    "products": [
+     {
+      "method": "gibson",
+      "topology": "circular",
+      "seq": "CACCTCGACTGCGGCCTTCCTCACGTGTCTTCCAACTTGGATCGGTATACGTGTAGATCTACACATGTCTACGTTGGTGTCGATTACCAATCCCCGCTATTCGGATATGTTGATGATAGATACGACGTGTGTATTCACAACGGGGGCTTTCATCACCGATGGGCTACCGCATGTTGATTCCTGACCTCCAGTATACTAGGAGCTATGATCGACTTTCGCTGGGGAAGTGGGTTGAAATTCGGTAGCCATGGCTGGCATTAAAGGTTCGAGTATGAAGTCTAGGAGCTGGGTGAACATGGGGTGAGTGTTTGTCACATATGTGGATTTTTGACTCGTCGCCCTAGCTAGTGCCGACGACTTCTGAGAAGGGGGTGCCATGCCCGTACTGAGAAGACGTACTCGTAGGAATGTTGGGCCTCAGCAGGACGCCGACCCACCTCTACAAACGAGAATCAGGTCGGCGGACTTCAAAAAGTGATGAACATGTCTCGCACCATTTTTCCAATGGGTAGAGGCTCCGCGGGAATGATAACATGGCACGGAGACGCACAAGCTACGCAATGCACGCACATGCCTAAAGTCCACGAGTCCGACTAAATCCCGTCAGTTATGACATTGCCCCCGTAGAAATAAGTCCTACACCCGTATCTCCAGTCCCCGGTCCCCATCTCTATT",
+      "length": 675,
+      "parts": [
+       {
+        "name": "A",
+        "strand": 1,
+        "start": 1,
+        "end": 250
+       },
+       {
+        "name": "B",
+        "strand": 1,
+        "start": 251,
+        "end": 525
+       },
+       {
+        "name": "C (flipped)",
+        "strand": -1,
+        "start": 526,
+        "end": 700
+       }
+      ],
+      "junctions": [
+       {
+        "seq": "AGTGGGTTGAAATTCGGTAGCCATG",
+        "tm": 66.3
+       },
+       {
+        "seq": "TCCAATGGGTAGAGGCTCCGCGGGA",
+        "tm": 73.7
+       },
+       {
+        "seq": "CACCTCGACTGCGGCCTTCCTCACG",
+        "tm": 73.6
+       }
+      ],
+      "warnings": []
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "assemble gibson linear",
+  "input": {
+   "action": "assemble",
+   "method": "gibson",
+   "parts": [
+    {
+     "name": "A",
+     "sequence": "CACCTCGACTGCGGCCTTCCTCACGTGTCTTCCAACTTGGATCGGTATACGTGTAGATCTACACATGTCTACGTTGGTGTCGATTACCAATCCCCGCTATTCGGATATGTTGATGATAGATACGACGTGTGTATTCACAACGGGGGCTTTCATCACCGATGGGCTACCGCATGTTGATTCCTGACCTCCAGTATACTAGGAGCTATGATCGACTTTCGCTGGGGAAGTGGGTTGAAATTCGGTAGCCATG"
+    },
+    {
+     "name": "B",
+     "sequence": "AGTGGGTTGAAATTCGGTAGCCATGGCTGGCATTAAAGGTTCGAGTATGAAGTCTAGGAGCTGGGTGAACATGGGGTGAGTGTTTGTCACATATGTGGATTTTTGACTCGTCGCCCTAGCTAGTGCCGACGACTTCTGAGAAGGGGGTGCCATGCCCGTACTGAGAAGACGTACTCGTAGGAATGTTGGGCCTCAGCAGGACGCCGACCCACCTCTACAAACGAGAATCAGGTCGGCGGACTTCAAAAAGTGATGAACATGTCTCGCACCATTTT"
+    }
+   ]
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "warnings": [],
+    "products": [
+     {
+      "method": "gibson",
+      "topology": "linear",
+      "seq": "CACCTCGACTGCGGCCTTCCTCACGTGTCTTCCAACTTGGATCGGTATACGTGTAGATCTACACATGTCTACGTTGGTGTCGATTACCAATCCCCGCTATTCGGATATGTTGATGATAGATACGACGTGTGTATTCACAACGGGGGCTTTCATCACCGATGGGCTACCGCATGTTGATTCCTGACCTCCAGTATACTAGGAGCTATGATCGACTTTCGCTGGGGAAGTGGGTTGAAATTCGGTAGCCATGGCTGGCATTAAAGGTTCGAGTATGAAGTCTAGGAGCTGGGTGAACATGGGGTGAGTGTTTGTCACATATGTGGATTTTTGACTCGTCGCCCTAGCTAGTGCCGACGACTTCTGAGAAGGGGGTGCCATGCCCGTACTGAGAAGACGTACTCGTAGGAATGTTGGGCCTCAGCAGGACGCCGACCCACCTCTACAAACGAGAATCAGGTCGGCGGACTTCAAAAAGTGATGAACATGTCTCGCACCATTTT",
+      "length": 500,
+      "parts": [
+       {
+        "name": "A",
+        "strand": 1,
+        "start": 1,
+        "end": 250
+       },
+       {
+        "name": "B",
+        "strand": 1,
+        "start": 251,
+        "end": 500
+       }
+      ],
+      "junctions": [
+       {
+        "seq": "AGTGGGTTGAAATTCGGTAGCCATG",
+        "tm": 66.3
+       }
+      ],
+      "warnings": []
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "assemble gibson no overlaps",
+  "input": {
+   "action": "assemble",
+   "method": "gibson",
+   "parts": [
+    {
+     "name": "A",
+     "sequence": "TAAGAGTTCAAAGTATCGAGTGCTACAGTTCCGAACGTGGTTGCGGCAGTCCGACATTAGTAACGCACCAGCAGCGAGCTCTCTCTCTCTCTCTTACGCC"
+    },
+    {
+     "name": "B",
+     "sequence": "GTTCTGGTGGGGGCTAGACGTATTTTATGCTACTCGTTCGGAGAGCTATTCGTATTACCTATAACATGGCCGCCCCTGCACGGAATGCTTACCAGTCGCC"
+    }
+   ]
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "warnings": [
+     "noAssembly"
+    ],
+    "products": []
+   }
+  }
+ },
+ {
+  "name": "align identical global",
+  "input": {
+   "action": "align",
+   "reference": "ACCCACCTAGGATAATTTGGAGGGGTGACCACCACTACTATCTACCGCTTGCCCCATAAAGTCCGGTGTAGAAAAACTGAGCTTGCGCCACCGCTGGAATTCCTCCAGAGAAGGCTAGCCGGCTCTCTCATACCTCGCTAGAGTATAATTATATGATCGTTCTACATGAACGCGCTTCCAAGTACACAGGTACTTAACATCTAATTTGCGATACCCTGCTGGCACCATAATCTACACCCGTCCGGAGACTCAGAGGAGATCTACAGTTCATTAACATGGGTACGAGTAGGAAATGGGGTTCGTATCTCCAAAAAGTTGCTCTTCCTACCTCCAGTAACCGCCGGCCTAAATAAGTTTCAATGGGTACGCAAGCAACATTGCTACAGGGATCGGCTTGGAG",
+   "query": "ACCCACCTAGGATAATTTGGAGGGGTGACCACCACTACTATCTACCGCTTGCCCCATAAAGTCCGGTGTAGAAAAACTGAGCTTGCGCCACCGCTGGAATTCCTCCAGAGAAGGCTAGCCGGCTCTCTCATACCTCGCTAGAGTATAATTATATGATCGTTCTACATGAACGCGCTTCCAAGTACACAGGTACTTAACATCTAATTTGCGATACCCTGCTGGCACCATAATCTACACCCGTCCGGAGACTCAGAGGAGATCTACAGTTCATTAACATGGGTACGAGTAGGAAATGGGGTTCGTATCTCCAAAAAGTTGCTCTTCCTACCTCCAGTAACCGCCGGCCTAAATAAGTTTCAATGGGTACGCAAGCAACATTGCTACAGGGATCGGCTTGGAG",
+   "mode": "global"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "score": 800,
+    "identity": 1,
+    "matches": 400,
+    "mismatches": 0,
+    "gaps": 0,
+    "reference": {
+     "start": 1,
+     "end": 400
+    },
+    "query": {
+     "start": 1,
+     "end": 400
+    }
+   }
+  }
+ },
+ {
+  "name": "align substitution insertion deletion",
+  "input": {
+   "action": "align",
+   "reference": "ACCCACCTAGGATAATTTGGAGGGGTGACCACCACTACTATCTACCGCTTGCCCCATAAAGTCCGGTGTAGAAAAACTGAGCTTGCGCCACCGCTGGAATTCCTCCAGAGAAGGCTAGCCGGCTCTCTCATACCTCGCTAGAGTATAATTATATGATCGTTCTACATGAACGCGCTTCCAAGTACACAGGTACTTAACATCTAATTTGCGATACCCTGCTGGCACCATAATCTACACCCGTCCGGAGACTCAGAGGAGATCTACAGTTCATTAACATGGGTACGAGTAGGAAATGGGGTTCGTATCTCCAAAAAGTTGCTCTTCCTACCTCCAGTAACCGCCGGCCTAAATAAGTTTCAATGGGTACGCAAGCAACATTGCTACAGGGATCGGCTTGGAG",
+   "query": "ACCCACCTAGGATAATTTGGAGGGGTGACCACCACTACTATCTACCGCTTGCCCCATAAAGTCCGGTGTAGAAAAACTGAGCTTGCGCCACCGCTGGAATACCTCCAGAGAAGGCTAGCCGGCTCTCTCATACCTCGCTAGAGTATAATTATATGATCGTTCTACATGAACGCGCTTCCAAGTACACAGGTACTTAACATGGGCTAATTTGCGATACCCTGCTGGCACCATAATCTACACCCGTCCGGAGACTCAGAGGAGATCTACAGTTCATTAACATGGGTACGAGTAGGAAATGGGGTTCTCCAAAAAGTTGCTCTTCCTACCTCCAGTAACCGCCGGCCTAAATAAGTTTCAATGGGTACGCAAGCAACATTGCTACAGGGATCGGCTTGGAG",
+   "mode": "global"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "score": 763,
+    "identity": 0.9776674937965261,
+    "matches": 394,
+    "mismatches": 1,
+    "gaps": 8,
+    "reference": {
+     "start": 1,
+     "end": 400
+    },
+    "query": {
+     "start": 1,
+     "end": 398
+    }
+   }
+  }
+ },
+ {
+  "name": "align local read in reference",
+  "input": {
+   "action": "align",
+   "reference": "ACCCACCTAGGATAATTTGGAGGGGTGACCACCACTACTATCTACCGCTTGCCCCATAAAGTCCGGTGTAGAAAAACTGAGCTTGCGCCACCGCTGGAATTCCTCCAGAGAAGGCTAGCCGGCTCTCTCATACCTCGCTAGAGTATAATTATATGATCGTTCTACATGAACGCGCTTCCAAGTACACAGGTACTTAACATCTAATTTGCGATACCCTGCTGGCACCATAATCTACACCCGTCCGGAGACTCAGAGGAGATCTACAGTTCATTAACATGGGTACGAGTAGGAAATGGGGTTCGTATCTCCAAAAAGTTGCTCTTCCTACCTCCAGTAACCGCCGGCCTAAATAAGTTTCAATGGGTACGCAAGCAACATTGCTACAGGGATCGGCTTGGAG",
+   "query": "TCAATGAAGTTCGCGCCTGGTTGCGGACTCATATGATCGTTCTACATGAACGCGCTTCCAAGTACACAGGTACTTAACATCTAATTTGCGATACCCTGCTGGCACCATAATCTACACCCGTCCGGAGACTCAGAGGAGATCTACAGTTCATTAACATGGGTACGAGTAGGAAATGGGGTTGTGTTATCCGTCTTCTGAGATTTGCCCATC"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "score": 300,
+    "identity": 1,
+    "matches": 150,
+    "mismatches": 0,
+    "gaps": 0,
+    "reference": {
+     "start": 151,
+     "end": 300
+    },
+    "query": {
+     "start": 31,
+     "end": 180
+    }
+   }
+  }
+ },
+ {
+  "name": "align unrelated",
+  "input": {
+   "action": "align",
+   "reference": "ACTCTCGGCGGAACGCGCAGCTTAGAAGGTTTCGTTCTAGTTTGAAACCGCCCCAAATTAGTACTTAAGAGGAGTATCTCCTTGCGCCACGATCAGTACAAGCTACCACTTACTGGTACCCCTGCACTCAAGCGCGTCTTTGGAGTAAGCCGATCTTGCCCAATATTTTCACGAGGTAGACATACCCACACGAGTCGGCG",
+   "query": "TTCCATTTACGTGCCTTGGTTCGAGGCAACCGGTAGCTAAGGTTCTCCGTGGAGCTGCTTCGTGGTCTGGCCAATTGGCCAATTGGAGATTAGGCTGGCTGTTGAATGGTTGCCTACACACGCCTGACGTGCTACCTGCTGGGGGCTAGG"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "score": 13,
+    "identity": 0.8888888888888888,
+    "matches": 8,
+    "mismatches": 1,
+    "gaps": 0,
+    "reference": {
+     "start": 156,
+     "end": 164
+    },
+    "query": {
+     "start": 75,
+     "end": 83
+    }
+   }
+  }
+ },
+ {
+  "name": "crispr spcas9 linear",
+  "input": {
+   "action": "crispr",
+   "sequence": "AAAAGACGTCAGCTAGCTAGGATCTGGCCCCATATATGCGCGTA",
+   "topology": "linear"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "nuclease": "SpCas9 (NGG)",
+    "note": "A screen of GC, terminators and near matches inside this sequence only; check the genome before ordering.",
+    "guides": [
+     {
+      "protospacer": "GACGTCAGCTAGCTAGGATC",
+      "pam": "TGG",
+      "strand": 1,
+      "start": 5,
+      "end": 24,
+      "cutAfter": 21,
+      "gc": 0.55,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "crispr other strand",
+  "input": {
+   "action": "crispr",
+   "sequence": "TACGCGCATATATGGGGCCAGATCCTAGCTAGCTGACGTCTTTT",
+   "topology": "linear"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "nuclease": "SpCas9 (NGG)",
+    "note": "A screen of GC, terminators and near matches inside this sequence only; check the genome before ordering.",
+    "guides": [
+     {
+      "protospacer": "GACGTCAGCTAGCTAGGATC",
+      "pam": "TGG",
+      "strand": -1,
+      "start": 21,
+      "end": 40,
+      "cutAfter": 23,
+      "gc": 0.55,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "crispr terminator and repeat",
+  "input": {
+   "action": "crispr",
+   "sequence": "GTTTTCAGCTAGCTAGGATCTGGAAGTTTTCAGCTAGCTAGGATCTGG",
+   "topology": "linear"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "nuclease": "SpCas9 (NGG)",
+    "note": "A screen of GC, terminators and near matches inside this sequence only; check the genome before ordering.",
+    "guides": [
+     {
+      "protospacer": "GTTTTCAGCTAGCTAGGATC",
+      "pam": "TGG",
+      "strand": 1,
+      "start": 1,
+      "end": 20,
+      "cutAfter": 17,
+      "gc": 0.45,
+      "score": 40,
+      "warnings": [
+       "terminator",
+       "offTargetClose"
+      ],
+      "offTargets": [
+       1,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "CTGGAAGTTTTCAGCTAGCT",
+      "pam": "AGG",
+      "strand": 1,
+      "start": 20,
+      "end": 39,
+      "cutAfter": 36,
+      "gc": 0.45,
+      "score": 60,
+      "warnings": [
+       "terminator"
+      ],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GTTTTCAGCTAGCTAGGATC",
+      "pam": "TGG",
+      "strand": 1,
+      "start": 26,
+      "end": 45,
+      "cutAfter": 42,
+      "gc": 0.45,
+      "score": 40,
+      "warnings": [
+       "terminator",
+       "offTargetClose"
+      ],
+      "offTargets": [
+       1,
+       0,
+       0,
+       0
+      ]
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "crispr cas12a",
+  "input": {
+   "action": "crispr",
+   "sequence": "CCTTTAGACGTCAGCTAGCTAGGATCTAGCCCC",
+   "topology": "linear",
+   "nuclease": "cas12a"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "nuclease": "Cas12a (TTTV)",
+    "note": "A screen of GC, terminators and near matches inside this sequence only; check the genome before ordering.",
+    "guides": [
+     {
+      "protospacer": "GACGTCAGCTAGCTAGGATCTAG",
+      "pam": "TTTA",
+      "strand": 1,
+      "start": 7,
+      "end": 29,
+      "cutAfter": 24,
+      "gc": 0.5217391304347826,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "crispr sacas9 circular region",
+  "input": {
+   "action": "crispr",
+   "sequence": "GTCCTCACCGGGACACACCATCGCCCGCAATCCCGATAAGGTGTCAATACTGGATATCCTAGGGTCTTAGAACGGGACTGTCGGGCTTTAAGTCTCGGTGCGTCTATTTGGTCGCGGCATCCTTGCGCCACCAGTCCGATTCACAATAGCCCCGCGTGCCCCAGAGTTATCCCCTACACGATGAGGGCGCGCGTATATACGCGCCCCGCGCTTAGTACGTCCTTAAGCTATTCGTATCTCCAGGTTGGAAGACATACGAGTTGTAGTGCCTCACACTTCTTACGCTAATATTGATTCTGAGCGGTGCCATCCACGCGCATTCGAGTCCGCACCGCTCCAGCTTAGTTGAATCCTATCAGCACTCTAAAGACGACACAACCCTGTTACTGCACTGTGCCCGTCACATGGAGTTACTCGCCACAGGTCGTTACCTAGACCGTGTTATAGGATAATTCACGGGCGGCAAAAACCACCACTGTACTCCCGGACGCCTACGGGCGCGTCATCAGTATTGGAATGTCAGAATCTCTCGCCATGGGATGGCAGTCACCCTCCCCGCGAAGCCGAGGAAAGATACGTCAGAGGAGTAGTGAGTAAGCCGATCTGAATAGCCTACGGGACGGGGTGTCATCGAGAATTTTTCAGTTGGCCGAGGGAGGTCTGAGTATCTAGGTTACGGGACTTAACAGTTCAAAAGTGATTTTCGCTGCCCTCCGGTGTAGTGAGGCAACACAGGAAGTAGAGGCTGATGGACCTGAACAGGTCTTAGATCGAGTGACGTAATTAGGATGTATAGCCATGCTTGCCGCAGTTCTAGTTTGAAACGAACATGATGACGCGAACCAAGTACACTCCAGGGGTTTCACTAGGGCTGCAAGGGCAACACGGGGATTGATAGATGGTAAGCTCATTCAGTACATTCACAGGAAGTTCACGTACCTGTGAAGTGTGTAATAATCACTAGTCAAAGGACCAGCGCTCTCTATCGATTGATACTCGGAACATAACAGTCAAGTCCCAGTCTCGTCGAAGCGGCCCAAGAAATACGCTCTTCTACGTAGCAACTGTTAGTGGGGATGCGATAGGTTTGGAGGGCGTATCGTGCGATTTGCATGCAGAGCGAACCCAAGAAAACACGAGAGCCACTCACCCACTGTTGGGCCGTTCCCTCGCACGGAAATGGTGTGCTTGGTCTTTGCATGGGCCGTCTATGTACTATGGACTTAAATACTGGCATTAAAGGTTCGGGACGTGCCTTGGTTATGATCGTTCTAGTTTGTCCGGTCGCCCCGCGTCTATCTACCTGGTCTGACCGTCAGACAGTCCAGGTTGGTGGGGTTCGCCTCGACCCGAAAGCTAATCATCACAGAAGAGACATTAGTAACATAATACCCTAGATTTTCGTAGGGAGTGATCCACGCCAATTGGCCAATGTTTTCCTACCTCGTGCAGGCTGTAGATCGATAACGGAAGAAGCTAAGGTTCTCGTGTTCAATTGCGGGTGGCTGCTGTAATTCGCGACGCGGGTGGCGCCAGCCTGACGTGCTACCTGCTAAAGAGGAACGATCGGAGTACGTCCACCGACAAAAGCATAGCGGTCGCATGATGGTCAGTTAACACTCAATGCCGGGATGCACGGCCTACGCTATAAAGTCAGTTTCTCTCCATAGCGAGTATCGTGCGAAATGGTCTGGTCGCCCTAGCAAGGACCTATCATATGAAGATCAAACATTGCTTGTTCGGCCTTCTCCTTGCGAGCTGGCTGGCACCATTTTCTGAAATAGCGCAAGGGCACGGCTTTGTCACATTTAAGTATACTATCTGGGGCTTTAACAGATGGTAGACCTTCGATCCATGACAAATTCCATAAGGGTGATCGTTCAACCCCTAGGTTGCTTGGAGAATCAGCGGCACCTACAGCACCAGCAATTCGAAGAGGTCTTAGAACGGCGGTCTTAGAGAGTTACACCGCATTTACGTTTGTACCACGGAGAACGAGT",
+   "nuclease": "sacas9",
+   "start": 200,
+   "end": 1500,
+   "limit": 8
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "nuclease": "SaCas9 (NNGRRT)",
+    "note": "A screen of GC, terminators and near matches inside this sequence only; check the genome before ordering.",
+    "guides": [
+     {
+      "protospacer": "TATCTCCAGGTTGGAAGACAT",
+      "pam": "ACGAGT",
+      "strand": 1,
+      "start": 235,
+      "end": 255,
+      "cutAfter": 252,
+      "gc": 0.42857142857142855,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "TATGTCTTCCAACCTGGAGAT",
+      "pam": "ACGAAT",
+      "strand": -1,
+      "start": 236,
+      "end": 256,
+      "cutAfter": 238,
+      "gc": 0.42857142857142855,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "AGCGGTGCCATCCACGCGCAT",
+      "pam": "TCGAGT",
+      "strand": 1,
+      "start": 300,
+      "end": 320,
+      "cutAfter": 317,
+      "gc": 0.6666666666666666,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "ATGCGCGTGGATGGCACCGCT",
+      "pam": "CAGAAT",
+      "strand": -1,
+      "start": 300,
+      "end": 320,
+      "cutAfter": 302,
+      "gc": 0.6666666666666666,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GTCCGCACCGCTCCAGCTTAG",
+      "pam": "TTGAAT",
+      "strand": 1,
+      "start": 325,
+      "end": 345,
+      "cutAfter": 342,
+      "gc": 0.6666666666666666,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "CTAAGCTGGAGCGGTGCGGAC",
+      "pam": "TCGAAT",
+      "strand": -1,
+      "start": 325,
+      "end": 345,
+      "cutAfter": 327,
+      "gc": 0.6666666666666666,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GTGTCGTCTTTAGAGTGCTGA",
+      "pam": "TAGGAT",
+      "strand": -1,
+      "start": 356,
+      "end": 376,
+      "cutAfter": 358,
+      "gc": 0.47619047619047616,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GTAACAGGGTTGTGTCGTCTT",
+      "pam": "TAGAGT",
+      "strand": -1,
+      "start": 367,
+      "end": 387,
+      "cutAfter": 369,
+      "gc": 0.47619047619047616,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "crispr spcas9 circular many",
+  "input": {
+   "action": "crispr",
+   "sequence": "GTCCTCACCGGGACACACCATCGCCCGCAATCCCGATAAGGTGTCAATACTGGATATCCTAGGGTCTTAGAACGGGACTGTCGGGCTTTAAGTCTCGGTGCGTCTATTTGGTCGCGGCATCCTTGCGCCACCAGTCCGATTCACAATAGCCCCGCGTGCCCCAGAGTTATCCCCTACACGATGAGGGCGCGCGTATATACGCGCCCCGCGCTTAGTACGTCCTTAAGCTATTCGTATCTCCAGGTTGGAAGACATACGAGTTGTAGTGCCTCACACTTCTTACGCTAATATTGATTCTGAGCGGTGCCATCCACGCGCATTCGAGTCCGCACCGCTCCAGCTTAGTTGAATCCTATCAGCACTCTAAAGACGACACAACCCTGTTACTGCACTGTGCCCGTCACATGGAGTTACTCGCCACAGGTCGTTACCTAGACCGTGTTATAGGATAATTCACGGGCGGCAAAAACCACCACTGTACTCCCGGACGCCTACGGGCGCGTCATCAGTATTGGAATGTCAGAATCTCTCGCCATGGGATGGCAGTCACCCTCCCCGCGAAGCCGAGGAAAGATACGTCAGAGGAGTAGTGAGTAAGCCGATCTGAATAGCCTACGGGACGGGGTGTCATCGAGAATTTTTCAGTTGGCCGAGGGAGGTCTGAGTATCTAGGTTACGGGACTTAACAGTTCAAAAGTGATTTTCGCTGCCCTCCGGTGTAGTGAGGCAACACAGGAAGTAGAGGCTGATGGACCTGAACAGGTCTTAGATCGAGTGACGTAATTAGGATGTATAGCCATGCTTGCCGCAGTTCTAGTTTGAAACGAACATGATGACGCGAACCAAGTACACTCCAGGGGTTTCACTAGGGCTGCAAGGGCAACACGGGGATTGATAGATGGTAAGCTCATTCAGTACATTCACAGGAAGTTCACGTACCTGTGAAGTGTGTAATAATCACTAGTCAAAGGACCAGCGCTCTCTATCGATTGATACTCGGAACATAACAGTCAAGTCCCAGTCTCGTCGAAGCGGCCCAAGAAATACGCTCTTCTACGTAGCAACTGTTAGTGGGGATGCGATAGGTTTGGAGGGCGTATCGTGCGATTTGCATGCAGAGCGAACCCAAGAAAACACGAGAGCCACTCACCCACTGTTGGGCCGTTCCCTCGCACGGAAATGGTGTGCTTGGTCTTTGCATGGGCCGTCTATGTACTATGGACTTAAATACTGGCATTAAAGGTTCGGGACGTGCCTTGGTTATGATCGTTCTAGTTTGTCCGGTCGCCCCGCGTCTATCTACCTGGTCTGACCGTCAGACAGTCCAGGTTGGTGGGGTTCGCCTCGACCCGAAAGCTAATCATCACAGAAGAGACATTAGTAACATAATACCCTAGATTTTCGTAGGGAGTGATCCACGCCAATTGGCCAATGTTTTCCTACCTCGTGCAGGCTGTAGATCGATAACGGAAGAAGCTAAGGTTCTCGTGTTCAATTGCGGGTGGCTGCTGTAATTCGCGACGCGGGTGGCGCCAGCCTGACGTGCTACCTGCTAAAGAGGAACGATCGGAGTACGTCCACCGACAAAAGCATAGCGGTCGCATGATGGTCAGTTAACACTCAATGCCGGGATGCACGGCCTACGCTATAAAGTCAGTTTCTCTCCATAGCGAGTATCGTGCGAAATGGTCTGGTCGCCCTAGCAAGGACCTATCATATGAAGATCAAACATTGCTTGTTCGGCCTTCTCCTTGCGAGCTGGCTGGCACCATTTTCTGAAATAGCGCAAGGGCACGGCTTTGTCACATTTAAGTATACTATCTGGGGCTTTAACAGATGGTAGACCTTCGATCCATGACAAATTCCATAAGGGTGATCGTTCAACCCCTAGGTTGCTTGGAGAATCAGCGGCACCTACAGCACCAGCAATTCGAAGAGGTCTTAGAACGGCGGTCTTAGAGAGTTACACCGCATTTACGTTTGTACCACGGAGAACGAGT",
+   "limit": 50
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "nuclease": "SpCas9 (NGG)",
+    "note": "A screen of GC, terminators and near matches inside this sequence only; check the genome before ordering.",
+    "guides": [
+     {
+      "protospacer": "GGCGATGGTGTGTCCCGGTG",
+      "pam": "AGG",
+      "strand": -1,
+      "start": 6,
+      "end": 25,
+      "cutAfter": 8,
+      "gc": 0.7,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "TTGCGGGCGATGGTGTGTCC",
+      "pam": "CGG",
+      "strand": -1,
+      "start": 11,
+      "end": 30,
+      "cutAfter": 13,
+      "gc": 0.65,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "CATCGCCCGCAATCCCGATA",
+      "pam": "AGG",
+      "strand": 1,
+      "start": 19,
+      "end": 38,
+      "cutAfter": 35,
+      "gc": 0.6,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "CTTATCGGGATTGCGGGCGA",
+      "pam": "TGG",
+      "strand": -1,
+      "start": 21,
+      "end": 40,
+      "cutAfter": 23,
+      "gc": 0.6,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "TGACACCTTATCGGGATTGC",
+      "pam": "GGG",
+      "strand": -1,
+      "start": 27,
+      "end": 46,
+      "cutAfter": 29,
+      "gc": 0.5,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "TTGACACCTTATCGGGATTG",
+      "pam": "CGG",
+      "strand": -1,
+      "start": 28,
+      "end": 47,
+      "cutAfter": 30,
+      "gc": 0.45,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "TCCCGATAAGGTGTCAATAC",
+      "pam": "TGG",
+      "strand": 1,
+      "start": 31,
+      "end": 50,
+      "cutAfter": 47,
+      "gc": 0.45,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "TCCAGTATTGACACCTTATC",
+      "pam": "GGG",
+      "strand": -1,
+      "start": 35,
+      "end": 54,
+      "cutAfter": 37,
+      "gc": 0.4,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GTGTCAATACTGGATATCCT",
+      "pam": "AGG",
+      "strand": 1,
+      "start": 41,
+      "end": 60,
+      "cutAfter": 57,
+      "gc": 0.4,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GATATCCTAGGGTCTTAGAA",
+      "pam": "CGG",
+      "strand": 1,
+      "start": 53,
+      "end": 72,
+      "cutAfter": 69,
+      "gc": 0.4,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "ATATCCTAGGGTCTTAGAAC",
+      "pam": "GGG",
+      "strand": 1,
+      "start": 54,
+      "end": 73,
+      "cutAfter": 70,
+      "gc": 0.4,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "CAGTCCCGTTCTAAGACCCT",
+      "pam": "AGG",
+      "strand": -1,
+      "start": 61,
+      "end": 80,
+      "cutAfter": 63,
+      "gc": 0.55,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GGGTCTTAGAACGGGACTGT",
+      "pam": "CGG",
+      "strand": 1,
+      "start": 62,
+      "end": 81,
+      "cutAfter": 78,
+      "gc": 0.55,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GGTCTTAGAACGGGACTGTC",
+      "pam": "GGG",
+      "strand": 1,
+      "start": 63,
+      "end": 82,
+      "cutAfter": 79,
+      "gc": 0.55,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GACTGTCGGGCTTTAAGTCT",
+      "pam": "CGG",
+      "strand": 1,
+      "start": 76,
+      "end": 95,
+      "cutAfter": 92,
+      "gc": 0.5,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "TAAGTCTCGGTGCGTCTATT",
+      "pam": "TGG",
+      "strand": 1,
+      "start": 89,
+      "end": 108,
+      "cutAfter": 105,
+      "gc": 0.45,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "TCGGTGCGTCTATTTGGTCG",
+      "pam": "CGG",
+      "strand": 1,
+      "start": 95,
+      "end": 114,
+      "cutAfter": 111,
+      "gc": 0.55,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "TGAATCGGACTGGTGGCGCA",
+      "pam": "AGG",
+      "strand": -1,
+      "start": 124,
+      "end": 143,
+      "cutAfter": 126,
+      "gc": 0.6,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GCTATTGTGAATCGGACTGG",
+      "pam": "TGG",
+      "strand": -1,
+      "start": 131,
+      "end": 150,
+      "cutAfter": 133,
+      "gc": 0.5,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GGGGCTATTGTGAATCGGAC",
+      "pam": "TGG",
+      "strand": -1,
+      "start": 134,
+      "end": 153,
+      "cutAfter": 136,
+      "gc": 0.55,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "CACGCGGGGCTATTGTGAAT",
+      "pam": "CGG",
+      "strand": -1,
+      "start": 139,
+      "end": 158,
+      "cutAfter": 141,
+      "gc": 0.55,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GGATAACTCTGGGGCACGCG",
+      "pam": "GGG",
+      "strand": -1,
+      "start": 153,
+      "end": 172,
+      "cutAfter": 155,
+      "gc": 0.65,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GGGATAACTCTGGGGCACGC",
+      "pam": "GGG",
+      "strand": -1,
+      "start": 154,
+      "end": 173,
+      "cutAfter": 156,
+      "gc": 0.65,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GGGGATAACTCTGGGGCACG",
+      "pam": "CGG",
+      "strand": -1,
+      "start": 155,
+      "end": 174,
+      "cutAfter": 157,
+      "gc": 0.65,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "TCGTGTAGGGGATAACTCTG",
+      "pam": "GGG",
+      "strand": -1,
+      "start": 162,
+      "end": 181,
+      "cutAfter": 164,
+      "gc": 0.5,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "ATCGTGTAGGGGATAACTCT",
+      "pam": "GGG",
+      "strand": -1,
+      "start": 163,
+      "end": 182,
+      "cutAfter": 165,
+      "gc": 0.45,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GAGTTATCCCCTACACGATG",
+      "pam": "AGG",
+      "strand": 1,
+      "start": 164,
+      "end": 183,
+      "cutAfter": 180,
+      "gc": 0.5,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "CATCGTGTAGGGGATAACTC",
+      "pam": "TGG",
+      "strand": -1,
+      "start": 164,
+      "end": 183,
+      "cutAfter": 166,
+      "gc": 0.5,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "AGTTATCCCCTACACGATGA",
+      "pam": "GGG",
+      "strand": 1,
+      "start": 165,
+      "end": 184,
+      "cutAfter": 181,
+      "gc": 0.45,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "CGCGCGCCCTCATCGTGTAG",
+      "pam": "GGG",
+      "strand": -1,
+      "start": 174,
+      "end": 193,
+      "cutAfter": 176,
+      "gc": 0.7,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "ACGCGCGCCCTCATCGTGTA",
+      "pam": "GGG",
+      "strand": -1,
+      "start": 175,
+      "end": 194,
+      "cutAfter": 177,
+      "gc": 0.65,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "TACGCGCGCCCTCATCGTGT",
+      "pam": "AGG",
+      "strand": -1,
+      "start": 176,
+      "end": 195,
+      "cutAfter": 178,
+      "gc": 0.65,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "TTAAGGACGTACTAAGCGCG",
+      "pam": "GGG",
+      "strand": -1,
+      "start": 207,
+      "end": 226,
+      "cutAfter": 209,
+      "gc": 0.5,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "CTTAAGGACGTACTAAGCGC",
+      "pam": "GGG",
+      "strand": -1,
+      "start": 208,
+      "end": 227,
+      "cutAfter": 210,
+      "gc": 0.5,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GCTTAAGGACGTACTAAGCG",
+      "pam": "CGG",
+      "strand": -1,
+      "start": 209,
+      "end": 228,
+      "cutAfter": 211,
+      "gc": 0.5,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "CTTAAGCTATTCGTATCTCC",
+      "pam": "AGG",
+      "strand": 1,
+      "start": 222,
+      "end": 241,
+      "cutAfter": 238,
+      "gc": 0.4,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "CTGGAGATACGAATAGCTTA",
+      "pam": "AGG",
+      "strand": -1,
+      "start": 224,
+      "end": 243,
+      "cutAfter": 226,
+      "gc": 0.4,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "AGCTATTCGTATCTCCAGGT",
+      "pam": "TGG",
+      "strand": 1,
+      "start": 226,
+      "end": 245,
+      "cutAfter": 242,
+      "gc": 0.45,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "AACTCGTATGTCTTCCAACC",
+      "pam": "TGG",
+      "strand": -1,
+      "start": 243,
+      "end": 262,
+      "cutAfter": 245,
+      "gc": 0.45,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "CGGACTCGAATGCGCGTGGA",
+      "pam": "TGG",
+      "strand": -1,
+      "start": 310,
+      "end": 329,
+      "cutAfter": 312,
+      "gc": 0.65,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GGTGCGGACTCGAATGCGCG",
+      "pam": "TGG",
+      "strand": -1,
+      "start": 314,
+      "end": 333,
+      "cutAfter": 316,
+      "gc": 0.7,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "TCAACTAAGCTGGAGCGGTG",
+      "pam": "CGG",
+      "strand": -1,
+      "start": 330,
+      "end": 349,
+      "cutAfter": 332,
+      "gc": 0.55,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "AGGATTCAACTAAGCTGGAG",
+      "pam": "CGG",
+      "strand": -1,
+      "start": 335,
+      "end": 354,
+      "cutAfter": 337,
+      "gc": 0.45,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "CTGATAGGATTCAACTAAGC",
+      "pam": "TGG",
+      "strand": -1,
+      "start": 340,
+      "end": 359,
+      "cutAfter": 342,
+      "gc": 0.4,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GTCGTCTTTAGAGTGCTGAT",
+      "pam": "AGG",
+      "strand": -1,
+      "start": 355,
+      "end": 374,
+      "cutAfter": 357,
+      "gc": 0.45,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "ACGGGCACAGTGCAGTAACA",
+      "pam": "GGG",
+      "strand": -1,
+      "start": 382,
+      "end": 401,
+      "cutAfter": 384,
+      "gc": 0.55,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GACGGGCACAGTGCAGTAAC",
+      "pam": "AGG",
+      "strand": -1,
+      "start": 383,
+      "end": 402,
+      "cutAfter": 385,
+      "gc": 0.6,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "ACTGCACTGTGCCCGTCACA",
+      "pam": "TGG",
+      "strand": 1,
+      "start": 386,
+      "end": 405,
+      "cutAfter": 402,
+      "gc": 0.6,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "GGCGAGTAACTCCATGTGAC",
+      "pam": "GGG",
+      "strand": -1,
+      "start": 400,
+      "end": 419,
+      "cutAfter": 402,
+      "gc": 0.55,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "protospacer": "TGGCGAGTAACTCCATGTGA",
+      "pam": "CGG",
+      "strand": -1,
+      "start": 401,
+      "end": 420,
+      "cutAfter": 403,
+      "gc": 0.5,
+      "score": 100,
+      "warnings": [],
+      "offTargets": [
+       0,
+       0,
+       0,
+       0
+      ]
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "codon protein ecoli",
+  "input": {
+   "action": "codon_optimise",
+   "sequence": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDAQFEVV",
+   "input": "protein",
+   "host": "ecoli"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "host": "E. coli K-12",
+    "dna": "ATGAAAACCGCGTATATTGCGAAACAGCGTCAGATTAGCTTTGTGAAAAGCCATTTTAGCCGTCAGCTGGAAGAACGTCTGGGCCTGATTGAAGTGCAGGCGCCGATTCTGAGCCGTGTGGGCGATGGCACCCAGGATAACCTGAGCGGCGCGGAAAAAGCGGTGCAGGTGAAAGTGAAAGCGCTGCCGGATGCGCAGTTTGAAGTGGTGTAA",
+    "protein": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDAQFEVV",
+    "caiBefore": null,
+    "caiAfter": 1,
+    "gc": 0.5352112676056338,
+    "changed": 0,
+    "unresolved": []
+   }
+  }
+ },
+ {
+  "name": "codon protein human",
+  "input": {
+   "action": "codon_optimise",
+   "sequence": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDAQFEVV",
+   "input": "protein",
+   "host": "human"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "host": "Human",
+    "dna": "ATGAAGACCGCCTACATCGCCAAGCAGAGACAGATCAGCTTCGTGAAGAGCCACTTCAGCAGACAGCTGGAGGAGAGACTGGGCCTGATCGAGGTGCAGGCCCCCATCCTGAGCAGAGTGGGCGACGGCACCCAGGACAACCTGAGCGGCGCCGAGAAGGCCGTGCAGGTGAAGGTGAAGGCCCTGCCCGACGCCCAGTTCGAGGTGGTGTGA",
+    "protein": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDAQFEVV",
+    "caiBefore": null,
+    "caiAfter": 1,
+    "gc": 0.6291079812206573,
+    "changed": 0,
+    "unresolved": []
+   }
+  }
+ },
+ {
+  "name": "codon protein yeast",
+  "input": {
+   "action": "codon_optimise",
+   "sequence": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDAQFEVV",
+   "input": "protein",
+   "host": "yeast"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "host": "S. cerevisiae",
+    "dna": "ATGAAAACTGCTTATATTGCTAAACAAAGACAAATTTCTTTTGTTAAATCTCATTTTTCTAGACAATTGGAAGAAAGATTGGGTTTGATTGAAGTTCAAGCTCCAATTTTGTCTAGAGTTGGTGATGGTACTCAAGATAATTTGTCTGGTGCTGAAAAAGCTGTTCAAGTTAAAGTTAAAGCTTTGCCAGATGCTCAATTTGAAGTTGTTTAA",
+    "protein": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDAQFEVV",
+    "caiBefore": null,
+    "caiAfter": 1,
+    "gc": 0.3192488262910798,
+    "changed": 0,
+    "unresolved": []
+   }
+  }
+ },
+ {
+  "name": "codon dna with enzymes avoided",
+  "input": {
+   "action": "codon_optimise",
+   "sequence": "ATGGAATTCGGATCCGAATTCGGATCCGAATTCGGATCCAAAAAAAAAAAAAAAGGATCCTAA",
+   "input": "dna",
+   "host": "ecoli",
+   "avoidEnzymes": [
+    "EcoRI",
+    "BamHI",
+    "BsaI"
+   ]
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "host": "E. coli K-12",
+    "dna": "ATGGAATTTGGCAGCGAATTTGGCAGCGAATTTGGCAGCAAGAAGAAGAAGAAAGGCAGCTAA",
+    "protein": "MEFGSEFGSEFGSKKKKKGS",
+    "caiBefore": 0.6840767358757169,
+    "caiAfter": 0.8023183637134578,
+    "gc": 0.4444444444444444,
+    "changed": 15,
+    "unresolved": []
+   }
+  }
+ },
+ {
+  "name": "codon dna with runs",
+  "input": {
+   "action": "codon_optimise",
+   "sequence": "ATGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+   "input": "dna",
+   "host": "human",
+   "maxRun": 4
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "host": "Human",
+    "dna": "ATGAAGAAGAAGAAGAAGAAGAAGAAGAAGAAGAAGAAGGGCGGCGGCGGCGGCGGCGGCGGCGGCGGCTGA",
+    "protein": "MKKKKKKKKKKKKGGGGGGGGGG",
+    "caiBefore": 0.7549736456239063,
+    "caiAfter": 1,
+    "gc": 0.6111111111111112,
+    "changed": 22,
+    "unresolved": []
+   }
+  }
+ },
+ {
+  "name": "codon poor yeast dna",
+  "input": {
+   "action": "codon_optimise",
+   "sequence": "ATGCTTCTCCTACTGCGGCGACGCAGGCCGGGGCGAAGT",
+   "input": "dna",
+   "host": "yeast"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "host": "S. cerevisiae",
+    "dna": "ATGTTGTTGTTGTTGAGAAGAAGAAGACCAGGTAGATCTTAA",
+    "protein": "MLLLLRRRRPGRS",
+    "caiBefore": 0.2510282197054351,
+    "caiAfter": 1,
+    "gc": 0.35714285714285715,
+    "changed": 12,
+    "unresolved": []
+   }
+  }
+ },
+ {
+  "name": "codon bad letter",
+  "input": {
+   "action": "codon_optimise",
+   "sequence": "MKTB",
+   "input": "protein",
+   "host": "ecoli"
+  },
+  "expected": {
+   "ok": false,
+   "result": "The protein has a letter that is not an amino acid."
+  }
+ },
+ {
+  "name": "codon not a whole number of codons",
+  "input": {
+   "action": "codon_optimise",
+   "sequence": "ATGCC",
+   "input": "dna",
+   "host": "ecoli"
+  },
+  "expected": {
+   "ok": false,
+   "result": "A coding sequence must be a whole number of codons."
+  }
+ },
+ {
+  "name": "check_read clean",
+  "input": {
+   "action": "check_read",
+   "expected": "GAGATGGCAGTATGCCGACGACAGACGTGCAAAACACATCTCTATTCGTGCGCACCAGCAGCCAGTCAATGCCGGTGCCTCAGATCCCCGATCGGAAACTCCGAGGGCTGAACAATATTGGCCAGCCTGTGCGACAGACCGTCATGTCACCCACGATTGGGCGCTGCGGATGAATGTCTGTTACACCGCTCCTCAGCCCGATATCCGCAGAGACAGCAGCGGTTATGAGAGTTTGAATCCCCTGCTGTAATGGTCTGCCGAGCGGTTTGAAAACATTGCTAGCGTTTCGTATGGAAGATAGACTAGGAGCTGGGTGCATGTTAGTGCCGTGTCGATTAGAACGCTATCAGGCTGTATCGGATGTTACGACCCCGCTAAGTGAGAAGGCAAACCTAGAGTGGATAACATGGTTTCCGGAGAAGGAGCTGGCTGTCTGGGTGATCCGACGGAGCCACAGGGGTCACCGCATCCTCGTCGCTCCTATCGGATGGAGACCAGTCACCCTTTTGGTTGCGGCTAGAAATAAGGTAGCTCCTTAATTGCTACGCCTGACAAGGTATGGATCCCACTGTTAGTGGGGTGTGAACGCGACTTTCCGGCCTGGGCTTTCTAAAGCGTATCAGTACATCGTTATCCCGTCCTTTGCCGACGCAAGTCCTGTTCCGGTGCAACCAATGTCTACGTTTCGTAAATATTCTATTTCGAAGGGCATGACTTTACTTATGATTTTCCCGCGTCTAAGGTTGCATGGACGTGATGCACTGTGCGCCTTGACGGTTCCGCAGATCCTTAGAAGGACGTGCTACCTGGGCCGTGACTCTAAATCCCCCAAGCTAAGCATTTACAATCAAAACAGGTCCACACGAGTTCCCGCGAGGACTTTGTGATTTTAGAGTGGCAGTAGGCACCATAATGTTCCGAATATACGGGCTATTGTGACACGCAGTAAGCCGAGGTTATACTCAGACGGTGAAACGATGGATCGCGTTTCGAAACAGTTCCGACGTACTGCCTTCTCCGTGTGGCACGTACGGCGGCAACAAAAGCATTTCCGGAGAACGGAGTTAACACATCTCTCGGTTTATCCCGGGTGCATAGAAGGGTCGCGCTGACGGAGTCGGGCTTTACTATTACTTCCCATTTACTCCTAGGGAACATCTGTGGATCGTACAAAGCCTCAGCCCCAAACCTTCTTGATCGTTCTAGTTTGAAACCTAGAGTTGACCCAGGGTTCGTTACTGTGGATCGTTCTAACGAACATCCTCTGAGTCGCGATCGATACCCTACGATCCGCAGAAATCGAGACATAATGTTGCGGCACCACCATCGATACCCACACGTGACCCTCTAGCATCAGAGCTAACCCTATCAAAACGCTGCCTAGACGTCAAAGCATGAGGAACTCCTACCTGCTGAATTTACATTGTCTCGGAAGATCAAAATTTTGGTTCAGATGTGAACTACATGGCACTCAAGCGCTTCCAAGAGTGGGAGGATTAA",
+   "read": "CCGAGGGCTGAACAATATTGGCCAGCCTGTGCGACAGACCGTCATGTCACCCACGATTGGGCGCTGCGGATGAATGTCTGTTACACCGCTCCTCAGCCCGATATCCGCAGAGACAGCAGCGGTTATGAGAGTTTGAATCCCCTGCTGTAATGGTCTGCCGAGCGGTTTGAAAACATTGCTAGCGTTTCGTATGGAAGATAGACTAGGAGCTGGGTGCATGTTAGTGCCGTGTCGATTAGAACGCTATCAGGCTGTATCGGATGTTACGACCCCGCTAAGTGAGAAGGCAAACCTAGAGTGGATAACATGGTTTCCGGAGAAGGAGCTGGCTGTCTGGGTGATCCGACGGAGCCACAGGGGTCACCGCATCCTCGTCGCTCCTATCGGATGGAGACCAGTCACCCTTTTGGTTGCGGCTAGAAATAAGGTAGCTCCTTAATTGCTACGCCTGACAAGGTATGGATCCCACTGTTAGTGGGGTGTGAACGCGACTTTCCGGCCTGGGCTTTCTAAAGCGTATCAGTACATCGTTATCCCGTCCTTTGCCGACGCAAGTCCTGTTCCGGTGCAACCAATGTCTACGTTTCGTAAATATTCTAT",
+   "quality": "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "verdict": "matches",
+    "strand": 1,
+    "covers": {
+     "start": 101,
+     "end": 700
+    },
+    "identity": 1,
+    "meanQuality": 45,
+    "differences": []
+   }
+  }
+ },
+ {
+  "name": "check_read confident substitution",
+  "input": {
+   "action": "check_read",
+   "expected": "GAGATGGCAGTATGCCGACGACAGACGTGCAAAACACATCTCTATTCGTGCGCACCAGCAGCCAGTCAATGCCGGTGCCTCAGATCCCCGATCGGAAACTCCGAGGGCTGAACAATATTGGCCAGCCTGTGCGACAGACCGTCATGTCACCCACGATTGGGCGCTGCGGATGAATGTCTGTTACACCGCTCCTCAGCCCGATATCCGCAGAGACAGCAGCGGTTATGAGAGTTTGAATCCCCTGCTGTAATGGTCTGCCGAGCGGTTTGAAAACATTGCTAGCGTTTCGTATGGAAGATAGACTAGGAGCTGGGTGCATGTTAGTGCCGTGTCGATTAGAACGCTATCAGGCTGTATCGGATGTTACGACCCCGCTAAGTGAGAAGGCAAACCTAGAGTGGATAACATGGTTTCCGGAGAAGGAGCTGGCTGTCTGGGTGATCCGACGGAGCCACAGGGGTCACCGCATCCTCGTCGCTCCTATCGGATGGAGACCAGTCACCCTTTTGGTTGCGGCTAGAAATAAGGTAGCTCCTTAATTGCTACGCCTGACAAGGTATGGATCCCACTGTTAGTGGGGTGTGAACGCGACTTTCCGGCCTGGGCTTTCTAAAGCGTATCAGTACATCGTTATCCCGTCCTTTGCCGACGCAAGTCCTGTTCCGGTGCAACCAATGTCTACGTTTCGTAAATATTCTATTTCGAAGGGCATGACTTTACTTATGATTTTCCCGCGTCTAAGGTTGCATGGACGTGATGCACTGTGCGCCTTGACGGTTCCGCAGATCCTTAGAAGGACGTGCTACCTGGGCCGTGACTCTAAATCCCCCAAGCTAAGCATTTACAATCAAAACAGGTCCACACGAGTTCCCGCGAGGACTTTGTGATTTTAGAGTGGCAGTAGGCACCATAATGTTCCGAATATACGGGCTATTGTGACACGCAGTAAGCCGAGGTTATACTCAGACGGTGAAACGATGGATCGCGTTTCGAAACAGTTCCGACGTACTGCCTTCTCCGTGTGGCACGTACGGCGGCAACAAAAGCATTTCCGGAGAACGGAGTTAACACATCTCTCGGTTTATCCCGGGTGCATAGAAGGGTCGCGCTGACGGAGTCGGGCTTTACTATTACTTCCCATTTACTCCTAGGGAACATCTGTGGATCGTACAAAGCCTCAGCCCCAAACCTTCTTGATCGTTCTAGTTTGAAACCTAGAGTTGACCCAGGGTTCGTTACTGTGGATCGTTCTAACGAACATCCTCTGAGTCGCGATCGATACCCTACGATCCGCAGAAATCGAGACATAATGTTGCGGCACCACCATCGATACCCACACGTGACCCTCTAGCATCAGAGCTAACCCTATCAAAACGCTGCCTAGACGTCAAAGCATGAGGAACTCCTACCTGCTGAATTTACATTGTCTCGGAAGATCAAAATTTTGGTTCAGATGTGAACTACATGGCACTCAAGCGCTTCCAAGAGTGGGAGGATTAA",
+   "read": "ATATCCGCAGAGACAGCAGCGGTTATGAGAGTTTGAATCCCCTGCTGTAATGGTCTGCCGAGCGGTTTGAAAACATTGCTAGCGTTTCGTATGGAAGATAGACTAGGAGCTGGGTGCATGTTAGTGCCGTGTCGATTAGAACGCTATCAGACTGTATCGGATGTTACGACCCCGCTAAGTGAGAAGGCAAACCTAGAGTGGATAACATGGTTTCCGGAGAAGGAGCTGGCTGTCTGGGTGATCCGACGGAGCCACAGGGGTCACCGCATCCTCGTCGCTCCTATCGGATGGAGACCAGTCACCCTTTTGGTTGCGGCTAGAAATAAGGTAGCTCCTTAATTGCTACGCCTGACAAGGTATGGATCCCACTGTTAGTGGGGTGTGAACGCGACTTTCCGGCCTGGGCTTTCTAAAGCGTATCAGTACATCGTTATCCCGTCCTTTGCCGACGCAAGTCCTGTTCCGGTGCAACCAATGTCTACGTTTCGTAAATATTCTAT",
+   "quality": "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "verdict": "mismatch",
+    "strand": 1,
+    "covers": {
+     "start": 201,
+     "end": 700
+    },
+    "identity": 0.998,
+    "meanQuality": 45,
+    "differences": [
+     {
+      "kind": "mismatch",
+      "position": 351,
+      "expected": "G",
+      "found": "A",
+      "quality": 45,
+      "confirmed": true
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "check_read low quality substitution",
+  "input": {
+   "action": "check_read",
+   "expected": "GAGATGGCAGTATGCCGACGACAGACGTGCAAAACACATCTCTATTCGTGCGCACCAGCAGCCAGTCAATGCCGGTGCCTCAGATCCCCGATCGGAAACTCCGAGGGCTGAACAATATTGGCCAGCCTGTGCGACAGACCGTCATGTCACCCACGATTGGGCGCTGCGGATGAATGTCTGTTACACCGCTCCTCAGCCCGATATCCGCAGAGACAGCAGCGGTTATGAGAGTTTGAATCCCCTGCTGTAATGGTCTGCCGAGCGGTTTGAAAACATTGCTAGCGTTTCGTATGGAAGATAGACTAGGAGCTGGGTGCATGTTAGTGCCGTGTCGATTAGAACGCTATCAGGCTGTATCGGATGTTACGACCCCGCTAAGTGAGAAGGCAAACCTAGAGTGGATAACATGGTTTCCGGAGAAGGAGCTGGCTGTCTGGGTGATCCGACGGAGCCACAGGGGTCACCGCATCCTCGTCGCTCCTATCGGATGGAGACCAGTCACCCTTTTGGTTGCGGCTAGAAATAAGGTAGCTCCTTAATTGCTACGCCTGACAAGGTATGGATCCCACTGTTAGTGGGGTGTGAACGCGACTTTCCGGCCTGGGCTTTCTAAAGCGTATCAGTACATCGTTATCCCGTCCTTTGCCGACGCAAGTCCTGTTCCGGTGCAACCAATGTCTACGTTTCGTAAATATTCTATTTCGAAGGGCATGACTTTACTTATGATTTTCCCGCGTCTAAGGTTGCATGGACGTGATGCACTGTGCGCCTTGACGGTTCCGCAGATCCTTAGAAGGACGTGCTACCTGGGCCGTGACTCTAAATCCCCCAAGCTAAGCATTTACAATCAAAACAGGTCCACACGAGTTCCCGCGAGGACTTTGTGATTTTAGAGTGGCAGTAGGCACCATAATGTTCCGAATATACGGGCTATTGTGACACGCAGTAAGCCGAGGTTATACTCAGACGGTGAAACGATGGATCGCGTTTCGAAACAGTTCCGACGTACTGCCTTCTCCGTGTGGCACGTACGGCGGCAACAAAAGCATTTCCGGAGAACGGAGTTAACACATCTCTCGGTTTATCCCGGGTGCATAGAAGGGTCGCGCTGACGGAGTCGGGCTTTACTATTACTTCCCATTTACTCCTAGGGAACATCTGTGGATCGTACAAAGCCTCAGCCCCAAACCTTCTTGATCGTTCTAGTTTGAAACCTAGAGTTGACCCAGGGTTCGTTACTGTGGATCGTTCTAACGAACATCCTCTGAGTCGCGATCGATACCCTACGATCCGCAGAAATCGAGACATAATGTTGCGGCACCACCATCGATACCCACACGTGACCCTCTAGCATCAGAGCTAACCCTATCAAAACGCTGCCTAGACGTCAAAGCATGAGGAACTCCTACCTGCTGAATTTACATTGTCTCGGAAGATCAAAATTTTGGTTCAGATGTGAACTACATGGCACTCAAGCGCTTCCAAGAGTGGGAGGATTAA",
+   "read": "ATATCCGCAGAGACAGCAGCGGTTATGAGAGTTTGAATCCCCTGCTGTAATGGTCTGCCGAGCGGTTTGAAAACATTGCTAGCGTTTCGTATGGAAGATAGACTAGGAGCTGGGTGCATGTTAGTGCCGTGTCGATTAGAACGCTATCAGGCTGTATCGGATGTTACGACCCCGCTAAGTGAGAAGGCAAACCTAGAGTGGATAACATGGTTTCCGGAGAAGGAGCTGGCTGTCTGGGTGATCCGACGGAACCACAGGGGTCACCGCATCCTCGTCGCTCCTATCGGATGGAGACCAGTCACCCTTTTGGTTGCGGCTAGAAATAAGGTAGCTCCTTAATTGCTACGCCTGACAAGGTATGGATCCCACTGTTAGTGGGGTGTGAACGCGACTTTCCGGCCTGGGCTTTCTAAAGCGTATCAGTACATCGTTATCCCGTCCTTTGCCGACGCAAGTCCTGTTCCGGTGCAACCAATGTCTACGTTTCGTAAATATTCTAT",
+   "quality": "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN-NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "verdict": "review",
+    "strand": 1,
+    "covers": {
+     "start": 201,
+     "end": 700
+    },
+    "identity": 0.998,
+    "meanQuality": 44.9,
+    "differences": [
+     {
+      "kind": "mismatch",
+      "position": 451,
+      "expected": "G",
+      "found": "A",
+      "quality": 12,
+      "confirmed": false
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "check_read reverse strand deletion",
+  "input": {
+   "action": "check_read",
+   "expected": "GAGATGGCAGTATGCCGACGACAGACGTGCAAAACACATCTCTATTCGTGCGCACCAGCAGCCAGTCAATGCCGGTGCCTCAGATCCCCGATCGGAAACTCCGAGGGCTGAACAATATTGGCCAGCCTGTGCGACAGACCGTCATGTCACCCACGATTGGGCGCTGCGGATGAATGTCTGTTACACCGCTCCTCAGCCCGATATCCGCAGAGACAGCAGCGGTTATGAGAGTTTGAATCCCCTGCTGTAATGGTCTGCCGAGCGGTTTGAAAACATTGCTAGCGTTTCGTATGGAAGATAGACTAGGAGCTGGGTGCATGTTAGTGCCGTGTCGATTAGAACGCTATCAGGCTGTATCGGATGTTACGACCCCGCTAAGTGAGAAGGCAAACCTAGAGTGGATAACATGGTTTCCGGAGAAGGAGCTGGCTGTCTGGGTGATCCGACGGAGCCACAGGGGTCACCGCATCCTCGTCGCTCCTATCGGATGGAGACCAGTCACCCTTTTGGTTGCGGCTAGAAATAAGGTAGCTCCTTAATTGCTACGCCTGACAAGGTATGGATCCCACTGTTAGTGGGGTGTGAACGCGACTTTCCGGCCTGGGCTTTCTAAAGCGTATCAGTACATCGTTATCCCGTCCTTTGCCGACGCAAGTCCTGTTCCGGTGCAACCAATGTCTACGTTTCGTAAATATTCTATTTCGAAGGGCATGACTTTACTTATGATTTTCCCGCGTCTAAGGTTGCATGGACGTGATGCACTGTGCGCCTTGACGGTTCCGCAGATCCTTAGAAGGACGTGCTACCTGGGCCGTGACTCTAAATCCCCCAAGCTAAGCATTTACAATCAAAACAGGTCCACACGAGTTCCCGCGAGGACTTTGTGATTTTAGAGTGGCAGTAGGCACCATAATGTTCCGAATATACGGGCTATTGTGACACGCAGTAAGCCGAGGTTATACTCAGACGGTGAAACGATGGATCGCGTTTCGAAACAGTTCCGACGTACTGCCTTCTCCGTGTGGCACGTACGGCGGCAACAAAAGCATTTCCGGAGAACGGAGTTAACACATCTCTCGGTTTATCCCGGGTGCATAGAAGGGTCGCGCTGACGGAGTCGGGCTTTACTATTACTTCCCATTTACTCCTAGGGAACATCTGTGGATCGTACAAAGCCTCAGCCCCAAACCTTCTTGATCGTTCTAGTTTGAAACCTAGAGTTGACCCAGGGTTCGTTACTGTGGATCGTTCTAACGAACATCCTCTGAGTCGCGATCGATACCCTACGATCCGCAGAAATCGAGACATAATGTTGCGGCACCACCATCGATACCCACACGTGACCCTCTAGCATCAGAGCTAACCCTATCAAAACGCTGCCTAGACGTCAAAGCATGAGGAACTCCTACCTGCTGAATTTACATTGTCTCGGAAGATCAAAATTTTGGTTCAGATGTGAACTACATGGCACTCAAGCGCTTCCAAGAGTGGGAGGATTAA",
+   "read": "TTCTATGCACCCGGGATAAACCGAGAGATGTGTTAACTCCGTTCTCCGGAAATGCTTTTGTTGCCGCCGTACGTGCCACACGGAGAAGGCAGTACGTCGGAACTGTTTCGAAACGCGATCCATCGTTTCACCGTCTGAGTATAACCTCGGCTTACTGCGTGTCACAATAGCCCGTATATTCGGAACATTATGGTGCCTACTGCCACTCTAAAATCACAAAGTCCTCGCGGGAACTCGTGTGGACCTGTTTTGATTGTAAATGCTTAGCTTGGGGGATTTAGAGTCACGGCCCAGGTACGTCCTTCTAAGGATCTGCGGAACCGTCAAGGCGCACAGTGCATCACGTCCATGCAACCTTAGACGCGGGAAAATCATAAGTAAAGTCATGCCCTTCGAAATAGAATATTTACGAAACGTAGACATTGGTTGCACCGGAACAGGACTTGCGTCGGCAAAGGACGGGATAACGATGTACTGATACGCTTTAGAAAGCCCAG",
+   "quality": "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "verdict": "mismatch",
+    "strand": -1,
+    "covers": {
+     "start": 601,
+     "end": 1100
+    },
+    "identity": 0.994,
+    "meanQuality": 45,
+    "differences": [
+     {
+      "kind": "deletion",
+      "position": 801,
+      "expected": "TGC",
+      "found": "",
+      "quality": 45,
+      "confirmed": true
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "check_read no alignment",
+  "input": {
+   "action": "check_read",
+   "expected": "GAGATGGCAGTATGCCGACGACAGACGTGCAAAACACATCTCTATTCGTGCGCACCAGCAGCCAGTCAATGCCGGTGCCTCAGATCCCCGATCGGAAACTCCGAGGGCTGAACAATATTGGCCAGCCTGTGCGACAGACCGTCATGTCACCCACGATTGGGCGCTGCGGATGAATGTCTGTTACACCGCTCCTCAGCCCGATATCCGCAGAGACAGCAGCGGTTATGAGAGTTTGAATCCCCTGCTGTAATGGTCTGCCGAGCGGTTTGAAAACATTGCTAGCGTTTCGTATGGAAGATAGACTAGGAGCTGGGTGCATGTTAGTGCCGTGTCGATTAGAACGCTATCAGGCTGTATCGGATGTTACGACCCCGCTAAGTGAGAAGGCAAACCTAGAGTGGATAACATGGTTTCCGGAGAAGGAGCTGGCTGTCTGGGTGATCCGACGGAGCCACAGGGGTCACCGCATCCTCGTCGCTCCTATCGGATGGAGACCAGTCACCCTTTTGGTTGCGGCTAGAAATAAGGTAGCTCCTTAATTGCTACGCCTGACAAGGTATGGATCCCACTGTTAGTGGGGTGTGAACGCGACTTTCCGGCCTGGGCTTTCTAAAGCGTATCAGTACATCGTTATCCCGTCCTTTGCCGACGCAAGTCCTGTTCCGGTGCAACCAATGTCTACGTTTCGTAAATATTCTATTTCGAAGGGCATGACTTTACTTATGATTTTCCCGCGTCTAAGGTTGCATGGACGTGATGCACTGTGCGCCTTGACGGTTCCGCAGATCCTTAGAAGGACGTGCTACCTGGGCCGTGACTCTAAATCCCCCAAGCTAAGCATTTACAATCAAAACAGGTCCACACGAGTTCCCGCGAGGACTTTGTGATTTTAGAGTGGCAGTAGGCACCATAATGTTCCGAATATACGGGCTATTGTGACACGCAGTAAGCCGAGGTTATACTCAGACGGTGAAACGATGGATCGCGTTTCGAAACAGTTCCGACGTACTGCCTTCTCCGTGTGGCACGTACGGCGGCAACAAAAGCATTTCCGGAGAACGGAGTTAACACATCTCTCGGTTTATCCCGGGTGCATAGAAGGGTCGCGCTGACGGAGTCGGGCTTTACTATTACTTCCCATTTACTCCTAGGGAACATCTGTGGATCGTACAAAGCCTCAGCCCCAAACCTTCTTGATCGTTCTAGTTTGAAACCTAGAGTTGACCCAGGGTTCGTTACTGTGGATCGTTCTAACGAACATCCTCTGAGTCGCGATCGATACCCTACGATCCGCAGAAATCGAGACATAATGTTGCGGCACCACCATCGATACCCACACGTGACCCTCTAGCATCAGAGCTAACCCTATCAAAACGCTGCCTAGACGTCAAAGCATGAGGAACTCCTACCTGCTGAATTTACATTGTCTCGGAAGATCAAAATTTTGGTTCAGATGTGAACTACATGGCACTCAAGCGCTTCCAAGAGTGGGAGGATTAA",
+   "read": "ACGTCATGTAAGTTTGTGTTTGCATGCATCGTCCGACAAAAGCATAGCGGTACAAAAGCAGAGTTTGTTCAGATCAAGACGCATAGCGGCGTATTGCCGTGTGAAGTAAGCATTTCCGATTGAAACCATCGAGAACTCCGTCTATTGCTCAAACATTGCTCATTGCTAGCGTTTCATCACGGCAATCCTCGTATATCTTGCCGACCAAACTGAGCTTCGTTAACAGGCGATACCCACACGTGACCAGCAGCAGGGGTCATCGCGGGAGTGGCGCTTAGTACATGATGTACGAAAGGTTGGACGTGACTCTACACCCTCGCCACTGGGGCATGAGACGGAGTCGAATGGACTGGATCGGGATAACGATACCTTTATACTACGACGTACCAAAGTACATTCC"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "verdict": "noAlignment",
+    "strand": null,
+    "covers": null,
+    "identity": 0,
+    "meanQuality": 40,
+    "differences": []
+   }
+  }
+ },
+ {
+  "name": "check_read poor ends are trimmed",
+  "input": {
+   "action": "check_read",
+   "expected": "GAGATGGCAGTATGCCGACGACAGACGTGCAAAACACATCTCTATTCGTGCGCACCAGCAGCCAGTCAATGCCGGTGCCTCAGATCCCCGATCGGAAACTCCGAGGGCTGAACAATATTGGCCAGCCTGTGCGACAGACCGTCATGTCACCCACGATTGGGCGCTGCGGATGAATGTCTGTTACACCGCTCCTCAGCCCGATATCCGCAGAGACAGCAGCGGTTATGAGAGTTTGAATCCCCTGCTGTAATGGTCTGCCGAGCGGTTTGAAAACATTGCTAGCGTTTCGTATGGAAGATAGACTAGGAGCTGGGTGCATGTTAGTGCCGTGTCGATTAGAACGCTATCAGGCTGTATCGGATGTTACGACCCCGCTAAGTGAGAAGGCAAACCTAGAGTGGATAACATGGTTTCCGGAGAAGGAGCTGGCTGTCTGGGTGATCCGACGGAGCCACAGGGGTCACCGCATCCTCGTCGCTCCTATCGGATGGAGACCAGTCACCCTTTTGGTTGCGGCTAGAAATAAGGTAGCTCCTTAATTGCTACGCCTGACAAGGTATGGATCCCACTGTTAGTGGGGTGTGAACGCGACTTTCCGGCCTGGGCTTTCTAAAGCGTATCAGTACATCGTTATCCCGTCCTTTGCCGACGCAAGTCCTGTTCCGGTGCAACCAATGTCTACGTTTCGTAAATATTCTATTTCGAAGGGCATGACTTTACTTATGATTTTCCCGCGTCTAAGGTTGCATGGACGTGATGCACTGTGCGCCTTGACGGTTCCGCAGATCCTTAGAAGGACGTGCTACCTGGGCCGTGACTCTAAATCCCCCAAGCTAAGCATTTACAATCAAAACAGGTCCACACGAGTTCCCGCGAGGACTTTGTGATTTTAGAGTGGCAGTAGGCACCATAATGTTCCGAATATACGGGCTATTGTGACACGCAGTAAGCCGAGGTTATACTCAGACGGTGAAACGATGGATCGCGTTTCGAAACAGTTCCGACGTACTGCCTTCTCCGTGTGGCACGTACGGCGGCAACAAAAGCATTTCCGGAGAACGGAGTTAACACATCTCTCGGTTTATCCCGGGTGCATAGAAGGGTCGCGCTGACGGAGTCGGGCTTTACTATTACTTCCCATTTACTCCTAGGGAACATCTGTGGATCGTACAAAGCCTCAGCCCCAAACCTTCTTGATCGTTCTAGTTTGAAACCTAGAGTTGACCCAGGGTTCGTTACTGTGGATCGTTCTAACGAACATCCTCTGAGTCGCGATCGATACCCTACGATCCGCAGAAATCGAGACATAATGTTGCGGCACCACCATCGATACCCACACGTGACCCTCTAGCATCAGAGCTAACCCTATCAAAACGCTGCCTAGACGTCAAAGCATGAGGAACTCCTACCTGCTGAATTTACATTGTCTCGGAAGATCAAAATTTTGGTTCAGATGTGAACTACATGGCACTCAAGCGCTTCCAAGAGTGGGAGGATTAA",
+   "read": "GACTAGGAGCTGGGTGCATGTTAGTGCCGTGTCGATTAGAACGCTATCAGGCTGTATCGGATGTTACGACCCCGCTAAGTGAGAAGGCAAACCTAGAGTGGATAACATGGTTTCCGGAGAAGGAGCTGGCTGTCTGGGTGATCCGACGGAGCCACAGGGGTCACCGCATCCTCGTCGCTCCTATCGGATGGAGACCAGTCACCCTTTTGGTTGCGGCTAGAAATAAGGTAGCTCCTTAATTGCTACGCCTGACAAGGTATGGATCCCACTGTTAGTGGGGTGTGAACGCGACTTTCCGGCCTGGGCTTTCTAAAGCGTATCAGTACATCGTTATCCCGTCCTTTGCCGACGCAAGTCCTGTTCCGGTGCAACCAATGTCTACGTTTCGTAAATATTCTATTTCGAAGGGCATGACTTTACTTATGATTTTCCCGCGTCTAAGGTTGCATGGACGTGATGCACTGTGCGCCTTGACGGTTCCGCAGATCCTTAGAAGGACG",
+   "quality": "))))))))))))IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII''''''''''''''''''''"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "verdict": "matches",
+    "strand": 1,
+    "covers": {
+     "start": 307,
+     "end": 785
+    },
+    "identity": 1,
+    "meanQuality": 39.2,
+    "differences": []
+   }
+  }
+ },
+ {
+  "name": "check_read wrong quality length",
+  "input": {
+   "action": "check_read",
+   "expected": "GAGATGGCAGTATGCCGACGACAGACGTGCAAAACACATCTCTATTCGTGCGCACCAGCAGCCAGTCAATGCCGGTGCCTCAGATCCCCGATCGGAAACTCCGAGGGCTGAACAATATTGGCCAGCCTGTGCGACAGACCGTCATGTCACCCACGATTGGGCGCTGCGGATGAATGTCTGTTACACCGCTCCTCAGCCCGATATCCGCAGAGACAGCAGCGGTTATGAGAGTTTGAATCCCCTGCTGTAATGGTCTGCCGAGCGGTTTGAAAACATTGCTAGCGTTTCGTATGGAAGATAGACTAGGAGCTGGGTGCATGTTAGTGCCGTGTCGATTAGAACGCTATCAGGCTGTATCGGATGTTACGACCCCGCTAAGTGAGAAGGCAAACCTAGAGTGGATAACATGGTTTCCGGAGAAGGAGCTGGCTGTCTGGGTGATCCGACGGAGCCACAGGGGTCACCGCATCCTCGTCGCTCCTATCGGATGGAGACCAGTCACCCTTTTGGTTGCGGCTAGAAATAAGGTAGCTCCTTAATTGCTACGCCTGACAAGGTATGGATCCCACTGTTAGTGGGGTGTGAACGCGACTTTCCGGCCTGGGCTTTCTAAAGCGTATCAGTACATCGTTATCCCGTCCTTTGCCGACGCAAGTCCTGTTCCGGTGCAACCAATGTCTACGTTTCGTAAATATTCTATTTCGAAGGGCATGACTTTACTTATGATTTTCCCGCGTCTAAGGTTGCATGGACGTGATGCACTGTGCGCCTTGACGGTTCCGCAGATCCTTAGAAGGACGTGCTACCTGGGCCGTGACTCTAAATCCCCCAAGCTAAGCATTTACAATCAAAACAGGTCCACACGAGTTCCCGCGAGGACTTTGTGATTTTAGAGTGGCAGTAGGCACCATAATGTTCCGAATATACGGGCTATTGTGACACGCAGTAAGCCGAGGTTATACTCAGACGGTGAAACGATGGATCGCGTTTCGAAACAGTTCCGACGTACTGCCTTCTCCGTGTGGCACGTACGGCGGCAACAAAAGCATTTCCGGAGAACGGAGTTAACACATCTCTCGGTTTATCCCGGGTGCATAGAAGGGTCGCGCTGACGGAGTCGGGCTTTACTATTACTTCCCATTTACTCCTAGGGAACATCTGTGGATCGTACAAAGCCTCAGCCCCAAACCTTCTTGATCGTTCTAGTTTGAAACCTAGAGTTGACCCAGGGTTCGTTACTGTGGATCGTTCTAACGAACATCCTCTGAGTCGCGATCGATACCCTACGATCCGCAGAAATCGAGACATAATGTTGCGGCACCACCATCGATACCCACACGTGACCCTCTAGCATCAGAGCTAACCCTATCAAAACGCTGCCTAGACGTCAAAGCATGAGGAACTCCTACCTGCTGAATTTACATTGTCTCGGAAGATCAAAATTTTGGTTCAGATGTGAACTACATGGCACTCAAGCGCTTCCAAGAGTGGGAGGATTAA",
+   "read": "GACTAGGAGCTGGGTGCATGTTAGTGCCGTGTCGATTAGAACGCTATCAGGCTGTATCGGATGTTACGACCCCGCTAAGTGAGAAGGCAAACCTAGAGTGGATAACATGGTTTCCGGAGAAGGAGCTGGCTGTCTGGGTGATCCGACGGAGCCACAGGGGTCACCGCATCCTCGTCGCTCCTATCGGATGGAGACCAGTCACCCTTTTGGTTGCGGCTAGAAATAAGGTAGCTCCTTAATTGCTACGCCTGACAAGGTATGGATCCCACTGTTAGTGGGGTGTGAACGCGACTTTCCGGCCTGGGCTTTCTAAAGCGTATCAGTACATCGTTATCCCGTCCTTTGCCGACGCAAGTCCTGTTCCGGTGCAACCAATGTCTACGTTTCGTAAATATTCTATTTCGAAGGGCATGACTTTACTTATGATTTTCCCGCGTCTAAGGTTGCATGGACGTGATGCACTGTGCGCCTTGACGGTTCCGCAGATCCTTAGAAGGACG",
+   "quality": "NNNNNNNNNN"
+  },
+  "expected": {
+   "ok": false,
+   "result": "The quality string must have one character per base."
+  }
+ },
+ {
+  "name": "check_read insertion",
+  "input": {
+   "action": "check_read",
+   "expected": "GAGATGGCAGTATGCCGACGACAGACGTGCAAAACACATCTCTATTCGTGCGCACCAGCAGCCAGTCAATGCCGGTGCCTCAGATCCCCGATCGGAAACTCCGAGGGCTGAACAATATTGGCCAGCCTGTGCGACAGACCGTCATGTCACCCACGATTGGGCGCTGCGGATGAATGTCTGTTACACCGCTCCTCAGCCCGATATCCGCAGAGACAGCAGCGGTTATGAGAGTTTGAATCCCCTGCTGTAATGGTCTGCCGAGCGGTTTGAAAACATTGCTAGCGTTTCGTATGGAAGATAGACTAGGAGCTGGGTGCATGTTAGTGCCGTGTCGATTAGAACGCTATCAGGCTGTATCGGATGTTACGACCCCGCTAAGTGAGAAGGCAAACCTAGAGTGGATAACATGGTTTCCGGAGAAGGAGCTGGCTGTCTGGGTGATCCGACGGAGCCACAGGGGTCACCGCATCCTCGTCGCTCCTATCGGATGGAGACCAGTCACCCTTTTGGTTGCGGCTAGAAATAAGGTAGCTCCTTAATTGCTACGCCTGACAAGGTATGGATCCCACTGTTAGTGGGGTGTGAACGCGACTTTCCGGCCTGGGCTTTCTAAAGCGTATCAGTACATCGTTATCCCGTCCTTTGCCGACGCAAGTCCTGTTCCGGTGCAACCAATGTCTACGTTTCGTAAATATTCTATTTCGAAGGGCATGACTTTACTTATGATTTTCCCGCGTCTAAGGTTGCATGGACGTGATGCACTGTGCGCCTTGACGGTTCCGCAGATCCTTAGAAGGACGTGCTACCTGGGCCGTGACTCTAAATCCCCCAAGCTAAGCATTTACAATCAAAACAGGTCCACACGAGTTCCCGCGAGGACTTTGTGATTTTAGAGTGGCAGTAGGCACCATAATGTTCCGAATATACGGGCTATTGTGACACGCAGTAAGCCGAGGTTATACTCAGACGGTGAAACGATGGATCGCGTTTCGAAACAGTTCCGACGTACTGCCTTCTCCGTGTGGCACGTACGGCGGCAACAAAAGCATTTCCGGAGAACGGAGTTAACACATCTCTCGGTTTATCCCGGGTGCATAGAAGGGTCGCGCTGACGGAGTCGGGCTTTACTATTACTTCCCATTTACTCCTAGGGAACATCTGTGGATCGTACAAAGCCTCAGCCCCAAACCTTCTTGATCGTTCTAGTTTGAAACCTAGAGTTGACCCAGGGTTCGTTACTGTGGATCGTTCTAACGAACATCCTCTGAGTCGCGATCGATACCCTACGATCCGCAGAAATCGAGACATAATGTTGCGGCACCACCATCGATACCCACACGTGACCCTCTAGCATCAGAGCTAACCCTATCAAAACGCTGCCTAGACGTCAAAGCATGAGGAACTCCTACCTGCTGAATTTACATTGTCTCGGAAGATCAAAATTTTGGTTCAGATGTGAACTACATGGCACTCAAGCGCTTCCAAGAGTGGGAGGATTAA",
+   "read": "GATAACATGGTTTCCGGAGAAGGAGCTGGCTGTCTGGGTGATCCGACGGAGCCACAGGGGTCACCGCATCCTCGTCGCTCCTATCGGATGGAGACCAGTCTTTACCCTTTTGGTTGCGGCTAGAAATAAGGTAGCTCCTTAATTGCTACGCCTGACAAGGTATGGATCCCACTGTTAGTGGGGTGTGAACGCGACTTTCCGGCCTGGGCTTTCTAAAGCGTATCAGTACATCGTTATCCCGTCCTTTGCCGAC",
+   "quality": "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
+  },
+  "expected": {
+   "ok": true,
+   "result": {
+    "verdict": "mismatch",
+    "strand": 1,
+    "covers": {
+     "start": 401,
+     "end": 650
+    },
+    "identity": 0.9881,
+    "meanQuality": 45,
+    "differences": [
+     {
+      "kind": "insertion",
+      "position": 501,
+      "expected": "",
+      "found": "TTT",
+      "quality": 45,
+      "confirmed": true
+     }
+    ]
+   }
+  }
+ }
+]

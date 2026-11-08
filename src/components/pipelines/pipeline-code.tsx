@@ -49,6 +49,8 @@ export interface PipelineStepConfig {
   name: string
   language: string
   statement: string
+  /** A plugin step has no code: this is the plugin step it runs and its settings. */
+  plugin?: unknown
 }
 
 /**
@@ -110,7 +112,11 @@ export function PipelineSteps({
           </summary>
           <div className="mt-3 flex flex-col gap-2">
             <CodeBlock
-              code={step.statement}
+              code={
+                step.plugin
+                  ? JSON.stringify(step.plugin, null, 2)
+                  : step.statement
+              }
               label={t('data.pipelineCode.stepStatement', {
                 value: index + 1,
                 name: step.name,

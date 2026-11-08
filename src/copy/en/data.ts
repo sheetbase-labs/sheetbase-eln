@@ -1374,6 +1374,7 @@ export const data = {
       '{operation} isn’t offered by an installed, switched-on plugin, so the pipeline will stop at this step until it is back or removed.',
     resultSoFar: 'The result so far',
     rowsFrom: 'The rows from {name}',
+    inputTable: 'The input {name}',
     typedHere: 'Type a value',
     fromParameter: 'Pipeline setting: {name}',
     takenFrom: '{name} comes from',
@@ -1386,6 +1387,8 @@ export const data = {
     ariaStepLanguage: 'Step {n} language',
     sql: 'SQL',
     python: 'Python',
+    pluginStep: 'Plugin step',
+    pluginStepWhich: 'Plugin step',
     up: 'Up',
     ariaMoveStepUp: 'Move step {n} up',
     down: 'Down',
@@ -3162,7 +3165,15 @@ export const data = {
     mostNineAdditionalSteps: 'At most nine additional steps are allowed.',
     eachStepNeedsLowercase: 'Each step needs a lowercase identifier',
     stepNamesMustUnique: 'Step names must be unique',
-    chooseSqlPython: 'Choose SQL or Python',
+    chooseSqlPython: 'Choose SQL, Python or a plugin step',
+    pluginOnlyPluginStep: 'Only a plugin step names a plugin.',
+    pluginStepNeedsPlugin: 'A plugin step needs the plugin step it runs.',
+    pluginStepNoConfirm:
+      'A plugin step cannot pause for a person; add a step after it that does.',
+    pluginStepArguments:
+      'The settings of a plugin step must be a set of named values.',
+    pluginStepReference:
+      'A plugin step takes its tables from the result so far, an input, an earlier step or a pipeline setting.',
     stepCodeMustContain: 'Step code must contain 1–20000 characters',
     chooseMostTenWebhook: 'Choose at most ten webhook destinations',
     chooseWebhookDestination: 'Choose a webhook destination',

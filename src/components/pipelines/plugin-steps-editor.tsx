@@ -168,7 +168,18 @@ export function PluginStepsEditor({
                     isTable={tables.includes(input.name)}
                     value={action.arguments[input.name]}
                     parameters={parameters}
-                    earlier={earlierSteps}
+                    tableSources={[
+                      {
+                        ref: 'previous',
+                        label: t('data.pluginSteps.resultSoFar'),
+                      },
+                      ...earlierSteps.map((step) => ({
+                        ref: `actions.${step.name}.rows`,
+                        label: t('data.pluginSteps.rowsFrom', {
+                          name: step.name,
+                        }),
+                      })),
+                    ]}
                     onChange={(value) => {
                       const next = { ...action.arguments }
                       if (value === undefined) delete next[input.name]
@@ -216,42 +227,80 @@ export function PluginStepsEditor({
   )
 }
 
-const SOURCE_PREVIOUS = 'ref:previous'
+/**
+ * Where a plugin step in the middle of a pipeline can read a table from: the
+ * result so far (when a step ran before it), any input, or an earlier step.
+ */
+export function pluginStepSources(args: {
+  hasPrevious: boolean
+  transformRuns: boolean
+  inputs: Array<{ name: string }>
+  earlier: string[]
+}): TableSource[] {
+  return [
+    ...(args.hasPrevious
+      ? [{ ref: 'previous', label: t('data.pluginSteps.resultSoFar') }]
+      : []),
+    ...args.inputs.map((input) => ({
+      ref: `inputs.${input.name}`,
+      label: t('data.pluginSteps.inputTable', { name: input.name }),
+    })),
+    ...(args.transformRuns
+      ? [
+          {
+            ref: 'steps.analysis',
+            label: t('data.pluginSteps.rowsFrom', { name: 'analysis' }),
+          },
+        ]
+      : []),
+    ...args.earlier.map((name) => ({
+      ref: `steps.${name}`,
+      label: t('data.pluginSteps.rowsFrom', { name }),
+    })),
+  ]
+}
 
-function ArgumentField({
+/** One place a plugin's table box can read from: a reference path and its words. */
+export interface TableSource {
+  ref: string
+  label: string
+}
+
+/**
+ * One box of a plugin step: a table (picked from where it can come from), a
+ * yes/no, or a value typed here or taken from a pipeline setting.
+ */
+export function ArgumentField({
   input,
   isTable,
   value,
   parameters,
-  earlier,
+  tableSources,
   onChange,
 }: {
   input: OperationInput
   isTable: boolean
   value: unknown
   parameters: PipelineParameter[]
-  earlier: PipelineActionConfig[]
+  tableSources: TableSource[]
   onChange: (value: unknown) => void
 }) {
   const label = input.name.replaceAll('_', ' ')
   const caption = label.charAt(0).toUpperCase() + label.slice(1)
   if (isTable) {
-    const current = isRef(value) ? `ref:${value.$ref}` : SOURCE_PREVIOUS
+    const current = isRef(value)
+      ? value.$ref
+      : (tableSources.at(0)?.ref ?? 'previous')
     return (
       <Field label={caption} hint={input.description} required={input.required}>
         <Select
           value={current}
           aria-label={caption}
-          onChange={(event) =>
-            onChange({ $ref: event.target.value.slice('ref:'.length) })
-          }
+          onChange={(event) => onChange({ $ref: event.target.value })}
         >
-          <option value={SOURCE_PREVIOUS}>
-            {t('data.pluginSteps.resultSoFar')}
-          </option>
-          {earlier.map((step) => (
-            <option key={step.name} value={`ref:actions.${step.name}.rows`}>
-              {t('data.pluginSteps.rowsFrom', { name: step.name })}
+          {tableSources.map((source) => (
+            <option key={source.ref} value={source.ref}>
+              {source.label}
             </option>
           ))}
         </Select>

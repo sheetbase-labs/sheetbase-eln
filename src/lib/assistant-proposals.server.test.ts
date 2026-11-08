@@ -328,6 +328,78 @@ describe('pipeline proposals', () => {
     ])
   })
 
+  it('adds a plugin step between steps and shows it on the card', async () => {
+    const built = await buildAssistantProposal(
+      pipelineClient([
+        {
+          id: DRAFT,
+          lifecycle: 'draft',
+          revision: 3,
+          configuration: baseConfig,
+        },
+      ]),
+      WORKSPACE,
+      'sheetbase.pipeline_definition.update_draft',
+      {
+        pipelineId: PIPELINE,
+        title: 'Join the plates',
+        summary: 'Adds a plugin step.',
+        steps: [
+          { name: 'drop_blanks', statement: 'select * from previous' },
+          {
+            name: 'join_plates',
+            plugin: {
+              operation: 'plugin.plate-tools.join',
+              arguments: { left: { $ref: 'previous' } },
+            },
+          },
+        ],
+      },
+    )
+    expect(built.ok && built.proposal.operation).toMatchObject({
+      configuration: {
+        steps: [
+          { name: 'drop_blanks', language: 'sql' },
+          {
+            name: 'join_plates',
+            language: 'plugin',
+            statement: '',
+            plugin: { operation: 'plugin.plate-tools.join' },
+          },
+        ],
+      },
+    })
+    expect(built.ok && built.proposal.changes).toEqual([
+      {
+        label: 'Step · join_plates',
+        before: null,
+        after: expect.stringContaining('plugin.plate-tools.join'),
+      },
+    ])
+  })
+
+  it('refuses a step that is both SQL and a plugin', async () => {
+    const built = await buildAssistantProposal(
+      pipelineClient([]),
+      WORKSPACE,
+      'sheetbase.pipeline_definition.draft',
+      {
+        title: 't',
+        summary: 's',
+        name: 'x',
+        statement: 'select 1',
+        steps: [
+          {
+            name: 'both',
+            statement: 'select 1',
+            plugin: { operation: 'plugin.a.b', arguments: {} },
+          },
+        ],
+      },
+    )
+    expect(built.ok).toBe(false)
+  })
+
   it('edits a draft that lacks empty parameter and input lists', async () => {
     const { parameters: _p, inputs: _i, ...bare } = baseConfig
     const built = await buildAssistantProposal(

@@ -109,7 +109,13 @@ export function setStepLanguage(
 ): PipelineStep[] {
   return list.map((step, position) => {
     if (position !== index || step.language === language) return step
-    const { contract, ...rest } = step
+    // A plugin step has no code and cannot pause for a person; the plugin it
+    // runs and its settings go, and nothing else carries over.
+    if (language === 'plugin') {
+      const { contract: _contract, confirm: _confirm, ...rest } = step
+      return { ...rest, language, statement: '' }
+    }
+    const { contract, plugin: _plugin, ...rest } = step
     return {
       ...rest,
       language,
@@ -121,6 +127,19 @@ export function setStepLanguage(
       ),
       ...(language === 'python' && contract ? { contract } : {}),
     }
+  })
+}
+
+/** Choose which plugin step a plugin step runs; its settings start empty. */
+export function setStepPlugin(
+  list: PipelineStep[],
+  index: number,
+  plugin: PipelineStep['plugin'],
+): PipelineStep[] {
+  return list.map((step, position) => {
+    if (position !== index) return step
+    const { plugin: _previous, ...rest } = step
+    return { ...rest, ...(plugin ? { plugin } : {}) }
   })
 }
 

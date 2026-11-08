@@ -141,6 +141,7 @@ describe('the data and search points in SQL', () => {
   // package's files is a package check, made before anything is stored.
   const packageOnly = new Set([
     'connectors: a parse function that does not exist',
+    'barcode-formats: parse points at nothing',
   ])
   const stored = (provides: Record<string, unknown>) => ({
     id: 'acme.demo',
@@ -168,6 +169,67 @@ describe('the data and search points in SQL', () => {
       else await expect(result).rejects.toMatchObject({ code: 'SB034' })
     },
   )
+
+  it('lets an administrator switch each inventory point off', async () => {
+    const owner = await actor(OWNER)
+    const row = await install(owner, 'switch-inventory', {
+      ...stored({
+        'storage-rules': [
+          {
+            id: 'cold',
+            title: 'Cold',
+            description: 'Keeps samples cold.',
+            run: 'm:f',
+          },
+        ],
+      }),
+      id: 'acme.switch-inventory',
+      source: 'package:acme.switch-inventory',
+    })
+    for (const point of [
+      'instrument-parsers',
+      'label-formats',
+      'barcode-formats',
+      'storage-rules',
+    ]) {
+      const off = await owner.query(
+        `select * from api.set_extension_point_enabled($1,$2,$3,false)`,
+        [WS, row.id, point],
+      )
+      expect(off.rows[0].disabled_points).toContain(point)
+    }
+  })
+
+  it('saves a label template that names a plugin layout and code, and refuses a made-up name', async () => {
+    const owner = await actor(OWNER)
+    const save = (name: string, barcode: string, layout: string) =>
+      owner.query(
+        `select * from api.save_label_template($1, null, $2, 'sample', 50, 25, $3, true, false, true, true, false, $4)`,
+        [WS, name, barcode, layout],
+      )
+    const saved = await save(
+      'Plugin look',
+      'plugin.lab-inventory.code39',
+      'plugin.lab-inventory.cryo-compact',
+    )
+    expect(saved.rows[0]).toMatchObject({
+      barcode_type: 'plugin.lab-inventory.code39',
+      layout: 'plugin.lab-inventory.cryo-compact',
+    })
+    const plain = await owner.query(
+      `select * from api.save_label_template($1, null, 'Plain look', 'sample', 50, 25, 'qr', true, false, true, true, false)`,
+      [WS],
+    )
+    expect(plain.rows[0].layout).toBe('standard')
+    await expect(save('Bad code', 'made up', 'standard')).rejects.toMatchObject(
+      {
+        code: '23514',
+      },
+    )
+    await expect(save('Bad layout', 'qr', 'made up')).rejects.toMatchObject({
+      code: '23514',
+    })
+  })
 
   it('lets an administrator switch a new point off, and refuses a made-up one', async () => {
     const owner = await actor(OWNER)

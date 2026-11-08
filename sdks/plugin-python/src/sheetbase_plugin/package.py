@@ -42,7 +42,8 @@ PROVIDES = (
     "operations", "analysis-kinds", "blocks", "panels", "table-cells", "columns",
     "row-actions", "field-types", "pipeline-steps", "calculators", "checks",
     "search-providers", "connectors", "importers", "exporters", "previews",
-    "sameness-keys", "event-hooks", "record-hooks",
+    "sameness-keys", "event-hooks", "record-hooks", "instrument-parsers",
+    "label-formats", "barcode-formats", "storage-rules",
     *UI_POINTS,
 )
 PROVIDES_WITHOUT_PYTHON = ("table-cells", "field-types", "panels", *UI_POINTS)
@@ -161,7 +162,7 @@ def _head(point, entry, seen, errors, files):
             errors.append(f"{name} description must be 1-600 characters")
             return None
     _entry_exists(entry.get("run"), files, name, errors)
-    if point == "connectors":
+    if point == "connectors" or (point == "barcode-formats" and "parse" in entry):
         _entry_exists(entry.get("parse"), files, f"{name} parse", errors)
     return name
 
@@ -793,6 +794,53 @@ def _record_hooks(value, files, errors):
     _each("record-hooks", value, files, errors, check)
 
 
+def _instrument_parsers(value, files, errors):
+    def check(entry, name):
+        if not _strings(
+            name, "extensions", entry.get("extensions"), FILE_EXTENSION_PATTERN, "like .xlsx", errors
+        ) or not _encoding(name, entry, errors):
+            return False
+        if "instrument" in entry and not _text(entry["instrument"], 1, 120):
+            errors.append(f"{name} instrument must be 1-120 characters")
+            return False
+        if "contains" in entry:
+            contains = entry["contains"]
+            if (
+                not isinstance(contains, list)
+                or not 1 <= len(contains) <= 5
+                or not all(_text(item, 1, 80) for item in contains)
+                or len(set(contains)) != len(contains)
+            ):
+                errors.append(f"{name} contains needs 1-5 different texts of 1-80 characters")
+                return False
+        return True
+
+    _each("instrument-parsers", value, files, errors, check)
+
+
+def _label_formats(value, files, errors):
+    _each(
+        "label-formats", value, files, errors,
+        lambda entry, name: _strings(
+            name, "kinds", entry.get("kinds"), RECORD_TYPE_PATTERN, "like sample", errors
+        ),
+    )
+
+
+def _barcode_formats(value, files, errors):
+    def check(entry, name):
+        if entry.get("shape") not in ("1d", "2d"):
+            errors.append(f"{name} shape must be 1d or 2d")
+            return False
+        return True
+
+    _each("barcode-formats", value, files, errors, check)
+
+
+def _storage_rules(value, files, errors):
+    _each("storage-rules", value, files, errors, lambda _entry, _name: True)
+
+
 POINT_CHECKS = {
     "pipeline-steps": _pipeline_steps,
     "calculators": _calculators,
@@ -805,6 +853,10 @@ POINT_CHECKS = {
     "sameness-keys": _sameness_keys,
     "event-hooks": _event_hooks,
     "record-hooks": _record_hooks,
+    "instrument-parsers": _instrument_parsers,
+    "label-formats": _label_formats,
+    "barcode-formats": _barcode_formats,
+    "storage-rules": _storage_rules,
 }
 
 

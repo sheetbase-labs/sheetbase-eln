@@ -2876,8 +2876,10 @@ export const labelTemplates = api.table(
     showSampleType: boolean('show_sample_type').notNull().default(false),
     widthMm: integer('width_mm').notNull().default(50),
     heightMm: integer('height_mm').notNull().default(25),
-    // qr | code128
+    // qr | code128 | plugin.<plugin>.<format>
     barcodeType: text('barcode_type').notNull().default('qr'),
+    // standard | plugin.<plugin>.<format>
+    layout: text('layout').notNull().default('standard'),
     isDefault: boolean('is_default').notNull().default(false),
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
     createdByUserId: text('created_by_user_id')

@@ -73,6 +73,10 @@ export const DATA_ITEM_POINTS = [
   'sameness-keys',
   'event-hooks',
   'record-hooks',
+  'instrument-parsers',
+  'label-formats',
+  'barcode-formats',
+  'storage-rules',
 ] as const
 export type DataItemPoint = (typeof DATA_ITEM_POINTS)[number]
 type DataDeclaration<TPoint extends DataItemPoint> = NonNullable<
@@ -117,6 +121,10 @@ export function emptyData(): ResolvedRunnerPoints['data'] {
     'sameness-keys': [],
     'event-hooks': [],
     'record-hooks': [],
+    'instrument-parsers': [],
+    'label-formats': [],
+    'barcode-formats': [],
+    'storage-rules': [],
   }
 }
 
@@ -350,6 +358,10 @@ export function describeRunnerAdds(manifest: unknown): ExtensionAdds[] {
     c['record-hooks'],
     (h: ExtensionRecordHookDeclaration) => h.timing,
   )
+  add('instrument-parsers', c['instrument-parsers'], () => 'parser')
+  add('label-formats', c['label-formats'], () => 'label')
+  add('barcode-formats', c['barcode-formats'], () => 'barcode')
+  add('storage-rules', c['storage-rules'], () => 'storage')
   hookItems('pages', parsed.contributions.pages, 'page')
   hookItems(
     'settings-pages',

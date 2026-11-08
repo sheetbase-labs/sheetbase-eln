@@ -234,7 +234,7 @@ describe('field types', () => {
 })
 
 describe('the plugin block type', () => {
-  it('is allowed by the table and adds nothing to search', async () => {
+  it('is allowed by the table and adds only its short words to search', async () => {
     const def = await migrator.query(
       `select pg_get_constraintdef(oid) as def from pg_constraint where conrelid='api.blocks'::regclass and conname='chk_blocks_type'`,
     )
@@ -242,7 +242,11 @@ describe('the plugin block type', () => {
     const text = await migrator.query(
       `select internal.block_search_text('plugin','{"plugin":"x","block":"y","state":{"a":"private"}}'::jsonb) as t`,
     )
-    expect(text.rows[0].t).toBe('')
+    expect(text.rows[0].t).toBe('private')
+    const long = await migrator.query(
+      `select internal.block_search_text('plugin', jsonb_build_object('plugin','x','block','y','state',jsonb_build_object('seq', repeat('a', 600)))) as t`,
+    )
+    expect(long.rows[0].t).toBe('')
   })
 })
 

@@ -102,7 +102,6 @@ const ACTION_COPY = {
   'retention.set': 'setRetention',
   'retention.apply': 'applyRetention',
   'registry.add': 'addRegistryEntry',
-  'compound.register': 'registerCompound',
   'compound.lot': 'addCompoundLot',
   'workflow.enrol': 'enrolWorkflow',
   'workflow.leave': 'leaveWorkflow',

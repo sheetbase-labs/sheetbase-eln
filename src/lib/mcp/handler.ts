@@ -30,7 +30,6 @@ import {
   labActTool,
   runGuardedLabAct,
 } from './lab'
-import { callCompoundRead, isCompoundReadTool } from './compounds'
 import {
   PLUGIN_SEARCH_TOOL,
   pluginSearchMcpTool,
@@ -488,15 +487,6 @@ async function callCatalogueTool(
   context: McpContext,
   meta: Record<string, unknown> | undefined,
 ): Promise<McpToolResult> {
-  if (entry.mode === 'read' && isCompoundReadTool(entry.name)) {
-    return textResult(
-      await callCompoundRead(entry.name, args, {
-        client: context.client,
-        workspaceId: context.workspaceId,
-        userId: context.actor.kind === 'user' ? context.actor.id : null,
-      }),
-    )
-  }
   if (entry.mode === 'read') {
     const result = await context.client.rpc<unknown>(
       entry.rpc,

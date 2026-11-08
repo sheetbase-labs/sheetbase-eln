@@ -45,7 +45,6 @@ export interface RegistryModel {
   identifier_prefix: string
   registry_key_fields: string[]
   registry_sequence_field: string | null
-  registry_structure_field: string | null
   registry_lot_kind: string | null
 }
 
@@ -74,7 +73,7 @@ export async function fetchRegistryModels(
 ): Promise<RegistryModel[]> {
   return client.list<RegistryModel>(
     'record_models',
-    '?is_registry=eq.true&select=id,key,name,identifier_prefix,registry_key_fields,registry_sequence_field,registry_structure_field,registry_lot_kind&order=name.asc',
+    '?is_registry=eq.true&select=id,key,name,identifier_prefix,registry_key_fields,registry_sequence_field,registry_lot_kind&order=name.asc',
   )
 }
 

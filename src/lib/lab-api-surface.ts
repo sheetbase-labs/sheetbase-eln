@@ -741,22 +741,6 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['created_at', 'ts', 1],
     ],
   },
-  record_structures: {
-    summary:
-      'The structure of a compound in a registry that takes structures: its parent (salts and solvents set aside), formula and mass. The drawing itself is in the entry’s structure field.',
-    columns: [
-      ['record_id', 'uuid', 1],
-      ['workspace_id', 'uuid', 1],
-      ['kind', 'text', 1],
-      ['parent_code', 'text', 1],
-      ['drawn_code', 'text', 1],
-      ['formula', 'text', 0],
-      ['mass', 'num', 0],
-      ['salts', 'text[]', 1],
-      ['created_at', 'ts', 1],
-      ['updated_at', 'ts', 1],
-    ],
-  },
   instrument_readings: {
     summary:
       'One reading in an instrument feed. Large; filter by `feed_id` and `taken_at`, or use `list_instrument_feed_series` for charts.',
@@ -2348,64 +2332,6 @@ const LAB_RPCS_HAND_WRITTEN: Readonly<Record<string, LabRpc>> = {
       ['p_exclude_id', 'uuid', 0],
     ],
     result: 'rows:id=uuid,identifier=text,title=text,archived=bool,match=text',
-  },
-  register_compound: {
-    summary: 'Register a compound by its structure',
-    description:
-      'Adds an entry to a registry that takes structures and checks it against the compounds already there. Two structures with the same parent (salts and solvents set aside) are the same compound, and a repeat is refused unless `p_allow_duplicate` is true. `p_structure` is the description of the drawing: get it from `POST /api/structures/describe` (or pass `{"smiles": "…"}` through MCP). Returns the new entry.',
-    scope: 'lab:write',
-    params: [
-      ['p_project_id', 'uuid', 1],
-      ['p_kind', 'text', 1],
-      ['p_title', 'text', 1],
-      ['p_custom_fields', 'json', 0],
-      ['p_structure', 'json', 1],
-      ['p_allow_duplicate', 'bool', 0],
-    ],
-    result: 'row:records',
-  },
-  set_record_structure: {
-    summary: 'Change the structure of a compound',
-    description:
-      'Replaces the drawn structure of an entry. The entry must be at the `metadata_version` you read, and the new parent must not already be registered. `p_structure` is described as for `register_compound`.',
-    scope: 'lab:write',
-    params: [
-      ['p_record_id', 'uuid', 1],
-      ['p_expected_metadata_version', 'int', 1],
-      ['p_structure', 'json', 1],
-      ['p_allow_duplicate', 'bool', 0],
-    ],
-    result: 'row:records',
-  },
-  find_structure_duplicates: {
-    summary: 'Check whether a compound is registered',
-    description:
-      'Lists the entries of a registry with the same parent structure as the one described. `same_form` is false when the entry is the same compound as a different salt or solvate, which belongs in as a lot. Takes `parentCode` and `drawnCode` from `POST /api/structures/describe`.',
-    scope: 'lab:read',
-    params: [
-      ['p_kind', 'text', 1],
-      ['p_parent_code', 'text', 1],
-      ['p_drawn_code', 'text', 0],
-      ['p_exclude_id', 'uuid', 0],
-    ],
-    result:
-      'rows:id=uuid,identifier=text,title=text,archived=bool,same_form=bool',
-  },
-  query_structures: {
-    summary: 'Find compounds by fingerprint',
-    description:
-      'Narrows compounds by a 512-bit structure fingerprint. `p_mode` `substructure` keeps those whose fingerprint includes the query’s (candidates only: confirm them atom by atom), `similarity` keeps those at least `p_min_similarity` alike (0 to 1). Most callers want `POST /api/structures/search`, which does both steps from a SMILES line.',
-    scope: 'lab:read',
-    params: [
-      ['p_fingerprint', 'text', 1],
-      ['p_mode', 'text', 0],
-      ['p_kind', 'text', 0],
-      ['p_min_similarity', 'num', 0],
-      ['p_include_archived', 'bool', 0],
-      ['p_limit', 'int', 0],
-    ],
-    result:
-      'rows:record_id=uuid,identifier=text,title=text,kind=text,parent_code=text,formula=text,mass=num,salts=text[],archived=bool,similarity=num',
   },
   add_compound_lot: {
     summary: 'Add a lot to a compound',

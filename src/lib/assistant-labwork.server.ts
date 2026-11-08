@@ -2,7 +2,6 @@ import { sequenceFingerprint } from './bio-registry'
 import {
   BOOKING_RULES_SET_TOOL,
   COMPOUND_LOT_TOOL,
-  COMPOUND_REGISTER_TOOL,
   LAB_LOGO_TOOL,
   LABWORK_PROPOSE_TOOL_NAMES,
   LEGAL_HOLD_CREATE_TOOL,
@@ -26,7 +25,6 @@ import {
   WORKFLOW_LEAVE_TOOL,
   proposeBookingRulesSetSchema,
   proposeCompoundLotSchema,
-  proposeCompoundRegisterSchema,
   proposeLabLogoSchema,
   proposeLegalHoldCreateSchema,
   proposeLegalHoldReleaseSchema,
@@ -75,8 +73,6 @@ import {
 } from './booking-rules'
 import { WATCHER_SCHEDULE_LABEL, watcherMeta } from './lab-watchers'
 import type { DataClient } from './data-client'
-import { loadOcl } from './chemistry-draw'
-import { describeStructure, findStructureDuplicates } from './compound-registry'
 import { fetchModelFields } from './model-fields'
 import { keepTimeLabel, limitsProblem } from './result-quality'
 import type { DueRecord } from './result-quality'
@@ -145,11 +141,6 @@ export function labworkProposalDefs(): ProviderToolDef[] {
       REGISTRY_ADD_TOOL,
       `Propose adding an entry to a registry (cell lines, constructs, antibodies and so on), filled in only from what the person said. For a construct or other sequence entry, pass the sequence (the same sequence is refused as a duplicate, from either strand or any start) and the entries it was built from. Duplicates are refused. ${NOTE}`,
       proposeRegistryAddSchema,
-    ),
-    toolDef(
-      COMPOUND_REGISTER_TOOL,
-      `Propose registering a compound by its structure (a SMILES line) in a registry that takes structures. Salts and solvents are set aside when checking for repeats; a repeat is refused. ${NOTE}`,
-      proposeCompoundRegisterSchema,
     ),
     toolDef(
       COMPOUND_LOT_TOOL,
@@ -652,18 +643,6 @@ export async function buildLabworkProposal(
         'is_registry=eq.true&',
       )
       if (!registry.ok) return fail(registry.message)
-      const takesStructures = await client.list<{
-        key: string
-        registry_structure_field: string | null
-      }>(
-        'record_models',
-        `?key=eq.${encodeURIComponent(registry.value.key)}&select=key,registry_structure_field`,
-      )
-      if (takesStructures.some((row) => row.registry_structure_field)) {
-        return fail(
-          `${registry.value.name} registers compounds by structure. Use ${COMPOUND_REGISTER_TOOL} with a SMILES line instead.`,
-        )
-      }
       const project = await findProject(client, input.project)
       if (!project.ok) return fail(project.message)
       const defs = await fetchModelFields(client, registry.value.key)
@@ -792,88 +771,6 @@ export async function buildLabworkProposal(
       })
     }
 
-    case COMPOUND_REGISTER_TOOL: {
-      const parsed = parse(proposeCompoundRegisterSchema, args)
-      if (!parsed.ok) return fail(parsed.message)
-      const input = parsed.data
-      const registry = await findModel(
-        client,
-        input.registry,
-        'is_registry=eq.true&registry_structure_field=not.is.null&',
-      )
-      if (!registry.ok) return fail(registry.message)
-      const project = await findProject(client, input.project)
-      if (!project.ok) return fail(project.message)
-      const described = describeStructure(await loadOcl(), input.structure)
-      if (!described) {
-        return fail(
-          'That could not be read as a structure. Ask for a SMILES line, or tell the person to draw it in the registry.',
-        )
-      }
-      const defs = await fetchModelFields(client, registry.value.key)
-      const customFields: Record<string, unknown> = {}
-      const changes: ProposalChange[] = [
-        { label: 'Name', before: null, after: input.name.trim() },
-        { label: 'Project', before: null, after: project.value.title },
-        { label: 'Formula', before: null, after: described.formula },
-        { label: 'Mass', before: null, after: `${described.mass} g/mol` },
-      ]
-      if (described.salts.length > 0) {
-        changes.push({
-          label: 'Set aside',
-          before: null,
-          after: described.salts.join(', '),
-        })
-      }
-      for (const [wanted, value] of Object.entries(input.fields ?? {})) {
-        const lower = wanted.trim().toLowerCase()
-        const def = defs.find(
-          (field) =>
-            field.lifecycle === 'active' &&
-            (field.fieldName.toLowerCase() === lower ||
-              field.label.toLowerCase() === lower),
-        )
-        if (!def) {
-          return fail(
-            `${registry.value.name} has no field "${wanted}". Its fields are: ${defs
-              .filter((field) => field.lifecycle === 'active')
-              .map((field) => field.label)
-              .join(', ')}.`,
-          )
-        }
-        customFields[def.fieldName] = value
-        changes.push({ label: def.label, before: null, after: String(value) })
-      }
-      const twins = await findStructureDuplicates(client, {
-        kind: registry.value.key,
-        descriptor: described,
-      })
-      if (twins.length > 0) {
-        const list = twins
-          .slice(0, 4)
-          .map((row) => `${row.identifier} · ${row.title}`)
-          .join(', ')
-        return fail(
-          twins.some((row) => row.sameForm)
-            ? `${registry.value.name} already has this structure: ${list}. Ask whether they meant that entry.`
-            : `${registry.value.name} already has this compound as a different salt or form: ${list}. Ask whether to add it as a lot with ${COMPOUND_LOT_TOOL}.`,
-        )
-      }
-      return card(name, input, {
-        target: registry.value.name,
-        deepLink: '/registry',
-        changes,
-        action: {
-          kind: 'compound.register',
-          projectId: project.value.id,
-          recordKind: registry.value.key,
-          title: input.name.trim(),
-          customFields,
-          structure: described,
-        },
-      })
-    }
-
     case COMPOUND_LOT_TOOL: {
       const parsed = parse(proposeCompoundLotSchema, args)
       if (!parsed.ok) return fail(parsed.message)
@@ -884,11 +781,11 @@ export async function buildLabworkProposal(
         registry_lot_kind: string | null
       }>(
         'record_models',
-        '?is_registry=eq.true&registry_structure_field=not.is.null&select=key,name,registry_lot_kind',
+        '?is_registry=eq.true&registry_lot_kind=not.is.null&select=key,name,registry_lot_kind',
       )
       if (models.length === 0) {
         return fail(
-          'No registry takes structures yet, so there are no compounds.',
+          'No registry has a lot model yet, so there is nothing to add a lot to.',
         )
       }
       const like = likeValue(input.compound)

@@ -107,31 +107,6 @@ class TestSheetbaseClient:
         assert rows[0]["key"] == "lenti-purification"
 
 
-def test_structures_describe_and_search(monkeypatch):
-    from sheetbase.resources.structures import StructuresResource
-
-    calls = []
-
-    class Fake:
-        def post(self, path, *, json_body=None, **_):
-            calls.append((path, json_body))
-            return {}
-
-    res = StructuresResource(Fake())  # type: ignore[arg-type]
-    res.describe("CCO")
-    res.search("c1ccccc1", mode="similarity", registry="compound", limit=5)
-    assert calls[0] == ("/api/structures/describe", {"structure": "CCO"})
-    assert calls[1] == (
-        "/api/structures/search",
-        {
-            "structure": "c1ccccc1",
-            "mode": "similarity",
-            "registry": "compound",
-            "limit": 5,
-        },
-    )
-
-
 def test_plugins_call_posts_the_input_and_returns_the_output():
     from sheetbase.resources.plugins import PluginsResource
 

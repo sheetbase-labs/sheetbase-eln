@@ -131,6 +131,9 @@ export const EVENT_NAMES = [
   'agent.action.requested',
   'agent.action.decided',
   'agent.action.completed',
+  'extension.point.enabled',
+  'extension.point.disabled',
+  'extension.invoked',
   'ai.eval.completed',
   'watcher.finding.created',
   // Lab features: stock, shipping, requests, holds, workflows.

@@ -19,7 +19,16 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 def _catalogue_names() -> set[str]:
     text = (REPO_ROOT / "src" / "lib" / "event-catalogue.ts").read_text()
-    return set(re.findall(r"^\s*name: '([^']+)',", text, re.M))
+    names = set(re.findall(r"^\s*name: '([^']+)',", text, re.M))
+    # Events declared with their operation (src/lib/operations/declarations).
+    # Event names always contain a dot; operation names never do.
+    for path in (REPO_ROOT / "src" / "lib" / "operations" / "declarations").glob(
+        "*.ts"
+    ):
+        names |= set(
+            re.findall(r"^\s*name: '([a-z_]+(?:\.[a-z_]+)+)',", path.read_text(), re.M)
+        )
+    return names
 
 
 def test_vocabulary_matches_catalogue() -> None:

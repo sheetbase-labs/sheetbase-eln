@@ -130,3 +130,23 @@ def test_structures_describe_and_search(monkeypatch):
             "limit": 5,
         },
     )
+
+
+def test_plugins_call_posts_the_input_and_returns_the_output():
+    from sheetbase.resources.plugins import PluginsResource
+
+    calls = []
+
+    class Fake:
+        def post(self, path, *, json_body=None, **_):
+            calls.append((path, json_body))
+            return {"output": {"viability": 92.0}, "durationMs": 5}
+
+    res = PluginsResource(Fake())  # type: ignore[arg-type]
+    assert res.call("cell-count", "viability", {"live": 92, "dead": 8}) == {"viability": 92.0}
+    res.call("cell-count", "viability")
+    assert calls[0] == (
+        "/api/plugins/cell-count/viability",
+        {"input": {"live": 92, "dead": 8}},
+    )
+    assert calls[1][1] == {"input": {}}

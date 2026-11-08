@@ -11,6 +11,7 @@ from sheetbase.resources.people import PeopleResource
 from sheetbase.resources.facility import FacilityResource
 from sheetbase.resources.pipelines import PipelinesResource
 from sheetbase.resources.structures import StructuresResource
+from sheetbase.resources.plugins import PluginsResource
 from sheetbase.resources.events import (
     EVENT_ALIASES,
     EVENT_NAMES,
@@ -23,6 +24,7 @@ from sheetbase.resources.events import (
 )
 
 __all__ = [
+    "PluginsResource",
     "ProjectsResource",
     "RecordsResource",
     "DatasetsResource",

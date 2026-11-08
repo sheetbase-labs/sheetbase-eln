@@ -22,9 +22,9 @@
  * client.close();
  * ```
  */
-import { HttpTransport } from "./http.js";
-import type { FetchLike, RequestOptions, TableHead } from "./http.js";
-import { API_VERSION, VERSION } from "./version.js";
+import { HttpTransport } from './http.js'
+import type { FetchLike, RequestOptions, TableHead } from './http.js'
+import { API_VERSION, VERSION } from './version.js'
 import {
   AgentOperationsResource,
   ProjectsResource,
@@ -36,31 +36,34 @@ import {
   WebhooksResource,
   PeopleResource,
   PipelinesResource,
+  PluginsResource,
   FacilityResource,
-} from "./resources/index.js";
+} from './resources/index.js'
 
 export interface SheetbaseClientOptions {
-  baseUrl: string;
-  credential: string;
-  scopes: string[];
-  timeout?: number;
-  fetch?: FetchLike;
+  baseUrl: string
+  credential: string
+  scopes: string[]
+  timeout?: number
+  fetch?: FetchLike
 }
 
 export class SheetbaseClient {
-  private transport: HttpTransport;
+  private transport: HttpTransport
 
-  readonly projects: ProjectsResource;
-  readonly records: RecordsResource;
-  readonly datasets: DatasetsResource;
-  readonly sheets: SheetsResource;
-  readonly search: SearchResource;
-  readonly catalogues: CataloguesResource;
-  readonly agentOperations: AgentOperationsResource;
-  readonly webhooks: WebhooksResource;
-  readonly pipelines: PipelinesResource;
-  readonly people: PeopleResource;
-  readonly facility: FacilityResource;
+  readonly projects: ProjectsResource
+  readonly records: RecordsResource
+  readonly datasets: DatasetsResource
+  readonly sheets: SheetsResource
+  readonly search: SearchResource
+  readonly catalogues: CataloguesResource
+  readonly agentOperations: AgentOperationsResource
+  readonly webhooks: WebhooksResource
+  readonly pipelines: PipelinesResource
+  /** `client.plugins.call(key, operation, input)`: operations installed plugins declare. */
+  readonly plugins: PluginsResource
+  readonly people: PeopleResource
+  readonly facility: FacilityResource
 
   constructor(options: SheetbaseClientOptions) {
     this.transport = new HttpTransport(
@@ -71,61 +74,62 @@ export class SheetbaseClient {
         timeout: options.timeout,
         fetch: options.fetch,
       },
-    );
+    )
 
-    this.projects = new ProjectsResource(this.transport);
-    this.records = new RecordsResource(this.transport);
-    this.datasets = new DatasetsResource(this.transport);
-    this.sheets = new SheetsResource(this.transport);
-    this.search = new SearchResource(this.transport);
-    this.catalogues = new CataloguesResource(this.transport);
-    this.agentOperations = new AgentOperationsResource(this.transport);
-    this.webhooks = new WebhooksResource(this.transport);
-    this.facility = new FacilityResource(this.transport);
-    this.pipelines = new PipelinesResource(this.transport);
-    this.people = new PeopleResource(this.transport);
+    this.projects = new ProjectsResource(this.transport)
+    this.records = new RecordsResource(this.transport)
+    this.datasets = new DatasetsResource(this.transport)
+    this.sheets = new SheetsResource(this.transport)
+    this.search = new SearchResource(this.transport)
+    this.catalogues = new CataloguesResource(this.transport)
+    this.agentOperations = new AgentOperationsResource(this.transport)
+    this.webhooks = new WebhooksResource(this.transport)
+    this.facility = new FacilityResource(this.transport)
+    this.pipelines = new PipelinesResource(this.transport)
+    this.plugins = new PluginsResource(this.transport)
+    this.people = new PeopleResource(this.transport)
   }
 
   // ── raw access ──────────────────────────────────────────────────────
 
   async rpc(name: string, params: Record<string, unknown>): Promise<any> {
-    const body: Record<string, unknown> = {};
+    const body: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(params)) {
-      body[k.startsWith("p_") ? k : `p_${k}`] = v;
+      body[k.startsWith('p_') ? k : `p_${k}`] = v
     }
-    return this.transport.post(`/api/db/rpc/${name}`, { jsonBody: body });
+    return this.transport.post(`/api/db/rpc/${name}`, { jsonBody: body })
   }
 
   async tableGet(
     resource: string,
     options?: { params?: Record<string, string | number | undefined> },
   ): Promise<any> {
-    return this.transport.get(`/api/db/${resource}`, options);
+    return this.transport.get(`/api/db/${resource}`, options)
   }
 
   async tablePost(resource: string, options?: RequestOptions): Promise<any> {
-    return this.transport.post(`/api/db/${resource}`, options);
+    return this.transport.post(`/api/db/${resource}`, options)
   }
 
   async tablePatch(resource: string, options?: RequestOptions): Promise<any> {
-    return this.transport.patch(`/api/db/${resource}`, options);
+    return this.transport.patch(`/api/db/${resource}`, options)
   }
 
   async tableHead(
     resource: string,
     options?: RequestOptions,
   ): Promise<TableHead> {
-    return this.transport.head(`/api/db/${resource}`, options);
+    return this.transport.head(`/api/db/${resource}`, options)
   }
 
   // ── properties ──────────────────────────────────────────────────────
 
   get version(): string {
-    return VERSION;
+    return VERSION
   }
 
   get apiVersion(): string {
-    return API_VERSION;
+    return API_VERSION
   }
 
   // ── lifecycle ───────────────────────────────────────────────────────

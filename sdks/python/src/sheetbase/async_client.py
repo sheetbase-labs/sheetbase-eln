@@ -82,6 +82,7 @@ class AsyncSheetbaseClient:
         self.pipelines = AsyncPipelines(self._transport)
         self.people = AsyncPeople(self._transport)
         self.structures = AsyncStructures(self._transport)
+        self.plugins = AsyncPlugins(self._transport)
 
         #: Every public table, typed from the OpenAPI contract.
         self.tables = AsyncTables(self._transport)
@@ -1019,6 +1020,21 @@ class AsyncStructures:
         if limit is not None:
             body["limit"] = limit
         return await self._t.post("/api/structures/search", json_body=body)
+
+
+class AsyncPlugins:
+    """Call operations that installed plugins declare (see ``PluginsResource``)."""
+
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        self._t = transport
+
+    async def call(
+        self, key: str, operation: str, input: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
+        result = await self._t.post(
+            f"/api/plugins/{key}/{operation}", json_body={"input": input or {}}
+        )
+        return result["output"]
 
 
 class AsyncPeople:

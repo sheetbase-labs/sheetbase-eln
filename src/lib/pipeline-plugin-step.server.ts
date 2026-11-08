@@ -5,6 +5,7 @@ import {
   invokeExtension,
   openCallable,
 } from './extensions/runtime.server'
+import type { ExtensionRuntimeDeps } from './extensions/runtime.server'
 import type { PipelineStep } from './pipelines/config'
 
 type Rows = Array<Record<string, unknown>>
@@ -70,6 +71,8 @@ export async function runPluginStep(
     workspaceId: string
     actorUserId: string
     step: PipelineStep
+    /** Absent means the workspace's installed plugins. */
+    deps?: ExtensionRuntimeDeps
   },
   scope: PluginStepScope,
 ): Promise<{ rows: Rows }> {
@@ -78,12 +81,8 @@ export async function runPluginStep(
   if (!plugin || !name)
     throw new PluginStepError('This step does not name a plugin step.')
   try {
-    const opened = await openCallable(
-      defaultDeps(),
-      args.workspaceId,
-      name.key,
-      name.id,
-    )
+    const deps = args.deps ?? defaultDeps()
+    const opened = await openCallable(deps, args.workspaceId, name.key, name.id)
     // Only a plugin step that turns tables into a table belongs between steps.
     // A publisher or a check shares a name space with it and must not run here.
     if (opened.callable.point !== 'pipeline-steps')
@@ -101,13 +100,16 @@ export async function runPluginStep(
     for (const table of opened.callable.tableNames)
       if (input[table] === undefined && scope.previous)
         input[table] = scope.previous
-    const outcome = await invokeExtension({
-      workspaceId: args.workspaceId,
-      actorUserId: args.actorUserId,
-      extensionKey: name.key,
-      itemId: name.id,
-      input,
-    })
+    const outcome = await invokeExtension(
+      {
+        workspaceId: args.workspaceId,
+        actorUserId: args.actorUserId,
+        extensionKey: name.key,
+        itemId: name.id,
+        input,
+      },
+      deps,
+    )
     const rows = (outcome.output as { rows?: unknown }).rows
     if (!Array.isArray(rows))
       throw new PluginStepError('The plugin step did not give back a table.')

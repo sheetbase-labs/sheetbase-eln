@@ -10,13 +10,22 @@ function readableValues(
   model: RegistryModel | undefined,
 ): string[] {
   return Object.entries(entry.custom_fields ?? {})
-    .filter(([key]) => key !== model?.registry_sequence_field)
+    .filter(
+      ([key]) =>
+        key !== model?.registry_sequence_field &&
+        key !== model?.registry_structure_field,
+    )
     .map(([, value]) =>
       typeof value === 'string' || typeof value === 'number'
         ? String(value).trim()
         : '',
     )
-    .filter((value) => value !== '' && !value.startsWith('seq:'))
+    .filter(
+      (value) =>
+        value !== '' &&
+        !value.startsWith('seq:') &&
+        !/\bM {2}END\b/.test(value),
+    )
 }
 
 /** The one line a list shows beside a name: the first few things filled in. */

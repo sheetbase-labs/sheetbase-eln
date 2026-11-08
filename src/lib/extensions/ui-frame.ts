@@ -106,9 +106,7 @@ export function buildPluginFrame(
       const href = /\bhref\s*=\s*(["'])([^"']+)\1/i.exec(tag)?.[2]
       const path = href ? resolveRelative(entry, href) : null
       const css = path ? files[path] : undefined
-      return css === undefined
-        ? ''
-        : stash(`<style>${styleSafe(css)}</style>`)
+      return css === undefined ? '' : stash(`<style>${styleSafe(css)}</style>`)
     },
   )
   out = out.replace(
@@ -123,7 +121,10 @@ export function buildPluginFrame(
     },
   )
   // eslint-disable-next-line no-control-regex
-  out = out.replace(/\u0000(\d+)\u0000/g, (_whole, index: string) => inlined[Number(index)] ?? '')
+  out = out.replace(
+    /\u0000(\d+)\u0000/g,
+    (_whole, index: string) => inlined[Number(index)] ?? '',
+  )
   if (!sdkSeen) {
     const tag = `<script>${scriptSafe(sdkSource)}</script>`
     out = /<head[^>]*>/i.test(out)

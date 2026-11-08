@@ -1,0 +1,773 @@
+{
+  "id": "sheetbase.sequence-tools",
+  "name": "Sequence tools",
+  "version": "1.0.0",
+  "description": "Sequence maths for the assistant, the API and pipelines: restriction sites and digests, primers and PCR, cloning, alignment, CRISPR guides, codon optimisation and Sanger checks.",
+  "author": "Sheetbase",
+  "provides": {
+    "operations": [
+      {
+        "id": "find-sites",
+        "title": "Find restriction sites",
+        "description": "Lists where restriction enzymes cut a DNA sequence: the enzyme, its site, how many times it cuts and the cut positions. Names no enzymes means all known ones.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "sequence",
+            "type": "text",
+            "required": true,
+            "description": "DNA letters; spaces, digits and a FASTA header line are ignored."
+          },
+          {
+            "name": "topology",
+            "type": "text",
+            "required": false,
+            "description": "linear or circular (circular if left out)."
+          },
+          {
+            "name": "enzymes",
+            "type": "json",
+            "required": false,
+            "description": "Enzyme names such as EcoRI, BsaI. Leave out for all."
+          },
+          {
+            "name": "unique_only",
+            "type": "boolean",
+            "required": false,
+            "description": "Only enzymes that cut once."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "length",
+            "type": "integer",
+            "required": true
+          },
+          {
+            "name": "sites",
+            "type": "json",
+            "required": true
+          }
+        ],
+        "run": "ops:find_sites"
+      },
+      {
+        "id": "digest",
+        "title": "Digest a sequence",
+        "description": "Cuts a DNA sequence with restriction enzymes and gives the fragments with their sizes and sticky ends, and the bands a gel would show.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "sequence",
+            "type": "text",
+            "required": true,
+            "description": "DNA letters; spaces, digits and a FASTA header line are ignored."
+          },
+          {
+            "name": "topology",
+            "type": "text",
+            "required": false,
+            "description": "linear or circular (circular if left out)."
+          },
+          {
+            "name": "enzymes",
+            "type": "json",
+            "required": true,
+            "description": "Enzyme names such as EcoRI, BamHI."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "fragments",
+            "type": "json",
+            "required": true
+          },
+          {
+            "name": "gel_bands",
+            "type": "json",
+            "required": true
+          }
+        ],
+        "run": "ops:digest"
+      },
+      {
+        "id": "annotate",
+        "title": "Annotate a sequence",
+        "description": "Finds common elements (promoters, tags, sites, sequencing primers) and open reading frames in a DNA sequence.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "sequence",
+            "type": "text",
+            "required": true,
+            "description": "DNA letters; spaces, digits and a FASTA header line are ignored."
+          },
+          {
+            "name": "topology",
+            "type": "text",
+            "required": false,
+            "description": "linear or circular (circular if left out)."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "features",
+            "type": "json",
+            "required": true
+          }
+        ],
+        "run": "ops:annotate"
+      },
+      {
+        "id": "design-primers",
+        "title": "Design primers",
+        "description": "Designs PCR primer pairs that amplify a region of a DNA sequence, with melting temperatures, GC and warnings. Optional tails are added to the 5' ends.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "sequence",
+            "type": "text",
+            "required": true,
+            "description": "DNA letters; spaces, digits and a FASTA header line are ignored."
+          },
+          {
+            "name": "start",
+            "type": "integer",
+            "required": true,
+            "description": "First base of the region, 1-based."
+          },
+          {
+            "name": "end",
+            "type": "integer",
+            "required": true,
+            "description": "Last base of the region, 1-based."
+          },
+          {
+            "name": "target_tm",
+            "type": "number",
+            "required": false,
+            "description": "Best melting temperature in °C (60 if left out)."
+          },
+          {
+            "name": "max_product",
+            "type": "integer",
+            "required": false,
+            "description": "Longest product in bases (2000 if left out)."
+          },
+          {
+            "name": "forward_tail",
+            "type": "text",
+            "required": false,
+            "description": "Bases to add to the 5' end of the forward primer."
+          },
+          {
+            "name": "reverse_tail",
+            "type": "text",
+            "required": false,
+            "description": "Bases to add to the 5' end of the reverse primer."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "pairs",
+            "type": "json",
+            "required": true
+          }
+        ],
+        "run": "ops:design_primers"
+      },
+      {
+        "id": "check-primer",
+        "title": "Check a primer",
+        "description": "Gives a primer's length, melting temperature, GC, clamp, hairpin and self-dimer strength, and warnings.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "primer",
+            "type": "text",
+            "required": true,
+            "description": "Primer bases, 5' to 3'."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "length",
+            "type": "integer",
+            "required": true
+          },
+          {
+            "name": "tm",
+            "type": "number",
+            "required": true
+          },
+          {
+            "name": "gc",
+            "type": "number",
+            "required": true
+          },
+          {
+            "name": "gc_clamp",
+            "type": "integer",
+            "required": true
+          },
+          {
+            "name": "hairpin_delta_g",
+            "type": "number",
+            "required": true
+          },
+          {
+            "name": "self_dimer_delta_g",
+            "type": "number",
+            "required": true
+          },
+          {
+            "name": "warnings",
+            "type": "json",
+            "required": true
+          }
+        ],
+        "run": "ops:check_primer"
+      },
+      {
+        "id": "simulate-pcr",
+        "title": "Simulate PCR",
+        "description": "Finds the products two primers would make on a template, tails included.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "template",
+            "type": "text",
+            "required": true,
+            "description": "DNA letters; spaces, digits and a FASTA header line are ignored."
+          },
+          {
+            "name": "forward",
+            "type": "text",
+            "required": true,
+            "description": "Forward primer, 5' to 3'."
+          },
+          {
+            "name": "reverse",
+            "type": "text",
+            "required": true,
+            "description": "Reverse primer, 5' to 3'."
+          },
+          {
+            "name": "topology",
+            "type": "text",
+            "required": false,
+            "description": "linear or circular (circular if left out)."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "products",
+            "type": "json",
+            "required": true
+          }
+        ],
+        "run": "ops:simulate_pcr"
+      },
+      {
+        "id": "assemble",
+        "title": "Assemble parts in silico",
+        "description": "Joins DNA parts by digest and ligate, Golden Gate or Gibson assembly and gives the products with the order and orientation of the parts and their junctions.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "method",
+            "type": "text",
+            "required": true,
+            "description": "ligation, golden_gate or gibson."
+          },
+          {
+            "name": "parts",
+            "type": "json",
+            "required": true,
+            "description": "A list of parts: {name, sequence, topology (linear or circular), enzymes and pick for ligation}."
+          },
+          {
+            "name": "enzyme",
+            "type": "text",
+            "required": false,
+            "description": "Golden Gate: the Type IIS enzyme, such as BsaI."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "warnings",
+            "type": "json",
+            "required": true
+          },
+          {
+            "name": "products",
+            "type": "json",
+            "required": true
+          }
+        ],
+        "run": "ops:assemble"
+      },
+      {
+        "id": "align",
+        "title": "Align two sequences",
+        "description": "Aligns two DNA sequences (globally, or the best local match) and gives the score, identity, matches, mismatches and gaps.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "reference",
+            "type": "text",
+            "required": true,
+            "description": "DNA letters; spaces, digits and a FASTA header line are ignored."
+          },
+          {
+            "name": "query",
+            "type": "text",
+            "required": true,
+            "description": "DNA letters; spaces, digits and a FASTA header line are ignored."
+          },
+          {
+            "name": "mode",
+            "type": "text",
+            "required": false,
+            "description": "global or local (local if left out)."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "score",
+            "type": "integer",
+            "required": true
+          },
+          {
+            "name": "identity",
+            "type": "number",
+            "required": true
+          },
+          {
+            "name": "matches",
+            "type": "integer",
+            "required": true
+          },
+          {
+            "name": "mismatches",
+            "type": "integer",
+            "required": true
+          },
+          {
+            "name": "gaps",
+            "type": "integer",
+            "required": true
+          },
+          {
+            "name": "reference",
+            "type": "json",
+            "required": true
+          },
+          {
+            "name": "query",
+            "type": "json",
+            "required": true
+          }
+        ],
+        "run": "ops:align"
+      },
+      {
+        "id": "find-guides",
+        "title": "Find CRISPR guides",
+        "description": "Lists guides next to the nuclease's PAM on either strand, with GC, a simple quality screen and a count of near matches in the same sequence. Check a chosen guide against the genome before ordering.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "sequence",
+            "type": "text",
+            "required": true,
+            "description": "DNA letters; spaces, digits and a FASTA header line are ignored."
+          },
+          {
+            "name": "topology",
+            "type": "text",
+            "required": false,
+            "description": "linear or circular (circular if left out)."
+          },
+          {
+            "name": "nuclease",
+            "type": "text",
+            "required": false,
+            "description": "spcas9, sacas9 or cas12a (spcas9 if left out)."
+          },
+          {
+            "name": "start",
+            "type": "integer",
+            "required": false,
+            "description": "Only guides inside this region: first base, 1-based."
+          },
+          {
+            "name": "end",
+            "type": "integer",
+            "required": false,
+            "description": "Last base of the region."
+          },
+          {
+            "name": "limit",
+            "type": "integer",
+            "required": false,
+            "description": "Most guides to return, best first (20 if left out)."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "nuclease",
+            "type": "text",
+            "required": true
+          },
+          {
+            "name": "note",
+            "type": "text",
+            "required": true
+          },
+          {
+            "name": "guides",
+            "type": "json",
+            "required": true
+          }
+        ],
+        "run": "ops:find_guides"
+      },
+      {
+        "id": "optimise-codons",
+        "title": "Optimise codons",
+        "description": "Rewrites a coding sequence, or a protein, with the codons a host uses most, and can steer clear of restriction sites and long single-base runs.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "sequence",
+            "type": "text",
+            "required": true,
+            "description": "A coding sequence (DNA) or a protein."
+          },
+          {
+            "name": "input",
+            "type": "text",
+            "required": true,
+            "description": "dna or protein."
+          },
+          {
+            "name": "host",
+            "type": "text",
+            "required": true,
+            "description": "ecoli, human or yeast."
+          },
+          {
+            "name": "avoid_enzymes",
+            "type": "json",
+            "required": false,
+            "description": "Enzymes whose sites should not appear."
+          },
+          {
+            "name": "max_run",
+            "type": "integer",
+            "required": false,
+            "description": "Break single-base runs this long (6 if left out, 0 to leave alone)."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "host",
+            "type": "text",
+            "required": true
+          },
+          {
+            "name": "dna",
+            "type": "text",
+            "required": true
+          },
+          {
+            "name": "protein",
+            "type": "text",
+            "required": true
+          },
+          {
+            "name": "cai_before",
+            "type": "number",
+            "required": false
+          },
+          {
+            "name": "cai_after",
+            "type": "number",
+            "required": true
+          },
+          {
+            "name": "gc",
+            "type": "number",
+            "required": true
+          },
+          {
+            "name": "changed",
+            "type": "integer",
+            "required": true
+          },
+          {
+            "name": "unresolved",
+            "type": "json",
+            "required": true
+          }
+        ],
+        "run": "ops:optimise_codons"
+      },
+      {
+        "id": "check-read",
+        "title": "Check a Sanger read",
+        "description": "Checks a Sanger read against the sequence you meant to make: which strand, where it covers, and each difference with its quality.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "expected",
+            "type": "text",
+            "required": true,
+            "description": "The expected sequence."
+          },
+          {
+            "name": "read",
+            "type": "text",
+            "required": true,
+            "description": "The Sanger read bases."
+          },
+          {
+            "name": "quality",
+            "type": "text",
+            "required": false,
+            "description": "Phred scores as text, one character per base (score + 33). Leave out to treat every base as Q40."
+          },
+          {
+            "name": "topology",
+            "type": "text",
+            "required": false,
+            "description": "linear or circular (circular if left out)."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "verdict",
+            "type": "text",
+            "required": true
+          },
+          {
+            "name": "strand",
+            "type": "integer",
+            "required": false
+          },
+          {
+            "name": "covers",
+            "type": "json",
+            "required": false
+          },
+          {
+            "name": "identity",
+            "type": "number",
+            "required": true
+          },
+          {
+            "name": "mean_quality",
+            "type": "number",
+            "required": true
+          },
+          {
+            "name": "differences",
+            "type": "json",
+            "required": true
+          }
+        ],
+        "run": "ops:check_read"
+      },
+      {
+        "id": "fingerprint",
+        "title": "Fingerprint a sequence",
+        "description": "Gives the registry fingerprint of a sequence: the same text from either strand, any start of a circle, whatever the letter case.",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "sequence",
+            "type": "text",
+            "required": true,
+            "description": "The sequence letters."
+          },
+          {
+            "name": "molecule",
+            "type": "text",
+            "required": false,
+            "description": "dna, rna or protein (dna if left out)."
+          },
+          {
+            "name": "topology",
+            "type": "text",
+            "required": false,
+            "description": "linear or circular (circular if left out)."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "fingerprint",
+            "type": "text",
+            "required": true
+          },
+          {
+            "name": "length",
+            "type": "integer",
+            "required": true
+          }
+        ],
+        "run": "ops:fingerprint"
+      }
+    ],
+    "sameness-keys": [
+      {
+        "id": "sequence",
+        "title": "Same sequence",
+        "description": "Two entries are the same when their sequence is the same, read from either strand and, for a circle, from any start.",
+        "fields": [
+          {
+            "name": "sequence",
+            "type": "text",
+            "required": true,
+            "label": "Sequence"
+          }
+        ],
+        "run": "ops:sequence_key"
+      }
+    ]
+  },
+  "examples": [
+    {
+      "operation": "check-primer",
+      "input": {
+        "primer": "TCGTACAGGCTAACTGATCC"
+      },
+      "output": {
+        "length": 20,
+        "tm": 59.7,
+        "gc": 50.0,
+        "gc_clamp": 3,
+        "hairpin_delta_g": 0,
+        "self_dimer_delta_g": -3.5,
+        "warnings": []
+      }
+    },
+    {
+      "operation": "find-sites",
+      "input": {
+        "sequence": "TTGAATTCAAGGATCCTT",
+        "topology": "linear",
+        "enzymes": [
+          "EcoRI",
+          "BamHI"
+        ]
+      },
+      "output": {
+        "length": 18,
+        "sites": [
+          {
+            "enzyme": "EcoRI",
+            "site": "GAATTC",
+            "cuts": 1,
+            "positions": [
+              3
+            ]
+          },
+          {
+            "enzyme": "BamHI",
+            "site": "GGATCC",
+            "cuts": 1,
+            "positions": [
+              11
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "operation": "digest",
+      "input": {
+        "sequence": "TTGAATTCAAGGATCCTT",
+        "topology": "linear",
+        "enzymes": [
+          "EcoRI",
+          "BamHI"
+        ]
+      },
+      "output": {
+        "fragments": [
+          {
+            "start": 1,
+            "size": 3,
+            "label": "3 bp",
+            "left_end": {
+              "enzyme": null,
+              "kind": "blunt",
+              "sense": ""
+            },
+            "right_end": {
+              "enzyme": "EcoRI",
+              "kind": "5prime",
+              "sense": "AATT"
+            }
+          },
+          {
+            "start": 4,
+            "size": 8,
+            "label": "8 bp",
+            "left_end": {
+              "enzyme": "EcoRI",
+              "kind": "5prime",
+              "sense": "AATT"
+            },
+            "right_end": {
+              "enzyme": "BamHI",
+              "kind": "5prime",
+              "sense": "GATC"
+            }
+          },
+          {
+            "start": 12,
+            "size": 7,
+            "label": "7 bp",
+            "left_end": {
+              "enzyme": "BamHI",
+              "kind": "5prime",
+              "sense": "GATC"
+            },
+            "right_end": {
+              "enzyme": null,
+              "kind": "blunt",
+              "sense": ""
+            }
+          }
+        ],
+        "gel_bands": [
+          {
+            "size": 8,
+            "count": 1
+          },
+          {
+            "size": 7,
+            "count": 1
+          },
+          {
+            "size": 3,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "operation": "fingerprint",
+      "input": {
+        "sequence": "GATTACA",
+        "topology": "circular"
+      },
+      "output": {
+        "fingerprint": "seq:2fecb8927b3009ca7fa5f7a15c13b51a9f96cb7cb34db39b425f37e421013a20",
+        "length": 7
+      }
+    }
+  ]
+}

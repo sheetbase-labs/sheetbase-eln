@@ -42,6 +42,7 @@ export const plugins = {
       previews: 'File previews',
       'sameness-keys': 'Same-thing rules',
       'event-hooks': 'Event reactions',
+      'record-hooks': 'Save and upload hooks',
     },
     pointHint: {
       operations:
@@ -71,7 +72,9 @@ export const plugins = {
       'sameness-keys':
         'Rules that decide when two registry entries are the same thing.',
       'event-hooks':
-        'Reactions to things that happen in the lab. They can leave a note in the Inbox; they never change records.',
+        'Reactions to things that happen in the lab. They can leave a note, raise a flag a gate waits on, ask for a sign-off and fill in fields on the record concerned.',
+      'record-hooks':
+        'Run when a record or file is created, edited, uploaded or changes status. Before a save they can refuse it with a message or fill in fields. After it they can write a summary, add to a search index, raise flags, ask for sign-off and change records. They never sign or approve anything.',
     },
     pointSwitch: 'Switch {point} on or off for {name}',
     pointSwitchedOn: '{point} switched on',
@@ -96,6 +99,8 @@ export const plugins = {
       preview: 'preview',
       key: 'same-thing rule',
       hook: 'reaction',
+      before: 'before the save',
+      after: 'after the save',
     },
     by: 'by {author}',
     turnOn: 'Switch on',

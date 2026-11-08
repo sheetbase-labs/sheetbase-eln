@@ -41,6 +41,10 @@ import {
   stampRequestId,
 } from './request-id'
 import { ExternalTokenError, readBearerToken } from './external-token'
+import type {
+  WriteGuardInput,
+  WriteGuardResult,
+} from './extensions/record-hooks.server'
 
 export interface ProxyDeps {
   getSession: (headers: Headers) => Promise<{
@@ -66,6 +70,11 @@ export interface ProxyDeps {
     path: ProxyPath,
   ) => Promise<{ workspaceId: string }>
   upstreamBaseUrl: string
+  /**
+   * Shows a write to the plugin hooks that run before a save. They can refuse
+   * it or fill in fields. Optional: only the /api/db route wires it.
+   */
+  guardWrite?: (input: WriteGuardInput) => Promise<WriteGuardResult>
   fetchFn?: typeof fetch
   /**
    * PLAT-03 — abuse bound for the data proxy. Defaults to a fixed-window
@@ -358,15 +367,42 @@ export async function handleProxyRequest(
   const rangeUnit = request.headers.get('range-unit')
   if (rangeUnit) headers.set('range-unit', rangeUnit)
 
+  let requestBody =
+    request.method === 'GET' || request.method === 'HEAD'
+      ? undefined
+      : await request.text()
+  let pluginWarnings: string[] = []
+  if (deps.guardWrite && requestBody !== undefined) {
+    const guard = await deps.guardWrite({
+      method: request.method,
+      kind: path.kind,
+      resource: path.resource,
+      query: requestUrl.search,
+      body: requestBody,
+      token,
+    })
+    if (guard.kind === 'refused') {
+      recordProxyRequest(request.method, 422, startedAt, 'validation_error')
+      return stampRequestId(
+        errorEnvelope({
+          category: 'validation_error',
+          status: 422,
+          message: `${guard.plugin}: ${guard.message}`,
+          requestId,
+        }),
+        requestId,
+      )
+    }
+    requestBody = guard.body
+    pluginWarnings = guard.warnings
+  }
+
   let response: Response
   try {
     response = await (deps.fetchFn ?? fetch)(upstream, {
       method: request.method,
       headers,
-      body:
-        request.method === 'GET' || request.method === 'HEAD'
-          ? undefined
-          : await request.text(),
+      body: requestBody,
     })
     if (path.kind === 'rpc') observeRpcLatency(path.resource, startedAt)
   } catch (error) {
@@ -389,8 +425,16 @@ export async function handleProxyRequest(
     requestId,
     startedAt,
   )
+  if (pluginWarnings.length > 0)
+    finalResponse.headers.set(
+      PLUGIN_WARNINGS_HEADER,
+      encodeURIComponent(pluginWarnings.join(' | ')),
+    )
   return stampRequestId(finalResponse, requestId)
 }
+
+/** What plugins said while letting a save through, URL-encoded and joined with ` | `. */
+export const PLUGIN_WARNINGS_HEADER = 'x-sheetbase-plugin-warnings'
 
 /** Successful proxy requests at or above this duration are logged at info. */
 const SLOW_REQUEST_MS = 1000

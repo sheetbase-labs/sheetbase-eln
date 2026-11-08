@@ -1,16 +1,22 @@
 /**
  * Plugin reactions to events. When something happens in the workspace, every
- * enabled plugin reaction listening for that event runs, and what it answers
- * becomes notes in the Inbox of the person whose change set it off.
+ * enabled plugin reaction listening for that event runs. What it answers is
+ * done as the person whose change set it off: notes in their Inbox (14 days),
+ * flags a gate waits on, sign-offs for people to press, summaries, search index
+ * entries and changes to fields on the record concerned (see `hook-answers.ts`).
  *
- * A reaction cannot change anything: it is handed the same event a webhook
- * would carry and can only answer with notes. A reaction that fails costs only
- * its own notes, and a plugin's own audit events never set reactions off.
+ * A reaction that fails costs only its own answer, and a plugin's own audit
+ * events and its own writes never set reactions off.
  */
-import { sql } from 'drizzle-orm'
-
 import { logger } from '#/lib/logger'
 import { runExtensionEventHook } from './data-runtime.server'
+import {
+  PLUGIN_CLIENT_ID,
+  applyHookAnswer,
+  defaultHookStore,
+} from './record-hooks.server'
+import type { HookStore } from './record-hooks.server'
+import type { RecordSnapshot } from './hook-answers'
 import { resolveRunnerPoints } from './runner-points'
 import type { RunnerItem } from './runner-points'
 import type { ExtensionEventHookDeclaration } from './data-points'
@@ -28,21 +34,22 @@ export interface HookEvent {
   /** The stable event name, as webhooks use. */
   name: string
   data: unknown
+  /** Set when a plugin made the change; such events never set reactions off. */
+  clientId?: string | null
 }
 
 export interface EventHookDeps {
   runtime?: ExtensionRuntimeDeps
   /** The reactions switched on in a workspace for an event. */
   hooksFor: (workspaceId: string, eventName: string) => Promise<Hook[]>
-  saveNote: (note: {
-    workspaceId: string
-    userId: string
-    hook: Hook
-    eventId: string
-    recordId: string | null
-    title: string
-    body: string | null
-  }) => Promise<void>
+  /** What a reaction's answer is done with. */
+  store: HookStore
+  /** The record an event is about, as the person who made the change sees it. */
+  loadRecord?: (
+    workspaceId: string,
+    actorUserId: string,
+    recordId: string,
+  ) => Promise<RecordSnapshot | null>
 }
 
 const CACHE_MS = 10_000
@@ -80,15 +87,24 @@ export function defaultEventHookDeps(): EventHookDeps {
       }
       return hooks.filter((hook) => hook.declaration.events.includes(eventName))
     },
-    saveNote: async (note) => {
-      const { db } = await import('#/db/client.server')
-      await db.execute(
-        sql`INSERT INTO api.plugin_notes
-              (workspace_id, user_id, extension_key, extension_name, hook_id, event_id, title, body, record_id)
-            VALUES (${note.workspaceId}::uuid, ${note.userId}, ${note.hook.extensionKey}, ${note.hook.extensionName},
-                    ${note.hook.id}, ${note.eventId}::uuid, ${note.title}, ${note.body}, ${note.recordId}::uuid)
-            ON CONFLICT DO NOTHING`,
+    store: defaultHookStore(),
+    loadRecord: async (workspaceId, actorUserId, recordId) => {
+      const { env } = await import('#/env.server')
+      const { mintPostgrestToken } = await import('#/lib/postgrest-token')
+      const { postgrestSelect } = await import('#/lib/request-auth')
+      const token = await mintPostgrestToken(env.PGRST_JWT_SECRET, {
+        userId: actorUserId,
+        workspaceId,
+        sessionId: 'plugin-hook',
+        clientId: PLUGIN_CLIENT_ID,
+        ttlSeconds: 60,
+      })
+      const found = await postgrestSelect<RecordSnapshot[]>(
+        'records',
+        `id=eq.${recordId}&select=id,identifier,kind,title,status,tags,properties,custom_fields,project_id`,
+        token,
       )
+      return Array.isArray(found.body) && found.body[0] ? found.body[0] : null
     },
   }
 }
@@ -98,17 +114,32 @@ export async function runEventHooks(
   event: HookEvent,
   deps: EventHookDeps = defaultEventHookDeps(),
 ): Promise<number> {
-  // A plugin's own audit events must not set reactions off, or one could feed itself.
+  // A plugin's own audit events and its own writes must not set reactions off,
+  // or one could feed itself.
   if (event.entityType === 'extension') return 0
-  let saved = 0
+  if (event.clientId === PLUGIN_CLIENT_ID) return 0
+  let done = 0
   try {
     const hooks = await deps.hooksFor(event.workspaceId, event.name)
     if (hooks.length === 0) return 0
-    // Notes go to the person whose change it was; a change with no person has nobody to tell.
+    // Everything a reaction does is done as the person whose change it was; a
+    // change with no person has nobody to do it as.
     if (!event.actorUserId) return 0
+    let record: RecordSnapshot | null | undefined
     for (const hook of hooks) {
       try {
-        const notes = await runExtensionEventHook(
+        if (record === undefined)
+          record =
+            event.recordId && deps.loadRecord
+              ? await deps
+                  .loadRecord(
+                    event.workspaceId,
+                    event.actorUserId,
+                    event.recordId,
+                  )
+                  .catch(() => null)
+              : null
+        const answer = await runExtensionEventHook(
           {
             workspaceId: event.workspaceId,
             actorUserId: event.actorUserId,
@@ -120,21 +151,22 @@ export async function runEventHooks(
               entityId: event.entityId,
               data: event.data,
             },
+            record,
           },
           deps.runtime,
         )
-        for (const note of notes) {
-          await deps.saveNote({
+        const outcome = await applyHookAnswer(
+          deps.store,
+          {
             workspaceId: event.workspaceId,
-            userId: event.actorUserId,
-            hook,
-            eventId: event.id,
+            actorUserId: event.actorUserId,
             recordId: event.recordId,
-            title: note.title,
-            body: note.body,
-          })
-          saved += 1
-        }
+            eventId: event.id,
+            hook,
+          },
+          answer,
+        )
+        done += outcome.done.length
       } catch (error) {
         logger.warn('plugin reaction failed', {
           plugin: hook.extensionKey,
@@ -149,5 +181,5 @@ export async function runEventHooks(
       error: error instanceof Error ? error.message : String(error),
     })
   }
-  return saved
+  return done
 }

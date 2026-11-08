@@ -39,6 +39,7 @@ export const EXTENSION_RUNNER_POINTS = [
   'previews',
   'sameness-keys',
   'event-hooks',
+  'record-hooks',
 ] as const
 
 /**

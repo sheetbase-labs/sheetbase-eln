@@ -22,7 +22,10 @@ import type {
 import { parseExtensionManifest } from './manifest'
 import { callableItems } from './callables'
 import type { CallableItem } from './callables'
-import type { ExtensionDataContributions } from './data-points'
+import type {
+  ExtensionDataContributions,
+  ExtensionRecordHookDeclaration,
+} from './data-points'
 import { pluginOperationDescriptors } from './operation-descriptors'
 import { isRunnerPoint, parsePluginName, pluginOperationName } from './points'
 import type {
@@ -65,6 +68,7 @@ export const DATA_ITEM_POINTS = [
   'previews',
   'sameness-keys',
   'event-hooks',
+  'record-hooks',
 ] as const
 export type DataItemPoint = (typeof DATA_ITEM_POINTS)[number]
 type DataDeclaration<TPoint extends DataItemPoint> = NonNullable<
@@ -103,6 +107,7 @@ export function emptyData(): ResolvedRunnerPoints['data'] {
     previews: [],
     'sameness-keys': [],
     'event-hooks': [],
+    'record-hooks': [],
   }
 }
 
@@ -245,6 +250,8 @@ export type ExtensionAddDetail =
   | 'preview'
   | 'key'
   | 'hook'
+  | 'before'
+  | 'after'
 
 /** What a manifest adds, point by point, for the administrator's list. */
 export interface ExtensionAdds {
@@ -317,6 +324,11 @@ export function describeRunnerAdds(manifest: unknown): ExtensionAdds[] {
   add('previews', c.previews, () => 'preview')
   add('sameness-keys', c['sameness-keys'], () => 'key')
   add('event-hooks', c['event-hooks'], () => 'hook')
+  add(
+    'record-hooks',
+    c['record-hooks'],
+    (h: ExtensionRecordHookDeclaration) => h.timing,
+  )
   return adds
 }
 

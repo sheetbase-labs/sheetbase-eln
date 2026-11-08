@@ -9,6 +9,7 @@
  * what they try is what runs here.
  */
 import hostSource from '../../../sdks/plugin-python/src/sheetbase_plugin/host.py?raw'
+import uiSource from '../../../sdks/plugin-python/src/sheetbase_plugin/ui.py?raw'
 import initSource from '../../../sdks/plugin-python/src/sheetbase_plugin/__init__.py?raw'
 
 /** The step source for a package: `parameters.kind` picks an operation, an analysis, a screen, a column or an action. */
@@ -16,6 +17,7 @@ export function pluginStatement(files: Record<string, string>): string {
   const modules: Record<string, string> = {
     'sheetbase_plugin/__init__.py': initSource,
     'sheetbase_plugin/host.py': hostSource,
+    'sheetbase_plugin/ui.py': uiSource,
   }
   for (const [path, source] of Object.entries(files)) {
     if (path.startsWith('python/'))

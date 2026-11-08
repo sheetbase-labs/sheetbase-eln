@@ -25,9 +25,10 @@ beforeAll(async () => {
       [user, `${user}@test.invalid`],
     )
   }
-  await migrator.query(`insert into api.workspaces(id,slug,name) values($1,'work032w','WORK-03.2')`, [
-    WS,
-  ])
+  await migrator.query(
+    `insert into api.workspaces(id,slug,name) values($1,'work032w','WORK-03.2')`,
+    [WS],
+  )
   await migrator.query(
     `insert into api.workspace_memberships(workspace_id,user_id,role) values
      ($1,$2,'owner'),($1,$3,'member')`,

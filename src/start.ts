@@ -285,6 +285,12 @@ const securityHeadersMiddleware = createMiddleware().server(
       return result
     }
 
+    // A document that brings its own policy (a plugin's sandboxed screen) keeps
+    // it: the app's policy would replace the sandbox and its nonce rewriting
+    // would change the plugin's own code.
+    if (headers.get('content-security-policy')?.includes('sandbox'))
+      return result
+
     // HTML documents get a per-request nonce: inline scripts emitted by the
     // app bootstrap and TanStack Start (history restore, stream barrier,
     // hydration completion) are allowlisted by nonce and `script-src`

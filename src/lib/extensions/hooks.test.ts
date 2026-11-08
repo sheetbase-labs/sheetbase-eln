@@ -13,11 +13,10 @@ import {
 } from './cell-display'
 import { checkFieldTypeValue } from './hooks'
 import { validateExtensionManifest } from './manifest'
-import { buildPluginPackage } from './package'
+import { buildPluginPackage, PLUGIN_UI_SDK_NAME } from './package'
 import { resolveRunnerPoints } from './runner-points'
 import { runExtensionHook } from './runtime.server'
 import type { ExtensionRuntimeDeps } from './runtime.server'
-import { PLUGIN_UI_SDK_NAME } from './package'
 import { buildPluginFrame, PLUGIN_FRAME_CSP } from './ui-frame'
 import {
   localPython,
@@ -47,7 +46,7 @@ describe('sample plugins', () => {
           status: 'enabled',
           manifest,
           disabled_points: [],
-        } as never,
+        },
       ])
       const total =
         points.blocks.length +
@@ -70,7 +69,7 @@ describe('sample plugins', () => {
         status: 'enabled',
         manifest,
         disabled_points: ['columns'],
-      } as never,
+      },
     ])
     expect(points.columns).toHaveLength(0)
     expect(points.rowActions).toHaveLength(2)
@@ -225,7 +224,7 @@ describe.skipIf(!pythonAvailable)('running the hooks', () => {
         key: name,
         name,
         status: 'enabled',
-        manifest: manifest as never,
+        manifest: manifest,
         disabledPoints: [],
       }),
       loadPackage: async () => files,

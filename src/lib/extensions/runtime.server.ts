@@ -504,7 +504,7 @@ function columnValue(
       'bad_answer',
       `The plugin’s column gave a value that isn’t ${type === 'number' ? 'a number' : type === 'boolean' ? 'true or false' : 'text'}.`,
     )
-  return value as string | number | boolean
+  return value
 }
 
 function checkRows(rows: Array<Record<string, unknown>>, inputs?: string[]) {
@@ -629,7 +629,7 @@ export async function runExtensionHook(
     })
   try {
     const result = await runPackage(deps, args.workspaceId, resolved, job)
-    const first = (result.rows.at(0) ?? {}) as Record<string, unknown>
+    const first = result.rows.at(0) ?? {}
     const durationMs = deps.now() - started
     let outcome: HookOutcome
     if (args.kind === 'screen') {

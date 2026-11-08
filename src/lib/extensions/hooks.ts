@@ -532,7 +532,7 @@ export function parseColumns(
         if (!actionRun) return null
         actions.push({
           id: action.id,
-          title: (action.title as string).trim(),
+          title: action.title.trim(),
           runner: actionRun,
         })
       }
@@ -699,7 +699,7 @@ export function parseFieldTypes(
         ? { pattern: entry.pattern as string }
         : {}),
       ...(entry.patternMessage !== undefined
-        ? { patternMessage: (entry.patternMessage as string).trim() }
+        ? { patternMessage: entry.patternMessage.trim() }
         : {}),
       ...(entry.minLength !== undefined
         ? { minLength: entry.minLength as number }
@@ -710,7 +710,7 @@ export function parseFieldTypes(
       ...(entry.min !== undefined ? { min: entry.min as number } : {}),
       ...(entry.max !== undefined ? { max: entry.max as number } : {}),
       ...(entry.placeholder !== undefined
-        ? { placeholder: (entry.placeholder as string).trim() }
+        ? { placeholder: entry.placeholder.trim() }
         : {}),
       ...(display ? { display } : {}),
     })

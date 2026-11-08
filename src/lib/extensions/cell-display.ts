@@ -117,13 +117,9 @@ export function parseCellDisplay(
       }
       return {
         kind: 'text',
-        ...(value.prefix !== undefined
-          ? { prefix: value.prefix as string }
-          : {}),
-        ...(value.suffix !== undefined
-          ? { suffix: value.suffix as string }
-          : {}),
-        ...(value.mono !== undefined ? { mono: value.mono as boolean } : {}),
+        ...(value.prefix !== undefined ? { prefix: value.prefix } : {}),
+        ...(value.suffix !== undefined ? { suffix: value.suffix } : {}),
+        ...(value.mono !== undefined ? { mono: value.mono } : {}),
       }
     }
     case 'number': {
@@ -156,10 +152,8 @@ export function parseCellDisplay(
         ...(value.decimals !== undefined
           ? { decimals: value.decimals as number }
           : {}),
-        ...(value.unit !== undefined ? { unit: value.unit as string } : {}),
-        ...(value.grouping !== undefined
-          ? { grouping: value.grouping as boolean }
-          : {}),
+        ...(value.unit !== undefined ? { unit: value.unit } : {}),
+        ...(value.grouping !== undefined ? { grouping: value.grouping } : {}),
       }
     }
     case 'badge': {
@@ -200,9 +194,7 @@ export function parseCellDisplay(
         ...(value.labels !== undefined
           ? { labels: value.labels as Record<string, string> }
           : {}),
-        ...(value.fallback !== undefined
-          ? { fallback: value.fallback as CellDisplayTone }
-          : {}),
+        ...(value.fallback !== undefined ? { fallback: value.fallback } : {}),
       }
     }
     case 'bar': {
@@ -259,12 +251,10 @@ export function parseCellDisplay(
         kind: 'bar',
         ...(value.min !== undefined ? { min } : {}),
         max: value.max,
-        ...(value.tone !== undefined
-          ? { tone: value.tone as CellDisplayTone }
-          : {}),
+        ...(value.tone !== undefined ? { tone: value.tone } : {}),
         ...(thresholds ? { thresholds } : {}),
         ...(value.showValue !== undefined
-          ? { showValue: value.showValue as boolean }
+          ? { showValue: value.showValue }
           : {}),
       }
     }
@@ -276,9 +266,7 @@ export function parseCellDisplay(
       }
       return {
         kind: 'sparkline',
-        ...(value.tone !== undefined
-          ? { tone: value.tone as CellDisplayTone }
-          : {}),
+        ...(value.tone !== undefined ? { tone: value.tone } : {}),
       }
     }
     case 'svg': {
@@ -327,9 +315,10 @@ export function formatDisplayNumber(
 ): string {
   const fixed = decimals === undefined ? String(n) : n.toFixed(decimals)
   if (!grouping) return fixed
-  const [whole, fraction] = fixed.split('.')
+  const dot = fixed.indexOf('.')
+  const whole = dot < 0 ? fixed : fixed.slice(0, dot)
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-  return fraction === undefined ? grouped : `${grouped}.${fraction}`
+  return dot < 0 ? grouped : `${grouped}${fixed.slice(dot)}`
 }
 
 /** The numbers in a sparkline cell: a JSON list, or numbers split by commas, spaces or semicolons. */
@@ -380,7 +369,10 @@ export function cellDisplayModel(
       return {
         kind: 'badge',
         text: spec.labels?.[raw] ?? raw,
-        tone: spec.tones[raw] ?? spec.fallback ?? 'neutral',
+        tone:
+          (spec.tones as Record<string, CellDisplayTone | undefined>)[raw] ??
+          spec.fallback ??
+          'neutral',
       }
     case 'bar': {
       const n = asNumber(value)

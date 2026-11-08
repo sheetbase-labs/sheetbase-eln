@@ -93,10 +93,7 @@ export function AddBlockMenu({
                 <CommandItem
                   key={`${item.extensionKey}/${item.id}`}
                   value={item.declaration.title}
-                  keywords={[
-                    item.declaration.description ?? '',
-                    item.extensionName,
-                  ]}
+                  keywords={[item.declaration.description, item.extensionName]}
                   onSelect={() => {
                     onAdd(
                       `${PLUGIN_BLOCK_PREFIX}${item.extensionKey}/${item.id}`,
@@ -113,10 +110,7 @@ export function AddBlockMenu({
                       {item.declaration.title}
                     </span>
                     <span className="block text-label text-fg-muted">
-                      {item.declaration.description ??
-                        t('plugins.screen.from', {
-                          plugin: item.extensionName,
-                        })}
+                      {item.declaration.description}
                     </span>
                   </span>
                 </CommandItem>

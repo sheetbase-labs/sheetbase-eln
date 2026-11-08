@@ -209,7 +209,7 @@ export function PluginFrame(props: PluginFrameProps) {
               ? (message.input as Record<string, unknown>)
               : null
           if (!id) return
-          const access = operations[operation]
+          const access = operations[operation] as 'read' | 'write' | undefined
           if (!access || !input) {
             reply(id, {
               ok: false,

@@ -363,7 +363,8 @@ export function usePluginTableHooks({
   >(
     () =>
       columnItems.map((item, index) => {
-        const query = columnQueries[index]
+        const query = columnQueries[index] as
+          (typeof columnQueries)[number] | undefined
         const values = query?.data
         const indexOf = new Map(records.map((r, i) => [r.id, i] as const))
         return {
@@ -408,7 +409,6 @@ export function usePluginTableHooks({
           },
         }
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       columnItems,
       columnQueries.map((q) => q.dataUpdatedAt + q.status).join(),

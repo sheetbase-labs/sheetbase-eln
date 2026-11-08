@@ -569,6 +569,9 @@ function InstallDialog({
                 </h3>
                 <ul className="mt-1 list-disc pl-5 text-body text-fg-muted">
                   <li>{t('plugins.admin.install.asksCode')}</li>
+                  {plugin.hasUi ? (
+                    <li>{t('plugins.admin.install.asksUi')}</li>
+                  ) : null}
                   <li>
                     {plugin.permissions.length > 0 &&
                     !(

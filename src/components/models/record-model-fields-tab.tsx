@@ -44,6 +44,7 @@ import { formatDate } from '#/lib/format-date'
 import { useDataAccess } from '#/lib/data-access'
 import { useReportingNames } from '#/lib/data-access-names'
 import { reportingColumnName } from '#/lib/data-access-handles'
+import { FieldPluginTypePicker } from '#/components/extensions/field-type-hooks'
 import { t } from '#/copy'
 
 /**
@@ -303,6 +304,15 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
               ]}
             />
           </InspectorSection>
+          {['text', 'integer', 'decimal'].includes(sel.logical_type) ? (
+            <InspectorSection title={t('plugins.hooks.fieldTypeLabel')}>
+              <FieldPluginTypePicker
+                modelKey={modelKey}
+                fieldName={sel.field_name}
+                logicalType={sel.logical_type}
+              />
+            </InspectorSection>
+          ) : null}
           <InspectorSection
             title={t('library.models.recordModelFieldsTab.inRecords')}
           >

@@ -38,7 +38,7 @@ import {
   HOST_CAPABILITIES,
   isHostCapability,
 } from '#/lib/extensions/host-capabilities'
-import { runPluginHook } from '#/lib/extensions/run-client'
+import { runPluginHook, runPluginHost } from '#/lib/extensions/run-client'
 import type { PluginFramePoint } from '#/lib/extensions/ui-points'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
@@ -276,6 +276,53 @@ export function PluginFrame(props: PluginFrameProps) {
             !Array.isArray(message.input)
               ? (message.input as Record<string, unknown>)
               : {}
+          if (typeof name === 'string' && name.startsWith('sheetbase.')) {
+            // Any tool the MCP server has, by its MCP name. The server checks
+            // the plugin's declared scopes and says when a change needs the
+            // person's yes.
+            const run = (confirmed: boolean) =>
+              runPluginHost({
+                extensionKey,
+                point,
+                name,
+                arguments: input,
+                confirmed,
+              })
+            try {
+              let output
+              try {
+                output = await run(false)
+              } catch (error) {
+                if ((error as { code?: string }).code !== 'confirmation_needed')
+                  throw error
+                const action =
+                  typeof input.action === 'string' ? input.action : name
+                const allowed = await new Promise<boolean>((resolve) =>
+                  setAsking({
+                    operation: action.replace(/_/g, ' '),
+                    detail: JSON.stringify(input.arguments ?? {}).slice(0, 300),
+                    decide: resolve,
+                  }),
+                )
+                setAsking(null)
+                if (!allowed) {
+                  reply(id, {
+                    ok: false,
+                    error: t('plugins.screen.askDeclined'),
+                  })
+                  return
+                }
+                output = await run(true)
+              }
+              reply(id, { ok: true, output })
+            } catch (error) {
+              reply(id, {
+                ok: false,
+                error: error instanceof Error ? error.message : 'Failed.',
+              })
+            }
+            return
+          }
           if (!isHostCapability(name)) {
             reply(id, { ok: false, error: 'Sheetbase does not offer that.' })
             return

@@ -1,3 +1,4 @@
+import { ChangeStructure } from '#/components/registry/change-structure'
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 
@@ -380,6 +381,18 @@ export function RecordModelRecord({
                 field.fieldName !== structureField,
             )}
             stored={record.custom_fields}
+          />
+        ) : null}
+
+        {structureField && record && canWrite && !record.archived_at ? (
+          <ChangeStructure
+            recordId={record.id}
+            molfile={
+              typeof record.custom_fields?.[structureField] === 'string'
+                ? String(record.custom_fields[structureField])
+                : ''
+            }
+            metadataVersion={record.metadata_version ?? 1}
           />
         ) : null}
 

@@ -374,6 +374,7 @@ export function RecordModelRecord({
             open
             onOpenChange={setEditing}
             recordId={record.id}
+            modelKey={modelKey}
             fields={fields.filter(
               (field) =>
                 field.lifecycle === 'active' &&

@@ -10,6 +10,7 @@ import { Section } from '#/components/ui/layout'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { projectOption } from '#/components/record-picker/entity-options'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
+import { usePluginFieldTypeErrors } from '#/components/extensions/field-type-hooks'
 import { evaluateModelRules } from '#/lib/model-rules'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
@@ -182,9 +183,10 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
   const structureHits = structure ? (structureMatches.data ?? []) : []
   const matches = nameMatches
 
+  const pluginErrors = usePluginFieldTypeErrors(modelKey, fields, values)
   const fieldErrors = useMemo(
-    () => modelFieldInputErrors(fields, values),
-    [fields, values],
+    () => ({ ...modelFieldInputErrors(fields, values), ...pluginErrors }),
+    [fields, values, pluginErrors],
   )
   const validation = useMemo(
     () => evaluateModelRules(rules, customFields),

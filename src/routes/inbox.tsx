@@ -175,6 +175,8 @@ function labelFor(kind: WorkItemKind): string {
       return t('projects.inbox.kinds.watcher_finding')
     case 'qc_violation':
       return t('projects.inbox.kinds.qc_violation')
+    case 'plugin_note':
+      return t('projects.inbox.kinds.plugin_note')
     case 'invitation_accepted':
       return t('projects.inbox.kinds.invitation_accepted')
     case 'verification_requested':

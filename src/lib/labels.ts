@@ -14,6 +14,9 @@ import { z } from 'zod'
 /** The path the resolver route serves; the QR payload's path component. */
 export const LABEL_QR_PATH = '/r/'
 
+/** `plugin.<plugin>.<item>`: a layout or code a plugin supplies. */
+export const PLUGIN_ITEM_RE = /^plugin\.[a-z0-9_-]{1,64}\.[a-z][a-z0-9-]{0,48}$/
+
 export const labelTemplateSchema = z
   .object({
     id: z.string().uuid(),
@@ -27,7 +30,14 @@ export const labelTemplateSchema = z
     showSampleType: z.boolean().default(false),
     widthMm: z.number().int().min(10).max(200).default(50),
     heightMm: z.number().int().min(10).max(200).default(25),
-    barcodeType: z.enum(['qr', 'code128']).default('qr'),
+    // `qr`, `code128`, or a barcode format a plugin draws: `plugin.<plugin>.<format>`.
+    barcodeType: z
+      .union([z.enum(['qr', 'code128']), z.string().regex(PLUGIN_ITEM_RE)])
+      .default('qr'),
+    // `standard`, or a layout a plugin lays out: `plugin.<plugin>.<format>`.
+    layout: z
+      .union([z.literal('standard'), z.string().regex(PLUGIN_ITEM_RE)])
+      .default('standard'),
     isDefault: z.boolean().default(false),
     archivedAt: z.string().nullable().default(null),
     createdAt: z.string(),
@@ -38,9 +48,14 @@ export const labelTemplateSchema = z
 export type LabelTemplate = z.infer<typeof labelTemplateSchema>
 export type BarcodeType = LabelTemplate['barcodeType']
 
-export const BARCODE_TYPE_LABELS: Record<BarcodeType, string> = {
+export const BARCODE_TYPE_LABELS: Record<'qr' | 'code128', string> = {
   qr: 'QR code',
   code128: 'Barcode (Code 128)',
+}
+
+/** Whether a template's code or layout comes from a plugin. */
+export function isPluginItem(value: string | null | undefined): boolean {
+  return typeof value === 'string' && PLUGIN_ITEM_RE.test(value)
 }
 
 /** What a label prints when no template has been chosen. */
@@ -53,6 +68,7 @@ export const DEFAULT_LABEL_TEMPLATE: Pick<
   | 'widthMm'
   | 'heightMm'
   | 'barcodeType'
+  | 'layout'
 > = {
   showCondition: true,
   showUseBy: true,
@@ -61,6 +77,7 @@ export const DEFAULT_LABEL_TEMPLATE: Pick<
   widthMm: 50,
   heightMm: 25,
   barcodeType: 'qr',
+  layout: 'standard',
 }
 
 /** A label_templates row as PostgREST returns it. */
@@ -79,6 +96,7 @@ export function labelTemplateFromRow(
     widthMm: row.width_mm,
     heightMm: row.height_mm,
     barcodeType: row.barcode_type,
+    layout: row.layout ?? 'standard',
     isDefault: row.is_default,
     archivedAt: row.archived_at ?? null,
     createdAt: row.created_at,

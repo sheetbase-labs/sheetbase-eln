@@ -81,7 +81,12 @@ import type {
 } from '#/lib/import/types'
 
 import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
-import { fileExtension, readWithImporter } from '#/lib/extensions/plugin-files'
+import {
+  fileExtension,
+  pickInstrumentParser,
+  readWithImporter,
+  readWithInstrumentParser,
+} from '#/lib/extensions/plugin-files'
 import { FileColumnsStep } from './file-columns-step'
 import { PluginPullPanel } from './plugin-pull-panel'
 import type { FileColumnsResult } from './file-columns-step'
@@ -223,6 +228,8 @@ export function commitIdempotencyKey(
   return `import-${fileId}-${datasetId}-${(hash >>> 0).toString(16)}`
 }
 
+const BUILT_IN_EXTENSIONS = ['.csv', '.tsv', '.tab', '.txt', '.json', '.xlsx']
+
 function outcomeTone(outcome: string): 'ok' | 'warn' | 'bad' | 'stored' {
   if (outcome === 'flagged') return 'warn'
   if (outcome === 'skipped') return 'stored'
@@ -344,7 +351,8 @@ export function ImportUploadFlow({
   const pluginPoints = useExtensionPoints()
   const pluginImporters = pluginPoints.data.importers
   const pluginConnectors = pluginPoints.data.connectors
-  const pluginExtensions = useMemo(
+  const pluginParsers = pluginPoints.data['instrument-parsers']
+  const pluginImporterExtensions = useMemo(
     () => [
       ...new Set(
         pluginImporters.flatMap((item) => item.declaration.extensions),
@@ -352,8 +360,50 @@ export function ImportUploadFlow({
     ],
     [pluginImporters],
   )
+  const pluginExtensions = useMemo(
+    () => [
+      ...new Set([
+        ...pluginImporterExtensions,
+        ...pluginParsers.flatMap((item) => item.declaration.extensions),
+      ]),
+    ],
+    [pluginImporterExtensions, pluginParsers],
+  )
   /** A file in a format a plugin reads becomes a table first; anything else is left alone. */
   async function readable(file: File): Promise<File> {
+    // An instrument's own file: a plugin parser that recognises it takes it.
+    // Formats Sheetbase already reads are only taken when the parser says
+    // what its files carry, so a parser can't swallow every CSV or sheet.
+    const extension = fileExtension(file.name)
+    const builtIn = BUILT_IN_EXTENSIONS.includes(extension)
+    const asText = pluginParsers.some(
+      (item) =>
+        item.declaration.extensions.includes(extension) &&
+        item.declaration.encoding === 'text',
+    )
+      ? await file.slice(0, 200_000).text()
+      : null
+    const parser = pickInstrumentParser(
+      pluginParsers.filter(
+        (item) => !builtIn || Boolean(item.declaration.contains),
+      ),
+      file.name,
+      asText,
+    )
+    if (parser) {
+      try {
+        return await readWithInstrumentParser({
+          extensionKey: parser.extensionKey,
+          parserId: parser.id,
+          encoding: parser.declaration.encoding,
+          file,
+        })
+      } catch (error) {
+        // A parser that cannot tell from the outside (a sheet) may find the
+        // file isn't its instrument's after all; carry on with the usual read.
+        if (!builtIn) throw error
+      }
+    }
     const importer = pluginImporters.find((item) =>
       item.declaration.extensions.includes(fileExtension(file.name)),
     )
@@ -630,10 +680,24 @@ export function ImportUploadFlow({
             ].join(',')}
             onFile={pick}
           />
-          {pluginExtensions.length > 0 ? (
+          {pluginImporterExtensions.length > 0 ? (
             <p className="m-0 text-label text-fg-muted">
               {t('plugins.import.readable', {
-                formats: pluginExtensions.join(', '),
+                formats: pluginImporterExtensions.join(', '),
+              })}
+            </p>
+          ) : null}
+          {pluginParsers.length > 0 ? (
+            <p className="m-0 text-label text-fg-muted">
+              {t('plugins.import.instrumentFiles', {
+                instruments: [
+                  ...new Set(
+                    pluginParsers.map(
+                      (item) =>
+                        item.declaration.instrument ?? item.declaration.title,
+                    ),
+                  ),
+                ].join(', '),
               })}
             </p>
           ) : null}

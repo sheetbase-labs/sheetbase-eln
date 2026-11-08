@@ -26,6 +26,10 @@ const searchState = vi.hoisted((): { value: { code?: string } } => ({
 }))
 
 vi.mock('#/components/scan/scan-data', () => scanData)
+// Plugin barcode readers are tested on their own; here the plain lookup is what is under test.
+vi.mock('#/components/scan/plugin-scan', () => ({
+  useScanCodeResolver: () => scanData.resolveScanCode,
+}))
 vi.mock('#/components/scan/scan-sample-actions', () => ({
   ScanSampleActions: ({
     sampleId,

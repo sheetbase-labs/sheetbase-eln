@@ -37,6 +37,8 @@ export const plugins = {
       checks: 'Checks',
       'search-providers': 'Search',
       connectors: 'Connectors',
+      publishers: 'Publishers',
+      'notification-channels': 'Notification channels',
       importers: 'Importers',
       exporters: 'Exporters',
       previews: 'File previews',
@@ -74,6 +76,10 @@ export const plugins = {
         'Ways to find records the built-in search can’t, such as a structure search.',
       connectors:
         'Tools that pull data in from another system. Each can only call the hosts you saw when you added the plugin.',
+      publishers:
+        'Send a table to another system, such as a repository or a LIMS. Each can only call the hosts you saw when you added the plugin, and only sends when a person (or a pipeline someone published) asks.',
+      'notification-channels':
+        'Another way for notifications to reach people, such as a chat message. Each person chooses whether to use it and where it goes.',
       importers: 'File formats Sheetbase can import with this plugin.',
       exporters: 'File formats tables can be exported to with this plugin.',
       previews: 'File formats whose contents can be shown on the page.',
@@ -114,6 +120,8 @@ export const plugins = {
       check: 'check',
       search: 'search',
       connector: 'pulls data in',
+      publisher: 'sends data out',
+      channel: 'notifies',
       import: 'import',
       export: 'export',
       preview: 'preview',
@@ -134,6 +142,23 @@ export const plugins = {
     turnOn: 'Switch on',
     turnOff: 'Switch off',
     remove: 'Remove',
+    connections: {
+      button: 'Connections',
+      title: 'Connections for {name}',
+      intro:
+        'What this plugin needs to send data out or reach another system. Secrets are sealed when you save them and are never shown again; leave a box empty to keep what is there.',
+      kind: {
+        connectors: 'Pulls data in',
+        publishers: 'Sends data out',
+        'notification-channels': 'Sends notifications',
+      },
+      hosts: 'calls {hosts}',
+      needsSetup: 'Needs setup',
+      ready: 'Ready',
+      secretKept: 'Saved. Type a new value to replace it.',
+      secretHint: 'Sealed when saved and never shown again.',
+      saved: '{name} saved.',
+    },
     runtime: {
       button: 'Python settings',
       title: 'Python settings for {name}',
@@ -373,6 +398,18 @@ export const plugins = {
   },
   export: {
     download: 'Download as {name} ({extension})',
+  },
+  publish: {
+    menu: 'Send to {name}…',
+    title: 'Send to {name}',
+    where:
+      'Sends the rows of {dataset} to {hosts}, using the {plugin} plugin. Nothing leaves until you press Send.',
+    send: 'Send',
+    sending: 'Sending…',
+    sent: 'Sent',
+    notSent: 'Not sent',
+    open: 'Open',
+    couldNotSend: 'The data could not be sent.',
   },
   search: {
     heading: 'Found by plugins',

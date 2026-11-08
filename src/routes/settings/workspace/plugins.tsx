@@ -27,6 +27,10 @@ import {
   PluginRuntimeDialog,
   environmentTone,
 } from '#/components/settings/plugin-runtime-dialog'
+import {
+  PluginConnectionsDialog,
+  connectionNeedsSetup,
+} from '#/components/settings/plugin-connections-dialog'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Status } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
@@ -54,6 +58,11 @@ import {
 } from '#/lib/extensions/client'
 import type { ExtensionWire } from '#/lib/extensions/client'
 import { PLUGIN_MAX_ARCHIVE_BYTES } from '#/lib/extensions/package'
+import {
+  connectionsQueryKey,
+  listConnections,
+} from '#/lib/extensions/outgoing-client'
+import type { ConnectionWire } from '#/lib/extensions/outgoing-client'
 import {
   listPluginRuntime,
   pluginRuntimeQueryKey,
@@ -89,6 +98,9 @@ function Plugins() {
   const [installOpen, setInstallOpen] = useState(false)
   const [removing, setRemoving] = useState<ExtensionWire | null>(null)
   const [settingsFor, setSettingsFor] = useState<ExtensionWire | null>(null)
+  const [connectionsFor, setConnectionsFor] = useState<ExtensionWire | null>(
+    null,
+  )
 
   const installs = useQuery({
     queryKey: [...extensionQueryKeys.extensions, 'admin', workspaceId],
@@ -106,6 +118,14 @@ function Plugins() {
         ? 4000
         : false,
   })
+  // What each plugin's publishers, channels and connectors need set up.
+  const connections = useQuery({
+    queryKey: [...connectionsQueryKey, workspaceId],
+    queryFn: listConnections,
+    enabled: Boolean(workspaceId) && canManage,
+  })
+  const connectionsOf = (install: ExtensionWire): ConnectionWire[] =>
+    connections.data?.filter((entry) => entry.extensionId === install.id) ?? []
   const runtimeOf = (install: ExtensionWire): PluginRuntimeInfo | undefined =>
     runtime.data?.find((info) => info.extensionId === install.id)
 
@@ -236,6 +256,8 @@ function Plugins() {
                     key={install.id}
                     install={install}
                     runtime={runtimeOf(install)}
+                    connections={connectionsOf(install)}
+                    onConnections={() => setConnectionsFor(install)}
                     onSettings={() => setSettingsFor(install)}
                     busy={toggle.isPending || togglePoint.isPending}
                     onToggle={(on) => toggle.mutate({ install, on })}
@@ -250,6 +272,14 @@ function Plugins() {
           </div>
         )}
       </SettingsBody>
+
+      {connectionsFor ? (
+        <PluginConnectionsDialog
+          name={connectionsFor.name}
+          connections={connectionsOf(connectionsFor)}
+          onClose={() => setConnectionsFor(null)}
+        />
+      ) : null}
 
       {settingsFor ? (
         <PluginRuntimeDialog
@@ -307,6 +337,8 @@ function Plugins() {
 function PluginRow({
   install,
   runtime,
+  connections,
+  onConnections,
   onSettings,
   busy,
   onToggle,
@@ -315,6 +347,8 @@ function PluginRow({
 }: {
   install: ExtensionWire
   runtime: PluginRuntimeInfo | undefined
+  connections: ConnectionWire[]
+  onConnections: () => void
   onSettings: () => void
   busy: boolean
   onToggle: (on: boolean) => void
@@ -355,10 +389,27 @@ function PluginRow({
             </Status>
           </div>
         ) : null}
-        <div className="mt-2">
+        {connections.some(connectionNeedsSetup) ? (
+          <div className="mt-1">
+            <Status tone="warn">
+              {t('plugins.admin.connections.needsSetup')}
+            </Status>
+          </div>
+        ) : null}
+        <div className="mt-2 flex flex-wrap gap-1">
           <Button type="button" size="sm" variant="quiet" onClick={onSettings}>
             {t('plugins.admin.runtime.button')}
           </Button>
+          {connections.length > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="quiet"
+              onClick={onConnections}
+            >
+              {t('plugins.admin.connections.button')}
+            </Button>
+          ) : null}
         </div>
       </TableCell>
       <TableCell className="py-3 align-top">

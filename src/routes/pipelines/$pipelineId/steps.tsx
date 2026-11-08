@@ -17,6 +17,8 @@ import {
 } from '#/components/pipelines/python-editor'
 import { SqlEditor } from '#/components/pipelines/sql-editor'
 import { StepsEditor } from '#/components/pipelines/steps-editor'
+import { PluginStepsEditor } from '#/components/pipelines/plugin-steps-editor'
+import type { PipelineActionConfig } from '#/components/pipelines/plugin-steps-editor'
 import { InputsEditor } from '#/components/pipelines/inputs-editor'
 import { OutputEditor } from '#/components/pipelines/output-editor'
 import { RunDialog } from '#/components/pipelines/run-dialog'
@@ -84,6 +86,8 @@ interface PipelineConfiguration {
   }
   pythonRuntime?: string
   pythonRequirements?: string[]
+  /** Actions the pipeline takes once its result is ready; plugin steps are edited here. */
+  actions?: PipelineActionConfig[]
   output?: {
     mode?: OutputMode
     schemaVersionId?: string
@@ -104,6 +108,7 @@ const EDITED_CONFIG_FIELDS = [
   'output',
   'pythonRuntime',
   'pythonRequirements',
+  'actions',
 ] as const
 
 function PipelineSteps() {
@@ -129,8 +134,9 @@ function PipelineSteps() {
   const [inputs, setInputs] = useState<PipelineInput[]>([])
   const [parameters, setParameters] = useState<PipelineParameter[]>([])
   const [extraSteps, setExtraSteps] = useState<PipelineStep[]>([])
+  const [actions, setActions] = useState<PipelineActionConfig[]>([])
   const [selected, setSelected] = useState<
-    'inputs' | 'transform' | 'output' | number
+    'inputs' | 'transform' | 'output' | 'plugins' | number
   >('transform')
   const active =
     typeof selected === 'number' && !extraSteps[selected]
@@ -169,6 +175,7 @@ function PipelineSteps() {
     setInputs(sourceConfig.inputs ?? [])
     setParameters(sourceConfig.parameters ?? [])
     setExtraSteps(sourceConfig.steps ?? [])
+    setActions(sourceConfig.actions ?? [])
     setOutputMode(sourceConfig.output?.mode ?? 'none')
     setSchemaVersionId(sourceConfig.output?.schemaVersionId ?? '')
     setDatasetId(sourceConfig.output?.datasetId ?? '')
@@ -190,6 +197,7 @@ function PipelineSteps() {
     sourceConfig.inputs,
     sourceConfig.parameters,
     sourceConfig.steps,
+    sourceConfig.actions,
   ])
 
   // A saved version pins the immutable Python image it was written against, so
@@ -218,6 +226,7 @@ function PipelineSteps() {
       description: description.trim() || null,
       parameters,
       ...(extraSteps.length ? { steps: extraSteps } : { steps: undefined }),
+      ...(actions.length ? { actions } : { actions: undefined }),
       inputs,
       transform: {
         language,
@@ -247,6 +256,7 @@ function PipelineSteps() {
       description,
       parameters,
       extraSteps,
+      actions,
       inputs,
       outputMode,
       statement,
@@ -588,6 +598,19 @@ function PipelineSteps() {
           <div className="border-t border-border pt-3">
             <Button
               variant="quiet"
+              aria-pressed={active === 'plugins'}
+              className={`w-full justify-start ${active === 'plugins' ? 'bg-selection' : ''}`}
+              onClick={() => setSelected('plugins')}
+            >
+              {t('data.pluginSteps.rail')}{' '}
+              <span className="ml-auto num text-fg-muted">
+                {actions.filter((a) => a.operation.startsWith('plugin.')).length}
+              </span>
+            </Button>
+          </div>
+          <div className="border-t border-border pt-3">
+            <Button
+              variant="quiet"
               aria-pressed={active === 'output'}
               className={`w-full justify-start ${active === 'output' ? 'bg-selection' : ''}`}
               onClick={() => setSelected('output')}
@@ -623,6 +646,7 @@ function PipelineSteps() {
                   setSelected(
                     value === 'inputs' ||
                       value === 'transform' ||
+                      value === 'plugins' ||
                       value === 'output'
                       ? value
                       : Number(value.slice(5)),
@@ -640,6 +664,7 @@ function PipelineSteps() {
                     {index + 2}. {step.name}
                   </option>
                 ))}
+                <option value="plugins">{t('data.pluginSteps.rail')}</option>
                 <option value="output">{t('data.pipelineSteps.output')}</option>
               </Select>
             </Field>
@@ -742,6 +767,22 @@ function PipelineSteps() {
                     </Field>
                   )}
                 </div>
+              </Section>
+            </div>
+
+            <div
+              hidden={active !== 'plugins'}
+              className="flex flex-col gap-4 [&[hidden]]:hidden"
+            >
+              <Section title={t('data.pluginSteps.title')}>
+                <p className="m-0 text-body text-fg-muted">
+                  {t('data.pluginSteps.intro')}
+                </p>
+                <PluginStepsEditor
+                  actions={actions}
+                  parameters={parameters}
+                  onChange={setActions}
+                />
               </Section>
             </div>
 

@@ -1355,6 +1355,29 @@ export const data = {
     incrementalInputsResumeAfter:
       'Incremental inputs resume after the last dataset version this trigger ran on, so a run only happens when there is a newer one.',
   },
+  pluginSteps: {
+    rail: 'Plugin steps',
+    title: 'Plugin steps',
+    intro:
+      'Steps that plugins add, run in order once the result above is ready. A plugin can reshape the table, check it or send it to another system. Anything that leaves Sheetbase goes only to the hosts the plugin declared.',
+    none: 'No plugin steps yet.',
+    noPlugins:
+      'No installed plugin offers a step. An administrator adds plugins in Settings, Plugins.',
+    add: 'Add a plugin step',
+    choose: 'Choose a plugin step…',
+    addButton: 'Add step',
+    sendsOut: 'sends data out',
+    moveUp: 'Move plugin step {n} up',
+    remove: 'Remove plugin step {n}',
+    missing: 'This plugin step is no longer available',
+    missingBody:
+      '{operation} isn’t offered by an installed, switched-on plugin, so the pipeline will stop at this step until it is back or removed.',
+    resultSoFar: 'The result so far',
+    rowsFrom: 'The rows from {name}',
+    typedHere: 'Type a value',
+    fromParameter: 'Pipeline setting: {name}',
+    takenFrom: '{name} comes from',
+  },
   stepsEditor: {
     furtherStepsTransformAbove:
       'No further steps. The transform above is the whole pipeline.',

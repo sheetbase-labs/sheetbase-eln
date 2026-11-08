@@ -1,0 +1,15 @@
+{
+  "name": "sheetbase-chemistry-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "sheetbase-plugin-ui build .."
+  },
+  "dependencies": {
+    "openchemlib": "9.25.2"
+  },
+  "devDependencies": {
+    "@sheetbase-labs/plugin-ui": "file:../../../sdks/plugin-ui",
+    "typescript": "^5.9.0"
+  }
+}

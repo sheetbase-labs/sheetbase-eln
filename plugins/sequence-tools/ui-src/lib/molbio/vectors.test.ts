@@ -6,9 +6,9 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import fingerprints from '../../../plugins/sequence-tools/test-vectors/fingerprints.json'
-import vectors from '../../../plugins/sequence-tools/test-vectors/vectors.json'
-import { canonicalSequence } from '../sequence-fingerprint'
+import fingerprints from '../../../test-vectors/fingerprints.json'
+import vectors from '../../../test-vectors/vectors.json'
+import { canonicalSequence } from '../../../../../src/lib/sequence-fingerprint'
 import { runSequenceTool, sequenceToolSchema } from './tools'
 
 interface Vector {

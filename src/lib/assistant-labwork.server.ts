@@ -1,5 +1,4 @@
 import { sequenceFingerprint } from './bio-registry'
-import { cleanDna } from './molbio/dna'
 import {
   BOOKING_RULES_SET_TOOL,
   COMPOUND_LOT_TOOL,
@@ -704,7 +703,10 @@ export async function buildLabworkProposal(
           return fail(
             `${registry.value.name} does not keep a sequence. Pick a registry that does, or leave the sequence out.`,
           )
-        const residues = cleanDna(input.sequence)
+        const residues = input.sequence
+          .toUpperCase()
+          .replace(/U/g, 'T')
+          .replace(/[^ACGTRYKMSWBDHVN]/g, '')
         if (residues.length < 10)
           return fail('That sequence is too short to register.')
         const topology = input.topology ?? 'circular'

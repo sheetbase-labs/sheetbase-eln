@@ -67,14 +67,13 @@ assistant they are the “Send to robot”, “Plan schedule” and “Accept an
 (`sheetbase.robot.send_worklist`, `sheetbase.schedule.plan`,
 `sheetbase.schedule.accept`).
 
-`sheetbase.sequence.analyse` does molecular biology on DNA the caller sends:
-restriction maps, digests and gel bands, primer design and checks, PCR,
-digest-and-ligate, Golden Gate and Gibson products, alignment and Sanger read
-checks. It is pure calculation (nothing read or stored), so any read credential
-can call it. Sequence blocks are ordinary notebook blocks (see
-`docs/api/sequence-blocks-api.md`).
+Molecular biology (restriction maps, digests and gel bands, primer design and
+checks, PCR, digest-and-ligate, Golden Gate and Gibson products, alignment, Sanger
+read checks) comes from the Sequence tools plugin's operations, which reach the
+assistant, MCP and the API like any plugin operation (see
+`docs/api/sequence-blocks-api.md`). They are pure calculation.
 
-The planner uses the same tool. A plan becomes an experiment with
+The planner uses those operations. A plan becomes an experiment with
 `create_planned_experiment` through `sheetbase.lab.act`: the experiment, plate,
 worklist, reservations and schedule request are made together. In the assistant it is
 the “Plan experiment” card (`sheetbase.planner.plan_experiment`).

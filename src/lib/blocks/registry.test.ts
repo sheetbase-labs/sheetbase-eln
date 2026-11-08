@@ -69,7 +69,6 @@ describe('editable types', () => {
       'structure',
       'reaction',
       'code_cell',
-      'sequence',
       'plugin',
     ])
     for (const type of ['table', 'sheet'] as const) {

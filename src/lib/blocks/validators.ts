@@ -1103,7 +1103,13 @@ export const validateSequence = (payload: unknown): FieldErrors =>
   chemistryErrors(sequenceIssues(payload))
 export { validateCorrectiveActions, validateSignatureRequest }
 
-/** A plugin block keeps which plugin block it is and the state its screen returned. */
+/**
+ * A plugin block keeps which plugin block it is and the state its screen returned.
+ * The state may be as large as a plugin file (a sequence block holds up to 400,000
+ * letters and its Sanger reads); the ceiling only keeps one block from filling a page load.
+ */
+const PLUGIN_BLOCK_STATE_MAX_BYTES = 16 * 1024 * 1024
+
 export function validatePluginBlock(payload: unknown): FieldErrors {
   if (!isObject(payload)) {
     return [
@@ -1131,11 +1137,11 @@ export function validatePluginBlock(payload: unknown): FieldErrors {
     } catch {
       /* not JSON */
     }
-    if (size > 64 * 1024)
+    if (size > PLUGIN_BLOCK_STATE_MAX_BYTES)
       errors.push({
         code: 'invalid_field_value',
         field: 'state',
-        message: 'state must be data of at most 64 KiB',
+        message: 'state must be data of at most 16 MiB',
       })
   }
   for (const extra of Object.keys(payload))

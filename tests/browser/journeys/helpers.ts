@@ -33,10 +33,32 @@ export async function waitForHydration(page: Page): Promise<void> {
   )
 }
 
+/**
+ * Load a page, and load it again if the app's service worker answered with its
+ * offline page. The worker gives up when the server takes over five seconds to
+ * respond, and a development server compiling a route for the first time can
+ * be that slow once. The server keeps working after the worker gives up, so
+ * the next load is quick.
+ */
+async function loadServed(page: Page, load: () => Promise<unknown>) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await load()
+    const offline = await page
+      .getByRole('heading', { name: 'You are offline' })
+      .isVisible()
+    if (!offline) break
+  }
+  await waitForHydration(page)
+}
+
+/** Reload and wait for the page to be interactive. */
+export async function reload(page: Page): Promise<void> {
+  await loadServed(page, () => page.reload())
+}
+
 /** Navigate and wait for the page to be interactive. */
 export async function open(page: Page, url: string): Promise<void> {
-  await page.goto(url)
-  await waitForHydration(page)
+  await loadServed(page, () => page.goto(url))
 }
 
 export async function signIn(page: Page): Promise<void> {

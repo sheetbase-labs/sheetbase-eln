@@ -56,9 +56,8 @@ const handler = ({
     upstreamBaseUrl: env.POSTGREST_URL,
     guardWrite: async (input) => {
       // Loaded on the first write, so a lab with no plugin hooks pays for nothing.
-      const { guardRecordWrite } = await import(
-        '#/lib/extensions/record-hooks.server'
-      )
+      const { guardRecordWrite } =
+        await import('#/lib/extensions/record-hooks.server')
       return guardRecordWrite(input)
     },
   })

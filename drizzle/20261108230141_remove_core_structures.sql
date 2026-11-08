@@ -33,6 +33,23 @@ DROP FUNCTION IF EXISTS internal.structure_matches(bit, bit);
 DROP FUNCTION IF EXISTS internal.structure_fingerprint(text);
 --> statement-breakpoint
 
+-- The two events that came with structures are gone from the webhook names and
+-- the pipeline trigger list; compound.lot_added stays.
+DELETE FROM internal.webhook_event_names WHERE name IN ('compound.registered', 'compound.structure_changed');
+--> statement-breakpoint
+DO $$
+DECLARE
+  v_def text;
+BEGIN
+  SELECT pg_get_functiondef('api.normalize_pipeline_event_type(text)'::regprocedure) INTO v_def;
+  IF position('''compound.registered'', ''compound.structure_changed'', ' IN v_def) = 0 THEN
+    RAISE EXCEPTION 'unexpected shape for api.normalize_pipeline_event_type';
+  END IF;
+  v_def := replace(v_def, '''compound.registered'', ''compound.structure_changed'', ', '');
+  EXECUTE v_def;
+END $$;
+--> statement-breakpoint
+
 -- The structure field goes; the lot model stays, and lots work for any registry.
 ALTER TABLE api.record_models DROP COLUMN registry_structure_field;
 --> statement-breakpoint

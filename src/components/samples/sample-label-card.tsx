@@ -1,9 +1,11 @@
 import QRCode from 'qrcode'
+import type { ComponentProps } from 'react'
 
 import { encodeCode128, isCode128Text } from '#/lib/barcode128'
 import {
   DEFAULT_LABEL_TEMPLATE,
   buildLabelLines,
+  isPluginItem,
   labelQrPayload,
 } from '#/lib/labels'
 import type { LabelSource, LabelTemplate } from '#/lib/labels'
@@ -12,6 +14,8 @@ import { GhsPictogram } from '#/components/materials/ghs-pictogram'
 import type { GhsPictogram as GhsCode } from '#/lib/material-safety'
 
 import { computeSampleHold, formatHoldDateShort } from './sample-hold-meter'
+import { usePluginLabel } from './plugin-label'
+import type { PluginLabel } from './plugin-label'
 import { t } from '#/copy'
 
 /**
@@ -71,8 +75,29 @@ export type LabelLook = Partial<
     | 'widthMm'
     | 'heightMm'
     | 'barcodeType'
+    | 'layout'
   >
 >
+
+/** A plugin's bars (a string of 1s and 0s) as one SVG path. */
+function modulesPath(bits: string): { d: string; modules: number } {
+  let d = ''
+  for (let i = 0; i < bits.length; i += 1) {
+    if (bits[i] === '1') d += `M${i} 0h1v1h-1z`
+  }
+  return { d, modules: bits.length }
+}
+
+/** A plugin's grid (rows of 1s and 0s) as one SVG path. */
+function gridPath(rows: readonly string[]): { d: string; size: number } {
+  let d = ''
+  rows.forEach((row, y) => {
+    for (let x = 0; x < row.length; x += 1) {
+      if (row[x] === '1') d += `M${x} ${y}h1v1h-1z`
+    }
+  })
+  return { d, size: Math.max(rows.length, rows[0]?.length ?? 0) }
+}
 
 /** The Code 128 bars as one SVG path, one module wide each. */
 function barcodePath(text: string): { d: string; modules: number } | null {
@@ -85,14 +110,17 @@ function barcodePath(text: string): { d: string; modules: number } | null {
   return { d, modules: bits.length }
 }
 
-export function SampleLabelCard({
+function LabelCardView({
   record,
   host,
   template,
   fit = 'natural',
-  source,
   hazards,
+  facts,
+  fromPlugin,
 }: {
+  facts: LabelSource
+  fromPlugin: PluginLabel
   record: SampleLabelRecord
   /**
    * The facts the label states, for a record that is not a sample (a material
@@ -114,32 +142,34 @@ export function SampleLabelCard({
   const look = { ...DEFAULT_LABEL_TEMPLATE, ...template }
   const resolvedHost =
     host ?? (typeof window !== 'undefined' ? window.location.host : '')
-  const batch = batchOf(record)
-  const hold = source
-    ? null
-    : computeSampleHold({
-        createdAt: record.createdAt ?? new Date().toISOString(),
-        properties: record.properties,
-        customFields: record.customFields,
-      })
-  const lines = buildLabelLines(
-    source
-      ? { identifier: record.identifier, ...source }
-      : {
-          identifier: record.identifier,
-          sampleType: record.sampleType,
-          lot: batch,
-          condition: hold?.condition ?? null,
-          useBy: hold ? formatHoldDateShort(hold.expiry) : null,
-        },
-    look,
-  )
+  const lines: Array<{ kind: string; text: string; bold?: boolean }> =
+    fromPlugin.lines.data
+      ? fromPlugin.lines.data.map((line, index) => ({
+          kind: `plugin-${index}`,
+          text: line.text,
+          bold: line.bold,
+        }))
+      : buildLabelLines(facts, look)
   const payload = resolvedHost
     ? labelQrPayload(resolvedHost, record.identifier)
     : null
-  const isBarcode = look.barcodeType === 'code128'
-  const code = !isBarcode && payload ? qrPath(payload) : null
-  const bars = isBarcode ? barcodePath(record.identifier.trim()) : null
+  const pluginCode = fromPlugin.code.data
+  const pluginCodePending = isPluginItem(look.barcodeType) && !pluginCode
+  const isBarcode =
+    look.barcodeType === 'code128' || pluginCode?.kind === 'bars'
+  const plain = !isPluginItem(look.barcodeType)
+  const code =
+    plain && !isBarcode && payload
+      ? qrPath(payload)
+      : pluginCode?.kind === 'grid'
+        ? gridPath(pluginCode.rows)
+        : null
+  const bars =
+    pluginCode?.kind === 'bars'
+      ? modulesPath(pluginCode.modules)
+      : plain && isBarcode
+        ? barcodePath(record.identifier.trim())
+        : null
   // Pixels per millimetre when the card is drawn to a real or scaled size.
   const ppm = fit === 'mm' ? PX_PER_MM : typeof fit === 'number' ? fit : null
   const style =
@@ -170,12 +200,17 @@ export function SampleLabelCard({
           key={line.kind}
           className={cn(
             sized && 'truncate',
-            line.kind === 'signal' && 'font-bold',
+            (line.kind === 'signal' || line.bold) && 'font-bold',
           )}
         >
           {line.text}
         </div>
       ))}
+      {fromPlugin.lines.problem ? (
+        <div role="status" className="text-fg-muted">
+          {fromPlugin.lines.problem}
+        </div>
+      ) : null}
     </div>
   )
   // Pictograms stack beside the lines on a roomy label and sit in a row under the
@@ -236,17 +271,22 @@ export function SampleLabelCard({
         >
           {t('library.samples.sampleLabelCard.noBarcode')}
         </span>
-      ) : code && payload ? (
+      ) : code && (payload || pluginCode) ? (
         <svg
           className="shrink-0"
           width={codePx}
           height={codePx}
           viewBox={`0 0 ${code.size} ${code.size}`}
           role="img"
-          aria-label={t(
-            'library.samples.sampleLabelCard.labelCodeResolvingTo',
-            { payload },
-          )}
+          aria-label={
+            pluginCode
+              ? t('library.samples.sampleLabelCard.ariaLabel', {
+                  identifier: record.identifier,
+                })
+              : t('library.samples.sampleLabelCard.labelCodeResolvingTo', {
+                  payload: payload ?? '',
+                })
+          }
           shapeRendering="crispEdges"
         >
           <path d={code.d} fill="currentColor" />
@@ -256,12 +296,76 @@ export function SampleLabelCard({
           className="flex shrink-0 items-center justify-center border border-dashed border-border-strong text-[9px] leading-3 text-fg-muted"
           role="status"
           style={{ width: codePx, height: codePx }}
+          title={fromPlugin.code.problem}
         >
-          {t('library.samples.sampleLabelCard.noCode')}
+          {pluginCodePending
+            ? fromPlugin.code.problem
+              ? t('plugins.labels.codeUnavailable', {
+                  reason: fromPlugin.code.problem,
+                })
+              : '…'
+            : t('library.samples.sampleLabelCard.noCode')}
         </span>
       )}
       {lineBlock}
       {hazardBlock}
     </div>
   )
+}
+
+/** What a label states about a record, when the caller hasn't said (a sample's lot and hold). */
+function labelFacts(
+  record: SampleLabelRecord,
+  source: Omit<LabelSource, 'identifier'> | undefined,
+): LabelSource {
+  if (source) return { identifier: record.identifier, ...source }
+  const hold = computeSampleHold({
+    createdAt: record.createdAt ?? new Date().toISOString(),
+    properties: record.properties,
+    customFields: record.customFields,
+  })
+  return {
+    identifier: record.identifier,
+    sampleType: record.sampleType,
+    lot: batchOf(record),
+    condition: hold?.condition ?? null,
+    useBy: hold ? formatHoldDateShort(hold.expiry) : null,
+  }
+}
+
+type CardProps = Omit<
+  ComponentProps<typeof LabelCardView>,
+  'facts' | 'fromPlugin'
+>
+
+const NO_PLUGIN: PluginLabel = {
+  lines: { loading: false },
+  code: { loading: false },
+}
+
+/** Asks the plugins for a layout and a code; only mounted when the template names one. */
+function PluginLabelCard(props: CardProps & { facts: LabelSource }) {
+  const look = { ...DEFAULT_LABEL_TEMPLATE, ...props.template }
+  const fromPlugin = usePluginLabel({
+    layout: look.layout,
+    barcodeType: look.barcodeType,
+    recordKind: props.source ? 'material' : 'sample',
+    identifier: props.record.identifier.trim(),
+    record: { ...props.record, facts: props.facts },
+    widthMm: look.widthMm,
+    heightMm: look.heightMm,
+  })
+  return <LabelCardView {...props} fromPlugin={fromPlugin} />
+}
+
+export function SampleLabelCard(props: CardProps) {
+  const facts = labelFacts(props.record, props.source)
+  // A plugin may lay the label out and draw its code; both arrive as data. Most
+  // labels use neither, and those never wait on (or need) the plugin lookup.
+  if (
+    isPluginItem(props.template?.layout) ||
+    isPluginItem(props.template?.barcodeType)
+  )
+    return <PluginLabelCard {...props} facts={facts} />
+  return <LabelCardView {...props} facts={facts} fromPlugin={NO_PLUGIN} />
 }

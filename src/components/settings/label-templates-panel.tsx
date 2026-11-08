@@ -36,7 +36,8 @@ import {
 } from '#/lib/label-templates'
 import type { LabelTemplateInput } from '#/lib/label-templates'
 import { BARCODE_TYPE_LABELS } from '#/lib/labels'
-import type { BarcodeType, LabelTemplate } from '#/lib/labels'
+import type { LabelTemplate } from '#/lib/labels'
+import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
 
@@ -73,6 +74,7 @@ export function LabelTemplatesPanel({
   client?: DataClient
 }) {
   const queryClient = useQueryClient()
+  const pluginPoints = useExtensionPoints()
   const templates = useQuery({
     queryKey: labelTemplateKeys.all(workspaceId),
     queryFn: () => fetchLabelTemplates(client),
@@ -105,6 +107,16 @@ export function LabelTemplatesPanel({
     )
   }
   const list = templates.data
+  const pluginCodeTitles = new Map(
+    pluginPoints.data['barcode-formats'].map((item) => [
+      item.name,
+      `${item.declaration.title} (${item.extensionName})`,
+    ]),
+  )
+  const barcodeLabel = (type: string) =>
+    type === 'qr' || type === 'code128'
+      ? BARCODE_TYPE_LABELS[type]
+      : (pluginCodeTitles.get(type) ?? type.split('.').at(-1) ?? type)
   const current =
     editing && editing !== 'new'
       ? (list.find((tpl) => tpl.id === editing) ?? null)
@@ -175,9 +187,7 @@ export function LabelTemplatesPanel({
                     <TableCell className="num">
                       {template.widthMm} × {template.heightMm} mm
                     </TableCell>
-                    <TableCell>
-                      {BARCODE_TYPE_LABELS[template.barcodeType]}
-                    </TableCell>
+                    <TableCell>{barcodeLabel(template.barcodeType)}</TableCell>
                     <TableCell>
                       <Status tone={template.archivedAt ? 'draft' : 'ok'}>
                         {template.archivedAt
@@ -240,6 +250,14 @@ function TemplateForm({
   )
   const set = (patch: Partial<LabelTemplateInput>) =>
     setInput({ ...input, ...patch })
+  // Layouts and codes that installed plugins add. A template that already
+  // names one keeps it in the list even if the plugin has since gone.
+  const points = useExtensionPoints()
+  const pluginLayouts = points.data['label-formats'].filter((item) =>
+    item.declaration.kinds.includes(input.recordKind),
+  )
+  const pluginCodes = points.data['barcode-formats']
+  const pluginCode = pluginCodes.find((item) => item.name === input.barcodeType)
   // Any record model can be labelled, so its kind is offered beside the
   // built-in ones; a template already saved for a kind keeps its own entry.
   const modelKinds = useQuery({
@@ -314,6 +332,7 @@ function TemplateForm({
                 widthMm: width,
                 heightMm: height,
                 barcodeType: input.barcodeType,
+                layout: input.layout,
                 showLot: input.showLot,
                 showSampleType: input.showSampleType,
                 showCondition: input.showCondition,
@@ -392,49 +411,86 @@ function TemplateForm({
         <Field
           label={t('settings.labelTemplatesPanel.code')}
           hint={
-            input.barcodeType === 'qr'
-              ? t('settings.labelTemplatesPanel.scanningOpensSample')
-              : t('settings.labelTemplatesPanel.carriesSampleId')
+            pluginCode
+              ? t('plugins.labels.codeHint', {
+                  plugin: pluginCode.extensionName,
+                })
+              : input.barcodeType === 'qr'
+                ? t('settings.labelTemplatesPanel.scanningOpensSample')
+                : t('settings.labelTemplatesPanel.carriesSampleId')
           }
         >
           <Select
             value={input.barcodeType}
-            onChange={(e) =>
-              set({ barcodeType: e.target.value as BarcodeType })
-            }
+            onChange={(e) => set({ barcodeType: e.target.value })}
           >
-            {(Object.keys(BARCODE_TYPE_LABELS) as BarcodeType[]).map((type) => (
-              <option key={type} value={type}>
-                {BARCODE_TYPE_LABELS[type]}
+            {(Object.keys(BARCODE_TYPE_LABELS) as Array<'qr' | 'code128'>).map(
+              (type) => (
+                <option key={type} value={type}>
+                  {BARCODE_TYPE_LABELS[type]}
+                </option>
+              ),
+            )}
+            {pluginCodes.map((item) => (
+              <option key={item.name} value={item.name}>
+                {t('plugins.labels.codePlugin', {
+                  title: item.declaration.title,
+                  plugin: item.extensionName,
+                })}
               </option>
             ))}
           </Select>
         </Field>
-        <div className="flex flex-col gap-2">
-          <span className="text-label font-medium">
-            {t('settings.labelTemplatesPanel.alsoPrint')}
-          </span>
-          <CheckRow
-            title={t('settings.labelTemplatesPanel.sampleType')}
-            checked={input.showSampleType}
-            onCheckedChange={(v) => set({ showSampleType: v })}
-          />
-          <CheckRow
-            title={t('settings.labelTemplatesPanel.lot')}
-            checked={input.showLot}
-            onCheckedChange={(v) => set({ showLot: v })}
-          />
-          <CheckRow
-            title={t('settings.labelTemplatesPanel.storageCondition')}
-            checked={input.showCondition}
-            onCheckedChange={(v) => set({ showCondition: v })}
-          />
-          <CheckRow
-            title={t('settings.labelTemplatesPanel.useDate')}
-            checked={input.showUseBy}
-            onCheckedChange={(v) => set({ showUseBy: v })}
-          />
-        </div>
+        {pluginLayouts.length > 0 || input.layout !== 'standard' ? (
+          <Field
+            label={t('plugins.labels.layout')}
+            hint={t('plugins.labels.layoutHint')}
+          >
+            <Select
+              value={input.layout}
+              onChange={(e) => set({ layout: e.target.value })}
+            >
+              <option value="standard">
+                {t('plugins.labels.layoutStandard')}
+              </option>
+              {pluginLayouts.map((item) => (
+                <option key={item.name} value={item.name}>
+                  {t('plugins.labels.layoutPlugin', {
+                    title: item.declaration.title,
+                    plugin: item.extensionName,
+                  })}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : null}
+        {input.layout === 'standard' ? (
+          <div className="flex flex-col gap-2">
+            <span className="text-label font-medium">
+              {t('settings.labelTemplatesPanel.alsoPrint')}
+            </span>
+            <CheckRow
+              title={t('settings.labelTemplatesPanel.sampleType')}
+              checked={input.showSampleType}
+              onCheckedChange={(v) => set({ showSampleType: v })}
+            />
+            <CheckRow
+              title={t('settings.labelTemplatesPanel.lot')}
+              checked={input.showLot}
+              onCheckedChange={(v) => set({ showLot: v })}
+            />
+            <CheckRow
+              title={t('settings.labelTemplatesPanel.storageCondition')}
+              checked={input.showCondition}
+              onCheckedChange={(v) => set({ showCondition: v })}
+            />
+            <CheckRow
+              title={t('settings.labelTemplatesPanel.useDate')}
+              checked={input.showUseBy}
+              onCheckedChange={(v) => set({ showUseBy: v })}
+            />
+          </div>
+        ) : null}
         <CheckRow
           title={t('settings.labelTemplatesPanel.useDefaultSamples')}
           body={t('settings.labelTemplatesPanel.peopleStillPick')}

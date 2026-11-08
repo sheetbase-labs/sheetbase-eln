@@ -3,7 +3,7 @@ export const plugins = {
   admin: {
     title: 'Plugins',
     intro:
-      'A plugin adds to this lab: calculators, checks, analyses, pipeline steps, file formats, search, ways to pull data in, and reactions to what happens. The assistant and other agents can use what it does. Its code runs in an isolated Python sandbox, with the packages it installs and only the hosts you approve. Only owners and administrators add plugins, and each part can be switched off on its own.',
+      'A plugin adds to this lab: calculators, checks, analyses, pipeline steps, file formats and instrument parsers, search, ways to pull data in, labels and barcodes, storage rules, and reactions to what happens. The assistant and other agents can use what it does. Its code runs in an isolated Python sandbox, with the packages it installs and only the hosts you approve. Only owners and administrators add plugins, and each part can be switched off on its own.',
     onlyAdmins: 'Only owners and administrators can manage plugins',
     onlyAdminsBody:
       'Ask an owner or administrator of this workspace to add or change plugins.',
@@ -43,6 +43,10 @@ export const plugins = {
       'sameness-keys': 'Same-thing rules',
       'event-hooks': 'Event reactions',
       'record-hooks': 'Save and upload hooks',
+      'instrument-parsers': 'Instrument parsers',
+      'label-formats': 'Label layouts',
+      'barcode-formats': 'Barcode formats',
+      'storage-rules': 'Storage rules',
       pages: 'Pages',
       'settings-pages': 'Settings pages',
       'dashboard-widgets': 'Home widgets',
@@ -79,6 +83,14 @@ export const plugins = {
         'Reactions to things that happen in the lab. They can leave a note, raise a flag a gate waits on, ask for a sign-off and fill in fields on the record concerned.',
       'record-hooks':
         'Run when a record or file is created, edited, uploaded or changes status. Before a save they can refuse it with a message or fill in fields. After it they can write a summary, add to a search index, raise flags, ask for sign-off and change records. They never sign or approve anything.',
+      'instrument-parsers':
+        'Read the files an instrument writes, so they can be imported straight from the instrument’s own format.',
+      'label-formats':
+        'Layouts for printed labels, chosen in a label template, such as a supplier’s or a clinic’s.',
+      'barcode-formats':
+        'Kinds of barcode to print on labels, chosen in a label template. A format can also read scanned codes back into IDs.',
+      'storage-rules':
+        'Rules that say whether a sample may go where it is being put. A rule can warn or refuse, and always says why.',
       pages: 'Pages the plugin adds to the sidebar.',
       'settings-pages': 'Pages the plugin adds to Settings.',
       'dashboard-widgets': 'Cards the plugin adds to Home.',
@@ -107,6 +119,10 @@ export const plugins = {
       preview: 'preview',
       key: 'same-thing rule',
       hook: 'reaction',
+      parser: 'instrument parser',
+      label: 'label layout',
+      barcode: 'barcode format',
+      storage: 'storage rule',
       before: 'before the save',
       after: 'after the save',
       page: 'page',
@@ -326,6 +342,34 @@ export const plugins = {
     failed: 'The data could not be pulled: {reason}',
     readingWith: 'Reading {file} with {plugin}…',
     readable: '{formats} files are read by plugins.',
+    instrumentFiles: 'Files from {instruments} are read by plugins.',
+  },
+  parsers: {
+    title: 'Parsers from plugins',
+    hint: 'Plugins can read an instrument’s own files. They are used when you import a file they recognise.',
+    parser: 'Parser',
+    instrument: 'Instrument',
+    reads: 'Reads',
+    recognisedBy: 'Recognised by',
+    carries: 'Contains {text}',
+    byExtension: 'The file type',
+    from: 'Plugin',
+  },
+  labels: {
+    layout: 'Layout',
+    layoutStandard: 'Standard',
+    layoutPlugin: '{title} ({plugin})',
+    layoutHint:
+      'The plugin decides which lines print. The code and size stay as set here.',
+    layoutFailed: 'The {title} layout could not be used: {reason}',
+    codeUnavailable: 'No code ({reason})',
+    codePlugin: '{title} ({plugin})',
+    codeHint: 'Drawn by the {plugin} plugin.',
+    gone: 'The {title} plugin item is no longer available; the standard one is used.',
+  },
+  storage: {
+    refused: '{plugin} says this sample can’t go here: {message}',
+    warned: '{plugin}: {message}',
   },
   export: {
     download: 'Download as {name} ({extension})',

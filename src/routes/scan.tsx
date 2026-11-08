@@ -7,11 +7,11 @@ import { Status } from '#/components/ui/status'
 import { Icon } from '#/components/icons'
 import { CameraScanner } from '#/components/scan/camera-scanner'
 import {
-  resolveScanCode,
   scanTargetActionLabel,
   scanTargetHref,
 } from '#/components/scan/scan-data'
 import type { ScanResolution, ScanTarget } from '#/components/scan/scan-data'
+import { useScanCodeResolver } from '#/components/scan/plugin-scan'
 import { ScanSampleActions } from '#/components/scan/scan-sample-actions'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
@@ -47,6 +47,7 @@ function ScanPage() {
   const [busy, setBusy] = useState(false)
   const [recent, setRecent] = useState<ScanTarget[]>([])
   const [error, setError] = useState<string | null>(null)
+  const resolveScanCode = useScanCodeResolver()
 
   const resolve = async (raw: string) => {
     const trimmed = raw.trim()

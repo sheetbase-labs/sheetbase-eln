@@ -353,6 +353,9 @@ agents is there for plugins the moment it exists; there is no separate list.
   `BaseException`. A refused or failed call raises `HostError` (with `.code`).
   Only operations run from the app's own screens can call in; a pipeline step,
   the assistant or MCP running the operation get a plain refusal.
+  A change made this way is saved as soon as it is made. It is not rolled back if
+  your operation fails afterwards, so make changes last, or make them safe to
+  repeat.
 
 ## The other points
 

@@ -17,9 +17,6 @@ import type {
   InvokeResult,
 } from './runtime.server'
 
-/** A guard against an operation that never stops asking, not a limit on what one may do. */
-export const MAX_HOST_ROUNDS = 500
-
 export interface HostBridge {
   workspaceId: string
   userId: string
@@ -54,7 +51,8 @@ export async function invokeWithHostCalls(
   deps?: ExtensionRuntimeDeps,
 ): Promise<HostInvokeOutcome> {
   const results: HostAnswer[] = [...(bridge.hostResults ?? [])]
-  for (let round = 0; round < MAX_HOST_ROUNDS; round++) {
+  // No fixed number of rounds; each round runs under the plugin's own time limit.
+  for (;;) {
     const result = await invokeExtension(
       { ...args, hostResults: results },
       deps,
@@ -108,9 +106,6 @@ export async function invokeWithHostCalls(
       )
     }
   }
-  throw new Error(
-    'This operation kept asking for more from Sheetbase and was stopped.',
-  )
 }
 
 /**

@@ -218,7 +218,9 @@ An operation may call into Sheetbase itself (`host_call` in its Python), as you,
 under the same scopes the plugin declared. Calls that read are always made; a
 call that changes something is made too when you are signed in or the token has
 `lab:write`, otherwise it answers `403`. Pipeline steps do the same as the
-person who runs the pipeline.
+person who runs the pipeline. A change an operation makes this way is saved as soon
+as it is made: it is not undone if the operation fails later, or if the run is
+run again.
 The same operations are MCP tools (`plugin.<key>.<operation>`) and assistant
 tools. For example the chemistry plugin's `find` (`mode`: `substructure` or
 `similarity`) and `check` (is a structure already registered) are

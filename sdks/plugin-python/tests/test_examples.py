@@ -151,3 +151,49 @@ def test_lab_rules_refuses_an_empty_upload_and_searches_its_index():
         "hits": [],
         "nearest": {"index": "summaries", "text": "titration"},
     }
+
+
+def test_acme_reader_reads_wells_and_refuses_other_files():
+    load("lab-inventory")
+    text = "Acme PlateReader 3000\nRead time: 2026-11-08 09:00\nWell,Sample,OD450\nA1,SMP-1,0.42\nA2,SMP-2,\n"
+    rows = host.call_file_rows("reader:read_rows", {"content": text, "filename": "run.csv", "encoding": "text"}).to_dict("records")
+    assert [(r["well"], r["sample"], r["od450"]) for r in rows] == [("A1", "SMP-1", 0.42), ("A2", "SMP-2", None)]
+    assert rows[0]["read_time"] == "2026-11-08 09:00"
+    with pytest.raises(PluginError):
+        host.call_file_rows("reader:read_rows", {"content": "a,b\n1,2\n", "filename": "x.csv", "encoding": "text"})
+
+
+def test_code39_is_drawn_and_read_back():
+    load("lab-inventory")
+    bits = host.call_operation("labels:code39_modules", {"value": "smp-1"})["modules"]
+    assert set(bits) == {"0", "1"} and bits.startswith("1") and bits.endswith("1")
+    # start + 5 characters + stop = 7 characters of 5 bars and 4 spaces (3 wide), plus 6 gaps
+    assert len(bits) == 7 * (6 + 3 * 3) + 6
+    assert host.call_operation("labels:code39_value", {"text": "*smp-1*"}) == {"value": "SMP-1"}
+    assert host.call_operation("labels:code39_value", {"text": "not a code!"}) == {"value": None}
+    with pytest.raises(PluginError):
+        host.call_operation("labels:code39_modules", {"value": "SMP/1"})
+
+
+def test_cryo_label_lines():
+    load("lab-inventory")
+    out = host.call_operation(
+        "labels:cryo_compact",
+        {"record": {"identifier": "SMP-9", "sampleType": "Serum", "facts": {"lot": "L7", "condition": "-80 °C", "useBy": "2027-01-01"}}},
+    )
+    assert out["lines"] == [
+        {"text": "SMP-9", "bold": True},
+        {"text": "Serum · L7"},
+        {"text": "-80 °C · use by 2027-01-01"},
+    ]
+
+
+def test_cold_chain_rule():
+    load("lab-inventory")
+    sample = {"identifier": "SMP-9", "properties": {"holdCondition": "-80 °C"}}
+    warm = {"path": ["Lab", "Fridge"], "temperatureC": {"min": 2, "max": 8}}
+    assert host.call_operation("storage:cold_chain", {"sample": sample, "to": warm})["status"] == "refuse"
+    cold = {"path": ["Lab", "Ultra"], "temperatureC": {"min": -90, "max": -70}, "box": "Box 1", "capacity": 10, "held": 9}
+    assert host.call_operation("storage:cold_chain", {"sample": sample, "to": cold})["status"] == "warn"
+    roomy = {**cold, "held": 2}
+    assert host.call_operation("storage:cold_chain", {"sample": sample, "to": roomy}) == {"status": "ok"}

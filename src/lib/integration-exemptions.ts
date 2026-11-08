@@ -157,4 +157,7 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
     'Choosing how an instrument’s files are read is an integrations setting with its own admin route (`/api/parsers/converter`); documents and quality control are exposed.',
   my_notifications:
     'A person’s own bell list, rebuilt only to carry the page a notification opens; read in the app.',
+  // Labels.
+  save_label_template:
+    'Saves how a label looks, including the plugin code and layout it uses; a settings screen with its own admin route, and the plugin points are listed in the plugins API.',
 }

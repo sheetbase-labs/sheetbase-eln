@@ -14,12 +14,15 @@ export function PluginBlockView({
   recordId,
   blockId,
   onState,
+  insertBelow,
 }: {
   payload: unknown
   recordId?: string
   blockId?: string
   /** Given in the editor so the screen's state is kept with the block. */
   onState?: (state: unknown) => void
+  /** Put a block below this one; given in the editor. */
+  insertBelow?: (type: string, payload: Record<string, unknown>) => void
 }) {
   const points = usePluginPoints()
   const body = (payload ?? {}) as {
@@ -50,10 +53,21 @@ export function PluginBlockView({
       itemId={item.id}
       title={declaration.title}
       source={declaration.ui ? 'ui' : 'screen'}
-      context={{ recordId: recordId ?? null, blockId: blockId ?? null }}
+      context={{
+        // Which plugin block this is, so a screen can find its own kind among
+        // the notebook's blocks or add another.
+        plugin: item.extensionKey,
+        block: item.id,
+        recordId: recordId ?? null,
+        blockId: blockId ?? null,
+        // No handler to keep state means the block is being read, not edited.
+        readOnly: !onState,
+      }}
       state={body.state}
       onState={onState}
       operations={operationAccess(points, item.extensionKey)}
+      scopes={points.installed.get(item.extensionKey)?.scopes}
+      insertBelow={insertBelow}
     />
   )
 }

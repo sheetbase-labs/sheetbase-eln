@@ -51,6 +51,7 @@ import {
 import type { ExtensionWire } from '#/lib/extensions/client'
 import { PLUGIN_MAX_ARCHIVE_BYTES } from '#/lib/extensions/package'
 import { describeRunnerAdds } from '#/lib/extensions/runner-points'
+import type { ExtensionAddDetail } from '#/lib/extensions/runner-points'
 import type { PluginCheckResult } from '#/lib/extensions/install.server'
 import type { ExtensionRunnerPoint } from '#/lib/extensions/points'
 
@@ -338,7 +339,7 @@ function PluginRow({
                           {' '}
                           ·{' '}
                           {t(
-                            `plugins.admin.access.${item.detail as 'read' | 'write' | 'analysis'}`,
+                            `plugins.admin.access.${item.detail as ExtensionAddDetail}`,
                           )}
                         </span>
                       </li>
@@ -608,7 +609,7 @@ function InstallDialog({
                                 {' '}
                                 ·{' '}
                                 {t(
-                                  `plugins.admin.access.${item.detail as 'read' | 'write' | 'analysis'}`,
+                                  `plugins.admin.access.${item.detail as ExtensionAddDetail}`,
                                 )}
                               </span>
                             </li>

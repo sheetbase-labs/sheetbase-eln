@@ -14,12 +14,13 @@
 import { executePythonTransform } from '../pipeline-python.server'
 import type { PythonTransformInput } from '../pipeline-python.server'
 import { extensionAuditIdentity } from './contract'
+import { findCallable } from './callables'
+import type { CallableItem } from './callables'
 import { parseExtensionManifest } from './manifest'
 import type { ExtensionManifest } from './manifest'
 import type {
   ExtensionAnalysisKindDeclaration,
   ExtensionField,
-  ExtensionOperationDeclaration,
   ExtensionRunnerPoint,
 } from './points'
 import { pluginStatement } from './python-host.server'
@@ -165,7 +166,7 @@ function pythonMessage(error: unknown): ExtensionRunError {
   )
 }
 
-async function runPackage(
+export async function runPackage(
   deps: ExtensionRuntimeDeps,
   workspaceId: string,
   resolved: ResolvedInstall,
@@ -204,6 +205,28 @@ export async function openExtensionPoint(
   key: string,
   point: ExtensionRunnerPoint,
 ): Promise<ResolvedInstall> {
+  const resolved = await openInstall(deps, workspaceId, key)
+  assertPointOn(resolved.install, point)
+  return resolved
+}
+
+function assertPointOn(
+  install: ExtensionInstallRow,
+  point: ExtensionRunnerPoint,
+) {
+  if (install.disabledPoints.includes(point)) {
+    throw new ExtensionRunError(
+      'point_off',
+      'An administrator has switched this part of the plugin off.',
+    )
+  }
+}
+
+async function openInstall(
+  deps: Pick<ExtensionRuntimeDeps, 'loadInstall'>,
+  workspaceId: string,
+  key: string,
+): Promise<ResolvedInstall> {
   const install = await deps.loadInstall(workspaceId, key)
   if (!install) {
     throw new ExtensionRunError(
@@ -215,12 +238,6 @@ export async function openExtensionPoint(
     throw new ExtensionRunError(
       'not_enabled',
       'That plugin is no longer enabled in this workspace.',
-    )
-  }
-  if (install.disabledPoints.includes(point)) {
-    throw new ExtensionRunError(
-      'point_off',
-      'An administrator has switched this part of the plugin off.',
     )
   }
   let manifest: ExtensionManifest
@@ -235,11 +252,33 @@ export async function openExtensionPoint(
   return { install, manifest }
 }
 
+/**
+ * Finds what a name points at (an operation, a calculator or a pipeline step)
+ * and refuses unless the plugin is enabled and that part is switched on.
+ */
+export async function openCallable(
+  deps: Pick<ExtensionRuntimeDeps, 'loadInstall'>,
+  workspaceId: string,
+  key: string,
+  itemId: string,
+): Promise<ResolvedInstall & { callable: CallableItem }> {
+  const resolved = await openInstall(deps, workspaceId, key)
+  const callable = findCallable(resolved.manifest, itemId)
+  if (!callable) {
+    throw new ExtensionRunError(
+      'not_declared',
+      'That plugin doesn’t offer this any more.',
+    )
+  }
+  assertPointOn(resolved.install, callable.point)
+  return { ...resolved, callable }
+}
+
 export interface InvokeArgs {
   workspaceId: string
   actorUserId: string
   extensionKey: string
-  point: 'operations'
+  /** An operation, calculator or pipeline step id. */
   itemId: string
   input: unknown
 }
@@ -250,7 +289,7 @@ export interface InvokeResult {
   durationMs: number
 }
 
-function audit(
+export function audit(
   deps: ExtensionRuntimeDeps,
   args: {
     workspaceId: string
@@ -288,49 +327,67 @@ function audit(
     .catch(() => undefined)
 }
 
-/** Runs one pipeline action or assistant tool of an extension. */
+/** Runs one pipeline action, assistant tool, calculator or step of an extension. */
 export async function invokeExtension(
   args: InvokeArgs,
   deps: ExtensionRuntimeDeps = defaultDeps(),
 ): Promise<InvokeResult> {
-  const resolved = await openExtensionPoint(
+  const resolved = await openCallable(
     deps,
     args.workspaceId,
     args.extensionKey,
-    args.point,
+    args.itemId,
   )
-  const declaration: ExtensionOperationDeclaration | undefined =
-    resolved.manifest.contributions.operations?.find(
-      (entry) => entry.id === args.itemId,
-    )
-  if (!declaration) {
-    throw new ExtensionRunError(
-      'not_declared',
-      'That plugin doesn’t offer this any more.',
-    )
-  }
+  const { callable } = resolved
+  const declaration = callable.declaration
   const input = checkDeclaredValues(declaration.inputs, args.input, 'input')
   const started = deps.now()
   try {
+    const step = callable.runKind === 'step'
+    const tables: Record<string, Array<Record<string, unknown>>> = {}
+    const settings: Record<string, unknown> = {}
+    for (const [name, value] of Object.entries(input)) {
+      if (step && callable.tableNames.includes(name)) {
+        if (
+          !Array.isArray(value) ||
+          !value.every((row) => row && typeof row === 'object')
+        )
+          throw new ExtensionRunError(
+            'bad_input',
+            `“${name}” should be a list of rows, each an object of column values.`,
+          )
+        tables[name] = value as Array<Record<string, unknown>>
+      } else settings[name] = value
+    }
+    const stepDeclaration = step
+      ? resolved.manifest.contributions['pipeline-steps']?.find(
+          (entry) => entry.id === callable.id,
+        )
+      : undefined
     const result = await runPackage(deps, args.workspaceId, resolved, {
-      inputs: {},
+      inputs: tables,
       parameters: {
-        kind: 'operation',
+        kind: callable.runKind,
         entry: declaration.runner.entry,
-        input,
+        input: settings,
       },
+      ...(stepDeclaration
+        ? { contract: columnContract(stepDeclaration.result.columns) }
+        : {}),
     })
-    const output = checkDeclaredValues(
-      declaration.outputs,
-      result.rows.at(0) ?? {},
-      'answer',
-    )
+    const output = step
+      ? { rows: result.rows }
+      : checkDeclaredValues(
+          declaration.outputs,
+          result.rows.at(0) ?? {},
+          'answer',
+        )
     const durationMs = deps.now() - started
     await audit(deps, {
       workspaceId: args.workspaceId,
       actorUserId: args.actorUserId,
       resolved,
-      point: args.point,
+      point: callable.point,
       itemId: args.itemId,
       ok: true,
       runner: 'python',
@@ -342,7 +399,7 @@ export async function invokeExtension(
       workspaceId: args.workspaceId,
       actorUserId: args.actorUserId,
       resolved,
-      point: args.point,
+      point: callable.point,
       itemId: args.itemId,
       ok: false,
       runner: 'python',
@@ -350,6 +407,23 @@ export async function invokeExtension(
       error: error instanceof Error ? error.message : String(error),
     })
     throw error
+  }
+}
+
+/** The contract the runner enforces on a table a plugin returns. */
+export function columnContract(
+  columns: ReadonlyArray<{ name: string; type: 'number' | 'text' }>,
+) {
+  return {
+    output: {
+      columns: columns.map((column) => ({
+        name: column.name,
+        type:
+          column.type === 'number' ? ('decimal' as const) : ('text' as const),
+        nullable: true,
+      })),
+      additionalColumns: false,
+    },
   }
 }
 
@@ -394,16 +468,7 @@ export async function runExtensionAnalysis(
     const result = await runPackage(deps, args.workspaceId, resolved, {
       inputs: { data: args.rows },
       parameters: { kind: 'analysis', entry: declaration.runner.entry },
-      contract: {
-        output: {
-          columns: declaration.result.columns.map((column) => ({
-            name: column.name,
-            type: column.type === 'number' ? 'decimal' : 'text',
-            nullable: true,
-          })),
-          additionalColumns: false,
-        },
-      },
+      contract: columnContract(declaration.result.columns),
     })
     const durationMs = deps.now() - started
     await audit(deps, {

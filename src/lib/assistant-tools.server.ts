@@ -416,7 +416,10 @@ export async function createAssistantToolkit(deps: {
       if (isSemanticReadTool(name)) {
         const result =
           name === SEMANTIC_SEARCH_TOOL
-            ? await runSemanticSearch(args, labContext)
+            ? await runSemanticSearch(args, {
+                ...labContext,
+                actorUserId: labContext.userId,
+              })
             : await runLiteratureSearch(args, labContext)
         return { text: clip(result.text), isError: result.isError }
       }

@@ -1,14 +1,22 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { BenchCalculatorDialog } from './bench-calculator-dialog'
 
+function renderWithClient(ui: React.ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+}
+
 describe('BenchCalculatorDialog', () => {
   it('works out the mass to weigh out and inserts it with its workings', async () => {
     const user = userEvent.setup()
     const onInsert = vi.fn()
-    render(
+    renderWithClient(
       <BenchCalculatorDialog
         open
         onOpenChange={() => {}}
@@ -36,7 +44,7 @@ describe('BenchCalculatorDialog', () => {
 
   it('gives the stock and diluent volumes for a dilution', async () => {
     const user = userEvent.setup()
-    render(<BenchCalculatorDialog open onOpenChange={() => {}} />)
+    renderWithClient(<BenchCalculatorDialog open onOpenChange={() => {}} />)
     await user.click(screen.getByRole('tab', { name: 'Dilution' }))
     await user.type(
       screen.getByRole('textbox', { name: 'Stock concentration' }),
@@ -58,7 +66,7 @@ describe('BenchCalculatorDialog', () => {
   })
 
   it('offers no insert action outside a notebook', () => {
-    render(<BenchCalculatorDialog open onOpenChange={() => {}} />)
+    renderWithClient(<BenchCalculatorDialog open onOpenChange={() => {}} />)
     expect(
       screen.queryByRole('button', { name: 'Insert into notebook' }),
     ).toBeNull()

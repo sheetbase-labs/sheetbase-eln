@@ -80,7 +80,10 @@ import type {
   ImportSheetPreview,
 } from '#/lib/import/types'
 
+import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
+import { fileExtension, readWithImporter } from '#/lib/extensions/plugin-files'
 import { FileColumnsStep } from './file-columns-step'
+import { PluginPullPanel } from './plugin-pull-panel'
 import type { FileColumnsResult } from './file-columns-step'
 import { ImportReceipt, findCommittedReceipt } from './import-receipt'
 import type { ImportSearch } from './import-search'
@@ -337,6 +340,32 @@ export function ImportUploadFlow({
   const instruments = useInstruments()
   const calibrations = useLatestCalibrationsByInstrument()
 
+  // File formats and tools that installed plugins add to the upload step.
+  const pluginPoints = useExtensionPoints()
+  const pluginImporters = pluginPoints.data.importers
+  const pluginConnectors = pluginPoints.data.connectors
+  const pluginExtensions = useMemo(
+    () => [
+      ...new Set(
+        pluginImporters.flatMap((item) => item.declaration.extensions),
+      ),
+    ],
+    [pluginImporters],
+  )
+  /** A file in a format a plugin reads becomes a table first; anything else is left alone. */
+  async function readable(file: File): Promise<File> {
+    const importer = pluginImporters.find((item) =>
+      item.declaration.extensions.includes(fileExtension(file.name)),
+    )
+    if (!importer) return file
+    return readWithImporter({
+      extensionKey: importer.extensionKey,
+      importerId: importer.id,
+      encoding: importer.declaration.encoding,
+      file,
+    })
+  }
+
   const [mode, setMode] = useState<'append' | 'new' | 'file' | null>(null)
   // A file already read, waiting for its table's columns to be set up.
   const [columnsStage, setColumnsStage] = useState<{
@@ -409,7 +438,8 @@ export function ImportUploadFlow({
     return rows.at(0)?.project_id ?? null
   }
 
-  async function start(file: File) {
+  async function start(picked: File) {
+    const file = await readable(picked)
     if (effectiveMode === 'file') {
       // Read the file first; its columns are what the new table is made from.
       const upload = await uploadImportFile({ file, datasetId: null })
@@ -594,9 +624,22 @@ export function ImportUploadFlow({
           <FileDrop
             label={t('data.importFlow.laboratoryFile')}
             inputLabel={t('data.importFlow.laboratoryFile')}
-            accept=".csv,.tsv,.tab,.txt,.json,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            accept={[
+              '.csv,.tsv,.tab,.txt,.json,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              ...pluginExtensions,
+            ].join(',')}
             onFile={pick}
           />
+          {pluginExtensions.length > 0 ? (
+            <p className="m-0 text-label text-fg-muted">
+              {t('plugins.import.readable', {
+                formats: pluginExtensions.join(', '),
+              })}
+            </p>
+          ) : null}
+          {pluginConnectors.length > 0 ? (
+            <PluginPullPanel connectors={pluginConnectors} onFile={pick} />
+          ) : null}
           {held && !targetReady ? (
             <p role="status" className="m-0 text-body text-fg-muted">
               {t('data.importFlow.nowChooseWhereGoes', { name: held.name })}

@@ -18,6 +18,7 @@ import { Button } from '#/components/ui/button'
 import { Tabs } from '#/components/ui/tabs'
 import { DatasetContractBadge } from '#/components/contracts/dataset-contract-badge'
 import { Status } from '#/components/ui/status'
+import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
 import {
   datasetValidation,
   useDatasetSummaries,
@@ -106,6 +107,8 @@ function DatasetLayout() {
   const navigate = useNavigate()
   const summaries = useDatasetSummaries()
   const versions = useDatasetVersions(datasetId)
+  // File formats that plugins add to downloads.
+  const pluginExporters = useExtensionPoints().data.exporters
   const latestVersionId =
     [...(versions.data ?? [])].sort((a, b) =>
       b.createdAt.localeCompare(a.createdAt),
@@ -322,6 +325,22 @@ function DatasetLayout() {
                       >
                         {t('data.datasetPage.downloadCsv')}
                       </DropdownMenuLinkItem>
+                      {pluginExporters.map((item) => (
+                        <DropdownMenuLinkItem
+                          key={item.name}
+                          icon="download"
+                          render={
+                            <a
+                              href={`/api/export/dataset/${dataset.uuid}?format=${encodeURIComponent(item.name)}`}
+                            />
+                          }
+                        >
+                          {t('plugins.export.download', {
+                            name: item.declaration.title,
+                            extension: item.declaration.extension,
+                          })}
+                        </DropdownMenuLinkItem>
+                      ))}
                       <DatasetPipelineMenuItems
                         runs={pipelineRuns}
                         latestVersionId={latestVersionId}

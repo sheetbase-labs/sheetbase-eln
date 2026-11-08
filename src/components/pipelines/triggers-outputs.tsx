@@ -245,7 +245,7 @@ function actionLabel(operation: string): string {
   const known = ACTION_LABEL.get(operation)
   if (known) return known
   const parts = operation.split('.')
-  if (parts[0] !== 'extension' || parts.length < 3) return operation
+  if (parts[0] !== 'plugin' || parts.length < 3) return operation
   const words = parts.slice(2).join(' ').replace(/-/g, ' ')
   return words.charAt(0).toUpperCase() + words.slice(1)
 }

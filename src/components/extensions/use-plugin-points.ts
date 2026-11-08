@@ -9,11 +9,12 @@ import { useQuery } from '@tanstack/react-query'
 
 import { notebookDataClient } from '#/lib/notebook-data'
 import { extensionQueryKeys, listExtensions } from '#/lib/extensions/client'
-import { resolveRunnerPoints } from '#/lib/extensions/runner-points'
+import { emptyData, resolveRunnerPoints } from '#/lib/extensions/runner-points'
 import type { ResolvedRunnerPoints } from '#/lib/extensions/runner-points'
 
 const EMPTY: ResolvedRunnerPoints = {
   operations: [],
+  callables: new Map(),
   analysisKinds: [],
   blocks: [],
   panels: [],
@@ -21,6 +22,7 @@ const EMPTY: ResolvedRunnerPoints = {
   columns: [],
   rowActions: [],
   fieldTypes: [],
+  data: emptyData(),
   descriptors: [],
 }
 

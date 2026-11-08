@@ -203,6 +203,8 @@ const LAB_PARAM_NOTES_BASE: Readonly<Record<string, string>> = {
   p_role: 'How it relates to the entry (default `parent`).',
   p_custom_fields: 'Field values, keyed by field name.',
   p_allow_duplicate: 'Create it even when a similar entry exists.',
+  p_sameness_value:
+    'The key the model’s same-thing rule from a plugin gives for this entry (POST /api/plugins/data, kind `sameness-key`). Needed when the model has such a rule.',
   p_exclude_id: 'Ignore this entry when looking for duplicates.',
   p_expected_metadata_version:
     'The `metadata_version` last read; refused if it moved.',
@@ -243,7 +245,7 @@ const LAB_PARAM_NOTES_BASE: Readonly<Record<string, string>> = {
   p_parts:
     'The parts to make, in order: each `{title, first_block_id, day_offset}`. A part runs from its first block to the next part’s.',
   p_conditions:
-    'JSON list of the conditions the gate waits on, each with a `kind`: `table_filled` (`blockId`, optional `column` and `minRows`), `step_done` (`blockId`), `part_done` (`partId`), `samples_linked` (optional `min`), `field_set` (`field`), `date_reached` (`date`, YYYY-MM-DD) or `qc_in_control` (optional `seriesId`; unmet while a tracked quality control series has a breach nobody has looked at). All must hold. Leave out or send an empty list to take the rule off.',
+    'JSON list of the conditions the gate waits on, each with a `kind`: `table_filled` (`blockId`, optional `column` and `minRows`), `step_done` (`blockId`), `part_done` (`partId`), `samples_linked` (optional `min`), `field_set` (`field`), `date_reached` (`date`, YYYY-MM-DD) `qc_in_control` (optional `seriesId`; unmet while a tracked quality control series has a breach nobody has looked at) or `plugin_check` (`blockId` of a table, `extensionKey`, `checkId` and `columns` mapping the inputs of the check to table columns; met once the check has passed on the table as it now is). All must hold. Leave out or send an empty list to take the rule off.',
   p_gate_mode:
     '`warn` lets people go on past the gate with a reason; `block` refuses the work behind it until the conditions hold.',
   p_steps_in_order: 'true to make the steps of the part be done in order.',
@@ -289,6 +291,61 @@ const LAB_PARAM_NOTES_BASE: Readonly<Record<string, string>> = {
 }
 
 export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
+  gate_check_results: {
+    summary:
+      'What a plugin check answered for a table on an experiment: `pass`, `warn` or `fail` with its message, and a fingerprint of the table when it ran. A gate reads this; when the table has changed since, the answer is out of date and the gate is not met. Written only by the app when someone runs the check.',
+    columns: [
+      ['record_id', 'uuid', 1],
+      ['block_id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['extension_key', 'text', 1],
+      ['check_id', 'text', 1],
+      ['status', 'text', 1],
+      ['message', 'text', 1],
+      ['table_hash', 'text', 1],
+      ['checked_at', 'ts', 1],
+      ['checked_by_user_id', 'text', 0],
+    ],
+  },
+  registry_sameness_rules: {
+    summary:
+      'Which plugin rule decides when two entries of a registry model are the same thing. `plugin_item` is `plugin.<plugin>.<rule>`.',
+    columns: [
+      ['workspace_id', 'uuid', 1],
+      ['model_key', 'text', 1],
+      ['plugin_item', 'text', 1],
+      ['updated_at', 'ts', 1],
+      ['updated_by_user_id', 'text', 0],
+    ],
+  },
+  registry_sameness_values: {
+    summary:
+      'The key a plugin rule worked out for a registry entry. Entries of one model with the same `value` are the same thing.',
+    columns: [
+      ['record_id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['model_key', 'text', 1],
+      ['value', 'text', 1],
+      ['computed_at', 'ts', 1],
+    ],
+  },
+  plugin_notes: {
+    summary:
+      'Notes a plugin left in someone\u2019s Inbox in answer to an event. Each person sees their own; they stay for 14 days.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['user_id', 'text', 1],
+      ['extension_key', 'text', 1],
+      ['extension_name', 'text', 1],
+      ['hook_id', 'text', 1],
+      ['event_id', 'uuid', 1],
+      ['title', 'text', 1],
+      ['body', 'text', 0],
+      ['record_id', 'uuid', 0],
+      ['created_at', 'ts', 1],
+    ],
+  },
   experiment_parts: {
     summary:
       'A part of an experiment that runs over several days: its own page of the notebook, on a day counted from the start of the experiment. Parts run in `position` order. A part is done when all its steps are, or when it was marked done by hand.',
@@ -1831,6 +1888,18 @@ const LAB_RPCS_HAND_WRITTEN: Readonly<Record<string, LabRpc>> = {
     params: [['p_part_id', 'uuid', 1]],
     result: 'json',
   },
+  registry_sameness_matches: {
+    summary: 'Find registry entries that a plugin rule says are the same thing',
+    description:
+      'Entries of the model whose stored key equals the one given, that this person can see. Work the key out with the plugin (POST /api/plugins/data, kind `sameness-key`) first.',
+    scope: 'lab:read',
+    params: [
+      ['p_model_key', 'text', 1],
+      ['p_value', 'text', 1],
+      ['p_exclude_id', 'uuid', 0],
+    ],
+    result: 'rows:id=uuid,identifier=text,title=text,archived=bool,match=text',
+  },
   record_part_signoffs: {
     summary: 'List where each part of an experiment stands on signatures',
     description:
@@ -2170,7 +2239,7 @@ const LAB_RPCS_HAND_WRITTEN: Readonly<Record<string, LabRpc>> = {
   create_registry_entry: {
     summary: 'Add a registry entry',
     description:
-      'Creates an entry of a registry model (such as a cell line or construct). Refuses a likely duplicate unless `p_allow_duplicate` is true.',
+      'Creates an entry of a registry model (such as a cell line or construct). Refuses a likely duplicate unless `p_allow_duplicate` is true. A model with a same-thing rule from a plugin only takes entries that come with the rule’s key (`p_sameness_value`), and refuses one whose key is already registered.',
     scope: 'lab:write',
     params: [
       ['p_project_id', 'uuid', 1],
@@ -2178,6 +2247,7 @@ const LAB_RPCS_HAND_WRITTEN: Readonly<Record<string, LabRpc>> = {
       ['p_title', 'text', 1],
       ['p_custom_fields', 'json', 0],
       ['p_allow_duplicate', 'bool', 0],
+      ['p_sameness_value', 'text', 0],
     ],
     result: 'row:records',
   },

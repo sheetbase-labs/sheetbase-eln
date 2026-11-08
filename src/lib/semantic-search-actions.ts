@@ -187,3 +187,25 @@ export const hybridSearchFn = createServerFn({ method: 'POST' })
   })
 
 export type SimilarWorkView = { hits: SemanticHit[] }
+
+const pluginSearchSchema = z.object({
+  workspaceId: z.string().uuid(),
+  query: z.string().min(1).max(500),
+})
+
+/** What the plugins' search providers find for the words typed. */
+export const pluginSearchFn = createServerFn({ method: 'POST' })
+  .validator((input: z.input<typeof pluginSearchSchema>) =>
+    pluginSearchSchema.parse(input),
+  )
+  .handler(async ({ data }) => {
+    const session = await loadSession(data.workspaceId)
+    const client = await dataClient(session.token)
+    const { searchWithPlugins } =
+      await import('#/lib/extensions/plugin-search.server')
+    return searchWithPlugins(client, {
+      workspaceId: data.workspaceId,
+      actorUserId: session.userId,
+      query: data.query,
+    })
+  })

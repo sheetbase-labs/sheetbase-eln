@@ -18,7 +18,7 @@ import { createRateLimiter } from '#/lib/rate-limit'
 import {
   ExtensionRunError,
   invokeExtension,
-  openExtensionPoint,
+  openCallable,
   runExtensionAnalysis,
   runExtensionHook,
   defaultDeps,
@@ -154,17 +154,13 @@ export async function handleExtensionRun(
   const body = parsed.data
   try {
     if (body.kind === 'operation') {
-      const { manifest } = await openExtensionPoint(
+      const { callable } = await openCallable(
         deps.runtime,
         member.workspaceId,
         body.extensionKey,
-        'operations',
+        body.operationId,
       )
-      const operation = manifest.contributions.operations?.find(
-        (entry) => entry.id === body.operationId,
-      )
-      if (!operation)
-        return refuse(404, 'That plugin doesn’t offer this any more.')
+      const operation = callable.declaration
       // The writer set: anyone but the read-only viewer.
       if (operation.access === 'write' && member.role === 'viewer')
         return refuse(403, 'Running this needs a workspace you can edit.')
@@ -173,7 +169,6 @@ export async function handleExtensionRun(
           workspaceId: member.workspaceId,
           actorUserId: session.user.id,
           extensionKey: body.extensionKey,
-          point: 'operations',
           itemId: body.operationId,
           input: body.input,
         },

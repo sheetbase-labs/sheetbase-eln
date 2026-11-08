@@ -26,11 +26,26 @@ export const plugins = {
     points: {
       operations: 'Operations',
       'analysis-kinds': 'Analyses',
+      blocks: 'Notebook blocks',
+      panels: 'Record panels',
+      'table-cells': 'Table cells',
+      columns: 'Table columns',
+      'row-actions': 'Row actions',
+      'field-types': 'Field types',
     },
     pointHint: {
       operations:
         'Things the assistant, agents, pipelines and the API can ask this plugin to do. Anything that changes something waits for a person.',
       'analysis-kinds': 'Ways to analyse a dataset, next to the built-in ones.',
+      blocks: 'New kinds of block to add to an experiment page.',
+      panels: 'Extra panels on a record page.',
+      'table-cells':
+        'How certain values are drawn in tables, such as a pass or fail pill.',
+      columns:
+        'Columns worked out for every row of a table, and their header menu entries.',
+      'row-actions': 'Buttons for the rows you choose in a table.',
+      'field-types':
+        'Kinds of field you can give a model, with their own checks and look.',
     },
     pointSwitch: 'Switch {point} on or off for {name}',
     pointSwitchedOn: '{point} switched on',
@@ -39,6 +54,12 @@ export const plugins = {
       read: 'reads',
       write: 'asks first',
       analysis: 'analysis',
+      block: 'block',
+      panel: 'panel',
+      cells: 'display',
+      column: 'column',
+      rows: 'on chosen rows',
+      fieldType: 'field type',
     },
     by: 'by {author}',
     turnOn: 'Switch on',
@@ -65,6 +86,8 @@ export const plugins = {
       asks: 'What it asks for',
       asksCode:
         'Runs its own Python code in an isolated sandbox: no network, no access to your data except what it is given in each call.',
+      asksUi:
+        'Draws its own screens in a sandboxed frame: no cookies, no network and no view of the rest of the page. It only sees what Sheetbase hands it.',
       asksScopes: 'Declared access: {scopes}.',
       asksNothing: 'It reads nothing beyond what each call gives it.',
       adds: 'What it adds',

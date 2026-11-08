@@ -6,7 +6,7 @@
  * python/…        the .py files it points at
  * README.md       optional
  * LICENSE         optional
- * ui/…            reserved for plugin screens; refused for now
+ * ui/…            html, js, css, svg and json files of a plugin UI bundle, run only in a sandboxed frame
  * ```
  *
  * `readPluginPackage` unzips (with size limits applied before anything is
@@ -26,6 +26,7 @@ import type { Scope } from '../api-credential-scopes'
 import { validateExtensionManifest } from './manifest'
 import type { ExtensionManifest } from './manifest'
 import { EXTENSION_ENTRY_RE } from './points'
+import { PLUGIN_UI_ENTRY_RE } from './hooks'
 
 export const PLUGIN_MAX_FILES = 100
 export const PLUGIN_MAX_FILE_BYTES = 512 * 1024
@@ -49,15 +50,27 @@ const TOP_LEVEL = [
   'compatibleWith',
   'permissions',
   'provides',
-  'ui',
   'examples',
 ]
-const PROVIDES = ['operations', 'analysis-kinds']
+const PROVIDES = [
+  'operations',
+  'analysis-kinds',
+  'blocks',
+  'panels',
+  'table-cells',
+  'columns',
+  'row-actions',
+  'field-types',
+]
+/** The points that need no Python function of their own to be useful. */
+const PROVIDES_WITHOUT_PYTHON = ['table-cells', 'field-types']
 const SCOPE_RE = /^[a-z][a-z_]*:[a-z][a-z_]*$/
 
-/** What a scientist sees if `ui` is set: the slot is held for later. */
-export const PLUGIN_UI_RESERVED =
-  'ui is reserved: plugins cannot bring their own screens yet'
+/** A plugin UI bundle: plain files that run in a sandboxed frame. */
+export const PLUGIN_UI_FILE_RE =
+  /^ui\/[A-Za-z0-9._/-]+\.(html|js|css|svg|json)$/
+/** The one file name the UI SDK is served as; a bundle's HTML includes it with a plain script tag. */
+export const PLUGIN_UI_SDK_NAME = 'sheetbase-ui.js'
 
 export interface PluginExample {
   operation: string
@@ -112,9 +125,23 @@ export function validatePluginFiles(files: Record<string, string>): string[] {
       parts.includes('')
     )
       errors.push(`${path} is not a safe path`)
-    else if (parts[0] === 'ui')
-      errors.push('ui/ is reserved: plugins cannot bring their own screens yet')
-    else if (parts[0] === 'python') {
+    else if (parts[0] === 'ui') {
+      if (!PLUGIN_UI_FILE_RE.test(path))
+        errors.push(
+          `${path}: ui/ holds .html, .js, .css, .svg and .json files only`,
+        )
+      else if (parts[parts.length - 1] === PLUGIN_UI_SDK_NAME)
+        errors.push(
+          `${path}: ${PLUGIN_UI_SDK_NAME} is provided by Sheetbase, leave it out`,
+        )
+      else if (
+        /\.(html|css)$/.test(path) &&
+        /(?:https?:)?\/\/[a-z0-9.-]+\.[a-z]{2,}/i.test(files[path])
+      )
+        errors.push(
+          `${path} refers to a web address; a plugin UI cannot reach the network, bundle what it needs`,
+        )
+    } else if (parts[0] === 'python') {
       if (!path.endsWith('.py') || parts.length < 2)
         errors.push(`${path}: python/ holds .py files only`)
     } else if (!ROOT_FILES.includes(path))
@@ -167,6 +194,50 @@ function toStored(value: unknown): unknown {
   })
 }
 
+const asRunner = (run: unknown) =>
+  typeof run === 'string' ? { kind: 'python', entry: run } : run
+
+/**
+ * Author form to stored form for the screen and table points: `screen` and
+ * `run` strings become runner objects, in the entry and in a column's actions.
+ */
+function toStoredHooks(point: string, value: unknown): unknown {
+  if (!Array.isArray(value)) return value
+  return value.map((entry) => {
+    if (!isRecord(entry)) return entry
+    const { run, screen, actions, ...rest } = entry
+    return {
+      ...rest,
+      ...(run !== undefined ? { runner: asRunner(run) } : {}),
+      ...(screen !== undefined ? { screen: asRunner(screen) } : {}),
+      ...(point === 'columns' && Array.isArray(actions)
+        ? {
+            actions: actions.map((action) => {
+              if (!isRecord(action)) return action
+              const { run: actionRun, ...others } = action
+              return { ...others, runner: asRunner(actionRun) }
+            }),
+          }
+        : {}),
+    }
+  })
+}
+
+/** Where a screen or action in a declaration points: a `run`, a `screen`, a `ui` file and column action runs. */
+function pointers(entry: Record<string, unknown>): {
+  python: unknown[]
+  ui: unknown[]
+} {
+  const python = [entry.run, entry.screen]
+  if (Array.isArray(entry.actions))
+    for (const action of entry.actions)
+      if (isRecord(action)) python.push(action.run)
+  return {
+    python: python.filter((value) => value !== undefined),
+    ui: entry.ui === undefined ? [] : [entry.ui],
+  }
+}
+
 /**
  * Checks a package given as `{ path: text }` and builds the install manifest.
  * Throws `PluginPackageError` listing every problem found.
@@ -191,7 +262,6 @@ export function buildPluginPackage(
   for (const key of Object.keys(raw))
     if (!TOP_LEVEL.includes(key))
       errors.push(`unknown key in plugin.json: ${key}`)
-  if (raw.ui !== undefined && raw.ui !== null) errors.push(PLUGIN_UI_RESERVED)
 
   const permissions = raw.permissions ?? []
   const scopes: Scope[] = []
@@ -220,20 +290,45 @@ export function buildPluginPackage(
       )
     )
       errors.push(
-        'a plugin has to provide at least one operation or analysis kind',
+        'a plugin has to provide at least one operation, analysis kind, block, panel, table cell display, column, row action or field type',
       )
+    const usedUi = new Set<string>()
     for (const point of PROVIDES) {
       if (provides[point] === undefined) continue
-      contributions[point] = toStored(provides[point])
+      contributions[point] =
+        point === 'operations' || point === 'analysis-kinds'
+          ? toStored(provides[point])
+          : toStoredHooks(point, provides[point])
       for (const entry of Array.isArray(provides[point]) ? provides[point] : [])
-        if (isRecord(entry))
-          entryExists(
-            entry.run,
-            files,
-            `provides.${point}.${String(entry.id)}`,
-            errors,
+        if (isRecord(entry)) {
+          const where = `provides.${point}.${String(entry.id)}`
+          const { python, ui: bundles } = pointers(entry)
+          if (
+            python.length === 0 &&
+            bundles.length === 0 &&
+            !PROVIDES_WITHOUT_PYTHON.includes(point) &&
+            point !== 'panels'
           )
+            errors.push(`${where} needs a Python function to run`)
+          for (const run of python) entryExists(run, files, where, errors)
+          for (const bundle of bundles) {
+            if (typeof bundle !== 'string' || !PLUGIN_UI_ENTRY_RE.test(bundle))
+              continue
+            usedUi.add(bundle)
+            if (files[bundle] === undefined)
+              errors.push(
+                `${where} ui points at ${bundle}, which is not in the package`,
+              )
+          }
+        }
     }
+    if (
+      usedUi.size === 0 &&
+      Object.keys(files).some((path) => path.startsWith('ui/'))
+    )
+      errors.push(
+        'ui/ files need a block or panel whose ui points at one of them',
+      )
   }
 
   const examples: PluginExample[] = []

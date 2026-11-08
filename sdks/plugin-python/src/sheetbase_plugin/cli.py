@@ -32,7 +32,6 @@ INIT_MANIFEST = {
             }
         ]
     },
-    "ui": None,
     "examples": [{"operation": "greet", "input": {"name": "Ada"}, "output": {"greeting": "Hello, Ada!"}}],
 }
 

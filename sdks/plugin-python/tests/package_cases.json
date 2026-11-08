@@ -232,8 +232,8 @@
   }
  },
  {
-  "name": "ui null is fine",
-  "valid": true,
+  "name": "ui is no longer a plugin.json key",
+  "valid": false,
   "manifest": {
    "id": "acme.cell-count",
    "name": "Cell count",
@@ -540,7 +540,7 @@
       "run": "ops:viability"
      }
     ],
-    "panels": []
+    "widgets": []
    }
   },
   "files": {
@@ -1808,6 +1808,679 @@
   "files": {
    "python/ops.py": "def viability(input):\n    return {}\n",
    "python/stats.py": "def smooth(df):\n    return df\n"
+  }
+ },
+ {
+  "name": "block with a Python screen",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "blocks": [
+     {
+      "id": "counter",
+      "title": "Counter",
+      "description": "A counter.",
+      "screen": "screens:block"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "block with a ui bundle",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "blocks": [
+     {
+      "id": "gel",
+      "title": "Gel",
+      "description": "Annotate a gel.",
+      "ui": "ui/index.html"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+   "ui/index.html": "<script src=\"sheetbase-ui.js\"></script><p>Hi</p>"
+  }
+ },
+ {
+  "name": "block needs a screen or a ui",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "blocks": [
+     {
+      "id": "gel",
+      "title": "Gel",
+      "description": "x"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "block with both screen and ui",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "blocks": [
+     {
+      "id": "counter",
+      "title": "Counter",
+      "description": "A counter.",
+      "screen": "screens:block",
+      "ui": "ui/index.html"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+   "ui/index.html": "<p>x</p>"
+  }
+ },
+ {
+  "name": "block ui file missing",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "blocks": [
+     {
+      "id": "gel",
+      "title": "Gel",
+      "description": "x",
+      "ui": "ui/index.html"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "ui bundle reaching the network",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "blocks": [
+     {
+      "id": "gel",
+      "title": "Gel",
+      "description": "x",
+      "ui": "ui/index.html"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+   "ui/index.html": "<script src=\"https://cdn.example.com/a.js\"></script>"
+  }
+ },
+ {
+  "name": "ui file nobody uses",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "blocks": [
+     {
+      "id": "counter",
+      "title": "Counter",
+      "description": "A counter.",
+      "screen": "screens:block"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n",
+   "ui/index.html": "<p>x</p>"
+  }
+ },
+ {
+  "name": "panel with a screen and models",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "panels": [
+     {
+      "id": "stock",
+      "title": "Stock",
+      "screen": "screens:block",
+      "models": [
+       "reagent"
+      ]
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "plain panel",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "panels": [
+     {
+      "id": "stock",
+      "title": "Stock"
+     }
+    ],
+    "operations": [
+     {
+      "id": "viability",
+      "title": "Viability",
+      "description": "Percent of cells alive.",
+      "access": "read",
+      "inputs": [
+       {
+        "name": "live",
+        "type": "integer",
+        "required": true
+       },
+       {
+        "name": "dead",
+        "type": "integer",
+        "required": true
+       }
+      ],
+      "outputs": [
+       {
+        "name": "viability",
+        "type": "number",
+        "required": true
+       }
+      ],
+      "run": "ops:viability"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "table cell badge",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "table-cells": [
+     {
+      "id": "verdict",
+      "title": "Verdict",
+      "appliesTo": {
+       "fieldTypes": [
+        "text"
+       ],
+       "models": [
+        "assay"
+       ]
+      },
+      "display": {
+       "kind": "badge",
+       "tones": {
+        "pass": "success",
+        "fail": "danger"
+       }
+      }
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "table cell with no target",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "table-cells": [
+     {
+      "id": "verdict",
+      "title": "Verdict",
+      "appliesTo": {},
+      "display": {
+       "kind": "badge",
+       "tones": {
+        "pass": "success"
+       }
+      }
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "table cell unknown display kind",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "table-cells": [
+     {
+      "id": "verdict",
+      "title": "Verdict",
+      "appliesTo": {
+       "fieldTypes": [
+        "text"
+       ]
+      },
+      "display": {
+       "kind": "script"
+      }
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "table cell bad tone",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "table-cells": [
+     {
+      "id": "verdict",
+      "title": "Verdict",
+      "appliesTo": {
+       "fieldTypes": [
+        "text"
+       ]
+      },
+      "display": {
+       "kind": "badge",
+       "tones": {
+        "pass": "green"
+       }
+      }
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "table cell bar",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "table-cells": [
+     {
+      "id": "purity",
+      "title": "Purity",
+      "appliesTo": {
+       "fields": [
+        "purity"
+       ]
+      },
+      "display": {
+       "kind": "bar",
+       "max": 100,
+       "thresholds": [
+        {
+         "below": 50,
+         "tone": "danger"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "column with actions",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "columns": [
+     {
+      "id": "mass",
+      "title": "Mass",
+      "value": "number",
+      "models": [
+       "compound"
+      ],
+      "inputs": [
+       "formula"
+      ],
+      "run": "screens:column",
+      "actions": [
+       {
+        "id": "export",
+        "title": "Export",
+        "run": "screens:action"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "column bad value type",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "columns": [
+     {
+      "id": "mass",
+      "title": "Mass",
+      "value": "image",
+      "run": "screens:column"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "column without a function",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "columns": [
+     {
+      "id": "mass",
+      "title": "Mass",
+      "value": "number"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "row action",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "row-actions": [
+     {
+      "id": "sdf",
+      "title": "Export SDF",
+      "description": "Writes the chosen rows as an SDF file.",
+      "selection": "many",
+      "run": "screens:action"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "row action selection",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "row-actions": [
+     {
+      "id": "sdf",
+      "title": "Export SDF",
+      "description": "x",
+      "selection": "some",
+      "run": "screens:action"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "field type text",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "field-types": [
+     {
+      "id": "dna",
+      "title": "DNA sequence",
+      "base": "text",
+      "pattern": "^[ACGTNacgtn]+$",
+      "patternMessage": "Use A, C, G, T or N.",
+      "display": {
+       "kind": "text",
+       "mono": true
+      }
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "field type unanchored pattern",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "field-types": [
+     {
+      "id": "dna",
+      "title": "DNA",
+      "base": "text",
+      "pattern": "[ACGT]+"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "field type number with a text rule",
+  "valid": false,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "field-types": [
+     {
+      "id": "ph",
+      "title": "pH",
+      "base": "decimal",
+      "pattern": "^1$"
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
+  }
+ },
+ {
+  "name": "field type number range",
+  "valid": true,
+  "manifest": {
+   "id": "acme.cell-count",
+   "name": "Cell count",
+   "version": "1.0.0",
+   "description": "Counts cells.",
+   "provides": {
+    "field-types": [
+     {
+      "id": "ph",
+      "title": "pH",
+      "base": "decimal",
+      "min": 0,
+      "max": 14
+     }
+    ]
+   }
+  },
+  "files": {
+   "python/ops.py": "def viability(input):\n    return {}\n",
+   "python/stats.py": "def smooth(df):\n    return df\n",
+   "python/screens.py": "def block(payload):\n    return {}\n\ndef column(rows):\n    return []\n\ndef action(payload):\n    return {}\n"
   }
  }
 ]

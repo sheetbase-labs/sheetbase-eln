@@ -274,6 +274,7 @@ metadata only, never secrets).
 `agent.action.decided` (`event=decided`: a person approved or rejected it),
 `agent.action.completed` (`event=completed`: it ran and succeeded or failed),
 `extension.point.enabled` and `extension.point.disabled` (`change=point_enabled` or `point_disabled`: an administrator switched a part of a plugin on or off),
+`extension.field_type.applied` and `extension.field_type.removed` (`change=field_type_applied` or `field_type_removed`: a model field was given a plugin’s field type, or lost it; payload carries `modelKey` and `fieldName`),
 `extension.invoked` (`change=invoked`: a plugin ran an operation or analysis; payload carries `extensionKey` (the plugin’s name in the workspace), `point`, `itemId`, `ok` and `runner`),
 `ai.eval.completed` (a Checks run finished, with how many passed) and
 `watcher.finding.created` (a watcher found something; payload carries the

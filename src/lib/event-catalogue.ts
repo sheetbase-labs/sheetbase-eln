@@ -1890,6 +1890,37 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     notes: 'Payload carries `extensionKey` and `point`.',
   },
   {
+    name: 'extension.field_type.applied',
+    family: 'administration',
+    summary: 'A model field was given a plugin’s field type.',
+    producer: {
+      entityType: 'extension',
+      operation: 'update',
+      when: { key: 'change', equals: 'field_type_applied' },
+    },
+    wireName: 'extension.field_type.applied',
+    status: 'stable',
+    introducedIn: 'extensions-05',
+    consumers: webhookSse,
+    notes:
+      'Payload carries `extensionKey`, `typeId`, `modelKey` and `fieldName`.',
+  },
+  {
+    name: 'extension.field_type.removed',
+    family: 'administration',
+    summary: 'A model field lost its plugin field type.',
+    producer: {
+      entityType: 'extension',
+      operation: 'update',
+      when: { key: 'change', equals: 'field_type_removed' },
+    },
+    wireName: 'extension.field_type.removed',
+    status: 'stable',
+    introducedIn: 'extensions-05',
+    consumers: webhookSse,
+    notes: 'Payload carries `modelKey` and `fieldName`.',
+  },
+  {
     name: 'extension.invoked',
     family: 'administration',
     summary:

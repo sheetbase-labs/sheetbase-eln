@@ -1,0 +1,25 @@
+{
+  "id": "acme.dilution",
+  "name": "Dilution tools",
+  "version": "1.0.0",
+  "description": "A dilution calculator for notebooks, and a summary tab on record pages.",
+  "author": "Acme Bio",
+  "provides": {
+    "blocks": [
+      {
+        "id": "dilution",
+        "title": "Dilution calculator",
+        "description": "Works out how much stock and diluent to mix for a target concentration and volume.",
+        "icon": "flask",
+        "screen": "dilution:screen"
+      }
+    ],
+    "panels": [
+      {
+        "id": "summary",
+        "title": "Summary",
+        "screen": "summary:screen"
+      }
+    ]
+  }
+}

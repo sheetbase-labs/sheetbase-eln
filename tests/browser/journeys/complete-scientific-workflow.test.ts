@@ -15,6 +15,7 @@ import {
   createUser,
   open,
   pickRecord,
+  reload,
   signIn,
   signInAs,
   splitRight,
@@ -185,8 +186,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     ).toBeEnabled()
     // The mapping and review survive reload in the same notebook block.
     await expect(importBlock.getByText(/Saving…|Editing…/)).toHaveCount(0)
-    await page.reload()
-    await waitForHydration(page)
+    await reload(page)
     await page.getByRole('button', { name: 'Import 96 rows' }).click()
     await expect(
       importBlock.getByText(

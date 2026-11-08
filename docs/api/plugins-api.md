@@ -1,4 +1,4 @@
-# Plugins: operations, analysis kinds and where they show
+# Plugins: extension points
 
 A plugin is Python code an owner or administrator installs from
 **Settings → Plugins** to add work to a workspace. Everything is fail-closed: a
@@ -7,16 +7,26 @@ to nothing, never to an error. Plugins are Python only for now. The code runs in
 the same isolated Python runner as pipeline Python steps (no network, no database,
 no files except the plugin's own).
 
-| Point            | What it adds                                                                                      | Where it shows                                                            |
-| ---------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `operations`     | Something the plugin can do: named inputs in, named outputs back                                  | Assistant, MCP, pipelines and the API, all generated from one declaration |
-| `analysis-kinds` | A Python analysis with a declared result shape (columns, optional a chart)                        | The analysis block, beside the built-in kinds                             |
-| `blocks`         | A notebook block drawn by a Python screen or by the plugin's own page (`ui`)                      | The insert menu, under Plugin blocks                                      |
-| `panels`         | A tab on record pages, drawn the same way, optionally only for some models                        | The record page's side tabs                                               |
-| `table-cells`    | How a value is drawn: text, number, badge, bar, sparkline or svg. Data only, never code in a cell | Model record lists                                                        |
-| `columns`        | A computed column (one value per row) with entries in its header menu                             | Model record lists                                                        |
-| `row-actions`    | An action for the chosen rows (`one` or `many`)                                                   | Model record lists, above the table when rows are chosen                  |
-| `field-types`    | A type for a model field: a base (text, integer, decimal), rules and a display                    | The Fields tab, record forms and lists                                    |
+| Point              | What it adds                                                                                      | Where it shows                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `operations`       | Something the plugin can do: named inputs in, named outputs back                                  | Assistant, MCP, pipelines and the API, all generated from one declaration |
+| `calculators`      | The same shape as an operation, read-only, shown as a form                                        | The bench calculator's "More" tab, and everywhere an operation shows      |
+| `pipeline-steps`   | Combines or reshapes tables (DataFrames in, one DataFrame out)                                    | Pipelines, as an action `plugin.<key>.<id>`                               |
+| `analysis-kinds`   | A Python analysis with a declared result shape (columns, optional chart)                          | The analysis block, beside the built-in kinds                             |
+| `checks`           | Reads a table, answers `pass`, `warn` or `fail` with a message                                    | The `plugin_check` gate condition                                         |
+| `search-providers` | Finds records the built-in search cannot                                                          | "Found by plugins" on Search, the assistant and MCP semantic search       |
+| `connectors`       | Pulls data in from a host it declared, as a table                                                 | Import → "Pull data in from another tool"                                 |
+| `importers`        | Reads a file type Sheetbase does not, into a table                                                | Import                                                                    |
+| `exporters`        | Writes a dataset as a file type Sheetbase does not                                                | Dataset menu and `?format=plugin.<key>.<id>`                              |
+| `previews`         | Shows what is inside a file                                                                       | Notebook file blocks                                                      |
+| `sameness-keys`    | Turns an entry's fields into a key; the same key means the same thing                             | Registry models: warning before a repeat is added                         |
+| `event-hooks`      | Reacts to an event by leaving notes                                                               | Inbox (`plugin_note`)                                                     |
+| `blocks`           | A notebook block drawn by a Python screen or by the plugin's own page (`ui`)                      | The insert menu, under Plugin blocks                                      |
+| `panels`           | A tab on record pages, drawn the same way, optionally only for some models                        | The record page's side tabs                                               |
+| `table-cells`      | How a value is drawn: text, number, badge, bar, sparkline or svg. Data only, never code in a cell | Model record lists                                                        |
+| `columns`          | A computed column (one value per row) with entries in its header menu                             | Model record lists                                                        |
+| `row-actions`      | An action for the chosen rows (`one` or `many`)                                                   | Model record lists, above the table when rows are chosen                  |
+| `field-types`      | A type for a model field: a base (text, integer, decimal), rules and a display                    | The Fields tab, record forms and lists                                    |
 
 Every point has its own switch (`api.set_extension_point_enabled`), and a point
 that is off resolves to nothing.
@@ -162,6 +172,48 @@ stopped or answered wrongly. `plugin_refused` messages are the plugin's own.
 the sandboxed frame, with `Content-Security-Policy` and `X-Frame-Options`
 locked down; `404` when the plugin, the item or its page is not there or the
 point is off.
+
+### Data points
+
+`POST /api/plugins/data` (session only, 60 requests a minute, 16 MB body) is
+what the app's own screens use for the data points. The body carries `kind` and
+`extensionKey`, and the other fields depend on the kind:
+
+| `kind`         | Also send                                   | Answers                                      |
+| -------------- | ------------------------------------------- | -------------------------------------------- |
+| `import`       | `importerId`, `filename`, `content`         | a table (`columns`, `rows`)                  |
+| `connector`    | `connectorId`, `parameters`, `settings`     | a table; only the declared hosts are reached |
+| `export`       | `exporterId`, `name`, `rows`, `options`     | `{ filename, mime, content, encoding }`      |
+| `preview`      | `previewId`, `filename`, `content`          | `{ kind: "table" \| "text", … }`             |
+| `check`        | `checkId`, `rows`                           | `{ status, message }`                        |
+| `sameness-key` | `keyId`, `values`                           | `{ key }`                                    |
+| `gate-check`   | `checkId`, `recordId`, `blockId`, `columns` | `{ status, message }`, stored for the gate   |
+
+Importing and pulling need a role that can edit. `gate-check` reads the table
+with the caller's own access and stores the answer in `api.gate_check_results`
+with a hash of the table; only the server writes it, and the gate condition
+`plugin_check` (`{ kind: "plugin_check", blockId, extensionKey, checkId, columns }`) reads it.
+A changed table makes the stored answer stale, so the gate reads as not met
+until the check is run again. `warn` counts as met.
+
+Searching, event reactions and the same-thing key stored with an entry are
+called by the server itself:
+
+- Search runs every enabled provider on the signed-in person's own records
+  (read through row-level security); service tokens get no plugin results.
+- A reaction runs when the event is first seen in a workspace that has one
+  switched on (a cursor per workspace; switching one on never replays old
+  events). A note is written to `api.plugin_notes` once per event, for the
+  person whose change it was, and is visible to them for 14 days.
+- `api.set_registry_sameness_rule`, `api.registry_sameness_matches` and
+  `api.set_registry_sameness_value` keep a model's rule, find entries with the
+  same key and store an entry's key. A model with a rule only takes new entries
+  through `api.create_registry_entry` with `p_sameness_value`, the key the rule
+  gives (`/api/plugins/data`, kind `sameness-key`); any other way of adding one
+  is refused, and a key that is already registered is refused unless
+  `p_allow_duplicate` is true. The app does this itself for the add-entry
+  screen, imports and the assistant. Editing an entry drops its key, so a repeat
+  made by editing is not caught.
 
 RPC: `api.set_extension_point_enabled(workspace, plugin, point, enabled)`
 switches one point on or off (`extensions.manage`).

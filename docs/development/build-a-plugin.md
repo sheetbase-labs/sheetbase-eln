@@ -7,11 +7,34 @@ is `sdks/plugin-python/examples/cell-count`.
 
 ## What you can add
 
-- **Operations**: something your lab can ask for. Inputs in, outputs back. One
-  declaration becomes an assistant tool, an MCP tool, a pipeline action and an
-  API route; you write none of those.
-- **Analysis kinds**: a Python analysis the analysis block offers next to the
-  built-in ones, with a result table and an optional chart.
+Twelve places in the app take a plugin. Each is declared in `plugin.json` under
+`provides`, points at a Python function, and has its own switch in
+**Settings → Plugins**.
+
+| Point            | Declare it as      | Your function                                     | Where people meet it                                   |
+| ---------------- | ------------------ | ------------------------------------------------- | ------------------------------------------------------ |
+| Operations       | `operations`       | `fn(input) -> dict`                               | Assistant, MCP, pipelines, API                         |
+| Calculators      | `calculators`      | `fn(input) -> dict`                               | Bench calculator, "More" tab; also assistant, MCP, API |
+| Pipeline steps   | `pipeline-steps`   | `fn(tables, settings) -> DataFrame`               | Pipelines: combine or reshape tables                   |
+| Analysis kinds   | `analysis-kinds`   | `fn(rows) -> rows or DataFrame`                   | Analysis studio                                        |
+| Checks           | `checks`           | `fn(df) -> {status, message}`                     | "A plugin check passes" gate condition                 |
+| Search           | `search-providers` | `fn({query, documents}) -> {hits}`                | Search page, assistant, MCP                            |
+| Connectors       | `connectors`       | `run(input)` and `parse({responses, parameters})` | Import: "Pull data in from another tool"               |
+| Importers        | `importers`        | `fn(content, filename) -> rows`                   | Import, for file types Sheetbase does not read         |
+| Exporters        | `exporters`        | `fn(rows, options) -> str or bytes`               | Dataset menu: "Download as …"                          |
+| File previews    | `previews`         | `fn(content, filename) -> {kind, …}`              | Notebook file blocks: "Show as …"                      |
+| Same-thing rules | `sameness-keys`    | `fn(values) -> {key}`                             | Registry: warning before a repeat is added             |
+| Event reactions  | `event-hooks`      | `fn({event}) -> {notes}`                          | Inbox                                                  |
+
+The three examples under `sdks/plugin-python/examples` between them use every
+point except operations and analyses (see `cell-count` for those):
+
+- `bench-extras`: a master mix calculator, a values check, a blank-subtracting
+  step and a reminder when a sample is released.
+- `sequence-files`: FASTA import, export and preview, and a rule that two
+  strands of one sequence are the same thing.
+- `lookup-tools`: a search that ignores dashes and leading zeros in
+  identifiers, and a PubChem connector.
 
 - **Blocks and panels**: a notebook block, or a tab on record pages. Either
   describe the screen in Python with `sheetbase_plugin.ui` (Sheetbase draws it,
@@ -126,7 +149,7 @@ and picks the file. Sheetbase reads it and shows, before anything is added:
 - for an update, what is new and what was dropped.
 
 They tick that they have read it and trust it, and add it. It stays off until
-they switch it on, and each part (operations, analyses) has its own switch.
+they switch it on, and each part has its own switch.
 
 From then on, with no further work from the author:
 
@@ -181,6 +204,97 @@ with the same `sheetbase-ui.js`, `sheetbase.call` runs your operations locally, 
 every Python screen, column and action has a box to run it and see whether
 Sheetbase would accept the answer. Nothing leaves your machine.
 
+## The other points
+
+Each one is a short declaration and one function. The examples show them in full;
+this is what to expect.
+
+**Calculators and pipeline steps** are called like operations. A calculator's
+`inputs` and `outputs` become a form on the calculator's "More" tab (and an
+assistant tool, an MCP tool and an API route). A step receives each input table
+as a pandas DataFrame and returns one:
+
+```python
+def subtract_blank(tables, settings):
+    df = tables["readings"].copy()
+    df["value"] = df["value"] - float(settings.get("blank", 0))
+    return df
+```
+
+![A plugin calculator on the bench calculator's More tab](screenshots/plugins/calculator.png)
+
+**Checks and gates.** A check reads a table and says `pass`, `warn` or `fail`
+with a message. On an experiment, a gate can require "A plugin check passes" for
+a table block; **Run check** reads the table, runs the plugin and stores the
+answer with a fingerprint of the table, so a gate that was met stops being met
+when the table changes. `warn` counts as met.
+
+```python
+def readings_present(df):
+    missing = int(df["value"].isna().sum())
+    return {"status": "fail" if missing else "pass", "message": f"{missing} missing"}
+```
+
+![A gate that needs a plugin check, after Run check](screenshots/plugins/gate-check.png)
+
+**Search.** The provider gets the search words and the records the person may
+see, and answers with hits. Results appear in their own "Found by plugins"
+table, never mixed into the built-in ranking, and the assistant and MCP search
+tools return them too.
+
+```python
+def search(input):
+    return {"hits": [{"id": d["id"], "score": 1.0, "snippet": "Matches the number"}
+                     for d in input["documents"] if input["query"] in d["title"]]}
+```
+
+![Plugin results on the search page](screenshots/plugins/search-plugin.png)
+
+**Importers and connectors** produce rows, which go through the same column
+mapping and checks as a file. Sheetbase keeps the converted table, not the
+original file. A connector never touches the network itself: `run` says which
+URLs it needs (only the hosts it declared), Sheetbase fetches them, and `parse`
+turns the answers into rows. What a person types for a connector's settings is
+used for that pull only and is not stored.
+
+**Exporters** appear in a dataset's menu as "Download as FASTA (.fasta)" and are
+also available at `GET /api/export/dataset/{id}?format=plugin.<key>.<id>`.
+Every download is recorded like a built-in export.
+
+![A plugin format in the dataset menu](screenshots/plugins/dataset-export.png)
+
+**File previews** show a file's contents on the page: return
+`{"kind": "table", "columns": [...], "rows": [...]}` or `{"kind": "text", "text": "..."}`.
+
+**Same-thing rules.** The rule gets the entry's fields (the ones it names, taken
+from the model's fields of the same name) and returns a key. Entries with the
+same key are flagged as repeats when someone adds one in the registry. An
+administrator picks the rule in the model's registry settings. From then on
+every way of adding an entry carries the key: the add-entry screen, an import and
+the assistant work it out for you, and an API caller passes it as
+`p_sameness_value` to `create_registry_entry`. An entry added without it, or with
+a key that is already registered, is refused. Editing an entry drops its key, so
+a repeat made by editing is not caught.
+
+![A repeat caught by a plugin rule](screenshots/plugins/same-thing-warning.png)
+
+**Event reactions** run when something happens (see the event catalogue for
+names). They can only answer with notes, which go to the Inbox of the person
+whose change set them off, and a note stays for 14 days. They cannot change
+records, and a plugin's own events never set reactions off.
+
+```python
+def remind_on_release(input):
+    return {"notes": [{"title": "A sample was released",
+                       "body": "Add it to the freezer log if it left cold storage."}]}
+```
+
+![A plugin note in the Inbox](screenshots/plugins/inbox-note.png)
+
+Everything above is listed per plugin, with a switch for each part:
+
+![Settings, Plugins](screenshots/plugins/plugins.png)
+
 ## Updating
 
 Pack a new version (change `version`) and add it the same way. Sheetbase
@@ -189,6 +303,6 @@ plugin off until an administrator has looked at it again.
 
 ## Limits
 
-100 files, 512 KiB each, 2 MiB in all, 4 MiB for the zip; 25 operations and 25
-analysis kinds per plugin; 24 fields per declaration. A call has 60 seconds and
+100 files, 512 KiB each, 2 MiB in all, 4 MiB for the zip; 25 of each point per
+plugin; 24 fields per declaration. A call has 60 seconds and
 the runner's memory limit, like any pipeline Python step.

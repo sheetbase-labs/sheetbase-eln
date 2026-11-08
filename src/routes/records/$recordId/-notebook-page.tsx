@@ -28,6 +28,11 @@ import {
   ExtensionObjectActions,
   toExtensionPanelTabs,
 } from '#/components/extensions/extension-slots'
+import { PluginScreen } from '#/components/extensions/plugin-screen'
+import {
+  operationAccess,
+  usePluginPoints,
+} from '#/components/extensions/use-plugin-points'
 import { useExtensionPoints } from '#/components/extensions/use-extension-points'
 import {
   describeExtensionInvocationError,
@@ -538,6 +543,7 @@ export function RecordNotebookPage({
     workspaceId,
     workspaceRole,
   )
+  const pluginPoints = usePluginPoints()
   const [samplePanelOpen, setSamplePanelOpen] = useState(false)
   const [extensionError, setExtensionError] = useState<string | null>(null)
   // EXT-02 invocation: the server-side assert gates execution (fail-closed);
@@ -887,6 +893,32 @@ export function RecordNotebookPage({
           <SampleExtensionPanel loadSummary={loadSampleSummary} />
         ) : null,
       )
+  // Panels from code plugins: a screen or a UI bundle, for this kind of
+  // record, drawn live (never beside a historical revision).
+  if (!historicalRevisionId)
+    for (const panel of pluginPoints.panels) {
+      if (
+        panel.declaration.models &&
+        !panel.declaration.models.includes(record.kind)
+      )
+        continue
+      extensionPanelTabs.push({
+        id: `plugin-${panel.extensionKey}-${panel.id}`,
+        label: panel.declaration.title,
+        content: (
+          <PluginScreen
+            extensionKey={panel.extensionKey}
+            pluginName={panel.extensionName}
+            point="panels"
+            itemId={panel.id}
+            title={panel.declaration.title}
+            source={panel.declaration.ui ? 'ui' : 'screen'}
+            context={{ recordId: record.id, kind: record.kind }}
+            operations={operationAccess(pluginPoints, panel.extensionKey)}
+          />
+        ),
+      })
+    }
   const notices = (
     <>
       {historicalRevisionId ? (

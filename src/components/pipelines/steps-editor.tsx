@@ -2,7 +2,7 @@ import { t } from '#/copy'
 import { SqlEditor } from '#/components/pipelines/sql-editor'
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
-import { Input } from '#/components/ui/input'
+import { Field, Input } from '#/components/ui/input'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { personOption } from '#/components/record-picker/entity-options'
 import { Select } from '#/components/ui/select'
@@ -12,9 +12,9 @@ import {
   pluginStepSources,
 } from '#/components/pipelines/plugin-steps-editor'
 import { Banner } from '#/components/ui/alert'
-import { Field } from '#/components/ui/input'
 import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
 import { parsePluginName } from '#/lib/extensions/points'
+import type { OperationInput } from '#/lib/operations/descriptor'
 import type { PythonRuntimeInfo } from '#/components/pipelines/pipelines-data'
 import { CONFIRM_NO_ANSWER_OUTCOMES } from '#/lib/pipelines/config'
 import type {
@@ -352,7 +352,7 @@ function PluginStepBody({
     string,
     {
       description: string
-      inputs: readonly import('#/lib/operations/descriptor').OperationInput[]
+      inputs: readonly OperationInput[]
     }
   >
   tablesOf: (operation: string) => readonly string[]

@@ -47,7 +47,6 @@ from sheetbase.resources import (
     DatasetsResource,
     PeopleResource,
     PluginsResource,
-    StructuresResource,
     FacilityResource,
     PipelinesResource,
     ProjectsResource,
@@ -99,7 +98,6 @@ class SheetbaseClient:
         self.facility = FacilityResource(self._transport)
         self.pipelines = PipelinesResource(self._transport)
         self.people = PeopleResource(self._transport)
-        self.structures = StructuresResource(self._transport)
         #: ``client.plugins.call(key, operation, input)``: operations installed plugins declare.
         self.plugins = PluginsResource(self._transport)
 

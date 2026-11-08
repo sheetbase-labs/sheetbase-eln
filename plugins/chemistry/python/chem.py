@@ -289,3 +289,31 @@ def check(input):
             for m in (matches or [])
         ],
     }
+
+
+def register(input):
+    """Register a compound as the person running this. The registry's same-thing rule refuses a repeat."""
+    described = describe({"structure": input["structure"]})
+    registry = _registry(input)
+    fields = dict(input.get("fields") or {})
+    fields[input.get("structure_field") or "structure"] = described["molfile"]
+    entry = host_call(
+        "sheetbase.lab.act",
+        {
+            "action": "create_registry_entry",
+            "arguments": {
+                "p_project_id": input["project_id"],
+                "p_kind": registry,
+                "p_title": input["name"],
+                "p_custom_fields": fields,
+                "p_allow_duplicate": False,
+                "p_sameness_value": parent_key({"structure": described["molfile"]})["key"],
+            },
+        },
+    )
+    return {
+        "id": (entry or {}).get("id") or "",
+        "identifier": (entry or {}).get("identifier") or "",
+        "formula": described["formula"],
+        "mass": described["mass"],
+    }

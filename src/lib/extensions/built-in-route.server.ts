@@ -11,36 +11,11 @@ import {
   resolveSessionAuth,
 } from '../request-auth'
 import type { SessionAuthDeps } from '../request-auth'
-import { CHEMISTRY_PLUGIN_KEY, adoptChemistryPlugin } from '../chemistry-plugin'
-import type { AdoptedModel } from '../chemistry-plugin'
-import { runExtensionSamenessKey } from './data-runtime.server'
-import { reindexPlugin } from './reindex.server'
 import { ensureBuiltInPlugins } from './built-in.server'
 
 export interface BuiltInRouteDeps {
   auth: SessionAuthDeps
   makeClient: (token: string) => DataClient
-  /** Moves existing compound registries onto the chemistry plugin after it is installed or updated. */
-  adoptChemistry?: (
-    client: DataClient,
-    caller: { workspaceId: string; actorUserId: string },
-  ) => Promise<AdoptedModel[]>
-}
-
-const adoptChemistryDefault: NonNullable<
-  BuiltInRouteDeps['adoptChemistry']
-> = async (client, caller) => {
-  const adopted = await adoptChemistryPlugin(client, (molfile) =>
-    runExtensionSamenessKey({
-      ...caller,
-      extensionKey: CHEMISTRY_PLUGIN_KEY,
-      keyId: 'parent-structure',
-      values: { structure: molfile },
-    }),
-  )
-  // Compounds saved before the plugin get their entry in its search index.
-  await reindexPlugin(client, caller, CHEMISTRY_PLUGIN_KEY)
-  return adopted
 }
 
 export async function handleBuiltInPlugins(
@@ -48,7 +23,6 @@ export async function handleBuiltInPlugins(
   deps: BuiltInRouteDeps = {
     auth: realSessionAuthDeps,
     makeClient: createServerDataClient,
-    adoptChemistry: adoptChemistryDefault,
   },
 ): Promise<Response> {
   if (request.method !== 'POST')
@@ -72,29 +46,7 @@ export async function handleBuiltInPlugins(
   }
   try {
     const results = await ensureBuiltInPlugins(client, context)
-    // Compounds registered before the plugin keep working: their structure
-    // field becomes the plugin's and each one gets its same-thing key. A
-    // problem here does not undo the install; the administrator can run it
-    // again from the adopt route.
-    let adopted: AdoptedModel[] = []
-    let adoptError: string | undefined
-    const chemistry = results.find((r) => r.key === CHEMISTRY_PLUGIN_KEY)
-    if (chemistry && chemistry.action !== 'unchanged' && deps.adoptChemistry) {
-      try {
-        adopted = await deps.adoptChemistry(client, {
-          workspaceId: context.workspaceId,
-          actorUserId: context.userId,
-        })
-      } catch (error) {
-        adoptError =
-          error instanceof Error ? error.message : 'Adopting compounds failed.'
-      }
-    }
-    return Response.json({
-      plugins: results,
-      adopted,
-      ...(adoptError ? { adoptError } : {}),
-    })
+    return Response.json({ plugins: results })
   } catch (error) {
     return requestErrorResponse(
       409,

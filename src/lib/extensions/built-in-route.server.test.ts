@@ -1,14 +1,11 @@
 /**
- * Installing the built-in plugins moves existing compounds onto the chemistry plugin.
+ * POST /api/plugins/built-in installs the plugins that ship with Sheetbase.
  */
 import { describe, expect, it, vi } from 'vitest'
 
 import type { DataClient } from '../data-client'
 
 import { handleBuiltInPlugins } from './built-in-route.server'
-import type { BuiltInRouteDeps } from './built-in-route.server'
-
-type Adopt = NonNullable<BuiltInRouteDeps['adoptChemistry']>
 
 vi.mock('../request-auth', () => ({
   realSessionAuthDeps: {},
@@ -24,52 +21,30 @@ vi.mock('../connectors/enterprise/execution.server', () => ({
 }))
 const ensure = vi.hoisted(() => vi.fn())
 vi.mock('./built-in.server', () => ({ ensureBuiltInPlugins: ensure }))
-vi.mock('./data-runtime.server', () => ({ runExtensionSamenessKey: vi.fn() }))
 
-const deps = (adoptChemistry: ReturnType<typeof vi.fn<Adopt>>) => ({
+const deps = (rpc: () => Promise<unknown> = async () => null) => ({
   auth: {} as never,
-  makeClient: () => ({ rpc: async () => null }) as unknown as DataClient,
-  adoptChemistry,
+  makeClient: () => ({ rpc }) as unknown as DataClient,
 })
 const post = () =>
   new Request('http://x/api/plugins/built-in', { method: 'POST' })
 
 describe('POST /api/plugins/built-in', () => {
-  it('adopts existing compounds when chemistry was installed', async () => {
+  it('installs the built-in plugins and says what happened', async () => {
     ensure.mockResolvedValueOnce([{ key: 'chemistry', action: 'installed' }])
-    const adopt = vi.fn<Adopt>(async () => [
-      {
-        modelKey: 'compound',
-        structureField: 'structure',
-        keyed: 3,
-        skipped: 0,
-      },
-    ])
-    const body = (await (
-      await handleBuiltInPlugins(post(), deps(adopt))
-    ).json()) as {
-      adopted: unknown[]
+    const body = (await (await handleBuiltInPlugins(post(), deps())).json()) as {
+      plugins: { key: string }[]
     }
-    expect(adopt).toHaveBeenCalledTimes(1)
-    expect(body.adopted).toHaveLength(1)
+    expect(body.plugins).toHaveLength(1)
   })
 
-  it('leaves compounds alone when nothing changed', async () => {
-    ensure.mockResolvedValueOnce([{ key: 'chemistry', action: 'unchanged' }])
-    const adopt = vi.fn<Adopt>()
-    await handleBuiltInPlugins(post(), deps(adopt))
-    expect(adopt).not.toHaveBeenCalled()
-  })
-
-  it('keeps the install when adopting fails and says so', async () => {
-    ensure.mockResolvedValueOnce([{ key: 'chemistry', action: 'updated' }])
-    const adopt = vi.fn<Adopt>(async () => {
-      throw new Error('The plugin is off.')
-    })
-    const response = await handleBuiltInPlugins(post(), deps(adopt))
-    expect(response.status).toBe(200)
-    expect(((await response.json()) as { adoptError: string }).adoptError).toBe(
-      'The plugin is off.',
+  it('refuses someone who cannot manage plugins', async () => {
+    const response = await handleBuiltInPlugins(
+      post(),
+      deps(async () => {
+        throw new Error('no')
+      }),
     )
+    expect(response.status).toBe(403)
   })
 })

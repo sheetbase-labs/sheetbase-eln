@@ -1,6 +1,5 @@
 import { z } from 'zod'
 
-import type { StructureDescriptor } from './compound-registry'
 import { PARENT_ROLES } from './bio-registry'
 
 /**
@@ -24,7 +23,6 @@ export const LEGAL_HOLD_RELEASE_TOOL = 'sheetbase.legal_hold.release'
 export const RETENTION_SET_TOOL = 'sheetbase.retention.set'
 export const RETENTION_APPLY_TOOL = 'sheetbase.retention.apply'
 export const REGISTRY_ADD_TOOL = 'sheetbase.registry.add'
-export const COMPOUND_REGISTER_TOOL = 'sheetbase.compound.register'
 export const COMPOUND_LOT_TOOL = 'sheetbase.compound.add_lot'
 export const WORKFLOW_ENROL_TOOL = 'sheetbase.workflow.enrol'
 export const WORKFLOW_LEAVE_TOOL = 'sheetbase.workflow.leave'
@@ -49,7 +47,6 @@ export const LABWORK_PROPOSE_TOOL_NAMES = [
   RETENTION_SET_TOOL,
   RETENTION_APPLY_TOOL,
   REGISTRY_ADD_TOOL,
-  COMPOUND_REGISTER_TOOL,
   COMPOUND_LOT_TOOL,
   WORKFLOW_ENROL_TOOL,
   WORKFLOW_LEAVE_TOOL,
@@ -223,39 +220,6 @@ export const proposeRegistryAddSchema = z
       .optional()
       .describe(
         'Entries this one was built from, such as the vector and insert of a cloning product.',
-      ),
-  })
-  .strict()
-
-export const proposeCompoundRegisterSchema = z
-  .object({
-    title,
-    summary,
-    registry: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe(
-        'The registry that takes structures, by model name or key (such as Compound).',
-      ),
-    name: z.string().min(1).max(200).describe('The compound’s name.'),
-    project: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The project it belongs to, by name or key.'),
-    structure: z
-      .string()
-      .min(1)
-      .max(20_000)
-      .describe(
-        'The structure as a SMILES line. A salt or solvent written with it is set aside when checking for repeats.',
-      ),
-    fields: z
-      .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
-      .optional()
-      .describe(
-        'Field values by field name, only those the person gave. Do not invent any.',
       ),
   })
   .strict()
@@ -579,14 +543,6 @@ export type LabworkAction =
       parents?: { recordId: string; role: string }[]
     }
   | {
-      kind: 'compound.register'
-      projectId: string
-      recordKind: string
-      title: string
-      customFields: Record<string, unknown>
-      structure: StructureDescriptor
-    }
-  | {
       kind: 'compound.lot'
       compoundId: string
       compound: string
@@ -678,7 +634,6 @@ const KINDS: readonly string[] = [
   'retention.set',
   'retention.apply',
   'registry.add',
-  'compound.register',
   'compound.lot',
   'workflow.enrol',
   'workflow.leave',

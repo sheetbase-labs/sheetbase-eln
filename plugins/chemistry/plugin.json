@@ -197,6 +197,27 @@
           }
         ],
         "run": "chem:check"
+      },
+      {
+        "id": "register",
+        "title": "Register a compound",
+        "description": "Adds a compound to a registry, as you. A compound whose parent structure is already registered is refused, whatever salt or solvent it came with; add a lot to the existing one instead.",
+        "access": "write",
+        "inputs": [
+          {"name": "structure", "type": "text", "required": true, "description": "A molfile or a SMILES line."},
+          {"name": "name", "type": "text", "required": true, "description": "The compound's name."},
+          {"name": "project_id", "type": "text", "required": true, "description": "The project it belongs to."},
+          {"name": "registry", "type": "text", "required": false, "description": "The registry, by its key. Default compound."},
+          {"name": "structure_field", "type": "text", "required": false, "description": "The field that holds the structure. Default structure."},
+          {"name": "fields", "type": "json", "required": false, "description": "Other field values by field name."}
+        ],
+        "outputs": [
+          {"name": "id", "type": "text", "required": true},
+          {"name": "identifier", "type": "text", "required": true},
+          {"name": "formula", "type": "text", "required": true},
+          {"name": "mass", "type": "number", "required": true}
+        ],
+        "run": "chem:register"
       }
     ],
     "field-types": [

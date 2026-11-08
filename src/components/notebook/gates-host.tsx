@@ -66,9 +66,16 @@ export function useNotebookGates({
     [names],
   )
   // A gate added, changed or removed on the page: ask the database again.
+  // A table a plugin check reads: when it changes, the stored answer is stale.
+  const checkedTables = new Set(
+    blocks
+      .filter((b) => b.type === 'gate')
+      .flatMap((b) => gateConditionsOf(b.payload))
+      .flatMap((c) => (c.kind === 'plugin_check' ? [c.blockId] : [])),
+  )
   const shape = [
     ...blocks
-      .filter((b) => b.type === 'gate')
+      .filter((b) => b.type === 'gate' || checkedTables.has(b.id))
       .map((b) => `${b.id}:${b.version}`),
     ...parts.map(
       (p) =>

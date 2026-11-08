@@ -21,6 +21,7 @@ import { VALID_SCOPES } from '../api-credential-scopes'
 import type { Scope } from '../api-credential-scopes'
 import { eventByName, resolveEventAlias } from '../event-catalogue'
 import { validateCompatRange } from './compat'
+import { DATA_POINT_PARSERS, isDataPoint } from './data-points'
 import {
   EXTENSION_RUNNER_POINTS,
   parseAnalysisKinds,
@@ -421,6 +422,25 @@ export function validateExtensionManifest(input: unknown): string[] {
     if (input.contributions['field-types'] !== undefined) {
       parseFieldTypes(input.contributions['field-types'], errors)
     }
+    for (const point of Object.keys(input.contributions)) {
+      if (isDataPoint(point))
+        DATA_POINT_PARSERS[point](input.contributions[point], errors)
+    }
+    // Operations, calculators and pipeline steps share one name: plugin.<key>.<id>.
+    const called = new Set<string>()
+    for (const point of ['operations', 'calculators', 'pipeline-steps']) {
+      const entries = input.contributions[point]
+      if (!Array.isArray(entries)) continue
+      for (const entry of entries as unknown[]) {
+        const id = isRecord(entry) ? entry.id : undefined
+        if (typeof id !== 'string') continue
+        if (called.has(id))
+          errors.push(
+            `${id} is used twice across operations, calculators and pipeline steps`,
+          )
+        called.add(id)
+      }
+    }
   }
   return errors
 }
@@ -478,6 +498,12 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
   }
   if (declared['field-types'] !== undefined) {
     contributions['field-types'] = parseFieldTypes(declared['field-types'], [])!
+  }
+  for (const point of Object.keys(declared)) {
+    if (isDataPoint(point))
+      (contributions as Record<string, unknown>)[point] = DATA_POINT_PARSERS[
+        point
+      ](declared[point], [])!
   }
   return {
     id: raw.id as string,

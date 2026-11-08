@@ -1,0 +1,30 @@
+{
+  "id": "acme.lookup-tools",
+  "name": "Lookup tools",
+  "version": "1.0.0",
+  "description": "Finds records by the number in their name however it is typed, and pulls compound properties from PubChem.",
+  "author": "Acme Bio",
+  "provides": {
+    "search-providers": [
+      {
+        "id": "loose-identifier",
+        "title": "Identifier, however typed",
+        "description": "Finds a record from part of its identifier or name, ignoring dashes, spaces and leading zeros.",
+        "types": ["record"],
+        "run": "lookup:search"
+      }
+    ],
+    "connectors": [
+      {
+        "id": "pubchem-properties",
+        "title": "PubChem properties",
+        "description": "Pulls the formula, mass and SMILES of a compound from PubChem by name.",
+        "hosts": ["pubchem.ncbi.nlm.nih.gov"],
+        "settings": [],
+        "parameters": [{ "name": "compound", "type": "text", "required": true, "label": "Compound name" }],
+        "run": "lookup:plan_pubchem",
+        "parse": "lookup:parse_pubchem"
+      }
+    ]
+  }
+}

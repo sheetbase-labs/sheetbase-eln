@@ -20,8 +20,11 @@ import type {
   ExtensionTableCellDeclaration,
 } from './hooks'
 import { parseExtensionManifest } from './manifest'
+import { callableItems } from './callables'
+import type { CallableItem } from './callables'
+import type { ExtensionDataContributions } from './data-points'
 import { pluginOperationDescriptors } from './operation-descriptors'
-import { isRunnerPoint, pluginOperationName } from './points'
+import { isRunnerPoint, parsePluginName, pluginOperationName } from './points'
 import type {
   ExtensionAnalysisKindDeclaration,
   ExtensionOperationDeclaration,
@@ -52,8 +55,27 @@ export interface RunnerItem<TDeclaration> {
   declaration: TDeclaration
 }
 
+/** The points whose items the app looks up by what they do, not by name. */
+export const DATA_ITEM_POINTS = [
+  'checks',
+  'search-providers',
+  'connectors',
+  'importers',
+  'exporters',
+  'previews',
+  'sameness-keys',
+  'event-hooks',
+] as const
+export type DataItemPoint = (typeof DATA_ITEM_POINTS)[number]
+type DataDeclaration<TPoint extends DataItemPoint> = NonNullable<
+  ExtensionDataContributions[TPoint]
+>[number]
+
 export interface ResolvedRunnerPoints {
+  /** Everything called by name: operations, calculators and pipeline steps. */
   operations: Array<RunnerItem<ExtensionOperationDeclaration>>
+  /** Which of those each is, by item name. */
+  callables: Map<string, CallableItem>
   analysisKinds: Array<RunnerItem<ExtensionAnalysisKindDeclaration>>
   blocks: Array<RunnerItem<ExtensionBlockDeclaration>>
   /** Panels that bring a screen or a UI bundle; the older plain panels stay with the sample. */
@@ -62,6 +84,8 @@ export interface ResolvedRunnerPoints {
   columns: Array<RunnerItem<ExtensionColumnDeclaration>>
   rowActions: Array<RunnerItem<ExtensionRowActionDeclaration>>
   fieldTypes: Array<RunnerItem<ExtensionFieldTypeDeclaration>>
+  /** The other data and search points, by point. */
+  data: { [P in DataItemPoint]: Array<RunnerItem<DataDeclaration<P>>> }
   /** The generated descriptors of `operations`, ready for the surface generators. */
   descriptors: OperationDescriptor[]
 }
@@ -69,11 +93,25 @@ export interface ResolvedRunnerPoints {
 const byName = <T extends { name: string }>(a: T, b: T) =>
   a.name < b.name ? -1 : a.name > b.name ? 1 : 0
 
+export function emptyData(): ResolvedRunnerPoints['data'] {
+  return {
+    checks: [],
+    'search-providers': [],
+    connectors: [],
+    importers: [],
+    exporters: [],
+    previews: [],
+    'sameness-keys': [],
+    'event-hooks': [],
+  }
+}
+
 export function resolveRunnerPoints(
   installs: readonly RunnerInstallLike[],
 ): ResolvedRunnerPoints {
   const out: ResolvedRunnerPoints = {
     operations: [],
+    callables: new Map(),
     analysisKinds: [],
     blocks: [],
     panels: [],
@@ -81,6 +119,7 @@ export function resolveRunnerPoints(
     columns: [],
     rowActions: [],
     fieldTypes: [],
+    data: emptyData(),
     descriptors: [],
   }
   for (const install of installs) {
@@ -99,20 +138,26 @@ export function resolveRunnerPoints(
       manifestId: manifest.id,
       manifestVersion: manifest.version,
     }
-    if (!off.has('operations')) {
-      for (const declaration of manifest.contributions.operations ?? []) {
-        out.operations.push({
-          ...base,
-          point: 'operations',
-          id: declaration.id,
-          name: pluginOperationName(install.key, declaration.id),
-          declaration,
-        })
-      }
+    const live = callableItems(manifest).filter((item) => !off.has(item.point))
+    for (const item of live) {
+      const name = pluginOperationName(install.key, item.id)
+      out.operations.push({
+        ...base,
+        point: item.point,
+        id: item.id,
+        name,
+        declaration: item.declaration,
+      })
+      out.callables.set(name, item)
+    }
+    if (live.length) {
+      const liveIds = new Set(live.map((item) => item.id))
       out.descriptors.push(
         ...pluginOperationDescriptors(install.key, manifest, {
           pluginName: base.extensionName,
-        }),
+        }).filter((descriptor) =>
+          liveIds.has(parsePluginName(descriptor.name)?.id ?? ''),
+        ),
       )
     }
     if (!off.has('analysis-kinds')) {
@@ -156,6 +201,18 @@ export function resolveRunnerPoints(
         })
       }
     }
+    for (const point of DATA_ITEM_POINTS) {
+      if (off.has(point)) continue
+      for (const declaration of manifest.contributions[point] ?? []) {
+        ;(out.data[point] as Array<RunnerItem<unknown>>).push({
+          ...base,
+          point,
+          id: declaration.id,
+          name: pluginOperationName(install.key, declaration.id),
+          declaration,
+        })
+      }
+    }
   }
   out.operations.sort(byName)
   out.analysisKinds.sort(byName)
@@ -169,8 +226,25 @@ export function resolveRunnerPoints(
   ])
     (group as Array<{ name: string }>).sort(byName)
   out.descriptors.sort(byName)
+  for (const point of DATA_ITEM_POINTS) out.data[point].sort(byName)
   return out
 }
+
+/** How an item is labelled in the administrator's list: a key of `plugins.admin.access`. */
+export type ExtensionAddDetail =
+  | 'read'
+  | 'write'
+  | 'analysis'
+  | 'step'
+  | 'calculator'
+  | 'check'
+  | 'search'
+  | 'connector'
+  | 'import'
+  | 'export'
+  | 'preview'
+  | 'key'
+  | 'hook'
 
 /** What a manifest adds, point by point, for the administrator's list. */
 export interface ExtensionAdds {
@@ -186,27 +260,21 @@ export function describeRunnerAdds(manifest: unknown): ExtensionAdds[] {
     return []
   }
   const adds: ExtensionAdds[] = []
-  const operations = parsed.contributions.operations
-  if (operations?.length) {
-    adds.push({
-      point: 'operations',
-      items: operations.map((operation) => ({
-        id: operation.id,
-        title: operation.title,
-        detail: operation.access,
-      })),
-    })
-  }
-  const kinds = parsed.contributions['analysis-kinds']
-  if (kinds?.length) {
-    adds.push({
-      point: 'analysis-kinds',
-      items: kinds.map((kind) => ({
-        id: kind.id,
-        title: kind.title,
-        detail: 'analysis',
-      })),
-    })
+  const c = parsed.contributions
+  const add = (
+    point: ExtensionRunnerPoint,
+    items: Array<{ id: string; title: string }> | undefined,
+    detail: (item: never) => string,
+  ) => {
+    if (items?.length)
+      adds.push({
+        point,
+        items: items.map((item) => ({
+          id: item.id,
+          title: item.title,
+          detail: detail(item as never),
+        })),
+      })
   }
   const hookItems = (
     point: ExtensionRunnerPoint,
@@ -233,6 +301,22 @@ export function describeRunnerAdds(manifest: unknown): ExtensionAdds[] {
   hookItems('columns', parsed.contributions.columns, 'column')
   hookItems('row-actions', parsed.contributions['row-actions'], 'rows')
   hookItems('field-types', parsed.contributions['field-types'], 'fieldType')
+  add(
+    'operations',
+    c.operations,
+    (o: ExtensionOperationDeclaration) => o.access,
+  )
+  add('analysis-kinds', c['analysis-kinds'], () => 'analysis')
+  add('pipeline-steps', c['pipeline-steps'], () => 'step')
+  add('calculators', c.calculators, () => 'calculator')
+  add('checks', c.checks, () => 'check')
+  add('search-providers', c['search-providers'], () => 'search')
+  add('connectors', c.connectors, () => 'connector')
+  add('importers', c.importers, () => 'import')
+  add('exporters', c.exporters, () => 'export')
+  add('previews', c.previews, () => 'preview')
+  add('sameness-keys', c['sameness-keys'], () => 'key')
+  add('event-hooks', c['event-hooks'], () => 'hook')
   return adds
 }
 

@@ -25,7 +25,7 @@ import { VALID_SCOPES } from '../api-credential-scopes'
 import type { Scope } from '../api-credential-scopes'
 import { validateExtensionManifest } from './manifest'
 import type { ExtensionManifest } from './manifest'
-import { EXTENSION_ENTRY_RE } from './points'
+import { EXTENSION_ENTRY_RE, EXTENSION_SWITCH_POINTS } from './points'
 import { PLUGIN_UI_ENTRY_RE } from './hooks'
 
 export const PLUGIN_MAX_FILES = 100
@@ -52,9 +52,9 @@ const TOP_LEVEL = [
   'provides',
   'examples',
 ]
-const PROVIDES = [
-  'operations',
-  'analysis-kinds',
+const PROVIDES: readonly string[] = EXTENSION_SWITCH_POINTS
+/** The points drawn on screens and in tables (`hooks.ts`). */
+const HOOK_POINTS: readonly string[] = [
   'blocks',
   'panels',
   'table-cells',
@@ -185,12 +185,19 @@ function entryExists(
 }
 
 /** Author form (`run`) to the stored form (`runner`). Leaves bad values alone for the validator to name. */
-function toStored(value: unknown): unknown {
+export function toStored(value: unknown): unknown {
   if (!Array.isArray(value)) return value
   return value.map((entry) => {
     if (!isRecord(entry)) return entry
-    const { run, ...rest } = entry
-    return { ...rest, runner: { kind: 'python', entry: run } }
+    const { run, parse, ...rest } = entry
+    return {
+      ...rest,
+      runner: { kind: 'python', entry: run },
+      // A connector's second function: turns the answers into rows.
+      ...(parse !== undefined
+        ? { parse: { kind: 'python', entry: parse } }
+        : {}),
+    }
   })
 }
 
@@ -290,35 +297,43 @@ export function buildPluginPackage(
       )
     )
       errors.push(
-        'a plugin has to provide at least one operation, analysis kind, block, panel, table cell display, column, row action or field type',
+        'a plugin has to provide at least one thing: an operation, calculator, analysis kind, pipeline step, check, search, connector, importer, exporter, preview, same-thing rule, event reaction, block, panel, table cell display, column, row action or field type',
       )
     const usedUi = new Set<string>()
     for (const point of PROVIDES) {
       if (provides[point] === undefined) continue
-      contributions[point] =
-        point === 'operations' || point === 'analysis-kinds'
-          ? toStored(provides[point])
-          : toStoredHooks(point, provides[point])
+      contributions[point] = HOOK_POINTS.includes(point)
+        ? toStoredHooks(point, provides[point])
+        : toStored(provides[point])
       for (const entry of Array.isArray(provides[point]) ? provides[point] : [])
         if (isRecord(entry)) {
           const where = `provides.${point}.${String(entry.id)}`
-          const { python, ui: bundles } = pointers(entry)
-          if (
-            python.length === 0 &&
-            bundles.length === 0 &&
-            !PROVIDES_WITHOUT_PYTHON.includes(point) &&
-            point !== 'panels'
-          )
-            errors.push(`${where} needs a Python function to run`)
-          for (const run of python) entryExists(run, files, where, errors)
-          for (const bundle of bundles) {
-            if (typeof bundle !== 'string' || !PLUGIN_UI_ENTRY_RE.test(bundle))
-              continue
-            usedUi.add(bundle)
-            if (!(bundle in files))
-              errors.push(
-                `${where} ui points at ${bundle}, which is not in the package`,
+          if (!HOOK_POINTS.includes(point)) {
+            entryExists(entry.run, files, where, errors)
+            if (point === 'connectors')
+              entryExists(entry.parse, files, `${where} parse`, errors)
+          } else {
+            const { python, ui: bundles } = pointers(entry)
+            if (
+              python.length === 0 &&
+              bundles.length === 0 &&
+              !PROVIDES_WITHOUT_PYTHON.includes(point) &&
+              point !== 'panels'
+            )
+              errors.push(`${where} needs a Python function to run`)
+            for (const run of python) entryExists(run, files, where, errors)
+            for (const bundle of bundles) {
+              if (
+                typeof bundle !== 'string' ||
+                !PLUGIN_UI_ENTRY_RE.test(bundle)
               )
+                continue
+              usedUi.add(bundle)
+              if (!(bundle in files))
+                errors.push(
+                  `${where} ui points at ${bundle}, which is not in the package`,
+                )
+            }
           }
         }
     }

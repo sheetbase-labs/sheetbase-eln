@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { validateExtensionManifest } from '#/lib/extensions/manifest'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { buildPluginPackage } from '#/lib/extensions/package'
+import { buildPluginPackage, toStored } from '#/lib/extensions/package'
 import { prepareTestDatabase } from './helpers'
 
 const WS = '0e050000-0000-4000-8000-0000000000e1'
@@ -123,6 +123,81 @@ describe('runner point manifests in SQL', () => {
         `sql: ${label}`,
       ).rejects.toMatchObject({ code: 'SB034' })
     }
+  })
+})
+
+describe('the data and search points in SQL', () => {
+  const cases = JSON.parse(
+    readFileSync(
+      join(process.cwd(), 'sdks/plugin-python/tests/point_cases.json'),
+      'utf8',
+    ),
+  ) as Array<{
+    name: string
+    valid: boolean
+    manifest: { provides: Record<string, unknown> }
+  }>
+  // The database checks the stored manifest; whether a function exists in the
+  // package's files is a package check, made before anything is stored.
+  const packageOnly = new Set([
+    'connectors: a parse function that does not exist',
+  ])
+  const stored = (provides: Record<string, unknown>) => ({
+    id: 'acme.demo',
+    name: 'Demo',
+    version: '1.0.0',
+    source: 'package:acme.demo',
+    capabilities: [],
+    scopes: ['projects:read'],
+    contributions: Object.fromEntries(
+      Object.entries(provides).map(([point, entries]) => [
+        point,
+        toStored(entries),
+      ]),
+    ),
+  })
+
+  it.each(cases.filter((c) => !packageOnly.has(c.name)))(
+    '$name',
+    async ({ valid, manifest }) => {
+      const result = migrator.query(
+        'select internal.validate_extension_manifest($1::jsonb)',
+        [JSON.stringify(stored(manifest.provides))],
+      )
+      if (valid) await expect(result).resolves.toBeDefined()
+      else await expect(result).rejects.toMatchObject({ code: 'SB034' })
+    },
+  )
+
+  it('lets an administrator switch a new point off, and refuses a made-up one', async () => {
+    const owner = await actor(OWNER)
+    const row = await install(owner, 'switch-new', {
+      ...stored({
+        calculators: [
+          {
+            id: 'calc',
+            title: 'Calc',
+            description: 'Calculates.',
+            inputs: [{ name: 'a', type: 'number', required: true }],
+            outputs: [{ name: 'b', type: 'number', required: true }],
+            run: 'm:f',
+          },
+        ],
+      }),
+      id: 'acme.switch-new',
+      source: 'package:acme.switch-new',
+    })
+    const off = await owner.query(
+      `select * from api.set_extension_point_enabled($1,$2,'calculators',false)`,
+      [WS, row.id],
+    )
+    expect(off.rows[0].disabled_points).toEqual(['calculators'])
+    await expect(
+      owner.query(
+        `select * from api.set_extension_point_enabled($1,$2,'made-up',false)`,
+        [WS, row.id],
+      ),
+    ).rejects.toMatchObject({ code: '22023' })
   })
 })
 

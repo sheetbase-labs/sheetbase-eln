@@ -1,0 +1,2474 @@
+[
+  {
+    "name": "pipeline-steps: a valid declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "pipeline-steps": [
+          {
+            "id": "join",
+            "title": "Join",
+            "run": "m:f",
+            "tables": [
+              {
+                "name": "left",
+                "label": "Left",
+                "required": true
+              },
+              {
+                "name": "right",
+                "label": "Right",
+                "required": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "on",
+                "type": "text",
+                "required": true,
+                "label": "Join on",
+                "unit": "col"
+              }
+            ],
+            "result": {
+              "columns": [
+                {
+                  "name": "value",
+                  "type": "number"
+                },
+                {
+                  "name": "label",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "pipeline-steps: no tables",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "pipeline-steps": [
+          {
+            "id": "join",
+            "title": "Join",
+            "run": "m:f",
+            "tables": [],
+            "parameters": [
+              {
+                "name": "on",
+                "type": "text",
+                "required": true,
+                "label": "Join on",
+                "unit": "col"
+              }
+            ],
+            "result": {
+              "columns": [
+                {
+                  "name": "value",
+                  "type": "number"
+                },
+                {
+                  "name": "label",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "pipeline-steps: a table without a label",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "pipeline-steps": [
+          {
+            "id": "join",
+            "title": "Join",
+            "run": "m:f",
+            "tables": [
+              {
+                "name": "a",
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "on",
+                "type": "text",
+                "required": true,
+                "label": "Join on",
+                "unit": "col"
+              }
+            ],
+            "result": {
+              "columns": [
+                {
+                  "name": "value",
+                  "type": "number"
+                },
+                {
+                  "name": "label",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "pipeline-steps: too many tables",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "pipeline-steps": [
+          {
+            "id": "join",
+            "title": "Join",
+            "run": "m:f",
+            "tables": [
+              {
+                "name": "t0",
+                "label": "T",
+                "required": true
+              },
+              {
+                "name": "t1",
+                "label": "T",
+                "required": true
+              },
+              {
+                "name": "t2",
+                "label": "T",
+                "required": true
+              },
+              {
+                "name": "t3",
+                "label": "T",
+                "required": true
+              },
+              {
+                "name": "t4",
+                "label": "T",
+                "required": true
+              },
+              {
+                "name": "t5",
+                "label": "T",
+                "required": true
+              },
+              {
+                "name": "t6",
+                "label": "T",
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "on",
+                "type": "text",
+                "required": true,
+                "label": "Join on",
+                "unit": "col"
+              }
+            ],
+            "result": {
+              "columns": [
+                {
+                  "name": "value",
+                  "type": "number"
+                },
+                {
+                  "name": "label",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "pipeline-steps: no result columns",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "pipeline-steps": [
+          {
+            "id": "join",
+            "title": "Join",
+            "run": "m:f",
+            "tables": [
+              {
+                "name": "left",
+                "label": "Left",
+                "required": true
+              },
+              {
+                "name": "right",
+                "label": "Right",
+                "required": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "on",
+                "type": "text",
+                "required": true,
+                "label": "Join on",
+                "unit": "col"
+              }
+            ],
+            "result": {
+              "columns": []
+            }
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "pipeline-steps: bad result column type",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "pipeline-steps": [
+          {
+            "id": "join",
+            "title": "Join",
+            "run": "m:f",
+            "tables": [
+              {
+                "name": "left",
+                "label": "Left",
+                "required": true
+              },
+              {
+                "name": "right",
+                "label": "Right",
+                "required": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "on",
+                "type": "text",
+                "required": true,
+                "label": "Join on",
+                "unit": "col"
+              }
+            ],
+            "result": {
+              "columns": [
+                {
+                  "name": "a",
+                  "type": "date"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "pipeline-steps: parameters missing",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "pipeline-steps": [
+          {
+            "id": "join",
+            "title": "Join",
+            "run": "m:f",
+            "tables": [
+              {
+                "name": "left",
+                "label": "Left",
+                "required": true
+              },
+              {
+                "name": "right",
+                "label": "Right",
+                "required": false
+              }
+            ],
+            "result": {
+              "columns": [
+                {
+                  "name": "value",
+                  "type": "number"
+                },
+                {
+                  "name": "label",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "pipeline-steps: no runner",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "pipeline-steps": [
+          {
+            "id": "join",
+            "title": "Join",
+            "tables": [
+              {
+                "name": "left",
+                "label": "Left",
+                "required": true
+              },
+              {
+                "name": "right",
+                "label": "Right",
+                "required": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "on",
+                "type": "text",
+                "required": true,
+                "label": "Join on",
+                "unit": "col"
+              }
+            ],
+            "result": {
+              "columns": [
+                {
+                  "name": "value",
+                  "type": "number"
+                },
+                {
+                  "name": "label",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "pipeline-steps: bad entry",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "pipeline-steps": [
+          {
+            "id": "join",
+            "title": "Join",
+            "run": "Module.fn",
+            "tables": [
+              {
+                "name": "left",
+                "label": "Left",
+                "required": true
+              },
+              {
+                "name": "right",
+                "label": "Right",
+                "required": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "on",
+                "type": "text",
+                "required": true,
+                "label": "Join on",
+                "unit": "col"
+              }
+            ],
+            "result": {
+              "columns": [
+                {
+                  "name": "value",
+                  "type": "number"
+                },
+                {
+                  "name": "label",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "pipeline-steps: description is optional",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "pipeline-steps": [
+          {
+            "id": "join",
+            "title": "Join",
+            "run": "m:f",
+            "tables": [
+              {
+                "name": "left",
+                "label": "Left",
+                "required": true
+              }
+            ],
+            "parameters": [],
+            "result": {
+              "columns": [
+                {
+                  "name": "value",
+                  "type": "number"
+                },
+                {
+                  "name": "label",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "calculators: a valid declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "calculators": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "inputs": [
+              {
+                "name": "volume",
+                "type": "number",
+                "required": true,
+                "label": "Volume",
+                "unit": "µL"
+              }
+            ],
+            "outputs": [
+              {
+                "name": "cells",
+                "type": "number",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "calculators: no description",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "calculators": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "run": "m:f",
+            "inputs": [
+              {
+                "name": "volume",
+                "type": "number",
+                "required": true,
+                "label": "Volume",
+                "unit": "µL"
+              }
+            ],
+            "outputs": [
+              {
+                "name": "cells",
+                "type": "number",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "calculators: no inputs",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "calculators": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "inputs": [],
+            "outputs": [
+              {
+                "name": "cells",
+                "type": "number",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "calculators: no outputs",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "calculators": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "inputs": [
+              {
+                "name": "volume",
+                "type": "number",
+                "required": true,
+                "label": "Volume",
+                "unit": "µL"
+              }
+            ],
+            "outputs": []
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "calculators: a unit that is too long",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "calculators": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "inputs": [
+              {
+                "name": "v",
+                "type": "number",
+                "required": true,
+                "unit": "xxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "outputs": [
+              {
+                "name": "cells",
+                "type": "number",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "calculators: a label that is empty",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "calculators": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "inputs": [
+              {
+                "name": "v",
+                "type": "number",
+                "required": true,
+                "label": " "
+              }
+            ],
+            "outputs": [
+              {
+                "name": "cells",
+                "type": "number",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "calculators: an unknown field type",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "calculators": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "inputs": [
+              {
+                "name": "v",
+                "type": "float",
+                "required": true
+              }
+            ],
+            "outputs": [
+              {
+                "name": "cells",
+                "type": "number",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "checks: a valid declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "checks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "inputs": [
+              {
+                "name": "value",
+                "label": "Value",
+                "type": "number",
+                "required": true
+              },
+              {
+                "name": "group",
+                "label": "Group",
+                "type": "category",
+                "required": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "checks: no inputs",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "checks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "inputs": []
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "checks: input type text",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "checks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "inputs": [
+              {
+                "name": "a",
+                "label": "A",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "checks: input without a label",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "checks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "inputs": [
+              {
+                "name": "a",
+                "type": "number",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "checks: repeated input",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "checks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "inputs": [
+              {
+                "name": "a",
+                "label": "A",
+                "type": "number",
+                "required": true
+              },
+              {
+                "name": "a",
+                "label": "A",
+                "type": "number",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "checks: no description",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "checks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "run": "m:f",
+            "inputs": [
+              {
+                "name": "value",
+                "label": "Value",
+                "type": "number",
+                "required": true
+              },
+              {
+                "name": "group",
+                "label": "Group",
+                "type": "category",
+                "required": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "search-providers: a valid declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "search-providers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "types": [
+              "sample",
+              "registry_entry"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "search-providers: no types",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "search-providers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "types": []
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "search-providers: a type with capitals",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "search-providers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "types": [
+              "Sample"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "search-providers: repeated types",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "search-providers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "types": [
+              "sample",
+              "sample"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "search-providers: too many types",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "search-providers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "types": [
+              "t0",
+              "t1",
+              "t2",
+              "t3",
+              "t4",
+              "t5",
+              "t6",
+              "t7",
+              "t8",
+              "t9",
+              "t10"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "search-providers: no description",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "search-providers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "run": "m:f",
+            "types": [
+              "sample",
+              "registry_entry"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "connectors: a valid declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "connectors": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [
+              "api.example.org"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "query",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "connectors: no hosts",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "connectors": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "query",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "connectors: an address instead of a host",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "connectors": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [
+              "10.0.0.1"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "query",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "connectors: a host with a path",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "connectors": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [
+              "api.example.org/v1"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "query",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "connectors: a host with no dot",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "connectors": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [
+              "localhost"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "query",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "connectors: a setting without secret",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "connectors": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [
+              "api.example.org"
+            ],
+            "settings": [
+              {
+                "name": "a",
+                "label": "A",
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "query",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "connectors: too many settings",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "connectors": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [
+              "api.example.org"
+            ],
+            "settings": [
+              {
+                "name": "s0",
+                "label": "S",
+                "secret": false,
+                "required": false
+              },
+              {
+                "name": "s1",
+                "label": "S",
+                "secret": false,
+                "required": false
+              },
+              {
+                "name": "s2",
+                "label": "S",
+                "secret": false,
+                "required": false
+              },
+              {
+                "name": "s3",
+                "label": "S",
+                "secret": false,
+                "required": false
+              },
+              {
+                "name": "s4",
+                "label": "S",
+                "secret": false,
+                "required": false
+              },
+              {
+                "name": "s5",
+                "label": "S",
+                "secret": false,
+                "required": false
+              },
+              {
+                "name": "s6",
+                "label": "S",
+                "secret": false,
+                "required": false
+              },
+              {
+                "name": "s7",
+                "label": "S",
+                "secret": false,
+                "required": false
+              },
+              {
+                "name": "s8",
+                "label": "S",
+                "secret": false,
+                "required": false
+              }
+            ],
+            "parameters": [
+              {
+                "name": "query",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "connectors: no parse function",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "connectors": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "hosts": [
+              "api.example.org"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "query",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "connectors: a parse function that does not exist",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "connectors": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "parse": "m:missing",
+            "hosts": [
+              "api.example.org"
+            ],
+            "settings": [
+              {
+                "name": "token",
+                "label": "API token",
+                "secret": true,
+                "required": true
+              }
+            ],
+            "parameters": [
+              {
+                "name": "query",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "connectors: no settings is fine",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "connectors": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "parse": "m:p",
+            "hosts": [
+              "api.example.org"
+            ],
+            "settings": [],
+            "parameters": []
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "importers: a valid declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "importers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [
+              ".mzml",
+              ".mzxml"
+            ],
+            "encoding": "base64"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "importers: no extensions",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "importers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [],
+            "encoding": "base64"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "importers: an extension without the dot",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "importers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [
+              "mzml"
+            ],
+            "encoding": "base64"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "importers: an upper case extension",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "importers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [
+              ".MZML"
+            ],
+            "encoding": "base64"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "importers: no encoding",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "importers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [
+              ".mzml",
+              ".mzxml"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "importers: an unknown encoding",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "importers": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [
+              ".mzml",
+              ".mzxml"
+            ],
+            "encoding": "hex"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "exporters: a valid declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "exporters": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extension": ".fasta",
+            "mime": "text/x-fasta",
+            "encoding": "text",
+            "parameters": [
+              {
+                "name": "width",
+                "type": "integer",
+                "required": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "exporters: no extension",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "exporters": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "mime": "text/x-fasta",
+            "encoding": "text",
+            "parameters": [
+              {
+                "name": "width",
+                "type": "integer",
+                "required": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "exporters: a bad mime type",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "exporters": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extension": ".fasta",
+            "mime": "fasta",
+            "encoding": "text",
+            "parameters": [
+              {
+                "name": "width",
+                "type": "integer",
+                "required": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "exporters: no mime",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "exporters": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extension": ".fasta",
+            "encoding": "text",
+            "parameters": [
+              {
+                "name": "width",
+                "type": "integer",
+                "required": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "exporters: no encoding",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "exporters": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extension": ".fasta",
+            "mime": "text/x-fasta",
+            "parameters": [
+              {
+                "name": "width",
+                "type": "integer",
+                "required": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "exporters: no parameters list",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "exporters": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extension": ".fasta",
+            "mime": "text/x-fasta",
+            "encoding": "text"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "previews: a valid declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "previews": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [
+              ".mzml"
+            ],
+            "encoding": "text"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "previews: no extensions",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "previews": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [],
+            "encoding": "text"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "previews: bad encoding",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "previews": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "extensions": [
+              ".mzml"
+            ],
+            "encoding": "utf8"
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "sameness-keys: a valid declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "sameness-keys": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "fields": [
+              {
+                "name": "smiles",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "sameness-keys: no fields",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "sameness-keys": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "fields": []
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "sameness-keys: no description",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "sameness-keys": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "run": "m:f",
+            "fields": [
+              {
+                "name": "smiles",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "sameness-keys: unknown field type",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "sameness-keys": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "fields": [
+              {
+                "name": "a",
+                "type": "blob",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "event-hooks: a valid declaration",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "event-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "events": [
+              "qc.violation",
+              "sample.received"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "event-hooks: no events",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "event-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "events": []
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "event-hooks: a malformed event name",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "event-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "events": [
+              "Nope"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "event-hooks: repeated events",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "event-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "events": [
+              "qc.violation",
+              "qc.violation"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "event-hooks: no description",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "event-hooks": [
+          {
+            "id": "thing",
+            "title": "Thing",
+            "run": "m:f",
+            "events": [
+              "qc.violation",
+              "sample.received"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "a name used by an operation and a calculator is refused",
+    "valid": false,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "operations": [
+          {
+            "id": "same",
+            "title": "A",
+            "description": "A.",
+            "access": "read",
+            "inputs": [
+              {
+                "name": "value",
+                "type": "number",
+                "required": true
+              }
+            ],
+            "outputs": [
+              {
+                "name": "value",
+                "type": "number",
+                "required": true
+              }
+            ],
+            "run": "m:f"
+          }
+        ],
+        "calculators": [
+          {
+            "id": "same",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "inputs": [
+              {
+                "name": "value",
+                "type": "number",
+                "required": true
+              }
+            ],
+            "outputs": [
+              {
+                "name": "value",
+                "type": "number",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  },
+  {
+    "name": "one plugin can offer several kinds of thing",
+    "valid": true,
+    "manifest": {
+      "id": "acme.demo",
+      "name": "Demo",
+      "version": "1.0.0",
+      "description": "A demo plugin.",
+      "permissions": [],
+      "provides": {
+        "operations": [
+          {
+            "id": "a",
+            "title": "A",
+            "description": "A.",
+            "access": "read",
+            "inputs": [
+              {
+                "name": "value",
+                "type": "number",
+                "required": true
+              }
+            ],
+            "outputs": [
+              {
+                "name": "value",
+                "type": "number",
+                "required": true
+              }
+            ],
+            "run": "m:f"
+          }
+        ],
+        "calculators": [
+          {
+            "id": "b",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "inputs": [
+              {
+                "name": "value",
+                "type": "number",
+                "required": true
+              }
+            ],
+            "outputs": [
+              {
+                "name": "value",
+                "type": "number",
+                "required": true
+              }
+            ]
+          }
+        ],
+        "checks": [
+          {
+            "id": "c",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "inputs": [
+              {
+                "name": "value",
+                "label": "Value",
+                "type": "number",
+                "required": true
+              }
+            ]
+          }
+        ],
+        "event-hooks": [
+          {
+            "id": "d",
+            "title": "Thing",
+            "description": "Does a thing.",
+            "run": "m:f",
+            "events": [
+              "qc.violation"
+            ]
+          }
+        ]
+      }
+    },
+    "files": {
+      "python/m.py": "def f(x):\n    return x\n\n\ndef p(x):\n    return x\n"
+    }
+  }
+]

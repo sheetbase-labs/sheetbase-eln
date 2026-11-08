@@ -12,7 +12,7 @@ import hostSource from '../../../sdks/plugin-python/src/sheetbase_plugin/host.py
 import uiSource from '../../../sdks/plugin-python/src/sheetbase_plugin/ui.py?raw'
 import initSource from '../../../sdks/plugin-python/src/sheetbase_plugin/__init__.py?raw'
 
-/** The step source for a package: `parameters.kind` picks an operation, an analysis, a screen, a column or an action. */
+/** The step source for a package: `parameters.kind` picks what is called: an operation, an analysis, a screen, a column, an action, a step or a rows function. */
 export function pluginStatement(files: Record<string, string>): string {
   const modules: Record<string, string> = {
     'sheetbase_plugin/__init__.py': initSource,
@@ -43,6 +43,18 @@ def transform(inputs, parameters):
         return [_host["call_column"](parameters["entry"], inputs["data"])]
     if kind == "action":
         return [_host["call_action"](parameters["entry"], parameters["input"])]
+    if kind == "step":
+        return _host["call_step"](parameters["entry"], inputs, parameters["input"])
+    if kind == "rows":
+        return _host["call_rows"](parameters["entry"], parameters["input"])
+    if kind == "file-rows":
+        return _host["call_file_rows"](parameters["entry"], parameters["input"])
+    if kind == "file-value":
+        return _host["call_file_value"](parameters["entry"], parameters["input"])
+    if kind == "export":
+        return _host["call_export"](parameters["entry"], inputs["data"], parameters["input"], parameters["encoding"])
+    if kind == "check":
+        return _host["call_check"](parameters["entry"], inputs["data"])
     return [_host["call_operation"](parameters["entry"], parameters["input"])]
 `
 }

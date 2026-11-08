@@ -115,3 +115,78 @@ def call_action(entry, payload):
     if not isinstance(result, dict):
         raise TypeError("An action returns a dictionary, or nothing.")
     return result
+
+
+def _clean(frame):
+    """A DataFrame with a missing value as None: a blank stays blank, never NaN."""
+    return frame.astype(object).where(frame.notna(), None)
+
+
+def _as_frame(result):
+    import pandas as pd
+
+    if isinstance(result, pd.DataFrame):
+        return _clean(result)
+    return _clean(pd.DataFrame(list(result or [])))
+
+
+def call_step(entry, tables, value):
+    """Run a pipeline step: named tables and settings in, one DataFrame out."""
+    import pandas as pd
+
+    frames = {name: pd.DataFrame(rows) for name, rows in tables.items()}
+    return _as_frame(resolve(entry)(frames, value))
+
+
+def call_rows(entry, value):
+    """Run a function that answers with rows: a dictionary in, rows (or a DataFrame) out."""
+    return _as_frame(resolve(entry)(value))
+
+
+def _content(value):
+    """A file's content as the plugin reads it: text, or bytes when it was sent as base64."""
+    import base64
+
+    content = value["content"]
+    if value.get("encoding") == "base64":
+        return base64.b64decode(content)
+    return content
+
+
+def call_file_rows(entry, value):
+    """Run an importer: ``read(content, filename)`` answers with rows."""
+    return _as_frame(resolve(entry)(_content(value), value["filename"]))
+
+
+def call_file_value(entry, value):
+    """Run a preview: ``show(content, filename)`` answers with one dictionary."""
+    result = resolve(entry)(_content(value), value["filename"])
+    if not isinstance(result, dict):
+        raise TypeError("A preview answers with a dictionary")
+    return [result]
+
+
+def call_export(entry, rows, options, encoding):
+    """Run an exporter: ``write(rows, options)`` answers with the file's text or bytes."""
+    import base64
+
+    result = resolve(entry)(rows, options)
+    if isinstance(result, (bytes, bytearray)):
+        if encoding != "base64":
+            raise TypeError("This exporter is declared as text but answered with bytes")
+        return [{"content": base64.b64encode(bytes(result)).decode("ascii")}]
+    if not isinstance(result, str):
+        raise TypeError("An exporter answers with text or bytes")
+    if encoding == "base64":
+        return [{"content": base64.b64encode(result.encode("utf-8")).decode("ascii")}]
+    return [{"content": result}]
+
+
+def call_check(entry, rows):
+    """Run a check: a DataFrame of the bound columns in, a status and a message out."""
+    import pandas as pd
+
+    result = resolve(entry)(pd.DataFrame(rows))
+    if not isinstance(result, dict):
+        raise TypeError("A check answers with a dictionary: status and message")
+    return [result]

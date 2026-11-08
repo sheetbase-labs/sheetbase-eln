@@ -1,0 +1,50 @@
+{
+  "id": "acme.sequence-files",
+  "name": "Sequence files",
+  "version": "1.0.0",
+  "description": "Reads and writes FASTA files, shows them in notebooks, and treats two strands of one sequence as the same thing.",
+  "author": "Acme Bio",
+  "provides": {
+    "importers": [
+      {
+        "id": "fasta",
+        "title": "FASTA",
+        "description": "Reads a FASTA file into a table with a name, a length and the sequence for every record.",
+        "extensions": [".fasta", ".fa"],
+        "encoding": "text",
+        "run": "fasta:read_rows"
+      }
+    ],
+    "exporters": [
+      {
+        "id": "fasta",
+        "title": "FASTA",
+        "description": "Writes rows that have a name and a sequence column as a FASTA file.",
+        "extension": ".fasta",
+        "mime": "text/x-fasta",
+        "encoding": "text",
+        "parameters": [{ "name": "width", "type": "integer", "required": false, "label": "Line width" }],
+        "run": "fasta:write_file"
+      }
+    ],
+    "previews": [
+      {
+        "id": "fasta-table",
+        "title": "FASTA table",
+        "description": "Shows the records of a FASTA file with their length and GC content.",
+        "extensions": [".fasta", ".fa"],
+        "encoding": "text",
+        "run": "fasta:preview"
+      }
+    ],
+    "sameness-keys": [
+      {
+        "id": "sequence",
+        "title": "Same sequence on either strand",
+        "description": "Two entries are the same thing when their sequence is the same, or the reverse complement of each other.",
+        "fields": [{ "name": "sequence", "type": "text", "required": true, "label": "Sequence" }],
+        "run": "fasta:sequence_key"
+      }
+    ]
+  }
+}

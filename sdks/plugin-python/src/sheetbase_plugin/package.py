@@ -35,8 +35,23 @@ SEMVER_PATTERN = re.compile(
 SCOPE_PATTERN = re.compile(r"^[a-z][a-z_]*:[a-z][a-z_]*$")
 FIELD_TYPES = ("text", "number", "integer", "boolean", "date", "json")
 CHART_TYPES = ("line", "scatter", "bar")
-PROVIDES = ("operations", "analysis-kinds", "blocks", "panels", "table-cells", "columns", "row-actions", "field-types")
+PROVIDES = (
+    "operations", "analysis-kinds", "blocks", "panels", "table-cells", "columns",
+    "row-actions", "field-types", "pipeline-steps", "calculators", "checks",
+    "search-providers", "connectors", "importers", "exporters", "previews",
+    "sameness-keys", "event-hooks",
+)
 PROVIDES_WITHOUT_PYTHON = ("table-cells", "field-types", "panels")
+# Operations, calculators and pipeline steps share one name in Sheetbase.
+CALLED = ("operations", "calculators", "pipeline-steps")
+NO_DESCRIPTION_NEEDED = ("analysis-kinds", "pipeline-steps")
+HOST_PATTERN = re.compile(
+    r"^(?!\d+(?:\.\d+){3}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$"
+)
+FILE_EXTENSION_PATTERN = re.compile(r"^\.[a-z0-9]{1,12}$")
+RECORD_TYPE_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,40}$")
+MIME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9!#$&^_.+-]{0,60}/[a-z0-9][a-z0-9!#$&^_.+-]{0,100}$")
+MAX_LIST_ITEMS = 10
 TOP_LEVEL = (
     "id", "name", "version", "description", "author", "compatibleWith",
     "permissions", "provides", "examples",
@@ -79,6 +94,12 @@ def _fields(where, label, value, errors):
         if "description" in entry and not _text(entry["description"], 1, 300):
             errors.append(f"{where} {label} {name} description must be 1-300 characters")
             return
+        if "label" in entry and not _text(entry["label"], 1, 80):
+            errors.append(f"{where} {label} {name} label must be 1-80 characters")
+            return
+        if "unit" in entry and not _text(entry["unit"], 1, 24):
+            errors.append(f"{where} {label} {name} unit must be 1-24 characters")
+            return
         if name in seen:
             errors.append(f"{where} {label} repeats {name}")
             return
@@ -116,10 +137,14 @@ def _head(point, entry, seen, errors, files):
     if not _text(entry.get("title"), 1, 120):
         errors.append(f"{name} title must be 1-120 characters")
         return None
-    if not _text(entry.get("description"), 1, 600):
-        errors.append(f"{name} description must be 1-600 characters")
-        return None
+    description = entry.get("description")
+    if "description" in entry or point not in NO_DESCRIPTION_NEEDED:
+        if not _text(description, 1, 600):
+            errors.append(f"{name} description must be 1-600 characters")
+            return None
     _entry_exists(entry.get("run"), files, name, errors)
+    if point == "connectors":
+        _entry_exists(entry.get("parse"), files, f"{name} parse", errors)
     return name
 
 
@@ -445,6 +470,246 @@ def _analysis_kinds(value, files, errors):
                 return
 
 
+def _list(point, value, errors):
+    if not isinstance(value, list) or len(value) > MAX_DECLARATIONS:
+        errors.append(f"provides.{point} must be a list of at most {MAX_DECLARATIONS}")
+        return None
+    return value
+
+
+def _strings(where, label, value, pattern, hint, errors):
+    if (
+        not isinstance(value, list)
+        or not 1 <= len(value) <= MAX_LIST_ITEMS
+        or not all(isinstance(entry, str) and pattern.match(entry) for entry in value)
+    ):
+        errors.append(f"{where} {label} needs 1-{MAX_LIST_ITEMS} entries, each {hint}")
+        return False
+    if len(set(value)) != len(value):
+        errors.append(f"{where} {label} repeats an entry")
+        return False
+    return True
+
+
+def _labelled(where, label, value, errors, extra, maximum, minimum=0):
+    if not isinstance(value, list) or len(value) > maximum:
+        errors.append(f"{where} {label} must be a list of at most {maximum}")
+        return False
+    seen = set()
+    for entry in value:
+        if (
+            not _is_object(entry)
+            or not isinstance(entry.get("name"), str)
+            or not FIELD_NAME_PATTERN.match(entry["name"])
+            or entry["name"] in seen
+            or not _text(entry.get("label"), 1, 80)
+            or not isinstance(entry.get("required"), bool)
+            or not extra(entry)
+        ):
+            errors.append(f"{where} {label} need a unique name, a label of 1-80 characters and required")
+            return False
+        seen.add(entry["name"])
+    if len(value) < minimum:
+        errors.append(f"{where} needs at least {minimum} {label}")
+        return False
+    return True
+
+
+def _result_columns(where, value, errors):
+    if not isinstance(value, list) or not 1 <= len(value) <= MAX_FIELDS:
+        errors.append(f"{where} result needs 1-{MAX_FIELDS} columns")
+        return False
+    seen = set()
+    for column in value:
+        if (
+            not _is_object(column)
+            or not isinstance(column.get("name"), str)
+            or not FIELD_NAME_PATTERN.match(column["name"])
+            or column["name"] in seen
+            or column.get("type") not in ("number", "text")
+        ):
+            errors.append(f"{where} result columns need a unique name and a type of number or text")
+            return False
+        seen.add(column["name"])
+    return True
+
+
+def _encoding(where, entry, errors):
+    if entry.get("encoding") not in ("text", "base64"):
+        errors.append(f"{where} encoding must be text or base64")
+        return False
+    return True
+
+
+def _each(point, value, files, errors, check):
+    entries = _list(point, value, errors)
+    if entries is None:
+        return
+    seen = set()
+    for entry in entries:
+        name = _head(point, entry, seen, errors, files)
+        if name is None or not check(entry, name):
+            return
+
+
+def _pipeline_steps(value, files, errors):
+    def check(entry, name):
+        if not _labelled(name, "tables", entry.get("tables"), errors, lambda _t: True, 6, 1):
+            return False
+        before = len(errors)
+        _fields(name, "parameters", entry.get("parameters"), errors)
+        result = entry.get("result")
+        return len(errors) == before and _result_columns(
+            name, result.get("columns") if _is_object(result) else None, errors
+        )
+
+    _each("pipeline-steps", value, files, errors, check)
+
+
+def _calculators(value, files, errors):
+    def check(entry, name):
+        before = len(errors)
+        _fields(name, "inputs", entry.get("inputs"), errors)
+        _fields(name, "outputs", entry.get("outputs"), errors)
+        if len(errors) > before:
+            return False
+        if not entry["inputs"] or not entry["outputs"]:
+            errors.append(f"{name} needs at least one input and one output")
+            return False
+        return True
+
+    _each("calculators", value, files, errors, check)
+
+
+def _checks(value, files, errors):
+    return _each(
+        "checks", value, files, errors,
+        lambda entry, name: _labelled(
+            name, "inputs", entry.get("inputs"), errors,
+            lambda i: i.get("type") in ("number", "category"), MAX_FIELDS, 1,
+        ),
+    )
+
+
+def _search_providers(value, files, errors):
+    _each(
+        "search-providers", value, files, errors,
+        lambda entry, name: _strings(
+            name, "types", entry.get("types"), RECORD_TYPE_PATTERN, "like sample or registry_entry", errors
+        ),
+    )
+
+
+def _connectors(value, files, errors):
+    def check(entry, name):
+        if not _strings(name, "hosts", entry.get("hosts"), HOST_PATTERN, "a host name such as api.example.org", errors):
+            return False
+        if not _labelled(
+            name, "settings", entry.get("settings"), errors,
+            lambda s: isinstance(s.get("secret"), bool), 8,
+        ):
+            return False
+        before = len(errors)
+        _fields(name, "parameters", entry.get("parameters"), errors)
+        return len(errors) == before
+
+    _each("connectors", value, files, errors, check)
+
+
+def _importers(value, files, errors):
+    _each(
+        "importers", value, files, errors,
+        lambda entry, name: _strings(
+            name, "extensions", entry.get("extensions"), FILE_EXTENSION_PATTERN, "like .mzml", errors
+        ) and _encoding(name, entry, errors),
+    )
+
+
+def _exporters(value, files, errors):
+    def check(entry, name):
+        if not isinstance(entry.get("extension"), str) or not FILE_EXTENSION_PATTERN.match(entry["extension"]):
+            errors.append(f"{name} extension must look like .fasta")
+            return False
+        if not isinstance(entry.get("mime"), str) or not MIME_PATTERN.match(entry["mime"]):
+            errors.append(f"{name} mime must look like text/plain")
+            return False
+        if not _encoding(name, entry, errors):
+            return False
+        before = len(errors)
+        _fields(name, "parameters", entry.get("parameters"), errors)
+        return len(errors) == before
+
+    _each("exporters", value, files, errors, check)
+
+
+def _previews(value, files, errors):
+    _each(
+        "previews", value, files, errors,
+        lambda entry, name: _strings(
+            name, "extensions", entry.get("extensions"), FILE_EXTENSION_PATTERN, "like .mzml", errors
+        ) and _encoding(name, entry, errors),
+    )
+
+
+def _sameness_keys(value, files, errors):
+    def check(entry, name):
+        before = len(errors)
+        _fields(name, "fields", entry.get("fields"), errors)
+        if len(errors) > before:
+            return False
+        if not entry["fields"]:
+            errors.append(f"{name} needs at least one field")
+            return False
+        return True
+
+    _each("sameness-keys", value, files, errors, check)
+
+
+def _event_hooks(value, files, errors):
+    def check(entry, name):
+        events = entry.get("events")
+        if not isinstance(events, list) or not 1 <= len(events) <= MAX_LIST_ITEMS:
+            errors.append(f"{name} events needs 1-{MAX_LIST_ITEMS} event names")
+            return False
+        for event in events:
+            if not isinstance(event, str) or not re.match(r"^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$", event):
+                errors.append(f"{name} names an unknown event: {event}")
+                return False
+        if len(set(events)) != len(events):
+            errors.append(f"{name} repeats an event")
+            return False
+        return True
+
+    _each("event-hooks", value, files, errors, check)
+
+
+POINT_CHECKS = {
+    "pipeline-steps": _pipeline_steps,
+    "calculators": _calculators,
+    "checks": _checks,
+    "search-providers": _search_providers,
+    "connectors": _connectors,
+    "importers": _importers,
+    "exporters": _exporters,
+    "previews": _previews,
+    "sameness-keys": _sameness_keys,
+    "event-hooks": _event_hooks,
+}
+
+
+def _called_names_are_unique(provides, errors):
+    seen = set()
+    for point in CALLED:
+        entries = provides.get(point)
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if _is_object(entry) and isinstance(entry.get("id"), str):
+                if entry["id"] in seen:
+                    errors.append(f"{entry['id']} is used twice across operations, calculators and pipeline steps")
+                seen.add(entry["id"])
+
+
 def validate_manifest(manifest, files):
     """Every problem with a ``plugin.json`` value, given the package's files."""
     errors = []
@@ -477,8 +742,9 @@ def validate_manifest(manifest, files):
                 errors.append(f"unknown contribution point: {key}")
         if not any(provides.get(key) for key in PROVIDES):
             errors.append(
-                "a plugin has to provide at least one operation, analysis kind, block, panel, "
-                "table cell display, column, row action or field type"
+                "a plugin has to provide at least one thing: an operation, calculator, analysis kind, "
+                "pipeline step, check, search, connector, importer, exporter, preview, same-thing rule, "
+                "event reaction, block, panel, table cell display, column, row action or field type"
             )
         if "operations" in provides:
             _operations(provides["operations"], files, errors)
@@ -490,6 +756,10 @@ def validate_manifest(manifest, files):
         ):
             if point in provides:
                 check(provides[point], files, errors)
+        for point, check in POINT_CHECKS.items():
+            if point in provides:
+                check(provides[point], files, errors)
+        _called_names_are_unique(provides, errors)
         used_ui = {
             entry["ui"]
             for point in ("blocks", "panels")

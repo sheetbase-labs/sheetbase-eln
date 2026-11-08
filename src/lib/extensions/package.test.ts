@@ -25,12 +25,12 @@ interface Case {
   files: Record<string, string>
 }
 
-const cases = JSON.parse(
-  readFileSync(
-    path.join(pluginExamplesDir, '../tests/package_cases.json'),
-    'utf8',
-  ),
-) as Case[]
+const cases = ['package_cases.json', 'point_cases.json'].flatMap(
+  (file) =>
+    JSON.parse(
+      readFileSync(path.join(pluginExamplesDir, '../tests', file), 'utf8'),
+    ) as Case[],
+)
 
 describe('shared package cases', () => {
   it.each(cases)('$name', ({ valid, manifest, files }) => {

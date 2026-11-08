@@ -65,7 +65,10 @@ def _declaration(manifest, point, ident):
 def run_operation(files, operation_id, value):
     """Run one operation of a loaded package the way Sheetbase does, in this process."""
     manifest = _manifest(files)
-    declaration = _declaration(manifest, "operations", operation_id)
+    # A calculator is called the same way as an operation: values in, values out.
+    declaration = _declaration(manifest, "operations", operation_id) or _declaration(
+        manifest, "calculators", operation_id
+    )
     if declaration is None:
         raise KeyError(f"This plugin has no operation called {operation_id}.")
     given = check_values(declaration["inputs"], value, "input")

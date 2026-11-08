@@ -20,6 +20,7 @@ import type {
   OperationInput,
   OperationInputType,
 } from '../operations/descriptor'
+import { callableItems } from './callables'
 import type { ExtensionManifest } from './manifest'
 import { pluginOperationName } from './points'
 import type { ExtensionField, ExtensionFieldType } from './points'
@@ -49,7 +50,7 @@ export function pluginOperationDescriptors(
 ): OperationDescriptor[] {
   const source = `plugin:${key}`
   const pluginName = options.pluginName ?? manifest.name
-  return (manifest.contributions.operations ?? []).map((operation) => {
+  return callableItems(manifest).map(({ declaration: operation }) => {
     const name = pluginOperationName(key, operation.id)
     return {
       name,

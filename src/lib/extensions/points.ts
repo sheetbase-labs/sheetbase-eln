@@ -24,7 +24,22 @@
  * two in step.
  */
 
-export const EXTENSION_RUNNER_POINTS = ['operations', 'analysis-kinds'] as const
+import type { ExtensionDataContributions } from './data-points'
+
+export const EXTENSION_RUNNER_POINTS = [
+  'operations',
+  'analysis-kinds',
+  'pipeline-steps',
+  'calculators',
+  'checks',
+  'search-providers',
+  'connectors',
+  'importers',
+  'exporters',
+  'previews',
+  'sameness-keys',
+  'event-hooks',
+] as const
 
 /**
  * Every plugin point an administrator can switch off on its own: the two that
@@ -63,6 +78,10 @@ export interface ExtensionField {
   type: ExtensionFieldType
   required: boolean
   description?: string
+  /** What a person sees next to the box. Falls back to the name. */
+  label?: string
+  /** A unit shown beside a number, such as `µL` or `mg/mL`. */
+  unit?: string
 }
 
 /** The Python function a declaration runs: `module:function` in the package's `python/` folder. */
@@ -115,7 +134,7 @@ export interface ExtensionAnalysisKindDeclaration {
   }
 }
 
-export interface ExtensionRunnerContributions {
+export interface ExtensionRunnerContributions extends ExtensionDataContributions {
   operations?: ExtensionOperationDeclaration[]
   'analysis-kinds'?: ExtensionAnalysisKindDeclaration[]
 }
@@ -128,11 +147,15 @@ export const MAX_EXTENSION_DECLARATIONS = 25
 export const EXTENSION_ENTRY_RE =
   /^([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)*):([a-z_][a-z0-9_]*)$/
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function text(value: unknown, min: number, max: number): value is string {
+export function text(
+  value: unknown,
+  min: number,
+  max: number,
+): value is string {
   return (
     typeof value === 'string' &&
     value.trim().length >= min &&
@@ -140,7 +163,7 @@ function text(value: unknown, min: number, max: number): value is string {
   )
 }
 
-function fieldList(
+export function fieldList(
   where: string,
   label: string,
   value: unknown,
@@ -184,6 +207,18 @@ function fieldList(
       )
       return null
     }
+    if (entry.label !== undefined && !text(entry.label, 1, 80)) {
+      errors.push(
+        `${where} ${label} ${entry.name} label must be 1-80 characters`,
+      )
+      return null
+    }
+    if (entry.unit !== undefined && !text(entry.unit, 1, 24)) {
+      errors.push(
+        `${where} ${label} ${entry.name} unit must be 1-24 characters`,
+      )
+      return null
+    }
     if (seen.has(entry.name)) {
       errors.push(`${where} ${label} repeats ${entry.name}`)
       return null
@@ -196,12 +231,14 @@ function fieldList(
       ...(typeof entry.description === 'string'
         ? { description: entry.description.trim() }
         : {}),
+      ...(typeof entry.label === 'string' ? { label: entry.label.trim() } : {}),
+      ...(typeof entry.unit === 'string' ? { unit: entry.unit.trim() } : {}),
     })
   }
   return out
 }
 
-function runner(
+export function runner(
   where: string,
   value: unknown,
   errors: string[],
@@ -222,7 +259,7 @@ function runner(
   return { kind: 'python', entry: value.entry }
 }
 
-function head(
+export function head(
   point: ExtensionRunnerPoint,
   entry: Record<string, unknown>,
   seen: Set<string>,
@@ -255,7 +292,7 @@ function head(
   return name
 }
 
-function list(
+export function list(
   point: ExtensionRunnerPoint,
   value: unknown,
   errors: string[],

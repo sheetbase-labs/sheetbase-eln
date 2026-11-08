@@ -3,7 +3,7 @@ export const plugins = {
   admin: {
     title: 'Plugins',
     intro:
-      'A plugin adds work to this lab: things the assistant and other agents can do, steps pipelines can take, and ways to analyse data. Its code runs in an isolated Python sandbox with no network. Only owners and administrators add plugins, and each part can be switched off on its own.',
+      'A plugin adds to this lab: calculators, checks, analyses, pipeline steps, file formats, search, ways to pull data in, and reactions to what happens. The assistant and other agents can use what it does. Its code runs in an isolated Python sandbox; only a connector can reach the internet, and only the hosts it names. Only owners and administrators add plugins, and each part can be switched off on its own.',
     onlyAdmins: 'Only owners and administrators can manage plugins',
     onlyAdminsBody:
       'Ask an owner or administrator of this workspace to add or change plugins.',
@@ -32,6 +32,16 @@ export const plugins = {
       columns: 'Table columns',
       'row-actions': 'Row actions',
       'field-types': 'Field types',
+      'pipeline-steps': 'Pipeline steps',
+      calculators: 'Calculators',
+      checks: 'Checks',
+      'search-providers': 'Search',
+      connectors: 'Connectors',
+      importers: 'Importers',
+      exporters: 'Exporters',
+      previews: 'File previews',
+      'sameness-keys': 'Same-thing rules',
+      'event-hooks': 'Event reactions',
     },
     pointHint: {
       operations:
@@ -46,6 +56,22 @@ export const plugins = {
       'row-actions': 'Buttons for the rows you choose in a table.',
       'field-types':
         'Kinds of field you can give a model, with their own checks and look.',
+      'pipeline-steps':
+        'Steps a pipeline can use to combine or reshape tables, such as joining two datasets.',
+      calculators: 'Calculators next to the bench calculator.',
+      checks:
+        'Checks that read a table and say pass, warn or fail. A gate can require one to pass.',
+      'search-providers':
+        'Ways to find records the built-in search can’t, such as a structure search.',
+      connectors:
+        'Tools that pull data in from another system. Each can only call the hosts you saw when you added the plugin.',
+      importers: 'File formats Sheetbase can import with this plugin.',
+      exporters: 'File formats tables can be exported to with this plugin.',
+      previews: 'File formats whose contents can be shown on the page.',
+      'sameness-keys':
+        'Rules that decide when two registry entries are the same thing.',
+      'event-hooks':
+        'Reactions to things that happen in the lab. They can leave a note in the Inbox; they never change records.',
     },
     pointSwitch: 'Switch {point} on or off for {name}',
     pointSwitchedOn: '{point} switched on',
@@ -60,6 +86,16 @@ export const plugins = {
       column: 'column',
       rows: 'on chosen rows',
       fieldType: 'field type',
+      step: 'step',
+      calculator: 'calculator',
+      check: 'check',
+      search: 'search',
+      connector: 'pulls data in',
+      import: 'import',
+      export: 'export',
+      preview: 'preview',
+      key: 'same-thing rule',
+      hook: 'reaction',
     },
     by: 'by {author}',
     turnOn: 'Switch on',
@@ -150,6 +186,42 @@ export const plugins = {
     download: 'Download {file}',
     resultTitle: '{action}',
     close: 'Close',
+  },
+  import: {
+    pullTitle: 'Pull data in from another tool',
+    pullHint:
+      'Plugins can fetch data from other systems. It arrives as a table and goes through the same mapping and checks as a file.',
+    choose: 'Tool',
+    from: 'From the {name} plugin. It can only call {hosts}.',
+    settingsNote:
+      'What you type here is used for this pull only and isn’t saved.',
+    pull: 'Pull data',
+    pulling: 'Pulling…',
+    needs: 'Fill in {name} to pull.',
+    failed: 'The data could not be pulled: {reason}',
+    readingWith: 'Reading {file} with {plugin}…',
+    readable: '{formats} files are read by plugins.',
+  },
+  export: {
+    download: 'Download as {name} ({extension})',
+  },
+  search: {
+    heading: 'Found by plugins',
+    headingNote: 'Extra results from search tools your lab has added.',
+    nothing: 'The search plugins found nothing for these words.',
+    columns: {
+      name: 'Name',
+      type: 'Type',
+      why: 'Why it matched',
+      from: 'Found by',
+    },
+  },
+  preview: {
+    open: 'Show as {name}',
+    hide: 'Hide {name}',
+    reading: 'Reading the file…',
+    failed: 'The file could not be shown: {reason}',
+    from: 'Read by the {plugin} plugin.',
   },
   analysis: {
     heading: 'Analyses from plugins',

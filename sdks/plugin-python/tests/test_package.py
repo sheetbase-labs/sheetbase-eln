@@ -5,7 +5,11 @@ import pytest
 
 from sheetbase_plugin.package import check_package, pack, read_folder, unpack
 
-CASES = json.loads((pathlib.Path(__file__).parent / "package_cases.json").read_text())
+CASES = [
+    case
+    for name in ("package_cases.json", "point_cases.json")
+    for case in json.loads((pathlib.Path(__file__).parent / name).read_text())
+]
 EXAMPLES = pathlib.Path(__file__).parent.parent / "examples"
 
 

@@ -1,0 +1,69 @@
+{
+  "id": "acme.bench-extras",
+  "name": "Bench extras",
+  "version": "1.0.0",
+  "description": "A master mix calculator, a values check, a normalising step and a reminder when a sample is released.",
+  "author": "Acme Bio",
+  "provides": {
+    "calculators": [
+      {
+        "id": "master-mix",
+        "title": "Master mix",
+        "description": "Works out how much of each reagent to pool for a set of reactions, with a little extra so the last well is not short.",
+        "inputs": [
+          { "name": "reactions", "type": "integer", "required": true, "label": "Reactions" },
+          { "name": "per_reaction", "type": "number", "required": true, "label": "Per reaction", "unit": "µL" },
+          { "name": "overage", "type": "number", "required": false, "label": "Extra", "unit": "%" }
+        ],
+        "outputs": [
+          { "name": "total", "type": "number", "required": true, "label": "Total to pool", "unit": "µL" },
+          { "name": "per_reaction_with_extra", "type": "number", "required": true, "label": "Per reaction with extra", "unit": "µL" }
+        ],
+        "run": "bench:master_mix"
+      }
+    ],
+    "checks": [
+      {
+        "id": "readings-present",
+        "title": "Readings are present and not negative",
+        "description": "Fails when a reading is missing or below zero, so a table with gaps cannot open a gate.",
+        "inputs": [
+          { "name": "reading", "label": "Reading", "type": "number", "required": true }
+        ],
+        "run": "bench:readings_present"
+      }
+    ],
+    "pipeline-steps": [
+      {
+        "id": "subtract-blank",
+        "title": "Subtract blank",
+        "description": "Takes a table of readings and takes the mean of the rows marked as blank off every reading.",
+        "tables": [{ "name": "readings", "label": "Readings", "required": true }],
+        "parameters": [
+          { "name": "value_column", "type": "text", "required": true, "label": "Reading column" },
+          { "name": "label_column", "type": "text", "required": true, "label": "Label column" },
+          { "name": "blank_label", "type": "text", "required": false, "label": "Label of blank rows" }
+        ],
+        "result": {
+          "columns": [
+            { "name": "label", "type": "text" },
+            { "name": "corrected", "type": "number" }
+          ]
+        },
+        "run": "bench:subtract_blank"
+      }
+    ],
+    "event-hooks": [
+      {
+        "id": "remind-on-release",
+        "title": "Remind me to log a released sample",
+        "description": "Leaves a note in the Inbox of the person who released a sample.",
+        "events": ["sample.released"],
+        "run": "bench:remind_on_release"
+      }
+    ]
+  },
+  "examples": [
+    { "operation": "master-mix", "input": { "reactions": 24, "per_reaction": 20, "overage": 10 }, "output": { "total": 528.0, "per_reaction_with_extra": 22.0 } }
+  ]
+}

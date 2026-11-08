@@ -2076,6 +2076,7 @@ export const projects = {
       agent_action_request: 'Agent action',
       watcher_finding: 'Watcher finding',
       qc_violation: 'Quality control',
+      plugin_note: 'Plugin note',
       invitation_accepted: 'Joined',
       verification_requested: 'Verify identity',
       verification_granted: 'Verified',

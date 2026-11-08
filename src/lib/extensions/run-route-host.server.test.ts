@@ -24,7 +24,6 @@ vi.mock('./runtime.server', async () => ({
   runExtensionHook: vi.fn(),
   defaultDeps: () => ({}),
 }))
-vi.mock('./host-route.server', () => ({ performHostCall: perform }))
 vi.mock('../auth', () => ({ getAppSession: vi.fn() }))
 vi.mock('../connectors/enterprise/execution.server', () => ({
   createServerDataClient: () => ({}),
@@ -43,13 +42,9 @@ const deps: ExtensionRunRouteDeps = {
     listRuntime: async () => [],
   } as never,
   host: async () => ({
-    deps: { runtime: {} as never },
-    call: {
-      workspaceId: 'w',
-      userId: 'u',
-      client: {} as never,
-      install: {} as never,
-    },
+    client: {} as never,
+    perform,
+    install: async () => ({}) as never,
   }),
 }
 

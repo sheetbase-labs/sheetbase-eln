@@ -1,4 +1,5 @@
 import { listExtensions } from './extensions/client'
+import { invokeWithHostCalls } from './extensions/operation-host.server'
 import { pluginOperationName, fieldsJsonSchema } from './extensions/points'
 import { resolveRunnerPoints } from './extensions/runner-points'
 import type { RunnerItem } from './extensions/runner-points'
@@ -78,7 +79,13 @@ export async function runExtensionTool(
   toolset: ExtensionToolset,
   name: string,
   args: Record<string, unknown>,
-  context: { workspaceId: string; userId: string; allowWrites: boolean },
+  context: {
+    workspaceId: string
+    userId: string
+    allowWrites: boolean
+    /** The person's own access, for an operation that calls into the app. */
+    client?: DataClient
+  },
 ): Promise<ExtensionToolOutcome> {
   const item = toolset.find(name)
   if (!item) return { ok: false, message: 'That tool is not available.' }
@@ -127,14 +134,28 @@ export async function runExtensionTool(
     }
   }
   try {
-    const outcome = await invokeExtension({
+    const call = {
       workspaceId: context.workspaceId,
       actorUserId: context.userId,
       extensionKey: item.extensionKey,
       itemId: item.id,
       input: args,
-    })
-    return { ok: true, text: JSON.stringify(outcome.output) }
+    }
+    // A read may call into the app (`host_call`) for what it needs to read.
+    const outcome = context.client
+      ? await invokeWithHostCalls(call, {
+          workspaceId: context.workspaceId,
+          userId: context.userId,
+          client: async () => context.client as DataClient,
+          approve: 'none',
+        })
+      : ({ kind: 'done', result: await invokeExtension(call) } as const)
+    if (outcome.kind === 'confirm')
+      return {
+        ok: false,
+        message: 'That tool tried to change something; it can only read.',
+      }
+    return { ok: true, text: JSON.stringify(outcome.result.output) }
   } catch (error) {
     return {
       ok: false,

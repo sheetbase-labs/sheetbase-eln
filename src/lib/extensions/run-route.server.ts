@@ -18,16 +18,17 @@ import type { RateLimiter } from '#/lib/rate-limit'
 
 import {
   ExtensionRunError,
-  invokeExtension,
   openCallable,
   pluginLimits,
   runExtensionAnalysis,
   runExtensionHook,
   defaultDeps,
 } from './runtime.server'
-import type { ExtensionRuntimeDeps, HostAnswer } from './runtime.server'
+import type { ExtensionRuntimeDeps } from './runtime.server'
 import { resolveLimits } from './runtime-config'
-import type { HostCall, PluginHostRouteDeps } from './host-route.server'
+import { invokeWithHostCalls } from './operation-host.server'
+import type { HostBridge } from './operation-host.server'
+import type { DataClient } from '../data-client'
 
 const idPattern = /^[a-z][a-z0-9-]{0,48}$/
 
@@ -111,6 +112,11 @@ const bodySchema = z.discriminatedUnion('kind', [
     .strict(),
 ])
 
+export type HostAccess = { client: DataClient } & Pick<
+  HostBridge,
+  'perform' | 'install'
+>
+
 export interface ExtensionRunRouteDeps {
   getSession: (headers: Headers) => Promise<{ user: { id: string } } | null>
   /** The person's active workspace and role, or null when they have none or are suspended. */
@@ -123,39 +129,19 @@ export interface ExtensionRunRouteDeps {
     request: Request,
     workspaceId: string,
     extensionKey: string,
-  ) => Promise<{
-    deps: Pick<PluginHostRouteDeps, 'runtime'>
-    call: Pick<HostCall, 'workspaceId' | 'userId' | 'client' | 'install'>
-  } | null>
+  ) => Promise<HostAccess | null>
 }
 
-/** A guard against an operation that never stops asking, not a limit on what one may do. */
-const MAX_HOST_ROUNDS = 500
-
-async function defaultHostDeps(
-  request: Request,
-  workspaceId: string,
-  extensionKey: string,
-) {
-  // Loaded when an operation first calls into the app, so running one that
-  // does not never pulls these in.
-  const [{ realSessionAuthDeps, resolveSessionAuth }, execution, client_] =
+async function defaultHostDeps(request: Request): Promise<HostAccess | null> {
+  // Loaded when an operation first runs, so the other kinds of run never pull these in.
+  const [{ realSessionAuthDeps, resolveSessionAuth }, execution] =
     await Promise.all([
       import('../request-auth'),
       import('../connectors/enterprise/execution.server'),
-      import('./client'),
     ])
   const auth = await resolveSessionAuth(request.headers, realSessionAuthDeps)
   if (!auth.ok) return null
-  const client = execution.createServerDataClient(auth.context.token)
-  const install = (await client_.listExtensions(client)).find(
-    (row) => row.key === extensionKey,
-  )
-  if (!install) return null
-  return {
-    deps: { runtime: defaultDeps() },
-    call: { workspaceId, userId: auth.context.userId, client, install },
-  }
+  return { client: execution.createServerDataClient(auth.context.token) }
 }
 
 /**
@@ -281,68 +267,58 @@ export async function handleExtensionRun(
       // An operation may call into the app (see `sheetbase_plugin.host_call`):
       // it stops, the calls are made here as the person, and it runs again
       // with the answers. A call that changes something waits for the person.
-      const results: HostAnswer[] = [...(body.hostResults ?? [])]
-      const approved = new Set(body.approved ?? [])
-      for (let round = 0; round < MAX_HOST_ROUNDS; round++) {
-        const outcome = await invokeExtension(
-          {
-            workspaceId: member.workspaceId,
-            actorUserId: session.user.id,
-            extensionKey: body.extensionKey,
-            itemId: body.operationId,
-            input: body.input,
-            hostResults: results,
-          },
-          deps.runtime,
-        )
-        if (!outcome.hostCalls)
-          return reply({
-            output: outcome.output,
-            durationMs: outcome.durationMs,
-          })
-        const host = await (deps.host ?? defaultHostDeps)(
+      // The person's own data access is only opened if the operation calls in.
+      let hostPromise: ReturnType<NonNullable<typeof deps.host>> | null = null
+      const getHost = () =>
+        (hostPromise ??= (deps.host ?? defaultHostDeps)(
           request,
           member.workspaceId,
           body.extensionKey,
-        )
-        if (!host) return refuse(403, 'Sign in to use plugins.')
-        const { performHostCall } = await import('./host-route.server')
-        for (const call of outcome.hostCalls) {
-          const index = results.length
-          const done = await performHostCall(host.deps, {
-            ...host.call,
-            point: 'operations',
-            name: call.name,
-            arguments: call.arguments,
-            confirmed: approved.has(index),
-          })
-          if (!done.ok && done.code === 'confirmation_needed')
-            return reply(
-              {
-                confirm: {
-                  index,
-                  name: call.name,
-                  action:
-                    typeof call.arguments.action === 'string'
-                      ? call.arguments.action
-                      : null,
-                  summary: done.summary ?? null,
-                },
-                hostResults: results,
-              },
-              409,
+        ))
+      const outcome = await invokeWithHostCalls(
+        {
+          workspaceId: member.workspaceId,
+          actorUserId: session.user.id,
+          extensionKey: body.extensionKey,
+          itemId: body.operationId,
+          input: body.input,
+        },
+        {
+          workspaceId: member.workspaceId,
+          userId: session.user.id,
+          client: async () => {
+            const host = await getHost()
+            if (!host) throw new Error('Sign in to use plugins.')
+            return host.client
+          },
+          approve: new Set(body.approved ?? []),
+          hostResults: body.hostResults ?? [],
+          perform: async (d, call) => {
+            const host = await getHost()
+            if (host?.perform) return host.perform(d, call)
+            const { performHostCall } = await import('./host-route.server')
+            return performHostCall(d, call)
+          },
+          install: async (key) => {
+            const host = await getHost()
+            if (host?.install) return host.install(key)
+            const { listExtensions } = await import('./client')
+            return (await listExtensions(host!.client)).find(
+              (row) => row.key === key,
             )
-          results.push(
-            done.ok
-              ? { ok: true, result: done.result }
-              : { ok: false, error: done.message, code: done.code },
-          )
-        }
-      }
-      return refuse(
-        502,
-        'This operation kept asking for more from Sheetbase and was stopped.',
+          },
+        },
+        deps.runtime,
       )
+      if (outcome.kind === 'confirm')
+        return reply(
+          { confirm: outcome.confirm, hostResults: outcome.hostResults },
+          409,
+        )
+      return reply({
+        output: outcome.result.output,
+        durationMs: outcome.result.durationMs,
+      })
     }
     if (
       body.kind === 'screen' ||

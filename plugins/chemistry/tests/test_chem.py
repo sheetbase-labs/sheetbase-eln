@@ -120,3 +120,41 @@ def test_adding_a_lot_asks_the_app_twice_and_counts_the_lots():
         assert done == {"identifier": "LOT-0003", "lots": 3}
     finally:
         host.install({})
+
+
+def _run(operation, input, answers):
+    from sheetbase_plugin import host
+
+    host.install({"chem.py": (ROOT / "python" / "chem.py").read_text()})
+    try:
+        return host.call_operation(operation, {**input, "__host__": answers})
+    finally:
+        host.install({})
+
+
+def test_find_asks_for_the_search_and_keeps_only_close_enough_compounds():
+    hits = {
+        "hits": [
+            {"id": "a", "identifier": "CMP-1", "title": "Aspirin", "kind": "compound", "score": 0.9},
+            {"id": "b", "identifier": "CMP-2", "title": "Other", "kind": "compound", "score": 0.55},
+        ]
+    }
+    asked = _run("chem:find", {"structure": "CC(=O)Oc1ccccc1C(=O)O", "mode": "similarity"}, [])
+    assert asked["__host_calls__"][0]["name"] == "sheetbase.plugin.search"
+    assert asked["__host_calls__"][0]["arguments"]["query"].startswith("sim:")
+    done = _run("chem:find", {"structure": "CC(=O)Oc1ccccc1C(=O)O", "mode": "similarity"}, [{"ok": True, "result": hits}])
+    assert [c["identifier"] for c in done["compounds"]] == ["CMP-1"]
+    assert done["compounds"][0]["similarity"] == 0.9
+
+
+def test_check_looks_up_the_parent_without_its_salt():
+    asked = _run("chem:check", {"structure": "CC(=O)Oc1ccccc1C(=O)O.[Na+].[Cl-]"}, [])
+    call = asked["__host_calls__"][0]
+    assert call["arguments"]["action"] == "registry_sameness_matches"
+    assert call["arguments"]["arguments"] == {"p_model_key": "compound", "p_value": "CC(=O)Oc1ccccc1C(=O)O"}
+    done = _run(
+        "chem:check",
+        {"structure": "CC(=O)Oc1ccccc1C(=O)O.[Na+].[Cl-]"},
+        [{"ok": True, "result": [{"id": "a", "identifier": "CMP-1", "title": "Aspirin", "archived": False}]}],
+    )
+    assert done["registered"] is True and done["matches"][0]["identifier"] == "CMP-1"

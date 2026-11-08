@@ -197,7 +197,11 @@ describe('the plugin block', () => {
   it('keeps state as large as a long sequence with its reads', () => {
     const state = { residues: 'ACGT'.repeat(100_000), reads: [] }
     expect(
-      validatePluginBlock({ plugin: 'sequence-tools', block: 'sequence', state }),
+      validatePluginBlock({
+        plugin: 'sequence-tools',
+        block: 'sequence',
+        state,
+      }),
     ).toEqual([])
   })
 })

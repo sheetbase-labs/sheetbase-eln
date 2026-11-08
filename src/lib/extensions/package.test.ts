@@ -75,7 +75,9 @@ describe('buildPluginPackage', () => {
       expect(error).toBeInstanceOf(PluginPackageError)
       const { errors } = error as PluginPackageError
       expect(errors.some((e) => e.includes('semver'))).toBe(true)
-      expect(errors.some((e) => e.includes('ui is reserved'))).toBe(true)
+      expect(
+        errors.some((e) => e.includes('unknown key in plugin.json: ui')),
+      ).toBe(true)
       expect(errors.some((e) => e.includes('surprise'))).toBe(true)
     }
   })
@@ -118,14 +120,14 @@ describe('readPluginPackage', () => {
     ).not.toBe(pkg.sha256)
   })
 
-  it('refuses a zip-slip path, a ui folder and things that are not text or zip', async () => {
+  it('refuses a zip-slip path, ui files nothing uses and things that are not text or zip', async () => {
     const files = readExample('cell-count')
     await expect(
       readPluginPackage(zipOf({ ...files, '../evil.py': 'x = 1\n' })),
     ).rejects.toThrow(PluginPackageError)
     await expect(
       readPluginPackage(zipOf({ ...files, 'ui/index.html': '<p></p>' })),
-    ).rejects.toThrow(/ui\/ is reserved/)
+    ).rejects.toThrow(/ui\/ files need a block or panel/)
     await expect(readPluginPackage(strToU8('not a zip'))).rejects.toThrow(
       /readable zip/,
     )

@@ -8,14 +8,16 @@ A package is a zip with:
 
 - ``plugin.json``: the manifest;
 - ``python/``: the ``.py`` files the manifest points at;
-- optionally ``README.md`` and ``LICENSE``.
-
-``ui/`` is reserved for plugin screens, which Sheetbase does not load yet.
+- optionally ``README.md`` and ``LICENSE``;
+- optionally ``ui/``: the ``.html``, ``.js``, ``.css``, ``.svg`` and ``.json`` files of a plugin
+  UI bundle, which Sheetbase runs only in a sandboxed frame.
 """
 import io
 import json
 import re
 import zipfile
+
+from .displays import check_display
 
 MAX_FILES = 100
 MAX_FILE_BYTES = 512 * 1024
@@ -33,11 +35,20 @@ SEMVER_PATTERN = re.compile(
 SCOPE_PATTERN = re.compile(r"^[a-z][a-z_]*:[a-z][a-z_]*$")
 FIELD_TYPES = ("text", "number", "integer", "boolean", "date", "json")
 CHART_TYPES = ("line", "scatter", "bar")
-PROVIDES = ("operations", "analysis-kinds")
+PROVIDES = ("operations", "analysis-kinds", "blocks", "panels", "table-cells", "columns", "row-actions", "field-types")
+PROVIDES_WITHOUT_PYTHON = ("table-cells", "field-types", "panels")
 TOP_LEVEL = (
     "id", "name", "version", "description", "author", "compatibleWith",
-    "permissions", "provides", "ui", "examples",
+    "permissions", "provides", "examples",
 )
+UI_ENTRY_PATTERN = re.compile(r"^ui/[A-Za-z0-9._/-]{1,100}\.html$")
+UI_FILE_PATTERN = re.compile(r"^ui/[A-Za-z0-9._/-]+\.(html|js|css|svg|json)$")
+UI_SDK_NAME = "sheetbase-ui.js"
+MODEL_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
+ICON_PATTERN = re.compile(r"^[a-z][a-z0-9-]{0,39}$")
+LOGICAL_TYPES = ("text", "integer", "decimal", "boolean", "date", "timestamp", "category", "reference")
+COLUMN_VALUES = ("number", "text", "boolean", "svg")
+FIELD_TYPE_BASES = ("text", "integer", "decimal")
 ALLOWED_ROOT_FILES = ("plugin.json", "README.md", "LICENSE", "LICENSE.md", "LICENSE.txt")
 
 
@@ -110,6 +121,250 @@ def _head(point, entry, seen, errors, files):
         return None
     _entry_exists(entry.get("run"), files, name, errors)
     return name
+
+
+def _pointers(entry):
+    python = [entry[k] for k in ("run", "screen") if k in entry]
+    for action in entry.get("actions") or []:
+        if _is_object(action) and "run" in action:
+            python.append(action["run"])
+    return python
+
+
+def _hook_head(point, entry, seen, errors, files, allowed, description_required=False):
+    """The id, title and pointers every screen and table declaration shares."""
+    where = f"provides.{point}"
+    if not _is_object(entry) or not isinstance(entry.get("id"), str) or not ITEM_ID_PATTERN.match(entry["id"]):
+        errors.append(f"{where} entry ids must match ^[a-z][a-z0-9-]{{0,48}}$")
+        return None
+    if entry["id"] in seen:
+        errors.append(f"{where} has a duplicate id: {entry['id']}")
+        return None
+    seen.add(entry["id"])
+    name = f"{where}.{entry['id']}"
+    if not _text(entry.get("title"), 1, 120):
+        errors.append(f"{name} title must be 1-120 characters")
+        return None
+    if ("description" in entry or description_required) and not _text(entry.get("description"), 1, 600):
+        errors.append(f"{name} description must be 1-600 characters")
+        return None
+    extra = next((k for k in entry if k not in allowed), None)
+    if extra:
+        errors.append(f"{name} has an unknown setting: {extra}")
+        return None
+    python = _pointers(entry)
+    if not python and "ui" not in entry and point not in PROVIDES_WITHOUT_PYTHON:
+        errors.append(f"{name} needs a Python function to run")
+    for run in python:
+        _entry_exists(run, files, name, errors)
+    if "ui" in entry:
+        if not isinstance(entry["ui"], str) or not UI_ENTRY_PATTERN.match(entry["ui"]):
+            errors.append(f"{name} ui must be an .html file in ui/, such as ui/index.html")
+        elif entry["ui"] not in files:
+            errors.append(f"{name} ui points at {entry['ui']}, which is not in the package")
+    return name
+
+
+def _models(name, entry, errors):
+    models = entry.get("models")
+    if "models" in entry and not (
+        isinstance(models, list) and 1 <= len(models) <= 25 and all(isinstance(k, str) and MODEL_KEY_PATTERN.match(k) for k in models)
+    ):
+        errors.append(f"{name} models is a list of 1-25 model keys")
+        return False
+    return True
+
+
+def _input_names(name, entry, errors):
+    inputs = entry.get("inputs")
+    if "inputs" in entry and not (
+        isinstance(inputs, list) and 1 <= len(inputs) <= MAX_FIELDS and all(isinstance(k, str) and FIELD_NAME_PATTERN.match(k) for k in inputs)
+    ):
+        errors.append(f"{name} inputs is a list of 1-{MAX_FIELDS} field names")
+        return False
+    return True
+
+
+def _screen_choice(name, entry, errors, optional):
+    if "screen" in entry and "ui" in entry:
+        errors.append(f"{name} has a screen or a ui, not both")
+    elif "screen" not in entry and "ui" not in entry and not optional:
+        errors.append(f"{name} needs a screen (Python) or a ui (a bundle in ui/)")
+
+
+def _list(point, value, errors):
+    if not isinstance(value, list) or len(value) > MAX_DECLARATIONS:
+        errors.append(f"provides.{point} must be a list of at most {MAX_DECLARATIONS}")
+        return False
+    return True
+
+
+def _blocks(value, files, errors):
+    if not _list("blocks", value, errors):
+        return
+    seen = set()
+    for entry in value:
+        name = _hook_head("blocks", entry, seen, errors, files, ("id", "title", "description", "icon", "screen", "ui"), True)
+        if name is None:
+            return
+        if "icon" in entry and not (isinstance(entry["icon"], str) and ICON_PATTERN.match(entry["icon"])):
+            errors.append(f"{name} icon must be an icon name such as flask")
+        _screen_choice(name, entry, errors, False)
+
+
+def _panels(value, files, errors):
+    if not _list("panels", value, errors):
+        return
+    seen = set()
+    for entry in value:
+        name = _hook_head("panels", entry, seen, errors, files, ("id", "title", "description", "models", "screen", "ui"))
+        if name is None:
+            return
+        _screen_choice(name, entry, errors, True)
+        _models(name, entry, errors)
+
+
+def _table_cells(value, files, errors):
+    if not _list("table-cells", value, errors):
+        return
+    seen = set()
+    for entry in value:
+        name = _hook_head("table-cells", entry, seen, errors, files, ("id", "title", "description", "appliesTo", "display"))
+        if name is None:
+            return
+        target = entry.get("appliesTo")
+        if not _is_object(target) or not target or any(k not in ("fieldTypes", "models", "fields", "pluginTypes") for k in target):
+            errors.append(f"{name} appliesTo says which cells: fieldTypes, models, fields or pluginTypes")
+            return
+        if "fieldTypes" in target and not (
+            isinstance(target["fieldTypes"], list) and target["fieldTypes"] and all(t in LOGICAL_TYPES for t in target["fieldTypes"])
+        ):
+            errors.append(f"{name} appliesTo.fieldTypes are field types such as decimal")
+            return
+        if not _models(f"{name} appliesTo", target, errors):
+            return
+        if "fields" in target and not (
+            isinstance(target["fields"], list)
+            and 1 <= len(target["fields"]) <= 25
+            and all(isinstance(f, str) and FIELD_NAME_PATTERN.match(f) for f in target["fields"])
+        ):
+            errors.append(f"{name} appliesTo.fields are 1-25 field names")
+            return
+        if "pluginTypes" in target and not (
+            isinstance(target["pluginTypes"], list)
+            and target["pluginTypes"]
+            and all(isinstance(t, str) and ITEM_ID_PATTERN.match(t) for t in target["pluginTypes"])
+        ):
+            errors.append(f"{name} appliesTo.pluginTypes are the ids of this plugin's field types")
+            return
+        check_display(entry.get("display"), name, errors)
+
+
+def _columns(value, files, errors):
+    if not _list("columns", value, errors):
+        return
+    seen = set()
+    for entry in value:
+        name = _hook_head(
+            "columns", entry, seen, errors, files,
+            ("id", "title", "description", "models", "value", "display", "run", "inputs", "actions"),
+        )
+        if name is None:
+            return
+        if entry.get("value") not in COLUMN_VALUES:
+            errors.append(f"{name} value is {', '.join(COLUMN_VALUES)}")
+            return
+        if not _models(name, entry, errors) or not _input_names(name, entry, errors):
+            return
+        if "display" in entry:
+            check_display(entry["display"], name, errors)
+        actions = entry.get("actions")
+        if "actions" in entry:
+            ids = set()
+            if not (isinstance(actions, list) and 1 <= len(actions) <= 10):
+                errors.append(f"{name} actions are 1-10 header menu entries")
+                return
+            for action in actions:
+                if (
+                    not _is_object(action)
+                    or not isinstance(action.get("id"), str)
+                    or not ITEM_ID_PATTERN.match(action["id"])
+                    or action["id"] in ids
+                    or not _text(action.get("title"), 1, 80)
+                    or any(k not in ("id", "title", "run") for k in action)
+                ):
+                    errors.append(f"{name} actions need a unique id, a title and a runner")
+                    return
+                ids.add(action["id"])
+
+
+def _row_actions(value, files, errors):
+    if not _list("row-actions", value, errors):
+        return
+    seen = set()
+    for entry in value:
+        name = _hook_head(
+            "row-actions", entry, seen, errors, files,
+            ("id", "title", "description", "models", "selection", "run", "inputs"), True,
+        )
+        if name is None:
+            return
+        if entry.get("selection") not in ("one", "many"):
+            errors.append(f"{name} selection is one or many")
+            return
+        if not _models(name, entry, errors) or not _input_names(name, entry, errors):
+            return
+
+
+def _field_types(value, files, errors):
+    if not _list("field-types", value, errors):
+        return
+    seen = set()
+    for entry in value:
+        name = _hook_head(
+            "field-types", entry, seen, errors, files,
+            ("id", "title", "description", "base", "pattern", "patternMessage", "minLength", "maxLength",
+             "min", "max", "placeholder", "display"),
+        )
+        if name is None:
+            return
+        base = entry.get("base")
+        if base not in FIELD_TYPE_BASES:
+            errors.append(f"{name} base is {', '.join(FIELD_TYPE_BASES)}")
+            return
+        text_only = ("pattern", "patternMessage", "minLength", "maxLength")
+        number_only = ("min", "max")
+        for key in (number_only if base == "text" else text_only):
+            if key in entry:
+                errors.append(f"{name} {key} does not apply to a {base} type")
+                return
+        if "pattern" in entry:
+            pattern = entry["pattern"]
+            ok = isinstance(pattern, str) and len(pattern) <= 200 and pattern.startswith("^") and pattern.endswith("$")
+            if ok:
+                try:
+                    re.compile(pattern)
+                except re.error:
+                    ok = False
+            if not ok:
+                errors.append(f"{name} pattern must be an anchored expression (^…$) up to 200 characters")
+                return
+        if "patternMessage" in entry and not _text(entry["patternMessage"], 1, 160):
+            errors.append(f"{name} patternMessage is 1-160 characters")
+            return
+        for key in ("minLength", "maxLength"):
+            if key in entry and not (isinstance(entry[key], int) and not isinstance(entry[key], bool) and 0 <= entry[key] <= 10000):
+                errors.append(f"{name} {key} is a whole number up to 10000")
+                return
+        for key in ("min", "max"):
+            if key in entry and (isinstance(entry[key], bool) or not isinstance(entry[key], (int, float))):
+                errors.append(f"{name} {key} is a number")
+                return
+        if "placeholder" in entry and not _text(entry["placeholder"], 1, 80):
+            errors.append(f"{name} placeholder is 1-80 characters")
+            return
+        if "display" in entry:
+            check_display(entry["display"], name, errors)
 
 
 def _operations(value, files, errors):
@@ -213,8 +468,6 @@ def validate_manifest(manifest, files):
     permissions = manifest.get("permissions", [])
     if not isinstance(permissions, list) or not all(isinstance(p, str) and SCOPE_PATTERN.match(p) for p in permissions):
         errors.append("permissions must be a list of scopes such as projects:read")
-    if manifest.get("ui") is not None:
-        errors.append("ui is reserved: plugins cannot bring their own screens yet")
     provides = manifest.get("provides")
     if not _is_object(provides):
         errors.append("provides must be an object")
@@ -223,11 +476,28 @@ def validate_manifest(manifest, files):
             if key not in PROVIDES:
                 errors.append(f"unknown contribution point: {key}")
         if not any(provides.get(key) for key in PROVIDES):
-            errors.append("a plugin has to provide at least one operation or analysis kind")
+            errors.append(
+                "a plugin has to provide at least one operation, analysis kind, block, panel, "
+                "table cell display, column, row action or field type"
+            )
         if "operations" in provides:
             _operations(provides["operations"], files, errors)
         if "analysis-kinds" in provides:
             _analysis_kinds(provides["analysis-kinds"], files, errors)
+        for point, check in (
+            ("blocks", _blocks), ("panels", _panels), ("table-cells", _table_cells),
+            ("columns", _columns), ("row-actions", _row_actions), ("field-types", _field_types),
+        ):
+            if point in provides:
+                check(provides[point], files, errors)
+        used_ui = {
+            entry["ui"]
+            for point in ("blocks", "panels")
+            for entry in (provides.get(point) or [])
+            if _is_object(entry) and isinstance(entry.get("ui"), str)
+        }
+        if not used_ui and any(path.startswith("ui/") for path in files):
+            errors.append("ui/ files need a block or panel whose ui points at one of them")
     examples = manifest.get("examples")
     if examples is not None:
         if not isinstance(examples, list) or len(examples) > 50 or not all(
@@ -236,6 +506,13 @@ def validate_manifest(manifest, files):
         ):
             errors.append("examples must be a list of { operation, input, output? }")
     return errors
+
+
+_WEB_ADDRESS = re.compile(r"(?:https?:)?//[a-z0-9.-]+\.[a-z]{2,}", re.I)
+
+
+def _web_address(content):
+    return isinstance(content, str) and bool(_WEB_ADDRESS.search(content))
 
 
 def validate_files(files):
@@ -253,7 +530,12 @@ def validate_files(files):
         if path.startswith("/") or "\\" in path or ".." in parts or "" in parts:
             errors.append(f"{path} is not a safe path")
         elif parts[0] == "ui":
-            errors.append("ui/ is reserved: plugins cannot bring their own screens yet")
+            if not UI_FILE_PATTERN.match(path):
+                errors.append(f"{path}: ui/ holds .html, .js, .css, .svg and .json files only")
+            elif parts[-1] == UI_SDK_NAME:
+                errors.append(f"{path}: {UI_SDK_NAME} is provided by Sheetbase, leave it out")
+            elif path.endswith((".html", ".css")) and _web_address(content):
+                errors.append(f"{path} refers to a web address; a plugin UI cannot reach the network, bundle what it needs")
         elif parts[0] == "python":
             if not path.endswith(".py") or len(parts) < 2:
                 errors.append(f"{path}: python/ holds .py files only")
@@ -294,7 +576,7 @@ def read_folder(folder):
             elif rel in ALLOWED_ROOT_FILES:
                 pass
             elif parts[0] == "ui":
-                pass  # reported by validate_files
+                pass  # reported by validate_files if it does not belong
             else:
                 continue
             with open(full, encoding="utf-8") as handle:

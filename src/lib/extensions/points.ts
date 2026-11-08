@@ -26,10 +26,25 @@
 
 export const EXTENSION_RUNNER_POINTS = ['operations', 'analysis-kinds'] as const
 
-export type ExtensionRunnerPoint = (typeof EXTENSION_RUNNER_POINTS)[number]
+/**
+ * Every plugin point an administrator can switch off on its own: the two that
+ * run work, the five that put a plugin into screens and tables (`hooks.ts`),
+ * and panels (a panel with a screen or UI bundle).
+ */
+export const EXTENSION_SWITCH_POINTS = [
+  ...EXTENSION_RUNNER_POINTS,
+  'blocks',
+  'panels',
+  'table-cells',
+  'columns',
+  'row-actions',
+  'field-types',
+] as const
+
+export type ExtensionRunnerPoint = (typeof EXTENSION_SWITCH_POINTS)[number]
 
 export function isRunnerPoint(value: string): value is ExtensionRunnerPoint {
-  return (EXTENSION_RUNNER_POINTS as readonly string[]).includes(value)
+  return (EXTENSION_SWITCH_POINTS as readonly string[]).includes(value)
 }
 
 export const EXTENSION_FIELD_TYPES = [

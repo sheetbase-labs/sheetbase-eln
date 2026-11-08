@@ -11,6 +11,14 @@
  * server allows can never disagree.
  */
 import type { OperationDescriptor } from '../operations/descriptor'
+import type {
+  ExtensionBlockDeclaration,
+  ExtensionColumnDeclaration,
+  ExtensionFieldTypeDeclaration,
+  ExtensionPanelDeclaration,
+  ExtensionRowActionDeclaration,
+  ExtensionTableCellDeclaration,
+} from './hooks'
 import { parseExtensionManifest } from './manifest'
 import { pluginOperationDescriptors } from './operation-descriptors'
 import { isRunnerPoint, pluginOperationName } from './points'
@@ -47,6 +55,13 @@ export interface RunnerItem<TDeclaration> {
 export interface ResolvedRunnerPoints {
   operations: Array<RunnerItem<ExtensionOperationDeclaration>>
   analysisKinds: Array<RunnerItem<ExtensionAnalysisKindDeclaration>>
+  blocks: Array<RunnerItem<ExtensionBlockDeclaration>>
+  /** Panels that bring a screen or a UI bundle; the older plain panels stay with the sample. */
+  panels: Array<RunnerItem<ExtensionPanelDeclaration>>
+  tableCells: Array<RunnerItem<ExtensionTableCellDeclaration>>
+  columns: Array<RunnerItem<ExtensionColumnDeclaration>>
+  rowActions: Array<RunnerItem<ExtensionRowActionDeclaration>>
+  fieldTypes: Array<RunnerItem<ExtensionFieldTypeDeclaration>>
   /** The generated descriptors of `operations`, ready for the surface generators. */
   descriptors: OperationDescriptor[]
 }
@@ -60,6 +75,12 @@ export function resolveRunnerPoints(
   const out: ResolvedRunnerPoints = {
     operations: [],
     analysisKinds: [],
+    blocks: [],
+    panels: [],
+    tableCells: [],
+    columns: [],
+    rowActions: [],
+    fieldTypes: [],
     descriptors: [],
   }
   for (const install of installs) {
@@ -106,9 +127,47 @@ export function resolveRunnerPoints(
         })
       }
     }
+    const hooks = [
+      ['blocks', out.blocks],
+      ['panels', out.panels],
+      ['table-cells', out.tableCells],
+      ['columns', out.columns],
+      ['row-actions', out.rowActions],
+      ['field-types', out.fieldTypes],
+    ] as const
+    for (const [point, target] of hooks) {
+      if (off.has(point)) continue
+      const declared = manifest.contributions[point] as
+        Array<{ id: string }> | undefined
+      for (const declaration of declared ?? []) {
+        // A plain panel (no screen, no bundle) belongs to the older sample slot.
+        if (
+          point === 'panels' &&
+          !('screen' in declaration) &&
+          !('ui' in declaration)
+        )
+          continue
+        ;(target as Array<RunnerItem<unknown>>).push({
+          ...base,
+          point,
+          id: declaration.id,
+          name: pluginOperationName(install.key, declaration.id),
+          declaration,
+        })
+      }
+    }
   }
   out.operations.sort(byName)
   out.analysisKinds.sort(byName)
+  for (const group of [
+    out.blocks,
+    out.panels,
+    out.tableCells,
+    out.columns,
+    out.rowActions,
+    out.fieldTypes,
+  ])
+    (group as Array<{ name: string }>).sort(byName)
   out.descriptors.sort(byName)
   return out
 }
@@ -149,6 +208,31 @@ export function describeRunnerAdds(manifest: unknown): ExtensionAdds[] {
       })),
     })
   }
+  const hookItems = (
+    point: ExtensionRunnerPoint,
+    items: Array<{ id: string; title: string }> | undefined,
+    detail: string,
+  ) => {
+    if (items?.length)
+      adds.push({
+        point,
+        items: items.map((item) => ({
+          id: item.id,
+          title: item.title,
+          detail,
+        })),
+      })
+  }
+  hookItems('blocks', parsed.contributions.blocks, 'block')
+  hookItems(
+    'panels',
+    parsed.contributions.panels?.filter((p) => p.screen || p.ui),
+    'panel',
+  )
+  hookItems('table-cells', parsed.contributions['table-cells'], 'cells')
+  hookItems('columns', parsed.contributions.columns, 'column')
+  hookItems('row-actions', parsed.contributions['row-actions'], 'rows')
+  hookItems('field-types', parsed.contributions['field-types'], 'fieldType')
   return adds
 }
 

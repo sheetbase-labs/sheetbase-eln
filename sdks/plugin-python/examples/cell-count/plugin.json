@@ -39,7 +39,6 @@
       }
     ]
   },
-  "ui": null,
   "examples": [
     { "operation": "viability", "input": { "live": 92, "dead": 8 }, "output": { "viability": 92.0, "total": 100 } },
     { "operation": "seeding-volume", "input": { "live_per_ml": 1000000, "cells_per_well": 50000, "wells": 24 }, "output": { "ml_per_well": 0.05, "ml_total": 1.2 } }

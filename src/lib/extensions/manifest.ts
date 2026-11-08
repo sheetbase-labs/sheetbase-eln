@@ -27,6 +27,19 @@ import {
   parseOperations,
 } from './points'
 import type { ExtensionRunnerContributions } from './points'
+import {
+  EXTENSION_HOOK_POINTS,
+  parseBlocks,
+  parseColumns,
+  parseFieldTypes,
+  parsePanelDetails,
+  parseRowActions,
+  parseTableCells,
+} from './hooks'
+import type {
+  ExtensionHookContributions,
+  ExtensionPanelDeclaration,
+} from './hooks'
 
 /** Contribution points an extension may declare. EXT-02 registers them. */
 export const EXTENSION_CONTRIBUTION_POINTS = [
@@ -35,6 +48,7 @@ export const EXTENSION_CONTRIBUTION_POINTS = [
   'commands',
   'event-subscriptions',
   ...EXTENSION_RUNNER_POINTS,
+  ...EXTENSION_HOOK_POINTS,
 ] as const
 
 export type ExtensionContributionPoint =
@@ -78,9 +92,10 @@ export interface ExtensionEventSubscriptionDeclaration {
   eventType: string
 }
 
-export interface ExtensionContributions extends ExtensionRunnerContributions {
+export interface ExtensionContributions
+  extends ExtensionRunnerContributions, ExtensionHookContributions {
   'object-actions'?: ExtensionNamedDeclaration[]
-  panels?: ExtensionNamedDeclaration[]
+  panels?: ExtensionPanelDeclaration[]
   commands?: ExtensionNamedDeclaration[]
   'event-subscriptions'?: ExtensionEventSubscriptionDeclaration[]
 }
@@ -264,6 +279,28 @@ function checkNamedList(
   return out
 }
 
+/** Panels are named entries that may also carry a screen or a UI bundle and the models they show on. */
+function checkPanels(
+  value: unknown,
+  errors: string[],
+): ExtensionPanelDeclaration[] | null {
+  const named = checkNamedList('panels', value, errors)
+  if (!named) return null
+  const out: ExtensionPanelDeclaration[] = []
+  for (const [index, entry] of (
+    value as Array<Record<string, unknown>>
+  ).entries()) {
+    const details = parsePanelDetails(
+      entry,
+      `contributions.panels.${named[index].id}`,
+      errors,
+    )
+    if (!details) return null
+    out.push({ ...named[index], ...details } as ExtensionPanelDeclaration)
+  }
+  return out
+}
+
 function checkEventSubscriptions(
   value: unknown,
   errors: string[],
@@ -352,7 +389,7 @@ export function validateExtensionManifest(input: unknown): string[] {
       )
     }
     if (input.contributions.panels !== undefined) {
-      checkNamedList('panels', input.contributions.panels, errors)
+      checkPanels(input.contributions.panels, errors)
     }
     if (input.contributions.commands !== undefined) {
       checkNamedList('commands', input.contributions.commands, errors)
@@ -368,6 +405,21 @@ export function validateExtensionManifest(input: unknown): string[] {
     }
     if (input.contributions['analysis-kinds'] !== undefined) {
       parseAnalysisKinds(input.contributions['analysis-kinds'], errors)
+    }
+    if (input.contributions.blocks !== undefined) {
+      parseBlocks(input.contributions.blocks, errors)
+    }
+    if (input.contributions['table-cells'] !== undefined) {
+      parseTableCells(input.contributions['table-cells'], errors)
+    }
+    if (input.contributions.columns !== undefined) {
+      parseColumns(input.contributions.columns, errors)
+    }
+    if (input.contributions['row-actions'] !== undefined) {
+      parseRowActions(input.contributions['row-actions'], errors)
+    }
+    if (input.contributions['field-types'] !== undefined) {
+      parseFieldTypes(input.contributions['field-types'], errors)
     }
   }
   return errors
@@ -392,7 +444,7 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
     )!
   }
   if (declared.panels !== undefined) {
-    contributions.panels = checkNamedList('panels', declared.panels, [])!
+    contributions.panels = checkPanels(declared.panels, [])!
   }
   if (declared.commands !== undefined) {
     contributions.commands = checkNamedList('commands', declared.commands, [])!
@@ -411,6 +463,21 @@ export function parseExtensionManifest(input: unknown): ExtensionManifest {
       declared['analysis-kinds'],
       [],
     )!
+  }
+  if (declared.blocks !== undefined) {
+    contributions.blocks = parseBlocks(declared.blocks, [])!
+  }
+  if (declared['table-cells'] !== undefined) {
+    contributions['table-cells'] = parseTableCells(declared['table-cells'], [])!
+  }
+  if (declared.columns !== undefined) {
+    contributions.columns = parseColumns(declared.columns, [])!
+  }
+  if (declared['row-actions'] !== undefined) {
+    contributions['row-actions'] = parseRowActions(declared['row-actions'], [])!
+  }
+  if (declared['field-types'] !== undefined) {
+    contributions['field-types'] = parseFieldTypes(declared['field-types'], [])!
   }
   return {
     id: raw.id as string,

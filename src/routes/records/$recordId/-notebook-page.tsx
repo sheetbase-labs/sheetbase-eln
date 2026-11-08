@@ -4097,15 +4097,15 @@ export function NotebookInspector({
           </InspectorSection>
           {/* FIND-03: contextual discovery across links, provenance and
               project membership. Silent when empty. */}
-          {isHistorical ? null : (
-            <RelatedWorkPanel kind="record" id={record.id} />
-          )}
           {/* Plugin hooks: summaries, holds and sign-off steps. Silent when empty. */}
           {isHistorical ? null : (
             <PluginRecordPanel
               recordId={record.id}
               myUserId={currentUserId ?? null}
             />
+          )}
+          {isHistorical ? null : (
+            <RelatedWorkPanel kind="record" id={record.id} />
           )}
           {/* KNOW-01: complete bidirectional typed traversal. Related work
               above is ranked discovery with reasons; this panel is the full

@@ -144,11 +144,8 @@ None. Both the pure list and the live panel have stories.
 
 ## Chemistry registration
 
-| Module                                                  | Why no story                                                                                                     |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `src/components/registry/compound-panel.tsx`            | Reads the entry's structure, lots and similar compounds from the database, and draws with the chemistry library. |
-| `src/components/registry/registry-sar.tsx`              | A table over structure search results, which need the database and the chemistry library.                        |
-| `src/components/registry/registry-structure-search.tsx` | Runs substructure and similarity search against the database.                                                    |
+| Module | Why no story |
+| ------ | ------------ |
 
 ## Story-level limits
 

@@ -19,11 +19,13 @@ import zipfile
 
 from .displays import check_display
 
-MAX_FILES = 100
-MAX_FILE_BYTES = 512 * 1024
-MAX_TOTAL_BYTES = 2 * 1024 * 1024
-MAX_DECLARATIONS = 25
-MAX_FIELDS = 24
+# Sanity bounds so a malformed zip can't exhaust the server. They sit far above
+# any real plugin; a plugin's runtime limits are separate, per-plugin settings.
+MAX_FILES = 2000
+MAX_FILE_BYTES = 16 * 1024 * 1024
+MAX_TOTAL_BYTES = 64 * 1024 * 1024
+MAX_DECLARATIONS = 1000
+MAX_FIELDS = 500
 
 ID_PATTERN = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$")
 ITEM_ID_PATTERN = re.compile(r"^[a-z][a-z0-9-]{0,48}$")
@@ -58,7 +60,19 @@ RECORD_HOOK_WHEN = ("created", "edited", "uploaded", "status-changed")
 MAX_LIST_ITEMS = 10
 TOP_LEVEL = (
     "id", "name", "version", "description", "author", "compatibleWith",
-    "permissions", "provides", "examples",
+    "permissions", "provides", "examples", "python",
+)
+
+_NAME = r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?"
+_EXTRAS = r"(?:\[[A-Za-z0-9](?:[A-Za-z0-9._,\s-]*[A-Za-z0-9])?\])?"
+_CLAUSE = r"(?:===|==|~=|!=|<=|>=|<|>)\s*[A-Za-z0-9][A-Za-z0-9.*+!_-]*"
+_VERSIONS = rf"(?:\s*{_CLAUSE}(?:\s*,\s*{_CLAUSE})*)?"
+_MARKER = r"(?:\s*;\s*[A-Za-z0-9 _.'\"()<>=!~,-]+)?"
+REQUIREMENT_PATTERN = re.compile(
+    rf"^{_NAME}{_EXTRAS}(?:{_VERSIONS}|\s*@\s*https://[^\s;]+){_MARKER}$"
+)
+HOST_PATTERN = re.compile(
+    r"^(?:\*\.)?[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$"
 )
 UI_ENTRY_PATTERN = re.compile(r"^ui/[A-Za-z0-9._/-]{1,100}\.html$")
 UI_FILE_PATTERN = re.compile(r"^ui/[A-Za-z0-9._/-]+\.(html|js|mjs|css|svg|json)$")
@@ -807,6 +821,57 @@ def _called_names_are_unique(provides, errors):
                 seen.add(entry["id"])
 
 
+def requirement_problem(line):
+    """Why a pip requirement line is refused, or None."""
+    if not isinstance(line, str):
+        return "a package must be written as text"
+    text = line.strip()
+    if not text:
+        return "a package line is empty"
+    if len(text) > 300:
+        return f"{text[:40]}… is too long"
+    if text.startswith("-"):
+        return f"{text} is a pip option, not a package: write the package name and version"
+    if not REQUIREMENT_PATTERN.match(text):
+        return f"{text} is not a package pip understands (for example rdkit>=2024.3 or biopython==1.84)"
+    return None
+
+
+def host_problem(host):
+    """Why a network host is refused, or None."""
+    if not isinstance(host, str):
+        return "a host must be written as text"
+    if len(host) > 253:
+        return f"{host[:40]}… is too long"
+    if not HOST_PATTERN.match(host):
+        return (
+            f"{host} is not a host name such as eutils.ncbi.nlm.nih.gov or *.ebi.ac.uk "
+            "(no https://, no path, no port)"
+        )
+    return None
+
+
+def _python_declaration(value, errors):
+    if value is None:
+        return
+    if not _is_object(value):
+        errors.append("python must be an object")
+        return
+    for key in value:
+        if key not in ("requirements", "network"):
+            errors.append(f"unknown key in python: {key}")
+    for key, check in (("requirements", requirement_problem), ("network", host_problem)):
+        if key not in value:
+            continue
+        if not isinstance(value[key], list):
+            errors.append(f"python.{key} must be a list")
+            continue
+        for entry in value[key]:
+            problem = check(entry)
+            if problem:
+                errors.append(f"python.{key}: {problem}")
+
+
 def validate_manifest(manifest, files):
     """Every problem with a ``plugin.json`` value, given the package's files."""
     errors = []
@@ -830,6 +895,7 @@ def validate_manifest(manifest, files):
     permissions = manifest.get("permissions", [])
     if not isinstance(permissions, list) or not all(isinstance(p, str) and SCOPE_PATTERN.match(p) for p in permissions):
         errors.append("permissions must be a list of scopes such as projects:read")
+    _python_declaration(manifest.get("python"), errors)
     provides = manifest.get("provides")
     if not _is_object(provides):
         errors.append("provides must be an object")
@@ -897,7 +963,7 @@ def validate_files(files):
         size = len(content.encode("utf-8")) if isinstance(content, str) else len(content)
         total += size
         if size > MAX_FILE_BYTES:
-            errors.append(f"{path} is over {MAX_FILE_BYTES // 1024} KiB")
+            errors.append(f"{path} is over {MAX_FILE_BYTES // (1024 * 1024)} MiB")
         parts = path.split("/")
         if path.startswith("/") or "\\" in path or ".." in parts or "" in parts:
             errors.append(f"{path} is not a safe path")

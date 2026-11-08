@@ -23,7 +23,11 @@ plugin.json     what it adds: operations and analyses, each pointing at a functi
 python/ops.py   the functions, plain Python
 ```
 
-Plugin code runs in Sheetbase's isolated Python runner: no network, no access to
-the database, no files except the plugin's own. `sheetbase-plugin run` runs the
+Plugin code runs in Sheetbase's isolated Python runner: no access to the database,
+no files except the plugin's own, and no network except the hosts the administrator
+approved from the `python.network` list in `plugin.json`. Any pip package you list in
+`python.requirements` is installed for it when it is added (install the same ones
+locally to try it); how much time, memory and data a call may use is the
+administrator's per-plugin setting. `sheetbase-plugin run` runs the
 same loader on your machine so what you try is what runs there, but without the
 isolation, so keep your own machine's network and files out of the plugin.

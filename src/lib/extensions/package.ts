@@ -27,12 +27,19 @@ import { validateExtensionManifest } from './manifest'
 import type { ExtensionManifest } from './manifest'
 import { EXTENSION_ENTRY_RE, EXTENSION_SWITCH_POINTS } from './points'
 import { PLUGIN_UI_ENTRY_RE } from './hooks'
+import { parsePythonDeclaration } from './runtime-config'
 
-export const PLUGIN_MAX_FILES = 100
-export const PLUGIN_MAX_FILE_BYTES = 512 * 1024
-export const PLUGIN_MAX_TOTAL_BYTES = 2 * 1024 * 1024
-/** The zip itself: a package this large is not a plugin. */
-export const PLUGIN_MAX_ARCHIVE_BYTES = 4 * 1024 * 1024
+/**
+ * Sanity bounds on a package so a malformed or hostile zip can't exhaust the
+ * server while it is read. They sit far above any real plugin's code; the
+ * plugin's runtime limits (time, memory, data) are separate, per-plugin
+ * settings.
+ */
+export const PLUGIN_MAX_FILES = 2000
+export const PLUGIN_MAX_FILE_BYTES = 16 * 1024 * 1024
+export const PLUGIN_MAX_TOTAL_BYTES = 64 * 1024 * 1024
+/** The zip itself. */
+export const PLUGIN_MAX_ARCHIVE_BYTES = 32 * 1024 * 1024
 
 const ROOT_FILES = [
   'plugin.json',
@@ -51,6 +58,7 @@ const TOP_LEVEL = [
   'permissions',
   'provides',
   'examples',
+  'python',
 ]
 const PROVIDES: readonly string[] = EXTENSION_SWITCH_POINTS
 /** The points drawn on screens and in tables (`hooks.ts`). */
@@ -127,7 +135,9 @@ export function validatePluginFiles(files: Record<string, string>): string[] {
     const size = byteLength(files[path])
     total += size
     if (size > PLUGIN_MAX_FILE_BYTES)
-      errors.push(`${path} is over ${PLUGIN_MAX_FILE_BYTES / 1024} KiB`)
+      errors.push(
+        `${path} is over ${PLUGIN_MAX_FILE_BYTES / (1024 * 1024)} MiB`,
+      )
     const parts = path.split('/')
     if (
       path.startsWith('/') ||
@@ -373,6 +383,9 @@ export function buildPluginPackage(
     else examples.push(...(raw.examples as PluginExample[]))
   }
 
+  const python = parsePythonDeclaration(raw.python)
+  errors.push(...python.errors)
+
   const manifest = {
     id: raw.id,
     name: raw.name,
@@ -388,6 +401,7 @@ export function buildPluginPackage(
     // the least one it may, which a plugin without a network can never use.
     scopes: scopes.length > 0 ? scopes : ['projects:read'],
     contributions,
+    ...(raw.python !== undefined ? { python: python.value } : {}),
   }
   // The point checks (fields, runners, analysis shapes) live in one place.
   const problems = validateExtensionManifest(manifest).map((message) =>

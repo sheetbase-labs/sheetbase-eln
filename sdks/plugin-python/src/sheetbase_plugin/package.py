@@ -71,7 +71,7 @@ _MARKER = r"(?:\s*;\s*[A-Za-z0-9 _.'\"()<>=!~,-]+)?"
 REQUIREMENT_PATTERN = re.compile(
     rf"^{_NAME}{_EXTRAS}(?:{_VERSIONS}|\s*@\s*https://[^\s;]+){_MARKER}$"
 )
-HOST_PATTERN = re.compile(
+NETWORK_HOST_PATTERN = re.compile(
     r"^(?:\*\.)?[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$"
 )
 UI_ENTRY_PATTERN = re.compile(r"^ui/[A-Za-z0-9._/-]{1,100}\.html$")
@@ -843,7 +843,7 @@ def host_problem(host):
         return "a host must be written as text"
     if len(host) > 253:
         return f"{host[:40]}… is too long"
-    if not HOST_PATTERN.match(host):
+    if not NETWORK_HOST_PATTERN.match(host):
         return (
             f"{host} is not a host name such as eutils.ncbi.nlm.nih.gov or *.ebi.ac.uk "
             "(no https://, no path, no port)"

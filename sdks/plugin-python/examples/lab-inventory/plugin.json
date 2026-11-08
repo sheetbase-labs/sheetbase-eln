@@ -1,0 +1,49 @@
+{
+  "id": "acme.lab-inventory",
+  "name": "Lab inventory",
+  "version": "1.0.0",
+  "description": "Reads the Acme plate reader's files, prints compact cryo labels with Code 39 barcodes, and keeps samples out of units that are too warm for them.",
+  "author": "Acme Bio",
+  "provides": {
+    "instrument-parsers": [
+      {
+        "id": "acme-reader",
+        "title": "Acme PlateReader 3000",
+        "description": "Reads the CSV the Acme PlateReader 3000 exports: a few lines about the run, then one line per well.",
+        "extensions": [".csv"],
+        "encoding": "text",
+        "instrument": "Acme PlateReader 3000",
+        "contains": ["Acme PlateReader"],
+        "run": "reader:read_rows"
+      }
+    ],
+    "label-formats": [
+      {
+        "id": "cryo-compact",
+        "title": "Compact cryo label",
+        "description": "The ID in bold, then the sample type and lot on one line, then where it is kept and its use-by date.",
+        "kinds": ["sample"],
+        "run": "labels:cryo_compact"
+      }
+    ],
+    "barcode-formats": [
+      {
+        "id": "code39",
+        "title": "Code 39",
+        "description": "Draws the ID as a Code 39 barcode, and reads a scanned Code 39 back into an ID (case and the * start and stop marks do not matter).",
+        "shape": "1d",
+        "run": "labels:code39_modules",
+        "parse": "labels:code39_value"
+      }
+    ],
+    "storage-rules": [
+      {
+        "id": "cold-chain",
+        "title": "Keep samples cold enough",
+        "description": "Refuses a sample that needs −80 °C in a unit that is warmer than −60 °C, and warns when a box is nearly full.",
+        "run": "storage:cold_chain"
+      }
+    ]
+  },
+  "examples": []
+}

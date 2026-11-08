@@ -7,25 +7,29 @@ is `sdks/plugin-python/examples/cell-count`.
 
 ## What you can add
 
-Twelve places in the app take a plugin. Each is declared in `plugin.json` under
+Sixteen places in the app take a plugin. Each is declared in `plugin.json` under
 `provides`, points at a Python function, and has its own switch in
 **Settings → Plugins**.
 
-| Point            | Declare it as      | Your function                                     | Where people meet it                                   |
-| ---------------- | ------------------ | ------------------------------------------------- | ------------------------------------------------------ |
-| Operations       | `operations`       | `fn(input) -> dict`                               | Assistant, MCP, pipelines, API                         |
-| Calculators      | `calculators`      | `fn(input) -> dict`                               | Bench calculator, "More" tab; also assistant, MCP, API |
-| Pipeline steps   | `pipeline-steps`   | `fn(tables, settings) -> DataFrame`               | Pipelines: combine or reshape tables                   |
-| Analysis kinds   | `analysis-kinds`   | `fn(rows) -> rows or DataFrame`                   | Analysis studio                                        |
-| Checks           | `checks`           | `fn(df) -> {status, message}`                     | "A plugin check passes" gate condition                 |
-| Search           | `search-providers` | `fn({query, documents}) -> {hits}`                | Search page, assistant, MCP                            |
-| Connectors       | `connectors`       | `run(input)` and `parse({responses, parameters})` | Import: "Pull data in from another tool"               |
-| Importers        | `importers`        | `fn(content, filename) -> rows`                   | Import, for file types Sheetbase does not read         |
-| Exporters        | `exporters`        | `fn(rows, options) -> str or bytes`               | Dataset menu: "Download as …"                          |
-| File previews    | `previews`         | `fn(content, filename) -> {kind, …}`              | Notebook file blocks: "Show as …"                      |
-| Same-thing rules | `sameness-keys`    | `fn(values) -> {key}`                             | Registry: warning before a repeat is added             |
-| Event reactions  | `event-hooks`      | `fn({event, record}) -> after answer`             | Inbox, record panel, record fields                     |
-| Save hooks       | `record-hooks`     | `fn({record, …}) -> before or after answer`       | Saves and uploads, record panel, sign-offs, gates      |
+| Point            | Declare it as        | Your function                                            | Where people meet it                                   |
+| ---------------- | -------------------- | -------------------------------------------------------- | ------------------------------------------------------ |
+| Operations       | `operations`         | `fn(input) -> dict`                                      | Assistant, MCP, pipelines, API                         |
+| Calculators      | `calculators`        | `fn(input) -> dict`                                      | Bench calculator, "More" tab; also assistant, MCP, API |
+| Pipeline steps   | `pipeline-steps`     | `fn(tables, settings) -> DataFrame`                      | Pipelines: combine or reshape tables                   |
+| Analysis kinds   | `analysis-kinds`     | `fn(rows) -> rows or DataFrame`                          | Analysis studio                                        |
+| Checks           | `checks`             | `fn(df) -> {status, message}`                            | "A plugin check passes" gate condition                 |
+| Search           | `search-providers`   | `fn({query, documents}) -> {hits}`                       | Search page, assistant, MCP                            |
+| Connectors       | `connectors`         | `run(input)` and `parse({responses, parameters})`        | Import: "Pull data in from another tool"               |
+| Importers        | `importers`          | `fn(content, filename) -> rows`                          | Import, for file types Sheetbase does not read         |
+| Exporters        | `exporters`          | `fn(rows, options) -> str or bytes`                      | Dataset menu: "Download as …"                          |
+| File previews    | `previews`           | `fn(content, filename) -> {kind, …}`                     | Notebook file blocks: "Show as …"                      |
+| Same-thing rules | `sameness-keys`      | `fn(values) -> {key}`                                    | Registry: warning before a repeat is added             |
+| Event reactions  | `event-hooks`        | `fn({event, record}) -> after answer`                    | Inbox, record panel, record fields                     |
+| Save hooks       | `record-hooks`       | `fn({record, …}) -> before or after answer`              | Saves and uploads, record panel, sign-offs, gates      |
+| Instrument files | `instrument-parsers` | `fn(content, filename) -> rows`                          | Import, for an instrument's own files                  |
+| Label layouts    | `label-formats`      | `fn({record, kinds}) -> {lines}`                         | Label templates, sample labels, printing               |
+| Barcode formats  | `barcode-formats`    | `fn({value}) -> {modules}` or `{grid}`; optional `parse` | Label templates, Scan, stocktake                       |
+| Storage rules    | `storage-rules`      | `fn({sample, to, from}) -> {status, message}`            | Every move of a sample into a place                    |
 
 The examples under `sdks/plugin-python/examples` (`lab-rules` shows save hooks) between them use every
 point except operations and analyses (see `cell-count` for those):
@@ -37,6 +41,9 @@ point except operations and analyses (see `cell-count` for those):
 - `lab-rules`: save hooks: a check and fill before a save, a summary and search
   entry after one, a sign-off when an experiment goes to review, and a check on
   uploads.
+- `lab-inventory`: an instrument reader that skips a preamble, a compact cryo
+  label, a Code 39 barcode (drawn and read back) and a cold-chain storage rule
+  that refuses a -80 °C sample in a warmer freezer.
 - `lookup-tools`: a search that ignores dashes and leading zeros in
   identifiers, and a PubChem connector.
 

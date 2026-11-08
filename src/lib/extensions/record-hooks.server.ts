@@ -153,7 +153,7 @@ export function defaultHookStore(): HookStore {
       const { db } = await import('#/db/client.server')
       await db.execute(
         sql`SELECT internal.plugin_raise_flag(${flag.recordId}::uuid, ${flag.hook.extensionKey}, ${flag.hook.extensionName},
-              ${flag.key}, ${flag.kind}, ${flag.title}, ${flag.message}, ${flag.roles}::text[], ${flag.approvals},
+              ${flag.key}, ${flag.kind}, ${flag.title}, ${flag.message}, ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(flag.roles)}::jsonb)), ${flag.approvals},
               ${flag.independent}, ${flag.actorUserId})`,
       )
     },
@@ -713,9 +713,18 @@ export async function runAfterRecordHooksForEvent(
     }
     let record: RecordSnapshot | null = null
     let ran = 0
+    let { kind, status } = meaning
+    if (!kind) {
+      // An update in the log does not say what kind of record it was (only the
+      // creation does), so a hook limited to a kind needs the record itself.
+      record = await loadAsActor(deps, claims, event.entityUuid)
+      if (!record) return 0
+      kind = record.kind
+      status ||= record.status
+    }
     for (const { hook, when } of matchHooks(hooks, 'after', meaning.whens, {
-      kind: meaning.kind,
-      status: meaning.status,
+      kind,
+      status,
     })) {
       if (!record) {
         record = await loadAsActor(deps, claims, event.entityUuid)

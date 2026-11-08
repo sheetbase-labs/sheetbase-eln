@@ -346,6 +346,26 @@ describe('whensOfEvent and the pass after a save', () => {
     })
   })
 
+  it('finds the kind from the record when the log entry for an update does not carry it', async () => {
+    hookMock.mockResolvedValue({ summary: 'In review' })
+    const d = deps([
+      hook('s', {
+        timing: 'after',
+        when: ['status-changed'],
+        kinds: ['experiment'],
+        statuses: ['in_review'],
+      }),
+    ])
+    const update = {
+      ...event,
+      payload: {
+        status: 'in_review',
+        changes: { status: { from: 'in_progress', to: 'in_review' } },
+      },
+    }
+    expect(await runAfterRecordHooksForEvent(update, d)).toBe(1)
+  })
+
   it('skips changes a plugin made itself, changes nobody made, and a record it can’t see', async () => {
     const d = deps([hook('s', { timing: 'after', when: ['edited'] })])
     expect(

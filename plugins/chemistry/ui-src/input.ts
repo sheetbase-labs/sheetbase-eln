@@ -23,7 +23,8 @@ root.innerHTML = `
       </div>
     </div>
   </div>`
-const $ = <T extends HTMLElement>(id: string) => root.querySelector<T>(`#${id}`)!
+const $ = <T extends HTMLElement>(id: string) =>
+  root.querySelector<T>(`#${id}`)!
 const picture = $('picture')
 const note = $('note')
 const error = $('error')

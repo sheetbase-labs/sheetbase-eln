@@ -1,0 +1,39 @@
+{
+  "id": "acme.outbound-tools",
+  "name": "Outbound tools",
+  "version": "1.0.0",
+  "description": "Sends a dataset to a lab information system, and delivers notifications as Slack messages.",
+  "author": "Acme Bio",
+  "provides": {
+    "publishers": [
+      {
+        "id": "send-to-lims",
+        "title": "Lab information system",
+        "description": "Sends the rows of a dataset to the lab information system as a new batch of results.",
+        "hosts": ["lims.example.org"],
+        "settings": [
+          { "name": "token", "label": "API token", "secret": true, "required": true }
+        ],
+        "parameters": [
+          { "name": "project", "type": "text", "required": true, "label": "LIMS project code" }
+        ],
+        "run": "outbound:plan_lims",
+        "parse": "outbound:read_lims"
+      }
+    ],
+    "notification-channels": [
+      {
+        "id": "slack",
+        "title": "Slack",
+        "description": "Sends your notifications as a Slack direct message.",
+        "hosts": ["slack.com"],
+        "settings": [
+          { "name": "bot_token", "label": "Slack bot token", "secret": true, "required": true }
+        ],
+        "destination": { "label": "Slack member ID", "hint": "U01ABCDEF" },
+        "run": "outbound:plan_slack",
+        "parse": "outbound:check_slack"
+      }
+    ]
+  }
+}

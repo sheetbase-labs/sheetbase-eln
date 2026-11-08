@@ -15,7 +15,7 @@ export interface RunStep {
   name: string
   /** The step's identifier read as words: "check_units" becomes "Check units". */
   label: string
-  kind: 'SQL' | 'Python'
+  kind: 'SQL' | 'Python' | 'Plugin'
   state: RunStepState
   /** "SQL", "Python · stopped here", "Waiting for a person", "Not started". */
   note: string
@@ -37,7 +37,7 @@ function humanise(name: string): string {
 /** The steps a version declares, in run order: the transform, then each step. */
 function declared(
   config: Partial<PipelineConfig>,
-): Array<{ name: string; kind: 'SQL' | 'Python' }> {
+): Array<{ name: string; kind: RunStep['kind'] }> {
   const transform = config.transform
   const first =
     transform && transform.language !== 'none'
@@ -55,7 +55,12 @@ function declared(
     ...first,
     ...(config.steps ?? []).map((step) => ({
       name: step.name,
-      kind: step.language === 'python' ? ('Python' as const) : ('SQL' as const),
+      kind:
+        step.language === 'plugin'
+          ? ('Plugin' as const)
+          : step.language === 'python'
+            ? ('Python' as const)
+            : ('SQL' as const),
     })),
   ]
 }

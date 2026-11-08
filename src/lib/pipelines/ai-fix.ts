@@ -50,6 +50,8 @@ function stepStatements(config: Partial<PipelineConfig>): string[] {
     )
   }
   for (const step of config.steps ?? []) {
+    // A plugin step has no code to fix.
+    if (step.language === 'plugin') continue
     out.push(
       `Step "${step.name}" (${step.language}):\n${step.statement.slice(0, MAX_STATEMENT_CHARS)}`,
     )
@@ -68,7 +70,9 @@ export function statementOf(
     return { language: transform.language, statement: transform.statement }
   }
   const step = config.steps?.find((candidate) => candidate.name === target)
-  return step ? { language: step.language, statement: step.statement } : null
+  return step && step.language !== 'plugin'
+    ? { language: step.language, statement: step.statement }
+    : null
 }
 
 export const FIX_INSTRUCTION = [

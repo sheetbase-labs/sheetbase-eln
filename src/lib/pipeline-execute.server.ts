@@ -40,6 +40,7 @@ import {
 import type { PythonTransformUsage } from './pipeline-python.server'
 import { queuePipelineNotifications } from './pipeline-notifications.server'
 import { executePipelineActions } from './pipeline-actions.server'
+import { PluginStepError, runPluginStep } from './pipeline-plugin-step.server'
 import {
   digestInput,
   digestRows,
@@ -1106,7 +1107,12 @@ async function finishExecution(
   await recordRunManifest(conn, {
     run: { ...run, definition_version_id: run.definition_version_id },
     inputNames: config.inputs.map((input) => input.name),
-    steps: listSteps(config),
+    // A plugin step has no code: its digest covers which step runs and what it is given.
+    steps: listSteps(config).map((step) =>
+      step.language === 'plugin'
+        ? { ...step, statement: JSON.stringify(step.plugin ?? null) }
+        : step,
+    ),
     output: {
       mode: config.output.mode,
       datasetId: output.datasetId,
@@ -2202,11 +2208,64 @@ async function executeSteps(
     usages.push(usage)
   }
   const steps = listSteps(config)
+  // What each step gave back, so a plugin step can read any earlier one by name.
+  const stepResults: Record<string, Array<Record<string, unknown>>> = {}
+  const inputRows = async (name: string) => {
+    if (!config.inputs.some((input) => input.name === name)) return undefined
+    const { rows } = await conn.query<{ row: Record<string, unknown> }>(
+      `SELECT row_to_json(t) AS row FROM pg_temp.${quoteIdentifier(name)} t ORDER BY "_sb_row_id"`,
+    )
+    return rows.map((entry) => entry.row)
+  }
 
   const runStep = async (
     index: number,
     step: (typeof steps)[number],
   ): Promise<TransformOutcome> => {
+    if (step.language === 'plugin') {
+      try {
+        const actor =
+          run.actor_user_id ??
+          (
+            await conn.query<{ id: string | null }>(
+              'SELECT api.current_user_id() AS id',
+            )
+          ).rows.at(0)?.id
+        if (!actor)
+          throw new PluginStepError('This run has no person to act as.')
+        const result = await runPluginStep(
+          { workspaceId: run.workspace_id, actorUserId: actor, step },
+          {
+            parameters: run.parameters,
+            previous,
+            inputRows,
+            steps: stepResults,
+          },
+        )
+        await log(
+          conn,
+          run,
+          'info',
+          'plugin',
+          `Plugin step ${index + 1} completed.`,
+          { step: step.name, operation: step.plugin?.operation },
+        )
+        return {
+          kind: 'rows',
+          rows: result.rows,
+          durationMs: Date.now() - started,
+        }
+      } catch (error) {
+        return {
+          kind: 'error',
+          code: 'transform_failed',
+          message: `Plugin step ${step.name}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          detail: { step: step.name },
+        }
+      }
+    }
     if (step.language === 'python') {
       const inputs: Record<string, Array<Record<string, unknown>>> = {}
       for (const input of config.inputs) {
@@ -2277,7 +2336,15 @@ async function executeSteps(
     if (previous) await sandbox.copyTable(conn, 'previous')
     if (answerValues && !sandbox.has('confirm_answer'))
       await sandbox.copyTable(conn, 'confirm_answer')
-    return executeTransform(run, { ...config, transform: step }, sandbox, conn)
+    return executeTransform(
+      run,
+      {
+        ...config,
+        transform: { language: 'sql', statement: step.statement },
+      },
+      sandbox,
+      conn,
+    )
   }
 
   for (const [index, step] of steps.entries()) {
@@ -2340,6 +2407,7 @@ async function executeSteps(
       continue
     }
     previous = outcome.rows
+    stepResults[step.name] = outcome.rows
     await log(
       conn,
       run,

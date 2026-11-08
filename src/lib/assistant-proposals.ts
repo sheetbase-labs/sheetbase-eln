@@ -117,13 +117,42 @@ const pipelineSteps = z
         name: pipelineName.describe(
           'Lowercase letters, digits and underscores, starting with a letter.',
         ),
-        statement: pipelineStatement,
+        statement: pipelineStatement
+          .optional()
+          .describe('The SQL of the step. Leave out for a plugin step.'),
+        plugin: z
+          .object({
+            operation: z
+              .string()
+              .regex(/^plugin\.[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/)
+              .describe(
+                'The plugin step to run, as `plugin.<plugin>.<step>` (a pipeline step an installed plugin offers).',
+              ),
+            arguments: z
+              .record(z.string(), z.unknown())
+              .describe(
+                'What the plugin step is given. A table is `{ "$ref": "previous" }`, `{ "$ref": "inputs.<name>" }` or `{ "$ref": "steps.<step>" }`; a pipeline setting is `{ "$ref": "parameters.<name>" }`; anything else is a plain value.',
+              ),
+          })
+          .strict()
+          .optional()
+          .describe(
+            'Instead of SQL: a step a plugin runs between two other steps. It turns tables into a table, and the next step reads that table as `previous`.',
+          ),
       })
-      .strict(),
+      .strict()
+      .refine(
+        (step) =>
+          (step.statement === undefined) !== (step.plugin === undefined),
+        {
+          message:
+            'Give a step either SQL (`statement`) or a `plugin`, not both.',
+        },
+      ),
   )
   .max(9)
   .describe(
-    'Further SQL steps after the first. Each reads the step before as `previous`.',
+    'Further steps after the first, SQL or plugin. Each reads the step before as `previous`.',
   )
 
 const pipelineInputs = z

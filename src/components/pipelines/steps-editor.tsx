@@ -7,6 +7,14 @@ import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { personOption } from '#/components/record-picker/entity-options'
 import { Select } from '#/components/ui/select'
 import { PythonStepEditor } from '#/components/pipelines/python-editor'
+import {
+  ArgumentField,
+  pluginStepSources,
+} from '#/components/pipelines/plugin-steps-editor'
+import { Banner } from '#/components/ui/alert'
+import { Field } from '#/components/ui/input'
+import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
+import { parsePluginName } from '#/lib/extensions/points'
 import type { PythonRuntimeInfo } from '#/components/pipelines/pipelines-data'
 import { CONFIRM_NO_ANSWER_OUTCOMES } from '#/lib/pipelines/config'
 import type {
@@ -24,6 +32,7 @@ import {
   setStepConfirm,
   setStepContract,
   setStepLanguage,
+  setStepPlugin,
   updateStep,
 } from '#/lib/pipelines/authoring'
 
@@ -68,6 +77,11 @@ export function StepsEditor({
   }
 }) {
   const memberIds = Object.keys(members)
+  const points = useExtensionPoints()
+  // Only a plugin step that turns tables into a table can run between steps.
+  const pluginSteps = points.descriptors.filter(
+    (d) => points.callables.get(d.name)?.point === 'pipeline-steps',
+  )
   return (
     <div className="flex flex-col gap-3">
       {steps.length === 0 ? (
@@ -123,6 +137,11 @@ export function StepsEditor({
                 >
                   <option value="sql">{t('data.stepsEditor.sql')}</option>
                   <option value="python">{t('data.stepsEditor.python')}</option>
+                  {pluginSteps.length > 0 || step.language === 'plugin' ? (
+                    <option value="plugin">
+                      {t('data.stepsEditor.pluginStep')}
+                    </option>
+                  ) : null}
                 </Select>
                 <span className="flex-1" />
                 <Button
@@ -152,7 +171,28 @@ export function StepsEditor({
                   {t('common.actions.remove')}
                 </Button>
               </div>
-              {step.language === 'python' && python ? (
+              {step.language === 'plugin' ? (
+                <PluginStepBody
+                  step={step}
+                  pluginSteps={pluginSteps}
+                  descriptors={
+                    new Map(points.descriptors.map((d) => [d.name, d]))
+                  }
+                  tablesOf={(operation) =>
+                    points.callables.get(operation)?.tableNames ?? []
+                  }
+                  sources={pluginStepSources({
+                    hasPrevious: index > 0 || (python?.transformRuns ?? false),
+                    transformRuns: python?.transformRuns ?? false,
+                    inputs: python?.inputs ?? [],
+                    earlier: steps.slice(0, index).map((other) => other.name),
+                  })}
+                  parameters={python?.parameters ?? []}
+                  onChange={(plugin) =>
+                    onChange(setStepPlugin(steps, index, plugin))
+                  }
+                />
+              ) : step.language === 'python' && python ? (
                 <PythonStepEditor
                   label={t('data.stepsEditor.step', { n })}
                   statement={step.statement}
@@ -181,22 +221,28 @@ export function StepsEditor({
                   }
                 />
               )}
-              <label className="flex items-center gap-2 text-body">
-                <Checkbox
-                  aria-label={t('data.stepsEditor.ariaStepWaitsPerson', { n })}
-                  checked={Boolean(confirm)}
-                  onCheckedChange={(on) =>
-                    onChange(
-                      setStepConfirm(
-                        steps,
-                        index,
-                        on ? defaultConfirm(memberIds.slice(0, 1)) : undefined,
-                      ),
-                    )
-                  }
-                />
-                {t('data.stepsEditor.pausePersonConfirm')}
-              </label>
+              {step.language === 'plugin' ? null : (
+                <label className="flex items-center gap-2 text-body">
+                  <Checkbox
+                    aria-label={t('data.stepsEditor.ariaStepWaitsPerson', {
+                      n,
+                    })}
+                    checked={Boolean(confirm)}
+                    onCheckedChange={(on) =>
+                      onChange(
+                        setStepConfirm(
+                          steps,
+                          index,
+                          on
+                            ? defaultConfirm(memberIds.slice(0, 1))
+                            : undefined,
+                        ),
+                      )
+                    }
+                  />
+                  {t('data.stepsEditor.pausePersonConfirm')}
+                </label>
+              )}
               {confirm ? (
                 <div className="flex flex-col gap-2 border-l-2 border-border pl-3">
                   <label className="flex flex-col gap-0.5 text-label text-fg-muted">
@@ -282,6 +328,108 @@ export function StepsEditor({
           </Button>
         </div>
       ) : null}
+    </div>
+  )
+}
+
+/**
+ * The body of a plugin step: which plugin step runs, and where each of its
+ * tables and settings comes from. The plugin's own code is not shown here: it
+ * lives in the plugin, and nothing in the pipeline can make it do more.
+ */
+function PluginStepBody({
+  step,
+  pluginSteps,
+  descriptors,
+  tablesOf,
+  sources,
+  parameters,
+  onChange,
+}: {
+  step: PipelineStep
+  pluginSteps: Array<{ name: string; label: string }>
+  descriptors: Map<
+    string,
+    {
+      description: string
+      inputs: readonly import('#/lib/operations/descriptor').OperationInput[]
+    }
+  >
+  tablesOf: (operation: string) => readonly string[]
+  sources: Array<{ ref: string; label: string }>
+  parameters: PipelineParameter[]
+  onChange: (plugin: PipelineStep['plugin']) => void
+}) {
+  const operation = step.plugin?.operation ?? ''
+  const descriptor = descriptors.get(operation)
+  const args = step.plugin?.arguments ?? {}
+  const known = pluginSteps.some((entry) => entry.name === operation)
+  return (
+    <div className="flex flex-col gap-3">
+      <Field label={t('data.stepsEditor.pluginStepWhich')}>
+        <Select
+          aria-label={t('data.stepsEditor.pluginStepWhich')}
+          value={operation}
+          onChange={(event) => {
+            const next = event.target.value
+            if (!next) return onChange(undefined)
+            // A table the plugin reads starts as the result so far, or the
+            // first input when nothing has run yet.
+            onChange({
+              operation: next,
+              arguments: Object.fromEntries(
+                tablesOf(next).map((table) => [
+                  table,
+                  { $ref: sources.at(0)?.ref ?? 'previous' },
+                ]),
+              ),
+            })
+          }}
+        >
+          <option value="">{t('data.pluginSteps.choose')}</option>
+          {operation && !known ? (
+            <option value={operation}>{operation}</option>
+          ) : null}
+          {pluginSteps.map((entry) => (
+            <option key={entry.name} value={entry.name}>
+              {entry.label}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      {pluginSteps.length === 0 ? (
+        <p className="m-0 text-label text-fg-muted">
+          {t('data.pluginSteps.noPlugins')}
+        </p>
+      ) : null}
+      {operation && !descriptor ? (
+        <Banner tone="warn" title={t('data.pluginSteps.missing')}>
+          {t('data.pluginSteps.missingBody', {
+            operation: parsePluginName(operation) ? operation : '',
+          })}
+        </Banner>
+      ) : null}
+      {descriptor ? (
+        <p className="m-0 text-label text-fg-muted">{descriptor.description}</p>
+      ) : null}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {(descriptor?.inputs ?? []).map((input) => (
+          <ArgumentField
+            key={input.name}
+            input={input}
+            isTable={tablesOf(operation).includes(input.name)}
+            value={args[input.name]}
+            parameters={parameters}
+            tableSources={sources}
+            onChange={(value) => {
+              const next = { ...args }
+              if (value === undefined) delete next[input.name]
+              else next[input.name] = value
+              onChange({ operation, arguments: next })
+            }}
+          />
+        ))}
+      </div>
     </div>
   )
 }

@@ -38,6 +38,17 @@ export type GateCondition =
   /** No tracked quality control series (or the one named) has a breach nobody has looked at. */
   | { kind: 'qc_in_control'; seriesId?: string; label?: string }
   /**
+   * A plugin has nothing open on the experiment: no hold, and no sign-off step it
+   * asked for that is still waiting. Set through the lab API; the database decides.
+   */
+  | {
+      kind: 'plugin_flag'
+      extensionKey: string
+      flagKey?: string
+      /** What the plugin's step is called, kept so the words stay right. */
+      label?: string
+    }
+  /**
    * A plugin check on a table passes. The check runs in the app over the table
    * as it is, and the answer counts only while the table stays as it was.
    */

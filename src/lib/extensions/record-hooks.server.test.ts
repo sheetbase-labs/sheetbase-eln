@@ -10,30 +10,37 @@ import {
   runAfterRecordHooksForEvent,
   whensOfEvent,
 } from './record-hooks.server'
-import type { HookStore, RecordHook, RecordHookDeps } from './record-hooks.server'
+import type {
+  HookStore,
+  RecordHook,
+  RecordHookDeps,
+} from './record-hooks.server'
 import type { RecordSnapshot } from './hook-answers'
 
-vi.mock('#/lib/logger', () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() } }))
+vi.mock('#/lib/logger', () => ({
+  logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
+}))
 
 vi.mock('./data-runtime.server', () => ({
   runExtensionRecordHook: vi.fn(),
 }))
 
 // The hook runner has overloads by timing; the tests drive it loosely.
-const hookMock = vi.mocked(runExtensionRecordHook) as unknown as ReturnType<typeof vi.fn>
+const hookMock = vi.mocked(runExtensionRecordHook) as unknown as ReturnType<
+  typeof vi.fn
+>
 
 const WS = '00000000-0000-4000-8000-000000000002'
 const ID = '11111111-2222-4333-8444-555555555555'
 
-function token(claims: Record<string, unknown> = { workspace_id: WS, sub: 'user-1' }) {
+function token(
+  claims: Record<string, unknown> = { workspace_id: WS, sub: 'user-1' },
+) {
   const part = Buffer.from(JSON.stringify(claims)).toString('base64url')
   return `x.${part}.y`
 }
 
-function hook(
-  id: string,
-  declaration: Record<string, unknown>,
-): RecordHook {
+function hook(id: string, declaration: Record<string, unknown>): RecordHook {
   return {
     extensionId: 'e1',
     extensionKey: 'lab-rules',
@@ -80,9 +87,18 @@ function store() {
   return { s, calls }
 }
 
-function deps(hooks: RecordHook[], loaded: RecordSnapshot | null = snapshot): RecordHookDeps & { calls: Array<[string, unknown]> } {
+function deps(
+  hooks: RecordHook[],
+  loaded: RecordSnapshot | null = snapshot,
+): RecordHookDeps & { calls: Array<[string, unknown]> } {
   const { s, calls } = store()
-  return { hooksFor: async () => hooks, loadRecord: async () => loaded, mintToken: async () => 'tok', store: s, calls }
+  return {
+    hooksFor: async () => hooks,
+    loadRecord: async () => loaded,
+    mintToken: async () => 'tok',
+    store: s,
+    calls,
+  }
 }
 
 beforeEach(() => {
@@ -97,14 +113,42 @@ describe('matchHooks', () => {
     hook('d', { when: ['created'], timing: 'after' }),
   ]
   it('keeps to the timing, the kind and the status asked for', () => {
-    expect(matchHooks(hooks, 'before', ['created'], { kind: 'experiment', status: 'draft' }).map((m) => m.hook.id)).toEqual([])
-    expect(matchHooks(hooks, 'before', ['created'], { kind: 'sample', status: 'draft' }).map((m) => m.hook.id)).toEqual(['a'])
-    expect(matchHooks(hooks, 'before', ['status-changed'], { kind: 'sample', status: 'in_review' }).map((m) => m.hook.id)).toEqual(['b', 'c'])
-    expect(matchHooks(hooks, 'before', ['status-changed'], { kind: 'sample', status: 'closed' }).map((m) => m.hook.id)).toEqual(['c'])
-    expect(matchHooks(hooks, 'after', ['created'], { kind: 'sample', status: 'draft' }).map((m) => m.hook.id)).toEqual(['d'])
+    expect(
+      matchHooks(hooks, 'before', ['created'], {
+        kind: 'experiment',
+        status: 'draft',
+      }).map((m) => m.hook.id),
+    ).toEqual([])
+    expect(
+      matchHooks(hooks, 'before', ['created'], {
+        kind: 'sample',
+        status: 'draft',
+      }).map((m) => m.hook.id),
+    ).toEqual(['a'])
+    expect(
+      matchHooks(hooks, 'before', ['status-changed'], {
+        kind: 'sample',
+        status: 'in_review',
+      }).map((m) => m.hook.id),
+    ).toEqual(['b', 'c'])
+    expect(
+      matchHooks(hooks, 'before', ['status-changed'], {
+        kind: 'sample',
+        status: 'closed',
+      }).map((m) => m.hook.id),
+    ).toEqual(['c'])
+    expect(
+      matchHooks(hooks, 'after', ['created'], {
+        kind: 'sample',
+        status: 'draft',
+      }).map((m) => m.hook.id),
+    ).toEqual(['d'])
   })
   it('runs a hook once, for the first of the moments that fits it', () => {
-    const [match] = matchHooks(hooks, 'before', ['status-changed', 'edited'], { kind: 'x', status: 'closed' })
+    const [match] = matchHooks(hooks, 'before', ['status-changed', 'edited'], {
+      kind: 'x',
+      status: 'closed',
+    })
     expect(match.hook.id).toBe('c')
     expect(match.when).toBe('status-changed')
   })
@@ -116,7 +160,11 @@ describe('guardRecordWrite', () => {
     kind: 'table' as const,
     resource: 'records',
     query: '',
-    body: JSON.stringify({ kind: 'sample', title: 'S-1', custom_fields: { a: 1 } }),
+    body: JSON.stringify({
+      kind: 'sample',
+      title: 'S-1',
+      custom_fields: { a: 1 },
+    }),
     token: token(),
   }
 
@@ -150,10 +198,20 @@ describe('guardRecordWrite', () => {
     hookMock
       .mockResolvedValueOnce({ set: { custom_fields: { b: 2 } } })
       .mockImplementationOnce(async (args: never) => {
-        const seen = (args as { input: { record: RecordSnapshot } }).input.record
-        return { set: { custom_fields: { c: seen.custom_fields.b }, tags: ['checked'] }, warn: 'Tagged' }
+        const seen = (args as { input: { record: RecordSnapshot } }).input
+          .record
+        return {
+          set: {
+            custom_fields: { c: seen.custom_fields.b },
+            tags: ['checked'],
+          },
+          warn: 'Tagged',
+        }
       })
-    const result = await guardRecordWrite(create, deps([hook('a', {}), hook('b', {})]))
+    const result = await guardRecordWrite(
+      create,
+      deps([hook('a', {}), hook('b', {})]),
+    )
     expect(result.kind).toBe('pass')
     if (result.kind !== 'pass') return
     expect(JSON.parse(result.body!)).toMatchObject({
@@ -165,8 +223,14 @@ describe('guardRecordWrite', () => {
 
   it('fills each row of a bulk insert', async () => {
     hookMock.mockResolvedValue({ set: { tags: ['t'] } })
-    const body = JSON.stringify([{ kind: 'sample', title: 'a' }, { kind: 'sample', title: 'b' }])
-    const result = await guardRecordWrite({ ...create, body }, deps([hook('a', {})]))
+    const body = JSON.stringify([
+      { kind: 'sample', title: 'a' },
+      { kind: 'sample', title: 'b' },
+    ])
+    const result = await guardRecordWrite(
+      { ...create, body },
+      deps([hook('a', {})]),
+    )
     if (result.kind !== 'pass') throw new Error('refused')
     expect(JSON.parse(result.body!)).toEqual([
       { kind: 'sample', title: 'a', tags: ['t'] },
@@ -176,9 +240,23 @@ describe('guardRecordWrite', () => {
 
   it('shows an edit with the record as it is now, and leaves a missing record to the database', async () => {
     hookMock.mockResolvedValue({})
-    const patch = { ...create, method: 'PATCH', query: `?id=eq.${ID}`, body: '{"title":"New"}' }
+    const patch = {
+      ...create,
+      method: 'PATCH',
+      query: `?id=eq.${ID}`,
+      body: '{"title":"New"}',
+    }
     await guardRecordWrite(patch, deps([hook('a', {})]))
-    const input = (hookMock.mock.calls[0][0] as { input: { record: RecordSnapshot; previous: RecordSnapshot; changed: string[]; when: string } }).input
+    const input = (
+      hookMock.mock.calls[0][0] as {
+        input: {
+          record: RecordSnapshot
+          previous: RecordSnapshot
+          changed: string[]
+          when: string
+        }
+      }
+    ).input
     expect(input.when).toBe('edited')
     expect(input.record.title).toBe('New')
     expect(input.previous.title).toBe('Titration')
@@ -193,9 +271,12 @@ describe('guardRecordWrite', () => {
     hookMock.mockImplementation((() => {
       throw new Error('boom')
     }) as never)
-    let result: unknown
-    result = await guardRecordWrite(create, deps([hook('a', {})]))
-    expect(result).toMatchObject({ kind: 'pass', body: create.body, warnings: ['Lab rules could not check this.'] })
+    const result = await guardRecordWrite(create, deps([hook('a', {})]))
+    expect(result).toMatchObject({
+      kind: 'pass',
+      body: create.body,
+      warnings: ['Lab rules could not check this.'],
+    })
   })
 
   it('says so when a fill has nowhere to go', async () => {
@@ -206,7 +287,10 @@ describe('guardRecordWrite', () => {
       resource: 'set_experiment_status',
       body: JSON.stringify({ p_record_id: ID, p_status: 'closed' }),
     }
-    const result = await guardRecordWrite(status, deps([hook('a', { when: ['status-changed'] })]))
+    const result = await guardRecordWrite(
+      status,
+      deps([hook('a', { when: ['status-changed'] })]),
+    )
     if (result.kind !== 'pass') throw new Error('refused')
     expect(result.body).toBe(status.body)
     expect(result.warnings[0]).toMatch(/nowhere to put/)
@@ -223,12 +307,20 @@ describe('whensOfEvent and the pass after a save', () => {
     entityUuid: ID,
     operation: 'update',
     recordId: ID,
-    payload: { kind: 'experiment', status: 'in_review', changes: { status: { from: 'draft', to: 'in_review' } } },
+    payload: {
+      kind: 'experiment',
+      status: 'in_review',
+      changes: { status: { from: 'draft', to: 'in_review' } },
+    },
   }
   it('reads create, edit and status change from the log', () => {
-    expect(whensOfEvent({ ...event, operation: 'create' })?.whens).toEqual(['created'])
+    expect(whensOfEvent({ ...event, operation: 'create' })?.whens).toEqual([
+      'created',
+    ])
     expect(whensOfEvent(event)?.whens).toEqual(['status-changed', 'edited'])
-    expect(whensOfEvent({ ...event, payload: { changes: { title: {} } } })?.whens).toEqual(['edited'])
+    expect(
+      whensOfEvent({ ...event, payload: { changes: { title: {} } } })?.whens,
+    ).toEqual(['edited'])
     expect(whensOfEvent({ ...event, entityType: 'dataset' })).toBeNull()
     expect(whensOfEvent({ ...event, operation: 'archive' })).toBeNull()
   })
@@ -238,18 +330,40 @@ describe('whensOfEvent and the pass after a save', () => {
       summary: 'In review',
       flags: [{ key: 'needs-qa', title: 'Needs a second look' }],
     })
-    const d = deps([hook('s', { timing: 'after', when: ['status-changed'], statuses: ['in_review'] })])
+    const d = deps([
+      hook('s', {
+        timing: 'after',
+        when: ['status-changed'],
+        statuses: ['in_review'],
+      }),
+    ])
     expect(await runAfterRecordHooksForEvent(event, d)).toBe(1)
     expect(d.calls.map((c) => c[0])).toEqual(['storeSummary', 'raiseFlag'])
-    expect(d.calls[1][1]).toMatchObject({ recordId: ID, key: 'needs-qa', actorUserId: 'user-1' })
+    expect(d.calls[1][1]).toMatchObject({
+      recordId: ID,
+      key: 'needs-qa',
+      actorUserId: 'user-1',
+    })
   })
 
   it('skips changes a plugin made itself, changes nobody made, and a record it can’t see', async () => {
     const d = deps([hook('s', { timing: 'after', when: ['edited'] })])
-    expect(await runAfterRecordHooksForEvent({ ...event, clientId: PLUGIN_CLIENT_ID }, d)).toBe(0)
-    expect(await runAfterRecordHooksForEvent({ ...event, actorUserId: null }, d)).toBe(0)
-    const hidden = deps([hook('s', { timing: 'after', when: ['edited'] })], null)
-    expect(await runAfterRecordHooksForEvent({ ...event, payload: {} }, hidden)).toBe(0)
+    expect(
+      await runAfterRecordHooksForEvent(
+        { ...event, clientId: PLUGIN_CLIENT_ID },
+        d,
+      ),
+    ).toBe(0)
+    expect(
+      await runAfterRecordHooksForEvent({ ...event, actorUserId: null }, d),
+    ).toBe(0)
+    const hidden = deps(
+      [hook('s', { timing: 'after', when: ['edited'] })],
+      null,
+    )
+    expect(
+      await runAfterRecordHooksForEvent({ ...event, payload: {} }, hidden),
+    ).toBe(0)
     expect(runExtensionRecordHook).not.toHaveBeenCalled()
   })
 })
@@ -274,16 +388,36 @@ describe('applyHookAnswer', () => {
         { index: 'words', text: 'three' },
       ],
       flags: [{ key: 'f', title: 'Hold' }],
-      sign_off: [{ key: 's', title: 'Sign', roles: ['reviewer'], approvals: 2 }],
+      sign_off: [
+        { key: 's', title: 'Sign', roles: ['reviewer'], approvals: 2 },
+      ],
       clear: ['old'],
       changes: [{ set: { custom_fields: { x: 1 } } }],
     })
     expect(outcome.problems).toEqual([])
     expect(calls.map((c) => c[0])).toEqual([
-      'storeSummary', 'storeIndex', 'storeIndex', 'raiseFlag', 'raiseFlag', 'clearFlag', 'changeRecord', 'saveNote',
+      'storeSummary',
+      'storeIndex',
+      'storeIndex',
+      'raiseFlag',
+      'raiseFlag',
+      'clearFlag',
+      'changeRecord',
+      'saveNote',
     ])
-    expect(calls[1][1]).toMatchObject({ index: 'fp', entries: [{ entry: 'main', body: 'one', vector: [1, 0] }, { entry: 'second', body: 'two' }] })
-    expect(calls[4][1]).toMatchObject({ kind: 'sign_off', roles: ['reviewer'], approvals: 2, independent: true })
+    expect(calls[1][1]).toMatchObject({
+      index: 'fp',
+      entries: [
+        { entry: 'main', body: 'one', vector: [1, 0] },
+        { entry: 'second', body: 'two' },
+      ],
+    })
+    expect(calls[4][1]).toMatchObject({
+      kind: 'sign_off',
+      roles: ['reviewer'],
+      approvals: 2,
+      independent: true,
+    })
     expect(calls[6][1]).toMatchObject({ actorUserId: 'user-1', recordId: ID })
   })
 
@@ -292,17 +426,24 @@ describe('applyHookAnswer', () => {
     s.storeSummary = async () => {
       throw new Error('db down')
     }
-    const outcome = await applyHookAnswer(s, ctx, { summary: 'x', flags: [{ key: 'f', title: 'Hold' }] })
+    const outcome = await applyHookAnswer(s, ctx, {
+      summary: 'x',
+      flags: [{ key: 'f', title: 'Hold' }],
+    })
     expect(outcome.done).toEqual(['flag f'])
     expect(outcome.problems).toEqual(['summary: db down'])
   })
 
   it('cannot change a record with nobody to do it as, or leave notes with no event', async () => {
     const { s, calls } = store()
-    const outcome = await applyHookAnswer(s, { ...ctx, actorUserId: null, eventId: null }, {
-      changes: [{ set: { tags: ['x'] } }],
-      notes: [{ title: 'n' }],
-    })
+    const outcome = await applyHookAnswer(
+      s,
+      { ...ctx, actorUserId: null, eventId: null },
+      {
+        changes: [{ set: { tags: ['x'] } }],
+        notes: [{ title: 'n' }],
+      },
+    )
     expect(calls).toEqual([])
     expect(outcome.problems).toHaveLength(1)
   })
@@ -310,14 +451,19 @@ describe('applyHookAnswer', () => {
   it('can change another record by id, never one it was not told about by name', async () => {
     const { s, calls } = store()
     const other = '99999999-2222-4333-8444-555555555555'
-    await applyHookAnswer(s, ctx, { changes: [{ record: other, set: { tags: ['x'] } }] })
+    await applyHookAnswer(s, ctx, {
+      changes: [{ record: other, set: { tags: ['x'] } }],
+    })
     expect(calls[0][1]).toMatchObject({ recordId: other })
   })
 })
 
 describe('claimsOf', () => {
   it('reads the workspace and the person from a verified token', () => {
-    expect(claimsOf(token())).toEqual({ workspaceId: WS, actorUserId: 'user-1' })
+    expect(claimsOf(token())).toEqual({
+      workspaceId: WS,
+      actorUserId: 'user-1',
+    })
     expect(claimsOf(token({ sub: 'x' }))).toBeNull()
     expect(claimsOf('garbage')).toBeNull()
   })

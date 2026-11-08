@@ -59,7 +59,7 @@ function parseBody(body: string | undefined): unknown {
 
 function tags(value: unknown, fallback: string[]): string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string')
-    ? (value as string[])
+    ? value
     : fallback
 }
 
@@ -108,7 +108,10 @@ function differing(a: RecordSnapshot, b: RecordSnapshot): string[] {
 function withFillInto(body: Json, fill: FieldFill): Json {
   const out = { ...body }
   if (fill.custom_fields)
-    out.custom_fields = { ...asObject(body.custom_fields), ...fill.custom_fields }
+    out.custom_fields = {
+      ...asObject(body.custom_fields),
+      ...fill.custom_fields,
+    }
   if (fill.properties)
     out.properties = { ...asObject(body.properties), ...fill.properties }
   if (fill.tags) out.tags = fill.tags

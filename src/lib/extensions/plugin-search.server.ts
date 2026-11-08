@@ -133,7 +133,9 @@ export async function searchWithPlugins(
         })
         const missing = [
           ...new Set(
-            ranked.map((entry) => entry.record_id).filter((id) => !byId.has(id)),
+            ranked
+              .map((entry) => entry.record_id)
+              .filter((id) => !byId.has(id)),
           ),
         ]
         if (missing.length > 0) {

@@ -3,6 +3,8 @@
  * the sign-off steps they asked for. Silent when there is nothing to show.
  * A sign-off is pressed by a person; the database checks their role.
  */
+import { Fragment } from 'react'
+
 import { InspectorSection } from '#/components/record'
 import { Button } from '#/components/ui/button'
 import { Row, RowList } from '#/components/ui/row'
@@ -34,54 +36,55 @@ export function PluginRecordList({
           flag.independent &&
           myUserId !== null &&
           flag.raised_by_user_id === myUserId
+        const canSign = isStep && onSignOff && !flag.signedByMe && !madeIt
         return (
-          <Row
-            key={flag.id}
-            data-plugin-flag={flag.flag_key}
-            eyebrow={t('plugins.recordPanel.from', {
-              plugin: flag.extension_name,
-            })}
-            title={flag.title}
-            meta={
-              isStep
-                ? `${t('plugins.recordPanel.waiting')} · ${t(
-                    'plugins.recordPanel.signedBy',
-                    { count: flag.signed, needed: flag.approvals_needed },
-                  )}`
-                : [t('plugins.recordPanel.openHold'), flag.message]
-                    .filter(Boolean)
-                    .join(' · ')
-            }
-            detail={
-              isStep
-                ? [
-                    flag.message,
-                    t('plugins.recordPanel.roles', {
-                      roles: flag.roles.join(', '),
-                    }),
-                    madeIt ? t('plugins.recordPanel.youMadeIt') : '',
-                  ]
-                    .filter(Boolean)
-                    .join('\n')
-                : flag.message
-            }
-            trailing={
-              isStep ? (
-                onSignOff && !flag.signedByMe && !madeIt ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={signing === flag.id}
-                    onClick={() => onSignOff(flag)}
-                  >
-                    {signing === flag.id
-                      ? t('plugins.recordPanel.signing')
-                      : t('plugins.recordPanel.signOff')}
-                  </Button>
-                ) : null
-              ) : null
-            }
-          />
+          <Fragment key={flag.id}>
+            <Row
+              data-plugin-flag={flag.flag_key}
+              eyebrow={t('plugins.recordPanel.from', {
+                plugin: flag.extension_name,
+              })}
+              title={flag.title}
+              meta={
+                isStep
+                  ? `${t('plugins.recordPanel.waiting')} · ${t(
+                      'plugins.recordPanel.signedBy',
+                      { count: flag.signed, needed: flag.approvals_needed },
+                    )}`
+                  : [t('plugins.recordPanel.openHold'), flag.message]
+                      .filter(Boolean)
+                      .join(' · ')
+              }
+              detail={
+                isStep
+                  ? [
+                      flag.message,
+                      t('plugins.recordPanel.roles', {
+                        roles: flag.roles.join(', '),
+                      }),
+                      madeIt ? t('plugins.recordPanel.youMadeIt') : '',
+                    ]
+                      .filter(Boolean)
+                      .join('\n')
+                  : flag.message
+              }
+            />
+            {/* Under the step, not beside it: the panel is narrow and the words come first. */}
+            {canSign ? (
+              <li className="px-2 pb-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={signing === flag.id}
+                  onClick={() => onSignOff(flag)}
+                >
+                  {signing === flag.id
+                    ? t('plugins.recordPanel.signing')
+                    : t('plugins.recordPanel.signOff')}
+                </Button>
+              </li>
+            ) : null}
+          </Fragment>
         )
       })}
       {state.summaries.map((summary) => (

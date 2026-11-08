@@ -19,6 +19,8 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
   // 6 to 1536-well formats. Nothing new is added to them.
   validate_scientific_block:
     'Database trigger that checks notebook blocks as they are saved.',
+  pipeline_config_errors:
+    'Checks a pipeline configuration as it is saved; rewritten only to accept plugin steps. Saving a version through the pipeline API runs it.',
   create_plate_design:
     'Plate designs are authored in the app; rewritten in 0104 only to accept the larger plate formats.',
   save_plate_layout_template:

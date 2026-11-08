@@ -33,7 +33,10 @@ const EMPTY: ResolvedRunnerPoints = {
 export function usePluginPoints(): ResolvedRunnerPoints & {
   isLoading: boolean
   /** Installed plugins by key, to label a block that outlived its plugin. */
-  installed: ReadonlyMap<string, { name: string; enabled: boolean }>
+  installed: ReadonlyMap<
+    string,
+    { name: string; enabled: boolean; scopes: readonly string[] }
+  >
 } {
   const installs = useQuery({
     queryKey: [...extensionQueryKeys.extensions, 'points'],
@@ -48,7 +51,11 @@ export function usePluginPoints(): ResolvedRunnerPoints & {
       installed: new Map(
         data.map((install) => [
           install.key,
-          { name: install.name, enabled: install.status === 'enabled' },
+          {
+            name: install.name,
+            enabled: install.status === 'enabled',
+            scopes: install.manifest.scopes ?? [],
+          },
         ]),
       ),
     }

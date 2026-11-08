@@ -34,6 +34,10 @@ export interface PluginScreenProps {
   state?: unknown
   onState?: (state: unknown) => void
   operations: Record<string, 'read' | 'write'>
+  /** What the plugin declares it may reach; unlocks `sheetbase.host` in a UI bundle. */
+  scopes?: readonly string[]
+  /** Put a block below this one (editable notebooks only). */
+  insertBelow?: (type: string, payload: Record<string, unknown>) => void
   className?: string
 }
 
@@ -49,6 +53,8 @@ export function PluginScreen(props: PluginScreenProps) {
         context={props.context}
         state={props.state}
         operations={props.operations}
+        scopes={props.scopes}
+        insertBelow={props.insertBelow}
         onState={props.onState}
         className={props.className}
       />

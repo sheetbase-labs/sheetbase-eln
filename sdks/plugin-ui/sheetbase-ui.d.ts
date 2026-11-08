@@ -7,6 +7,15 @@
  * `/// <reference path="…/sheetbase-ui.d.ts" />` line.
  */
 
+type HostCapabilityName =
+  | 'blocks.list'
+  | 'blocks.insertBelow'
+  | 'files.list'
+  | 'files.read'
+  | 'registry.models'
+  | 'registry.findDuplicates'
+  | 'registry.create'
+
 type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'info'
 
 /** What a table cell renderer hands back for one cell. */
@@ -44,6 +53,19 @@ interface SheetbaseUi {
     url: string,
     init?: { method?: string; body?: string },
   ): Promise<Response>
+  /**
+   * Ask Sheetbase to do something for this screen, as the person using it. The
+   * plugin declares the matching `permissions` in plugin.json (`projects:read`
+   * for `blocks.list`, `projects:write` for `blocks.insertBelow` and
+   * `registry.create`, `files:read` for `files.list` and `files.read`,
+   * `models:read` for `registry.models` and `registry.findDuplicates`). A change
+   * asks the person first. Rejects with an Error; `code` is `duplicate` when a
+   * registry already holds the entry.
+   */
+  host<Out = unknown>(
+    name: HostCapabilityName,
+    input?: Record<string, unknown>,
+  ): Promise<Out>
   /** Keep this data with the block (JSON). */
   setState(state: unknown): void
   notify(text: string, tone?: Tone): void

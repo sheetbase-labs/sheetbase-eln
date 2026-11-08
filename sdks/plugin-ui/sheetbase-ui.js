@@ -84,7 +84,11 @@
       var entry = pending[data.id]
       delete pending[data.id]
       if (data.ok) entry.resolve(data.output)
-      else entry.reject(new Error(data.error || 'That could not be done.'))
+      else {
+        var failure = new Error(data.error || 'That could not be done.')
+        if (data.code) failure.code = data.code
+        entry.reject(failure)
+      }
     }
   })
 
@@ -104,7 +108,7 @@
         post({ type: 'call', id: id, operation: String(operation), input: input || {} })
       })
     },
-    /** Keep this data with the block (up to 64 KiB of JSON). */
+    /** Keep this data with the block (up to 4 MiB of JSON). */
     setState: function (state) {
       post({ type: 'state', state: state })
     },
@@ -153,6 +157,26 @@
           })
         },
       )
+    },
+    /**
+     * Ask Sheetbase to do something for this screen, as the person using it:
+     * `blocks.list`, `blocks.insertBelow`, `files.list`, `files.read`,
+     * `registry.models`, `registry.findDuplicates`, `registry.create`. The
+     * plugin has to declare the matching `permissions` in plugin.json, and a
+     * change asks the person first. Rejects with an Error (and `code`).
+     */
+    host: function (name, input) {
+      return new Promise(function (resolve, reject) {
+        counter += 1
+        var id = 'h' + counter
+        pending[id] = {
+          resolve: resolve,
+          reject: function (error) {
+            reject(error)
+          },
+        }
+        post({ type: 'host', id: id, name: String(name), input: input || {} })
+      })
     },
     /** A form field's screen: give Sheetbase the field's new value (a string). */
     setValue: function (value) {

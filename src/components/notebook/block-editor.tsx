@@ -243,6 +243,11 @@ function PluginBlockEditor(props: BlockEditorProps) {
       recordId={props.block.recordId}
       blockId={props.block.id}
       onState={props.readOnly ? undefined : keep}
+      insertBelow={
+        props.readOnly || !props.onInsertBelow
+          ? undefined
+          : (type, payload) => props.onInsertBelow?.(type, payload)
+      }
     />
   )
 }

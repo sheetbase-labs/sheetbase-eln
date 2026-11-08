@@ -63,8 +63,7 @@ describe('the plugins that ship with Sheetbase', () => {
       client,
       { workspaceId: 'ws', userId: 'u' },
       { deps, hashOf: async () => null },
-    ).catch((error: unknown) => error)
-    if (results instanceof Error) throw results
+    )
     expect(results.map((r) => [r.key, r.action])).toEqual(
       BUILT_IN_PLUGINS.map((p) => [p.key, 'installed']),
     )

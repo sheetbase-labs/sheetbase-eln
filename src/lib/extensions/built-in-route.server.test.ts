@@ -32,7 +32,9 @@ const post = () =>
 describe('POST /api/plugins/built-in', () => {
   it('installs the built-in plugins and says what happened', async () => {
     ensure.mockResolvedValueOnce([{ key: 'chemistry', action: 'installed' }])
-    const body = (await (await handleBuiltInPlugins(post(), deps())).json()) as {
+    const body = (await (
+      await handleBuiltInPlugins(post(), deps())
+    ).json()) as {
       plugins: { key: string }[]
     }
     expect(body.plugins).toHaveLength(1)

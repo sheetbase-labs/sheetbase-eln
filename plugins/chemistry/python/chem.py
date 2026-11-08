@@ -10,7 +10,7 @@ from rdkit import Chem, DataStructs, RDLogger
 from rdkit.Chem import AllChem, Descriptors, rdMolDescriptors
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
-from sheetbase_plugin import PluginError
+from sheetbase_plugin import PluginError, host_call
 
 RDLogger.DisableLog("rdApp.*")
 
@@ -211,3 +211,14 @@ def search(input):
                 )
     hits.sort(key=lambda hit: -hit["score"])
     return {"hits": hits[:100]}
+
+
+def add_lot(input):
+    """Make a lot of a compound with the lab action the API and the assistant use, as the person running this."""
+    compound = input["compound_id"]
+    before = host_call("sheetbase.lab.act", {"action": "list_compound_lots", "arguments": {"p_compound_id": compound}})
+    arguments = {"p_compound_id": compound}
+    if input.get("title"):
+        arguments["p_title"] = input["title"]
+    lot = host_call("sheetbase.lab.act", {"action": "add_compound_lot", "arguments": arguments})
+    return {"identifier": (lot or {}).get("identifier") or "", "lots": len(before or []) + 1}

@@ -373,12 +373,32 @@ export interface InvokeArgs {
   /** An operation, calculator or pipeline step id. */
   itemId: string
   input: unknown
+  /**
+   * Set by a caller that can make calls into the app on the plugin's behalf
+   * (see `sheetbase_plugin.host_call`): the answers so far, in order. Without
+   * it a plugin that needs to call into the app is refused with a plain message.
+   */
+  hostResults?: HostAnswer[]
+}
+
+export interface HostAnswer {
+  ok: boolean
+  result?: unknown
+  error?: string
+  code?: string
+}
+
+export interface HostCallRequest {
+  name: string
+  arguments: Record<string, unknown>
 }
 
 export interface InvokeResult {
   output: Record<string, unknown>
   runner: 'python'
   durationMs: number
+  /** The plugin stopped to ask for these calls; make them and run it again with the answers. */
+  hostCalls?: HostCallRequest[]
 }
 
 export function audit(
@@ -473,6 +493,8 @@ export async function invokeExtension(
         tables[name] = value as Array<Record<string, unknown>>
       } else settings[name] = value
     }
+    if (args.hostResults !== undefined && !step)
+      settings.__host__ = args.hostResults
     const stepDeclaration = step
       ? resolved.manifest.contributions['pipeline-steps']?.find(
           (entry) => entry.id === callable.id,
@@ -489,6 +511,32 @@ export async function invokeExtension(
         ? { contract: columnContract(stepDeclaration.result.columns) }
         : {}),
     })
+    const asked = step ? undefined : result.rows.at(0)?.__host_calls__
+    if (asked !== undefined) {
+      if (args.hostResults === undefined || !Array.isArray(asked))
+        throw new ExtensionRunError(
+          'bad_input',
+          'This operation needs to call into Sheetbase, which only works when it is run from the app’s own screen for it.',
+        )
+      const hostCalls: HostCallRequest[] = []
+      for (const entry of asked as unknown[]) {
+        const call = entry as Partial<HostCallRequest> | null
+        if (!call || typeof call.name !== 'string') continue
+        hostCalls.push({
+          name: call.name,
+          arguments:
+            call.arguments && typeof call.arguments === 'object'
+              ? call.arguments
+              : {},
+        })
+      }
+      return {
+        output: {},
+        runner: 'python',
+        durationMs: deps.now() - started,
+        hostCalls,
+      }
+    }
     const output = step
       ? { rows: result.rows }
       : checkDeclaredValues(

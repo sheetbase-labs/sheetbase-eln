@@ -75,8 +75,26 @@ def resolve(entry):
 
 
 def call_operation(entry, value):
-    """Run an operation: one dictionary in, one dictionary out."""
-    result = resolve(entry)(value)
+    """Run an operation: one dictionary in, one dictionary out.
+
+    An operation may call into the app (``sheetbase_plugin.host_call``). When it
+    needs an answer it does not have, this returns ``{"__host_calls__": [...]}``;
+    the app makes the calls and runs the operation again with the answers so far
+    in ``value["__host__"]``.
+    """
+    import sheetbase_plugin as _sp
+
+    answers = None
+    if isinstance(value, dict) and "__host__" in value:
+        value = dict(value)
+        answers = value.pop("__host__")
+    _sp._begin_host(answers)
+    try:
+        result = resolve(entry)(value)
+    except _sp._HostNeeded as needed:
+        return {"__host_calls__": needed.calls}
+    finally:
+        _sp._begin_host(None)
     if result is None:
         return {}
     if not isinstance(result, dict):

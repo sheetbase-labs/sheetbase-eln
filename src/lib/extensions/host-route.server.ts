@@ -35,6 +35,7 @@ import {
 import type { SessionAuthDeps } from '../request-auth'
 import { checkAppAction } from './app-actions'
 import { listExtensions } from './client'
+import type { ExtensionWire } from './client'
 import { extensionAuditIdentity } from './contract'
 import { parseExtensionManifest } from './manifest'
 import { defaultDeps } from './runtime.server'
@@ -105,47 +106,109 @@ export async function handlePluginHost(
       'not_enabled',
       'An administrator has switched this part of the plugin off.',
     )
+  const outcome = await performHostCall(deps, {
+    workspaceId: context.workspaceId,
+    userId: context.userId,
+    client,
+    install,
+    point: body.point,
+    name: body.name,
+    arguments: body.arguments,
+    confirmed: body.confirmed,
+  })
+  if (!outcome.ok)
+    return requestErrorResponse(outcome.status, outcome.code, outcome.message)
+  return Response.json(
+    { name: body.name, result: outcome.result },
+    { headers: { 'Cache-Control': 'no-store' } },
+  )
+}
+
+export type HostCallOutcome =
+  | { ok: true; result: unknown }
+  | {
+      ok: false
+      status: number
+      code: string
+      message: string
+      /** For `confirmation_needed`: what the action does, in words. */
+      summary?: string
+    }
+
+const fail = (
+  status: number,
+  code: string,
+  message: string,
+  summary?: string,
+): HostCallOutcome => ({
+  ok: false,
+  status,
+  code,
+  message,
+  ...(summary ? { summary } : {}),
+})
+
+export interface HostCall {
+  workspaceId: string
+  userId: string
+  client: DataClient
+  install: ExtensionWire
+  point: string
+  name: string
+  arguments: Record<string, unknown>
+  confirmed: boolean
+}
+
+/**
+ * One call into the app for a plugin: checks the scope the plugin asked for,
+ * asks for confirmation of a change, runs it as the person and audits it. Used
+ * by the screen route below and by Python operations that call into the app.
+ */
+export async function performHostCall(
+  deps: Pick<PluginHostRouteDeps, 'runtime'>,
+  call: HostCall,
+): Promise<HostCallOutcome> {
   let manifest
   try {
-    manifest = parseExtensionManifest(install.manifest)
+    manifest = parseExtensionManifest(call.install.manifest)
   } catch {
-    return requestErrorResponse(409, 'bad_manifest', 'That plugin is damaged.')
+    return fail(409, 'bad_manifest', 'That plugin is damaged.')
   }
   const granted = manifest.scopes.filter(isScope)
 
   let writes = false
-  let label = body.name
+  let label = call.name
   let run: () => Promise<unknown>
-  if (body.name === LAB_ACT_TOOL_NAME) {
-    const action = body.arguments.action
-    const checked = checkAppAction(action, body.arguments.arguments ?? {})
-    if (!checked.ok)
-      return requestErrorResponse(400, 'invalid_arguments', checked.message)
+  if (call.name === LAB_ACT_TOOL_NAME) {
+    const action = call.arguments.action
+    const checked = checkAppAction(action, call.arguments.arguments ?? {})
+    if (!checked.ok) return fail(400, 'invalid_arguments', checked.message)
     if (!granted.includes(checked.rpc.scope))
-      return requestErrorResponse(
+      return fail(
         403,
         'scope_missing',
         `This plugin did not ask for ${checked.rpc.scope}, which ${checked.action} needs.`,
       )
     writes = checked.writes
-    label = `${body.name}:${checked.action}`
-    if (writes && !body.confirmed)
-      return requestErrorResponse(
+    label = `${call.name}:${checked.action}`
+    if (writes && !call.confirmed)
+      return fail(
         409,
         'confirmation_needed',
         'This changes something, so the person has to confirm it first.',
+        checked.rpc.summary,
       )
-    run = () => client.rpc<unknown>(checked.action, checked.args)
+    run = () => call.client.rpc<unknown>(checked.action, checked.args)
   } else {
     const mcp: McpContext = {
-      workspaceId: context.workspaceId,
-      actor: { kind: 'user', id: context.userId },
+      workspaceId: call.workspaceId,
+      actor: { kind: 'user', id: call.userId },
       scopes: granted,
       flags: Object.fromEntries(
         AI_FEATURE_FLAG_KEYS.map((key) => [key, true]),
       ) as AiFeatureFlags,
-      client,
-      credentialId: `plugin:${install.key}`,
+      client: call.client,
+      credentialId: `plugin:${call.install.key}`,
     }
     run = async () => {
       const response = await handleMcpMessage(
@@ -153,7 +216,7 @@ export async function handlePluginHost(
           jsonrpc: '2.0',
           id: 1,
           method: 'tools/call',
-          params: { name: body.name, arguments: body.arguments },
+          params: { name: call.name, arguments: call.arguments },
         },
         mcp,
       )
@@ -183,20 +246,20 @@ export async function handlePluginHost(
   const audit = (ok: boolean, error?: string) =>
     deps.runtime
       .audit({
-        workspaceId: context.workspaceId,
-        actorUserId: context.userId,
-        extensionId: install.id,
+        workspaceId: call.workspaceId,
+        actorUserId: call.userId,
+        extensionId: call.install.id,
         payload: {
           change: 'used-app',
-          extensionKey: install.key,
-          point: body.point,
+          extensionKey: call.install.key,
+          point: call.point,
           tool: label,
           writes,
           ok,
           ...(error ? { error: error.slice(0, 300) } : {}),
           ...extensionAuditIdentity({
-            extensionId: install.id,
-            extensionKey: install.key,
+            extensionId: call.install.id,
+            extensionKey: call.install.key,
             manifest,
           }),
         },
@@ -205,15 +268,12 @@ export async function handlePluginHost(
   try {
     const result = await run()
     await audit(true)
-    return Response.json(
-      { name: body.name, result: result ?? null },
-      { headers: { 'Cache-Control': 'no-store' } },
-    )
+    return { ok: true, result: result ?? null }
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'The action could not be done.'
     await audit(false, message)
-    return requestErrorResponse(422, 'action_failed', message)
+    return fail(422, 'action_failed', message)
   }
 }
 

@@ -329,6 +329,31 @@ What a screen can use, besides the browser itself, is the global `sheetbase`:
 State saved with `setState` for pages, settings pages and widgets is kept in
 that browser, for that person. A notebook block keeps its state with the block.
 
+## Calling into Sheetbase
+
+A plugin gets the same capabilities as the assistant and the API: every tool the
+MCP server has is open to it under its MCP name (`sheetbase.lab.act`,
+`sheetbase.canonical.read`, `sheetbase.search` and the rest). A tool added for
+agents is there for plugins the moment it exists; there is no separate list.
+
+- The manifest's `permissions` must include the scope the tool needs (for lab
+  actions, `lab:read` or `lab:write`). The administrator sees them when the
+  plugin is added.
+- Everything runs as the person using the plugin, so row-level security and the
+  action's own role checks decide what is possible, and every call is written to
+  the audit trail under the plugin.
+- A call that changes something (a `lab:write` action) asks the person first.
+- **From a screen**: `sheetbase.host('sheetbase.lab.act', { action: 'add_compound_lot', arguments: { p_compound_id } })`.
+- **From Python**: `from sheetbase_plugin import host_call, host_calls`, then
+  `lots = host_call("sheetbase.lab.act", {"action": "list_compound_lots", "arguments": {"p_compound_id": id}})`.
+  The operation stops at a call it has no answer for, Sheetbase makes the call,
+  and the operation runs again from the top with the answers so far, so each
+  call is made once. Keep what happens before a call dependent only on the input
+  and earlier answers (no clock, no random numbers) and do not catch
+  `BaseException`. A refused or failed call raises `HostError` (with `.code`).
+  Only operations run from the app's own screens can call in; a pipeline step,
+  the assistant or MCP running the operation get a plain refusal.
+
 ## The other points
 
 Each one is a short declaration and one function. The examples show them in full;

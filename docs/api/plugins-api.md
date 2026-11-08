@@ -214,6 +214,13 @@ it as the signed-in person or with a **personal** API token (never a service
 token, so every call is attributed to a person). A `read` operation needs a
 `:read` scope; a `write` operation needs `lab:write` and a role that can write.
 
+`POST /api/plugins/host` (session only; a plugin screen or Python operation
+calling an MCP tool as the person: `{ extensionKey, point, name, arguments,
+confirmed }`; a change answers `409 confirmation_needed` until `confirmed`) and
+`POST /api/plugins/reindex` (owners and administrators; `{ extensionKey }`
+brings the plugin's search index up to date for records saved before it was
+added) sit beside it.
+
 `POST /api/plugins/run` (session only; what the assistant card and the analysis
 block use)
 

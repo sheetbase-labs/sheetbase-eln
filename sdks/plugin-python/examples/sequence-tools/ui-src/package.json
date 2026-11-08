@@ -1,0 +1,18 @@
+{
+  "name": "acme-sequence-tools-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "sheetbase-plugin-ui build .."
+  },
+  "dependencies": {
+    "d3-scale": "^4.0.2",
+    "d3-shape": "^3.2.0"
+  },
+  "devDependencies": {
+    "@sheetbase-labs/plugin-ui": "file:../../../../plugin-ui",
+    "@types/d3-scale": "^4.0.9",
+    "@types/d3-shape": "^3.1.7",
+    "typescript": "^5.9.0"
+  }
+}

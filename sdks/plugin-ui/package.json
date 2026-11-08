@@ -1,0 +1,19 @@
+{
+  "name": "@sheetbase-labs/plugin-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Build tool and TypeScript types for plugin screens: write TypeScript with npm libraries, get the plain files a .sbplugin package holds.",
+  "bin": {
+    "sheetbase-plugin-ui": "./bin/sheetbase-plugin-ui.mjs"
+  },
+  "exports": {
+    ".": "./build.mjs",
+    "./types": "./sheetbase-ui.d.ts"
+  },
+  "types": "./sheetbase-ui.d.ts",
+  "files": ["build.mjs", "bin", "sheetbase-ui.js", "sheetbase-ui.d.ts", "README.md"],
+  "dependencies": {
+    "esbuild": "^0.25.12"
+  }
+}

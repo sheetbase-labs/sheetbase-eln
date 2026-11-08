@@ -30,7 +30,6 @@ import {
   RegistryLineage,
   RegistryRetireButton,
 } from '#/components/registry/registry-lineage'
-import { CompoundPanel } from '#/components/registry/compound-panel'
 
 /** The record's fields grouped by the section the model puts them in, in the
  * order the sections first appear; fields with no section follow, unnamed. */
@@ -381,22 +380,6 @@ export function RecordModelRecord({
                 field.fieldName !== structureField,
             )}
             stored={record.custom_fields}
-          />
-        ) : null}
-
-        {structureField && record ? (
-          <CompoundPanel
-            recordId={record.id}
-            identifier={record.identifier}
-            kind={modelKey}
-            molfile={
-              typeof record.custom_fields?.[structureField] === 'string'
-                ? String(record.custom_fields[structureField])
-                : ''
-            }
-            metadataVersion={record.metadata_version ?? 1}
-            lotKind={model.data?.registry_lot_kind ?? null}
-            canWrite={canWrite && !record.archived_at}
           />
         ) : null}
 

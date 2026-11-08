@@ -1,5 +1,5 @@
 /**
- * POST /api/extensions/run: run an extension's assistant tool (after a person
+ * POST /api/plugins/run: run a plugin operation (after a person
  * presses its card, or approves an agent's request) or one of its analysis
  * kinds on rows the person already reads.
  *

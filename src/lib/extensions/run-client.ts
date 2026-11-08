@@ -71,3 +71,38 @@ export async function runPluginHook<T = PluginHookAnswer>(
     )
   return answer as T
 }
+
+/**
+ * A plugin screen's way into the app: any tool the MCP server has, by its MCP
+ * name, as the signed-in person. `confirmed` says the person was asked, which
+ * the server requires for `sheetbase.lab.act` calls that change something.
+ */
+export async function runPluginHost(
+  body: {
+    extensionKey: string
+    point: string
+    name: string
+    arguments: Record<string, unknown>
+    confirmed: boolean
+  },
+  fetcher: typeof fetch = fetch,
+): Promise<unknown> {
+  const response = await fetcher('/api/plugins/host', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const answer = (await response.json().catch(() => null)) as {
+    result?: unknown
+    error?: { message?: string } | string
+  } | null
+  if (!response.ok || !answer) {
+    const error = answer?.error
+    throw new Error(
+      typeof error === 'string'
+        ? error
+        : (error?.message ?? 'The plugin could not do that.'),
+    )
+  }
+  return answer.result ?? null
+}

@@ -29,6 +29,15 @@ import {
 } from '#/components/ui/confirm-dialog'
 import { toast } from '#/components/ui/sonner'
 import { Spinner } from '#/components/ui/spinner'
+import {
+  HostRequestError,
+  describeHostChange,
+  runHostRequest,
+} from './plugin-host'
+import {
+  HOST_CAPABILITIES,
+  isHostCapability,
+} from '#/lib/extensions/host-capabilities'
 import { runPluginHook } from '#/lib/extensions/run-client'
 import type { PluginFramePoint } from '#/lib/extensions/ui-points'
 import { cn } from '#/lib/utils'
@@ -79,6 +88,10 @@ export interface PluginFrameProps {
   state?: unknown
   /** Access of each operation the plugin declares, so a write can be confirmed. */
   operations: Record<string, 'read' | 'write'>
+  /** What the plugin's manifest declares it may reach (`permissions`); unlocks `sheetbase.host` calls. */
+  scopes?: readonly string[]
+  /** Put a block below this one, where the screen is in an editable notebook. */
+  insertBelow?: (type: string, payload: Record<string, unknown>) => void
   onState?: (state: unknown) => void
   /** Messages the screen sends up by name: `value` (a field input), `section` (a report section). */
   onEmit?: (name: string, payload: unknown) => void
@@ -103,6 +116,8 @@ export function PluginFrame(props: PluginFrameProps) {
     context,
     state,
     operations,
+    scopes,
+    insertBelow,
     onState,
     onEmit,
     fill,
@@ -126,6 +141,7 @@ export function PluginFrame(props: PluginFrameProps) {
   const [ready, setReady] = React.useState(false)
   const [asking, setAsking] = React.useState<{
     operation: string
+    detail?: string
     decide: (run: boolean) => void
   } | null>(null)
   const latest = React.useRef({ context, state: shownState })
@@ -250,6 +266,62 @@ export function PluginFrame(props: PluginFrameProps) {
           }
           return
         }
+        case 'host': {
+          const id = typeof message.id === 'string' ? message.id : ''
+          if (!id) return
+          const name = message.name
+          const input =
+            typeof message.input === 'object' &&
+            message.input !== null &&
+            !Array.isArray(message.input)
+              ? (message.input as Record<string, unknown>)
+              : {}
+          if (!isHostCapability(name)) {
+            reply(id, { ok: false, error: 'Sheetbase does not offer that.' })
+            return
+          }
+          const capability = HOST_CAPABILITIES[name]
+          if (!(scopes ?? []).includes(capability.scope)) {
+            reply(id, {
+              ok: false,
+              error: `This plugin did not ask for the access “${capability.scope}”, so it cannot do that.`,
+            })
+            return
+          }
+          if (capability.write) {
+            const allowed = await new Promise<boolean>((resolve) =>
+              setAsking({
+                operation: capability.summary,
+                detail: describeHostChange(name, input),
+                decide: resolve,
+              }),
+            )
+            setAsking(null)
+            if (!allowed) {
+              reply(id, { ok: false, error: t('plugins.screen.askDeclined') })
+              return
+            }
+          }
+          try {
+            const output = await runHostRequest(name, input, {
+              recordId:
+                typeof latest.current.context.recordId === 'string'
+                  ? latest.current.context.recordId
+                  : null,
+              insertBelow,
+            })
+            reply(id, { ok: true, output })
+          } catch (error) {
+            reply(id, {
+              ok: false,
+              error: error instanceof Error ? error.message : 'Failed.',
+              ...(error instanceof HostRequestError && error.code
+                ? { code: error.code }
+                : {}),
+            })
+          }
+          return
+        }
         case 'call': {
           const id = typeof message.id === 'string' ? message.id : ''
           const operation =
@@ -301,6 +373,8 @@ export function PluginFrame(props: PluginFrameProps) {
   }, [
     extensionKey,
     operations,
+    scopes,
+    insertBelow,
     onState,
     onEmit,
     router,
@@ -345,6 +419,7 @@ export function PluginFrame(props: PluginFrameProps) {
               })}
             </ConfirmDialogTitle>
             <ConfirmDialogDescription>
+              {asking?.detail ? `${asking.detail} ` : ''}
               {t('plugins.screen.askBody')}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>

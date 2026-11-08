@@ -441,9 +441,14 @@ export function validateExtensionManifest(input: unknown): string[] {
       if (isDataPoint(point))
         DATA_POINT_PARSERS[point](input.contributions[point], errors)
     }
-    // Operations, calculators and pipeline steps share one name: plugin.<key>.<id>.
+    // Operations, calculators, pipeline steps and publishers share one name: plugin.<key>.<id>.
     const called = new Set<string>()
-    for (const point of ['operations', 'calculators', 'pipeline-steps']) {
+    for (const point of [
+      'operations',
+      'calculators',
+      'pipeline-steps',
+      'publishers',
+    ]) {
       const entries = input.contributions[point]
       if (!Array.isArray(entries)) continue
       for (const entry of entries as unknown[]) {
@@ -451,7 +456,7 @@ export function validateExtensionManifest(input: unknown): string[] {
         if (typeof id !== 'string') continue
         if (called.has(id))
           errors.push(
-            `${id} is used twice across operations, calculators and pipeline steps`,
+            `${id} is used twice across operations, calculators, pipeline steps and publishers`,
           )
         called.add(id)
       }

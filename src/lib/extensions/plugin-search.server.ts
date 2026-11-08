@@ -42,6 +42,8 @@ interface IndexRow {
   kind: string
   status: string
   body: string
+  /** The record's own field values (text, numbers, yes/no). */
+  fields: Record<string, unknown> | null
   deep_link: string
 }
 
@@ -53,6 +55,20 @@ interface IndexHit {
 }
 
 const DOCUMENT_LIMIT = 5000
+const FIELD_VALUE_LIMIT = 8000
+
+/** What a provider may read of a record's fields: text, numbers and yes/no. */
+function fieldValues(
+  fields: Record<string, unknown> | null,
+): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = {}
+  for (const [name, value] of Object.entries(fields ?? {})) {
+    if (typeof value === 'string') out[name] = value.slice(0, FIELD_VALUE_LIMIT)
+    else if (typeof value === 'number' || typeof value === 'boolean')
+      out[name] = value
+  }
+  return out
+}
 
 function hitFor(
   row: IndexRow,
@@ -93,7 +109,7 @@ export async function searchWithPlugins(
   ]
   const rows = await client.list<IndexRow>(
     'search_documents',
-    `?select=object_type,object_id,title,identifier,kind,status,body,deep_link` +
+    `?select=object_type,object_id,title,identifier,kind,status,body,fields,deep_link` +
       `&archived=eq.false&object_type=in.(${types.join(',')})` +
       `&order=updated_at.desc.nullslast&limit=${DOCUMENT_LIMIT}`,
   )
@@ -103,7 +119,13 @@ export async function searchWithPlugins(
     type: row.object_type,
     title: row.title,
     text: `${row.identifier} ${row.title}\n${row.body}`.slice(0, 4000),
-    fields: { identifier: row.identifier, kind: row.kind, status: row.status },
+    // The record's own field values come first so the fixed ones win a clash.
+    fields: {
+      ...fieldValues(row.fields),
+      identifier: row.identifier,
+      kind: row.kind,
+      status: row.status,
+    },
   }))
 
   const hits: PluginSearchHit[] = []

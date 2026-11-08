@@ -193,6 +193,13 @@ describe('the plugin block', () => {
     )
     expect(validatePluginBlock({ plugin: 'a' })).not.toEqual([])
   })
+
+  it('keeps state as large as a long sequence with its reads', () => {
+    const state = { residues: 'ACGT'.repeat(100_000), reads: [] }
+    expect(
+      validatePluginBlock({ plugin: 'sequence-tools', block: 'sequence', state }),
+    ).toEqual([])
+  })
 })
 
 describe('the sandboxed frame', () => {

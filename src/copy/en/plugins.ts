@@ -3,7 +3,7 @@ export const plugins = {
   admin: {
     title: 'Plugins',
     intro:
-      'A plugin adds to this lab: calculators, checks, analyses, pipeline steps, file formats, search, ways to pull data in, and reactions to what happens. The assistant and other agents can use what it does. Its code runs in an isolated Python sandbox; only a connector can reach the internet, and only the hosts it names. Only owners and administrators add plugins, and each part can be switched off on its own.',
+      'A plugin adds to this lab: calculators, checks, analyses, pipeline steps, file formats, search, ways to pull data in, and reactions to what happens. The assistant and other agents can use what it does. Its code runs in an isolated Python sandbox, with the packages it installs and only the hosts you approve. Only owners and administrators add plugins, and each part can be switched off on its own.',
     onlyAdmins: 'Only owners and administrators can manage plugins',
     onlyAdminsBody:
       'Ask an owner or administrator of this workspace to add or change plugins.',
@@ -118,6 +118,88 @@ export const plugins = {
     turnOn: 'Switch on',
     turnOff: 'Switch off',
     remove: 'Remove',
+    runtime: {
+      button: 'Python settings',
+      title: 'Python settings for {name}',
+      intro:
+        'The packages this plugin installs, the hosts it may reach and how much one call may use. You set the limits; the plugin never changes them.',
+      packages: 'Python packages',
+      packagesNone:
+        'This plugin uses only the Python the runner already has (pandas and NumPy).',
+      packagesHint:
+        'Installed once, when the plugin was added, so a call never waits on them.',
+      state: {
+        none: 'Nothing to install',
+        building: 'Installing…',
+        ready: 'Installed',
+        failed: 'Could not install',
+        unavailable: 'Runner not reachable',
+      },
+      installedAs: 'Installed as {version}',
+      reinstall: 'Install again',
+      reinstalling: 'Asking the runner…',
+      reinstalled: 'Asked the runner to install {name}’s packages again',
+      network: 'Hosts it may reach',
+      networkNone:
+        'None. This plugin’s code can’t reach anything outside Sheetbase.',
+      networkHint:
+        'You approved these when you added this version. A new version that asks for more has to be approved again.',
+      limits: 'How much one call may use',
+      limitsHint:
+        'Defaults are generous on purpose. Raise or lower any of them for this plugin.',
+      defaultIs: 'Default: {value}',
+      noLimit: 'No limit',
+      save: 'Save settings',
+      saving: 'Saving…',
+      useDefaults: 'Use the defaults',
+      saved: 'Settings saved for {name}',
+      close: 'Close',
+      loadError: 'The Python settings could not be loaded.',
+      invalid: 'Enter a whole number above zero, or leave it empty.',
+      invalidDecimal: 'Enter a number above zero, or leave it empty.',
+      fields: {
+        timeoutSeconds: {
+          label: 'Time',
+          unit: 'seconds',
+          hint: 'A call that runs longer is stopped.',
+        },
+        memoryMb: {
+          label: 'Memory',
+          unit: 'MB',
+          hint: 'A call that needs more is stopped.',
+        },
+        cpus: {
+          label: 'Processor cores',
+          unit: 'cores',
+          hint: 'Fractions are fine.',
+        },
+        processes: {
+          label: 'Processes and threads',
+          unit: 'at once',
+          hint: 'Raise this for packages that run work in parallel.',
+        },
+        scratchMb: {
+          label: 'Scratch disk',
+          unit: 'MB',
+          hint: 'Temporary space for one call. It is gone when the call ends.',
+        },
+        dataMb: {
+          label: 'Data in a call',
+          unit: 'MB',
+          hint: 'What can be sent to the plugin in one call, and what it can send back.',
+        },
+        rows: {
+          label: 'Rows in a call',
+          unit: 'rows',
+          hint: 'For analyses and anything else that hands the plugin a table.',
+        },
+        callsPerMinute: {
+          label: 'Calls per person each minute',
+          unit: 'calls',
+          hint: 'Leave empty for no limit.',
+        },
+      },
+    },
     removeTitle: 'Remove {name}?',
     removeBody:
       'Its operations and analyses stop working straight away, and its code is deleted. A pipeline that uses one of its actions will fail until another action takes its place.',
@@ -131,16 +213,22 @@ export const plugins = {
       intro:
         'Choose the plugin file you were given. Sheetbase reads it and shows what it does before anything is added, and the plugin stays off until you switch it on.',
       choose: 'Choose a plugin file',
-      chooseHint: 'A .sbplugin file, up to 4 MB.',
+      chooseHint: 'A .sbplugin file.',
       reading: 'Reading {file}…',
       chooseAnother: 'Choose a different file',
       problems: 'This file can’t be added',
       readFailed: 'That file could not be read.',
       asks: 'What it asks for',
       asksCode:
-        'Runs its own Python code in an isolated sandbox: no network, no access to your data except what it is given in each call.',
+        'Runs its own Python code in an isolated sandbox. It sees your data only as each call hands it over.',
       asksUi:
         'Draws its own screens in a sandboxed frame: no cookies, no network and no view of the rest of the page. It only sees what Sheetbase hands it.',
+      asksPackages:
+        'Installs these Python packages once, when you add it: {packages}. This can take a few minutes.',
+      asksNoPackages: 'Uses only the Python the runner already has.',
+      asksNetwork:
+        'Can reach these hosts, and nothing else outside Sheetbase: {hosts}.',
+      asksNoNetwork: 'Cannot reach anything outside Sheetbase.',
       asksScopes: 'Declared access: {scopes}.',
       asksNothing: 'It reads nothing beyond what each call gives it.',
       adds: 'What it adds',
@@ -152,7 +240,7 @@ export const plugins = {
       changesRemoved: 'Dropped: {items}',
       files: '{count} files, {size}',
       trust:
-        'I have read what this plugin does and I trust where it came from.',
+        'I have read what this plugin does, including any packages it installs and hosts it reaches, and I trust where it came from.',
       submit: 'Add plugin',
       submitUpdate: 'Update plugin',
       adding: 'Adding…',

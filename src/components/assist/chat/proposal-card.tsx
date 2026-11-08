@@ -127,6 +127,7 @@ const ACTION_COPY = {
   'schedule.plan': 'planSchedule',
   'schedule.accept': 'acceptSchedule',
   'plan.apply': 'applyPlan',
+  'plugin.run': 'runExtension',
 } as const satisfies Record<AssistantActionKind, string>
 
 /** Button and done words for an everyday action: "Book", "Booked". */
@@ -216,12 +217,12 @@ export function ProposalCard({
       // Runs one operation through propose, approve and execute. `null` means
       // it is waiting on a signature, which the card hands over to the
       // proposals page.
-      async function run(operation: AgentOperation, key: string) {
+      async function run(target: AgentOperation, key: string) {
         let row = await proposeAgentOperation(client, {
           workspaceId,
           title: proposal.title,
           summary: proposal.summary,
-          operation,
+          operation: target,
           provenance: {
             agentId: 'assistant',
             agentName: 'Assistant',

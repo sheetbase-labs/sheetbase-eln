@@ -8,6 +8,8 @@ import { isLabworkAction } from './assistant-labwork'
 import type { LabworkAction } from './assistant-labwork'
 import { isPlatesAction } from './assistant-plates'
 import type { PlatesAction } from './assistant-plates'
+import { isExtensionToolAction } from './assistant-extensions'
+import type { ExtensionToolAction } from './assistant-extensions'
 import { isAutomationAction } from './assistant-automation'
 import type { AutomationAction } from './assistant-automation'
 import { isPlannerAction } from './assistant-planner'
@@ -146,6 +148,7 @@ export type AssistantAction =
   | AutomationAction
   | PlannerAction
   | LabworkAction
+  | ExtensionToolAction
 
 export type AssistantActionKind = AssistantAction['kind']
 
@@ -191,6 +194,12 @@ export async function runAssistantAction(
         // Lab-work jobs load only when a card's button is pressed.
         const { runLabworkAction } = await import('./assistant-labwork-run')
         return runLabworkAction(client, action)
+      }
+      if (isExtensionToolAction(action)) {
+        // Extension tools load only when a card's button is pressed.
+        const { runExtensionToolAction } =
+          await import('./assistant-extensions-run')
+        return runExtensionToolAction(action)
       }
       if (isAutomationAction(action)) {
         const { runAutomationAction } =

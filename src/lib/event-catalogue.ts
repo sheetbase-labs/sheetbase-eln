@@ -23,6 +23,8 @@
  * renamed, so aliases are retired only with an explicit migration.
  */
 
+import { eventEntriesFrom } from './operations/descriptor'
+import { CORE_OPERATIONS } from './operations/registry'
 import type { ChangeEventInput } from './webhook-events'
 
 /** Payload schema version pinned by this catalogue revision. */
@@ -95,6 +97,7 @@ export type CatalogueIntroducedIn =
   | 'prov-01'
   | 'contract-01'
   | 'data-01'
+  | 'extensions-05'
 
 /** Which consumers can observe the event today. */
 export interface EventConsumerMap {
@@ -1855,6 +1858,55 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     notes: 'Payload carries `requestId`, `actionKey`, `status` and `error`.',
   },
   {
+    name: 'extension.point.enabled',
+    family: 'administration',
+    summary:
+      'An administrator switched one part of a plugin (operations or analysis kinds) on.',
+    producer: {
+      entityType: 'extension',
+      operation: 'update',
+      when: { key: 'change', equals: 'point_enabled' },
+    },
+    wireName: 'extension.point.enabled',
+    status: 'stable',
+    introducedIn: 'extensions-05',
+    consumers: webhookSse,
+    notes: 'Payload carries `extensionKey` and `point`.',
+  },
+  {
+    name: 'extension.point.disabled',
+    family: 'administration',
+    summary:
+      'An administrator switched one part of a plugin (operations or analysis kinds) off.',
+    producer: {
+      entityType: 'extension',
+      operation: 'update',
+      when: { key: 'change', equals: 'point_disabled' },
+    },
+    wireName: 'extension.point.disabled',
+    status: 'stable',
+    introducedIn: 'extensions-05',
+    consumers: webhookSse,
+    notes: 'Payload carries `extensionKey` and `point`.',
+  },
+  {
+    name: 'extension.invoked',
+    family: 'administration',
+    summary:
+      'A plugin ran an operation or analysis kind, and it either worked or failed.',
+    producer: {
+      entityType: 'extension',
+      operation: 'update',
+      when: { key: 'change', equals: 'invoked' },
+    },
+    wireName: 'extension.invoked',
+    status: 'stable',
+    introducedIn: 'extensions-05',
+    consumers: webhookSse,
+    notes:
+      'Payload carries `extensionKey` (the plugin’s name in the workspace), `point`, `itemId`, `ok`, `runner`, `durationMs` and, on failure, a short `error`. Inputs and answers are never included.',
+  },
+  {
     name: 'ai.eval.completed',
     family: 'administration',
     summary:
@@ -2659,6 +2711,8 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     notes:
       'Payload carries runId, reference, recordId, blockId, language, status, matches, reproducesRunId and runtime (the image digest the code ran in).',
   },
+  // -- declared with their operations (`#/lib/operations`) ---------------
+  ...eventEntriesFrom(CORE_OPERATIONS, webhookSsePipeline),
 ])
 
 /**

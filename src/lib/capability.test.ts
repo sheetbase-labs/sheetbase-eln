@@ -54,7 +54,6 @@ describe('CORE-05 capability mapping', () => {
       'instance.upgrade',
       'integrations.manage',
       'pipelines.manage',
-      'extensions.manage',
       'instrument.manage',
       'calibration.record',
     ])
@@ -90,10 +89,10 @@ describe('CORE-05 capability mapping', () => {
     expect(hasCapability('viewer', 'integrations.manage')).toBe(false)
   })
 
-  it('grants extensions.manage to governed roles only', () => {
+  it('grants extensions.manage to owners and admins only', () => {
     expect(hasCapability('owner', 'extensions.manage')).toBe(true)
     expect(hasCapability('admin', 'extensions.manage')).toBe(true)
-    expect(hasCapability('steward', 'extensions.manage')).toBe(true)
+    expect(hasCapability('steward', 'extensions.manage')).toBe(false)
     expect(hasCapability('member', 'extensions.manage')).toBe(false)
     expect(hasCapability('scientist', 'extensions.manage')).toBe(false)
     expect(hasCapability('viewer', 'extensions.manage')).toBe(false)

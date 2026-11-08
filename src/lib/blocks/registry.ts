@@ -1,115 +1,51 @@
 /**
- * The notebook block registry — the single declaration point for a block type.
+ * The notebook block registry: what the rest of the app reads to know which
+ * block types exist and how to treat each one.
  *
- * Before this module, one block type was declared in eight places: the
- * `BlockType` union and allow-list in `./index`, the validator map in the same
- * file, the `chk_blocks_type` migration, the insert-menu catalogue in
- * `block-picker.tsx`, the `defaultPayloadFor` switch in
- * `#/lib/notebook-mutations`, the `EDITABLE_TYPES` and `WIDE_BLOCK_TYPES` sets
- * in `notebook-document.tsx`, the `BlockEditorBody` switch and the conflict
- * summary in `block-editor.tsx`, and the `renderPayload` switch in
- * `block-preview.tsx`.
+ * Every block is declared once, in `./declarations`: its payload validator, its
+ * editable flag, starting payload, summary and insert-menu entry. This module
+ * derives the type union, the allow-list, the insert catalogue and the
+ * descriptors from that list, so the pieces cannot drift apart.
  *
- * Adding a type now means: one descriptor here, one validator in `./index`, one
- * migration widening `chk_blocks_type`. Three places, each for a different
- * reason — the descriptor is the product shape, the validator is the payload
- * contract, the migration is the database constraint.
+ * Adding a type means one entry in `./declarations`, its validator in
+ * `./validators`, and one migration widening `chk_blocks_type`. The registry
+ * parity test checks the declarations against the latest widening migration.
  *
  * Boundaries kept deliberately:
  *
- * - **Validators stay in `./index`.** They are the application-boundary payload
- *   contract, shared with server paths, so they are not UI-shaped data.
  * - **Editor and preview bodies stay in their modules.** They are 3,000 and
- *   1,900 lines of feature components. The descriptor records whether an editor
- *   exists (`editable`) and the editor switch consults that flag, so the two
- *   cannot drift without failing the registry parity test.
+ *   1,900 lines of feature components. The declaration records whether an
+ *   editor exists (`editable`) and the editor switch consults that flag.
  * - **`sheet_shared` is not a block type.** It is an insertion affordance that
  *   resolves to a `sheet` block bound to an existing instance, so it lives in
  *   the catalogue and not in `BLOCK_TYPES`.
- *
- * This module is a pure re-point: the union, allow-list, catalogue, defaults,
- * summaries are moved here verbatim from the sites above, so the
- * consolidation itself changes no behaviour. Improvements to any of those —
- * richer summaries, default payloads for the types that have none — are
- * separate product changes.
  */
 
 import { t } from '#/copy'
 import type { IconName } from '#/components/icons'
 import {
-  EMPTY_RICH_TEXT_PAYLOAD,
-  isRichTextPayload,
-  richTextToPlainText,
-} from './rich-text'
-import { EMPTY_CONCLUSION_PAYLOAD } from '../conclusion-block'
-import { EMPTY_REACTION_PAYLOAD, EMPTY_STRUCTURE_PAYLOAD } from '../chemistry'
-import { EMPTY_SEQUENCE_PAYLOAD } from '../sequence-block'
-import {
-  EMPTY_CORRECTIVE_ACTIONS_PAYLOAD,
-  EMPTY_SIGNATURE_REQUEST_PAYLOAD,
-} from '../notebook-action-blocks'
+  BLOCK_DECLARATIONS,
+  CALCULATOR_PICKER_TYPE,
+  EXTRA_PICKER_OPTIONS,
+} from './declarations'
+import type { BlockDeclaration, BlockGroupId } from './declarations'
+
+export { CALCULATOR_PICKER_TYPE }
+export type { BlockGroupId }
 
 /**
- * Every block type the database constraint `chk_blocks_type` allows. The parity
- * test in `registry.test.ts` checks this list against the latest widening
- * migration.
+ * Every block type the database constraint `chk_blocks_type` allows, derived
+ * from the declarations.
  */
-export type BlockType =
-  | 'rich_text'
-  | 'checklist'
-  | 'linked_record'
-  | 'callout'
-  | 'table'
-  | 'sheet'
-  | 'chart'
-  | 'analysis'
-  | 'plate_map'
-  | 'file'
-  | 'metric'
-  | 'procedure_step'
-  | 'protocol_reference'
-  | 'materials'
-  | 'pipeline_output'
-  | 'signature_request'
-  | 'corrective_actions'
-  | 'conclusion'
-  | 'dataset_import'
-  | 'structure'
-  | 'reaction'
-  | 'code_cell'
-  | 'gate'
-  | 'sequence'
+export type BlockType = (typeof BLOCK_DECLARATIONS)[number]['type']
 
 /**
  * The allow-list, in the order `chk_blocks_type` names them. A type not in this
  * list is rejected at the boundary as `unsupported_block_type`.
  */
-export const BLOCK_TYPES: readonly BlockType[] = [
-  'rich_text',
-  'checklist',
-  'linked_record',
-  'callout',
-  'table',
-  'sheet',
-  'chart',
-  'analysis',
-  'plate_map',
-  'file',
-  'metric',
-  'procedure_step',
-  'protocol_reference',
-  'materials',
-  'pipeline_output',
-  'signature_request',
-  'corrective_actions',
-  'conclusion',
-  'dataset_import',
-  'structure',
-  'reaction',
-  'code_cell',
-  'gate',
-  'sequence',
-]
+export const BLOCK_TYPES: readonly BlockType[] = BLOCK_DECLARATIONS.map(
+  (declaration) => declaration.type,
+)
 
 /** Membership index for the allow-list; each key is a stored block type. */
 const BLOCK_TYPE_INDEX: Record<string, true> = Object.fromEntries(
@@ -125,8 +61,6 @@ export function isBlockType(value: string): value is BlockType {
 // Insert catalogue. The insertion UI is the command-palette AddBlockMenu (`+`)
 // and the slash menu (`/`); both read this list, so an entry is declared once.
 // ---------------------------------------------------------------------------
-
-export type BlockGroupId = 'structure' | 'writing' | 'evidence' | 'sign'
 
 export interface BlockPickerOption {
   /**
@@ -175,461 +109,33 @@ export const BLOCK_PICKER_GROUPS: readonly {
   { id: 'sign', label: t('notebook.blockRegistry.signAndAttachLabel') },
 ]
 
-/** The picker entry that opens the bench calculator rather than adding a block. */
-export const CALCULATOR_PICKER_TYPE = 'calculator'
-
 export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
-  {
-    type: 'dataset_import',
-    label: t('notebook.blockRegistry.importDataLabel'),
-    description: t('notebook.blockRegistry.description'),
-    icon: 'upload',
-    group: 'structure',
-    aliases: ['import', 'csv', 'upload'],
-  },
-  {
-    type: 'sheet',
-    label: t('notebook.blockRegistry.sheetLabel'),
-    description: t(
-      'notebook.blockRegistry.spreadsheetWithDatasetSourcesDescription',
-    ),
-    icon: 'table',
-    group: 'structure',
-    aliases: ['table', 'grid', 'spreadsheet'],
-  },
-  {
-    type: 'linked_record',
-    label: t('notebook.blockRegistry.recordReferenceLabel'),
-    description: t('notebook.blockRegistry.sampleMaterialDatasetDescription'),
-    icon: 'link',
-    group: 'structure',
-    aliases: ['dataset', 'record', 'sample', 'material', 'link'],
-  },
-  {
-    type: 'sheet_shared',
-    label: t('notebook.blockRegistry.linkExistingSheetLabel'),
-    description: t('notebook.blockRegistry.showASheetThatDescription'),
-    icon: 'link',
-    group: 'structure',
-    aliases: ['embed', 'reuse'],
-  },
-  {
-    type: 'protocol_reference',
-    label: t('notebook.blockRegistry.protocolLabel'),
-    description: t('notebook.blockRegistry.pinAnExactProtocolDescription'),
-    icon: 'flask',
-    group: 'structure',
-    aliases: ['sop', 'method'],
-  },
-  {
-    type: 'materials',
-    label: t('notebook.blockRegistry.materialsLabel'),
-    description: t(
-      'notebook.blockRegistry.linkedSamplesAndMaterialsDescription',
-    ),
-    icon: 'box',
-    group: 'structure',
-    aliases: ['samples', 'materials', 'inventory'],
-  },
-  {
-    type: 'gate',
-    label: t('notebook.gates.blockLabel'),
-    description: t('notebook.gates.blockDescription'),
-    icon: 'lock',
-    group: 'structure',
-    aliases: ['gate', 'hold', 'wait', 'lock', 'condition', 'opens when'],
-  },
-  {
-    type: 'rich_text',
-    label: t('notebook.blockRegistry.textLabel'),
-    description: t('notebook.blockRegistry.paragraphDescription'),
-    icon: 'edit',
-    group: 'writing',
-    aliases: ['heading', 'paragraph', 'note', 'prose'],
-  },
-  {
-    type: 'checklist',
-    label: t('notebook.blockRegistry.checklistLabel'),
-    description: t('notebook.blockRegistry.aListOfCheckableDescription'),
-    icon: 'check',
-    group: 'writing',
-    aliases: ['todo', 'tasks'],
-  },
-  {
-    type: 'callout',
-    label: t('notebook.blockRegistry.calloutLabel'),
-    description: t('notebook.blockRegistry.aNoteTheReaderDescription'),
-    icon: 'info',
-    group: 'writing',
-    aliases: ['note', 'warning', 'banner', 'aside', 'info'],
-  },
-  {
-    type: 'conclusion',
-    label: t('notebook.blockRegistry.conclusionLabel'),
-    description: t('notebook.blockRegistry.whatTheExperimentFoundDescription'),
-    icon: 'check',
-    group: 'writing',
-    aliases: ['result', 'finding', 'outcome', 'summary', 'verdict'],
-  },
-  {
-    type: 'file',
-    label: t('notebook.blockRegistry.fileOrImageLabel'),
-    description: t('notebook.blockRegistry.attachAFileWithDescription'),
-    icon: 'download',
-    group: 'evidence',
-    aliases: ['image', 'photo', 'pdf', 'attachment'],
-  },
-  {
-    type: 'analysis',
-    label: t('notebook.blockRegistry.chartOrAnalysisLabel'),
-    description: t('notebook.blockRegistry.aSavedChartADescription'),
-    icon: 'chart',
-    group: 'evidence',
-    aliases: ['chart', 'plot', 'graph', 'statistics', 'regression', 'fit'],
-  },
-  {
-    type: 'plate_map',
-    label: t('notebook.blockRegistry.plateMapLabel'),
-    description: t('notebook.blockRegistry.a96WellPlateDescription'),
-    icon: 'table',
-    group: 'evidence',
-    aliases: ['plate', 'wells'],
-  },
-  {
-    type: 'metric',
-    label: t('notebook.blockRegistry.metricLabel'),
-    description: t('notebook.blockRegistry.aSingleHeadlineNumberDescription'),
-    icon: 'chart',
-    group: 'evidence',
-    aliases: ['kpi', 'number', 'stat', 'measurement'],
-  },
-  {
-    // Not a stored type: it opens the bench calculator and inserts the answer
-    // as a metric block.
-    type: CALCULATOR_PICKER_TYPE,
-    label: t('calculators.picker.label'),
-    description: t('calculators.picker.description'),
-    icon: 'calculator',
-    group: 'evidence',
-    aliases: ['molarity', 'dilution', 'c1v1', 'convert', 'units', 'calculate'],
-  },
-  {
-    type: 'structure',
-    label: t('notebook.blockRegistry.structureLabel'),
-    description: t('notebook.blockRegistry.structureDescription'),
-    icon: 'flask',
-    group: 'evidence',
-    aliases: [
-      'molecule',
-      'chemical',
-      'compound',
-      'drawing',
-      'smiles',
-      'chemistry',
-    ],
-  },
-  {
-    type: 'reaction',
-    label: t('notebook.blockRegistry.reactionLabel'),
-    description: t('notebook.blockRegistry.reactionDescription'),
-    icon: 'flask',
-    group: 'evidence',
-    aliases: [
-      'synthesis',
-      'scheme',
-      'equivalents',
-      'yield',
-      'stoichiometry',
-      'chemistry',
-    ],
-  },
-  {
-    type: 'code_cell',
-    label: t('notebook.blockRegistry.codeCellLabel'),
-    description: t('notebook.blockRegistry.codeCellDescription'),
-    icon: 'code',
-    group: 'evidence',
-    aliases: [
-      'python',
-      'sql',
-      'code',
-      'script',
-      'notebook',
-      'analysis',
-      'query',
-    ],
-  },
-  {
-    type: 'sequence',
-    label: t('notebook.blockRegistry.sequenceLabel'),
-    description: t('notebook.blockRegistry.sequenceDescription'),
-    icon: 'dna',
-    group: 'evidence',
-    aliases: [
-      'dna',
-      'plasmid',
-      'primer',
-      'digest',
-      'restriction',
-      'gibson',
-      'golden gate',
-      'cloning',
-      'sanger',
-      'genbank',
-      'fasta',
-      'construct',
-      'gel',
-    ],
-  },
-  {
-    type: 'pipeline_output',
-    label: t('notebook.blockRegistry.pipelineOutputLabel'),
-    description: t('notebook.blockRegistry.referenceAPipelineRunDescription'),
-    icon: 'pipeline',
-    group: 'evidence',
-    aliases: ['pipeline', 'automation', 'run'],
-  },
-  {
-    type: 'signature_request',
-    label: t('notebook.blockRegistry.signatureRequestLabel'),
-    description: t('notebook.blockRegistry.askSomeoneToSignDescription'),
-    icon: 'lock',
-    group: 'sign',
-    aliases: ['sign', 'signature', 'attest', 'approve', 'witness'],
-  },
-  {
-    type: 'corrective_actions',
-    label: t('notebook.blockRegistry.correctiveActionsLabel'),
-    description: t('notebook.blockRegistry.actionsWithAnOwnerDescription'),
-    icon: 'check',
-    group: 'sign',
-    aliases: ['capa', 'actions', 'corrective', 'finding', 'deviation'],
-  },
+  ...BLOCK_DECLARATIONS.flatMap((declaration: BlockDeclaration) =>
+    declaration.picker
+      ? [{ ...declaration.picker, type: declaration.type }]
+      : [],
+  ),
+  ...EXTRA_PICKER_OPTIONS,
 ]
+  .sort((a, b) => a.order - b.order)
+  .map(({ type, label, description, icon, group, aliases }) => ({
+    type,
+    label,
+    description,
+    icon,
+    group,
+    aliases,
+  }))
 
 // ---------------------------------------------------------------------------
 // Per-type descriptor.
 // ---------------------------------------------------------------------------
 
-export interface BlockDescriptor {
-  /**
-   * Whether the editor switch, `BlockEditorBody`, has a case for this type.
-   * `callout`, `table` and `metric` are stored, validated and rendered but
-   * cannot be edited. `sheet` is rendered by the document through
-   * `NotebookSheetBlock`, which owns the instance embed and the
-   * frozen-evidence panel, so it never reaches the editor switch.
-   *
-   * A4 owns closing the gap: either an editor for a type, or the type stops
-   * being offered as an insertion.
-   */
-  editable: boolean
-  /**
-   * A minimal, valid payload so a new block enters editing focus cleanly.
-   * Types that returned `{}` from the old `defaultPayloadFor` switch still
-   * return `{}`.
-   */
-  defaultPayload: () => Record<string, unknown>
-  /**
-   * One-line readable preview, used by the conflict banner so the reader can
-   * comprehend the server version without switching tabs. Absent where the old
-   * switch had no case, in which case `summarizeBlockPayload` dumps the JSON as
-   * it always did.
-   */
-  summary?: (payload: Record<string, unknown>) => string
-}
+export type BlockDescriptor = Omit<BlockDeclaration, 'type' | 'picker'>
 
-export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
-  dataset_import: { editable: true, defaultPayload: () => ({}) },
-  rich_text: {
-    editable: true,
-    defaultPayload: () => ({ ...EMPTY_RICH_TEXT_PAYLOAD }),
-    summary: (payload) =>
-      isRichTextPayload(payload)
-        ? richTextToPlainText(payload) || '(empty)'
-        : '(empty)',
-  },
-  checklist: {
-    editable: true,
-    defaultPayload: () => ({ items: [{ text: '', checked: false }] }),
-    summary: (payload) => {
-      const items = Array.isArray(payload.items) ? payload.items : []
-      if (items.length === 0) return t('notebook.blockRegistry.noItems')
-      return items
-        .map((item) => {
-          const checked =
-            typeof item === 'object' &&
-            item !== null &&
-            'checked' in item &&
-            item.checked === true
-          const text =
-            typeof item === 'object' &&
-            item !== null &&
-            'text' in item &&
-            typeof item.text === 'string'
-              ? item.text
-              : ''
-          return `[${checked ? 'x' : ' '}] ${text}`
-        })
-        .join('\n')
-    },
-  },
-  linked_record: {
-    editable: true,
-    defaultPayload: () => ({
-      targetKind: 'experiment',
-      targetIdentifier: '',
-      linkType: 'general',
-      label: '',
-    }),
-    summary: (payload) =>
-      `${payload.linkType ?? 'general'}: ${payload.targetKind ?? ''} ${
-        payload.targetIdentifier ?? ''
-      }${payload.label ? ` — ${payload.label}` : ''}`,
-  },
-  callout: {
-    // A4: editable since the callout editor landed. The static `table` block
-    // is still read-only on purpose — see the note in `block-editor.tsx`.
-    editable: true,
-    defaultPayload: () => ({}),
-  },
-  conclusion: {
-    editable: true,
-    defaultPayload: () => ({ ...EMPTY_CONCLUSION_PAYLOAD }),
-    summary: (payload) =>
-      typeof payload.text === 'string' && payload.text ? payload.text : '',
-  },
-  table: { editable: false, defaultPayload: () => ({}) },
-  sheet: { editable: false, defaultPayload: () => ({}) },
-  chart: {
-    editable: true,
-    // SCI-004: a chart starts as an empty draft `{}` (valid) so the editor
-    // opens immediately; the user picks a dataset, fields and chart type.
-    defaultPayload: () => ({}),
-  },
-  analysis: {
-    editable: true,
-    defaultPayload: () => ({}),
-    summary: (payload) =>
-      `${payload.title || t('notebook.blockRegistry.analysis')}${payload.frozen ? t('notebook.blockRegistry.frozenSuffix') : ''}`,
-  },
-  plate_map: {
-    editable: true,
-    // SCI-005: a plate map starts as an empty draft `{}` (valid) so the editor
-    // opens immediately; the user sets dimensions and assigns wells.
-    defaultPayload: () => ({}),
-    summary: (payload) => {
-      const title = typeof payload.title === 'string' ? payload.title : ''
-      const spec = 'spec' in payload ? payload.spec : undefined
-      const wells =
-        typeof spec === 'object' && spec !== null && 'wells' in spec
-          ? spec.wells
-          : undefined
-      return t('notebook.blockRegistry.plateMapSummary', {
-        title: title || t('notebook.blockRegistry.plateMapLabel'),
-        count: Array.isArray(wells) ? wells.length : 0,
-      })
-    },
-  },
-  file: { editable: true, defaultPayload: () => ({}) },
-  structure: {
-    editable: true,
-    defaultPayload: () => ({ ...EMPTY_STRUCTURE_PAYLOAD }),
-    summary: (payload) =>
-      [
-        typeof payload.title === 'string' && payload.title
-          ? payload.title
-          : typeof payload.name === 'string'
-            ? payload.name
-            : '',
-        typeof payload.formula === 'string' ? payload.formula : '',
-      ]
-        .filter(Boolean)
-        .join(' · ') || t('notebook.blockRegistry.structureLabel'),
-  },
-  reaction: {
-    editable: true,
-    defaultPayload: () => ({ ...EMPTY_REACTION_PAYLOAD, rows: [] }),
-    summary: (payload) =>
-      t('notebook.blockRegistry.reactionSummary', {
-        title:
-          typeof payload.title === 'string' && payload.title
-            ? payload.title
-            : t('notebook.blockRegistry.reactionLabel'),
-        count: Array.isArray(payload.rows) ? payload.rows.length : 0,
-      }),
-  },
-  sequence: {
-    editable: true,
-    defaultPayload: () => ({ ...EMPTY_SEQUENCE_PAYLOAD, features: [] }),
-    summary: (payload) =>
-      t('notebook.blockRegistry.sequenceSummary', {
-        title:
-          typeof payload.title === 'string' && payload.title
-            ? payload.title
-            : typeof payload.name === 'string' && payload.name
-              ? payload.name
-              : t('notebook.blockRegistry.sequenceLabel'),
-        length:
-          typeof payload.residues === 'string' ? payload.residues.length : 0,
-      }),
-  },
-  metric: { editable: true, defaultPayload: () => ({}) },
-  procedure_step: {
-    editable: true,
-    defaultPayload: () => ({}),
-  },
-  protocol_reference: {
-    editable: true,
-    defaultPayload: () => ({}),
-  },
-  materials: {
-    editable: true,
-    defaultPayload: () => ({ items: [] }),
-  },
-  code_cell: {
-    editable: true,
-    defaultPayload: () => ({ language: 'python', source: '', inputs: [] }),
-    summary: (payload) =>
-      `${t('notebook.blockRegistry.codeCellLabel')}${
-        typeof payload.language === 'string' ? ` (${payload.language})` : ''
-      }`,
-  },
-  pipeline_output: {
-    editable: true,
-    defaultPayload: () => ({}),
-    summary: (payload) =>
-      `${t('notebook.blockRegistry.pipelineOutputLabel')}${
-        payload.runId
-          ? t('notebook.blockRegistry.runId', {
-              runId: String(payload.runId).slice(0, 8),
-            })
-          : ''
-      }`,
-  },
-  signature_request: {
-    editable: true,
-    // R5-NOTE-02: a signature request starts with no signer, so the block
-    // renders the honest missing-reference state until one is chosen.
-    defaultPayload: () => ({ ...EMPTY_SIGNATURE_REQUEST_PAYLOAD }),
-  },
-  corrective_actions: {
-    editable: true,
-    // R5-NOTE-02: a CAPA list starts empty; the block says so rather than
-    // showing a header with nothing under it.
-    defaultPayload: () => ({ ...EMPTY_CORRECTIVE_ACTIONS_PAYLOAD }),
-  },
-  gate: {
-    // Rendered by the gate bar and changed through the gate dialog, not by the
-    // editor switch. It has no useful empty draft: the database refuses a gate
-    // without conditions, so one is only inserted once the dialog has some.
-    editable: false,
-    defaultPayload: () => ({ mode: 'warn', conditions: [] }),
-    summary: (payload) =>
-      typeof payload.label === 'string' && payload.label
-        ? payload.label
-        : t('notebook.gates.blockLabel'),
-  },
-}
+export const BLOCK_DESCRIPTORS = Object.fromEntries(
+  BLOCK_DECLARATIONS.map((declaration) => [declaration.type, declaration]),
+) as unknown as Record<BlockType, BlockDescriptor>
 
 /** The descriptor for a type, or `undefined` for a type this build rejects. */
 export function blockDescriptor(type: string): BlockDescriptor | undefined {

@@ -270,6 +270,7 @@ export interface AssistantProposal {
     | QcProposeToolName
     | AutomationProposeToolName
     | PlannerProposeToolName
+    | `plugin.${string}.${string}`
   title: string
   summary: string
   /** Where it goes, for the card: "EXP-12 · Notebook". */

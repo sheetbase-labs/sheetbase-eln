@@ -34,6 +34,11 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
     'The folder agent reports a job moving on and what the robot did, through POST /api/connectors/jobs; people and scripts use queue, start and cancel.',
   record_code_cell_run:
     'Written by the server when a code cell has run in the app, so a run always carries what really ran; the runs are on code_cell_runs.',
+  // Extensions: installing and switching on parts of an extension grants an
+  // outside service or code the chance to run in the workspace, so it is an
+  // owner or admin decision made in the app (Settings > Extensions).
+  set_extension_point_enabled:
+    'Switching a part of an installed extension (pipeline actions, assistant tools, analysis kinds) on or off is an owner or admin decision made in Settings > Extensions; the event stream reports each change.',
   // Part sign-off: signing is an attestation a person makes in the app with a
   // fresh password, so tokens, MCP and pipelines can ask for it but not do it.
   sign_experiment_part:

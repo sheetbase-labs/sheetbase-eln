@@ -142,6 +142,15 @@ and execution need a live owner browser session.
 - MCP uses bearer credentials; OAuth 2.1 discovery and dynamic client
   registration are not implemented.
 
+## Plugin operations
+
+Operations declared by an enabled plugin (named `plugin.<key>.<id>`, wire name
+with `.` as `__`) appear in `tools/list` for personal tokens. A read operation
+needs `mcp_read` and any read scope; a write operation needs `mcp_lab` and
+`lab:write`, and goes through `request_agent_action` and the agent action policy
+(default Ask). A plugin operation can never sign, approve or attest. See
+[the plugins API](../api/plugins-api.md).
+
 ## Deliberate boundaries
 
 1. Administration beyond workspace AI settings stays human-only: members and

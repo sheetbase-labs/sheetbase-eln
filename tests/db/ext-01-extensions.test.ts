@@ -160,10 +160,13 @@ describe('EXT-01 extension lifecycle', () => {
     ])
   })
 
-  it('lets stewards install but denies members and viewers', async () => {
+  it('lets only owners and admins install, denying stewards, members and viewers', async () => {
     const steward = await actor(STEWARD_A, WS_A)
-    const extension = await install(steward, { key: 'retest-steward' })
-    expect(extension.status).toBe('installed')
+    await expect(
+      install(steward, { key: 'retest-steward' }),
+    ).rejects.toMatchObject({
+      code: '42501',
+    })
 
     const member = await actor(MEMBER_A, WS_A)
     await expect(

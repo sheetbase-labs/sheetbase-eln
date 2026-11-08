@@ -115,7 +115,6 @@ describe('CORE-05 capability resolver', () => {
       unknown_cap: false,
     })
     expect(rows[0].listed).toEqual([
-      'extensions.manage',
       'instance.upgrade',
       'integrations.manage',
       'pipelines.manage',

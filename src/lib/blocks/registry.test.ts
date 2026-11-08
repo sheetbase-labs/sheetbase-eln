@@ -14,6 +14,8 @@
 
 import { describe, expect, it } from 'vitest'
 
+import { BLOCK_DECLARATIONS, EXTRA_PICKER_OPTIONS } from './declarations'
+import type { BlockDeclaration } from './declarations'
 import {
   BLOCK_PICKER_GROUPS,
   BLOCK_PICKER_OPTIONS,
@@ -238,5 +240,28 @@ describe('conflict summary', () => {
     expect(summarizeBlockPayload('quantum_state', { a: 1 })).toBe(
       JSON.stringify({ a: 1 }, null, 2),
     )
+  })
+})
+
+describe('block declarations', () => {
+  it('give every stored type one declaration with a validator', () => {
+    const types = BLOCK_DECLARATIONS.map((d) => d.type)
+    expect(new Set(types).size).toBe(types.length)
+    expect([...BLOCK_TYPES]).toEqual(types)
+    for (const declaration of BLOCK_DECLARATIONS) {
+      expect(typeof declaration.validate).toBe('function')
+      expect(typeof declaration.defaultPayload).toBe('function')
+    }
+  })
+
+  it('give each insert-menu entry its own position', () => {
+    const orders = [
+      ...BLOCK_DECLARATIONS.flatMap((d: BlockDeclaration) =>
+        d.picker ? [d.picker.order] : [],
+      ),
+      ...EXTRA_PICKER_OPTIONS.map((o) => o.order),
+    ]
+    expect(new Set(orders).size).toBe(orders.length)
+    expect(BLOCK_PICKER_OPTIONS).toHaveLength(orders.length)
   })
 })

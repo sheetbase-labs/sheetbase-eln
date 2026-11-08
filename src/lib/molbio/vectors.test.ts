@@ -6,7 +6,9 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import fingerprints from '../../../plugins/sequence-tools/test-vectors/fingerprints.json'
 import vectors from '../../../plugins/sequence-tools/test-vectors/vectors.json'
+import { canonicalSequence } from '../sequence-fingerprint'
 import { runSequenceTool, sequenceToolSchema } from './tools'
 
 interface Vector {
@@ -30,4 +32,18 @@ describe('shared test vectors', () => {
       expect(got).toEqual(v.expected)
     })
   }
+})
+
+describe('shared fingerprint vectors', () => {
+  fingerprints.forEach((f, i) => {
+    it(`canonical form ${i}`, () => {
+      expect(
+        canonicalSequence(
+          f.input.residues,
+          f.input.molecule as 'dna' | 'rna' | 'protein',
+          f.input.topology as 'linear' | 'circular',
+        ),
+      ).toBe(f.canonical)
+    })
+  })
 })

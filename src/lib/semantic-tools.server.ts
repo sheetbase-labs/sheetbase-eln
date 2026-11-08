@@ -107,12 +107,41 @@ function invalid(error: z.ZodError): string {
   return `That request was not valid: ${first.path.join('.') || 'arguments'}: ${first.message}.`
 }
 
+/** What search providers from plugins find, in the shape the tool answers with. */
+async function pluginResults(
+  query: string,
+  context: { client: DataClient; workspaceId: string; actorUserId?: string },
+) {
+  if (!context.actorUserId) return []
+  try {
+    const { searchWithPlugins } =
+      await import('./extensions/plugin-search.server')
+    const found = await searchWithPlugins(context.client, {
+      workspaceId: context.workspaceId,
+      actorUserId: context.actorUserId,
+      query,
+    })
+    return found.hits.slice(0, 8).map((hit) => ({
+      identifier: hit.identifier,
+      title: hit.title,
+      type: hit.type,
+      status: hit.status,
+      foundBy: hit.providerTitle,
+      passage: hit.snippet.slice(0, 400),
+      open: hit.deepLink,
+    }))
+  } catch {
+    return []
+  }
+}
+
 export async function runSemanticSearch(
   args: unknown,
-  context: { client: DataClient; workspaceId: string },
+  context: { client: DataClient; workspaceId: string; actorUserId?: string },
 ): Promise<Result> {
   const parsed = semanticSearchSchema.safeParse(args)
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
+  const plugins = await pluginResults(parsed.data.query, context)
   try {
     const hits = await semanticHits(
       context.client,
@@ -120,7 +149,7 @@ export async function runSemanticSearch(
       parsed.data.query,
       { limit: parsed.data.limit ?? 8 },
     )
-    if (hits.length === 0) {
+    if (hits.length === 0 && plugins.length === 0) {
       return {
         text: 'Nothing in the lab reads close to that. Say so; do not guess. You can offer to search by words instead.',
         isError: false,
@@ -128,7 +157,8 @@ export async function runSemanticSearch(
     }
     return {
       text: JSON.stringify({
-        note: 'Results are ordered closest first. Give each as a link to its page.',
+        note: 'Results are ordered closest first. Give each as a link to its page. `fromPlugins` are extra results from search tools the lab added.',
+        ...(plugins.length > 0 ? { fromPlugins: plugins } : {}),
         results: hits.map((hit) => ({
           identifier: hit.identifier,
           title: hit.title,
@@ -143,6 +173,15 @@ export async function runSemanticSearch(
     }
   } catch (error) {
     if (error instanceof SemanticUnavailableError) {
+      // The lab's own search tools still answer when search by meaning is off.
+      if (plugins.length > 0)
+        return {
+          text: JSON.stringify({
+            note: `${error.message} These are results from search tools the lab added. Give each as a link to its page.`,
+            fromPlugins: plugins,
+          }),
+          isError: false,
+        }
       return { text: error.message, isError: true }
     }
     logger.warn(

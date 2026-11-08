@@ -263,7 +263,6 @@ export async function executePipelineActions(
             workspaceId: run.workspaceId,
             actorUserId,
             extensionKey: extensionName.key,
-            point: 'operations',
             itemId: extensionName.id,
             input: resolved,
           })

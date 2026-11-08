@@ -11,6 +11,8 @@
  * provenance receipt into api.data_exports.
  */
 import { z } from 'zod'
+import { parsePluginName } from '../extensions/points'
+import { runExtensionExporter } from '../extensions/data-runtime.server'
 import {
   delimitedHeaderLine,
   delimitedRowLine,
@@ -317,10 +319,15 @@ export async function handleDatasetExport(
 
   const url = new URL(request.url)
   const formatParam = url.searchParams.get('format') ?? 'csv'
-  if (!isExportFormat(formatParam)) {
+  const pluginFormat = parsePluginName(formatParam)
+  if (!pluginFormat && !isExportFormat(formatParam)) {
     return requestErrorResponse(400, 'invalid_format', 'Unknown export format.')
   }
-  const format: ExportFormat = formatParam
+  // A plugin format is written by the plugin after the rows are collected;
+  // the built-in writers below never see it.
+  const format: ExportFormat = pluginFormat
+    ? 'json'
+    : (formatParam as ExportFormat)
 
   let dataset: DatasetWire | null = null
   if (variant === 'live') {
@@ -444,6 +451,55 @@ export async function handleDatasetExport(
         }
       : undefined,
   )
+
+  if (pluginFormat) {
+    const all: Array<Record<string, unknown>> = []
+    // The plugin reads columns by their names (the field keys), not by id.
+    for await (const row of rows.rows)
+      all.push(
+        Object.fromEntries(
+          fields.map((field) => [field.key, row.values[field.id] ?? null]),
+        ),
+      )
+    let made: Awaited<ReturnType<typeof runExtensionExporter>>
+    try {
+      made = await runExtensionExporter({
+        workspaceId: target.workspaceId,
+        actorUserId: context.userId,
+        extensionKey: pluginFormat.key,
+        exporterId: pluginFormat.id,
+        name: base,
+        rows: all,
+        options: {},
+      })
+    } catch (error) {
+      return requestErrorResponse(
+        422,
+        'plugin_export_failed',
+        error instanceof Error ? error.message : 'The plugin export failed.',
+      )
+    }
+    const bytes =
+      made.encoding === 'base64'
+        ? Buffer.from(made.content, 'base64')
+        : Buffer.from(made.content, 'utf8')
+    await insertReceipt({
+      actorUserId: context.userId,
+      workspaceId: target.workspaceId,
+      objectType: variant === 'version' ? 'dataset_version' : 'dataset',
+      objectId: target.objectId,
+      format: formatParam.slice(0, 40),
+      rowCount: all.length,
+      byteSize: bytes.byteLength,
+    })
+    return new Response(bytes, {
+      headers: {
+        'Content-Type': made.mime,
+        'Content-Disposition': `attachment; filename="${made.filename}"`,
+        'Cache-Control': 'no-store',
+      },
+    })
+  }
 
   if (format === 'xlsx') {
     const all: ExportRow[] = []

@@ -26,7 +26,11 @@ import {
   reply,
 } from './run-route.server'
 import type { ExtensionRunRouteDeps } from './run-route.server'
-import { invokeExtension, openExtensionPoint } from './runtime.server'
+import {
+  ExtensionRunError,
+  invokeExtension,
+  openCallable,
+} from './runtime.server'
 
 export interface PluginApiCaller {
   workspaceId: string
@@ -81,15 +85,17 @@ export async function handlePluginOperationApi(
   if (!parsed.success)
     return refuse(400, 'Send a JSON body like { "input": { … } }.')
   try {
-    const { manifest } = await openExtensionPoint(
+    const { callable } = await openCallable(
       deps.runtime,
       caller.workspaceId,
       params.key,
-      'operations',
-    )
-    const operation = manifest.contributions.operations?.find(
-      (entry) => entry.id === params.id,
-    )
+      params.id,
+    ).catch((error: unknown) => {
+      if (error instanceof ExtensionRunError && error.code === 'not_declared')
+        return { callable: undefined }
+      throw error
+    })
+    const operation = callable?.declaration
     if (!operation) return refuse(404, 'That plugin doesn’t offer this.')
     if (operation.access === 'write') {
       if (caller.role === 'viewer')
@@ -110,7 +116,6 @@ export async function handlePluginOperationApi(
         workspaceId: caller.workspaceId,
         actorUserId: caller.userId,
         extensionKey: params.key,
-        point: 'operations',
         itemId: params.id,
         input: parsed.data.input,
       },

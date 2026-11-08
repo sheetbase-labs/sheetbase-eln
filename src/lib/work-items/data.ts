@@ -40,6 +40,7 @@ export type WorkItemKind =
   | 'agent_action_request'
   | 'watcher_finding'
   | 'qc_violation'
+  | 'plugin_note'
   | 'invitation_accepted'
   | 'verification_requested'
   | 'verification_granted'
@@ -118,6 +119,7 @@ const KINDS: readonly WorkItemKind[] = [
   'agent_action_request',
   'watcher_finding',
   'qc_violation',
+  'plugin_note',
   'invitation_accepted',
   'verification_requested',
   'verification_granted',
@@ -370,6 +372,7 @@ export function countByKind(
     agent_action_request: 0,
     watcher_finding: 0,
     qc_violation: 0,
+    plugin_note: 0,
     invitation_accepted: 0,
     verification_requested: 0,
     verification_granted: 0,

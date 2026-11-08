@@ -131,7 +131,6 @@ export async function runExtensionTool(
       workspaceId: context.workspaceId,
       actorUserId: context.userId,
       extensionKey: item.extensionKey,
-      point: 'operations',
       itemId: item.id,
       input: args,
     })

@@ -60,6 +60,7 @@ import {
   TableRow,
 } from '#/components/ui/table'
 import { StepTimerControl } from './step-timer'
+import { PluginFilePreview } from '#/components/plugins/plugin-file-preview'
 import { OfficeFileBlock } from './office-preview/office-file-block'
 import { formatDuration, stepDurationSeconds } from '#/lib/step-timers'
 import { AnnotatedImage, renderAnnotatedPng } from './annotated-image'
@@ -1133,6 +1134,7 @@ function FileBlockPreview({
       {isSequenceFileName(name) ? (
         <SequenceToggle fileRecordId={fileRecordId} />
       ) : null}
+      <PluginFilePreview fileRecordId={fileRecordId} fileName={name} />
       {!showImage && !isSequenceFileName(name) ? (
         <OfficeFileBlock payload={obj} />
       ) : null}

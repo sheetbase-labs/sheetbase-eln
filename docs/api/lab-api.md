@@ -65,6 +65,10 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `experiment_series`            | An experiment that heads a series: it groups other experiments that run as separate pieces of one piece of work.                                                                                                                                                                                                   |
 | `experiment_series_members`    | An experiment in a series, with where it sits (`position`) and the day it is planned (`planned_on`). An experiment is in one series at most.                                                                                                                                                                       |
 | `experiment_parts`             | A part of an experiment that runs over several days: its own page of the notebook, on a day counted from the start of the experiment. Parts run in `position` order. A part is done when all its steps are, or when it was marked done by hand.                                                                    |
+| `gate_check_results`           | What a plugin check answered for a table on an experiment: `pass`, `warn` or `fail` with its message, and a fingerprint of the table when it ran. A gate reads this; when the table has changed since, the answer is out of date and the gate is not met. Written only by the app when someone runs the check.     |
+| `registry_sameness_rules`      | Which plugin rule decides when two entries of a registry model are the same thing. `plugin_item` is `plugin.<plugin>.<rule>`.                                                                                                                                                                                      |
+| `registry_sameness_values`     | The key a plugin rule worked out for a registry entry. Entries of one model with the same `value` are the same thing.                                                                                                                                                                                              |
+| `plugin_notes`                 | Notes a plugin left in someone’s Inbox in answer to an event. Each person sees their own; they stay for 14 days.                                                                                                                                                                                                   |
 | `experiment_part_signoffs`     | A signature on a part of an experiment. `meaning` is `signed` (the person who did the part) or `witnessed` (a countersign of that signature, named in `countersigns_id`). `snapshot` is the part as it was frozen when signed, and `snapshot_digest` its SHA-256. Rows are never changed or removed.               |
 | `experiment_part_requests`     | A request to sign a finished part (`kind` is `sign`) or to countersign a signed one (`countersign`). `fulfilled_at` is set when it was done or no longer applies.                                                                                                                                                  |
 | `experiment_part_amendments`   | A signed part was reopened to amend it. `signoff_id` is the signature set aside, which stays on record. Rows are never changed or removed.                                                                                                                                                                         |
@@ -693,6 +697,18 @@ Scope: `lab:read`.
 | ------------- | ---- | --------------------------- |
 | `p_part_id` * | uuid | The part of the experiment. |
 
+### `registry_sameness_matches`
+
+Find registry entries that a plugin rule says are the same thing. Entries of the model whose stored key equals the one given, that this person can see. Work the key out with the plugin (POST /api/plugins/data, kind `sameness-key`) first.
+
+Scope: `lab:read`.
+
+| Argument        | Type | Notes                                          |
+| --------------- | ---- | ---------------------------------------------- |
+| `p_model_key` * | text | Record model key.                              |
+| `p_value` *     | text | The key the plugin rule gave.                  |
+| `p_exclude_id`  | uuid | Ignore this entry when looking for duplicates. |
+
 ### `record_part_signoffs`
 
 List where each part of an experiment stands on signatures. Every part in order: whether it needs a signature, is finished and waiting (`awaiting_sign_off`), who signed and when, who has countersigned or been asked to, and how often it was amended (with the last reason). Empty for an experiment with no parts.
@@ -913,7 +929,7 @@ Scope: `lab:write`.
 
 ### `create_registry_entry`
 
-Add a registry entry. Creates an entry of a registry model (such as a cell line or construct). Refuses a likely duplicate unless `p_allow_duplicate` is true.
+Add a registry entry. Creates an entry of a registry model (such as a cell line or construct). Refuses a likely duplicate unless `p_allow_duplicate` is true. A model with a same-thing rule from a plugin only takes entries that come with the rule’s key (`p_sameness_value`), and refuses one whose key is already registered.
 
 Scope: `lab:write`.
 
@@ -924,6 +940,7 @@ Scope: `lab:write`.
 | `p_title` *         | text | Title.                                      |
 | `p_custom_fields`   | json | Field values, keyed by field name.          |
 | `p_allow_duplicate` | bool | Create it even when a similar entry exists. |
+| `p_sameness_value`  | text | The key the model’s same-thing rule gives.  |
 
 ### `add_registry_parent`
 

@@ -144,12 +144,13 @@ and execution need a live owner browser session.
 
 ## Plugin operations
 
-Operations declared by an enabled plugin (named `plugin.<key>.<id>`, wire name
+Operations, calculators and pipeline steps declared by an enabled plugin (named `plugin.<key>.<id>`, wire name
 with `.` as `__`) appear in `tools/list` for personal tokens. A read operation
 needs `mcp_read` and any read scope; a write operation needs `mcp_lab` and
 `lab:write`, and goes through `request_agent_action` and the agent action policy
 (default Ask). A plugin operation can never sign, approve or attest. See
-[the plugins API](../api/plugins-api.md).
+[the plugins API](../api/plugins-api.md). The semantic search tool also returns
+results from enabled plugin search providers, in a separate `fromPlugins` list.
 
 ## Deliberate boundaries
 

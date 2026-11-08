@@ -251,13 +251,20 @@
         "description": "Draw a structure to find the compounds that contain it or look like it.",
         "icon": "flask",
         "ui": "ui/search.html"
+      },
+      {
+        "id": "sar",
+        "title": "SAR table",
+        "description": "Every compound beside its measurements: shade a measurement, compare with a reference, keep a core.",
+        "icon": "table",
+        "ui": "ui/sar.html"
       }
     ],
     "panels": [
       {
-        "id": "lots",
-        "title": "Lots",
-        "ui": "ui/lots.html",
+        "id": "compound",
+        "title": "Compound",
+        "ui": "ui/compound.html",
         "models": ["compound"]
       }
     ],

@@ -20,11 +20,16 @@ export function DuplicateNotice({
   matches,
   acknowledged,
   onAcknowledge,
+  onAddLot,
+  addingLot = false,
 }: {
   modelKey: string
   matches: DuplicateMatch[]
   acknowledged: boolean
   onAcknowledge: (value: boolean) => void
+  /** Given when the registry takes lots: offers the entry as a lot of the first match. */
+  onAddLot?: (match: DuplicateMatch) => void
+  addingLot?: boolean
 }) {
   const exact = matches.filter((m) => m.match === 'exact')
   const listed = exact.length > 0 ? exact : matches
@@ -60,6 +65,18 @@ export function DuplicateNotice({
               {t('registry.duplicate.use', { number: m.identifier })}
             </Link>
           ))}
+          {onAddLot ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={addingLot}
+              onClick={() => onAddLot(listed[0])}
+            >
+              {t('registry.chemistry.duplicate.addLot', {
+                number: listed[0].identifier,
+              })}
+            </Button>
+          ) : null}
         </div>
         <label className="flex items-start gap-2 text-label">
           <Checkbox

@@ -474,6 +474,12 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
                   matches={matches}
                   acknowledged={acknowledged}
                   onAcknowledge={setAcknowledged}
+                  onAddLot={
+                    lotKind && selectedProject !== ''
+                      ? (match) => void addAsLot(match)
+                      : undefined
+                  }
+                  addingLot={addingLot}
                 />
               </div>
             ) : null}

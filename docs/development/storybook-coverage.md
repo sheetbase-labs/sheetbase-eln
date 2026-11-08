@@ -144,8 +144,8 @@ None. Both the pure list and the live panel have stories.
 
 ## Chemistry registration
 
-| Module                                         | Why no story                                                                                      |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Module | Why no story |
+| ------ | ------------ |
 
 ## Story-level limits
 

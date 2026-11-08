@@ -78,7 +78,11 @@ export async function createCompoundStarter(client: DataClient): Promise<void> {
     p_plugin_key: PLUGIN,
     p_type_id: 'structure',
   })
-  await setSamenessRule(client, compound.key, `plugin.${PLUGIN}.parent-structure`)
+  await setSamenessRule(
+    client,
+    compound.key,
+    `plugin.${PLUGIN}.parent-structure`,
+  )
   await client.rpc('set_registry_lot_kind', {
     p_model_key: compound.key,
     p_lot_kind: lot.key,

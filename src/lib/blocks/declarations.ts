@@ -44,6 +44,7 @@ import {
   validateMetric,
   validatePipelineOutput,
   validatePlateMap,
+  validatePluginBlock,
   validateProcedureStep,
   validateProtocolReference,
   validateReaction,
@@ -567,6 +568,17 @@ export const BLOCK_DECLARATIONS = defineBlocks([
           typeof payload.residues === 'string' ? payload.residues.length : 0,
       }),
     validate: validateSequence,
+  },
+  {
+    // A block a plugin declares. Not in the fixed insert menus: the menus list
+    // each enabled plugin's blocks from the plugin points (see
+    // `usePluginBlockOptions`).
+    type: 'plugin',
+    editable: true,
+    defaultPayload: () => ({}),
+    summary: (payload) =>
+      typeof payload.block === 'string' ? payload.block : 'Plugin block',
+    validate: validatePluginBlock,
   },
 ])
 

@@ -204,7 +204,8 @@ describe('the frame for a bundle', () => {
   it('leaves a string in the bundle that looks like an attribute alone', () => {
     const library = {
       ...files,
-      'ui/a.js': 'const link = \'<a href="x.png">\'; const img = \'src="y.png"\'; export {}',
+      'ui/a.js':
+        'const link = \'<a href="x.png">\'; const img = \'src="y.png"\'; export {}',
     }
     const html = buildPluginFrame(library, 'ui/a.html', sdk) ?? ''
     expect(html).toContain('<a href="x.png">')

@@ -829,25 +829,6 @@ export const PEOPLE_OPERATIONS = defineOperations([
     pipeline: {},
   },
   {
-    name: 'set_study_task_client_visible',
-    label: 'Show a study task to the client',
-    summary: 'Show a study task in the client portal, or hide it',
-    description: 'Returns the task.',
-    kind: 'write',
-    inputs: [
-      note('p_task_id', 'uuid', 'Study task id.'),
-      note(
-        'p_expected_metadata_version',
-        'int',
-        'The task’s version you read.',
-      ),
-      note('p_client_visible', 'bool', '`true` to show.'),
-      note('p_reason', 'text', 'Why.', false, true),
-    ],
-    result: 'json',
-    pipeline: {},
-  },
-  {
     name: 'client_portal_identity',
     label: 'See my client portal',
     summary: 'See which client portal you belong to',

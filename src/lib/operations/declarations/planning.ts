@@ -261,6 +261,7 @@ export const PLANNING_OPERATIONS = defineOperations([
       input('p_reason', 'text', false),
     ],
     result: 'row:study_tasks',
+    pipeline: {},
   },
   {
     name: 'create_dependency',

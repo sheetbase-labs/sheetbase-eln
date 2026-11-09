@@ -10,6 +10,7 @@ import type { PlatesProposeToolName } from './assistant-plates'
 import type { QcProposeToolName } from './assistant-qc'
 import type { AutomationProposeToolName } from './assistant-automation'
 import type { PlannerProposeToolName } from './assistant-planner'
+import type { PeopleProposeToolName } from './assistant-people'
 import type { UpkeepProposeToolName } from './assistant-upkeep'
 import {
   INPUT_NAME_RE,
@@ -294,6 +295,7 @@ export interface AssistantProposal {
     | BenchProposeToolName
     | PlanningProposeToolName
     | UpkeepProposeToolName
+    | PeopleProposeToolName
     | LabworkProposeToolName
     | PlatesProposeToolName
     | QcProposeToolName

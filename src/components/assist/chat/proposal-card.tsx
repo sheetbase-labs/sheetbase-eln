@@ -127,6 +127,21 @@ const ACTION_COPY = {
   'schedule.accept': 'acceptSchedule',
   'plan.apply': 'applyPlan',
   'plugin.run': 'runExtension',
+  'member.invite': 'inviteMember',
+  'invitation.revoke': 'revokeInvitation',
+  'member.role': 'changeRole',
+  'member.suspend': 'suspendMember',
+  'member.reinstate': 'reinstateMember',
+  'member.remove': 'removeMember',
+  'access.grant': 'grantAccess',
+  'access.revoke': 'revokeAccess',
+  'access.decide': 'decideAccess',
+  'group.create': 'createGroup',
+  'group.member': 'groupMember',
+  'workspace.rename': 'renameWorkspace',
+  'workspace.general': 'saveGeneral',
+  'client.create': 'createClient',
+  'client.share': 'shareWithClient',
 } as const satisfies Record<AssistantActionKind, string>
 
 /** Button and done words for an everyday action: "Book", "Booked". */
@@ -177,6 +192,8 @@ export function ProposalCard({
   const requestId = useRef(crypto.randomUUID()).current
   // Where a pipeline the card just made lives, when the card makes one.
   const [opened, setOpened] = useState<string | null>(null)
+  // A one-time link the card made, such as a new invitation's.
+  const [note, setNote] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const router = useRouter()
   function setState(next: CardState) {
@@ -193,6 +210,7 @@ export function ProposalCard({
           proposal.action,
         )
         if (result?.openHref) setOpened(result.openHref)
+        if (result?.note) setNote(result.note)
         setState({ phase: 'applied' })
         void queryClient.invalidateQueries()
         void router.invalidate()
@@ -342,6 +360,12 @@ export function ProposalCard({
       {state.phase === 'failed' ? (
         <p className="m-0 text-label text-danger-text" role="alert">
           {state.reason}
+        </p>
+      ) : null}
+      {state.phase === 'applied' && note ? (
+        <p className="m-0 break-all text-label text-fg-muted">
+          {t('notebook.assistantPanel.proposal.linkNote')}{' '}
+          <span className="select-all font-medium text-fg">{note}</span>
         </p>
       ) : null}
       {state.phase === 'signature' ? (

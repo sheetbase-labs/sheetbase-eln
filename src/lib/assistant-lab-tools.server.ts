@@ -173,6 +173,15 @@ export const LAB_AREAS = {
     'Data contracts on table models and record models: owner, whether each is in force, and its standing Pass, Warning or Fail (openOnly: only those with a Warning or Fail)',
   dataset_contracts:
     'How each dataset stands against its contract at its latest full check: Pass, Warning or Fail and how many rules were broken (openOnly: only those not passing)',
+  members:
+    'The people in the workspace: name, role and, for a client viewer, the client (query narrows by name)',
+  invitations:
+    'Invitations to join the workspace: email, role, when each expires (openOnly: only those still waiting). For people who manage members',
+  groups: 'Groups of people that can be given project access',
+  access_requests:
+    'Requests for edit access to a project: who asked, why and how each was decided (openOnly: only those waiting)',
+  clients:
+    'Client organisations with their code (openOnly: only those not archived)',
 } as const
 
 export type LabArea = keyof typeof LAB_AREAS
@@ -746,6 +755,9 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   agent_requests: 'status=eq.pending',
   contracts: 'last_status=in.(warning,fail)',
   dataset_contracts: 'status=neq.pass',
+  invitations: 'status=eq.pending',
+  access_requests: 'status=eq.pending',
+  clients: 'archived_at=is.null',
 }
 
 interface PlainArea {
@@ -757,6 +769,34 @@ interface PlainArea {
 }
 
 const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
+  invitations: {
+    table: 'workspace_invitations',
+    select: 'id,email,role,status,expires_at,created_at,client_id',
+    order: 'created_at.desc',
+    search: ['email'],
+    page: '/settings/workspace/members',
+  },
+  groups: {
+    table: 'workspace_groups',
+    select: 'id,name',
+    order: 'name.asc',
+    search: ['name'],
+    page: '/settings/workspace/members',
+  },
+  access_requests: {
+    table: 'project_access_requests',
+    select: 'id,project_id,user_id,reason,status,created_at,decided_by_user_id',
+    order: 'created_at.desc',
+    search: ['reason'],
+    page: '/inbox',
+  },
+  clients: {
+    table: 'clients',
+    select: 'id,code,name,archived_at',
+    order: 'name.asc',
+    search: ['name', 'code'],
+    page: '/settings/workspace/clients',
+  },
   watcher_findings: {
     table: 'lab_watcher_findings',
     select:
@@ -1052,6 +1092,25 @@ async function listLabArea(
 ): Promise<string> {
   const { client } = context
   const limit = input.limit ?? 20
+  if (input.area === 'members') {
+    const members = await client.rpc<
+      Array<{ user_id: string; name: string; role: string }>
+    >('workspace_members_list', {})
+    const words = (input.query ?? '').toLowerCase().split(/\s+/).filter(Boolean)
+    const rows = members
+      .filter((member) =>
+        words.every((word) =>
+          `${member.name} ${member.role}`.toLowerCase().includes(word),
+        ),
+      )
+      .slice(0, limit)
+    return JSON.stringify({
+      area: input.area,
+      items: rows,
+      returned: rows.length,
+      page: '/settings/workspace/members',
+    })
+  }
   const records = await recordKinds(input.area, client)
   if (records) {
     if (records.kinds.length === 0) {

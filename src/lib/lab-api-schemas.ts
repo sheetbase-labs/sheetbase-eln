@@ -2,6 +2,7 @@
  * OpenAPI and MCP schemas generated from the lab surface list, so a table or
  * RPC added there is documented the same way as the hand-written ones.
  */
+import type { Scope } from '#/lib/api-credential-scopes'
 import { LAB_PARAM_NOTES, LAB_RPCS, LAB_TABLES } from '#/lib/lab-api-surface'
 import type { LabType } from '#/lib/lab-api-surface'
 
@@ -67,7 +68,14 @@ function rowName(table: string): string {
 }
 
 /** Tables whose row schema exists outside the lab list. */
-const OTHER_ROW_TABLES = new Set(['records', 'record_models'])
+const OTHER_ROW_TABLES = new Set([
+  'records',
+  'record_models',
+  'record_links',
+  'saved_searches',
+  'webhook_subscriptions',
+  'pipeline_runs',
+])
 
 function pgrstRow(row: JsonSchema, description: string): JsonSchema {
   return {
@@ -163,7 +171,6 @@ export const LAB_TABLE_ACCESS: Record<string, { read: 'lab:read' }> =
   )
 
 /** RPC scopes for the lab RPCs, for EXTERNAL_RPC_SCOPES. */
-export const LAB_RPC_SCOPES: Record<
-  string,
-  Array<'lab:read' | 'lab:write'>
-> = Object.fromEntries(Object.entries(LAB_RPCS).map(([n, d]) => [n, [d.scope]]))
+export const LAB_RPC_SCOPES: Record<string, Scope[]> = Object.fromEntries(
+  Object.entries(LAB_RPCS).map(([n, d]) => [n, [d.scope]]),
+)

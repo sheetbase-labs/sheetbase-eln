@@ -3832,3 +3832,131 @@ Scope: `lab:read`.
 | Argument        | Type |            |
 | --------------- | ---- | ---------- |
 | `p_record_id` * | uuid | Record id. |
+
+### `archive_record`
+
+Archive a record (an experiment, sample, material or any record type). Returns the record. Also on `sheetbase.lab.act`.
+
+Scope: `projects:write`.
+
+| Argument                        | Type | Notes                                   |
+| ------------------------------- | ---- | --------------------------------------- |
+| `p_record_id` *`                | uuid | The record.                             |
+| `p_expected_metadata_version` * | int  | The current `records.metadata_version`. |
+
+### `restore_record`
+
+Restore an archived record. Returns the record. Also on `sheetbase.lab.act`.
+
+Scope: `projects:write`.
+
+| Argument                        | Type | Notes                                   |
+| ------------------------------- | ---- | --------------------------------------- |
+| `p_record_id` *`                | uuid | The record.                             |
+| `p_expected_metadata_version` * | int  | The current `records.metadata_version`. |
+
+### `transition_record_status`
+
+Change a record’s status. Which moves are allowed depends on the kind of record. Returns the record. Also on `sheetbase.lab.act`.
+
+Scope: `projects:write`.
+
+| Argument                        | Type | Notes                                   |
+| ------------------------------- | ---- | --------------------------------------- |
+| `p_record_id` *`                | uuid | The record.                             |
+| `p_target_status` *`            | text | The status to move to.                  |
+| `p_expected_metadata_version` * | int  | The current `records.metadata_version`. |
+
+### `create_record_link`
+
+Link two records. Returns the link. Also on `sheetbase.lab.act`.
+
+Scope: `projects:write`.
+
+| Argument                | Type | Notes                                |
+| ----------------------- | ---- | ------------------------------------ |
+| `p_source_record_id` *` | uuid | The record the link starts from.     |
+| `p_target_kind` *`      | text | Kind of the target.                  |
+| `p_target_identifier` * | text | Public identifier of the target.     |
+| `p_link_type` *`        | text | How they relate, such as `protocol`. |
+| `p_target_record_id`    | uuid | The target, when known.              |
+| `p_label`               | text | A label.                             |
+
+### `save_search`
+
+Save a search for the person the token belongs to. Returns the saved search. Also on `sheetbase.lab.act`.
+
+Scope: `projects:write`.
+
+| Argument       | Type | Notes                               |
+| -------------- | ---- | ----------------------------------- |
+| `p_name` *`    | text | Name.                               |
+| `p_query` *`   | text | Search text.                        |
+| `p_facets`     | json | Filters the results page restores.  |
+| `p_visibility` | text | `private` (default) or `workspace`. |
+| `p_arguments`  | json | Inputs for `search`.                |
+
+### `update_saved_search`
+
+Rename a saved search or move it between private and shared. Returns the saved search. Also on `sheetbase.lab.act`.
+
+Scope: `projects:write`.
+
+| Argument       | Type | Notes                     |
+| -------------- | ---- | ------------------------- |
+| `p_id` *`      | uuid | The saved search.         |
+| `p_name`       | text | New name.                 |
+| `p_visibility` | text | `private` or `workspace`. |
+
+### `run_saved_search`
+
+Run a saved search and return its results as `search` would. Also on `sheetbase.lab.act`.
+
+Scope: `projects:read`.
+
+| Argument   | Type | Notes                |
+| ---------- | ---- | -------------------- |
+| `p_id` *`  | uuid | The saved search.    |
+| `p_limit`  | int  | Page size, 1 to 100. |
+| `p_offset` | int  | Offset.              |
+
+### `create_webhook_subscription`
+
+Add a webhook subscription. The signing secret is in the result and shown once. Also on `sheetbase.lab.act`.
+
+Scope: `webhooks:write`.
+
+| Argument           | Type | Notes                          |
+| ------------------ | ---- | ------------------------------ |
+| `p_workspace_id` * | uuid | The workspace.                 |
+| `p_key` *`         | text | Subscription key.              |
+| `p_url`            | text | HTTPS endpoint.                |
+| `p_channel_type`   | text | `webhook`, `teams` or `email`. |
+| `p_event_types`    | json | Event names; empty is all.     |
+| `p_description`    | text | Description.                   |
+
+### `update_webhook_subscription`
+
+Change a webhook subscription’s URL, events, description or status. Returns the subscription. Also on `sheetbase.lab.act`.
+
+Scope: `webhooks:write`.
+
+| Argument              | Type | Notes                                         |
+| --------------------- | ---- | --------------------------------------------- |
+| `p_workspace_id` *`   | uuid | The workspace.                                |
+| `p_subscription_id` * | uuid | The subscription.                             |
+| `p_url`               | text | New URL.                                      |
+| `p_event_types`       | json | Event names.                                  |
+| `p_status`            | text | `active`, `paused`, `disabled` or `archived`. |
+
+### `run_pipeline`
+
+Start a run of a pipeline by its key, on its latest published version, as the person the token belongs to. The run is queued for a worker and returned at once; follow it on `pipeline_runs`. Asking again with the same parameters and inputs after a run succeeded returns that run. Also on `sheetbase.lab.act`.
+
+Scope: `pipelines:write`.
+
+| Argument           | Type | Notes                             |
+| ------------------ | ---- | --------------------------------- |
+| `p_pipeline_key` * | text | The pipeline’s key.               |
+| `p_parameters`     | json | The pipeline’s parameters.        |
+| `p_input_versions` | json | Input name to dataset version id. |

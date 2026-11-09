@@ -76,6 +76,20 @@ a shared function:
 | Pipeline actions the database checks | `INSERT INTO internal.pipeline_actions`        |
 | Deletes agents may do                | `INSERT INTO internal.agent_allowed_deletes`   |
 
+For example, a feature whose `widget.created` event may start a pipeline and
+whose `delete_widget_draft` action agents may do:
+
+```sql
+INSERT INTO internal.pipeline_trigger_events (name) VALUES ('widget.created')
+  ON CONFLICT DO NOTHING;
+INSERT INTO internal.agent_allowed_deletes (action_key) VALUES ('delete_widget_draft')
+  ON CONFLICT DO NOTHING;
+```
+
+A pipeline action row holds the action's definition as the app sends it
+(`operation`, `rpc`, `label`, `arguments`, ...), keyed by `operation`; the
+database tests check the database and the app list the same actions.
+
 ### Docs
 
 Document the feature's tables and actions in a page of its own under

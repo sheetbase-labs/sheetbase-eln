@@ -251,31 +251,6 @@ export const SCHEMA_LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['created_at', 'ts', 1],
     ],
   },
-  sheet_cell_conflicts: {
-    summary:
-      'Cells two people changed at once while editing a sheet together: both values and, once settled, the one kept.',
-    scope: 'sheets:read',
-    columns: [
-      ['id', 'uuid', 1],
-      ['workspace_id', 'uuid', 1],
-      ['sheet_instance_id', 'uuid', 1],
-      ['row_key', 'text', 1],
-      ['field_id', 'uuid', 1],
-      ['local_value', 'json', 0],
-      ['local_author_user_id', 'text', 1],
-      ['local_at', 'ts', 1],
-      ['remote_value', 'json', 0],
-      ['remote_author_user_id', 'text', 0],
-      ['remote_at', 'ts', 0],
-      ['state', 'text', 1],
-      ['resolved_value', 'json', 0],
-      ['resolved_by_user_id', 'text', 0],
-      ['resolved_at', 'ts', 0],
-      ['reason', 'text', 0],
-      ['created_at', 'ts', 1],
-      ['updated_at', 'ts', 1],
-    ],
-  },
   revision_sheet_evidence: {
     summary:
       'The sheets as they were when a notebook revision was submitted for review: the sheet’s state, grid and dataset versions.',

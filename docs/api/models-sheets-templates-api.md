@@ -141,12 +141,6 @@ Each batch of records saved from a sheet at once.
 
 Scope: `sheets:read`. Columns: `id`, `workspace_id`, `project_id`, `actor_user_id`, `idempotency_key`, `request_digest`, `result`, `created_at`.
 
-### `sheet_cell_conflicts`
-
-Cells two people changed at once while editing a sheet together: both values and, once settled, the one kept.
-
-Scope: `sheets:read`. Columns: `id`, `workspace_id`, `sheet_instance_id`, `row_key`, `field_id`, `local_value`, `local_author_user_id`, `local_at`, `remote_value`, `remote_author_user_id`, `remote_at`, `state`, `resolved_value`, `resolved_by_user_id`, `resolved_at`, `reason`, `created_at`, `updated_at`.
-
 ### `revision_sheet_evidence`
 
 The sheets as they were when a notebook revision was submitted for review: the sheet’s state, grid and dataset versions.

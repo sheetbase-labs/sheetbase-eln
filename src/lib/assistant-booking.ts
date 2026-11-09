@@ -20,6 +20,8 @@ import { isQcAction } from './assistant-qc'
 import type { QcAction } from './assistant-qc'
 import { isNotebookAction } from './assistant-notebook'
 import type { NotebookAction } from './assistant-notebook'
+import { isPeopleAction } from './assistant-people'
+import type { PeopleAction } from './assistant-people'
 import { isUpkeepAction } from './assistant-upkeep'
 import type { UpkeepAction } from './assistant-upkeep'
 import type { PlanningAction, PlanningActionResult } from './assistant-planning'
@@ -148,6 +150,7 @@ export type AssistantAction =
   | PlanningAction
   | UpkeepAction
   | NotebookAction
+  | PeopleAction
   | PlatesAction
   | QcAction
   | StudiesAction
@@ -162,7 +165,7 @@ export type AssistantActionKind = AssistantAction['kind']
 export async function runAssistantAction(
   client: DataClient,
   action: AssistantAction,
-): Promise<PlanningActionResult | undefined> {
+): Promise<(PlanningActionResult & { note?: string }) | undefined> {
   switch (action.kind) {
     case 'booking.create':
       await createBooking(client, action.workspaceId, {
@@ -233,6 +236,11 @@ export async function runAssistantAction(
       if (isNotebookAction(action)) {
         const { runNotebookAction } = await import('./assistant-notebook-run')
         return runNotebookAction(client, action)
+      }
+      if (isPeopleAction(action)) {
+        // People and workspace jobs load only when a card's button is pressed.
+        const { runPeopleAction } = await import('./assistant-people-run')
+        return runPeopleAction(client, action)
       }
       if (isUpkeepAction(action)) {
         // Upkeep jobs load only when a card's button is pressed.

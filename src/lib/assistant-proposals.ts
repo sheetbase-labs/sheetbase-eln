@@ -12,6 +12,7 @@ import type { StudiesProposeToolName } from './assistant-studies'
 import type { AutomationProposeToolName } from './assistant-automation'
 import type { PlannerProposeToolName } from './assistant-planner'
 import type { NotebookProposeToolName } from './assistant-notebook'
+import type { PeopleProposeToolName } from './assistant-people'
 import type { UpkeepProposeToolName } from './assistant-upkeep'
 import {
   INPUT_NAME_RE,
@@ -297,6 +298,7 @@ export interface AssistantProposal {
     | PlanningProposeToolName
     | UpkeepProposeToolName
     | NotebookProposeToolName
+    | PeopleProposeToolName
     | LabworkProposeToolName
     | PlatesProposeToolName
     | QcProposeToolName

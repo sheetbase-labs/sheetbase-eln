@@ -28,7 +28,7 @@ import {
   eventByName,
   resolveEventAlias,
 } from './event-catalogue'
-import type { EventCatalogueEntry } from './event-catalogue'
+import type { EventCatalogueEntry, PayloadCondition } from './event-catalogue'
 import { dateTimeFormat } from '#/lib/intl-cache'
 
 export type PipelineScheduleKind = 'interval' | 'daily' | 'cron' | 'event'
@@ -78,12 +78,13 @@ const TRIGGERABLE_FAMILY: Record<string, true | undefined> = {
 
 /**
  * A stable event can trigger a pipeline when its family is triggerable, or
- * when the catalogue marks it a pipeline consumer (the storage alarms). The
- * sweep reads the producer pair only, so an event that shares its pair with
- * others and needs a payload test (`when`) can never be a trigger.
+ * when the catalogue marks it a pipeline consumer. An event that shares its
+ * producer pair with others and is told apart by a payload test (`when`) is a
+ * trigger only when the catalogue marks it a pipeline consumer; the sweep
+ * applies the test.
  */
 function isTriggerable(entry: EventCatalogueEntry): boolean {
-  if (entry.producer?.when !== undefined) return false
+  if (entry.producer?.when !== undefined) return entry.consumers.pipeline
   return TRIGGERABLE_FAMILY[entry.family] === true || entry.consumers.pipeline
 }
 
@@ -163,14 +164,21 @@ export const PIPELINE_TRIGGER_EVENTS: readonly string[] = Object.freeze(
  * triggerable catalogue event. The sweep derives its change_events filter
  * from this — never from a hardcoded entity_type/operation pair.
  */
-export function producerForTriggerEvent(
-  name: unknown,
-): { entityType: string; operation: string } | null {
+export function producerForTriggerEvent(name: unknown): {
+  entityType: string
+  operation: string
+  /** Narrows the pair to this event: a payload key that must (or must not) equal a value. */
+  when?: PayloadCondition
+} | null {
   const canonical = normalizeTriggerEventName(name)
   if (canonical === null) return null
   const producer = eventByName(canonical)?.producer
   if (!producer) return null
-  return { entityType: producer.entityType, operation: producer.operation }
+  return {
+    entityType: producer.entityType,
+    operation: producer.operation,
+    ...(producer.when ? { when: producer.when } : {}),
+  }
 }
 
 export const DAILY_RE = /^([01][0-9]|2[0-3]):[0-5][0-9]$/

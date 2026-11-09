@@ -60,6 +60,8 @@ export interface PipelineActionDefinition {
   arguments: PipelineActionArgument[]
   /** The proposal kind this operation becomes when a step proposes it. */
   proposalKind?: string
+  /** Keys left out of the step's result before it is kept (a one-time secret). */
+  omitFromResult?: readonly string[]
 }
 /**
  * The built-in pipeline actions. Each is generated from an operation

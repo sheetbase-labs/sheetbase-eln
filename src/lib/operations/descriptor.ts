@@ -86,6 +86,11 @@ export interface OperationPipeline {
   description?: string
   /** The proposal kind this becomes when a step proposes it instead of running it. */
   proposalKind?: string
+  /**
+   * Keys left out of the step's result before it is kept. For a secret the
+   * call hands back once, such as an invitation link.
+   */
+  omitFromResult?: readonly string[]
 }
 
 export interface OperationDescriptor {
@@ -250,6 +255,9 @@ export function pipelineActionsFrom(
         }
       }),
       proposalKind: op.pipeline.proposalKind,
+      ...(op.pipeline.omitFromResult
+        ? { omitFromResult: op.pipeline.omitFromResult }
+        : {}),
     })
   }
   return out

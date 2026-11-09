@@ -61,11 +61,18 @@ export const AGENT_ACTION_AREAS = [
   'Reports and analysis',
   'Compliance',
   'Notebook',
+  'People and workspace',
   'Other',
 ] as const
 export type AgentActionArea = (typeof AGENT_ACTION_AREAS)[number]
 
 export function agentActionArea(key: string): AgentActionArea {
+  if (
+    /invitation|(change|suspend|reinstate|remove)_member|set_member_|member_absence|hand_over_member|project_access|project_member|workspace_|client|settings_access|project_settings|user_session|study_task_client/.test(
+      key,
+    )
+  )
+    return 'People and workspace'
   if (/reagent|stocktake|material|solution|replacement_lot/.test(key))
     return 'Orders and stock'
   if (/sample|pool_/.test(key)) return 'Samples'
@@ -354,6 +361,23 @@ export async function approveAndRunAgentAction(
   return runApprovedAgentAction(client, request)
 }
 
+/** Actions whose answer holds a one-time secret that must not be kept in the request record. */
+const SECRET_RESULT_KEYS: Readonly<
+  Record<string, readonly string[] | undefined>
+> = {
+  create_invitation: ['token'],
+  reissue_invitation: ['token'],
+}
+
+/** What of an action's answer may be written to its request record. */
+export function recordableResult(action: string, result: unknown): unknown {
+  const keys = SECRET_RESULT_KEYS[action]
+  if (!keys || typeof result !== 'object' || result === null) return result
+  const kept = { ...(result as Record<string, unknown>) }
+  for (const key of keys) delete kept[key]
+  return kept
+}
+
 /** Run an approved request and record how it ended. */
 export async function runApprovedAgentAction(
   client: Pick<DataClient, 'rpc'>,
@@ -375,7 +399,10 @@ export async function runApprovedAgentAction(
   return client.rpc<AgentActionRequestRow>('finish_agent_action', {
     p_request_id: request.id,
     p_ok: true,
-    p_result: result === undefined ? null : result,
+    p_result:
+      result === undefined
+        ? null
+        : recordableResult(request.action_key, result),
     p_error: null,
   })
 }

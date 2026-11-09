@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import type { Scope } from '../api-credential-scopes'
 import type { DataClient } from '../data-client'
+import { recordableResult } from '../agent-action-policy'
 import { LAB_RPCS } from '../lab-api-surface'
 import type { LabRpc, LabType } from '../lab-api-surface'
 
@@ -269,7 +270,7 @@ export async function runGuardedLabAct(
     await context.client.rpc('finish_agent_action', {
       p_request_id: request.id,
       p_ok: true,
-      p_result: result === undefined ? null : result,
+      p_result: result === undefined ? null : recordableResult(action, result),
       p_error: null,
     })
     return {

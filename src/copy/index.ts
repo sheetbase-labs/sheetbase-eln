@@ -16,8 +16,15 @@
 import { Fragment, createElement } from 'react'
 import type { ReactNode } from 'react'
 import { en } from './en'
-import { interpolate, isPlural, pseudo, selectPlural } from './format'
+import {
+  interpolate,
+  isMessage,
+  isPlural,
+  pseudo,
+  selectPlural,
+} from './format'
 import type {
+  CatalogueTree,
   CopyValue,
   Message,
   MessageAt,
@@ -40,10 +47,8 @@ const CATALOGUES: Record<Exclude<LocaleId, 'pseudo'>, Catalogue> = { en }
 /** BCP 47 tag used for plural rules and number formatting. */
 const INTL_LOCALE: Record<LocaleId, string> = { en: 'en-GB', pseudo: 'en-GB' }
 
-function initialLocale(): LocaleId {
+function initialLocale(env: ImportMetaEnv | undefined): LocaleId {
   // Scripts run outside Vite (the seed, tsx tools) have no import.meta.env.
-  const env = (import.meta as { env?: Record<string, string | undefined> }).env
-
   const requested =
     env?.VITE_SHEETBASE_LOCALE ??
     (typeof process === 'undefined'
@@ -53,7 +58,7 @@ function initialLocale(): LocaleId {
   return requested === 'pseudo' ? 'pseudo' : 'en'
 }
 
-let active: LocaleId = initialLocale()
+let active: LocaleId = initialLocale(import.meta.env)
 
 export function getLocale(): LocaleId {
   return active
@@ -71,21 +76,15 @@ export function intlLocale(): string {
 
 function lookup(key: string): Message {
   const catalogue = CATALOGUES[active === 'pseudo' ? 'en' : active]
-  let node: unknown = catalogue
+  let node: Message | CatalogueTree | undefined = catalogue
 
   for (const part of key.split('.')) {
-    node = (node as Record<string, unknown> | undefined)?.[part]
-  }
-
-  if (
-    typeof node === 'string' ||
-    (typeof node === 'object' && node !== null && 'other' in node)
-  ) {
-    return node as Message
+    // SAFETY: CopyKey's nonterminal segments name CatalogueTree sections; optional access keeps the missing-key fallback for callers that bypass the key type.
+    node = (node as CatalogueTree | undefined)?.[part]
   }
 
   // A key the types accept always exists; this only guards bad casts.
-  return key
+  return isMessage(node) ? node : key
 }
 
 type Values<TKey extends CopyKey> = [
@@ -140,10 +139,25 @@ export function rich<TKey extends CopyKey>(
   key: TKey,
   parts: RichParts<TKey>,
 ): ReactNode {
-  const all = parts as Readonly<Record<string, unknown>>
+  const all: Readonly<
+    Record<string, ReactNode | ((text: ReactNode) => ReactNode)>
+  > = parts
+
   const plain: Record<string, CopyValue> = {}
+  const values: Record<string, ReactNode> = {}
+
+  const renderers = new Map<string, (text: ReactNode) => ReactNode>()
 
   for (const [name, value] of Object.entries(all)) {
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- RichParts already restricts entries to ReactNode values or tag renderers; this separates the callable alternative without reparsing trusted nodes.
+    if (typeof value === 'function') {
+      renderers.set(name, value)
+      continue
+    }
+
+    values[name] = value
+
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Only trusted string/number ReactNode alternatives participate in text interpolation; elements, booleans, null and promises remain renderable values.
     if (typeof value === 'string' || typeof value === 'number')
       plain[name] = value
   }
@@ -158,14 +172,10 @@ export function rich<TKey extends CopyKey>(
     const [whole, tag, inner, name] = match
 
     if (tag) {
-      const render = all[tag]
-      nodes.push(
-        typeof render === 'function'
-          ? (render as (t: ReactNode) => ReactNode)(inner)
-          : inner,
-      )
+      const render = renderers.get(tag)
+      nodes.push(render ? render(inner) : inner)
     } else if (name) {
-      nodes.push(name in all ? (all[name] as ReactNode) : whole)
+      nodes.push(name in values ? values[name] : whole)
     }
 
     last = match.index + whole.length

@@ -17,7 +17,7 @@
 import { getPool } from '#/db/pool.server'
 import { env } from '#/env.server'
 import { createObjectStorage } from '#/lib/file-storage'
-import type { StorageBackendName } from '#/lib/file-storage'
+import { z } from 'zod'
 import { copyStoredFiles } from '#/lib/file-storage/copy'
 import { FILE_MAX_BYTES } from '#/lib/file-policy'
 
@@ -25,17 +25,24 @@ const BACKENDS = ['database', 'local', 's3']
 
 function flag(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`)
+
   return index === -1 ? undefined : process.argv[index + 1]
 }
 
-const from = flag('from')
-const to = flag('to')
-if (!from || !to || !BACKENDS.includes(from) || !BACKENDS.includes(to)) {
+const backend = z.enum(['database', 'local', 's3'])
+const fromResult = backend.safeParse(flag('from'))
+const toResult = backend.safeParse(flag('to'))
+
+if (!fromResult.success || !toResult.success) {
   console.error(
     `Usage: storage:copy --from <${BACKENDS.join('|')}> --to <${BACKENDS.join('|')}> [--dry-run] [--delete-source]`,
   )
   process.exit(2)
 }
+
+const from = fromResult.data
+const to = toResult.data
+
 if (from === to) {
   console.error('--from and --to are the same backend; nothing to do')
   process.exit(2)
@@ -45,6 +52,7 @@ const dryRun = process.argv.includes('--dry-run')
 const deleteSource = process.argv.includes('--delete-source')
 
 const pool = getPool(env.DATABASE_URL)
+
 try {
   const { rows } = await pool.query<{
     storage_key: string
@@ -56,17 +64,19 @@ try {
       WHERE status <> 'deleted'
       ORDER BY created_at`,
   )
+
   console.log(
     `${dryRun ? 'Checking' : 'Copying'} ${rows.length} files from ${from} to ${to}`,
   )
+
   const report = await copyStoredFiles(
     rows.map((row) => ({
       storageKey: row.storage_key,
       checksum: row.checksum,
       byteSize: Number(row.byte_size),
     })),
-    createObjectStorage(from as StorageBackendName),
-    createObjectStorage(to as StorageBackendName),
+    createObjectStorage(from),
+    createObjectStorage(to),
     {
       dryRun,
       deleteSource,
@@ -74,11 +84,14 @@ try {
       onProgress: (line) => console.log(line),
     },
   )
+
   console.log(
     `${dryRun ? 'Would copy' : 'Copied'} ${report.copied}, already there ${report.alreadyThere}, ` +
       `missing from the source ${report.missingFromSource.length}, failed ${report.failed.length}`,
   )
+
   if (report.failed.length > 0) process.exitCode = 1
+
   if (report.missingFromSource.length > 0) process.exitCode = 1
 } finally {
   await pool.end()

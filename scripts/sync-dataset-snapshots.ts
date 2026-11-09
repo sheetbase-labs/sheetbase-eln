@@ -20,9 +20,11 @@ import { ValidationError } from '../sdks/typescript/src/errors'
 
 const uuid = z.uuid()
 const checksum = z.string().regex(/^[a-f0-9]{64}$/)
+
 const inventory = z.array(
   z.object({ id: uuid, dataset_id: uuid, workspace_id: uuid }),
 )
+
 const pageSchema = z.object({
   format: z.literal('sheetbase.dataset-version-transfer/1'),
   metadataJson: z.string(),
@@ -39,18 +41,21 @@ const pageSchema = z.object({
   pageChecksum: checksum,
   snapshotChecksum: checksum.nullable(),
 })
+
 const metadataSchema = z.object({
   workspaceId: uuid,
   datasetId: uuid,
   datasetVersionId: uuid,
   totalCount: z.string().regex(/^\d+$/),
 })
+
 const rowSchema = z.object({
   rowId: uuid,
   revision: z.string().regex(/^\d+$/),
   values: z.record(z.string(), z.unknown()),
   flags: z.array(z.unknown()),
 })
+
 const manifestSchema = z.object({
   format: z.literal('sheetbase.dataset-version-transfer/1'),
   sourceUrl: z.string(),
@@ -58,6 +63,7 @@ const manifestSchema = z.object({
   snapshotChecksum: checksum,
   totalCount: z.number().int().nonnegative(),
 })
+
 const digest = (text: string) =>
   createHash('sha256').update(text, 'utf8').digest('hex')
 
@@ -74,20 +80,25 @@ export async function syncDatasetSnapshots(options: {
 }) {
   const { outputDirectory, credential } = options
   const baseUrl = options.baseUrl.replace(/\/$/, '')
+
   const client = new SheetbaseClient({
     baseUrl,
     credential,
     scopes: ['datasets:read', 'schema:read'],
     timeout: 60_000,
   })
+
   const workspaceId = uuid.parse(options.workspaceId)
-  const counts: { published: number; existing: number; unavailable: string[] } =
-    {
-      published: 0,
-      existing: 0,
-      unavailable: [],
-    }
+  const unavailable: string[] = []
+
+  const counts = {
+    published: 0,
+    existing: 0,
+    unavailable,
+  }
+
   let cursor = ''
+
   for (;;) {
     const versions = inventory.parse(
       await client.tableGet('dataset_versions', {
@@ -96,11 +107,13 @@ export async function syncDatasetSnapshots(options: {
           workspace_id: `eq.${workspaceId}`,
           order: 'id.asc',
           limit: 1000,
-          ...(cursor ? { id: `gt.${cursor}` } : {}),
+          id: cursor ? `gt.${cursor}` : undefined,
         },
       }),
     )
+
     if (!versions.length) break
+
     for (const version of versions) {
       requireMatch(
         version.workspace_id === workspaceId && version.id > cursor,
@@ -111,6 +124,7 @@ export async function syncDatasetSnapshots(options: {
       await mkdir(parent, { recursive: true, mode: 0o700 })
       const destination = join(parent, version.id)
       let existingManifest: string | undefined
+
       try {
         existingManifest = await readFile(
           join(destination, 'manifest.json'),
@@ -124,13 +138,16 @@ export async function syncDatasetSnapshots(options: {
         ))
           throw error
       }
+
       if (existingManifest !== undefined) {
         // A marker alone is insufficient: detect local corruption before skipping transfer.
         const manifest = manifestSchema.parse(JSON.parse(existingManifest))
+
         const metadataJson = await readFile(
           join(destination, 'metadata.json'),
           'utf8',
         )
+
         const metadata = metadataSchema.parse(JSON.parse(metadataJson))
         requireMatch(
           manifest.sourceUrl === baseUrl &&
@@ -144,11 +161,14 @@ export async function syncDatasetSnapshots(options: {
             metadata.totalCount === String(manifest.totalCount),
           'Existing snapshot metadata checksum mismatch',
         )
+
         const aggregate = createHash('sha256').update(
           `${manifest.metadataChecksum}\n`,
         )
+
         let rows = 0
         const input = createReadStream(join(destination, 'rows.ndjson'))
+
         try {
           for await (const line of createInterface({
             input,
@@ -160,6 +180,7 @@ export async function syncDatasetSnapshots(options: {
         } finally {
           input.destroy()
         }
+
         requireMatch(
           rows === manifest.totalCount &&
             aggregate.digest('hex') === manifest.snapshotChecksum,
@@ -170,12 +191,14 @@ export async function syncDatasetSnapshots(options: {
       }
 
       const staging = await mkdtemp(join(parent, '.partial-'))
+
       try {
         const output = await open(join(staging, 'rows.ndjson'), 'wx', 0o600)
         let offset = 0
         let previousRowId = ''
         let metadataChecksum: string | undefined
         const aggregate = createHash('sha256')
+
         try {
           for (;;) {
             const page = pageSchema.parse(
@@ -185,6 +208,7 @@ export async function syncDatasetSnapshots(options: {
                 p_limit: 1000,
               }),
             )
+
             const metadata = metadataSchema.parse(JSON.parse(page.metadataJson))
             requireMatch(
               metadata.workspaceId === workspaceId &&
@@ -202,6 +226,7 @@ export async function syncDatasetSnapshots(options: {
               digest(page.metadataJson) === page.metadataChecksum,
               'Snapshot metadata checksum mismatch',
             )
+
             if (metadataChecksum === undefined) {
               metadataChecksum = page.metadataChecksum
               aggregate.update(`${metadataChecksum}\n`)
@@ -211,13 +236,16 @@ export async function syncDatasetSnapshots(options: {
                 { mode: 0o600, flag: 'wx' },
               )
             }
+
             requireMatch(
               metadataChecksum === page.metadataChecksum,
               'Snapshot metadata changed between pages',
             )
+
             const pageHash = createHash('sha256').update(
               `${metadataChecksum}\n`,
             )
+
             for (const row of page.rows) {
               const decoded = rowSchema.parse(JSON.parse(row.canonicalJson))
               requireMatch(
@@ -235,6 +263,7 @@ export async function syncDatasetSnapshots(options: {
               aggregate.update(`${row.sha256}\n`)
               await output.writeFile(`${row.canonicalJson}\n`)
             }
+
             requireMatch(
               pageHash.digest('hex') === page.pageChecksum,
               'Snapshot page checksum mismatch',
@@ -245,6 +274,7 @@ export async function syncDatasetSnapshots(options: {
                 page.hasMore === offset < page.totalCount,
               'Snapshot count mismatch',
             )
+
             if (page.hasMore) {
               requireMatch(
                 page.rows.length > 0 && page.snapshotChecksum === null,
@@ -252,6 +282,7 @@ export async function syncDatasetSnapshots(options: {
               )
               continue
             }
+
             const snapshotChecksum = aggregate.digest('hex')
             requireMatch(
               snapshotChecksum === page.snapshotChecksum,
@@ -274,6 +305,7 @@ export async function syncDatasetSnapshots(options: {
         } finally {
           await output.close()
         }
+
         // Publish only a complete verified directory on the same filesystem.
         await rename(staging, destination)
         counts.published += 1
@@ -295,6 +327,7 @@ export async function syncDatasetSnapshots(options: {
       }
     }
   }
+
   return counts
 }
 
@@ -306,20 +339,25 @@ if (
     const { values } = parseArgs({
       options: { output: { type: 'string' }, workspace: { type: 'string' } },
     })
+
     const baseUrl = process.env.SHEETBASE_URL
     const credential = process.env.SHEETBASE_CREDENTIAL
+
     if (!baseUrl || !credential || !values.output || !values.workspace) {
       throw new Error(
         'Set SHEETBASE_URL and SHEETBASE_CREDENTIAL, and supply --workspace UUID --output DIRECTORY',
       )
     }
+
     const result = await syncDatasetSnapshots({
       baseUrl,
       credential,
       workspaceId: values.workspace,
       outputDirectory: resolve(values.output),
     })
+
     console.log(result)
+
     if (result.unavailable.length) process.exitCode = 2
   } catch (error) {
     console.error(

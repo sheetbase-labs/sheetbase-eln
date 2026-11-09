@@ -24,13 +24,16 @@ if (process.argv[2] === '--message') {
     .split('\n')
     .filter((line) => !line.startsWith('#'))
     .join('\n')
+
   const subject = message.split('\n')[0] ?? ''
+
   // Fixups are fine while working; CI fails them so they are folded in.
   if (!/^(fixup|squash|amend)! /.test(subject))
     problems.push(...checkSubject(subject))
 } else {
   const base = process.argv[2] ?? 'origin/main'
   const SEP = '\x1e'
+
   const raw = execFileSync(
     'git',
     [
@@ -40,11 +43,14 @@ if (process.argv[2] === '--message') {
     ],
     { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
   )
+
   for (const entry of raw.split(SEP)) {
     if (!entry.trim()) continue
+
     const [sha, parents, author, committer, message] = entry
       .replace(/^\n/, '')
       .split('\x1f')
+
     for (const problem of checkCommit({
       message,
       author,
@@ -72,4 +78,5 @@ if (problems.length) {
   )
   process.exit(1)
 }
+
 console.log('Commit rules: all good')

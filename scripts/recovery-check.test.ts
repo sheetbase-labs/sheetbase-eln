@@ -6,6 +6,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import { backupPrefix } from '../src/lib/backup'
 import { sha256File } from './backup-io'
 
@@ -13,6 +14,7 @@ describe('independent recovery checks', () => {
   it('detects missing, stale and failed backup/drill/readiness rather than trusting metrics reachability', async () => {
     const work = await mkdtemp(join(tmpdir(), 'sheetbase-recovery-check-'))
     let ready = true
+
     const server = createServer((_request, response) => {
       response.writeHead(ready ? 200 : 503, {
         'content-type': 'application/json',
@@ -26,10 +28,10 @@ describe('independent recovery checks', () => {
         }),
       )
     })
+
     await new Promise<void>((done) => server.listen(0, '127.0.0.1', done))
-    const address = server.address()
-    if (!address || typeof address === 'string')
-      throw new Error('test server has no port')
+    const address = z.object({ port: z.number() }).parse(server.address())
+
     const env = {
       ...process.env,
       SHEETBASE_BACKUP_DIR: work,
@@ -40,6 +42,7 @@ describe('independent recovery checks', () => {
       SHEETBASE_RECOVERY_CHECK_MAX_AGE_SECONDS: '60',
       SHEETBASE_READINESS_URL: `http://127.0.0.1:${address.port}/api/health/ready`,
     }
+
     async function check() {
       const result = await promisify(execFile)(
         process.execPath,
@@ -49,8 +52,10 @@ describe('independent recovery checks', () => {
         (value) => ({ code: 0, stdout: value.stdout }),
         (error: { code: number; stdout: string }) => error,
       )
+
       return { code: result.code, result: JSON.parse(result.stdout) }
     }
+
     try {
       expect(await check()).toMatchObject({
         code: 1,
@@ -62,6 +67,7 @@ describe('independent recovery checks', () => {
       const archive = join(work, `${prefix}-objects.tar.gz`)
       await writeFile(dump, 'dump')
       await writeFile(archive, 'objects')
+
       const manifest = {
         formatVersion: 2,
         permissions: 'preserved',
@@ -79,6 +85,7 @@ describe('independent recovery checks', () => {
         },
         objects: { archiveBytes: 7, archiveSha256: await sha256File(archive) },
       }
+
       const manifestPath = join(work, `${prefix}-manifest.json`)
       await writeFile(manifestPath, JSON.stringify(manifest))
       await writeFile(join(work, 'latest.json'), JSON.stringify({ prefix }))
@@ -127,10 +134,12 @@ describe('independent recovery checks', () => {
         code: 1,
         result: { backup: false, drill: false, readiness: true },
       })
+
       const metrics = await readFile(
         join(work, 'sheetbase_recovery.prom'),
         'utf8',
       )
+
       expect(metrics).toContain('sheetbase_recovery_backup_healthy 0\n')
       expect(metrics).toContain('sheetbase_recovery_check_max_age_seconds 60\n')
     } finally {

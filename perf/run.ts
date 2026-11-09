@@ -19,10 +19,7 @@
 import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 
-function section(
-  name: string,
-  args: string[],
-): { status: number; stdout: string } {
+function section(name: string, args: string[]) {
   const result = spawnSync(
     'node',
     ['--import', 'tsx', join('perf', `${name}.ts`), ...args],
@@ -31,8 +28,10 @@ function section(
       encoding: 'utf8',
     },
   )
+
   process.stdout.write(result.stdout)
   process.stderr.write(result.stderr)
+
   return { status: result.status ?? 1, stdout: result.stdout }
 }
 
@@ -40,30 +39,39 @@ async function main(): Promise<void> {
   const arg = process.argv[2] ?? 'all'
   const large = process.argv.includes('--large')
   let exit = 0
+
   if (arg === 'seed' || arg === 'all') {
     exit = Math.max(exit, section('fixtures', []).status)
   }
+
   if (arg === 'db' || arg === 'all') {
     exit = Math.max(exit, section('dataset', large ? ['--large'] : []).status)
   }
+
   if (arg === 'pipelines' || arg === 'all') {
     exit = Math.max(exit, section('pipelines', large ? ['--large'] : []).status)
   }
+
   if (arg === 'http' || arg === 'all') {
     exit = Math.max(exit, section('http', []).status)
   }
+
   if (arg === 'files' || arg === 'all') {
     exit = Math.max(exit, section('files', []).status)
   }
+
   if (arg === 'connectors' || arg === 'all') {
     exit = Math.max(exit, section('connectors', []).status)
   }
+
   if (arg === 'sheet-notebook' || arg === 'all') {
     exit = Math.max(exit, section('sheet-notebook', []).status)
   }
+
   if (arg === 'pressure' || arg === 'all') {
     exit = Math.max(exit, section('pressure', []).status)
   }
+
   if (exit !== 0) {
     console.error(`perf run failed with status ${exit}`)
     process.exitCode = exit
@@ -72,7 +80,7 @@ async function main(): Promise<void> {
   }
 }
 
-void main().catch((error: unknown) => {
-  console.error(error)
+void main().catch((cause: unknown) => {
+  console.error(cause)
   process.exitCode = 1
 })

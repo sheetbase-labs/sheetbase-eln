@@ -11,6 +11,7 @@
  */
 
 const NAME = String.raw`(?:"?[a-zA-Z_][\w$]*"?\.)?"?([a-zA-Z_][\w$]*)"?`
+
 const PATTERNS = [
   new RegExp(
     String.raw`\b(?:create(?:\s+or\s+replace)?|alter|drop|truncate)\s+(?:temp(?:orary)?\s+|unlogged\s+|recursive\s+)?(?:table|materialized\s+view|view|function|procedure|type|sequence|domain|extension|schema)\s+(?:if\s+(?:not\s+)?exists\s+)?(?:only\s+)?${NAME}`,
@@ -41,12 +42,14 @@ const PATTERNS = [
   ),
   new RegExp(String.raw`\breferences\s+${NAME}`, 'gi'),
 ]
+
 const SKIP = new Set(['if', 'only', 'public', 'api', 'on', 'to', 'from'])
 
 /** Lower-case names of the objects `sql` mentions. */
 export function migrationObjects(sql) {
   const text = sql.replace(/--[^\n]*/g, ' ').replace(/\/\*[\s\S]*?\*\//g, ' ')
   const found = new Set()
+
   for (const pattern of PATTERNS) {
     for (const match of text.matchAll(pattern)) {
       for (const name of match.slice(1)) {
@@ -54,10 +57,13 @@ export function migrationObjects(sql) {
       }
     }
   }
+
   return found
 }
 
 /** The names two sets of objects share. */
 export function sharedObjects(a, b) {
-  return [...a].filter((name) => b.has(name)).sort()
+  return [...a]
+    .filter((name) => b.has(name))
+    .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
 }

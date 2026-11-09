@@ -16,6 +16,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 
 const packagesDir = process.argv[2]
+
 if (!packagesDir) {
   process.stderr.write('usage: railway-link-components.mjs <packages-dir>\n')
   process.exit(1)
@@ -29,12 +30,14 @@ let lockfile = readFileSync('pnpm-lock.yaml', 'utf8')
 
 for (const name of names) {
   const pattern = new RegExp(`("@sheetbase-labs/sheetbase-${name}": )"[^"]+"`)
+
   if (!pattern.test(manifest)) throw new Error(`package.json lacks ${name}`)
   manifest = manifest.replace(pattern, `$1"${link(name)}"`)
 
   const importer = new RegExp(
     `(      '@sheetbase-labs/sheetbase-${name}':\\n        specifier: )[^\\n]+\\n        version: [^\\n]+\\n`,
   )
+
   if (!importer.test(lockfile)) throw new Error(`pnpm-lock.yaml lacks ${name}`)
   lockfile = lockfile.replace(
     importer,
@@ -43,7 +46,7 @@ for (const name of names) {
 }
 
 lockfile = lockfile.replace(
-  /\n  '@sheetbase-labs\/[^\n]*:\n(?:    [^\n]*\n|      [^\n]*\n)*/g,
+  /\n {2}'@sheetbase-labs\/[^\n]*:\n(?: {4}[^\n]*\n| {6}[^\n]*\n)*/g,
   '\n',
 )
 
@@ -53,5 +56,7 @@ const workspace = readFileSync('pnpm-workspace.yaml', 'utf8')
   .join('\n')
 
 writeFileSync('pnpm-workspace.yaml', workspace)
+
 writeFileSync('package.json', manifest)
+
 writeFileSync('pnpm-lock.yaml', lockfile)

@@ -52,7 +52,9 @@ const ARTEFACT_TTL_MS = 24 * 60 * 60 * 1000
 /** A run key becomes a directory name, so it must not be able to escape the root. */
 export const ARTEFACT_KEY = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/
 export const DIGEST_IMAGE = /^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/
+
 const isObject = (value) =>
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Bare-Node Docker broker must validate untrusted JSON without runtime dependencies.
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
 export class RunnerError extends Error {
@@ -71,6 +73,7 @@ export class RunnerError extends Error {
 /** A requirement is `name==version`: nothing the container could be talked into fetching. */
 export const REQUIREMENT =
   /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?==[A-Za-z0-9](?:[A-Za-z0-9.!+_-]*[A-Za-z0-9])?$/
+
 const MAX_REQUIREMENTS = 50
 
 /**
@@ -85,11 +88,14 @@ const EXTRAS = '(?:\\[[A-Za-z0-9](?:[A-Za-z0-9._,\\s-]*[A-Za-z0-9])?\\])?'
 const CLAUSE = '(?:===|==|~=|!=|<=|>=|<|>)\\s*[A-Za-z0-9][A-Za-z0-9.*+!_-]*'
 const VERSIONS = `(?:\\s*${CLAUSE}(?:\\s*,\\s*${CLAUSE})*)?`
 const MARKER = '(?:\\s*;\\s*[A-Za-z0-9 _.\'"()<>=!~,-]+)?'
+
 export const PLUGIN_REQUIREMENT = new RegExp(
   `^${NAME}${EXTRAS}(?:${VERSIONS}|\\s*@\\s*https://[^\\s;]+)${MARKER}$`,
 )
+
 export const PLUGIN_HOST =
   /^(?:\*\.)?[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/
+
 export const ENVIRONMENT_ID = /^pe-[a-f0-9]{16}$/
 const IMAGE_ID = /^sha256:[a-f0-9]{64}$/
 
@@ -98,6 +104,7 @@ const PLUGIN_LOG_BYTES = 1024 * 1024
 const MIB = 1024 * 1024
 
 const positive = (value) =>
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Decode untrusted resource limits before constructing Docker arguments in the dependency-free broker.
   typeof value === 'number' && Number.isFinite(value) && value > 0
 
 /**
@@ -108,6 +115,7 @@ const positive = (value) =>
  */
 export function limitsOf(job) {
   const given = job.limits
+
   if (given === undefined)
     return {
       custom: false,
@@ -122,6 +130,7 @@ export function limitsOf(job) {
       processes: 64,
       scratchMb: 64,
     }
+
   return {
     custom: true,
     bytes: given.bytes,
@@ -160,14 +169,18 @@ function validateLimits(given) {
 /** Failure details from the worker, kept only when they are the shape and size we expect. */
 export function failureDetails(result) {
   const details = {}
+
   if (
     Array.isArray(result.logs) &&
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Worker stdout is untrusted JSON; reject non-text logs without adding dependencies to the broker image.
     result.logs.every((line) => typeof line === 'string') &&
     Buffer.byteLength(result.logs.join('\n')) <= LIMITS.logBytes
   )
     details.logs = result.logs
+
   if (Number.isInteger(result.line) && result.line > 0)
     details.line = result.line
+
   return details
 }
 
@@ -175,22 +188,27 @@ function validateRows(rows, limit = limitsOf({})) {
   if (!Array.isArray(rows) || rows.length > limit.rows)
     throw new RunnerError('Python row limit exceeded.')
   let cells = 0
+
   for (const row of rows) {
     if (!isObject(row))
       throw new RunnerError('Python results must contain row objects.')
     const fields = Object.keys(row).length
     cells += fields
+
     if (fields > limit.fields || cells > limit.cells)
       throw new RunnerError('Python field or cell limit exceeded.')
   }
+
   return cells
 }
 
 export function validateJob(job) {
   if (isObject(job) && job.limits !== undefined) validateLimits(job.limits)
   const limit = limitsOf(isObject(job) ? job : {})
+
   if (
     !isObject(job) ||
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Validate HTTP JSON code before passing it to the dependency-free Python worker broker.
     typeof job.statement !== 'string' ||
     !job.statement.trim() ||
     // A pipeline step is a few lines. A plugin's files travel inside its steps
@@ -205,11 +223,14 @@ export function validateJob(job) {
       'invalid_configuration',
     )
   }
+
   if (job.mode !== undefined)
     throw new RunnerError('Unknown job option.', 400, 'invalid_configuration')
+
   if (
     job.environment !== undefined &&
     (!limit.custom ||
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Untrusted environment IDs must be strings before regex validation in the bare-Node broker.
       typeof job.environment !== 'string' ||
       !ENVIRONMENT_ID.test(job.environment))
   )
@@ -218,12 +239,14 @@ export function validateJob(job) {
       400,
       'invalid_configuration',
     )
+
   if (
     job.network !== undefined &&
     (!limit.custom ||
       !Array.isArray(job.network) ||
       job.network.some(
         (host) =>
+          // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Reject non-string approved hosts from HTTP JSON before sandbox network setup; broker image has no dependencies.
           typeof host !== 'string' ||
           host.length > 253 ||
           !PLUGIN_HOST.test(host),
@@ -234,11 +257,13 @@ export function validateJob(job) {
       400,
       'invalid_configuration',
     )
+
   if (
     job.requirements !== undefined &&
     (!Array.isArray(job.requirements) ||
       job.requirements.length > MAX_REQUIREMENTS ||
       job.requirements.some(
+        // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Reject non-string package requirements at the HTTP boundary in the dependency-free broker.
         (line) => typeof line !== 'string' || !REQUIREMENT.test(line),
       ))
   )
@@ -247,6 +272,7 @@ export function validateJob(job) {
       400,
       'invalid_configuration',
     )
+
   if (job.contract !== undefined && !isObject(job.contract))
     throw new RunnerError(
       'The data contract must be an object.',
@@ -255,10 +281,12 @@ export function validateJob(job) {
     )
   let count = 0
   let cells = 0
+
   for (const rows of Object.values(job.inputs)) {
     cells += validateRows(rows, limit)
     count += rows.length
   }
+
   if (count > limit.rows || cells > limit.cells)
     throw new RunnerError(
       'Python input exceeds row or cell limit.',
@@ -271,8 +299,10 @@ export function validateResult(result, limit = limitsOf({})) {
   if (!isObject(result))
     throw new RunnerError('Python returned an invalid response.')
   validateRows(result.rows, limit)
+
   if (
     !Array.isArray(result.logs) ||
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Validate worker stdout before returning logs; the bare-Node runner image has no schema library.
     result.logs.some((line) => typeof line !== 'string') ||
     Buffer.byteLength(result.logs.join('\n')) > limit.logBytes
   ) {
@@ -290,6 +320,7 @@ export function containerArguments(image, name, options = {}) {
   const limit = options.limits ?? limitsOf({})
   const threads = String(Math.max(1, Math.ceil(limit.cpus)))
   const egress = options.egress
+
   return [
     'create',
     '--name',
@@ -322,7 +353,7 @@ export function containerArguments(image, name, options = {}) {
     `--env=SHEETBASE_MAX_INPUT_BYTES=${limit.bytes}`,
     ...(egress
       ? ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'].map(
-          (name) => `--env=${name}=${egress.url}`,
+          (variable) => `--env=${variable}=${egress.url}`,
         )
       : []),
     image,
@@ -348,12 +379,15 @@ function docker(
     const errors = []
     let size = 0
     let failure = null
+
     const timer = setTimeout(() => {
       failure = new RunnerError(timeoutMessage, 504, 'transform_timed_out')
       child.kill('SIGKILL')
     }, timeoutMs)
+
     const collect = (chunk, stdout) => {
       size += chunk.length
+
       if (size > maxBytes) {
         failure = new RunnerError(
           `Python output exceeds ${Math.round(maxBytes / MIB)} MiB.`,
@@ -364,6 +398,7 @@ function docker(
       } else if (stdout) chunks.push(chunk)
       else errors.push(chunk)
     }
+
     child.stdout.on('data', (chunk) => collect(chunk, true))
     child.stderr.on('data', (chunk) => collect(chunk, false))
     child.stdin.on('error', () => {
@@ -381,6 +416,7 @@ function docker(
     })
     child.on('close', (code) => {
       clearTimeout(timer)
+
       if (failure) reject(failure)
       else
         resolve({
@@ -415,10 +451,12 @@ export async function collectOutputFiles(command, name, artefactKey) {
 
   // A container that wrote nothing has no directory; that is not a failure.
   const copied = await command(['cp', `${name}:${OUTPUT_DIR}/.`, destination])
+
   if (copied.code !== 0) return []
 
   const entries = await readdir(destination, { withFileTypes: true })
   const files = entries.filter((entry) => entry.isFile())
+
   if (files.length > LIMITS.files)
     throw new RunnerError(
       `The function returned ${files.length} files, over the ${LIMITS.files}-file limit.`,
@@ -427,10 +465,12 @@ export async function collectOutputFiles(command, name, artefactKey) {
     )
   let total = 0
   const collected = []
+
   for (const entry of files) {
     const path = join(destination, entry.name)
     const stats = await stat(path)
     total += stats.size
+
     if (total > LIMITS.fileBytes)
       throw new RunnerError(
         `The function returned ${(total / (1024 * 1024)).toFixed(1)} MiB of files, over the ${(LIMITS.fileBytes / (1024 * 1024)).toFixed(1)} MiB limit.`,
@@ -439,6 +479,7 @@ export async function collectOutputFiles(command, name, artefactKey) {
       )
     collected.push({ name: entry.name, size: stats.size, path })
   }
+
   return collected.sort((a, b) => a.name.localeCompare(b.name))
 }
 
@@ -457,11 +498,15 @@ export async function releaseArtefacts(artefactKey, keep) {
   if (!ARTEFACT_KEY.test(artefactKey))
     throw new RunnerError('Invalid artefact key.', 400, 'invalid_configuration')
   const directory = join(artefactRoot(), artefactKey)
+
   if (keep) {
     await writeFile(join(directory, KEEP_MARKER), new Date().toISOString())
+
     return { kept: true }
   }
+
   await rm(directory, { recursive: true, force: true })
+
   return { kept: false }
 }
 
@@ -473,37 +518,49 @@ export async function pruneArtefacts(
   let removed = 0
   let kept = 0
   let entries
+
   try {
     entries = await readdir(artefactRoot(), { withFileTypes: true })
   } catch {
     return { removed, kept }
   }
+
   for (const entry of entries) {
     if (!entry.isDirectory()) continue
     const directory = join(artefactRoot(), entry.name)
     const marker = await stat(join(directory, KEEP_MARKER)).catch(() => null)
+
     if (marker) {
       kept += 1
       continue
     }
+
     const directoryStat = await stat(directory).catch(() => null)
+
     if (!directoryStat) continue
+
     if (now - directoryStat.mtimeMs < maxAgeMs) continue
     await rm(directory, { recursive: true, force: true })
     removed += 1
   }
+
   return { removed, kept }
 }
 
 /** The interpreter and declared-package versions the worker reports, or nothing if malformed. */
 function reportedEnvironment(value) {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Decode the untrusted worker's interpreter identity without dependencies in the standalone Docker broker.
   if (!isObject(value) || typeof value.python !== 'string') return undefined
+
   if (!isObject(value.packages)) return undefined
   const packages = {}
+
   for (const [name, version] of Object.entries(value.packages)) {
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Decode the untrusted worker's package versions in the dependency-free broker image.
     if (typeof version !== 'string') return undefined
     packages[name] = version
   }
+
   return { python: value.python.slice(0, 32), packages }
 }
 
@@ -516,13 +573,17 @@ function reportedEnvironment(value) {
  */
 export async function inspectRuntime(image, command = docker) {
   const name = `sheetbase-python-inspect-${randomUUID()}`
+
   try {
     const created = await command(containerArguments(image, name))
+
     if (created.code !== 0) return undefined
+
     const completed = await command(
       ['start', '--attach', '--interactive', name],
       { input: JSON.stringify({ mode: 'inspect' }), timeoutMs: 20_000 },
     )
+
     return completed.code === 0
       ? reportedEnvironment(JSON.parse(completed.stdout).environment)
       : undefined
@@ -551,6 +612,7 @@ const buildTimeoutMs = () =>
  */
 export function environmentId(baseImage, requirements) {
   const lines = requirements.map((line) => line.trim()).sort()
+
   return `pe-${createHash('sha256')
     .update(`${baseImage}\n${lines.join('\n')}`)
     .digest('hex')
@@ -563,6 +625,7 @@ export function validateRequirements(requirements) {
     requirements.length === 0 ||
     requirements.some(
       (line) =>
+        // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Validate untrusted pip lines before network-enabled installation; broker image has no schema dependency.
         typeof line !== 'string' ||
         line.length > 300 ||
         line.startsWith('-') ||
@@ -598,8 +661,11 @@ export async function environmentImage(id, command = docker) {
     '--format={{.Id}}',
     `${ENVIRONMENT_REPOSITORY}:${id}`,
   ]).catch(() => ({ code: 1, stdout: '' }))
+
   const imageId = found.stdout.trim()
+
   if (found.code !== 0 || !IMAGE_ID.test(imageId)) return undefined
+
   return {
     id: imageId,
     // Reported to the app as the runtime that ran the call.
@@ -613,13 +679,16 @@ export function buildFailureMessage(output) {
     .split('\n')
     .map((line) => line.replace(/^#\d+\s+[\d.]+\s/, '').trim())
     .filter(Boolean)
+
   const error = lines.findLastIndex((line) =>
     /error|failed|no matching/i.test(line),
   )
+
   const picked = lines.slice(
     Math.max(0, (error === -1 ? lines.length - 1 : error) - 3),
     error === -1 ? lines.length : error + 4,
   )
+
   return (
     picked.join('\n').slice(-1500) || 'The packages could not be installed.'
   )
@@ -637,6 +706,7 @@ export async function buildEnvironment(
   { pipIndexUrl = process.env.PIPELINE_PYTHON_PIP_INDEX_URL } = {},
 ) {
   validateRequirements(requirements)
+
   if (!DIGEST_IMAGE.test(baseImage))
     throw new RunnerError(
       'Configure a digest-pinned Python image.',
@@ -645,6 +715,7 @@ export async function buildEnvironment(
     )
   const id = environmentId(baseImage, requirements)
   const folder = await mkdtemp(join(tmpdir(), 'sheetbase-plugin-env-'))
+
   try {
     await writeFile(
       join(folder, 'requirements.txt'),
@@ -654,6 +725,7 @@ export async function buildEnvironment(
       join(folder, 'Dockerfile'),
       environmentDockerfile({ pipIndexUrl }),
     )
+
     const built = await command(
       [
         'build',
@@ -674,12 +746,14 @@ export async function buildEnvironment(
           'Installing the packages took too long. An administrator can allow more time with PIPELINE_PYTHON_BUILD_TIMEOUT_MINUTES on the runner.',
       },
     )
+
     if (built.code !== 0)
       throw new RunnerError(
         buildFailureMessage(`${built.stderr}\n${built.stdout}`),
         422,
         'environment_failed',
       )
+
     return id
   } finally {
     await rm(folder, { recursive: true, force: true })
@@ -693,26 +767,34 @@ export async function buildEnvironment(
 export function createEnvironments({ image, command = docker, inspect }) {
   const builds = new Map()
   let queue = Promise.resolve()
+
   const packagesOf = async (id) => {
     const built = await environmentImage(id, command)
+
     return built ? await inspect(built.id).catch(() => undefined) : undefined
   }
+
   return {
     id: (requirements) => environmentId(image, requirements),
     async status(id) {
       if (!ENVIRONMENT_ID.test(id))
         throw new RunnerError('Unknown environment.', 404, 'not_found')
       const building = builds.get(id)
+
       if (building?.state === 'building') return { id, state: 'building' }
+
       if (await environmentImage(id, command)) {
         const environment = await packagesOf(id)
+
         return {
           id,
           state: 'ready',
-          ...(environment ? { packages: environment.packages } : {}),
+          packages: environment?.packages,
         }
       }
+
       if (building) return { id, state: building.state, error: building.error }
+
       return { id, state: 'missing' }
     },
     /** Starts a build unless the environment exists or is being built. */
@@ -720,6 +802,7 @@ export function createEnvironments({ image, command = docker, inspect }) {
       validateRequirements(requirements)
       const id = environmentId(image, requirements)
       const current = await this.status(id)
+
       if (current.state === 'ready' || current.state === 'building')
         return current
       builds.set(id, { state: 'building' })
@@ -737,6 +820,7 @@ export function createEnvironments({ image, command = docker, inspect }) {
           })
         }
       })
+
       return { id, state: 'building' }
     },
     /** Resolves when every started build has finished (tests, shutdown). */
@@ -752,7 +836,9 @@ export function createEnvironments({ image, command = docker, inspect }) {
 export function egressFromEnvironment(env = process.env) {
   const network = env.PIPELINE_PYTHON_EGRESS_NETWORK
   const host = env.PIPELINE_PYTHON_EGRESS_HOST
+
   if (!network || !host) return undefined
+
   return {
     network,
     host,
@@ -764,6 +850,7 @@ export function egressFromEnvironment(env = process.env) {
 export async function runDockerJob(job, image, command = docker, context = {}) {
   validateJob(job)
   const limit = limitsOf(job)
+
   if (job.runtime !== undefined && job.runtime !== image)
     throw new RunnerError(
       'The pinned Python runtime is not available on this runner.',
@@ -771,6 +858,7 @@ export async function runDockerJob(job, image, command = docker, context = {}) {
       'runtime_mismatch',
     )
   const input = JSON.stringify(job)
+
   if (Buffer.byteLength(input) > limit.bytes)
     throw new RunnerError(
       `Python input exceeds ${Math.round(limit.bytes / MIB)} MiB.`,
@@ -780,8 +868,10 @@ export async function runDockerJob(job, image, command = docker, context = {}) {
   // A plugin with its own packages runs in the image built for them.
   let runImage = image
   let reported = image
+
   if (job.environment !== undefined) {
     const built = await environmentImage(job.environment, command)
+
     if (!built)
       throw new RunnerError(
         'This plugin’s packages are not installed on the runner yet.',
@@ -791,9 +881,11 @@ export async function runDockerJob(job, image, command = docker, context = {}) {
     runImage = built.id
     reported = built.reported
   }
+
   // Approved hosts: one credential for this call, on the private network.
   let grant
   let egress
+
   if (job.network && job.network.length > 0) {
     if (!context.egress || !context.proxy)
       throw new RunnerError(
@@ -807,16 +899,20 @@ export async function runDockerJob(job, image, command = docker, context = {}) {
       url: `http://job:${grant.token}@${context.egress.host}:${context.egress.port}`,
     }
   }
+
   const name = `sheetbase-python-${randomUUID()}`
   const args = containerArguments(runImage, name, { limits: limit, egress })
+
   try {
     const created = await command(args)
+
     if (created.code !== 0)
       throw new RunnerError(
         'Python runtime image is unavailable. Ask an administrator to configure the runner.',
         503,
         'runner_unavailable',
       )
+
     const completed = await command(
       ['start', '--attach', '--interactive', name],
       {
@@ -829,7 +925,9 @@ export async function runDockerJob(job, image, command = docker, context = {}) {
           : 'Python execution timed out.',
       },
     )
+
     let result
+
     try {
       result = JSON.parse(completed.stdout)
     } catch {
@@ -839,8 +937,10 @@ export async function runDockerJob(job, image, command = docker, context = {}) {
           : 'Python exited without a valid result. Check the code and resource limits.',
       )
     }
+
     if (completed.code !== 0 || result.error)
       throw new RunnerError(
+        // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Worker errors are untrusted JSON; only text may be displayed by this standalone broker.
         typeof result.error === 'string'
           ? result.error.slice(0, 2000)
           : 'Python execution failed.',
@@ -849,48 +949,60 @@ export async function runDockerJob(job, image, command = docker, context = {}) {
         failureDetails(result),
       )
     validateResult(result, limit)
+
     // PIPE-04.1: a function may also return files; they are collected before the
     // container is removed, since a stopped container is only readable until then.
     const files = job.artefactKey
       ? await collectOutputFiles(command, name, job.artefactKey)
       : []
-    return {
+
+    const output = {
       rows: result.rows,
       logs: result.logs,
       runtime: reported,
       files: files.map((file) => ({ name: file.name, size: file.size })),
-      ...(reportedEnvironment(result.environment)
-        ? { environment: reportedEnvironment(result.environment) }
-        : {}),
     }
+
+    const environment = reportedEnvironment(result.environment)
+
+    if (environment) output.environment = environment
+
+    return output
   } finally {
     grant?.release()
     // Killing a Docker CLI process does not kill its container. Remove by our fixed name.
-    let removed
-    try {
-      removed = await command(['rm', '--force', name])
-    } catch {
-      throw new RunnerError(
-        'Python container cleanup failed. The runner requires administrator attention.',
-        503,
-        'cleanup_failed',
-      )
-    }
-    if (
-      removed.code !== 0 &&
-      !removed.stderr?.includes(`No such container: ${name}`)
-    )
-      throw new RunnerError(
-        'Python container cleanup failed. The runner requires administrator attention.',
-        503,
-        'cleanup_failed',
-      )
+    await removeJobContainer(command, name)
   }
 }
 
+async function removeJobContainer(command, name) {
+  const failed = () =>
+    new RunnerError(
+      'Python container cleanup failed. The runner requires administrator attention.',
+      503,
+      'cleanup_failed',
+    )
+
+  let removed
+
+  try {
+    removed = await command(['rm', '--force', name])
+  } catch {
+    throw failed()
+  }
+
+  if (
+    removed.code !== 0 &&
+    !removed.stderr?.includes(`No such container: ${name}`)
+  )
+    throw failed()
+}
+
 function authorized(header, token) {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Node HTTP headers may be absent or arrays; reject them before hashing credentials in the standalone broker.
   if (typeof header !== 'string') return false
   const hash = (value) => createHash('sha256').update(value).digest()
+
   return timingSafeEqual(hash(header), hash(`Bearer ${token}`))
 }
 
@@ -914,6 +1026,7 @@ export function createRunnerServer({
   }),
   checkRuntime = async () => {
     const result = await docker(['image', 'inspect', '--format={{.Id}}', image])
+
     if (result.code !== 0)
       throw new RunnerError(
         'The Python runtime image is not installed.',
@@ -923,6 +1036,7 @@ export function createRunnerServer({
   },
 }) {
   if (
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Validate operator configuration before enabling the dependency-free broker's HTTP listener.
     typeof token !== 'string' ||
     token.length < 32 ||
     !DIGEST_IMAGE.test(image ?? '')
@@ -934,13 +1048,17 @@ export function createRunnerServer({
   let cleanupFailed = false
   // The image is immutable, so what it contains is asked once and remembered.
   let inspected
+
   const environmentOf = () => {
     inspected ??= inspect(image).then((environment) => {
       if (!environment) inspected = undefined
+
       return environment
     })
+
     return inspected
   }
+
   const server = createServer(
     { maxHeaderSize: 16 * 1024 },
     async (request, response) => {
@@ -952,9 +1070,11 @@ export function createRunnerServer({
         })
         response.end(JSON.stringify(payload))
       }
+
       const environmentRoute = /^\/environments\/([a-z0-9-]+)$/.exec(
         request.url ?? '',
       )
+
       if (!(
         (request.method === 'POST' && request.url === '/execute') ||
         (request.method === 'POST' && request.url === '/artefacts/release') ||
@@ -963,20 +1083,25 @@ export function createRunnerServer({
         (request.method === 'GET' && request.url === '/runtime')
       ))
         return send(404, { error: 'Not found.' })
+
       if (!authorized(request.headers.authorization, token))
         return send(401, { error: 'Unauthorized.' })
+
       if (cleanupFailed)
         return send(503, {
           error: 'Python runner requires administrator attention.',
         })
+
       // The packages a plugin installs: asked for once per distinct list.
       if (request.url === '/environments' || environmentRoute) {
         try {
           if (environmentRoute)
             return send(200, await environments.status(environmentRoute[1]))
           const chunks = []
+
           for await (const chunk of request) chunks.push(chunk)
           let body
+
           try {
             body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
           } catch {
@@ -986,7 +1111,9 @@ export function createRunnerServer({
               'invalid_configuration',
             )
           }
+
           const current = await environments.ensure(body?.requirements)
+
           return send(current.state === 'ready' ? 200 : 202, current)
         } catch (error) {
           return send(error instanceof RunnerError ? error.status : 500, {
@@ -997,24 +1124,31 @@ export function createRunnerServer({
           })
         }
       }
+
       // PIPE-04.2: a run's artefacts are temporary unless it keeps them.
       if (request.url === '/artefacts/release') {
         const chunks = []
+
         for await (const chunk of request) chunks.push(chunk)
         let release
+
         try {
           release = JSON.parse(Buffer.concat(chunks).toString('utf8'))
         } catch {
           return send(400, { error: 'Invalid JSON body.' })
         }
+
         if (
           !isObject(release) ||
+          // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Artefact release is untrusted HTTP JSON in the dependency-free broker.
           typeof release.key !== 'string' ||
+          // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Require an explicit boolean so malformed JSON cannot delete or retain artefacts by coercion.
           typeof release.keep !== 'boolean'
         )
           return send(400, {
             error: 'Provide an artefact key and whether to keep it.',
           })
+
         try {
           return send(200, await releaseArtefacts(release.key, release.keep))
         } catch (error) {
@@ -1023,20 +1157,22 @@ export function createRunnerServer({
           })
         }
       }
+
       if (request.method === 'GET') {
         try {
           await checkRuntime()
+
           // The app waits 15 s for this answer: give the inspection less, and let a slow one
           // finish in the background for the next request.
           const environment = await Promise.race([
             environmentOf(),
             new Promise((resolve) => setTimeout(resolve, 8_000, undefined)),
           ])
+
           return send(200, {
             runtime: image,
-            ...(environment
-              ? { python: environment.python, packages: environment.packages }
-              : {}),
+            python: environment?.python,
+            packages: environment?.packages,
           })
         } catch {
           return send(503, {
@@ -1044,22 +1180,28 @@ export function createRunnerServer({
           })
         }
       }
+
       if (active >= concurrency)
         return send(503, {
           error: 'Python runner is unavailable. Try again later.',
         })
+
       if (request.headers['content-type']?.split(';')[0] !== 'application/json')
         return send(415, { error: 'Use application/json.' })
+
       if (Number(request.headers['content-length']) > maxBodyBytes)
         return send(413, {
           error: `Python input exceeds ${Math.round(maxBodyBytes / MIB)} MiB.`,
         })
       active++
+
       try {
         const chunks = []
         let size = 0
+
         for await (const chunk of request) {
           size += chunk.length
+
           if (size > maxBodyBytes)
             throw new RunnerError(
               `Python input exceeds ${Math.round(maxBodyBytes / MIB)} MiB.`,
@@ -1068,7 +1210,9 @@ export function createRunnerServer({
             )
           chunks.push(chunk)
         }
+
         let job
+
         try {
           job = JSON.parse(Buffer.concat(chunks).toString('utf8'))
         } catch {
@@ -1078,19 +1222,24 @@ export function createRunnerServer({
             'invalid_configuration',
           )
         }
+
         validateJob(job)
         const limit = limitsOf(job)
+
         const result = await execute(job, image, undefined, {
           egress,
           proxy,
         })
+
         validateResult(result, limit)
+
         const payload = {
           rows: result.rows,
           logs: result.logs,
           runtime: result.runtime ?? image,
-          ...(result.environment ? { environment: result.environment } : {}),
+          environment: result.environment,
         }
+
         if (Buffer.byteLength(JSON.stringify(payload)) > limit.bytes)
           throw new RunnerError(
             `Python output exceeds ${Math.round(limit.bytes / MIB)} MiB.`,
@@ -1106,18 +1255,21 @@ export function createRunnerServer({
               : 'Python runner failed.',
           code:
             error instanceof RunnerError ? error.code : 'runner_unavailable',
-          ...(error instanceof RunnerError ? error.details : {}),
+          logs: error instanceof RunnerError ? error.details.logs : undefined,
+          line: error instanceof RunnerError ? error.details.line : undefined,
         })
       } finally {
         active--
       }
     },
   )
+
   // A call may run as long as its plugin's time limit allows, so the connection
   // is not cut at a fixed time: the job's own timeout ends it.
   server.requestTimeout = 0
   server.headersTimeout = 10_000
   server.timeout = 0
+
   if (proxy)
     server.on('listening', () => {
       proxy.server.listen(
@@ -1126,6 +1278,7 @@ export function createRunnerServer({
       )
     })
   server.on('close', () => proxy?.server.close())
+
   return server
 }
 
@@ -1137,6 +1290,7 @@ if (
     token: process.env.PIPELINE_PYTHON_RUNNER_TOKEN,
     image: process.env.PIPELINE_PYTHON_IMAGE,
   })
+
   server.listen(
     Number(process.env.PIPELINE_PYTHON_RUNNER_PORT ?? 8080),
     process.env.PIPELINE_PYTHON_RUNNER_HOST ?? '0.0.0.0',

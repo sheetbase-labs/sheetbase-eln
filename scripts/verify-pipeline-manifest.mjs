@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs'
 
 function canonicalJson(value) {
   return JSON.stringify(value, (_key, v) =>
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Dependency-free offline verifier must sort JSON object keys while preserving arrays and scalars for canonical digest compatibility.
     v && typeof v === 'object' && !Array.isArray(v)
       ? Object.fromEntries(
           Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
@@ -23,13 +24,16 @@ function canonicalJson(value) {
 }
 
 const [file, previousFile] = process.argv.slice(2)
+
 if (!file) {
   console.error(
     'usage: verify-pipeline-manifest.mjs manifest.json [previous.json]',
   )
   process.exit(2)
 }
+
 const body = JSON.parse(readFileSync(file, 'utf8'))
+
 const digest = createHash('sha256')
   .update(canonicalJson(body.manifest))
   .digest('hex')
@@ -37,8 +41,10 @@ const digest = createHash('sha256')
 const results = [
   ['manifest digest matches its content', digest === body.manifestDigest],
 ]
+
 if (body.signature) {
   let valid = false
+
   if (body.publicKey && digest === body.manifestDigest) {
     try {
       valid = verify(
@@ -51,10 +57,12 @@ if (body.signature) {
       valid = false
     }
   }
+
   results.push([`signature verifies (key ${body.keyId})`, valid])
 } else {
   console.log('note: this manifest is unsigned (no signing key was configured)')
 }
+
 if (previousFile) {
   const previous = JSON.parse(readFileSync(previousFile, 'utf8'))
   results.push([
@@ -68,4 +76,5 @@ if (previousFile) {
 
 for (const [label, ok] of results)
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`)
+
 process.exit(results.every(([, ok]) => ok) ? 0 : 1)

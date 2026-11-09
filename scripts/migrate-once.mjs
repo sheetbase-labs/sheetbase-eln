@@ -26,6 +26,7 @@ const MIGRATION_LOCK_KEY = 7421834490123457n
 
 const connectionString =
   process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL
+
 if (!connectionString) {
   process.stderr.write(
     JSON.stringify({
@@ -38,18 +39,22 @@ if (!connectionString) {
 }
 
 const client = new Client({ connectionString })
+
 try {
   await client.connect()
+
   const authority = await client.query(
     `SELECT current_user AS role, pg_get_userbyid(datdba) AS owner
      FROM pg_database WHERE datname = current_database()`,
   )
+
   if (
     authority.rows[0].role !== 'migrator' ||
     authority.rows[0].owner !== 'migrator'
   ) {
     throw new Error('Migrations require the migrator role and database owner')
   }
+
   await client.query('SELECT pg_advisory_lock($1)', [MIGRATION_LOCK_KEY])
   // Historical data backfills (including 0255) must pass the same enabled
   // Sheet Instance guard as RPC writes. This context belongs only to this

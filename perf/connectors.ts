@@ -15,6 +15,8 @@ import { Client } from 'pg'
 import type { Server } from 'node:http'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
+import { z } from 'zod'
+import { FIELD_LOGICAL_TYPES } from '#/lib/field-definition'
 
 import { s3Adapter } from '#/lib/connectors/enterprise/s3.server'
 import { postgresAdapter } from '#/lib/connectors/enterprise/postgres.server'
@@ -75,10 +77,13 @@ const IMPORT_FIELDS: Array<{
 // ---------------------------------------------------------------------------
 function pgDataClient(owner: Client): DataClient {
   return {
-    rpc: async (name: string, args: Record<string, unknown>) => {
+    rpc: async <T>(
+      name: string,
+      args: Parameters<DataClient['rpc']>[1],
+    ): Promise<T> => {
       if (name === 'validate_dataset_row_batch') {
         return (
-          await owner.query(
+          await owner.query<{ result: T }>(
             `select api.validate_dataset_row_batch($1,$2,$3::jsonb) result`,
             [
               args.p_dataset_id,
@@ -88,9 +93,10 @@ function pgDataClient(owner: Client): DataClient {
           )
         ).rows[0].result
       }
+
       if (name === 'commit_dataset_row_batch') {
         return (
-          await owner.query(
+          await owner.query<{ result: T }>(
             `select api.commit_dataset_row_batch($1,$2,$3::jsonb,$4) result`,
             [
               args.p_dataset_id,
@@ -101,9 +107,10 @@ function pgDataClient(owner: Client): DataClient {
           )
         ).rows[0].result
       }
+
       if (name === 'commit_dataset_row_batch_atomic') {
         return (
-          await owner.query(
+          await owner.query<{ result: T }>(
             `select api.commit_dataset_row_batch_atomic($1,$2,$3::jsonb,$4) result`,
             [
               args.p_dataset_id,
@@ -114,29 +121,40 @@ function pgDataClient(owner: Client): DataClient {
           )
         ).rows[0].result
       }
-      const values = Object.values(args).map((value) =>
-        value !== null && typeof value === 'object' && !Array.isArray(value)
-          ? JSON.stringify(value)
-          : value,
-      )
-      const placeholders = Object.values(args)
+
+      const values = Object.values(args).map((value) => {
+        const structured = z
+          .union([z.record(z.string(), z.json()), z.array(z.json())])
+          .safeParse(value)
+
+        return {
+          value: structured.success ? JSON.stringify(structured.data) : value,
+          json: structured.success,
+        }
+      })
+
+      const placeholders = values
         .map((value, index) =>
-          value !== null && typeof value === 'object'
-            ? `$${index + 1}::jsonb`
-            : `$${index + 1}`,
+          value.json ? `$${index + 1}::jsonb` : `$${index + 1}`,
         )
         .join(',')
+
       return (
-        await owner.query(`select * from api.${name}(${placeholders})`, values)
-      ).rows[0]
+        await owner.query<{ result: T }>(
+          `select to_jsonb(r) result from api.${name}(${placeholders}) r`,
+          values.map((value) => value.value),
+        )
+      ).rows[0].result
     },
-    list: async <T>(resource: string, query: string): Promise<T[]> => {
+    list: async <T>(resource: string, query = ''): Promise<T[]> => {
       if (resource !== 'connector_runs') {
         throw new Error(`unexpected list resource ${resource}`)
       }
+
       const params = new URLSearchParams(query.replace(/^\?/, ''))
       const conditions: string[] = []
       const values: unknown[] = []
+
       for (const column of [
         'connector_id',
         'request_digest',
@@ -144,32 +162,37 @@ function pgDataClient(owner: Client): DataClient {
         'status',
       ] as const) {
         const raw = params.get(column)
+
         if (raw !== null) {
           values.push(raw.replace(/^eq\./, ''))
           conditions.push(`${column} = $${values.length}`)
         }
       }
+
       const limit = params.get('limit') ?? '1'
-      const result = await owner.query(
-        `select id, attempt, request_digest, selector_digest, status, retry_of_run_id, result, error_code, error_message,
+
+      const result = await owner.query<{ result: T }>(
+        `select to_jsonb(r) result from (select id, attempt, request_digest, selector_digest, status, retry_of_run_id, result, error_code, error_message,
                 trigger_kind, workspace_id, started_at, finished_at
          from api.connector_runs
          ${conditions.length ? `where ${conditions.join(' and ')}` : ''}
-         order by started_at desc limit ${Number(limit)}`,
+         order by started_at desc limit ${Number(limit)}) r`,
         values,
       )
-      return result.rows as T[]
+
+      return result.rows.map((row) => row.result)
     },
     insert: async <T>(
       resource: string,
-      row: Record<string, unknown>,
+      row: Parameters<DataClient['insert']>[1],
     ): Promise<T> => {
       if (resource !== 'datasets') {
         throw new Error(`unexpected insert resource ${resource}`)
       }
-      const result = await owner.query(
+
+      const result = await owner.query<{ result: T }>(
         `insert into api.datasets(workspace_id,schema_version_id,name,description,primary_project_id)
-         values($1,$2,$3,$4,$5) returning id, name, revision`,
+         values($1,$2,$3,$4,$5) returning jsonb_build_object('id',id,'name',name,'revision',revision) result`,
         [
           row.workspace_id,
           row.schema_version_id,
@@ -178,12 +201,13 @@ function pgDataClient(owner: Client): DataClient {
           row.primary_project_id ?? null,
         ],
       )
-      return result.rows[0] as T
+
+      return result.rows[0].result
     },
     count: async () => 0,
     patch: async () => [],
     remove: async () => [],
-  } as unknown as DataClient
+  }
 }
 
 async function readFileObject(
@@ -203,6 +227,7 @@ async function readFileObject(
       [recordId, workspaceId],
     )
   ).rows
+
   return rows[0] ?? null
 }
 
@@ -213,13 +238,16 @@ async function adapterContext(input: {
   limits: Record<string, number>
 }): Promise<ConnectorAdapterContext> {
   const { state } = input
+
   const rows = (
     await state.admin.query(
       `select config from api.connectors where id=$1 and workspace_id=$2`,
       [input.connectorId, FIXTURE.workspace],
     )
   ).rows
-  const config = (rows[0]?.config ?? {}) as Record<string, unknown>
+
+  const config = z.record(z.string(), z.json()).parse(rows[0]?.config ?? {})
+
   const connector: ConnectorWire = {
     id: input.connectorId,
     workspace_id: FIXTURE.workspace,
@@ -233,6 +261,7 @@ async function adapterContext(input: {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }
+
   return {
     client: pgDataClient(state.actor),
     workspaceId: FIXTURE.workspace,
@@ -250,7 +279,9 @@ async function adapterContext(input: {
 
 function secretKey(): Buffer {
   const secret = process.env.BETTER_AUTH_SECRET
+
   if (!secret) throw new Error('BETTER_AUTH_SECRET is required')
+
   return deriveConnectorSecretKey(secret)
 }
 
@@ -272,11 +303,13 @@ async function setup(
   env: ReturnType<typeof assertPerfEnvironment>,
 ): Promise<ConnectorState> {
   const admin = await adminClient(env.migrationDatabaseUrl)
+
   const actor = await actorClient(
     env.pgrstDatabaseUrl,
     FIXTURE.user,
     FIXTURE.workspace,
   )
+
   // Project for S3 byte retention.
   const project = (
     await actor.query(
@@ -287,6 +320,7 @@ async function setup(
       [FIXTURE.workspace, `plat05-perf-${randomUUID().slice(0, 8)}`],
     )
   ).rows[0]
+
   // Import-target schema version + fields.
   const schema = (
     await actor.query(
@@ -299,6 +333,7 @@ async function setup(
       ],
     )
   ).rows[0]
+
   const version = (
     await actor.query(
       `insert into api.dataset_schema_versions(schema_id,version,lifecycle,created_by_user_id)
@@ -306,6 +341,7 @@ async function setup(
       [schema.id, FIXTURE.user],
     )
   ).rows[0]
+
   await actor.query(
     `insert into api.dataset_schema_version_fields(
        schema_version_id,field_id,key,label,logical_type,nullable,display_order
@@ -319,6 +355,7 @@ async function setup(
     `update api.dataset_schema_versions set lifecycle='active',published_at=now() where id=$1`,
     [version.id],
   )
+
   const fields = (
     await admin.query<{
       field_id: string
@@ -333,18 +370,20 @@ async function setup(
       [version.id],
     )
   ).rows
+
   const columns: ScientificColumnWire[] = fields.map((field) => ({
     id: field.field_id,
     field_name: field.key,
     label: field.label,
     display_order: field.display_order,
-    logical_type: field.logical_type as ScientificColumnWire['logical_type'],
+    logical_type: z.enum(FIELD_LOGICAL_TYPES).parse(field.logical_type),
     nullable: field.nullable,
     unit: null,
     validation: {},
     width: null,
     options: [],
   }))
+
   return {
     admin,
     actor,
@@ -368,7 +407,9 @@ async function stageDurations(
       [runId],
     )
   ).rows[0]
+
   if (!run.finished_at) return null
+
   const logs = (
     await admin.query<{ stage: string; at: number; sequence: number }>(
       `select stage, extract(epoch from at)::float8 * 1000 as at, sequence
@@ -376,8 +417,10 @@ async function stageDurations(
       [runId],
     )
   ).rows
+
   const at = (stage: string) =>
     logs.find((log) => log.stage === stage)?.at ?? null
+
   const start = (
     await admin.query<{ t: number }>(
       `select extract(epoch from started_at)::float8 * 1000 as t
@@ -385,6 +428,7 @@ async function stageDurations(
       [runId],
     )
   ).rows[0].t
+
   const end = (
     await admin.query<{ t: number }>(
       `select extract(epoch from finished_at)::float8 * 1000 as t
@@ -392,17 +436,22 @@ async function stageDurations(
       [runId],
     )
   ).rows[0].t
+
   const sourceAt = at('source')
   const parseAt = at('parse')
   const mapAt = at('map')
   const commitAt = at('commit')
   const stages: Record<string, number> = {}
+
   if (sourceAt !== null && parseAt !== null)
     stages.sourceReadMs = Math.max(0, parseAt - sourceAt)
+
   if (mapAt !== null && commitAt !== null)
     stages.mappingValidationMs = Math.max(0, commitAt - mapAt)
+
   if (commitAt !== null) stages.commitMs = Math.max(0, end - commitAt)
   stages.totalMs = Math.max(0, end - start)
+
   return { stages, totalMs: stages.totalMs }
 }
 
@@ -415,6 +464,7 @@ function startS3Server(): Promise<Server> {
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? '/', 'http://localhost')
     const path = url.pathname.replace(/\/+$/, '') || '/'
+
     const respond = (
       status: number,
       body: string,
@@ -423,23 +473,30 @@ function startS3Server(): Promise<Server> {
       response.writeHead(status, { 'content-type': type })
       response.end(body)
     }
+
     if (request.method === 'HEAD' && path === '/perf-bucket') {
       response.writeHead(200).end()
+
       return
     }
+
     if (request.method === 'GET' && path === '/perf-bucket') {
       const prefix = url.searchParams.get('prefix') ?? ''
       const maxKeys = Number(url.searchParams.get('max-keys') ?? '1000')
       const token = url.searchParams.get('continuation-token') ?? ''
+
       const keys = Object.keys(S3_OBJECTS)
         .filter((key) => key.startsWith(prefix))
         .sort()
+
       const start = token ? Number(Buffer.from(token, 'base64').toString()) : 0
       const slice = keys.slice(start, start + maxKeys)
       const truncated = start + maxKeys < keys.length
+
       const nextToken = truncated
         ? Buffer.from(String(start + maxKeys)).toString('base64')
         : ''
+
       const contents = slice
         .map(
           (key) =>
@@ -448,6 +505,7 @@ function startS3Server(): Promise<Server> {
             `<ETag>"etag-${key.replace(/[^a-z0-9]/gi, '')}"</ETag></Contents>`,
         )
         .join('')
+
       respond(
         200,
         `<?xml version="1.0" encoding="UTF-8"?><ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">` +
@@ -458,10 +516,13 @@ function startS3Server(): Promise<Server> {
           contents +
           `</ListBucketResult>`,
       )
+
       return
     }
+
     const objectKey = path.replace(/^\/perf-bucket\//, '')
     const decodedKey = decodeURIComponent(objectKey)
+
     if (request.method === 'GET' && Object.hasOwn(S3_OBJECTS, decodedKey)) {
       const object = S3_OBJECTS[decodeURIComponent(objectKey)]
       response.writeHead(200, {
@@ -469,10 +530,13 @@ function startS3Server(): Promise<Server> {
         etag: `"etag-${objectKey.replace(/[^a-z0-9]/gi, '')}"`,
       })
       response.end(object.body)
+
       return
     }
+
     respond(404, `<?xml version="1.0"?><Error><Code>NoSuchKey</Code></Error>`)
   })
+
   return new Promise((resolve) => {
     server.listen(0, '127.0.0.1', () => resolve(server))
   })
@@ -485,6 +549,7 @@ async function createSourceDatabase(rows: number): Promise<string> {
   const baseUrl = new URL(assertPerfEnvironment().databaseUrl)
   const admin = new Client({ connectionString: baseUrl.toString() })
   await admin.connect()
+
   try {
     await admin.query(`DROP DATABASE IF EXISTS ${SOURCE_DB} WITH (FORCE)`)
     await admin.query(
@@ -498,6 +563,7 @@ async function createSourceDatabase(rows: number): Promise<string> {
   } finally {
     await admin.end()
   }
+
   const sourceUrl = new URL(baseUrl.toString())
   sourceUrl.pathname = `/${SOURCE_DB}`
   const source = new Client({ connectionString: sourceUrl.toString() })
@@ -522,6 +588,7 @@ async function createSourceDatabase(rows: number): Promise<string> {
   const connectorUrl = new URL(sourceUrl.toString())
   connectorUrl.username = SOURCE_ROLE
   connectorUrl.password = 'perf-source-pass'
+
   return connectorUrl.toString()
 }
 
@@ -536,33 +603,36 @@ async function benchmarkConnector(
   context: ConnectorAdapterContext,
 ): Promise<void> {
   const label = rows >= 1000 ? `${Math.round(rows / 1000)}k` : String(rows)
-  const ingest = (request: unknown) =>
+
+  const ingest = (request: Parameters<typeof postgresAdapter.ingest>[2]) =>
     kind === 'postgres'
       ? postgresAdapter.ingest(
           context,
           postgresAdapter.parseConfig(context.connector.config),
-          request as never,
+          request,
         )
       : s3Adapter.ingest(
           context,
           s3Adapter.parseConfig(context.connector.config),
-          request as never,
+          request,
         )
-  const preview = (selector: unknown) =>
+
+  const preview = (selector: Parameters<typeof postgresAdapter.preview>[2]) =>
     kind === 'postgres'
       ? postgresAdapter.preview(
           context,
           postgresAdapter.parseConfig(context.connector.config),
-          selector as never,
+          selector,
         )
       : s3Adapter.preview(
           context,
           s3Adapter.parseConfig(context.connector.config),
-          selector as never,
+          selector,
         )
 
   // Preview (bounded source read).
   const previewSamples: number[] = []
+
   for (let i = 0; i < 3; i += 1) {
     const t0 = Date.now()
     await preview(
@@ -572,6 +642,7 @@ async function benchmarkConnector(
     )
     previewSamples.push(Date.now() - t0)
   }
+
   scenarios.push(
     recordScenario({
       scenario: `connector-${kind}-preview-${label}`,
@@ -589,6 +660,7 @@ async function benchmarkConnector(
   const samples: Array<{ total: number; stages: Record<string, number> }> = []
   const replaySamples: number[] = []
   let errors = 0
+
   for (let i = 0; i < 3; i += 1) {
     const target = {
       datasetId: null,
@@ -597,6 +669,7 @@ async function benchmarkConnector(
       schemaVersionId: state.schemaVersionId,
       fields: state.fields,
     }
+
     const request = {
       source:
         kind === 'postgres'
@@ -605,17 +678,20 @@ async function benchmarkConnector(
       projectId: state.projectId,
       target,
     }
+
     try {
       const t0 = Date.now()
       const result = await ingest(request)
       const totalMs = Date.now() - t0
       const timing = await stageDurations(state.admin, result.runId)
+
       if (!timing) throw new Error('connector run produced no timing logs')
       samples.push({ total: totalMs, stages: timing.stages })
     } catch {
       errors += 1
     }
   }
+
   // Dedupe/replay latency: the same request identity replays the prior success.
   try {
     const replayRequest = {
@@ -632,14 +708,18 @@ async function benchmarkConnector(
         fields: state.fields,
       },
     }
+
     const t0 = Date.now()
     const result = await ingest(replayRequest)
     replaySamples.push(Date.now() - t0)
+
     if (!result.alreadyCompleted) errors += 1
   } catch {
     errors += 1
   }
+
   const pick = (key: string) => samples.map((s) => s.stages[key] ?? 0)
+
   for (const [stage, values] of Object.entries({
     source_read: pick('sourceReadMs'),
     mapping_validation: pick('mappingValidationMs'),
@@ -657,6 +737,7 @@ async function benchmarkConnector(
       }),
     )
   }
+
   if (replaySamples.length > 0) {
     scenarios.push(
       recordScenario({
@@ -683,6 +764,7 @@ async function postgresContext(
     allowedSchemas: ['public'],
     import_rows: 100_000,
   }
+
   const connector = (
     await state.actor.query(
       `select * from api.register_connector($1,$2,$3,$4,$5,$6,$7)`,
@@ -697,8 +779,10 @@ async function postgresContext(
       ],
     )
   ).rows[0]
+
   await sealAndStore(state.admin, connector.id, 'username', SOURCE_ROLE)
   await sealAndStore(state.admin, connector.id, 'password', 'perf-source-pass')
+
   return adapterContext({
     state,
     connectorId: connector.id,
@@ -726,6 +810,7 @@ async function s3Context(
     forcePathStyle: true,
     import_rows: 100_000,
   }
+
   const connector = (
     await state.actor.query(
       `select * from api.register_connector($1,$2,$3,$4,$5,$6,$7)`,
@@ -740,6 +825,7 @@ async function s3Context(
       ],
     )
   ).rows[0]
+
   await sealAndStore(state.admin, connector.id, 'access_key_id', 'AKIA-TEST')
   await sealAndStore(
     state.admin,
@@ -747,6 +833,7 @@ async function s3Context(
     'secret_access_key',
     'shhh-very-secret-value',
   )
+
   return adapterContext({
     state,
     connectorId: connector.id,
@@ -764,11 +851,13 @@ async function s3Context(
 
 function csvFor(rows: number): string {
   const lines = ['sample,value,observed_on,batch']
+
   for (let i = 1; i <= rows; i += 1) {
     lines.push(
       `S-${String(i).padStart(8, '0')},${i * 1.5},2024-${String((i % 12) + 1).padStart(2, '0')}-01T00:00:00.000Z,B-${i % 20}`,
     )
   }
+
   return lines.join('\n')
 }
 
@@ -776,7 +865,10 @@ async function cleanup(
   state: ConnectorState,
   s3Server: Server | null,
 ): Promise<void> {
-  if (s3Server) await s3Server.close()
+  if (s3Server)
+    await new Promise<void>((resolve, reject) =>
+      s3Server.close((error) => (error ? reject(error) : resolve())),
+    )
   const admin = state.admin
   await admin.query(
     `delete from api.connector_run_logs where run_id in
@@ -813,6 +905,7 @@ async function cleanup(
   await admin.query(
     `alter table api.dataset_version_values disable trigger prevent_dataset_version_value_mutation`,
   )
+
   try {
     await admin.query(
       `delete from api.dataset_version_values where dataset_version_id in
@@ -842,6 +935,7 @@ async function cleanup(
       `alter table api.dataset_versions enable trigger prevent_dataset_version_mutation`,
     )
   }
+
   await admin.query(
     `delete from api.datasets where workspace_id=$1
        and name like 'PLAT-05 % import %'`,
@@ -850,12 +944,14 @@ async function cleanup(
   const baseUrl = new URL(state.env.databaseUrl)
   const superuser = new Client({ connectionString: baseUrl.toString() })
   await superuser.connect()
+
   try {
     await superuser.query(`DROP DATABASE IF EXISTS ${SOURCE_DB} WITH (FORCE)`)
     await superuser.query(`DROP ROLE IF EXISTS ${SOURCE_ROLE}`)
   } finally {
     await superuser.end()
   }
+
   await state.actor.end().catch(() => {})
   await state.admin.end().catch(() => {})
 }
@@ -866,6 +962,7 @@ export async function runConnectorBenchmarks(): Promise<ScenarioReport[]> {
   console.log('connector: setup complete')
   const scenarios: ScenarioReport[] = []
   let s3Server: Server | null = null
+
   try {
     // Deterministic source fixtures. S3 objects stay within the delimited
     // parser's 1000-row import cap (the product limit); the PostgreSQL source
@@ -879,8 +976,8 @@ export async function runConnectorBenchmarks(): Promise<ScenarioReport[]> {
       contentType: 'text/csv',
     }
     s3Server = await startS3Server()
-    const address = s3Server.address()
-    const endpoint = `http://127.0.0.1:${typeof address === 'object' && address ? address.port : 0}`
+    const address = z.object({ port: z.number() }).parse(s3Server.address())
+    const endpoint = `http://127.0.0.1:${address.port}`
     console.log(`connector: s3 server at ${endpoint}`)
 
     const pgContext = await postgresContext(state)
@@ -893,10 +990,12 @@ export async function runConnectorBenchmarks(): Promise<ScenarioReport[]> {
       await benchmarkConnector(state, scenarios, 'postgres', rows, pgContext)
       console.log(`connector: postgres ${rows} done`)
     }
+
     for (const rows of [500, 1000]) {
       await benchmarkConnector(state, scenarios, 's3', rows, s3ctx)
       console.log(`connector: s3 ${rows} done`)
     }
+
     const admin = state.admin
     const environment = await environmentSnapshot(admin)
     writeReport('connectors', scenarios, environment, {
@@ -904,6 +1003,7 @@ export async function runConnectorBenchmarks(): Promise<ScenarioReport[]> {
         'postgres: sheetbase_perf_source.measurements / s3: in-process backend',
       fixtures: '10k and 50k deterministic rows',
     })
+
     return scenarios
   } finally {
     await cleanup(state, s3Server).catch(() => {})
@@ -911,8 +1011,8 @@ export async function runConnectorBenchmarks(): Promise<ScenarioReport[]> {
 }
 
 if (process.argv[1]?.endsWith('perf/connectors.ts')) {
-  void runConnectorBenchmarks().catch((error: unknown) => {
-    console.error(error)
+  void runConnectorBenchmarks().catch((cause: unknown) => {
+    console.error(cause)
     process.exitCode = 1
   })
 }

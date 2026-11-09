@@ -35,10 +35,13 @@ function dockerWriting(files: Record<string, string>) {
   return vi.fn(async (args: string[]) => {
     if (args[0] === 'cp') {
       const destination = args.at(-1)!
+
       for (const [name, contents] of Object.entries(files))
         await writeFile(join(destination, name), contents)
+
       return { code: 0, stdout: '', stderr: '' }
     }
+
     return { code: 0, stdout: '', stderr: '' }
   })
 }
@@ -50,6 +53,7 @@ describe('collectOutputFiles', () => {
       'container-1',
       'run-1',
     )
+
     expect(files).toEqual([
       { name: 'a.txt', size: 3, path: expect.stringContaining('a.txt') },
       { name: 'b.csv', size: 9, path: expect.stringContaining('b.csv') },
@@ -61,8 +65,10 @@ describe('collectOutputFiles', () => {
       // `docker cp` on a container with no output directory fails; that is not an error.
       if (args[0] === 'cp')
         return { code: 1, stdout: '', stderr: 'no such file' }
+
       return { code: 0, stdout: '', stderr: '' }
     })
+
     expect(await collectOutputFiles(command, 'container-1', 'run-1')).toEqual(
       [],
     )
@@ -70,6 +76,7 @@ describe('collectOutputFiles', () => {
 
   it('refuses more files than the limit rather than truncating', async () => {
     const many: Record<string, string> = {}
+
     for (let index = 0; index <= LIMITS.files; index += 1)
       many[`f${index}.txt`] = 'x'
     await expect(
@@ -118,6 +125,7 @@ describe('PIPE-04.2 artefact lifecycle', () => {
       0,
       Date.now() + 365 * 24 * 60 * 60 * 1000,
     )
+
     expect(result.kept).toBeGreaterThanOrEqual(1)
     await expect(
       stat(join(root, 'run-kept')).then(

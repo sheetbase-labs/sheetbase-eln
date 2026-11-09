@@ -4,6 +4,7 @@ import test from 'node:test'
 import { runDockerJob } from './pipeline-python-runner.mjs'
 
 const image = process.env.PIPELINE_PYTHON_TEST_IMAGE
+
 const job = (statement, inputs = {}, parameters = {}) => ({
   statement,
   inputs,
@@ -11,7 +12,7 @@ const job = (statement, inputs = {}, parameters = {}) => ({
   runtime: image,
 })
 
-test(
+await test(
   'real Python uses pinned scientific libraries and preserves decimal/date strings',
   { skip: !image },
   async () => {
@@ -34,6 +35,7 @@ def transform(inputs, parameters):
       ),
       image,
     )
+
     assert.deepEqual(result.rows, [
       {
         mean: 4,
@@ -47,7 +49,7 @@ def transform(inputs, parameters):
   },
 )
 
-test(
+await test(
   'real container has no network, root writes, credentials or Docker socket',
   { skip: !image },
   async () => {
@@ -71,6 +73,7 @@ def transform(inputs, parameters):
     return [{'uid': os.getuid(), 'root_readonly': root_readonly, 'network_blocked': network_blocked, 'socket_present': os.path.exists('/var/run/docker.sock'), 'secret_present': 'PIPELINE_PYTHON_RUNNER_TOKEN' in os.environ}]`),
       image,
     )
+
     assert.deepEqual(result.rows, [
       {
         uid: 65532,
@@ -83,7 +86,7 @@ def transform(inputs, parameters):
   },
 )
 
-test(
+await test(
   'real worker rejects non-finite scientific output instead of replacing it',
   { skip: !image },
   async () => {
@@ -99,7 +102,7 @@ test(
   },
 )
 
-test(
+await test(
   'real worker bounds logs and rejects incompatible pinned runtime',
   { skip: !image },
   async () => {
@@ -125,7 +128,7 @@ test(
   },
 )
 
-test(
+await test(
   'real execution timeout removes a still-running Python container',
   { skip: !image, timeout: 75_000 },
   async () => {

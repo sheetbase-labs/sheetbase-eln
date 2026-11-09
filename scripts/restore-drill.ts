@@ -15,6 +15,7 @@ import {
 import { atomicWrite, extractObjects, run, verifyBackupSet } from './backup-io'
 
 process.umask(0o077)
+
 const argv = process.argv.slice(2).filter((arg) => arg !== '--')
 let manifestPath: string | undefined
 let local = false
@@ -31,6 +32,7 @@ async function main(): Promise<void> {
     else if (argv[i] === '--self-test') selfTest = true
     else throw new Error('unknown restore-drill argument')
   }
+
   if (!manifestPath) throw new Error('--manifest is required')
   const set = await verifyBackupSet(resolve(manifestPath))
   const work = await mkdtemp(join(tmpdir(), 'sheetbase-restore-'))
@@ -38,6 +40,7 @@ async function main(): Promise<void> {
   const data = join(work, 'pgdata')
   const password = randomBytes(24).toString('hex')
   let started = false
+
   try {
     if (selfTest) {
       const { readFile } = await import('node:fs/promises')
@@ -45,11 +48,13 @@ async function main(): Promise<void> {
       const corrupt = join(work, 'corrupt.sql.gz')
       await writeFile(corrupt, bytes.subarray(0, Math.floor(bytes.length / 2)))
       let rejected = false
+
       try {
         await run('gzip', ['-t', corrupt])
       } catch {
         rejected = true
       }
+
       if (!rejected) throw new Error('self-test accepted truncated dump')
       process.stdout.write(
         JSON.stringify({
@@ -57,11 +62,13 @@ async function main(): Promise<void> {
         }) + '\n',
       )
     }
+
     await run('gzip', ['-t', set.dump])
     // Validate and hash object bytes before starting PostgreSQL.
     const entries = await extractObjects(set.objects!, join(work, 'objects'))
     let host = work
     let port = 5432
+
     if (local) {
       await run('initdb', [
         '-D',
@@ -97,14 +104,17 @@ async function main(): Promise<void> {
         process.env.SHEETBASE_DRILL_IMAGE ?? 'postgres:18-alpine',
       ])
       started = true
+
       const mapping = execFileSync('docker', ['port', container, '5432/tcp'], {
         encoding: 'utf8',
       })
         .trim()
         .split('\n')[0]
+
       host = '127.0.0.1'
       port = Number(mapping.split(':').at(-1))
     }
+
     const connection = {
       host,
       port,
@@ -112,9 +122,12 @@ async function main(): Promise<void> {
       password,
       database: 'postgres',
     }
+
     const deadline = Date.now() + 60_000
+
     for (;;) {
       const probe = new Client(connection)
+
       try {
         await probe.connect()
         break
@@ -126,6 +139,7 @@ async function main(): Promise<void> {
         await probe.end().catch(() => undefined)
       }
     }
+
     const pgEnv = {
       ...process.env,
       PGHOST: host,
@@ -134,6 +148,7 @@ async function main(): Promise<void> {
       PGPASSWORD: password,
       PGDATABASE: 'postgres',
     }
+
     const bootstrapEnv = {
       POSTGRES_USER: 'postgres',
       POSTGRES_DB: 'postgres',
@@ -142,6 +157,7 @@ async function main(): Promise<void> {
       FORMULA_WRITER_PASSWORD: password,
       PIPELINE_SANDBOX_PASSWORD: password,
     }
+
     // Bootstrap in postgres, not the restore DB: the init script creates api,
     // and that schema must not already exist when the full dump is replayed.
     await run(
@@ -165,12 +181,15 @@ async function main(): Promise<void> {
     )
     const admin = new Client(connection)
     await admin.connect()
+
     try {
       const role = set.manifest.database.bootstrapRole
+
       const exists = await admin.query(
         'SELECT 1 FROM pg_roles WHERE rolname=$1',
         [role],
       )
+
       // Preserve ownership identities, never copy superuser/password attributes from the source cluster.
       if (!exists.rowCount)
         await admin.query(
@@ -180,6 +199,7 @@ async function main(): Promise<void> {
     } finally {
       await admin.end()
     }
+
     const input = createReadStream(set.dump).pipe(createGunzip())
     await run(
       local ? 'psql' : 'docker',
@@ -201,16 +221,20 @@ async function main(): Promise<void> {
       { input, env: pgEnv },
     )
     const client = new Client({ ...connection, database: 'sheetbase_restore' })
+
     const request = new Client({
       ...connection,
       database: 'sheetbase_restore',
       user: 'authenticator',
     })
+
     await client.connect()
+
     try {
       await request.connect()
       const database = await verifyRestoredDatabaseWithClient(client)
       const access = await verifyRestoredAccess(client, request)
+
       const files = await client.query<{
         storage_key: string
         byte_size: string
@@ -219,6 +243,7 @@ async function main(): Promise<void> {
       }>(`
         SELECT storage_key, byte_size, checksum, status FROM api.file_objects
         UNION ALL SELECT storage_key, byte_size, checksum, 'active' FROM internal.revision_file_objects`)
+
       const objects = verifyObjectArchive(entries, files.rows)
       const ok = database.ok && objects.ok && access.ok
       process.stdout.write(
@@ -226,9 +251,11 @@ async function main(): Promise<void> {
           message: ok ? 'restore drill passed' : 'restore drill FAILED',
           prefix: set.manifest.prefix,
           verification: { database, objects, access },
-          ...(keep ? { work, container: local ? undefined : container } : {}),
+          work: keep ? work : undefined,
+          container: keep && !local ? container : undefined,
         }) + '\n',
       )
+
       if (!ok) throw new Error('restored state failed verification')
     } finally {
       await request.end()
@@ -249,6 +276,7 @@ async function main(): Promise<void> {
 }
 
 let success = false
+
 try {
   await main()
   success = true
@@ -263,6 +291,7 @@ try {
     (manifestPath
       ? join(dirname(resolve(manifestPath)), 'restore-drill.json')
       : undefined)
+
   if (reportPath) {
     try {
       await atomicWrite(
@@ -274,7 +303,9 @@ try {
       process.exitCode = 1
     }
   }
+
   const metrics = process.env.SHEETBASE_METRICS_TEXTFILE_DIR
+
   if (metrics) {
     try {
       await atomicWrite(

@@ -17,6 +17,7 @@ describe('migrationObjects', () => {
       UPDATE settings SET v = 1;
       GRANT SELECT ON TABLE robot_runs TO authenticated;
     `)
+
     for (const name of [
       'robot_runs',
       'samples',
@@ -28,6 +29,7 @@ describe('migrationObjects', () => {
     ]) {
       expect(objects.has(name)).toBe(true)
     }
+
     expect(objects.has('ignored_comment')).toBe(false)
   })
 

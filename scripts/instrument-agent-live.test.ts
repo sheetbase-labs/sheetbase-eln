@@ -120,12 +120,18 @@ describe('createLiveSender', () => {
   const reading = { feed: 'T', value: 1 }
 
   function sender(responses: Array<Response | Error>) {
-    const fetchImpl = vi.fn(async () => {
-      const next = responses.shift()!
-      if (next instanceof Error) throw next
-      return next
-    })
+    const fetchImpl = vi.fn(
+      async (_input: string | URL | Request, _init?: RequestInit) => {
+        const next = responses.shift()!
+
+        if (next instanceof Error) throw next
+
+        return next
+      },
+    )
+
     const log = vi.fn()
+
     return {
       fetchImpl,
       log,
@@ -141,15 +147,13 @@ describe('createLiveSender', () => {
     const { live, fetchImpl } = sender([
       Response.json({ stored: 2, feeds: 1 }, { status: 201 }),
     ])
+
     live.push([reading, reading])
     expect(await live.flush()).toBe('sent')
     expect(live.pending).toBe(0)
-    const [url, init] = fetchImpl.mock.calls[0] as unknown as [
-      string,
-      RequestInit,
-    ]
+    const [url, init] = fetchImpl.mock.calls[0]
     expect(url).toBe('http://eln.test/api/connectors/stream')
-    expect(JSON.parse(init.body as string)).toEqual({
+    expect(await new Response(init?.body).json()).toEqual({
       instrumentId: 'inst-1',
       readings: [reading, reading],
     })
@@ -164,6 +168,7 @@ describe('createLiveSender', () => {
         { status: 422 },
       ),
     ])
+
     live.push([reading])
     expect(await live.flush()).toBe('retry')
     expect(await live.flush()).toBe('retry')
@@ -179,6 +184,7 @@ describe('createLiveSender', () => {
         { status: 403 },
       ),
     ])
+
     live.push([reading])
     await expect(live.flush()).rejects.toMatchObject({ permanent: true })
   })
@@ -204,6 +210,7 @@ describe('parseArgs for live sources', () => {
       { SHEETBASE_URL: 'http://eln.test', SHEETBASE_CREDENTIAL: 'sbk_x' },
       { instrumentId: 'inst-1' },
     )
+
     expect(options.live).toEqual([
       { kind: 'file', path: 'D:\\Logs\\temp.csv', feed: 'Chamber', unit: '°C' },
     ])
@@ -229,6 +236,7 @@ describe('parseArgs for live sources', () => {
         ],
       },
     )
+
     expect(options.live[0]).toMatchObject({ host: '10.0.0.5', port: 4001 })
     expect(() =>
       parseArgs(

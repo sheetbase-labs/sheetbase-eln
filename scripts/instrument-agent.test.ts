@@ -30,6 +30,7 @@ beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'agent-'))
   clock = 1_000_000
 })
+
 afterEach(async () => {
   await rm(dir, { recursive: true, force: true })
 })
@@ -54,6 +55,7 @@ function options(overrides: Partial<AgentOptions> = {}): AgentOptions {
 
 function jwt(exp: number) {
   const payload = Buffer.from(JSON.stringify({ exp })).toString('base64url')
+
   return `h.${payload}.s`
 }
 
@@ -61,27 +63,33 @@ type Handler = (url: string, init: RequestInit) => Response | Promise<Response>
 
 function makeFetch(pickup: Handler) {
   const calls: Array<{ url: string; init: RequestInit }> = []
+
   const impl = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
-      const url = String(input)
+      const url = input instanceof Request ? input.url : input.toString()
       calls.push({ url, init: init ?? {} })
+
       if (url.endsWith('/api/token')) {
         return Response.json({ token: jwt(clock / 1000 + 900) })
       }
+
       return pickup(url, init ?? {})
     },
-  ) as unknown as typeof fetch
+  )
+
   return { impl, calls }
 }
 
 function agentWith(pickup: Handler, overrides: Partial<AgentOptions> = {}) {
   const { impl, calls } = makeFetch(pickup)
   const logs: string[] = []
+
   const agent = createAgent(options(overrides), {
     fetch: impl,
     log: (line) => logs.push(line),
     now: () => clock,
   })
+
   return { agent, calls, logs }
 }
 
@@ -105,9 +113,9 @@ describe('instrument agent', () => {
     const pickup = calls.find((c) => c.url.includes('/pickup'))!
     expect(pickup.url).toContain('connector=qpcr-bench')
     expect(pickup.url).toContain('fileName=run1.csv')
-    const headers = pickup.init.headers as Record<string, string>
-    expect(headers.authorization).toMatch(/^Bearer h\./)
-    expect(headers['content-type']).toBe('text/csv')
+    const headers = new Headers(pickup.init.headers)
+    expect(headers.get('authorization')).toMatch(/^Bearer h\./)
+    expect(headers.get('content-type')).toBe('text/csv')
     expect(await readdir(dir)).toEqual(['processed'])
     expect(
       await readFile(join(dir, 'processed', 'run1.csv'), 'utf8'),
@@ -150,17 +158,21 @@ describe('instrument agent', () => {
     expect(new Headers(sent[0].init.headers).get('content-type')).toBe(
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
-    expect(Buffer.from(sent[0].init.body as Uint8Array)).toEqual(bytes)
+    expect(
+      Buffer.from(await new Response(sent[0].init.body).arrayBuffer()),
+    ).toEqual(bytes)
   })
 
   it('moves permanently refused files to failed/ with the reason', async () => {
     await writeFile(join(dir, 'bad.csv'), 'a,b\n1,2\n')
+
     const { agent, logs } = agentWith(() =>
       Response.json(
         { error: { code: 'parse_failed', message: 'No data rows' } },
         { status: 422 },
       ),
     )
+
     await agent.scan()
     clock += 5000
     expect(await agent.scan()).toMatchObject({ failed: 1 })
@@ -177,11 +189,13 @@ describe('instrument agent', () => {
   it('keeps files in place and backs off on server errors', async () => {
     await writeFile(join(dir, 'later.csv'), 'a,b\n1,2\n')
     let status = 503
+
     const { agent, calls } = agentWith(() =>
       status === 503
         ? Response.json({ error: { code: 'x', message: 'down' } }, { status })
         : ok(),
     )
+
     await agent.scan()
     clock += 5000
     expect(await agent.scan()).toMatchObject({ retry: 1 })
@@ -200,12 +214,14 @@ describe('instrument agent', () => {
 
   it('retries conflicts such as a stale Dataset revision', async () => {
     await writeFile(join(dir, 'c.csv'), 'a\n1\n')
+
     const { agent } = agentWith(() =>
       Response.json(
         { error: { code: 'stale', message: 'stale' } },
         { status: 409 },
       ),
     )
+
     await agent.scan()
     clock += 5000
     expect(await agent.scan()).toMatchObject({ retry: 1 })
@@ -215,13 +231,17 @@ describe('instrument agent', () => {
   it('re-exchanges the credential once when the token is rejected', async () => {
     await writeFile(join(dir, 'd.csv'), 'a\n1\n')
     let first = true
+
     const { agent, calls } = agentWith(() => {
       if (first) {
         first = false
+
         return Response.json({ error: { code: 'revoked' } }, { status: 401 })
       }
+
       return ok()
     })
+
     await agent.scan()
     clock += 5000
     expect(await agent.scan()).toMatchObject({ sent: 1 })
@@ -240,16 +260,16 @@ describe('instrument agent', () => {
 
   it('stops with a permanent error when the credential is refused', async () => {
     await writeFile(join(dir, 'f.csv'), 'a\n1\n')
-    const fetchImpl = (async () =>
-      Response.json(
-        { error: { message: 'bad' } },
-        { status: 403 },
-      )) as unknown as typeof fetch
+
+    const fetchImpl = async () =>
+      Response.json({ error: { message: 'bad' } }, { status: 403 })
+
     const agent = createAgent(options(), {
       fetch: fetchImpl,
       log: () => {},
       now: () => clock,
     })
+
     await agent.scan()
     clock += 5000
     await expect(agent.scan()).rejects.toMatchObject({ permanent: true })
@@ -257,6 +277,7 @@ describe('instrument agent', () => {
 
   it('does not overwrite an earlier processed file of the same name', async () => {
     const { agent } = agentWith(ok)
+
     for (let i = 0; i < 2; i += 1) {
       await writeFile(join(dir, 'same.csv'), `a\n${i}\n`)
       await agent.scan()
@@ -264,6 +285,7 @@ describe('instrument agent', () => {
       await agent.scan()
       clock += 5000
     }
+
     expect(await readdir(join(dir, 'processed'))).toHaveLength(2)
   })
 })
@@ -282,6 +304,7 @@ describe('instrument agent helpers', () => {
       ],
       { SHEETBASE_URL: 'https://eln.test/', SHEETBASE_CREDENTIAL: 'k' },
     )
+
     expect(parsed).toMatchObject({
       url: 'https://eln.test',
       extensions: ['csv', 'tsv'],

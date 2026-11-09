@@ -1,5 +1,6 @@
 export declare const CONVENTIONAL_TYPES: string[]
 export declare const CONVENTIONAL_SUBJECT: RegExp
+
 export declare function isAttributionLine(line: string): boolean
 export declare function stripAttribution(message: string): string
 export declare function checkSubject(subject: string, what?: string): string[]

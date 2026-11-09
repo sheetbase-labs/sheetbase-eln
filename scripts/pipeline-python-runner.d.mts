@@ -2,6 +2,32 @@
  * The Python runner is a standalone plain-JavaScript service (it runs as its own process, not
  * as part of the app bundle), so its shape is declared here for the tests that import it.
  */
+import type { Server } from 'node:http'
+import type { z } from 'zod'
+
+export interface RunnerJob {
+  statement: string
+  inputs: Record<
+    string,
+    Array<Record<string, z.infer<ReturnType<typeof z.json>>>>
+  >
+  parameters: Record<string, z.infer<ReturnType<typeof z.json>>>
+  limits?: {
+    timeoutSeconds: number
+    memoryMb: number
+    cpus: number
+    processes: number
+    scratchMb: number
+    bytes: number
+    rows: number
+  }
+  requirements?: string[]
+  environment?: string
+  network?: string[]
+  contract?: Record<string, z.infer<ReturnType<typeof z.json>>>
+  artefactKey?: string
+}
+
 export declare const LIMITS: {
   bytes: number
   rows: number
@@ -12,6 +38,7 @@ export declare const LIMITS: {
   files: number
   fileBytes: number
 }
+
 export declare const OUTPUT_DIR: string
 export declare const ARTEFACT_KEY: RegExp
 
@@ -80,14 +107,16 @@ export interface JobLimits {
   processes: number
   scratchMb: number
 }
+
 export interface EgressConfig {
   network: string
   host: string
   port: number
   allowPrivate?: boolean
 }
+
 export interface EgressProxy {
-  server: import('node:http').Server
+  server: Server
   register: (hosts: string[]) => { token: string; release: () => void }
   readonly activeGrants: number
 }
@@ -95,7 +124,10 @@ export interface EgressProxy {
 export declare const PLUGIN_REQUIREMENT: RegExp
 export declare const PLUGIN_HOST: RegExp
 export declare const ENVIRONMENT_ID: RegExp
-export declare function limitsOf(job: unknown): JobLimits
+
+export declare function limitsOf(
+  job: Pick<RunnerJob, 'limits'> | RunnerJob,
+): JobLimits
 export declare function containerArguments(
   image: string,
   name: string,
@@ -108,7 +140,9 @@ export declare function environmentId(
   baseImage: string,
   requirements: string[],
 ): string
-export declare function validateRequirements(requirements: unknown): void
+export declare function validateRequirements(
+  requirements: unknown,
+): asserts requirements is string[]
 export declare function environmentDockerfile(options?: {
   pipIndexUrl?: string
 }): string
@@ -123,12 +157,14 @@ export declare function environmentImage(
   id: string,
   command?: DockerCommand,
 ): Promise<{ id: string; reported: string } | undefined>
+
 export interface EnvironmentStatus {
   id: string
   state: 'ready' | 'building' | 'failed' | 'missing'
   error?: string
   packages?: Record<string, string>
 }
+
 export declare function createEnvironments(options: {
   image: string
   command?: DockerCommand
@@ -136,15 +172,18 @@ export declare function createEnvironments(options: {
 }): {
   id: (requirements: string[]) => string
   status: (id: string) => Promise<EnvironmentStatus>
-  ensure: (requirements: unknown) => Promise<EnvironmentStatus>
+  ensure: (requirements: string[]) => Promise<EnvironmentStatus>
   idle: () => Promise<void>
 }
 export declare function egressFromEnvironment(
   env?: Record<string, string | undefined>,
 ): EgressConfig | undefined
 
-export declare function validateJob(job: unknown): void
-export declare function failureDetails(result: unknown): {
+export declare function validateJob(job: unknown): asserts job is RunnerJob
+export declare function failureDetails(result: {
+  logs?: z.infer<ReturnType<typeof z.json>>
+  line?: z.infer<ReturnType<typeof z.json>>
+}): {
   logs?: string[]
   line?: number
 }
@@ -153,12 +192,12 @@ export declare function inspectRuntime(
   command?: DockerCommand,
 ): Promise<RunnerEnvironment | undefined>
 export declare function runDockerJob(
-  job: Record<string, unknown>,
+  job: RunnerJob,
   image: string,
   command?: DockerCommand,
   context?: { egress?: EgressConfig; proxy?: EgressProxy },
 ): Promise<{
-  rows: Record<string, unknown>[]
+  rows: Record<string, z.infer<ReturnType<typeof z.json>>>[]
   logs: string[]
   runtime: string
   files: Array<{ name: string; size: number }>
@@ -168,10 +207,10 @@ export declare function createRunnerServer(options: {
   token: string
   image: string
   execute?: (
-    job: Record<string, unknown>,
+    job: RunnerJob,
     image: string,
   ) => Promise<{
-    rows: Record<string, unknown>[]
+    rows: Record<string, z.infer<ReturnType<typeof z.json>>>[]
     logs: string[]
     environment?: RunnerEnvironment
   }>
@@ -182,4 +221,4 @@ export declare function createRunnerServer(options: {
   proxy?: EgressProxy
   environments?: ReturnType<typeof createEnvironments>
   checkRuntime?: () => Promise<void>
-}): import('node:http').Server
+}): Server

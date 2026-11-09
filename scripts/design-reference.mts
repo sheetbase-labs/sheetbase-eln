@@ -18,16 +18,17 @@
  * Uses the lockfile-pinned Playwright Chromium, exactly as the parity project.
  */
 import { createServer } from 'node:http'
-import type { AddressInfo } from 'node:net'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import { extname, join, normalize, resolve, sep } from 'node:path'
 import { chromium } from 'playwright'
+import { z } from 'zod'
 
 const DESIGN = resolve('docs/knowledge/design/ui-system-v3')
 const CANVAS = join(DESIGN, 'canvas')
 const OUT = resolve('tests/visual/design-reference')
 const THEMES = ['light', 'dark'] as const
+
 /** Boards rendered at once; the render is latency-bound. */
 const RENDER_CONCURRENCY = 4
 
@@ -37,29 +38,29 @@ const FONTS = [
   { family: 'JetBrains Mono', pkg: 'jetbrains-mono' },
 ]
 
-const TYPES: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json',
-  '.woff2': 'font/woff2',
-}
-
-interface Board {
-  w: number
-  h: number
-}
+const TYPES = new Map([
+  ['.html', 'text/html; charset=utf-8'],
+  ['.js', 'text/javascript; charset=utf-8'],
+  ['.css', 'text/css; charset=utf-8'],
+  ['.json', 'application/json'],
+  ['.woff2', 'font/woff2'],
+])
 
 /** Maps a request path onto the vendored snapshot, or null if outside it. */
 function resolveAsset(pathname: string): string | null {
   const path = decodeURIComponent(pathname)
+
   if (path === '/support.js') return join(DESIGN, 'runtime', 'dc-runtime.js')
+
   if (path.startsWith('/ds/sheetbase/components/')) {
     return join(DESIGN, 'design-system', 'components', path.slice(25))
   }
+
   if (path.startsWith('/fonts/')) {
     const [, , pkg, ...rest] = path.split('/')
+
     if (!FONTS.some((font) => font.pkg === pkg)) return null
+
     return join(
       resolve('node_modules/@fontsource-variable'),
       pkg,
@@ -67,7 +68,9 @@ function resolveAsset(pathname: string): string | null {
       rest.join('/'),
     )
   }
+
   const file = normalize(join(CANVAS, path))
+
   return file.startsWith(CANVAS + sep) ? file : null
 }
 
@@ -88,44 +91,60 @@ async function fontCss(base: string): Promise<string> {
         resolve('node_modules/@fontsource-variable', pkg, 'index.css'),
         'utf8',
       )
+
       return css
         .replace(/font-family: '[^']+';/g, `font-family: '${family}';`)
         .replace(/url\(\.\/files\//g, `url(${base}/fonts/${pkg}/`)
     }),
   )
+
   return parts.join('\n')
 }
 
 async function main() {
-  const canvas = JSON.parse(
-    await readFile(join(CANVAS, 'canvas.json'), 'utf8'),
-  ) as { boards: Record<string, Board> }
+  const canvas = z
+    .object({
+      boards: z.record(
+        z.string(),
+        z.object({ w: z.number().positive(), h: z.number().positive() }),
+      ),
+    })
+    .parse(JSON.parse(await readFile(join(CANVAS, 'canvas.json'), 'utf8')))
+
   const wanted = new Set(
     process.argv.slice(2).filter((arg) => !arg.startsWith('--')),
   )
+
   const boards = Object.entries(canvas.boards)
     .map(([file, board]) => ({ name: file.replace(/\.dc\.html$/, ''), board }))
     .filter(({ name }) => wanted.size === 0 || wanted.has(name))
+
   if (boards.length === 0) throw new Error('No matching design screens')
 
   const server = createServer((req, res) => {
     const file = resolveAsset(new URL(req.url ?? '/', 'http://x').pathname)
+
     if (!file) {
       res.writeHead(404).end()
+
       return
     }
+
     readFile(file).then(
       (body) => {
         res.writeHead(200, {
-          'content-type': TYPES[extname(file)] ?? 'application/octet-stream',
+          'content-type':
+            TYPES.get(extname(file)) ?? 'application/octet-stream',
         })
         res.end(body)
       },
       () => res.writeHead(404).end(),
     )
   })
+
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done))
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+  const address = z.object({ port: z.number() }).parse(server.address())
+  const base = `http://127.0.0.1:${address.port}`
   const fonts = await fontCss(base)
 
   await mkdir(OUT, { recursive: true })
@@ -134,27 +153,34 @@ async function main() {
   // snapshot changes, so `--if-stale` (used by the parity command) reuses the
   // references while they match the canvases, the runtime and this script.
   const hash = createHash('sha256')
+
   for (const dir of [
     CANVAS,
     join(DESIGN, 'design-system'),
     join(DESIGN, 'runtime'),
   ]) {
     const names = (await readdir(dir, { recursive: true })).sort()
+
     for (const name of names) {
       const path = join(dir, name)
       const info = await stat(path).catch(() => undefined)
+
       if (!info?.isFile()) continue
       hash.update(`${path}:${info.size}`)
     }
   }
+
   hash.update(await readFile(new URL(import.meta.url)))
   const renderHash = hash.digest('hex')
   const marker = join(OUT, '.render-hash')
+
   if (process.argv.includes('--if-stale')) {
     const current = await readFile(marker, 'utf8').catch(() => '')
+
     const expected = boards.flatMap(({ name }) =>
       THEMES.map((theme) => join(OUT, `${name}-${theme}.png`)),
     )
+
     const present = (
       await Promise.all(
         expected.map((path) =>
@@ -165,15 +191,18 @@ async function main() {
         ),
       )
     ).every(Boolean)
+
     if (current.trim() === renderHash && present) {
       console.log(`References are current (${expected.length} images)`)
       server.close()
+
       return
     }
   }
 
   const browser = await chromium.launch()
   let failures = 0
+
   try {
     for (const theme of THEMES) {
       const context = await browser.newContext({
@@ -183,6 +212,7 @@ async function main() {
         locale: 'en-GB',
         timezoneId: 'Europe/London',
       })
+
       await context.addInitScript((value) => {
         // The application reads `sheetbase-theme` (src/components/lib/theme.ts,
         // `THEME_STORAGE_KEY`); the vendored design snapshot's component runtime
@@ -197,19 +227,23 @@ async function main() {
       await context.route('https://fonts.gstatic.com/**', (route) =>
         route.abort(),
       )
+
       // Boards are independent, so each page renders a share of them; the
       // render is latency-bound (navigate, fonts, screenshot), not CPU-bound.
       const pages = await Promise.all(
         Array.from({ length: RENDER_CONCURRENCY }, () => context.newPage()),
       )
+
       let nextBoard = 0
       await Promise.all(
         pages.map(async (page) => {
           const errors: string[] = []
           page.on('pageerror', (error) => errors.push(error.message))
+
           for (;;) {
             const index = nextBoard++
-            const entry = boards[index]
+            const entry = boards.at(index)
+
             if (!entry) return
             const { name, board } = entry
             errors.length = 0
@@ -218,20 +252,25 @@ async function main() {
               waitUntil: 'networkidle',
             })
             await page.evaluate(() => document.fonts.ready)
+
             const fontFaults = await page.evaluate(() => {
               const faults: string[] = []
+
               for (const face of document.fonts) {
                 if (face.status === 'error') {
                   faults.push(`${face.family} ${face.weight} failed`)
                 }
               }
+
               // Every screen renders Latin text, so the synthesised `Inter` face
               // must be usable; a `false` here means the screens fell back.
               if (!document.fonts.check("16px 'Inter'")) {
                 faults.push('Inter is not loaded')
               }
+
               return faults
             })
+
             errors.push(...fontFaults)
             await page.waitForTimeout(250)
             await page.screenshot({
@@ -239,6 +278,7 @@ async function main() {
               clip: { x: 0, y: 0, width: board.w, height: board.h },
               animations: 'disabled',
             })
+
             if (name === 'States') {
               // COMP-05 compares the installed filter package with this design
               // border box, using the same 360 × 126 crop as COMP-04's fixture.
@@ -249,6 +289,7 @@ async function main() {
                 animations: 'disabled',
               })
             }
+
             if (errors.length > 0) {
               failures += 1
               console.error(`${name} (${theme}): ${errors.join('; ')}`)
@@ -262,10 +303,12 @@ async function main() {
     await browser.close()
     server.close()
   }
+
   if (failures === 0) await writeFile(marker, renderHash)
   console.log(
     `Rendered ${boards.length} screens × ${THEMES.length} themes to ${OUT}`,
   )
+
   if (failures > 0) process.exitCode = 1
 }
 

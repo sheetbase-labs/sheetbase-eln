@@ -4,7 +4,9 @@ import { EVENT_CATALOGUE, EVENT_NAMES } from '#/lib/event-catalogue'
 import { buildExternalApiOpenApi } from '#/lib/public-api-openapi'
 
 const spec = buildExternalApiOpenApi()
+
 mkdirSync('docs/api/openapi', { recursive: true })
+
 writeFileSync(
   'docs/api/openapi/external-api-v0.json',
   `${JSON.stringify(spec, null, 2)}\n`,
@@ -14,16 +16,19 @@ writeFileSync(
 // order and the wire aliases that still arrive. Generated, never committed,
 // so a feature that adds an event edits no SDK file.
 const aliases: Record<string, string> = {}
+
 for (const entry of EVENT_CATALOGUE) {
   if (entry.wireName !== null && entry.wireName !== entry.name)
     aliases[entry.wireName] = entry.name
 }
+
 writeFileSync(
   'docs/api/openapi/events.json',
   `${JSON.stringify({ names: EVENT_NAMES, aliases }, null, 2)}\n`,
 )
 
 const quote = (value: string) => `'${value}'`
+
 writeFileSync(
   'sdks/typescript/src/resources/event-names.gen.ts',
   [

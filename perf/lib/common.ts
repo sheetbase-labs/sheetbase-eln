@@ -12,6 +12,7 @@ import { execSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { cpus, platform, release, totalmem } from 'node:os'
 import { join } from 'node:path'
+import { z } from 'zod'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -34,20 +35,26 @@ function assertLoopbackUrl(
 ): string | undefined {
   if (!value) {
     if (required) throw new Error(`${name} is required for the perf harness`)
+
     return undefined
   }
+
   let url: URL
+
   try {
     url = new URL(value)
   } catch {
     throw new Error(`${name} must be a valid loopback PostgreSQL URL`)
   }
+
   if (url.protocol !== 'postgres:' && url.protocol !== 'postgresql:') {
     throw new Error(`${name} must be a valid loopback PostgreSQL URL`)
   }
+
   if (!LOOPBACK_HOSTS.has(url.hostname)) {
     throw new Error(`${name} must use a loopback host for the perf harness`)
   }
+
   return value
 }
 
@@ -60,11 +67,13 @@ export function assertPerfEnvironment(
       'SHEETBASE_ENV must be development for the local perf harness',
     )
   }
+
   if (environment.PERF_CONFIRM !== PERF_CONFIRMATION) {
     throw new Error(
       `Set PERF_CONFIRM=${PERF_CONFIRMATION} to confirm the destructive local perf harness`,
     )
   }
+
   return {
     databaseUrl: assertLoopbackUrl('DATABASE_URL', environment.DATABASE_URL)!,
     migrationDatabaseUrl: assertLoopbackUrl(
@@ -89,6 +98,7 @@ export function assertPerfEnvironment(
 export async function adminClient(databaseUrl: string): Promise<Client> {
   const client = new Client({ connectionString: databaseUrl })
   await client.connect()
+
   return client
 }
 
@@ -104,6 +114,7 @@ export async function actorClient(
   await client.query(`select set_config('request.jwt.claims',$1,false)`, [
     JSON.stringify({ sub: userId, workspace_id: workspaceId }),
   ])
+
   return client
 }
 
@@ -113,10 +124,12 @@ export function elapsed(startedAt: bigint): number {
 
 export function pct(sortedMs: number[], q: number): number {
   if (sortedMs.length === 0) return 0
+
   const index = Math.min(
     sortedMs.length - 1,
     Math.max(0, Math.ceil((q / 100) * sortedMs.length) - 1),
   )
+
   return sortedMs[index]
 }
 
@@ -134,6 +147,7 @@ export interface SampleStats {
 export function statsFor(samplesMs: number[], errors = 0): SampleStats {
   const sorted = [...samplesMs].sort((a, b) => a - b)
   const sum = sorted.reduce((acc, v) => acc + v, 0)
+
   return {
     iterations: sorted.length,
     p50_ms: pct(sorted, 50),
@@ -147,9 +161,10 @@ export function statsFor(samplesMs: number[], errors = 0): SampleStats {
 }
 
 /** Round-trip measure one operation; returns duration ms. */
-export async function measure(fn: () => Promise<unknown>): Promise<number> {
+export async function measure<T>(fn: () => Promise<T>): Promise<number> {
   const startedAt = process.hrtime.bigint()
   await fn()
+
   return elapsed(startedAt)
 }
 
@@ -164,11 +179,12 @@ export interface ScenarioReport {
   p95_ms: number
   p99_ms: number
   errors: number
-  notes?: Record<string, unknown>
+  notes?: Record<string, z.infer<ReturnType<typeof z.json>> | undefined>
 }
 
 export function round(value: number, digits = 1): number {
   const factor = 10 ** digits
+
   return Math.round(value * factor) / factor
 }
 
@@ -214,14 +230,14 @@ export interface PerfRunReport {
     date: string
   }
   scenarios: ScenarioReport[]
-  notes: Record<string, unknown>
+  notes: Record<string, z.infer<ReturnType<typeof z.json>> | undefined>
 }
 
 export function writeReport(
   name: string,
   scenarios: ScenarioReport[],
   environment: PerfRunReport['environment'],
-  notes: Record<string, unknown> = {},
+  notes: PerfRunReport['notes'] = {},
 ): string {
   const dir = join(process.cwd(), 'perf', 'results')
   mkdirSync(dir, { recursive: true })
@@ -230,28 +246,49 @@ export function writeReport(
   const file = join(dir, `${stamp}-${name}.json`)
   writeFileSync(file, JSON.stringify(payload, null, 2) + '\n')
   console.log(`report_written=${file}`)
+
   return file
 }
 
 /** Execute a query and return a summary of the plan. */
-export function planSummary(result: QueryResult): Record<string, unknown> {
-  const envelope = result.rows[0]['QUERY PLAN'][0]
+const planNode = z.object({
+  'Node Type': z.string(),
+  'Index Name': z.string().optional(),
+  'Shared Hit Blocks': z.number().optional(),
+  'Shared Read Blocks': z.number().optional(),
+  get Plans() {
+    return z.array(planNode).optional()
+  },
+})
+
+export function planSummary(result: QueryResult) {
+  const envelope = z
+    .object({
+      Plan: planNode,
+      'Execution Time': z.number(),
+      'Planning Time': z.number(),
+    })
+    .parse(result.rows[0]['QUERY PLAN'][0])
+
   const indexes = new Set<string>()
   let hitBlocks = 0
   let readBlocks = 0
-  const visit = (node: Record<string, unknown>) => {
-    if (typeof node['Index Name'] === 'string')
-      indexes.add(String(node['Index Name']))
+
+  const visit = (node: z.infer<typeof planNode>) => {
+    if (node['Index Name'] !== undefined) indexes.add(node['Index Name'])
     hitBlocks += Number(node['Shared Hit Blocks'] ?? 0)
     readBlocks += Number(node['Shared Read Blocks'] ?? 0)
     const children = node.Plans
+
     if (Array.isArray(children)) children.forEach((c) => visit(c))
   }
-  visit(envelope.Plan as Record<string, unknown>)
+
+  visit(envelope.Plan)
+
   return {
     executionMs: envelope['Execution Time'],
     planningMs: envelope['Planning Time'],
-    root: (envelope.Plan as Record<string, unknown>)['Node Type'],
+    root: envelope.Plan['Node Type'],
     indexes: [...indexes].sort(),
     sharedHitBlocks: hitBlocks,
     sharedReadBlocks: readBlocks,
@@ -270,9 +307,11 @@ export async function environmentSnapshot(
   const version = (
     await admin.query<{ server_version: string }>('show server_version')
   ).rows[0].server_version
+
   const cpu = cpus()[0]?.model ?? 'unknown'
   const ramGb = Math.round(totalmem() / 1024 ** 3)
   let commitSha = 'unknown'
+
   try {
     commitSha = execSync('git rev-parse HEAD', { cwd: process.cwd() })
       .toString()
@@ -280,6 +319,7 @@ export async function environmentSnapshot(
   } catch {
     // not a git checkout; keep 'unknown'
   }
+
   return {
     cpu,
     ramGb: `${ramGb} GiB`,

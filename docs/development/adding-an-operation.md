@@ -6,8 +6,9 @@ type).
 
 ## Operations
 
-Declare the operation in `src/lib/operations/declarations/` (a new file per area
-is fine; add it to `CORE_OPERATIONS` in `registry.ts`). One declaration gives:
+Declare the operation in the feature folder it belongs to, `src/features/<name>/`
+(see [feature folders](features.md)). The registry collects it, so no shared
+list needs an edit. One declaration gives:
 
 | Surface          | What is generated                                                                                      | Where it is read                            |
 | ---------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
@@ -45,12 +46,13 @@ What a declaration does **not** generate:
 2. **The assistant resolver**, when the card needs its own lookup or wording.
    The tool name is listed for you; the resolver and card are code, as before.
 3. **The docs prose.** `operationDocStub(op)` prints a section to paste into
-   the right `docs/api` page; the guard test fails if `lab-api.md` does not
-   mention a declared operation.
+   feature's own `docs/api` page; the guard test fails if no page there
+   mentions a declared operation.
 
-Run `pnpm openapi:generate` and commit what it changes (OpenAPI and the Python
-SDK). The operation tests check that every declared event is in the catalogue
-and every API entry is on the allowlist.
+`pnpm generate` writes the OpenAPI contract, the SDKs' event lists and the
+Python SDK's generated layer; none of them is committed. The operation tests
+check that every declared event is in the catalogue and every API entry is on
+the allowlist.
 
 Operations declared with `api: 'elsewhere'` have their API entry written by
 hand in the core API contracts. Most pipeline-only operations are like this

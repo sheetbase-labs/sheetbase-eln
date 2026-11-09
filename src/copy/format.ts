@@ -1,4 +1,4 @@
-import type { CopyValue, Message, PluralMessage } from './types'
+import type { CatalogueTree, CopyValue, Message, PluralMessage } from './types'
 
 const pluralRules = new Map<string, Intl.PluralRules>()
 const numberFormats = new Map<string, Intl.NumberFormat>()
@@ -25,7 +25,19 @@ function numberFormatFor(locale: string) {
   return format
 }
 
+/** Catalogue sections contain messages; `other` identifies a plural leaf. */
+export function isMessage(
+  value: Message | CatalogueTree | null | undefined,
+): value is Message {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- The compiled catalogue's message alternatives are strings and plural objects; missing dynamic keys remain non-messages.
+  if (typeof value === 'string') return true
+
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- The object alternative is a trusted catalogue section or plural; `other` marks a plural leaf. Keep the existing null-safe missing-key fallback.
+  return typeof value === 'object' && value !== null && 'other' in value
+}
+
 export function isPlural(message: Message): message is PluralMessage {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Message is the trusted string | PluralMessage union, not unparsed input; its object alternative is always a plural.
   return typeof message === 'object'
 }
 
@@ -42,6 +54,7 @@ export function selectPlural(
 }
 
 export function formatValue(locale: string, value: CopyValue): string {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- CopyValue is already string | number; only the numeric alternative needs Intl number formatting.
   return typeof value === 'number'
     ? numberFormatFor(locale).format(value)
     : value
@@ -60,54 +73,56 @@ export function interpolate(
   )
 }
 
-const PSEUDO: Record<string, string> = {
-  a: 'á',
-  b: 'ƀ',
-  c: 'ç',
-  d: 'ð',
-  e: 'é',
-  f: 'ƒ',
-  g: 'ĝ',
-  h: 'ĥ',
-  i: 'í',
-  j: 'ĵ',
-  k: 'ķ',
-  l: 'ļ',
-  m: 'ɱ',
-  n: 'ñ',
-  o: 'ó',
-  p: 'þ',
-  r: 'ŕ',
-  s: 'š',
-  t: 'ţ',
-  u: 'ú',
-  w: 'ŵ',
-  y: 'ý',
-  z: 'ž',
-  A: 'Á',
-  B: 'Ɓ',
-  C: 'Ç',
-  D: 'Ð',
-  E: 'É',
-  F: 'Ƒ',
-  G: 'Ĝ',
-  H: 'Ĥ',
-  I: 'Í',
-  J: 'Ĵ',
-  K: 'Ķ',
-  L: 'Ļ',
-  M: 'Ṁ',
-  N: 'Ñ',
-  O: 'Ó',
-  P: 'Þ',
-  R: 'Ŕ',
-  S: 'Š',
-  T: 'Ţ',
-  U: 'Ú',
-  W: 'Ŵ',
-  Y: 'Ý',
-  Z: 'Ž',
-}
+const PSEUDO = new Map(
+  Object.entries({
+    a: 'á',
+    b: 'ƀ',
+    c: 'ç',
+    d: 'ð',
+    e: 'é',
+    f: 'ƒ',
+    g: 'ĝ',
+    h: 'ĥ',
+    i: 'í',
+    j: 'ĵ',
+    k: 'ķ',
+    l: 'ļ',
+    m: 'ɱ',
+    n: 'ñ',
+    o: 'ó',
+    p: 'þ',
+    r: 'ŕ',
+    s: 'š',
+    t: 'ţ',
+    u: 'ú',
+    w: 'ŵ',
+    y: 'ý',
+    z: 'ž',
+    A: 'Á',
+    B: 'Ɓ',
+    C: 'Ç',
+    D: 'Ð',
+    E: 'É',
+    F: 'Ƒ',
+    G: 'Ĝ',
+    H: 'Ĥ',
+    I: 'Í',
+    J: 'Ĵ',
+    K: 'Ķ',
+    L: 'Ļ',
+    M: 'Ṁ',
+    N: 'Ñ',
+    O: 'Ó',
+    P: 'Þ',
+    R: 'Ŕ',
+    S: 'Š',
+    T: 'Ţ',
+    U: 'Ú',
+    W: 'Ŵ',
+    Y: 'Ý',
+    Z: 'Ž',
+  }),
+)
 
 /**
  * The stretched test language: accents every letter, pads the text by about
@@ -118,11 +133,11 @@ const PSEUDO: Record<string, string> = {
 export function pseudo(text: string): string {
   let letters = 0
 
-  const body = text.replace(/(\{\w+\}|<\/?\w+>)|([A-Za-z])/g, (_, keep, ch) => {
-    if (keep) return keep as string
+  const body = text.replace(/\{\w+\}|<\/?\w+>|[A-Za-z]/g, (token) => {
+    if (token.length !== 1) return token
     letters += 1
 
-    return PSEUDO[ch as string] ?? (ch as string)
+    return PSEUDO.get(token) ?? token
   })
 
   return `⟦${body}${'·'.repeat(Math.ceil(letters / 3))}⟧`

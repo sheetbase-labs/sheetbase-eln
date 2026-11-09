@@ -1,17 +1,18 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { en } from './en'
-import { pseudo } from './format'
+import { isMessage, isPlural, pseudo } from './format'
 import { rich, setLocale, t } from './index'
-import type { CatalogueTree } from './types'
+import type { CatalogueTree, Message } from './types'
 
 afterEach(() => setLocale('en'))
 
-function leaves(tree: CatalogueTree, prefix = ''): Array<[string, unknown]> {
-  return Object.entries(tree).flatMap(([key, value]) =>
-    typeof value === 'string' || 'other' in value
-      ? [[`${prefix}${key}`, value] as [string, unknown]]
-      : leaves(value, `${prefix}${key}.`),
+function leaves(tree: CatalogueTree, prefix = ''): Array<[string, Message]> {
+  return Object.entries(tree).flatMap(
+    ([key, value]): Array<[string, Message]> =>
+      isMessage(value)
+        ? [[`${prefix}${key}`, value]]
+        : leaves(value, `${prefix}${key}.`),
   )
 }
 
@@ -53,11 +54,21 @@ describe('rich', () => {
     expect(html).toBe(
       'You don’t have access. An admin can add you in <a href="/settings/workspace/members">Settings → Members</a>.',
     )
+
+    expect(
+      renderToStaticMarkup(
+        <>{rich('common.locationTail', { tail: <strong>Lab A</strong> })}</>,
+      ),
+    ).toBe('… / <strong>Lab A</strong>')
+
+    expect(
+      renderToStaticMarkup(<>{rich('common.counts.rows', { count: 1200 })}</>),
+    ).toBe('1,200 rows')
   })
 
   it('requires a renderer for every tag', () => {
     // @ts-expect-error link is required
-    rich('common.errors.askAdminForAccess', {})
+    expect(rich('common.errors.askAdminForAccess', {})).toBeDefined()
   })
 })
 
@@ -74,8 +85,7 @@ describe('the English catalogue', () => {
 
   it('has no empty messages', () => {
     for (const [key, value] of all) {
-      const texts =
-        typeof value === 'string' ? [value] : Object.values(value as object)
+      const texts = isPlural(value) ? Object.values(value) : [value]
 
       for (const text of texts) expect(text, key).not.toBe('')
     }
@@ -83,9 +93,9 @@ describe('the English catalogue', () => {
 
   it('uses {count} in every plural form', () => {
     for (const [key, value] of all) {
-      if (typeof value === 'string') continue
+      if (!isPlural(value)) continue
 
-      for (const text of Object.values(value as object)) {
+      for (const text of Object.values(value)) {
         expect(text, key).toContain('{count}')
       }
     }
@@ -93,10 +103,9 @@ describe('the English catalogue', () => {
 
   it('closes every tag it opens', () => {
     for (const [key, value] of all) {
-      const texts =
-        typeof value === 'string' ? [value] : Object.values(value as object)
+      const texts = isPlural(value) ? Object.values(value) : [value]
 
-      for (const text of texts as Array<string>) {
+      for (const text of texts) {
         const open = [...text.matchAll(/<(\w+)>/g)].map((m) => m[1])
         const close = [...text.matchAll(/<\/(\w+)>/g)].map((m) => m[1])
         expect(close, key).toEqual(open)

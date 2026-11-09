@@ -1639,7 +1639,10 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
     // Update rejects what create rejects: non-triggerable events and bad
     // dataset filters (previously the update path normalized the name only).
     await expect(
-      update({ eventType: 'pipeline.created', inputName: 'measurements' }),
+      update({
+        eventType: 'pipeline.run.reproduced',
+        inputName: 'measurements',
+      }),
     ).rejects.toMatchObject({ code: 'SB034' })
     await expect(
       update({

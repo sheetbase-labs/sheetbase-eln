@@ -93,7 +93,7 @@ describe('validateScheduleSpec', () => {
     // Provisional (pipeline.*), reserved (notebook.amended), administration
     // (project.*) and excluded producers are never pipeline triggers.
     for (const name of [
-      'pipeline.created',
+      'pipeline.run.reproduced',
       'notebook.amended',
       'project.created',
       'record.amended',
@@ -136,6 +136,8 @@ describe('PIPELINE_TRIGGER_EVENTS', () => {
       'qc.violation',
       'approval.requested',
       'file.uploaded',
+      'pipeline.run.succeeded',
+      'extension.enabled',
     ])
       expect(PIPELINE_TRIGGER_EVENTS, name).toContain(name)
   })

@@ -40,6 +40,15 @@ export type OperationScope =
   | 'pipelines:write'
   | 'admin:read'
   | 'admin:write'
+  | 'schema:read'
+  | 'schema:write'
+  | 'schema:publish'
+  | 'sheets:read'
+  | 'sheets:write'
+  | 'models:write'
+  | 'projects:read'
+  | 'projects:write'
+  | 'reviews:read'
 
 /** Input types, the same vocabulary the lab API and OpenAPI use. */
 export type OperationInputType = LabType

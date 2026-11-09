@@ -11,10 +11,13 @@ import { PENDING_EXPOSURE } from './integration-pending'
  * ship as a screen only.
  *
  * Reasons that hold up: the object is a person's own device or display
- * setting; it hands out a secret; it needs a file upload, which tokens cannot
- * do yet; it authors the workspace's schema (people only, `schema.edit`); or
- * it is an attestation or a bulk, hard-to-undo decision that a person makes
- * in the app. "Not got round to it" is not a reason.
+ * setting; it shows a one-time secret; it is an attestation a person makes in
+ * the app (signing, approving or deciding, releasing a sample, "I've read this
+ * protocol"); or it is plumbing the database runs for itself (an inner step
+ * of a public call, a trigger, an index). Schema authoring is not a reason:
+ * record types, fields, rules, sheet definitions, templates and measurement
+ * tables are open behind `schema:write`, and publishing a version behind
+ * `schema:publish`. "Not got round to it" is not a reason.
  *
  * Plumbing the database runs for itself (who is signed in, whether they hold a
  * capability) is not a feature: group it in `NOT_EXPOSED_PATTERNS` with one
@@ -102,8 +105,6 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
   record_code_cell_run:
     'Written by the server when a code cell has run in the app, so a run always carries what really ran; the runs are on code_cell_runs.',
   // Plugin rules for registry models.
-  set_registry_sameness_rule:
-    'Choosing which plugin rule a registry model uses is a schema decision for owners and admins, made in the model\u2019s registry settings; the choice is readable on registry_sameness_rules.',
   set_registry_sameness_value:
     'Stores the key a plugin worked out for an entry; the app writes it right after the plugin ran, so a caller cannot claim a key the plugin did not give. Read on registry_sameness_values.',
   // Part sign-off: signing is an attestation a person makes in the app with a
@@ -175,15 +176,6 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
   // Account and onboarding, done by the person.
   leave_workspace: 'A person leaves their own workspace from their profile.',
   skip_lab_setup: 'Onboarding step in the app.',
-  // Schema authoring stays with people (schema.edit); tokens cannot create models.
-  create_registry_model: 'Authors a record model; people only.',
-  create_request_model: 'Authors a record model; people only.',
-  create_starter_model: 'Authors a record model; people only.',
-  set_model_registry: 'Changes what a record model is; people only.',
-  set_registry_lot_kind: 'Changes what a record model is; people only.',
-  set_model_incident_log: 'Changes what a record model is; people only.',
-  set_request_form:
-    'Decides which models accept requests and who handles them; admin setting.',
   // Attestation and policy decisions made by a person in the app.
   decide_request: 'Approving or declining a request is a person’s decision.',
   release_legal_hold:

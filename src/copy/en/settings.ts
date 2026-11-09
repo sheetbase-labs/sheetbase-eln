@@ -2230,18 +2230,18 @@ export const settings = {
     datasetsData: 'Datasets (data)',
     queryCommitSnapshotDescription:
       'Query, commit, snapshot and archive datasets. Can’t change a dataset’s structure.',
-    governedSchema: 'Dataset structure',
+    governedSchema: 'Structure',
     catalogueGetGatedDescription:
-      'Read dataset structures. Changing dataset or sheet structure is always done by people.',
+      'Record types and their fields, choices and rules, sheet definitions, templates and dataset structures. Write adds and changes drafts; publish makes a version live. The person the key belongs to still needs the right to do it.',
     sheets: 'Sheets',
     sheetInstanceReadsDescription:
-      'Read and change sheet records. Can’t change a sheet’s structure.',
+      'Read and change sheets and their records. Changing a sheet definition needs Structure.',
     models: 'Models',
     modelRecordSearchDescription:
-      'Search model records and write custom fields. Changing field definitions is done by people.',
+      'Search records of any type, write their field values and change a record’s type. Changing the fields themselves needs Structure.',
     templates: 'Templates',
     notebookTemplateCatalogueDescription:
-      'Read notebook templates and create notebooks from them. Editing templates is done by people.',
+      'Read notebook templates and create notebooks from them. Editing templates needs Structure.',
     reviewsPreview: 'Reviews (preview)',
     previewNotebookSubmissionDescription:
       'Preview a notebook submission. Can’t submit, sign, amend or run revision checks.',

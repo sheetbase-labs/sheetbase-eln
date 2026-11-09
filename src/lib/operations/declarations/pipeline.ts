@@ -45,8 +45,9 @@ export const PIPELINE_OPERATIONS = defineOperations([
     name: 'create_model_record',
     label: t('data.pipelineActions.createRecord'),
     description: t('data.pipelineActions.createExperimentSampleMaterial'),
+    summary: 'Add a record of any record type',
     kind: 'write',
-    api: 'elsewhere',
+    scope: 'projects:write',
     inputs: [
       input('p_project_id', 'uuid'),
       input('p_kind', 'text'),

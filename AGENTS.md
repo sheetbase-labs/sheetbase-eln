@@ -240,4 +240,8 @@ all four of these (Gareth, 2026-11-06), or a stated reason in the PR body:
    and emits a change event, documented in `docs/api/event-catalogue.md`.
 
 Pipeline actions too where they fit. Do not expose attestation (signing,
-approving, deciding), secrets, file uploads or schema authoring to tokens.
+approving, deciding, releasing a sample, "I've read this protocol") or a
+one-time secret to tokens. Schema authoring (record types, fields, rules,
+sheet definitions, templates, measurement tables) is open behind `schema:write`, and publishing a
+version behind `schema:publish`; the person a token belongs to still needs the
+right to do it.

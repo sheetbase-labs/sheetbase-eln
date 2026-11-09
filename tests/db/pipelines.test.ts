@@ -120,6 +120,8 @@ const RPC_ARG_TYPES: Record<string, string[]> = {
   publish_pipeline_definition_version: ['uuid', 'uuid'],
   retire_pipeline_definition_version: ['uuid', 'uuid'],
   run_pipeline: ['text', 'jsonb', 'jsonb'],
+  run_pipeline_version: ['uuid', 'jsonb', 'jsonb'],
+  retry_pipeline_run: ['uuid'],
   start_pipeline_run: [
     'uuid',
     'uuid',
@@ -567,6 +569,106 @@ describe('Pipeline Definition lifecycle', () => {
         p_input_versions: { measurements: inputDatasetVersionId },
       }),
     ).rejects.toMatchObject({ code: 'SB072' })
+  })
+
+  it('runs one exact published version, and refuses a draft', async () => {
+    const owner = await actor(OWNER, WS)
+    const run = await rpc<{
+      id: string
+      status: string
+      trigger_kind: string
+      definition_version_id: string
+    }>(owner, 'run_pipeline_version', {
+      p_version_id: pipelineVersionId,
+      p_parameters: { factor: 12 },
+      p_input_versions: { measurements: inputDatasetVersionId },
+    })
+    expect(run.status).toBe('running')
+    expect(run.trigger_kind).toBe('manual')
+    expect(run.definition_version_id).toBe(pipelineVersionId)
+    const { rows } = await migrator.query(
+      `select state from internal.pipeline_run_jobs where run_id = $1`,
+      [run.id],
+    )
+    expect(rows).toHaveLength(1)
+    const draft = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_definition_version',
+      {
+        p_workspace_id: WS,
+        p_definition_id: pipelineDefinitionId,
+        p_configuration: pipelineConfig('SELECT 2 AS x'),
+      },
+    )
+    await expect(
+      rpc(owner, 'run_pipeline_version', {
+        p_version_id: draft.id,
+        p_parameters: {},
+        p_input_versions: { measurements: inputDatasetVersionId },
+      }),
+    ).rejects.toMatchObject({ code: 'SB072' })
+    await migrator.query(
+      `update api.pipeline_runs set status = 'failed', error_code = 'test', error_message = 'test', finished_at = now() where id = $1`,
+      [run.id],
+    )
+    await migrator.query(
+      `delete from internal.pipeline_run_jobs where run_id = $1`,
+      [run.id],
+    )
+  })
+
+  it('retries a failed run on the same version and inputs, and only a finished one', async () => {
+    const owner = await actor(OWNER, WS)
+    const first = await rpc<{ id: string }>(owner, 'run_pipeline_version', {
+      p_version_id: pipelineVersionId,
+      p_parameters: { factor: 13 },
+      p_input_versions: { measurements: inputDatasetVersionId },
+    })
+    await expect(
+      rpc(owner, 'retry_pipeline_run', { p_run_id: first.id }),
+    ).rejects.toMatchObject({ code: 'SB034' })
+    await migrator.query(
+      `update api.pipeline_runs set status = 'failed', error_code = 'test', error_message = 'test', finished_at = now() where id = $1`,
+      [first.id],
+    )
+    await migrator.query(
+      `delete from internal.pipeline_run_jobs where run_id = $1`,
+      [first.id],
+    )
+    const retry = await rpc<{
+      id: string
+      status: string
+      attempt: number
+      retry_of_run_id: string
+      definition_version_id: string
+      parameters: Record<string, unknown>
+      input_versions: Record<string, string>
+    }>(owner, 'retry_pipeline_run', { p_run_id: first.id })
+    expect(retry.status).toBe('running')
+    expect(retry.retry_of_run_id).toBe(first.id)
+    expect(retry.attempt).toBe(2)
+    expect(retry.definition_version_id).toBe(pipelineVersionId)
+    expect(retry.parameters).toEqual({ factor: 13 })
+    expect(retry.input_versions).toEqual({
+      measurements: inputDatasetVersionId,
+    })
+    await migrator.query(
+      `update api.pipeline_runs set status = 'failed', error_code = 'test', error_message = 'test', finished_at = now() where id = $1`,
+      [retry.id],
+    )
+    await migrator.query(
+      `delete from internal.pipeline_run_jobs where run_id = $1`,
+      [retry.id],
+    )
+    await expect(
+      rpc(owner, 'retry_pipeline_run', {
+        p_run_id: '00000000-0000-4000-8000-00000000dead',
+      }),
+    ).rejects.toThrow(/pipeline run not found/)
+    const viewer = await actor(VIEWER, WS)
+    await expect(
+      rpc(viewer, 'retry_pipeline_run', { p_run_id: retry.id }),
+    ).rejects.toMatchObject({ code: '42501' })
   })
 })
 

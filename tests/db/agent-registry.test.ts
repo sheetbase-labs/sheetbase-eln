@@ -34,7 +34,10 @@ async function actor(userId: string, workspaceId = WS): Promise<Client> {
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query('SET ROLE authenticated')
-  await setActorJwt(client, userId, workspaceId)
+  // A person signed in to the app: a browser session.
+  await setActorJwt(client, userId, workspaceId, {
+    session_id: `session-${userId}`,
+  })
   return client
 }
 

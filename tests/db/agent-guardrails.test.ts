@@ -26,11 +26,12 @@ let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
 const clients: Client[] = []
 
+/** A person signed in to the app: a browser session. */
 async function asUser(userId: string): Promise<Client> {
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query('SET ROLE authenticated')
-  await setActorJwt(client, userId, WS)
+  await setActorJwt(client, userId, WS, { session_id: `session-${userId}` })
   return client
 }
 

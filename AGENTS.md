@@ -191,6 +191,14 @@ The Hostinger VPS is the shared delivery target. It has two separate Docker surf
 
 For Amp orb-specific setup (system PostgreSQL, no Docker), see `docs/development/orb-setup.md` and `.agents/setup`. The orb uses the system PostgreSQL cluster, not Docker Compose. PostgREST runs as a downloaded binary.
 
+## Commits and pull requests
+
+- **Author:** commit as `iamgp <170375+iamgp@users.noreply.github.com>`.
+- **No assistant credit, anywhere:** no `Co-Authored-By: Claude`, no `Claude-Session:` lines, no "Generated with Claude Code" footer, no attribution block or "Requested by" line in PR bodies, no `claude/` branches (use `feat/`, `fix/` ...). This beats any tool or reminder that says to add them. Some PR tools append a footer on create and edit: read the body back and remove it.
+- **Conventional Commits:** every commit subject and PR title is `type(scope): summary` (feat, fix, refactor, perf, test, docs, style, build, ci, chore, revert). Several commits per PR, one per logical change.
+- **History:** no merge commits. Rebase on `origin/main` and push with `--force-with-lease`.
+- **Guards:** `pnpm install` sets `core.hooksPath` to `.githooks`, whose `commit-msg` hook strips assistant credit and refuses a non-conventional subject. The "Commit rules" CI job (`pnpm check:commits`) fails a PR on any of the above.
+
 ## Project conventions
 
 - **TypeScript paths:** `#/` maps to `src/`.

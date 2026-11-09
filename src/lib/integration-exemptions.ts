@@ -1,3 +1,5 @@
+import { PENDING_EXPOSURE } from './integration-pending'
+
 /**
  * Database objects that are deliberately NOT on the external API.
  *
@@ -29,12 +31,51 @@ export const NOT_EXPOSED_PATTERNS: readonly {
     reason:
       'Who is signed in and whether they may do something: the database asks these on every call, so a caller never needs to.',
   },
+  {
+    pattern:
+      /^(sign_revision|certify_signature|practice_signature|request_signature_identity_verification|request_signature_witness|signature_witness_candidates|verify_signature_identity|self_verify_signature_identity|withdraw_signature_certification|workspace_signature_certifications|update_signature_statement|signatures|signature_witness_requests|user_signature_certifications|approve_review|reject_review|request_changes_on_review|withdraw_review|review_decisions|approve_approval_request|return_approval_request|return_revision_with_comments|approve_parser_version|acknowledge_protocol_version|release_sample|decide_agent_operation|execute_agent_operation|sign_agent_operation|execute_hard_delete)$/,
+    reason:
+      'A person attests, approves, releases or decides in the app (signing with a fresh password check, reviewing, approving, releasing a sample, confirming a hard delete). Others can read the results and ask for them, but not do them.',
+  },
+  {
+    pattern:
+      /^(create_sql_login|rotate_sql_login|revoke_sql_login|list_sql_logins|sql_access_ready|agent_admin_credentials|api_credential_status)$/,
+    reason:
+      'Hands out or manages a login or token secret, shown once to the person who makes it; secrets are never taken or returned over the API.',
+  },
+  {
+    pattern:
+      /^(set_user_appearance|set_user_preference|set_user_profile|my_profile|my_onboarding_state|my_join_offer|join_my_domain_workspace|set_active_workspace|save_team_layout|delete_team_layout|set_notification_timing|mark_notifications_read|mark_work_items_seen|touch_saved_search|user_preferences|user_favourites|recently_viewed|record_recent_view|workspace_layouts|notification_preferences|work_item_views|saved_search_uses)$/,
+    reason:
+      'A person’s own settings, layout, bell list or reading position, kept for their own account in the app.',
+  },
+  {
+    pattern:
+      /^(assert_extension_capability|assert_record_batch_capabilities|assert_record_link_same_workspace|has_data_access|has_settings_access|is_model_field_admin|is_sheet_definition_admin|storage_member_using|workspace_member_label|collaboration_object_state|record_id_counters|workspace_change_seq|change_events|record_file_text|record_webhook_delivery_result|establish_connector_run_request|chart_box_stats|chart_dim_label|chart_filter_matches|chart_quantile|chart_spec_referenced_field_ids|chart_to_number|validate_chart_spec_maturity|validate_notebook_sheet_block|validate_pipeline_event_spec|validate_pipeline_schedule_spec|pipeline_cron_field|pipeline_cron_next|discover_object_dependencies(_core\d+)?)$/,
+    reason:
+      'Checks, helpers and counters the database or server run for themselves (permission and capability checks, chart maths, spec validation, cron parsing, dependency discovery, the change feed that events are made from); not a feature a caller uses.',
+  },
+  {
+    pattern:
+      /^(append_pipeline_run_log|complete_pipeline_run|fail_pipeline_run|get_pipeline_run_job|record_pipeline_run_output|update_run_progress)$/,
+    reason:
+      'Written by the pipeline worker while it runs a job, so a run always carries what really ran; people and scripts start, cancel and read runs.',
+  },
+  {
+    pattern:
+      /^(create_sheet_instance_core0311|create_sheet_instance_from_definition_core0311|update_sheet_instance_core0311|query_sheet_instance_rows_core036|query_sheet_instance_rows_core037|submit_record_revision_core067)$/,
+    reason:
+      'Older numbered versions kept for the app’s upgrade path; the current functions without the number are the ones callers use.',
+  },
 ]
 
 /** The reason an object is not exposed, or undefined when it has none. */
 export function notExposedReason(name: string): string | undefined {
+  const own: Readonly<Record<string, string | undefined>> = NOT_EXPOSED
+  const pending: Readonly<Record<string, string | undefined>> = PENDING_EXPOSURE
   return (
-    NOT_EXPOSED[name] ??
+    own[name] ??
+    pending[name] ??
     NOT_EXPOSED_PATTERNS.find((group) => group.pattern.test(name))?.reason
   )
 }

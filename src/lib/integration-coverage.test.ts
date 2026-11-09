@@ -8,6 +8,7 @@ import {
   NOT_EXPOSED_PATTERNS,
   notExposedReason,
 } from './integration-exemptions'
+import { PENDING_EXPOSURE } from './integration-pending'
 import { LAB_RPCS, LAB_TABLES } from './lab-api-surface'
 
 /**
@@ -108,6 +109,21 @@ describe('API integration guard', () => {
         name in EXTERNAL_TABLE_ACCESS || name in EXTERNAL_RPC_SCOPES,
         `${name} is both exempt and on the allowlist`,
       ).toBe(false)
+    }
+  })
+
+  it('keeps the list of areas still being opened honest', () => {
+    const everything = new Set([...tables, ...functions])
+    for (const name of Object.keys(PENDING_EXPOSURE)) {
+      expect(
+        everything.has(name),
+        `${name} is pending but no migration creates it`,
+      ).toBe(true)
+      expect(
+        name in EXTERNAL_TABLE_ACCESS || name in EXTERNAL_RPC_SCOPES,
+        `${name} is pending but is already on the allowlist: take it out of integration-pending.ts`,
+      ).toBe(false)
+      expect(name in NOT_EXPOSED, `${name} is pending and exempt`).toBe(false)
     }
   })
 

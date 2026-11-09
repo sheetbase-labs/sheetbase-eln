@@ -14,6 +14,7 @@ export const assistant = defineAssistant<SchemaAction, SchemaProposeToolName>()(
     async run(client, action) {
       // Schema jobs load only when a card's button is pressed.
       const { runSchemaAction } = await import('#/lib/assistant-schema-run')
+
       return runSchemaAction(client, action)
     },
     cardWords: {

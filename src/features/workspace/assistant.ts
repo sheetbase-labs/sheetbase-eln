@@ -13,6 +13,7 @@ export const assistant = defineAssistant<
   async run(client, action) {
     // Workspace jobs load only when a card's button is pressed.
     const { runWorkspaceAction } = await import('./cards-run')
+
     return runWorkspaceAction(client, action)
   },
   cardWords: {

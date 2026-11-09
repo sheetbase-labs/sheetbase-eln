@@ -2,6 +2,7 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { en } from '#/copy/en'
 import { CORE_OPERATIONS } from '#/lib/operations/registry'
@@ -11,18 +12,24 @@ import type { Feature, FeatureAssistant } from './define'
 import { FEATURES } from './index.gen'
 
 const DIR = join(process.cwd(), 'src/features')
+
 const folders = readdirSync(DIR, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
   .sort()
 
-function copyAt(path: string): unknown {
+function hasCopy(path: string): boolean {
   let node: unknown = en
+
   for (const part of path.split('.')) {
-    if (node === null || typeof node !== 'object') return undefined
-    node = (node as Record<string, unknown>)[part]
+    const object = z.record(z.string(), z.unknown()).safeParse(node)
+
+    if (!object.success) return false
+
+    node = object.data[part]
   }
-  return node
+
+  return z.string().safeParse(node).success
 }
 
 describe('feature folders', () => {
@@ -55,24 +62,29 @@ describe('feature folders', () => {
 
   it('put their operations in the registry', () => {
     const names = new Set(CORE_OPERATIONS.map((op) => op.name))
-    for (const feature of FEATURES as readonly Feature[])
+    const features: readonly Feature[] = FEATURES
+
+    for (const feature of features)
       for (const op of feature.operations ?? [])
         expect(names.has(op.name), op.name).toBe(true)
   })
 
   it('have words in the copy catalogue for every card', () => {
-    for (const assistant of FEATURE_ASSISTANTS as readonly FeatureAssistant[])
+    const assistants: readonly FeatureAssistant[] = FEATURE_ASSISTANTS
+
+    for (const assistant of assistants)
       for (const [kind, key] of Object.entries(assistant.cardWords))
         for (const word of ['apply', 'applying', 'applied'])
-          expect(
-            typeof copyAt(`${key}.${word}`),
-            `${kind}: ${key}.${word}`,
-          ).toBe('string')
+          expect(hasCopy(`${key}.${word}`), `${kind}: ${key}.${word}`).toBe(
+            true,
+          )
   })
 
   it('claim each card kind once', () => {
     const seen = new Set<string>()
-    for (const assistant of FEATURE_ASSISTANTS as readonly FeatureAssistant[])
+    const assistants: readonly FeatureAssistant[] = FEATURE_ASSISTANTS
+
+    for (const assistant of assistants)
       for (const kind of Object.keys(assistant.cardWords)) {
         expect(seen.has(kind), kind).toBe(false)
         seen.add(kind)

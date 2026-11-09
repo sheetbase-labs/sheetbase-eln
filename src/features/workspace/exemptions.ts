@@ -2,7 +2,7 @@
  * The objects of this area that are not on the token API, each with the
  * technical reason. Everything else is in `operations.ts` or `api-tables.ts`.
  */
-export const WORKSPACE_NOT_EXPOSED: Readonly<Record<string, string>> = {
+export const WORKSPACE_NOT_EXPOSED = {
   accept_invitation:
     'Joining a workspace is the invited person’s own consent, given in the app from the link they were sent; the invitation token is theirs alone.',
   record_cell_conflict:
@@ -19,4 +19,4 @@ export const WORKSPACE_NOT_EXPOSED: Readonly<Record<string, string>> = {
     'The status change behind quarantine_file, restore_file and delete_file (on the API) and the download route’s missing-file check; those are the calls to use.',
   sweep_sample_hold_limits:
     'The scheduled job that moves samples past their hold limit to hold_exceeded across every workspace; it runs as the system, not as a person.',
-}
+} as const satisfies Readonly<Record<string, string>>

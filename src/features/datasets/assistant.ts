@@ -15,6 +15,7 @@ export const assistant = defineAssistant<
   isAction: isDatasetsAction,
   async run(client, action) {
     const { runDatasetsAction } = await import('#/lib/assistant-datasets-run')
+
     return runDatasetsAction(client, action)
   },
   cardWords: {

@@ -12,6 +12,7 @@ import {
   resolveAgentActionLevel,
 } from '#/lib/agent-action-policy'
 import type {
+  AgentActionLevel,
   AgentActionPolicyRow,
   AgentActionRequestRow,
 } from '#/lib/agent-action-policy'
@@ -58,7 +59,7 @@ const SETTINGS = '/settings/workspace/ai'
 const AGENTS = '/pipelines/agents'
 const INBOX = '/inbox'
 
-const LEVEL_WORDS: Record<string, string> = {
+const LEVEL_WORDS: Record<AgentActionLevel, string> = {
   auto: 'Auto: runs straight away',
   ask: 'Ask: waits for a person',
   never: 'Never',
@@ -122,7 +123,9 @@ function card(
 function findAction(text: string): Lookup<{ key: string; label: string }> {
   const wanted = text.trim().toLowerCase()
   const byKey = agentActionByKey(wanted.replace(/\s+/g, '_'))
+
   if (byKey) return { ok: true, value: { key: byKey.key, label: byKey.label } }
+
   if (agentActionAlwaysNever(wanted.replace(/\s+/g, '_'))) {
     return {
       ok: false,
@@ -130,7 +133,9 @@ function findAction(text: string): Lookup<{ key: string; label: string }> {
         'That action is always a person’s own: an agent can never do it, whatever is set.',
     }
   }
+
   const words = wanted.split(/\s+/).filter(Boolean)
+
   const matches = AGENT_ACTIONS.filter((entry) =>
     words.every((word) =>
       `${entry.label} ${entry.key.replace(/_/g, ' ')}`
@@ -138,6 +143,7 @@ function findAction(text: string): Lookup<{ key: string; label: string }> {
         .includes(word),
     ),
   )
+
   return pick(
     matches.map((entry) => ({ key: entry.key, label: entry.label })),
     text,
@@ -159,11 +165,14 @@ async function findAgent(
   text: string,
 ): Promise<Lookup<AgentRow>> {
   const like = likeValue(text)
+
   const rows = await client.list<AgentRow>(
     'agent_definitions',
     `?or=(name.ilike.${like},display_id.ilike.${like})&select=id,display_id,name,enabled&order=display_id.asc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -187,7 +196,9 @@ async function findOperationPolicy(
     'agent_operation_policies',
     `?enabled=is.true&name=ilike.${likeValue(text)}&select=id,name,enabled&order=name.asc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -204,13 +215,16 @@ async function findRequest(
   text: string,
 ): Promise<Lookup<AgentActionRequestRow>> {
   const wanted = text.trim()
+
   const filter = UUID.test(wanted)
     ? `id=eq.${wanted}`
     : `or=(summary.ilike.${likeValue(wanted)},action_key.ilike.${likeValue(wanted.replace(/\s+/g, '_'))})`
+
   const rows = await client.list<AgentActionRequestRow>(
     'agent_action_requests',
     `?status=eq.pending&${filter}&select=*&order=created_at.desc&limit=6`,
   )
+
   return pick(
     rows,
     text,
@@ -223,31 +237,41 @@ async function findRequest(
 
 export async function buildAgentPolicyProposal(
   name: AgentPolicyProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Each tool case parses raw input before using it or accessing data.
   args: unknown,
   context: LabToolContext,
 ): Promise<AgentPolicyOutcome> {
   const { client, workspaceId } = context
+
   switch (name) {
     case AGENT_PERMISSION_SET_TOOL: {
       const parsed = parse(proposeAgentPermissionSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const action = findAction(input.action)
+
       if (!action.ok) return fail(action.message)
+
       if (input.level === 'auto' && agentActionAlwaysAsk(action.value.key)) {
         return fail(
           'Changes to what agents may do always wait for a person, so they cannot be set to Auto. Ask or Never are possible.',
         )
       }
+
       const role = input.role?.trim().toLowerCase() || null
+
       const policies = await client.list<AgentActionPolicyRow>(
         'agent_action_policies',
         `?action_key=eq.${encodeURIComponent(action.value.key)}&select=*`,
       )
+
       const before = resolveAgentActionLevel(policies, action.value.key, {
         role,
       })
+
       const after = input.level === 'default' ? 'ask' : input.level
+
       return card(name, input, {
         target: role ? `${action.value.label} · ${role}` : action.value.label,
         deepLink: SETTINGS,
@@ -270,15 +294,19 @@ export async function buildAgentPolicyProposal(
 
     case AGENT_SWITCH_TOOL: {
       const parsed = parse(proposeAgentSwitchSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const agent = await findAgent(client, input.agent)
+
       if (!agent.ok) return fail(agent.message)
+
       if (agent.value.enabled === input.enabled) {
         return fail(
           `${agent.value.name} is already ${input.enabled ? 'on' : 'off'}.`,
         )
       }
+
       return card(name, input, {
         target: `${agent.value.display_id} · ${agent.value.name}`,
         deepLink: AGENTS,
@@ -299,10 +327,13 @@ export async function buildAgentPolicyProposal(
 
     case AGENT_OPERATION_POLICY_DISABLE_TOOL: {
       const parsed = parse(proposeOperationPolicyDisableSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const policy = await findOperationPolicy(client, input.policy)
+
       if (!policy.ok) return fail(policy.message)
+
       return card(name, input, {
         target: policy.value.name,
         deepLink: AGENTS,
@@ -323,11 +354,14 @@ export async function buildAgentPolicyProposal(
 
     case AGENT_REQUEST_DECIDE_TOOL: {
       const parsed = parse(proposeAgentRequestDecideSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const request = await findRequest(client, input.request)
+
       if (!request.ok) return fail(request.message)
       const row = request.value
+
       return card(name, input, {
         target: row.summary,
         deepLink: INBOX,
@@ -356,26 +390,33 @@ export async function buildAgentPolicyProposal(
 
     case AI_FEATURES_SET_TOOL: {
       const parsed = parse(proposeAiFeaturesSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const current = await readAiFeatureFlags(client, workspaceId)
       const next = { ...current }
       const changes: ProposalChange[] = []
+
       for (const key of AI_FEATURE_FLAG_KEYS) {
         const wanted = input.features[key]
+
         if (wanted === undefined || wanted === current[key]) continue
         next[key] = wanted
+
         const label =
           AI_FEATURE_FLAGS.find((flag) => flag.key === key)?.label ?? key
+
         changes.push({
           label,
           before: current[key] ? 'On' : 'Off',
           after: wanted ? 'On' : 'Off',
         })
       }
+
       if (changes.length === 0) {
         return fail('Those switches are already set that way.')
       }
+
       return card(name, input, {
         target: 'AI features',
         deepLink: SETTINGS,

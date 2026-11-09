@@ -6,7 +6,7 @@
  */
 import type { LabTable } from '#/lib/lab-api-surface'
 
-export const PROJECTS_LAB_TABLES: Readonly<Record<string, LabTable>> = {
+export const PROJECTS_LAB_TABLES = {
   folder_items: {
     summary:
       'Which folder each dataset, sheet, analysis view and pipeline is filed in. Records name their folder themselves (`records.folder_id`). File things with `move_to_folder`.',
@@ -108,4 +108,4 @@ export const PROJECTS_LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['created_at', 'ts', 0],
     ],
   },
-}
+} as const satisfies Readonly<Record<string, LabTable>>

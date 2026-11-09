@@ -16,6 +16,7 @@ export interface FeatureAssistantServer {
   isReadTool?: (name: string) => boolean
   runReadTool?: (
     name: string,
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw external tool arguments; implementations parse them before use.
     args: unknown,
     context: LabToolContext,
   ) => Promise<{ text: string; isError: boolean }>
@@ -23,6 +24,7 @@ export interface FeatureAssistantServer {
   isProposalTool?: (name: string) => boolean
   buildProposal?: (
     name: string,
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw external tool arguments; implementations parse them before use.
     args: unknown,
     context: LabToolContext,
   ) => Promise<FeatureProposalOutcome>

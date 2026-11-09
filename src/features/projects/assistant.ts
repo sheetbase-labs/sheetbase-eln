@@ -13,6 +13,7 @@ export const assistant = defineAssistant<
   async run(client, action) {
     // Project and folder jobs load only when a card's button is pressed.
     const { runProjectsAction } = await import('./cards-run')
+
     return runProjectsAction(client, action)
   },
   cardWords: {

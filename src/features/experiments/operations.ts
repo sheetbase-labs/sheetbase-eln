@@ -17,18 +17,22 @@ const note = (field: OperationInput, description: string): OperationInput => ({
 })
 
 const RECORD_ID = note(input('p_record_id', 'uuid'), 'The record id.')
+
 const EXPERIMENT_ID = note(
   input('p_record_id', 'uuid'),
   'The experiment (`records.id`).',
 )
+
 const REVISION_ID = note(
   input('p_revision_id', 'uuid'),
   'The submitted revision (`revisions.id`).',
 )
+
 const METADATA_VERSION = note(
   input('p_expected_metadata_version', 'bigint'),
   'The `metadata_version` you last read. A stale one is refused.',
 )
+
 const ALIAS = note(
   input('p_alias', 'text'),
   'Another name the record is known by, such as a supplier code.',

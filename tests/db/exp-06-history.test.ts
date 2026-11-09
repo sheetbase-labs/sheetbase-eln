@@ -62,13 +62,11 @@ it('records the actual editing session alongside immutable captured before/after
     const captured = z
       .array(
         z.object({
-          payload: z
-            .object({
-              changes: z.object({
-                title: z.object({ from: z.string(), to: z.string() }),
-              }),
-            })
-            .passthrough(),
+          payload: z.looseObject({
+            changes: z.object({
+              title: z.object({ from: z.string(), to: z.string() }),
+            }),
+          }),
         }),
       )
       .parse(
@@ -150,7 +148,7 @@ it('captures typed Dataset cell old/new/reason with stable source receipts and n
       )
     const commit = async (revision: number, rows: unknown[], key: string) =>
       z
-        .object({
+        .looseObject({
           ok: z.literal(true),
           sourceEvents: z.array(
             z.object({
@@ -159,7 +157,6 @@ it('captures typed Dataset cell old/new/reason with stable source receipts and n
             }),
           ),
         })
-        .passthrough()
         .parse(
           (
             await actor!.query(

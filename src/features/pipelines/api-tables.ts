@@ -6,7 +6,7 @@ import type { LabTable } from '#/lib/lab-api-surface'
  * the workspace. Pipeline tables are read with `pipelines:read`, like the
  * runs; plugins with `admin:read`. Listed on the feature, which adds them to `LAB_TABLES`.
  */
-export const PIPELINE_LAB_TABLES: Readonly<Record<string, LabTable>> = {
+export const PIPELINE_LAB_TABLES = {
   pipeline_schedules: {
     summary:
       'When a pipeline runs by itself. `kind` is `interval`, `daily`, `cron` or `event`; `spec` holds `intervalMinutes`, `dailyAt`, `cron` or `eventType` (with its filters), plus the inputs and parameters it runs with. `enabled` is false while it is switched off.',
@@ -128,4 +128,4 @@ export const PIPELINE_LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['updated_at', 'ts', 1],
     ],
   },
-}
+} as const satisfies Readonly<Record<string, LabTable>>

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import type { AgentActionRequestRow } from '#/lib/agent-action-policy'
 import { assistantToolsFrom } from '#/lib/operations/descriptor'
 
 import { AGENT_POLICY_OPERATIONS } from './operations'
@@ -17,8 +18,10 @@ import { AGENT_POLICY_OPERATIONS } from './operations'
 
 export const AGENT_PERMISSION_SET_TOOL = 'sheetbase.agent_permission.set'
 export const AGENT_SWITCH_TOOL = 'sheetbase.agent.switch'
+
 export const AGENT_OPERATION_POLICY_DISABLE_TOOL =
   'sheetbase.agent_operation_policy.disable'
+
 export const AGENT_REQUEST_DECIDE_TOOL = 'sheetbase.agent_request.decide'
 export const AI_FEATURES_SET_TOOL = 'sheetbase.ai_features.set'
 
@@ -35,68 +38,58 @@ export type AgentPolicyProposeToolName =
 const title = z.string().min(1).max(120)
 const summary = z.string().min(1).max(400)
 
-export const proposeAgentPermissionSchema = z
-  .object({
-    title,
-    summary,
-    action: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe(
-        'The action, by what it does (such as "place a reagent order") or its key.',
-      ),
-    level: z
-      .enum(['auto', 'ask', 'never', 'default'])
-      .describe(
-        'auto runs straight away, ask waits for a person, never refuses; default goes back to Ask.',
-      ),
-    role: z
-      .string()
-      .max(40)
-      .optional()
-      .describe(
-        'Only for this role, such as scientist. Leave out for everyone.',
-      ),
-  })
-  .strict()
+export const proposeAgentPermissionSchema = z.strictObject({
+  title,
+  summary,
+  action: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      'The action, by what it does (such as "place a reagent order") or its key.',
+    ),
+  level: z
+    .enum(['auto', 'ask', 'never', 'default'])
+    .describe(
+      'auto runs straight away, ask waits for a person, never refuses; default goes back to Ask.',
+    ),
+  role: z
+    .string()
+    .max(40)
+    .optional()
+    .describe('Only for this role, such as scientist. Leave out for everyone.'),
+})
 
-export const proposeAgentSwitchSchema = z
-  .object({
-    title,
-    summary,
-    agent: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The agent, by its name or its AG- number.'),
-    enabled: z
-      .boolean()
-      .describe('true to switch it on, false to switch it off.'),
-  })
-  .strict()
+export const proposeAgentSwitchSchema = z.strictObject({
+  title,
+  summary,
+  agent: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The agent, by its name or its AG- number.'),
+  enabled: z
+    .boolean()
+    .describe('true to switch it on, false to switch it off.'),
+})
 
-export const proposeOperationPolicyDisableSchema = z
-  .object({
-    title,
-    summary,
-    policy: z.string().min(1).max(200).describe('The policy, by its name.'),
-  })
-  .strict()
+export const proposeOperationPolicyDisableSchema = z.strictObject({
+  title,
+  summary,
+  policy: z.string().min(1).max(200).describe('The policy, by its name.'),
+})
 
-export const proposeAgentRequestDecideSchema = z
-  .object({
-    title,
-    summary,
-    request: z
-      .string()
-      .min(1)
-      .max(400)
-      .describe('The waiting request, by what it asks for or its id.'),
-    approve: z.boolean(),
-    reason: z.string().max(400).optional(),
-  })
-  .strict()
+export const proposeAgentRequestDecideSchema = z.strictObject({
+  title,
+  summary,
+  request: z
+    .string()
+    .min(1)
+    .max(400)
+    .describe('The waiting request, by what it asks for or its id.'),
+  approve: z.boolean(),
+  reason: z.string().max(400).optional(),
+})
 
 export const AI_FEATURES = [
   'assistant',
@@ -107,24 +100,23 @@ export const AI_FEATURES = [
   'mcp_admin_propose',
   'mcp_lab',
 ] as const
+
 export type AiFeature = (typeof AI_FEATURES)[number]
 
-export const proposeAiFeaturesSchema = z
-  .object({
-    title,
-    summary,
-    features: z
-      .object(
-        Object.fromEntries(
-          AI_FEATURES.map((key) => [key, z.boolean().optional()]),
-        ) as Record<AiFeature, z.ZodOptional<z.ZodBoolean>>,
-      )
-      .strict()
-      .describe(
-        'The switches to change, each true or false: assistant (this assistant), mcp_read (outside tools may read), mcp_draft (draft changes), mcp_workflow (run workflows), mcp_admin_read (read admin settings), mcp_admin_propose (propose admin changes), mcp_lab (take lab actions). Leave out what stays.',
-      ),
-  })
-  .strict()
+// SAFETY: Each AI_FEATURES key becomes exactly one optional boolean schema.
+export const proposeAiFeaturesSchema = z.strictObject({
+  title,
+  summary,
+  features: z
+    .strictObject(
+      Object.fromEntries(
+        AI_FEATURES.map((key) => [key, z.boolean().optional()]),
+      ) as Record<AiFeature, z.ZodOptional<z.ZodBoolean>>,
+    )
+    .describe(
+      'The switches to change, each true or false: assistant (this assistant), mcp_read (outside tools may read), mcp_draft (draft changes), mcp_workflow (run workflows), mcp_admin_read (read admin settings), mcp_admin_propose (propose admin changes), mcp_lab (take lab actions). Leave out what stays.',
+    ),
+})
 
 export type AgentPolicyAction =
   | {
@@ -144,7 +136,7 @@ export type AgentPolicyAction =
       kind: 'agent_request.decide'
       requestId: string
       actionKey: string
-      arguments: Record<string, unknown>
+      arguments: AgentActionRequestRow['arguments']
       approve: boolean
       reason: string | null
     }

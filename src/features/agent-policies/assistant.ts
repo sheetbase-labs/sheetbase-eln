@@ -13,6 +13,7 @@ export const assistant = defineAssistant<
   async run(client, action) {
     // Loaded only when a card's button is pressed, in the person's session.
     const { runAgentPolicyAction } = await import('./cards-run')
+
     return runAgentPolicyAction(client, action)
   },
   cardWords: {

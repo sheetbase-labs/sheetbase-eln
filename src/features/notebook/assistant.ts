@@ -15,6 +15,7 @@ export const assistant = defineAssistant<
   isAction: isNotebookAction,
   async run(client, action) {
     const { runNotebookAction } = await import('#/lib/assistant-notebook-run')
+
     return runNotebookAction(client, action)
   },
   cardWords: {

@@ -5,7 +5,7 @@ import type { LabTable } from '#/lib/lab-api-surface'
  * requests. Read with `lab:read`; `personal` tables are for personal tokens
  * only. Collected into `LAB_TABLES` by the feature index.
  */
-export const NOTEBOOK_LAB_TABLES: Readonly<Record<string, LabTable>> = {
+export const NOTEBOOK_LAB_TABLES = {
   comments: {
     summary:
       'A comment on a notebook, a block, a sheet or a submitted revision. `root_id` is the thread; `state` is open or resolved. Personal tokens only: you see what you can see in the app.',
@@ -204,4 +204,4 @@ export const NOTEBOOK_LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['created_at', 'ts', 1],
     ],
   },
-}
+} as const satisfies Readonly<Record<string, LabTable>>

@@ -16,6 +16,7 @@ export const assistant = defineAssistant<
   async run(client, action) {
     // Pipeline and plugin jobs load only when a card's button is pressed.
     const { runPipelinesAction } = await import('#/lib/assistant-pipelines-run')
+
     return runPipelinesAction(client, action)
   },
   cardWords: {

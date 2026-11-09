@@ -6,7 +6,7 @@ import type { LabTable } from '#/lib/lab-api-surface'
  * were already readable; this adds the agents themselves, their runs, their
  * signed policy history and the operation policies.
  */
-export const AGENT_POLICY_LAB_TABLES: Readonly<Record<string, LabTable>> = {
+export const AGENT_POLICY_LAB_TABLES = {
   agent_definitions: {
     summary:
       'The agents on the Agents page: what starts them (`trigger_label`), who owns them, which projects they cover, what they read and propose, their `policy` and whether they are `enabled`. Switch one on or off with `set_agent_definition_enabled`.',
@@ -82,4 +82,4 @@ export const AGENT_POLICY_LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['updated_at', 'ts', 1],
     ],
   },
-}
+} as const satisfies Readonly<Record<string, LabTable>>

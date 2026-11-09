@@ -20,12 +20,17 @@ const note = (
 ): OperationInput => ({ ...input(name, type, required, nullable), description })
 
 const workspace = () => note('p_workspace_id', 'uuid', 'Your workspace id.')
+
 const userId = (text = 'The person (their user id).') =>
   note('p_user_id', 'text', text)
+
 const project = () => note('p_project_id', 'uuid', 'Project id.')
+
 const ROLES =
   '`owner`, `admin`, `member`, `steward`, `scientist`, `analyst`, `reviewer`, `viewer` or `client_viewer`.'
+
 const LEVELS = '`owner`, `editor`, `reviewer` or `viewer`.'
+
 const people = (tool: string) => ({
   tool,
   presentation: 'card' as const,

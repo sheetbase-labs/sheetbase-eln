@@ -43,14 +43,20 @@ export async function listProjectsArea(
   if (!isProjectsArea(input.area)) return null
   const { client, workspaceId } = context
   const limit = input.limit ?? 20
-  const answer = (items: unknown[], page: string, note?: string) =>
-    JSON.stringify({
+
+  const answer = (items: unknown[], page: string, note?: string) => {
+    const result = {
       area: input.area,
       items,
       returned: items.length,
       page,
-      ...(note ? { note } : {}),
-    })
+    }
+
+    if (note) return JSON.stringify({ ...result, note })
+
+    return JSON.stringify(result)
+  }
+
   switch (input.area) {
     case 'projects': {
       const rows = await client.rpc<
@@ -67,6 +73,7 @@ export async function listProjectsArea(
           last_activity_at: string | null
         }>
       >('project_list_summary', {})
+
       const items = rows
         .filter((row) => !input.openOnly || row.archived_at === null)
         .filter((row) =>
@@ -87,8 +94,10 @@ export async function listProjectsArea(
           experiments: row.experiment_count,
           last_activity_at: row.last_activity_at,
         }))
+
       return answer(items, '/projects')
     }
+
     case 'folders': {
       const rows = await client.list<{
         id: string
@@ -99,59 +108,67 @@ export async function listProjectsArea(
         'folders',
         '?archived_at=is.null&select=id,project_id,parent_id,name&order=name.asc&limit=200',
       )
+
       const items = rows
         .filter((row) => matches(row.name, input.query))
         .slice(0, limit)
+
       return answer(items, '/projects')
     }
+
     case 'followed_records': {
       const rows = await client.list<{ record_id: string; created_at: string }>(
         'work_item_follows',
         `?select=record_id,created_at&order=created_at.desc&limit=${limit}`,
       )
+
       return answer(
         rows,
         '/inbox',
         'Each item names a record: read more with the record tools, or open it.',
       )
     }
+
     case 'audit_log': {
       const page = await client.rpc<{ events: unknown[] }>('audit_events', {
         p_search: input.query ?? null,
         p_limit: limit,
       })
+
       return answer(page.events, '/settings/workspace/audit')
     }
+
     case 'sql_logins': {
       const rows = await client.rpc<
         Array<{ name: string; username: string; status: string }>
       >('list_sql_logins', { p_workspace_id: workspaceId })
+
       const items = rows
         .filter((row) => !input.openOnly || row.status === 'active')
         .filter((row) => matches(`${row.name} ${row.username}`, input.query))
         .slice(0, limit)
+
       return answer(items, '/settings/account/api')
     }
   }
 }
 
+// SAFETY: The literal above has only these string keys and is non-empty.
 const AREA_NAMES = Object.keys(PROJECTS_LAB_AREAS) as [
   ProjectsLabArea,
   ...ProjectsLabArea[],
 ]
 
-export const projectsReadSchema = z
-  .object({
-    area: z.enum(AREA_NAMES).describe(
-      Object.entries(PROJECTS_LAB_AREAS)
-        .map(([key, text]) => `${key}: ${text}`)
-        .join('. '),
-    ),
-    query: z.string().max(200).optional(),
-    openOnly: z.boolean().optional(),
-    limit: z.number().int().min(1).max(100).optional(),
-  })
-  .strict()
+export const projectsReadSchema = z.strictObject({
+  area: z.enum(AREA_NAMES).describe(
+    Object.entries(PROJECTS_LAB_AREAS)
+      .map(([key, text]) => `${key}: ${text}`)
+      .join('. '),
+  ),
+  query: z.string().max(200).optional(),
+  openOnly: z.boolean().optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+})
 
 export function projectsReadDefs(): ProviderToolDef[] {
   return [
@@ -168,13 +185,17 @@ export const isProjectsReadTool = (name: string): boolean =>
 
 export async function runProjectsReadTool(
   _name: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool input is immediately checked by projectsReadSchema before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<{ text: string; isError: boolean }> {
   const parsed = projectsReadSchema.safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
+
   try {
     const text = await listProjectsArea(parsed.data, context)
+
     return { text: text ?? 'Unknown area.', isError: text === null }
   } catch {
     return { text: 'That could not be read just now.', isError: true }

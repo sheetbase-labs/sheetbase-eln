@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { core } from 'zod'
 
 import type { LabToolContext } from '#/lib/assistant-lab-tools.server'
 import type { DataClient } from '#/lib/data-client'
+import { createDataClient } from '#/lib/data-client'
 import { ASSISTANT_PROPOSE_TOOL_NAMES } from '#/lib/agent-tool-catalogue'
 
 import { AGENT_POLICY_PROPOSE_TOOL_NAMES } from './cards'
@@ -11,28 +13,57 @@ import {
   buildAgentPolicyProposal,
   isAgentPolicyProposalTool,
 } from './cards.server'
+import { runAgentsReadTool } from './read.server'
 
 const WS = '44444444-4444-4444-8444-444444444444'
 const base = { title: 'T', summary: 'S' }
 
-type Rows = Partial<Record<string, Array<Record<string, unknown>>>>
+type Rows = Partial<Record<string, core.util.JSONType[]>>
 
 function context(rows: Rows): LabToolContext {
-  const client = {
-    list: (resource: string) => Promise.resolve(rows[resource] ?? []),
-    rpc: () => Promise.resolve([]),
-  } as unknown as DataClient
+  const fetchFixture: typeof fetch = async (input) => {
+    const target = input instanceof Request ? input.url : input
+    const path = new URL(target, 'http://localhost').pathname
+    const name = path.split('/').at(-1) ?? ''
+
+    return Response.json(path.includes('/rpc/') ? [] : (rows[name] ?? []))
+  }
+
+  const client = createDataClient(fetchFixture)
+
   return { client, workspaceId: WS, userId: 'me', timeZone: 'Europe/London' }
 }
 
 describe('agent permission cards', () => {
+  it('rejects malformed proposal input for every tool', async () => {
+    for (const name of AGENT_POLICY_PROPOSE_TOOL_NAMES) {
+      if (!isAgentPolicyProposalTool(name))
+        throw new Error(`Unknown tool ${name}`)
+      expect((await buildAgentPolicyProposal(name, null, context({}))).ok).toBe(
+        false,
+      )
+    }
+  })
+
+  it('rejects malformed agent read input', async () => {
+    const result = await runAgentsReadTool(
+      'sheetbase.lab.list',
+      { area: 42 },
+      context({}),
+    )
+
+    expect(result.isError).toBe(true)
+  })
+
   it('offers a definition for every tool the operations declare', () => {
     const defs = agentPolicyProposalDefs().map((def) =>
       def.name.replaceAll('__', '.'),
     )
+
     expect([...defs].sort()).toEqual(
       [...AGENT_POLICY_PROPOSE_TOOL_NAMES].sort(),
     )
+
     for (const name of AGENT_POLICY_PROPOSE_TOOL_NAMES) {
       expect(isAgentPolicyProposalTool(name)).toBe(true)
       expect(ASSISTANT_PROPOSE_TOOL_NAMES).toContain(name)
@@ -55,6 +86,7 @@ describe('agent permission cards', () => {
         ],
       }),
     )
+
     expect(built).toMatchObject({
       ok: true,
       proposal: {
@@ -76,6 +108,7 @@ describe('agent permission cards', () => {
       { ...base, action: 'set_agent_action_policy', level: 'auto' },
       context({}),
     )
+
     expect(built.ok).toBe(false)
   })
 
@@ -85,6 +118,7 @@ describe('agent permission cards', () => {
       { ...base, action: 'sign_record', level: 'auto' },
       context({}),
     )
+
     expect(built).toMatchObject({ ok: false })
   })
 
@@ -92,6 +126,7 @@ describe('agent permission cards', () => {
     const agents = [
       { id: 'a1', display_id: 'AG-0001', name: 'Range checker', enabled: true },
     ]
+
     expect(
       await buildAgentPolicyProposal(
         'sheetbase.agent.switch',
@@ -130,6 +165,7 @@ describe('agent permission cards', () => {
         ],
       }),
     )
+
     expect(built).toMatchObject({
       ok: true,
       proposal: {
@@ -163,6 +199,7 @@ describe('agent permission cards', () => {
         ],
       }),
     )
+
     expect(built).toMatchObject({
       ok: true,
       proposal: {
@@ -179,7 +216,7 @@ describe('agent permission cards', () => {
 describe('running a card', () => {
   it('calls the ordinary RPC as the person', async () => {
     const rpc = vi.fn().mockResolvedValue({})
-    const client = { rpc } as unknown as DataClient
+    const client: DataClient = { ...createDataClient(), rpc }
     await runAgentPolicyAction(client, {
       kind: 'agent_permission.set',
       workspaceId: WS,
@@ -199,7 +236,7 @@ describe('running a card', () => {
 
   it('approves a request and runs it, then records how it ended', async () => {
     const rpc = vi.fn().mockResolvedValue({ status: 'succeeded' })
-    const client = { rpc } as unknown as DataClient
+    const client: DataClient = { ...createDataClient(), rpc }
     await runAgentPolicyAction(client, {
       kind: 'agent_request.decide',
       requestId: 'r1',

@@ -7,7 +7,7 @@ export const DATASET_EVENT_FIXTURES: ReadonlyArray<{
   name: string
   entityType: string
   operation: string
-  payload: Record<string, unknown>
+  payload: { lifecycle?: string; status?: string }
 }> = [
   {
     name: 'measurement_table.created',

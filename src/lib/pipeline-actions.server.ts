@@ -326,6 +326,11 @@ export async function executePipelineActions(
         throw new Error(
           `Action ${action.name} (${definition.label}) was rejected.`,
         )
+      if (isObject(result) && definition.omitFromResult) {
+        const kept = { ...result }
+        for (const key of definition.omitFromResult) delete kept[key]
+        return kept
+      }
       return result
     }
     for (const action of actions) {

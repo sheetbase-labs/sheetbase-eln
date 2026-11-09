@@ -8,6 +8,7 @@
  * snapshot for code that runs at module load and cannot depend on a workspace.
  */
 import { AGENT_OPERATIONS } from './declarations/agent'
+import { PEOPLE_OPERATIONS } from './declarations/people'
 import { PIPELINE_OPERATIONS } from './declarations/pipeline'
 import {
   assistantToolsFrom,
@@ -21,6 +22,7 @@ import type { PipelineActionDefinition } from '../pipelines/actions'
 export const CORE_OPERATIONS: readonly OperationDescriptor[] = Object.freeze([
   ...PIPELINE_OPERATIONS,
   ...AGENT_OPERATIONS,
+  ...PEOPLE_OPERATIONS,
 ])
 
 const OPERATION_NAME = /^[a-z][a-z0-9_]{0,63}$/

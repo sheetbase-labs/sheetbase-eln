@@ -18,6 +18,8 @@ import { isStudiesAction } from './assistant-studies'
 import type { StudiesAction } from './assistant-studies'
 import { isQcAction } from './assistant-qc'
 import type { QcAction } from './assistant-qc'
+import { isNotebookAction } from './assistant-notebook'
+import type { NotebookAction } from './assistant-notebook'
 import { isUpkeepAction } from './assistant-upkeep'
 import type { UpkeepAction } from './assistant-upkeep'
 import type { PlanningAction, PlanningActionResult } from './assistant-planning'
@@ -145,6 +147,7 @@ export type AssistantAction =
     }
   | PlanningAction
   | UpkeepAction
+  | NotebookAction
   | PlatesAction
   | QcAction
   | StudiesAction
@@ -226,6 +229,10 @@ export async function runAssistantAction(
         // Plate jobs load only when a card's button is pressed.
         const { runPlatesAction } = await import('./assistant-plates-run')
         return runPlatesAction(client, action)
+      }
+      if (isNotebookAction(action)) {
+        const { runNotebookAction } = await import('./assistant-notebook-run')
+        return runNotebookAction(client, action)
       }
       if (isUpkeepAction(action)) {
         // Upkeep jobs load only when a card's button is pressed.

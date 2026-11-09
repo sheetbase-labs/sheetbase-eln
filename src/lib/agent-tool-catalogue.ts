@@ -97,6 +97,11 @@ export const ASSISTANT_READ_TOOL_NAMES = [
   // Search by meaning over the lab's own work, and (when the workspace allows it) published papers (semantic-tools.server.ts).
   'sheetbase.search.semantic',
   'sheetbase.literature.search',
+  // Comments, protocols, files and approvals, read only (assistant-notebook.server.ts).
+  'sheetbase.comments.read',
+  'sheetbase.protocols.read',
+  'sheetbase.files.read',
+  'sheetbase.approvals.read',
 ] as const
 
 export type AssistantReadToolName = (typeof ASSISTANT_READ_TOOL_NAMES)[number]

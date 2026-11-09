@@ -15,6 +15,14 @@ import type { AssistantToolkit } from './assistant'
 import { isProposalTool, proposalToolDefs } from './assistant-proposals'
 import { buildAssistantProposal } from './assistant-proposals.server'
 import {
+  buildNotebookProposal,
+  isNotebookProposalTool,
+  isNotebookReadTool,
+  notebookProposalDefs,
+  notebookReadDefs,
+  runNotebookReadTool,
+} from './assistant-notebook.server'
+import {
   bookingProposalDefs,
   buildBookingProposal,
   isBookingProposalTool,
@@ -314,6 +322,7 @@ export async function createAssistantToolkit(deps: {
     ...seriesToolDefs(),
     ...partsToolDefs(),
     ...gatesToolDefs(),
+    ...notebookReadDefs(),
     ...semanticToolDefs(await literatureAllowed(deps.client, deps.workspaceId)),
   )
   // Tools an administrator-installed extension adds. Reads run as the person;
@@ -328,6 +337,7 @@ export async function createAssistantToolkit(deps: {
       ...benchProposalDefs(),
       ...planningProposalDefs(),
       ...upkeepProposalDefs(),
+      ...notebookProposalDefs(),
       ...platesProposalDefs(),
       ...qcProposalDefs(),
       ...studiesProposalDefs(),
@@ -403,6 +413,22 @@ export async function createAssistantToolkit(deps: {
               ...(outcome.proposal ? { proposal: outcome.proposal } : {}),
             }
           : { text: outcome.message, isError: true }
+      }
+
+      if (isNotebookReadTool(name)) {
+        const result = await runNotebookReadTool(name, args, labContext)
+        return { text: clip(result.text), isError: result.isError }
+      }
+
+      if (isNotebookProposalTool(name)) {
+        const built = await buildNotebookProposal(name, args, labContext)
+        return built.ok
+          ? {
+              text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
+              isError: false,
+              proposal: built.proposal,
+            }
+          : { text: built.message, isError: true }
       }
 
       if (isLabReadTool(name)) {

@@ -14,6 +14,8 @@ import { isAutomationAction } from './assistant-automation'
 import type { AutomationAction } from './assistant-automation'
 import { isPlannerAction } from './assistant-planner'
 import type { PlannerAction } from './assistant-planner'
+import { isInstrumentsAction } from './assistant-instruments'
+import type { InstrumentsAction } from './assistant-instruments'
 import { isQcAction } from './assistant-qc'
 import type { QcAction } from './assistant-qc'
 import { isUpkeepAction } from './assistant-upkeep'
@@ -145,6 +147,7 @@ export type AssistantAction =
   | UpkeepAction
   | PlatesAction
   | QcAction
+  | InstrumentsAction
   | AutomationAction
   | PlannerAction
   | LabworkAction
@@ -209,6 +212,11 @@ export async function runAssistantAction(
       if (isPlannerAction(action)) {
         const { runPlannerAction } = await import('./assistant-planner-run')
         return runPlannerAction(client, action)
+      }
+      if (isInstrumentsAction(action)) {
+        const { runInstrumentsAction } =
+          await import('./assistant-instruments-run')
+        return runInstrumentsAction(client, action)
       }
       if (isQcAction(action)) {
         const { runQcAction } = await import('./assistant-qc-run')

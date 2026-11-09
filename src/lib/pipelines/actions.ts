@@ -38,6 +38,7 @@ export type PipelineActionArgumentType =
   | 'text'
   | 'boolean'
   | 'date'
+  | 'timestamptz'
   | 'integer'
   | 'bigint'
   | 'numeric'
@@ -48,7 +49,8 @@ export interface PipelineActionArgument {
   type: PipelineActionArgumentType
   required: boolean
   nullable?: boolean
-  server?: 'idempotency'
+  /** Filled in by the server: an idempotency key, or the run's workspace. */
+  server?: 'idempotency' | 'workspace'
 }
 export interface PipelineActionDefinition {
   operation: string

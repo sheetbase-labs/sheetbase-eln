@@ -83,6 +83,12 @@ function sqlValue(field: PipelineActionArgument, value: unknown): unknown {
     case 'date':
       valid = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
       break
+    case 'timestamptz':
+      valid =
+        typeof value === 'string' &&
+        /^\d{4}-\d{2}-\d{2}[T ]/.test(value) &&
+        !Number.isNaN(Date.parse(value))
+      break
     case 'numeric':
       valid = typeof value === 'number' && Number.isFinite(value)
       break
@@ -306,7 +312,9 @@ export async function executePipelineActions(
       for (const field of definition.arguments) {
         if (!field.server && !Object.hasOwn(resolved, field.name)) continue
         const value = field.server
-          ? `pipeline:${run.runId}:${action.name}${suffix}`
+          ? field.server === 'workspace'
+            ? run.workspaceId
+            : `pipeline:${run.runId}:${action.name}${suffix}`
           : resolved[field.name]
         values.push(sqlValue(field, value))
         named.push(`${field.name} => $${values.length}::${field.type}`)

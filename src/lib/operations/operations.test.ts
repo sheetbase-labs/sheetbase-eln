@@ -70,7 +70,7 @@ describe('operation declarations', () => {
 
   it('generate the pipeline action list the app uses', () => {
     expect(PIPELINE_ACTIONS).toEqual(pipelineActionsFrom(CORE_OPERATIONS))
-    expect(PIPELINE_ACTIONS).toHaveLength(41)
+    expect(PIPELINE_ACTIONS).toHaveLength(53)
     const next = PIPELINE_ACTIONS.find((a) => a.operation === 'archive_record')
     expect(next?.arguments).toEqual([
       { name: 'p_record_id', type: 'uuid', required: true, nullable: false },
@@ -186,7 +186,7 @@ describe('adding one operation', () => {
 
   it('refuses a pipeline input type a pipeline cannot take', () => {
     expect(() =>
-      pipelineActionsFrom([{ ...SAMPLE, inputs: [input('p_when', 'ts')] }]),
-    ).toThrow(/cannot take ts/)
+      pipelineActionsFrom([{ ...SAMPLE, inputs: [input('p_when', 'time')] }]),
+    ).toThrow(/cannot take time/)
   })
 })

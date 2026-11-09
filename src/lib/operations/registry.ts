@@ -8,6 +8,7 @@
  * snapshot for code that runs at module load and cannot depend on a workspace.
  */
 import { AGENT_OPERATIONS } from './declarations/agent'
+import { INSTRUMENT_OPERATIONS } from './declarations/instruments'
 import { PIPELINE_OPERATIONS } from './declarations/pipeline'
 import {
   assistantToolsFrom,
@@ -20,6 +21,7 @@ import type { PipelineActionDefinition } from '../pipelines/actions'
 /** The operations that ship with Sheetbase, in declaration order. */
 export const CORE_OPERATIONS: readonly OperationDescriptor[] = Object.freeze([
   ...PIPELINE_OPERATIONS,
+  ...INSTRUMENT_OPERATIONS,
   ...AGENT_OPERATIONS,
 ])
 

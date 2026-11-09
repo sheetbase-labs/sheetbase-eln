@@ -178,6 +178,14 @@ const ASSISTANT_PROPOSE_TOOLS_UNDECLARED = [
   // (assistant-qc.ts).
   'sheetbase.qc.set_baseline',
   'sheetbase.qc.acknowledge',
+  // Instruments, runs and connectors from a card (assistant-instruments.ts).
+  'sheetbase.instrument.add',
+  'sheetbase.instrument.retire',
+  'sheetbase.instrument.calibrate',
+  'sheetbase.instrument.qualify',
+  'sheetbase.run.create',
+  'sheetbase.run.update',
+  'sheetbase.connector.set_status',
   // Robots and the scheduler: send a worklist to a robot (a person still presses
   // Start), ask for a schedule, accept one (assistant-automation.ts).
   'sheetbase.robot.send_worklist',

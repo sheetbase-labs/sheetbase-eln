@@ -7,6 +7,7 @@ import type { BenchProposeToolName } from './assistant-bench'
 import type { PlanningProposeToolName } from './assistant-planning'
 import type { LabworkProposeToolName } from './assistant-labwork'
 import type { PlatesProposeToolName } from './assistant-plates'
+import type { InstrumentsProposeToolName } from './assistant-instruments'
 import type { QcProposeToolName } from './assistant-qc'
 import type { AutomationProposeToolName } from './assistant-automation'
 import type { PlannerProposeToolName } from './assistant-planner'
@@ -297,6 +298,7 @@ export interface AssistantProposal {
     | LabworkProposeToolName
     | PlatesProposeToolName
     | QcProposeToolName
+    | InstrumentsProposeToolName
     | AutomationProposeToolName
     | PlannerProposeToolName
     | `plugin.${string}.${string}`

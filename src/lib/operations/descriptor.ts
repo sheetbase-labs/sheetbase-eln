@@ -46,7 +46,7 @@ export interface OperationInput {
   /** One line for the docs and for agents. Falls back to the shared notes. */
   description?: string
   /** Filled in by the server, never by the caller (an idempotency key). */
-  server?: 'idempotency'
+  server?: 'idempotency' | 'workspace'
 }
 
 /** A webhook event an operation produces. Names are added, never renamed. */
@@ -214,6 +214,7 @@ const PIPELINE_TYPES: Partial<
   text: 'text',
   bool: 'boolean',
   date: 'date',
+  ts: 'timestamptz',
   int: 'integer',
   bigint: 'bigint',
   num: 'numeric',

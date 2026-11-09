@@ -39,6 +39,8 @@ export const agents = {
     exceptionCancel: 'Cancel',
     exceptionRoleLabel: 'Role: {role}',
     exceptionCredentialLabel: 'Credential: {name}',
+    alwaysAsk:
+      'Giving agents more room always waits for a person who manages these settings.',
     alwaysOffTitle: 'Always a person’s call',
     alwaysOffIntro: 'An agent can never do these, whatever is set above.',
   },

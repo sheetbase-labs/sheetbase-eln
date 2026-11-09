@@ -337,6 +337,22 @@ finding kind, title and record, and starts a pipeline set to that event).
 A record that changes project or folder produces `record.moved` (`record` +
 `move`), with `fromProjectId` when it changed project.
 
+### Agents on the Agents page, their policies, proposals and workflows (`stable`, webhook, SSE and pipeline trigger)
+
+`agent.enabled` / `agent.disabled` (`event=enabled` or `disabled`: an agent was
+switched on or off; payload carries `agentId`, `displayId`, `name` and
+`enabled`), `agent.signed_policy.changed` (`effect=agent_policy_changed`: an
+agent's policy was changed with a reason and a signature; payload carries
+`displayId`, `revision`, `policy` and `reason`),
+`agent.operation_policy.created` and `agent.operation_policy.disabled`
+(`event=disabled`: a policy that lets a service credential run a kind of draft
+on its own was made or turned off), `agent.proposal.created` /
+`agent.proposal.updated` (an agent proposed a change, and it moved on; payload
+carries `status` and `operationKind`) and `agent.workflow.created` /
+`agent.workflow.updated` (a workflow started, or its `status` moved on; payload
+carries `workflowId`, `goal`, `status`, `previousStatus`, `currentStep` and
+`revision`). See [agent-permissions-api.md](agent-permissions-api.md).
+
 ### People and sign-in (`stable`, webhook and SSE)
 
 `member.work_handed_over` (counts of what moved and what stayed, by kind of

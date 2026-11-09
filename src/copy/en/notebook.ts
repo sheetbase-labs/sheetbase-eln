@@ -320,6 +320,71 @@ export const notebook = {
         applying: 'Booking…',
         applied: 'Booked',
       },
+      addComment: {
+        apply: 'Add comment',
+        applying: 'Adding…',
+        applied: 'Comment added',
+      },
+      replyToComment: {
+        apply: 'Reply',
+        applying: 'Replying…',
+        applied: 'Replied',
+      },
+      resolveComment: {
+        apply: 'Resolve or reopen',
+        applying: 'Working…',
+        applied: 'Done',
+      },
+      setFileStatus: {
+        apply: 'Apply to file',
+        applying: 'Working…',
+        applied: 'Done',
+      },
+      newProtocolVersion: {
+        apply: 'Make new version',
+        applying: 'Making…',
+        applied: 'Version made',
+      },
+      setProtocolStatus: {
+        apply: 'Change version status',
+        applying: 'Changing…',
+        applied: 'Status changed',
+      },
+      confirmProtocolCurrent: {
+        apply: 'Confirm current',
+        applying: 'Confirming…',
+        applied: 'Confirmed',
+      },
+      assignTraining: {
+        apply: 'Assign training',
+        applying: 'Assigning…',
+        applied: 'Training assigned',
+      },
+      unassignTraining: {
+        apply: 'Remove training',
+        applying: 'Removing…',
+        applied: 'Training removed',
+      },
+      recordTrained: {
+        apply: 'Record as trained',
+        applying: 'Recording…',
+        applied: 'Recorded',
+      },
+      setDeviationReason: {
+        apply: 'Save reason',
+        applying: 'Saving…',
+        applied: 'Reason saved',
+      },
+      requestApproval: {
+        apply: 'Request approval',
+        applying: 'Requesting…',
+        applied: 'Requested',
+      },
+      withdrawApproval: {
+        apply: 'Withdraw request',
+        applying: 'Withdrawing…',
+        applied: 'Withdrawn',
+      },
       applyPlan: {
         apply: 'Create experiment',
         applying: 'Creating…',

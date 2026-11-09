@@ -135,6 +135,19 @@ const ACTION_COPY = {
   'schedule.accept': 'acceptSchedule',
   'plan.apply': 'applyPlan',
   'plugin.run': 'runExtension',
+  'notebook.comment_add': 'addComment',
+  'notebook.comment_reply': 'replyToComment',
+  'notebook.comment_resolve': 'resolveComment',
+  'notebook.file_status': 'setFileStatus',
+  'notebook.protocol_new_version': 'newProtocolVersion',
+  'notebook.protocol_set_status': 'setProtocolStatus',
+  'notebook.protocol_confirm_current': 'confirmProtocolCurrent',
+  'notebook.protocol_assign_training': 'assignTraining',
+  'notebook.protocol_unassign_training': 'unassignTraining',
+  'notebook.protocol_record_trained': 'recordTrained',
+  'notebook.deviation_reason': 'setDeviationReason',
+  'notebook.approval_request': 'requestApproval',
+  'notebook.approval_withdraw': 'withdrawApproval',
 } as const satisfies Record<AssistantActionKind, string>
 
 /** Button and done words for an everyday action: "Book", "Booked". */

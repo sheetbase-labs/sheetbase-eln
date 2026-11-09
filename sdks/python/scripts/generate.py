@@ -451,25 +451,25 @@ def render_rpc(spec: dict[str, Any], rpcs: list[dict[str, Any]], mapper: TypeMap
         doc_parts = [op.get("summary", ""), op.get("description", ""), scopes_line(op)]
         doc_parts.append(f"``POST /api/db/rpc/{rpc['name']}``")
         doc = "\n\n".join(p.strip() for p in doc_parts if p and p.strip())
-        build = "        body: Dict[str, Any] = {}\n"
+        build = "        _request_body: Dict[str, Any] = {}\n"
         for name, wire, is_required in mapping:
             if is_required:
-                build += f"        body[{py_string(wire)}] = {name}\n"
+                build += f"        _request_body[{py_string(wire)}] = {name}\n"
             else:
                 build += f"        if not isinstance({name}, Unset):\n"
-                build += f"            body[{py_string(wire)}] = {name}\n"
+                build += f"            _request_body[{py_string(wire)}] = {name}\n"
         method = ident(rpc["name"])
         methods_sync.append(
             f"    def {method}({signature}) -> {result}:\n"
             + docstring(doc, "        ")
             + build
-            + f"        return self._call({py_string(rpc['name'])}, body)  # type: ignore[no-any-return]\n"
+            + f"        return self._call({py_string(rpc['name'])}, _request_body)  # type: ignore[no-any-return]\n"
         )
         methods_async.append(
             f"    async def {method}({signature}) -> {result}:\n"
             + docstring(doc, "        ")
             + build
-            + f"        return await self._call({py_string(rpc['name'])}, body)  # type: ignore[no-any-return]\n"
+            + f"        return await self._call({py_string(rpc['name'])}, _request_body)  # type: ignore[no-any-return]\n"
         )
 
     names = "".join(f"        {py_string(r['name'])},\n" for r in rpcs)

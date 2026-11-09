@@ -781,7 +781,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'approval.requested',
     status: 'stable',
     introducedIn: 'notify-01',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'approval.approved',
@@ -2728,6 +2728,40 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     consumers: webhookSsePipeline,
     notes:
       'Payload carries runId, reference, recordId, blockId, language, status, matches, reproducesRunId and runtime (the image digest the code ran in).',
+  },
+  {
+    name: 'file.uploaded',
+    family: 'record',
+    summary: 'A file was added.',
+    producer: { entityType: 'file', operation: 'create' },
+    wireName: 'file.uploaded',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries fileId, recordId, displayName, mediaType, byteSize, version and status. It fires however the file was sent: the app, the API, a connector or the assistant.',
+  },
+  {
+    name: 'file.version.added',
+    family: 'record',
+    summary: 'A new version of a file was added.',
+    producer: { entityType: 'file', operation: 'update' },
+    wireName: 'file.version.added',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries effect `new_version`, version and previousVersionId.',
+  },
+  {
+    name: 'file.deleted',
+    family: 'record',
+    summary: 'A file was deleted.',
+    producer: { entityType: 'file', operation: 'delete' },
+    wireName: 'file.deleted',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
   },
   // -- declared with their operations (`#/lib/operations`) ---------------
   ...eventEntriesFrom(CORE_OPERATIONS, webhookSsePipeline),

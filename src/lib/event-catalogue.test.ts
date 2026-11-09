@@ -765,6 +765,90 @@ const LAB_EVENTS: ReadonlyArray<{
     operation: 'delete',
     payload: {},
   },
+  {
+    name: 'comment.created',
+    entityType: 'comment',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'comment.resolved',
+    entityType: 'comment',
+    operation: 'resolve',
+    payload: {},
+  },
+  {
+    name: 'comment.reopened',
+    entityType: 'comment',
+    operation: 'reopen',
+    payload: {},
+  },
+  {
+    name: 'protocol.version.created',
+    entityType: 'protocol_version',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'protocol.version.updated',
+    entityType: 'protocol_version',
+    operation: 'update',
+    payload: {},
+  },
+  {
+    name: 'protocol.deviation.updated',
+    entityType: 'protocol_deviation',
+    operation: 'update',
+    payload: {},
+  },
+  {
+    name: 'protocol.training.assigned',
+    entityType: 'protocol_training',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'protocol.training.removed',
+    entityType: 'protocol_training',
+    operation: 'delete',
+    payload: {},
+  },
+  {
+    name: 'protocol.acknowledged',
+    entityType: 'protocol_acknowledgement',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'file.uploaded',
+    entityType: 'file',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'file.version.added',
+    entityType: 'file',
+    operation: 'update',
+    payload: {},
+  },
+  {
+    name: 'file.quarantined',
+    entityType: 'file',
+    operation: 'quarantine',
+    payload: {},
+  },
+  {
+    name: 'file.deleted',
+    entityType: 'file',
+    operation: 'delete',
+    payload: {},
+  },
+  {
+    name: 'file.restored',
+    entityType: 'file',
+    operation: 'restore',
+    payload: {},
+  },
 ]
 
 describe('lab feature events', () => {

@@ -118,7 +118,7 @@ export async function setProtocolVersionStatus(
   },
 ): Promise<ProtocolVersion> {
   const row = await client.rpc<unknown>('set_protocol_version_status', {
-    p_protocol_version_id: z.uuid().parse(input.protocolVersionId),
+    p_version_id: z.uuid().parse(input.protocolVersionId),
     p_status: input.status,
     p_reason: input.reason,
     p_effective_at: input.effectiveAt ?? null,

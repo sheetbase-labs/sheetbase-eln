@@ -179,6 +179,7 @@ async function handleMcp(request: Request): Promise<Response> {
     flags,
     client,
     credentialId: credential.id,
+    token: postgrestToken,
   }
 
   const response = await handleMcpBody(body, context)

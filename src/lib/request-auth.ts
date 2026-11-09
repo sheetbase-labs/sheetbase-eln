@@ -8,6 +8,8 @@
  */
 import { pickActiveMembership } from '#/lib/active-membership'
 import { db } from '#/db/client.server'
+import { verifyExternalCredential, readBearerToken } from '#/lib/external-token'
+import type { Scope } from '#/lib/api-credential-scopes'
 import { eq } from 'drizzle-orm'
 
 import * as schema from '#/db/schema'
@@ -39,6 +41,18 @@ export interface SessionAuthDeps {
     sessionId: string
     clientId?: string | null
   }) => Promise<string>
+  /**
+   * Checks a personal API token for the file routes: live, a person's own, and
+   * holding `scope`. Absent in tests that only use sessions.
+   */
+  verifyBearer?: (
+    token: string,
+    scope: Scope,
+  ) => Promise<{
+    userId: string
+    workspaceId: string
+    credentialId: string
+  } | null>
 }
 
 /**
@@ -93,6 +107,25 @@ export const realSessionAuthDeps: SessionAuthDeps = {
       : null
   },
   mintToken: (input) => mintPostgrestToken(env.PGRST_JWT_SECRET, input),
+  async verifyBearer(token, scope) {
+    try {
+      const claims = await verifyExternalCredential(
+        db,
+        token,
+        env.PGRST_JWT_SECRET,
+      )
+      // Uploading and downloading act as a person, so only a personal token
+      // (one that names its owner) can do it.
+      if (!('sub' in claims) || !claims.scopes.includes(scope)) return null
+      return {
+        userId: claims.sub,
+        workspaceId: claims.workspace_id,
+        credentialId: claims.credential_id,
+      }
+    } catch {
+      return null
+    }
+  },
 }
 
 export async function resolveSessionAuth(
@@ -141,6 +174,48 @@ export async function resolveSessionAuth(
       workspaceId: membership.id,
       sessionId: session.session.id,
       token,
+    },
+  }
+}
+
+/**
+ * Auth for the file byte routes: a signed-in session, or a personal API token
+ * with the file scope the call needs (`files:read` to download, `files:write`
+ * to upload). Only these routes accept a token; exports and the rest stay
+ * session-only.
+ */
+export async function resolveFileAuth(
+  headers: Headers,
+  scope: Extract<Scope, 'files:read' | 'files:write'>,
+  deps: SessionAuthDeps = realSessionAuthDeps,
+): Promise<SessionAuthResult> {
+  const bearer = readBearerToken(headers)
+  if (!bearer) return resolveSessionAuth(headers, deps)
+  const verified = deps.verifyBearer
+    ? await deps.verifyBearer(bearer, scope)
+    : null
+  if (!verified) {
+    annotateRequest({ auth: 'denied', reason: 'invalid_token' })
+    return {
+      ok: false,
+      status: 401,
+      code: 'invalid_token',
+      message: `Use a personal API token with the ${scope} scope.`,
+    }
+  }
+  annotateRequest({
+    auth: 'token',
+    user: { id: verified.userId },
+    workspace: { id: verified.workspaceId },
+  })
+  return {
+    ok: true,
+    context: {
+      userId: verified.userId,
+      workspaceId: verified.workspaceId,
+      sessionId: verified.credentialId,
+      // The token is already a database login for this person and workspace.
+      token: bearer,
     },
   }
 }

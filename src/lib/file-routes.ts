@@ -34,7 +34,7 @@ import {
   requestErrorResponse,
   postgrestRpc,
   postgrestSelect,
-  resolveSessionAuth,
+  resolveFileAuth,
 } from '#/lib/request-auth'
 import type { SessionAuthDeps } from '#/lib/request-auth'
 import type { FileOutcome } from '#/lib/metrics'
@@ -225,7 +225,7 @@ export async function handleUploadAuthorize(
   if (request.method !== 'POST') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
   }
-  const authResult = await resolveSessionAuth(request.headers, deps)
+  const authResult = await resolveFileAuth(request.headers, 'files:write', deps)
   if (!authResult.ok) {
     return requestErrorResponse(
       authResult.status,
@@ -323,7 +323,7 @@ export async function handleUpload(
   if (request.method !== 'PUT') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use PUT.')
   }
-  const authResult = await resolveSessionAuth(request.headers, deps)
+  const authResult = await resolveFileAuth(request.headers, 'files:write', deps)
   if (!authResult.ok) {
     return requestErrorResponse(
       authResult.status,
@@ -522,7 +522,7 @@ export async function handleUploadVersion(
   if (request.method !== 'PUT') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use PUT.')
   }
-  const authResult = await resolveSessionAuth(request.headers, deps)
+  const authResult = await resolveFileAuth(request.headers, 'files:write', deps)
   if (!authResult.ok) {
     return requestErrorResponse(
       authResult.status,
@@ -735,7 +735,7 @@ export async function handleDownload(
   if (request.method !== 'GET') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use GET.')
   }
-  const authResult = await resolveSessionAuth(request.headers, deps)
+  const authResult = await resolveFileAuth(request.headers, 'files:read', deps)
   if (!authResult.ok) {
     return requestErrorResponse(
       authResult.status,

@@ -4,7 +4,7 @@ import { t } from '#/copy'
  *
  * This is the only issuable vocabulary. `scientific:*` is removed, not
  * deprecated. API-07 enforces Core Dataset/Sheet scopes on the
- * external allowlist. File scopes, schema-authoring RPCs, and human
+ * external allowlist. The file scopes work on the file routes for personal tokens. Schema-authoring RPCs and human
  * attestation (submit / sign / amend / revision checks) stay fail-closed.
  */
 
@@ -107,7 +107,8 @@ export const SCOPE_GROUPS: ReadonlyArray<{
   {
     title: t('settings.apiScopes.files'),
     description: t('settings.apiScopes.mintableNowFileDescription'),
-    effective: false,
+    effective: true,
+    personalOnly: true,
     scopes: ['files:read', 'files:write'],
   },
   {
